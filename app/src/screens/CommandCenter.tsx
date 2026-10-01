@@ -174,14 +174,21 @@ function Situation({ d }: { d: CC }) {
                 <Link key={i.id} to={`/incidents/${i.id}`} className="vw-card-section vw-card--accent vw-card--clickable cmd-inc">
                   <div className="vw-card-accent" style={{ background: i.sev === 1 ? C.bad : C.warn }} />
                   {/* fixed slots: every card has the same rows at the same heights */}
+                  <div className="ci-dc">
+                    <span className="vw-card-icon-sm ci-dc-ic"><I.Building2 size={16} /></span>
+                    <div className="ci-dc-id">
+                      <span className="ci-dc-name">{i.dcId}</span>
+                      <span className="vw-label">{i.city}, {i.state} · {i.tier}</span>
+                    </div>
+                    <span className="ci-dc-ctx" title="Open incidents at this datacenter">{i.siteOpen} open<small>at site</small></span>
+                  </div>
                   <div className="ci-head">
                     <span className={`vw-chip ${i.sev === 1 ? 'vw-chip--error' : 'vw-chip--warning'} is-strong cmd-chip`}>SEV{i.sev}</span>
                     <span className="vw-card-activity-label">{i.id}</span>
                     <span className="vw-chip vw-chip--neutral cmd-chip">{i.type}</span>
                     <span className="vw-footer-meta ci-age">{fmtAgo(i.detected, now)}</span>
                   </div>
-                  <div className="vw-card-title-sm ci-title" title={i.title}>{i.title}</div>
-                  <span className="vw-label ci-where"><I.MapPin size={12} />{i.dcId} · {i.city}</span>
+                  <div className="vw-card-title-sm ci-title" title={i.title}>{i.title.replace(new RegExp(`\\s+(in|at|—)\\s+${i.dcId}$`), '')}</div>
                   <div className="ci-cause" title={`${i.cause} (${i.confidence}% confidence)`}>
                     <span className="vw-label">Likely cause · {i.confidence}%</span>
                     <span className="vw-value ci-clamp1">{i.cause}</span>

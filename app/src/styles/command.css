@@ -237,7 +237,7 @@
 .cmd-area-go { display: inline-flex; align-items: center; gap: 8px; color: var(--vw-color-gray-400); }
 
 /* Critical-now card: a fixed row template so cards align field for field */
-.cmd-inc { display: grid !important; grid-template-rows: 24px 40px 18px 40px 44px 30px 70px; row-gap: 10px; align-content: start; }
+.cmd-inc { display: grid !important; grid-template-rows: 52px 24px 40px 40px 44px 30px 70px; row-gap: 10px; align-content: start; }
 .ci-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .ci-age { margin-left: auto; white-space: nowrap; }
 .ci-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 20px; }
@@ -255,3 +255,15 @@
 .ci-next { display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
 .ci-clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: var(--vw-font-label-sm); line-height: 1.4; }
 .ci-next { padding: 8px 10px; justify-content: center; }
+
+/* datacenter leads the card */
+.ci-dc { display: flex; align-items: center; gap: 10px; margin: calc(var(--vw-space-md) * -1 - 3px) calc(var(--vw-space-md) * -1) 0; padding: 12px var(--vw-space-md) 10px; border-bottom: 1px solid var(--vw-color-slate-200); background: var(--vw-color-slate-50); }
+.ci-dc-ic { background: var(--vw-color-white); border: 1px solid var(--vw-color-slate-200); color: var(--vw-color-gray-700); }
+.ci-dc-id { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.ci-dc-name { font-size: var(--vw-font-heading-sm); font-weight: 600; color: var(--vw-color-gray-900); letter-spacing: .01em; line-height: 1.3; }
+.ci-dc-id .vw-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ci-dc-ctx { display: flex; flex-direction: column; align-items: flex-end; font-size: var(--vw-font-label-md); font-weight: 500; color: var(--vw-color-gray-900); white-space: nowrap; line-height: 1.2; }
+.ci-dc-ctx small { font-size: var(--vw-font-label-xs); font-weight: 400; color: var(--vw-color-gray-500); }
+.cmd-inc { padding-top: calc(var(--vw-space-md) + 3px) !important; }
+.ci-head .vw-card-activity-label { white-space: nowrap; }
+.ci-head .cmd-chip { flex-shrink: 0; }
