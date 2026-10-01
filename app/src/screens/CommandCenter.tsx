@@ -173,39 +173,35 @@ function Situation({ d }: { d: CC }) {
               return (
                 <Link key={i.id} to={`/incidents/${i.id}`} className="vw-card-section vw-card--accent vw-card--clickable cmd-inc">
                   <div className="vw-card-accent" style={{ background: i.sev === 1 ? C.bad : C.warn }} />
-                  <div className="vw-flex vw-items-center vw-gap-sm">
+                  {/* fixed slots: every card has the same rows at the same heights */}
+                  <div className="ci-head">
                     <span className={`vw-chip ${i.sev === 1 ? 'vw-chip--error' : 'vw-chip--warning'} is-strong cmd-chip`}>SEV{i.sev}</span>
-                    <span className="vw-card-activity-label cmd-nowrap">{i.id}</span>
-                    <span className="vw-chip vw-chip--neutral cmd-chip" style={{ marginLeft: 'auto' }}>{i.type}</span>
+                    <span className="vw-card-activity-label">{i.id}</span>
+                    <span className="vw-chip vw-chip--neutral cmd-chip">{i.type}</span>
+                    <span className="vw-footer-meta ci-age">{fmtAgo(i.detected, now)}</span>
                   </div>
-                  <div className="vw-flex vw-flex-col" style={{ gap: 2 }}>
-                    <div className="vw-card-title-sm cmd-clamp">{i.title}</div>
-                    <div className="vw-flex vw-justify-between vw-gap-sm">
-                      <span className="vw-label cmd-icon-line cmd-ellipsis"><I.MapPin size={12} />{i.dcId} · {i.city}</span>
-                      <span className="vw-footer-meta cmd-nowrap">{fmtAgo(i.detected, now)}</span>
-                    </div>
+                  <div className="vw-card-title-sm ci-title" title={i.title}>{i.title}</div>
+                  <span className="vw-label ci-where"><I.MapPin size={12} />{i.dcId} · {i.city}</span>
+                  <div className="ci-cause" title={`${i.cause} (${i.confidence}% confidence)`}>
+                    <span className="vw-label">Likely cause · {i.confidence}%</span>
+                    <span className="vw-value ci-clamp1">{i.cause}</span>
                   </div>
-                  <div className="vw-card-description cmd-icon-line cmd-cause"><I.Microscope size={13} /><span className="cmd-clamp">{i.cause}</span><span className="vw-card-activity-value">{i.confidence}%</span></div>
-                  {i.impact.services > 0 ? (
-                    <div className="cmd-impact">
-                      <div><span className="vw-card-metric-sm">{i.impact.services}</span><span className="vw-label">services</span></div>
-                      <div><span className="vw-card-metric-sm">{i.impact.premium}</span><span className="vw-label">premium</span></div>
-                      <div><span className="vw-card-metric-sm">{fmtINR(i.impact.revenueAtRisk)}</span><span className="vw-label">per month</span></div>
-                    </div>
-                  ) : <span className="vw-chip vw-chip--neutral cmd-chip" style={{ alignSelf: 'flex-start' }}><I.ShieldCheck size={12} />No customer service affected</span>}
-                  <div className="vw-flex vw-flex-col" style={{ gap: 5 }}>
-                    <div className="vw-flex vw-justify-between vw-items-baseline vw-gap-sm">
-                      <span className={`vw-card-variance cmd-nowrap ${late ? "is-negative" : "is-neutral"}`}>{late ? `Overdue ${fmtDur(-left)}` : `${fmtDur(left)} to SLA`}</span>
-                      <span className="vw-footer-meta cmd-ellipsis">{i.status} · {i.owner}</span>
+                  <div className="ci-impact">
+                    <div><span className="vw-card-metric-sm">{i.impact.services}</span><span className="vw-label">services</span></div>
+                    <div><span className="vw-card-metric-sm">{i.impact.premium}</span><span className="vw-label">premium</span></div>
+                    <div><span className="vw-card-metric-sm">{i.impact.services ? fmtINR(i.impact.revenueAtRisk) : '—'}</span><span className="vw-label">per month</span></div>
+                  </div>
+                  <div className="ci-sla">
+                    <div className="ci-sla-row">
+                      <span className={`vw-card-variance ${late ? 'is-negative' : 'is-neutral'}`}>{late ? `Overdue ${fmtDur(-left)}` : `${fmtDur(left)} to SLA`}</span>
+                      <span className="vw-footer-meta ci-owner" title={`${i.status} · ${i.owner}`}>{i.status} · {i.owner}</span>
                     </div>
                     <div className="bar" style={{ height: 4 }}><i style={{ width: `${late ? 100 : used}%`, background: late ? C.bad : C.accent }} /></div>
                   </div>
-                  {i.nextAction && (
-                    <div className="vw-card-child-shaded cmd-next">
-                      <span className="vw-label">{i.awaitingApproval > 0 ? `${i.awaitingApproval} step${i.awaitingApproval > 1 ? 's need' : ' needs'} approval` : 'Next action'}</span>
-                      <span className="vw-value cmd-clamp">{i.nextAction}</span>
-                    </div>
-                  )}
+                  <div className="vw-card-child-shaded ci-next" title={i.nextAction ?? undefined}>
+                    <span className="vw-label">{!i.nextAction ? 'Next action' : i.awaitingApproval > 0 ? `${i.awaitingApproval} step${i.awaitingApproval > 1 ? 's need' : ' needs'} approval` : 'Next action'}</span>
+                    <span className="vw-value ci-clamp2">{i.nextAction ?? 'All actions complete — run closure checks'}</span>
+                  </div>
                 </Link>
               );
             })}
