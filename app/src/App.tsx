@@ -1,10 +1,7 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Layout } from './shell/Layout';
 import { CommandCenter } from './screens/CommandCenter';
-import { Estate } from './screens/Estate';
 import { Datacenters } from './screens/Datacenters';
-import { Locations } from './screens/Locations';
-import { Reconciliation } from './screens/Reconciliation';
 import { Site } from './screens/site/Site';
 import { NetworkElement } from './screens/ne/NetworkElement';
 import { Alerts } from './screens/Alerts';
@@ -22,16 +19,21 @@ import { NotFound } from './screens/NotFound';
 
 /* Estate → Datacenter → Infrastructure → Connectivity → Services → Customers
    → Events → Impact → Diagnosis → Recommended action */
+function Keep({ to }: { to: string }) { const l = useLocation(); return <Navigate to={`${to}${l.search}`} replace />; }
+
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<CommandCenter />} />
-          <Route path="inventory" element={<Estate />} />
-          <Route path="inventory/datacenters" element={<Datacenters />} />
-          <Route path="inventory/locations" element={<Locations />} />
-          <Route path="reconciliation" element={<Reconciliation />} />
+          <Route path="datacenters" element={<Datacenters />} />
+          {/* Estate, Locations and Reconciliation are inventory / build concerns,
+              parked outside this operations module; old links land on Datacenters. */}
+          <Route path="inventory/datacenters" element={<Keep to="/datacenters" />} />
+          <Route path="inventory/*" element={<Navigate to="/datacenters" replace />} />
+          <Route path="inventory" element={<Navigate to="/datacenters" replace />} />
+          <Route path="reconciliation" element={<Navigate to="/datacenters" replace />} />
           <Route path="datacenters/:id" element={<Site />} />
           <Route path="ne/:id" element={<NetworkElement />} />
           <Route path="alerts" element={<Alerts />} />

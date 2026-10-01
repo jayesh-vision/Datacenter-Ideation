@@ -1,3 +1,4 @@
+import { ScopeChip } from '../../ui/scope';
 import { Link, useNavigate } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { getAlerts, getNetworkElements, useQuery, clockNow } from '../../api';
@@ -24,7 +25,7 @@ export function Attention({ data }: { data: SiteData }) {
   const driftAttrs = (dr ?? []).flatMap(n => n.drift ?? []).reduce<Record<string, number>>((a, d) => { a[d.attr] = (a[d.attr] ?? 0) + 1; return a; }, {});
   const waitingCollector = (reasons['no-collector'] ?? 0) + (reasons['collector-unavailable'] ?? 0);
   const capPct = s.capexApproved ? (s.capexCommitted / s.capexApproved) * 100 : 0;
-  const recon = (kind: string) => `/reconciliation?dc=${dc.id}&kind=${kind}`;
+  const recon = (kind: string) => `/datacenters/${dc.id}?tab=elements&disc=${kind === 'drift' ? 'drifted' : kind}`;
 
   const steps: { text: string; sub: string; to: string; cta: string }[] = [];
   if (waitingCollector) steps.push({ text: 'Run discovery or assign a collector, then reconcile the record', sub: `${waitingCollector} NE are waiting only on a collector${dc.collectors.some(c => c.state !== 'up') ? '; one collector is stale' : ''}.`, to: recon('not-discovered'), cta: 'Open worklist' });
@@ -135,16 +136,16 @@ export function Attention({ data }: { data: SiteData }) {
         </Panel>
       </div>
 
-      <Panel title="Active alarms at this site" count={al?.length ?? 0} actions={<Link to={`/alerts?dc=${dc.id}`} className="panel-link">Alerts console<I.ChevronRight size={14} /></Link>} flush>
+      <Panel title="Active alarms in datacenter scope" sub="Site, edge links and dependencies · downstream PoP and site alarms are excluded" count={al?.length ?? 0} actions={<Link to={`/alerts?dc=${dc.id}`} className="panel-link">Alerts console<I.ChevronRight size={14} /></Link>} flush>
         {al && al.length ? (
           <table className="nst-table site-table">
-            <thead><tr><th style={{ width: 28 }} /><th>Alarm</th><th>Source</th><th>Element</th><th>Code</th><th className="is-right">Raised</th></tr></thead>
+            <thead><tr><th style={{ width: 28 }} /><th>Alarm</th><th>Scope</th><th>Element</th><th>Code</th><th className="is-right">Raised</th></tr></thead>
             <tbody>{al.slice(0, 8).map(a => (
               <tr key={a.id} className="is-click" onClick={() => nav(a.neId ? `/ne/${a.neId}?tab=alerts` : `/alerts?q=${a.code}`)}>
                 <td><SevDot s={a.severity} /></td>
                 <td><span className="cell-2"><b className="strong" style={{ fontWeight: 500 }}>{a.title}</b><small>{a.description}</small></span></td>
-                <td className="muted">{a.source}</td>
-                <td className="mono nowrap">{a.neId ? a.neId.replace(`${dc.id}-`, '') : 'Facility'}{a.ifName ? ` · ${a.ifName}` : ''}</td>
+                <td><span className="cell-2" style={{ gap: 3 }}><ScopeChip a={a} /><small>{a.category}</small></span></td>
+                <td className="mono nowrap">{a.neId ? a.neId.replace(`${dc.id}-`, '') : a.node ?? 'Facility'}{a.ifName ? ` · ${a.ifName}` : ''}</td>
                 <td className="mono">{a.code}</td>
                 <td className="is-right num nowrap"><span style={{ color: SEVERITY[a.severity].color }}>●</span> {fmtAgo(a.start, now)}</td>
               </tr>

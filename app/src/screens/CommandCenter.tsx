@@ -95,7 +95,7 @@ function Situation({ d }: { d: CC }) {
           <p className="vw-page-description cmd-fresh"><i className="live-dot" />{fmtDow(now)} {fmtShortDate(now)} · {fmtTime(now)} · {p.liveDcs} live datacenters · snapshot 1 min ago</p>
         </div>
         <div className="vw-flex vw-gap-sm">
-          <button type="button" className="nst-btn nst-btn--sm" onClick={() => setWall(true)}><I.LayoutGrid size={15} />Estate by datacenter<span className="vw-chip vw-chip--neutral cmd-btn-chip">{d.dcMap.length}</span></button>
+          <button type="button" className="nst-btn nst-btn--sm" onClick={() => setWall(true)}><I.LayoutGrid size={15} />Datacenter overview<span className="vw-chip vw-chip--neutral cmd-btn-chip">{d.dcMap.length}</span></button>
           <button type="button" className="nst-btn nst-btn--sm nst-btn--filled" onClick={() => ask('What is at risk in the estate right now?')}><I.Sparkles size={15} />Ask Sentinel</button>
         </div>
       </div>
@@ -106,6 +106,7 @@ function Situation({ d }: { d: CC }) {
           <HealthGauge value={d.shi} />
           <span className={`vw-chip vw-chip--${bandChip} is-strong`}>{s.band}</span>
           <span className="vw-footer-meta cmd-gauge-note">Average of the four areas</span>
+          <span className="vw-footer-meta cmd-gauge-note" title="Site, edge links and dependencies count; alarms from downstream PoPs and sites do not">Scope: sites + edge + dependencies</span>
         </div>
         <div className="cmd-status-main">
           <div className="vw-flex vw-flex-col" style={{ gap: 6 }}>
@@ -228,12 +229,12 @@ function WhereMap({ d }: { d: CC }) {
   const hot = d.dcMap.filter(x => x.worstSev && x.worstSev <= 2).length;
   return (
     <Panel title="Where it is happening" sub={`${d.dcMap.length} live datacenters · ring = site state, halo = SEV1/2 incident running, badge = open incidents`} icon={I.MapPinned}
-      actions={<span className="row" style={{ gap: 6 }}><Chip tone="neutral" size="xs">{hot} sites with SEV1/2</Chip><Link to="/inventory" className="panel-link">Estate<I.ChevronRight size={14} /></Link></span>} flush>
+      actions={<span className="row" style={{ gap: 6 }}><Chip tone="neutral" size="xs">{hot} sites with SEV1/2</Chip><Link to="/datacenters" className="panel-link">Datacenters<I.ChevronRight size={14} /></Link></span>} flush>
       <div style={{ position: 'relative', padding: '0 0 0' }}>
         <DcMap pins={pins} onPick={id => nav(`/datacenters/${id}`)} height={520} />
         <div className="map-regions">
           {d.regions.map(r => (
-            <button key={r.id} type="button" className="map-region" onClick={() => nav(`/inventory/datacenters?region=${r.id}`)}>
+            <button key={r.id} type="button" className="map-region" onClick={() => nav(`/datacenters?region=${r.id}`)}>
               <b>{r.name}</b>
               <span className="sub">{r.dcs} sites · {r.alerts} alarms</span>
               <span className="inc" style={{ color: r.worstSev && r.worstSev <= 2 ? 'var(--vw-color-red-600)' : 'var(--vw-color-gray-700)' }}>{r.incidents} inc</span>
@@ -427,7 +428,7 @@ function EstateWall({ d, open, onClose }: { d: CC; open: boolean; onClose: () =>
   const now = clockNow();
   return (
     <Drawer open={open} onClose={onClose} width={1120}
-      title={<span className="row" style={{ gap: 8 }}><I.LayoutGrid size={18} />Estate by datacenter</span>}
+      title={<span className="row" style={{ gap: 8 }}><I.LayoutGrid size={18} />Datacenter overview</span>}
       sub={`${d.dcMap.length} live datacenters · health, 24 h load, power and cooling · updated ${fmtAgo(now - 60000, now)}`}
       head={
         <div className="wall-head" style={{ marginTop: 12 }}>

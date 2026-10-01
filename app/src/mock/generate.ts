@@ -534,6 +534,7 @@ export function generate(): Db {
   const db: Db = { now: NOW, regions, circles, locations, datacenters, nes, neById, ifaces, links, services, customers, alerts: [], incidents: [], changes: [], recon: [], audit: [], plans: [], seq: { alm: 1000, inc: 0, chg: 2000, rec: 0, aud: 0, plan: 0 } };
 
   buildAlerts(db);
+  buildDownstream(db);
   buildChanges(db);
   buildIncidents(db);
   buildRecon(db);
@@ -545,17 +546,77 @@ export function generate(): Db {
 
 /* ---------------------------------------------------------------- alerts */
 
-export function addAlert(db: Db, a: Omit<Alert, 'id' | 'code'> & { code?: string }): Alert {
+type NewAlert = Omit<Alert, 'id' | 'code' | 'scope' | 'category'> & { code?: string; scope?: Alert['scope']; category?: Alert['category'] };
+export function addAlert(db: Db, a: NewAlert): Alert {
   const code = a.code ?? `ALM-${++db.seq.alm}`;
-  const al: Alert = { ...a, id: code, code };
+  const al: Alert = { ...a, id: code, code, scope: a.scope ?? scopeOf(db, a), category: a.category ?? categoryOf(a) };
   db.alerts.push(al);
   return al;
+}
+
+/* Category: what kind of problem it is, for the operator. */
+function categoryOf(a: NewAlert): Alert['category'] {
+  if (!a.neId && (a.source === 'Power' || a.source === 'Cooling' || a.source === 'Environment')) return 'Facility';
+  if (a.source === 'Power' || a.source === 'Environment' || a.source === 'Discovery') return a.title === 'Collector Stale' ? 'Network' : 'Device';
+  if (a.source === 'CPU' || a.type === 'Capacity' || a.title === 'Link Degradation') return 'Performance';
+  return 'Network';
+}
+/* Scope relative to the alert's own datacenter: a link that leaves the site is
+   edge, a monitoring collector is a dependency, everything else is the site. */
+function scopeOf(db: Db, a: NewAlert): Alert['scope'] {
+  if (a.title === 'Collector Stale') return 'dependency';
+  const l = a.linkId ? db.links.find(x => x.id === a.linkId) : a.neId && a.ifName ? db.links.find(x => x.protocol === 'LLDP' && ((x.aNe === a.neId && x.aIf === a.ifName) || (x.zNe === a.neId && x.zIf === a.ifName))) : undefined;
+  if (l && db.neById.get(l.aNe)!.dcId !== db.neById.get(l.zNe)!.dcId) return 'edge';
+  return 'site';
+}
+
+/* Remote PoPs and access sites hang off each datacenter's aggregation routers.
+   They are not datacenter assets: their own faults are 'downstream' and never
+   count against the site; when a site link fails, their alarms are symptoms. */
+function buildDownstream(db: Db) {
+  const r = mulberry32(5150);
+  const FAULTS: [string, string, Alert['severity'], Alert['source'], string, Alert['category']][] = [
+    ['Fan Tray Failure', 'Fan tray 2 reports failure; temperature rising', 'major', 'Environment', 'Hardware', 'Device'],
+    ['Mains Power Failure', 'PoP running on battery after grid loss', 'critical', 'Power', 'Power', 'Facility'],
+    ['Device Unreachable', 'ICMP 100% loss; last-mile fibre cut reported', 'critical', 'Interface', 'Reachability', 'Network'],
+    ['High CPU Utilization', 'CPU above 90% for 25 minutes', 'minor', 'CPU', 'CPU', 'Performance'],
+    ['Link Down', 'Access ring segment lost carrier', 'major', 'Link', 'Link', 'Network']
+  ];
+  for (const dc of db.datacenters.filter(d => d.status !== 'planned')) {
+    const spine = db.nes.filter(n => n.dcId === dc.id && n.layer === 'spine' && n.discovery !== 'not-discovered');
+    if (!spine.length) continue;
+    const pops = db.locations.filter(l => l.kind === 'pop' && l.circleId === dc.circleId && l.status === 'on-air').slice(0, 2);
+    const sites = db.locations.filter(l => l.kind === 'site' && l.circleId === dc.circleId && l.status === 'on-air').slice(0, 3);
+    /* independent downstream faults — the DC must NOT turn red for these */
+    pops.forEach((p, k) => {
+      if (!chance(r, 0.55)) return;
+      const f = FAULTS[intBetween(r, 0, FAULTS.length - 1)];
+      addAlert(db, { dcId: dc.id, node: `${p.id}-AGG-01`, nodeLocation: `${p.city} PoP`, hops: 1, severity: f[2], title: f[0], description: f[1], source: f[3], type: f[4], category: f[5], scope: 'downstream', start: db.now - intBetween(r, 20, 900) * MIN, state: 'active' });
+      if (k === 0 && sites[0] && chance(r, 0.6)) {
+        const g = FAULTS[intBetween(r, 0, FAULTS.length - 1)];
+        addAlert(db, { dcId: dc.id, node: `${sites[0].id}-CSR-01`, nodeLocation: `${sites[0].city} site`, hops: 2, severity: g[2], title: g[0], description: g[1], source: g[3], type: g[4], category: g[5], scope: 'downstream', start: db.now - intBetween(r, 20, 900) * MIN, state: 'active' });
+      }
+    });
+    /* symptoms: when a link inside / at the edge of the site is down, the PoP and
+       sites behind it alarm too — rolled up under the site alarm, not counted */
+    const cause = db.alerts.find(a => a.dcId === dc.id && a.title === 'Link Down' && a.scope !== 'downstream');
+    if (cause) {
+      const victims = [...pops.slice(0, 1).map(p => ({ node: `${p.id}-AGG-01`, loc: `${p.city} PoP`, hops: 1 })), ...sites.map(st => ({ node: `${st.id}-CSR-01`, loc: `${st.city} site`, hops: 2 }))];
+      victims.forEach((v, k) => addAlert(db, { dcId: dc.id, node: v.node, nodeLocation: v.loc, hops: v.hops, severity: 'critical', title: 'Device Unreachable', description: `Lost reachability ${k + 1} s after ${cause.code} on ${cause.neId}`, source: 'Interface', type: 'Reachability', category: 'Network', scope: 'downstream', symptomOf: cause.code, start: cause.start + (k + 1) * 1000, state: 'active' }));
+    }
+  }
+  /* an edge link to a PoP (leaves the site) IS a datacenter issue */
+  const agg = db.neById.get('MH-DC-001-AGG-R05');
+  const pop = db.locations.find(l => l.kind === 'pop' && l.circleId === 'MH' && l.status === 'on-air');
+  if (agg && pop) addAlert(db, { neId: agg.id, dcId: 'MH-DC-001', ifName: 'xe-0/0/15', node: `${pop.id}-AGG-01`, nodeLocation: `${pop.city} PoP`, severity: 'major', title: 'Link Down', description: `Uplink to ${pop.id}-AGG-01 lost carrier; PoP still reachable over its second uplink`, source: 'Link', type: 'Link', category: 'Network', scope: 'edge', start: db.now - 95 * MIN, state: 'active' });
+  /* a shared service the site depends on */
+  addAlert(db, { dcId: 'MH-DC-001', node: 'AAA-SRV-02 (10.25.25.6)', nodeLocation: 'Shared services', severity: 'minor', title: 'Secondary RADIUS Server Unreachable', description: 'Device logins fall back to primary only; no redundancy for AAA', source: 'Security', type: 'AAA', category: 'Network', scope: 'dependency', start: db.now - 3 * HOUR, state: 'active' });
 }
 
 function buildAlerts(db: Db) {
   const HERO = 'MH-DC-001-PE-T4-01';
   const T = (d: number, h: number, m: number, s = 58) => new Date(2026, 8 + (d === 30 ? 0 : 1), d, h, m, s).getTime();
-  const fixed: Omit<Alert, 'id'>[] = [
+  const fixed: Parameters<typeof addAlert>[1][] = [
     { code: 'ALM-1930', neId: HERO, dcId: 'MH-DC-001', ifName: 'xe-0/0/3', severity: 'critical', title: 'Interface Flapping Detected', description: 'Interface state changed 8 times in 20 minutes', source: 'Interface', type: 'Interface', start: T(1, 12, 37), state: 'active' },
     { code: 'ALM-1831', neId: HERO, dcId: 'MH-DC-001', severity: 'major', title: 'High CPU Utilization', description: 'CPU sustained above 77% for 45 minutes', source: 'CPU', type: 'CPU', start: T(1, 12, 22), state: 'active' },
     { code: 'ALM-1774', neId: HERO, dcId: 'MH-DC-001', ifName: 'xe-0/0/3', severity: 'major', title: 'Link Degradation', description: 'Latency increased to 12.4 ms, packet loss detected', source: 'Link', type: 'Link', start: T(1, 10, 22), state: 'active' },

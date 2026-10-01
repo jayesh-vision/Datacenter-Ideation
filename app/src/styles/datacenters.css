@@ -1,0 +1,15 @@
+/* Datacenters (operational list) — layout only; visuals come from NST classes. */
+.dcl-regions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--vw-space-md); }
+.dcl-region { display: flex; flex-direction: column; gap: var(--vw-space-sm); text-align: left; font: inherit; color: inherit; padding: var(--vw-space-md) var(--vw-space-lg); }
+.dcl-region.is-on { border-color: var(--primaryColor500); box-shadow: 0 0 0 3px var(--primaryColor100); }
+.dcl-table { padding: 0; overflow: hidden; }
+.dcl-num { font-size: var(--vw-font-label-md); color: var(--vw-color-gray-900); }
+.dcl-chip { padding: 1px 7px; font-size: var(--vw-font-label-xs); }
+.dcl-issue { display: inline-flex; align-items: center; gap: 5px; color: var(--vw-color-red-700); font-size: var(--vw-font-label-sm); white-space: nowrap; }
+
+.dcl-load { display: flex; flex-direction: column; gap: 3px; }
+.dcl-load > span { display: grid; grid-template-columns: 52px auto; align-items: center; }
+.dcl-issue { max-width: 145px; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 1280px) { .dcl-table .dt-table th, .dcl-table .dt-table td { padding-left: 10px; padding-right: 10px; } }
+.dcl-warn { color: var(--vw-color-amber-700) !important; }
+.dcl-scope-note { display: flex; align-items: center; gap: 6px; margin: calc(var(--vw-space-sm) * -1) 0 0; }

@@ -35,7 +35,7 @@ export const getCustomers = () => wait(S.customers);                            
 export const getCustomer = (id: string) => wait(() => S.customer(id));                             // GET /customers/:id
 
 /* ---- events & operations */
-export const getAlerts = (q: Parameters<typeof S.alerts>[0] = {}) => wait(() => S.alerts(q));       // GET /alerts?dcId&neId&severity&state
+export const getAlerts = (q: Parameters<typeof S.alerts>[0] = {}) => wait(() => S.alerts(q));       // GET /alerts?dcId&neId&severity&state&scope (dc|downstream|all)
 export const getIncidents = (q: Parameters<typeof S.incidents>[0] = {}) => wait(() => S.incidents(q)); // GET /incidents
 export const getIncident = (id: string) => wait(() => S.incident(id));                             // GET /incidents/:id
 export const getChanges = (q: Parameters<typeof S.changes>[0] = {}) => wait(() => S.changes(q));   // GET /changes

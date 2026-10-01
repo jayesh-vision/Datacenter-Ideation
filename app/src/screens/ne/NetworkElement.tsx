@@ -28,7 +28,7 @@ export function NetworkElement() {
   const [res, setRes] = useState(false);
   const { data, loading } = useQuery(() => getNetworkElement(id), [id]);
   const ne = data?.ne;
-  usePage(ne ? [{ label: 'Location', to: '/inventory' }, { label: ne.dcId, to: `/datacenters/${ne.dcId}` }, { label: `${ne.role} · ${ne.name}` }] : [{ label: 'Location', to: '/inventory' }, { label: id }], { neId: id, dcId: ne?.dcId });
+  usePage(ne ? [{ label: 'Datacenters', to: '/datacenters' }, { label: ne.dcId, to: `/datacenters/${ne.dcId}` }, { label: `${ne.role} · ${ne.name}` }] : [{ label: 'Datacenters', to: '/datacenters' }, { label: id }], { neId: id, dcId: ne?.dcId });
   if (loading && !data) return <Loading />;
   if (!data || !ne) return <NotFound what="Network element" />;
   const Ico = ROLE_ICON[ne.role] ?? I.Server;
@@ -70,14 +70,14 @@ export function NetworkElement() {
               <b>Record drifted from the network.</b> {ne.drift.map(d => <span key={d.attr} className="ne-drift"><span className="muted">{d.attr}</span> <s className="mono">{d.record}</s> → <span className="mono">{d.observed}</span></span>)}
               {ne.duplicateSerialOf && <span> Serial also reported by <Link className="ent-link mono" to={`/ne/${ne.duplicateSerialOf}`}>{ne.duplicateSerialOf}</Link>.</span>}
             </div>
-            <Link className="nst-btn nst-btn--xs" to={`/reconciliation?dc=${ne.dcId}&q=${ne.id}`}>Reconcile</Link>
+            <Link className="nst-btn nst-btn--xs" to={`/datacenters/${ne.dcId}?tab=elements&disc=drifted`}>Drifted elements</Link>
           </div>
         )}
         {nd && (
           <div className="note note--bad ne-banner">
             <I.SearchX size={16} />
             <div style={{ flex: 1 }}><b>Not discovered.</b> On record but never seen by a collector — {ND_REASON[ne.ndReason ?? 'planned'].toLowerCase()}. Telemetry, links and services appear once it is discovered and reconciled.</div>
-            <Link className="nst-btn nst-btn--xs" to={`/reconciliation?dc=${ne.dcId}&q=${ne.id}`}>Open reconciliation</Link>
+            <Link className="nst-btn nst-btn--xs" to={`/datacenters/${ne.dcId}?tab=elements&disc=not-discovered`}>Undiscovered elements</Link>
           </div>
         )}
       </section>

@@ -8,7 +8,7 @@ import { ND_REASON } from '../../lib/vocab';
 export function NoTelemetry({ ne, what }: { ne: NetworkElement; what: string }) {
   return (
     <section className="card">
-      <Empty icon={SearchX} title={`No ${what} yet`} action={<Link className="nst-btn nst-btn--sm" to={`/reconciliation?dc=${ne.dcId}&q=${ne.id}`}>Open reconciliation</Link>}>
+      <Empty icon={SearchX} title={`No ${what} yet`} action={<Link className="nst-btn nst-btn--sm" to={`/datacenters/${ne.dcId}?tab=elements&disc=not-discovered`}>Undiscovered elements</Link>}>
         {ne.name} is on record but has never been seen by discovery ({ND_REASON[ne.ndReason ?? 'planned'].toLowerCase()}).
       </Empty>
     </section>

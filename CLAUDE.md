@@ -36,3 +36,15 @@ App CSS: `src/styles/app.css` (from FFM), `base.css` (shared DCO classes), plus 
 ## QA bar (mandatory before calling anything done)
 `node .qa/shot.mjs "/route|name" …` → full-page screenshots in `.qa/out/` + text/overflow/console checks.
 Review every screen critically; every control must work; no NaN/undefined; no horizontal overflow at 1280/1440.
+
+## Operations scope model (decided with the user, 01-Oct-2026)
+This is a datacenter **operations** tool. Estate, Locations and Reconciliation (inventory / build) are parked
+outside the menu (code kept for a future Plan & Build or Inventory section; old URLs redirect to /datacenters).
+An alarm counts against a datacenter only when it is in scope (`Alert.scope`, computed in `mock/generate.ts`
+`scopeOf` and per-site in `mock/server.ts` `scopeFor`):
+- **site**: inside the datacenter (facility, racked devices, internal links);
+- **edge**: a link leaving the site (backhaul, PoP uplink), which counts for both ends;
+- **dependency**: something the site depends on outside it (far-end node as it affects the edge link, shared AAA/NTP, collectors);
+- **downstream**: remote PoPs and sites that depend ON the datacenter. They are never counted. When the datacenter is the cause,
+  they appear as `symptomOf` impact under the incident, not as separate issues.
+Edge redundancy (`DcSummary.edge`): redundant / redundancy-lost / isolated. Guarded by `npx tsx .qa/scope-check.ts`.

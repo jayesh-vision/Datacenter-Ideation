@@ -5,7 +5,7 @@ const ok = (n, c) => console.log(c ? 'PASS' : 'FAIL', n);
 await p.goto('http://localhost:5181/', { waitUntil: 'networkidle' }); await p.waitForTimeout(500);
 ok('no Raise change / Maintenance buttons', await p.locator('.cmd-head button', { hasText: /Raise change|Maintenance/ }).count() === 0);
 ok('no wall on page', await p.locator('.page .wall').count() === 0);
-await p.locator('.cmd-head button', { hasText: 'Estate by datacenter' }).click(); await p.waitForTimeout(400);
+await p.locator('.cmd-head button', { hasText: 'Datacenter overview' }).click(); await p.waitForTimeout(400);
 ok('drawer shows 23 live tiles', await p.locator('.drawer .tile').count() === 23);
 await p.screenshot({ path: `.qa/out/wall_${process.env.W ?? 1440}.png` });
 await p.locator('.drawer .seg button', { hasText: 'With incidents' }).click(); await p.waitForTimeout(200);

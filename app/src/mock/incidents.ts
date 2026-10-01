@@ -79,7 +79,7 @@ export function buildIncidents(db: Db) {
   }, { linkIds: [x3.id] }, im => `${im.services.length} services traverse the affected path. ${im.premium.length} premium customers are exposed — Enterprise Corp's L3VPN carries a 99.99% SLA and its headroom for the month is thin.`);
 
   /* 2 — UPS on battery */
-  const upsAlert = db.alerts.find(a => a.dcId === 'DL-DC-009' && a.title.includes('On Battery'))!;
+  const upsAlert = db.alerts.find(a => a.scope !== "downstream" && a.dcId === 'DL-DC-009' && a.title.includes('On Battery'))!;
   const feedChg = db.changes.find(c => c.dcId === 'DL-DC-009')!;
   mk({
     title: 'UPS-2 on battery after utility feed A loss', type: 'Power', sev: 1, pri: 1, status: 'Investigating', owner: 'James Wilson', reportedBy: 'BMS', dcId: 'DL-DC-009', detected: upsAlert.start + MIN, acknowledged: upsAlert.start + 9 * MIN,
@@ -94,8 +94,8 @@ export function buildIncidents(db: Db) {
   }, { dcIds: ['DL-DC-009'] }, im => `UPS-2 carries half of the site load. If the battery runs out before DG transfer, ${im.services.length} services and ${im.customers.length} customers lose power.`);
 
   /* 3 — cooling */
-  const crah = db.alerts.find(a => a.dcId === 'MH-DC-003' && a.title.includes('Cooling Unit Failed'))!;
-  const zone = db.alerts.find(a => a.dcId === 'MH-DC-003' && a.title === 'Zone Temperature High');
+  const crah = db.alerts.find(a => a.scope !== "downstream" && a.dcId === 'MH-DC-003' && a.title.includes('Cooling Unit Failed'))!;
+  const zone = db.alerts.find(a => a.scope !== "downstream" && a.dcId === 'MH-DC-003' && a.title === 'Zone Temperature High');
   const dc3 = db.datacenters.find(d => d.id === 'MH-DC-003')!;
   const hotRacks = dc3.racks.filter(rk => rk.tempC > 30);
   const crahChg = db.changes.find(c => c.dcId === 'MH-DC-003')!;
@@ -113,7 +113,7 @@ export function buildIncidents(db: Db) {
   }, { neIds: db.nes.filter(n => hotRacks.some(rk => rk.id === n.rackId)).map(n => n.id) });
 
   /* 4 — rack power */
-  const rackAlerts = db.alerts.filter(a => a.dcId === 'KA-DC-020' && a.title === 'Rack Over Power Budget');
+  const rackAlerts = db.alerts.filter(a => a.scope !== "downstream" && a.dcId === 'KA-DC-020' && a.title === 'Rack Over Power Budget');
   if (rackAlerts.length) mk({
     title: `${rackAlerts.length} racks over power budget in Hall A`, type: 'Rack', sev: 3, pri: 3, status: 'Open', owner: 'Meera Iyer', reportedBy: 'DCIM', dcId: 'KA-DC-020', detected: rackAlerts[0].start + 2 * MIN,
     responseSlaMin: RESPONSE_SLA[3], resolveSlaMin: RESOLVE_SLA[3], alertIds: rackAlerts.map(a => a.id), affected: rackAlerts.map(a => ({ kind: 'Rack' as const, id: `KA-DC-020-${a.description.split(' ')[0]}`, label: a.description.split(' ')[0] })),
@@ -123,11 +123,11 @@ export function buildIncidents(db: Db) {
   }, {});
 
   /* 5..: correlated network faults from the estate */
-  const unreach = db.alerts.filter(a => a.title === 'Device Unreachable');
-  const downs = db.alerts.filter(a => a.title === 'Link Down');
-  const hot = db.alerts.filter(a => a.title === 'Link Utilisation High' && a.severity === 'major');
-  const stale = db.alerts.filter(a => a.title === 'Collector Stale');
-  const psu = db.alerts.filter(a => a.title === 'Power Supply Fault');
+  const unreach = db.alerts.filter(a => a.scope !== "downstream" && a.title === 'Device Unreachable');
+  const downs = db.alerts.filter(a => a.scope !== "downstream" && a.title === 'Link Down' && a.linkId);
+  const hot = db.alerts.filter(a => a.scope !== "downstream" && a.title === 'Link Utilisation High' && a.severity === 'major');
+  const stale = db.alerts.filter(a => a.scope !== "downstream" && a.title === 'Collector Stale');
+  const psu = db.alerts.filter(a => a.scope !== "downstream" && a.title === 'Power Supply Fault');
   const pool: (() => void)[] = [];
   unreach.forEach(a => pool.push(() => {
     const ne = db.neById.get(a.neId!)!;

@@ -123,3 +123,9 @@ td .cell-2 small { font-size: 11.5px; color: var(--ink-500); }
   .ent-attrs { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 .topbar-search { width: 220px; }
+.scope-chip { padding: 2px 8px; font-size: var(--vw-font-label-xs); }
+.scope-chip.is-muted { background: transparent; border: 1px dashed var(--vw-color-slate-300); color: var(--vw-color-gray-500); }
+.al-desc { white-space: normal; max-width: 420px; }
+.inc-symptoms { margin-top: var(--vw-space-sm); display: flex; flex-direction: column; gap: 6px; }
+.inc-symptoms ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.inc-symptoms li { display: flex; gap: 10px; align-items: baseline; font-size: var(--vw-font-label-sm); }

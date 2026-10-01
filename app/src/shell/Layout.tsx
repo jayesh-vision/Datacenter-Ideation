@@ -9,20 +9,17 @@ import { PageCtx, type PageMeta } from './page';
 import { Palette } from './Palette';
 import { Sentinel } from './Sentinel';
 
-type Badge = 'incidents' | 'alerts' | 'recon' | 'changes';
+type Badge = 'incidents' | 'alerts' | 'changes';
 const NAV: { group: string; items: { to: string; label: string; icon: I.LucideIcon; badge?: Badge; match?: RegExp }[] }[] = [
   { group: 'Overview', items: [{ to: '/', label: 'Command center', icon: I.LayoutDashboard }] },
-  { group: 'Inventory', items: [
-    { to: '/inventory', label: 'Estate', icon: I.MapPinned, match: /^\/inventory$/ },
-    { to: '/inventory/datacenters', label: 'Datacenters', icon: I.Building2, match: /^\/(inventory\/datacenters|datacenters|ne\/)/ },
-    { to: '/inventory/locations', label: 'Locations', icon: I.MapPin },
-    { to: '/reconciliation', label: 'Reconciliation', icon: I.GitCompareArrows, badge: 'recon' }
+  { group: 'Infrastructure', items: [
+    { to: '/datacenters', label: 'Datacenters', icon: I.Building2, match: /^\/(datacenters|ne\/)/ },
+    { to: '/topology', label: 'Topology', icon: I.Network }
   ] },
   { group: 'Operate', items: [
     { to: '/alerts', label: 'Alerts', icon: I.BellRing, badge: 'alerts' },
     { to: '/incidents', label: 'Incidents', icon: I.Siren, badge: 'incidents' },
-    { to: '/changes', label: 'Changes & maintenance', icon: I.ArrowLeftRight, badge: 'changes' },
-    { to: '/topology', label: 'Topology', icon: I.Network }
+    { to: '/changes', label: 'Changes & maintenance', icon: I.ArrowLeftRight, badge: 'changes' }
   ] },
   { group: 'Services', items: [
     { to: '/services', label: 'Network services', icon: I.Waypoints },
@@ -55,7 +52,6 @@ export function Layout() {
   const badge = useMemo<Record<Badge, { n: number; c: string } | null>>(() => ({
     incidents: cc?.pulse.breaching ? { n: cc.pulse.breaching, c: 'is-hot' } : null,
     alerts: cc ? { n: cc.pulse.critMajor, c: 'is-warn' } : null,
-    recon: cc ? { n: cc.attention.find(a => a.key === 'recon')?.n ?? 0, c: '' } : null,
     changes: cc ? { n: cc.attention.find(a => a.key === 'chg')?.n ?? 0, c: '' } : null
   }), [cc]);
   const openSentinel = useCallback((q?: string) => setSentinel({ open: true, q }), []);

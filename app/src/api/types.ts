@@ -89,7 +89,23 @@ export interface Alert {
   id: string; code: string; neId?: string; dcId: string; ifName?: string; linkId?: string; severity: Severity; title: string; description: string;
   source: 'Interface' | 'CPU' | 'Link' | 'Environment' | 'Power' | 'Cooling' | 'Protocol' | 'Security' | 'Discovery';
   type: string; start: number; state: 'active' | 'acknowledged' | 'cleared'; incidentId?: string; ackBy?: string;
+  /* operational scope relative to `dcId` (see AlertScope); `node` names a
+     remote (non-datacenter) device when there is no NetworkElement record */
+  scope: AlertScope; category: AlertCategory; node?: string; nodeLocation?: string; hops?: number; symptomOf?: string;
 }
+
+/* What counts as a datacenter issue (operations model):
+   site       — inside the site: facility, racked devices, internal links
+   edge       — a link leaving the site (backhaul, uplink to a PoP)
+   dependency — something the site depends on outside it: the far-end node of
+                an edge link as it affects that link, monitoring collectors
+   downstream — beyond the edge, depending ON the site; never counted as a
+                datacenter issue, only shown as impact when the site is the cause */
+export type AlertScope = 'site' | 'edge' | 'dependency' | 'downstream';
+export type AlertCategory = 'Facility' | 'Network' | 'Device' | 'Performance';
+export const DC_SCOPES: AlertScope[] = ['site', 'edge', 'dependency'];
+
+export interface EdgeStatus { total: number; up: number; down: number; state: 'redundant' | 'redundancy-lost' | 'isolated'; downLinks: string[] }
 
 export type IncidentStatus = 'Open' | 'Investigating' | 'Mitigated' | 'Resolved' | 'Closed';
 export interface Hypothesis { cause: string; confidence: number; evidence: { label: string; ref?: string; at?: number }[]; rejected?: boolean }
@@ -125,4 +141,7 @@ export interface DcSummary {
   ne: number; discovered: number; verified: number; drifted: number; notDiscovered: number; coveragePct: number; links: number; byRole: Record<string, number>;
   powerKw: number; powerCapKw: number; rackUsedU: number; rackTotalU: number; portsUsed: number; portsTotal: number; activeAlerts: number; critAlerts: number;
   openIncidents: number; services: number; customers: number; healthScore: number; capexCommitted: number; capexApproved: number; opexMonthly: number; pue: number;
+  /* operational roll-ups */
+  coolPct: number; worstSev: number; servicesDegraded: number; linksDown: number; unreachable: number; facilityIssues: string[];
+  edge: EdgeStatus; byScope: Record<'site' | 'edge' | 'dependency', number>; downstreamExcluded: number;
 }

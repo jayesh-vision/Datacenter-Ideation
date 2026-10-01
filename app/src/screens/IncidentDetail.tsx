@@ -1,3 +1,4 @@
+import { ScopeChip } from '../ui/scope';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import * as I from 'lucide-react';
@@ -26,7 +27,7 @@ export function IncidentDetail() {
   usePage([{ label: 'Operate' }, { label: 'Incidents', to: '/incidents' }, { label: id }], { incidentId: id, dcId: data?.incident.dcId });
   if (!data) return loading ? <Loading /> : <NotFound what={`Incident ${id}`} />;
 
-  const { incident: inc, alerts, services, customers, changes, dc, similar } = data;
+  const { incident: inc, alerts, symptoms, services, customers, changes, dc, similar } = data;
   const now = clockNow();
   const open = inc.status === 'Open' || inc.status === 'Investigating' || inc.status === 'Mitigated';
   const next = FLOW[Math.min(FLOW.indexOf(inc.status) + 1, FLOW.length - 1)];
@@ -97,8 +98,18 @@ export function IncidentDetail() {
                 <SevDot s={a.severity} />
                 <span style={{ flex: 1, minWidth: 0 }}><b>{a.title}</b><small>{a.description}</small></span>
                 <span className="cell-2 num" style={{ textAlign: 'right' }}><span className="mono">{a.code}</span><small>{a.neId ?? a.dcId}{a.ifName ? ` · ${a.ifName}` : ''} · {fmtDateTimeS(a.start).slice(12)}</small></span>
+                <ScopeChip a={a} />
                 <SeverityChip s={a.severity} size="xs" />
               </Link>))}</div> : <div className="faint" style={{ fontSize: 13 }}>No live alerts are linked (historic incident).</div>}
+            {symptoms.length > 0 && (
+              <div className="vw-card-child-shaded inc-symptoms">
+                <div className="vw-flex vw-justify-between vw-items-center vw-gap-sm">
+                  <span className="vw-card-activity-label">Downstream symptoms · {symptoms.length}</span>
+                  <span className="vw-label">Rolled up here as impact — not separate datacenter issues</span>
+                </div>
+                <ul>{symptoms.map(a => <li key={a.id}><span className="mono">{a.node}</span><span className="vw-label">{a.nodeLocation} · {a.hops} hop{a.hops === 1 ? '' : 's'} · {a.title.toLowerCase()} {Math.round((a.start - (alerts.find(x => x.code === a.symptomOf)?.start ?? a.start)) / 1000)} s after {a.symptomOf}</span></li>)}</ul>
+              </div>
+            )}
           </Panel>
 
           <Panel title="Impact assessment" sub="Infrastructure → services → customers (DC-OPS-002, DC-NET-007)" actions={<Chip tone={inc.impact.level === 'High' ? 'error' : inc.impact.level === 'Medium' ? 'warning' : 'neutral'}>{inc.impact.level}</Chip>}>

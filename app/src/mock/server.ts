@@ -2,7 +2,7 @@
    one in-memory estate. Only src/api/index.ts talks to this module. */
 
 import type {
-  ActionStep, Alert, AuditEntry, CapacityPlan, Change, ChangeStatus, Datacenter, DcSummary, Incident, IncidentStatus, Interface, Link, Location,
+  ActionStep, Alert, AlertScope, EdgeStatus, AuditEntry, CapacityPlan, Change, ChangeStatus, Datacenter, DcSummary, Incident, IncidentStatus, Interface, Link, Location,
   NetworkElement, ReconTask, RolloutStatus, Service, Severity, TimelineEvent
 } from '../api/types';
 import { generate, finaliseHealth, type Db } from './generate';
@@ -22,7 +22,39 @@ export const now = () => db.now;
 /* ------------------------------------------------------------ roll-ups */
 
 const summaryCache = new Map<string, DcSummary>();
-const liveAlerts = () => db.alerts.filter(a => a.state !== 'cleared');
+/* Datacenter operations scope. Downstream alarms (remote PoPs / sites that
+   depend on a datacenter) never count as datacenter issues. */
+const liveAlerts = () => db.alerts.filter(a => a.state !== 'cleared' && a.scope !== 'downstream');
+
+/* Edge links of a site: LLDP links with exactly one end inside it. */
+const edgeCache = new Map<string, Link[]>();
+function edgeLinks(dcId: string): Link[] {
+  const hit = edgeCache.get(dcId); if (hit) return hit;
+  const ls = db.links.filter(l => l.protocol === 'LLDP' && (db.neById.get(l.aNe)!.dcId === dcId) !== (db.neById.get(l.zNe)!.dcId === dcId));
+  edgeCache.set(dcId, ls); return ls;
+}
+export function edgeStatus(dcId: string): EdgeStatus {
+  const ls = edgeLinks(dcId);
+  const down = ls.filter(l => l.state === 'down');
+  const up = ls.length - down.length;
+  return { total: ls.length, up, down: down.length, state: ls.length && up === 0 ? 'isolated' : down.length ? 'redundancy-lost' : 'redundant', downLinks: down.map(l => l.id) };
+}
+/* How an alert relates to a given datacenter, or null when it is out of scope.
+   Edge links count for both ends; a far-end node counts as a dependency only
+   for what it does to the link toward this site. */
+export function scopeFor(a: Alert, dcId: string): AlertScope | null {
+  if (a.dcId === dcId) return a.scope;
+  if (a.scope === 'downstream') return null;
+  const edges = edgeLinks(dcId);
+  const touches = (l: Link) => (l.aNe === a.neId && l.aIf === a.ifName) || (l.zNe === a.neId && l.zIf === a.ifName);
+  if (a.linkId && edges.some(l => l.id === a.linkId)) return 'edge';
+  if (a.neId && a.ifName && edges.some(touches)) return 'edge';
+  if (a.neId && (a.title === 'Device Unreachable') && edges.some(l => l.aNe === a.neId || l.zNe === a.neId)) return 'dependency';
+  return null;
+}
+export function alertsInScope(dcId: string, includeDownstream = false) {
+  return db.alerts.filter(a => a.state !== 'cleared').map(a => ({ a, sc: scopeFor(a, dcId) })).filter(x => x.sc && (includeDownstream || x.sc !== 'downstream')).map(x => ({ ...x.a, scope: x.sc! }));
+}
 
 export function summarize(dc: Datacenter): DcSummary {
   const hit = summaryCache.get(dc.id); if (hit) return hit;
@@ -32,7 +64,8 @@ export function summarize(dc: Datacenter): DcSummary {
   const drifted = nes.filter(n => n.discovery === 'drifted').length;
   const links = db.links.filter(l => db.neById.get(l.aNe)!.dcId === dc.id || db.neById.get(l.zNe)!.dcId === dc.id).length;
   const byRole = nes.reduce<Record<string, number>>((a, n) => { a[n.role] = (a[n.role] ?? 0) + 1; return a; }, {});
-  const al = liveAlerts().filter(a => a.dcId === dc.id);
+  const al = alertsInScope(dc.id);
+  const downstreamExcluded = db.alerts.filter(a => a.state !== 'cleared' && a.dcId === dc.id && a.scope === 'downstream').length;
   const svcs = db.services.filter(s => s.dcId === dc.id);
   const live = nes.filter(n => n.discovery !== 'not-discovered');
   const powerKw = Math.round(dc.power.split.reduce((a, s) => a + s.kw, 0) * 10) / 10;
@@ -43,7 +76,14 @@ export function summarize(dc: Datacenter): DcSummary {
     portsUsed: dc.ports.reduce((a, p) => a + p.used, 0), portsTotal: dc.ports.reduce((a, p) => a + p.total, 0), activeAlerts: al.length, critAlerts: al.filter(a => a.severity === 'critical').length,
     openIncidents: db.incidents.filter(i => i.dcId === dc.id && isOpen(i)).length, services: svcs.length, customers: new Set(svcs.map(s => s.customerId)).size,
     healthScore: live.length ? Math.round(live.reduce((a, n) => a + n.healthScore, 0) / live.length) : 0,
-    capexCommitted: dc.capex.committed, capexApproved: dc.capex.approved, opexMonthly: dc.opex.monthly, pue: dc.power.pue
+    capexCommitted: dc.capex.committed, capexApproved: dc.capex.approved, opexMonthly: dc.opex.monthly, pue: dc.power.pue,
+    coolPct: dc.cooling.capacityKw ? Math.round((dc.cooling.loadKw / dc.cooling.capacityKw) * 100) : 0,
+    worstSev: Math.min(9, ...db.incidents.filter(i => i.dcId === dc.id && isOpen(i)).map(i => i.sev)) % 9,
+    servicesDegraded: svcs.filter(x => x.status === 'Degraded' || x.status === 'Down').length,
+    linksDown: db.links.filter(l => l.protocol === 'LLDP' && l.state === 'down' && (db.neById.get(l.aNe)!.dcId === dc.id || db.neById.get(l.zNe)!.dcId === dc.id)).length,
+    unreachable: live.filter(n => n.icmp.state === 'critical').length,
+    edge: edgeStatus(dc.id), byScope: { site: al.filter(a => a.scope === 'site').length, edge: al.filter(a => a.scope === 'edge').length, dependency: al.filter(a => a.scope === 'dependency').length }, downstreamExcluded,
+    facilityIssues: [...dc.power.ups.filter(u => u.state !== 'Online').map(u => `${u.name} ${u.state.toLowerCase()}`), ...dc.cooling.units.filter(u => u.status === 'Failed').map(u => `${u.name} failed`), ...dc.power.feeds.filter(f => f.status === 'Alarm').map(f => `${f.source} lost`)]
   };
   summaryCache.set(dc.id, s);
   return s;
@@ -188,8 +228,10 @@ export function customer(id: string) {
 
 /* ---------------------------------------------------------------- alerts */
 
-export function alerts(q: { dcId?: string; neId?: string; severity?: string; state?: string; source?: string }) {
-  return db.alerts.filter(a => (!q.dcId || a.dcId === q.dcId) && (!q.neId || a.neId === q.neId) && (!q.severity || a.severity === q.severity) && (!q.state || (q.state === 'open' ? a.state !== 'cleared' : a.state === q.state)) && (!q.source || a.source === q.source))
+export function alerts(q: { dcId?: string; neId?: string; severity?: string; state?: string; source?: string; scope?: 'dc' | 'downstream' | 'all' }) {
+  const sc = q.scope ?? 'dc';
+  const pool = q.dcId ? (q.state === 'cleared' ? db.alerts.filter(a => a.dcId === q.dcId) : alertsInScope(q.dcId, true)) : db.alerts;
+  return pool.filter(a => (sc === 'all' || (sc === 'downstream' ? a.scope === 'downstream' : a.scope !== 'downstream')) && (!q.neId || a.neId === q.neId) && (!q.severity || a.severity === q.severity) && (!q.state || (q.state === 'open' ? a.state !== 'cleared' : a.state === q.state)) && (!q.source || a.source === q.source))
     .sort((a, b) => sevRank(a.severity) - sevRank(b.severity) || b.start - a.start);
 }
 const sevRank = (s: Severity) => ({ critical: 0, major: 1, minor: 2, warning: 3 })[s];
@@ -215,7 +257,9 @@ export function incident(id: string) {
   const im = impactOf(db, { neIds: i.type === 'Network' && linkIds.length ? [] : neIds, linkIds, dcIds: i.type === 'Power' && i.sev === 1 ? [i.dcId] : [] });
   const recentChanges = db.changes.filter(c => c.dcId === i.dcId && c.windowEnd <= i.detected && c.windowEnd > i.detected - 3 * DAY);
   const changes = [...new Map([...i.changeIds.map(c => db.changes.find(x => x.id === c)!), ...recentChanges].filter(Boolean).map(c => [c.id, c])).values()];
-  return { incident: { ...i, sla: slaState(i) }, alerts: al, services: im.services.map(s => ({ ...s, customer: db.customers.find(c => c.id === s.customerId)! })), customers: im.customers, changes, dc: summarize(dcOf(i.dcId)!), similar: i.similar ? i.similar.nodes.map(n => db.neById.get(n)!).filter(Boolean) : [] };
+  const codes = new Set(al.map(a => a.code));
+  const symptoms = db.alerts.filter(a => a.symptomOf && codes.has(a.symptomOf));
+  return { incident: { ...i, sla: slaState(i) }, alerts: al, symptoms, services: im.services.map(s => ({ ...s, customer: db.customers.find(c => c.id === s.customerId)! })), customers: im.customers, changes, dc: summarize(dcOf(i.dcId)!), similar: i.similar ? i.similar.nodes.map(n => db.neById.get(n)!).filter(Boolean) : [] };
 }
 
 /* ---------------------------------------------------------------- changes */
@@ -290,7 +334,6 @@ export function commandCenter() {
   const ups = db.datacenters.flatMap(d => d.power.ups);
   const coolingN1 = db.datacenters.filter(d => d.status !== 'planned' && d.cooling.units.every(u => u.status === 'Operational')).length;
   const rollout = db.locations.filter(l => l.status !== 'on-air');
-  const blocked = db.locations.filter(l => l.status === 'failed' || l.blocker).length;
   const pendingChg = db.changes.filter(c => c.status === 'Pending approval');
   const reconOpen = db.recon.filter(t => t.status !== 'Resolved');
   const overRacks = cap.racks.filter(r => r.drawKw / r.budgetKw >= 0.85);
@@ -312,12 +355,14 @@ export function commandCenter() {
   const unitsFailed = units.filter(u => u.status === 'Failed'), unitsMaint = units.filter(u => u.status === 'Maintenance');
   const zones = liveDcs.flatMap(d => d.cooling.sensors.map(z => ({ ...z, dc: d.id })));
   const zonesHot = zones.filter(z => z.tempC > 27);
+  const edgeAll = liveDcs.map(d => ({ id: d.id, e: edgeStatus(d.id) }));
+  const edgeLost = edgeAll.filter(x => x.e.state === 'redundancy-lost'), edgeIsolated = edgeAll.filter(x => x.e.state === 'isolated');
   const join = (xs: string[], none: string) => (xs.length ? xs.join(' · ') : none);
   const domains = [
     { key: 'response', label: 'Incident response', value: pct(open.length - breaching.length, open.length), measure: 'Open incidents still within resolution SLA',
       detail: `${breaching.length} of ${open.length} open incidents past SLA${n1 ? ` · ${n1} SEV1` : ''}`, to: '/incidents?view=breaching', state: (breaching.some(i => i.sev === 1) ? 'critical' : breaching.length ? 'attention' : 'ok') as AreaState },
     { key: 'network', label: 'Network', value: pct(lldp.length - linksDown.length + live.length - unreachable.length, lldp.length + live.length), measure: 'Physical links up and devices reachable',
-      detail: `${linksDown.length} of ${fmtN(lldp.length)} links down · ${unreachable.length} devices unreachable`, to: '/alerts?q=Link%20Down', state: (linksDown.length || unreachable.length ? 'attention' : 'ok') as AreaState },
+      detail: `${linksDown.length} links down · ${unreachable.length} devices unreachable · ${edgeLost.length} site${edgeLost.length === 1 ? '' : 's'} with edge redundancy lost`, to: '/datacenters?view=edge', state: (edgeIsolated.length ? 'critical' : linksDown.length || unreachable.length || edgeLost.length ? 'attention' : 'ok') as AreaState },
     { key: 'power', label: 'Power', value: pct(upsAll.length - upsBad.length + feeds.length - feedsBad.length, upsAll.length + feeds.length), measure: 'UPS online and utility feeds normal',
       detail: join([...upsBad.map(u => `${u.name} ${u.state.toLowerCase()} (${u.dc})`), ...(feedsBad.length ? [`${feedsBad.length} utility feed${feedsBad.length > 1 ? 's' : ''} lost (${[...new Set(feedsBad.map(f => f.dc))].join(', ')})`] : [])], `All ${upsAll.length} UPS online · all feeds normal`),
       to: upsBad[0] ? `/facilities?dc=${upsBad[0].dc}` : '/facilities', state: (upsBad.some(u => u.state === 'On battery' || u.state === 'Fault') ? 'critical' : upsBad.length || feedsBad.length ? 'attention' : 'ok') as AreaState },
@@ -335,18 +380,15 @@ export function commandCenter() {
     { key: 'links', n: linksDown.length, label: 'physical link(s) down', to: '/alerts?q=Link%20Down', tone: 'error' },
     { key: 'crit', n: al.filter(a => a.severity === 'critical' || a.severity === 'major').length, label: 'critical/major alarm(s) active', to: '/alerts?sev=critical', tone: 'warning' },
     { key: 'svc', n: degraded.length, label: 'service(s) degraded', to: '/services?status=Degraded', tone: 'warning' },
-    { key: 'stale', n: stale.length, label: 'site(s) with a stale collector', to: '/reconciliation?kind=not-discovered', tone: 'warning' },
+    { key: 'stale', n: stale.length, label: 'site(s) with a stale collector', to: '/datacenters', tone: 'warning' },
     { key: 'overwarn', n: overWarn.length, label: 'uplink(s) already above 85% utilisation', to: '/capacity?tab=network', tone: 'warning' },
     { key: 'exhaust', n: exhaust.length, label: 'link(s) crossing 85% within 6 months', to: '/capacity?tab=network', tone: 'warning' },
     { key: 'racks', n: overRacks.length, label: 'rack(s) over 85% of power budget', to: '/capacity?tab=power', tone: 'warning' },
     { key: 'chg', n: pendingChg.length, label: 'change(s) awaiting approval', to: '/changes?status=Pending%20approval', tone: 'info' },
-    { key: 'recon', n: reconOpen.length, label: 'inventory gap(s) to reconcile', to: '/reconciliation', tone: 'info' },
-    { key: 'blocked', n: blocked, label: 'location(s) blocked or failed in rollout', to: '/inventory/locations?view=blocked', tone: 'info' }
   ].filter(a => a.n > 0);
   const activity = [
     ...db.alerts.filter(a => a.state !== 'cleared').sort((a, b) => b.start - a.start).slice(0, 6).map(a => ({ at: a.start, kind: 'alert', text: `${a.code} ${a.title}`, sub: `${a.neId ?? a.dcId}`, to: a.neId ? `/ne/${a.neId}?tab=alerts` : `/datacenters/${a.dcId}?tab=attention` })),
-    ...db.changes.filter(c => c.windowStart <= db.now).sort((a, b) => b.windowStart - a.windowStart).slice(0, 4).map(c => ({ at: c.windowStart, kind: 'change', text: `${c.id} ${c.status.toLowerCase()}`, sub: c.title, to: `/changes?id=${c.id}` })),
-    ...db.audit.slice(-3).map(a => ({ at: a.at, kind: 'audit', text: `${a.object} ${a.field} updated`, sub: `${a.prev} → ${a.next} · ${a.actor}`, to: '/reconciliation?tab=audit' }))
+    ...db.changes.filter(c => c.windowStart <= db.now).sort((a, b) => b.windowStart - a.windowStart).slice(0, 4).map(c => ({ at: c.windowStart, kind: 'change', text: `${c.id} ${c.status.toLowerCase()}`, sub: c.title, to: `/changes?id=${c.id}` }))
   ].sort((a, b) => b.at - a.at).slice(0, 10);
   const powerPct = pw.pct;
   const insights = [
@@ -427,7 +469,6 @@ export function commandCenter() {
 }
 
 type AreaState = 'ok' | 'attention' | 'critical';
-const fmtN = (n: number) => n.toLocaleString('en-IN');
 const fmtWhenShort = (t: number) => { const d = new Date(t); const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return `${String(d.getDate()).padStart(2, '0')}-${M[d.getMonth()]} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 
 /* ---------------------------------------------------------------- topology */

@@ -30,7 +30,7 @@ export function Site() {
   const nav = useNavigate();
   const ask = useSentinel();
   const [disc, setDisc] = useState<{ busy: boolean; msg?: string }>({ busy: false });
-  usePage([{ label: 'Location', to: '/inventory' }, { label: 'Datacenters — filtered list', to: '/inventory/datacenters' }, { label: id }], { dcId: id });
+  usePage([{ label: 'Datacenters', to: '/datacenters' }, { label: id }], { dcId: id });
   const { data, loading } = useQuery(() => getDatacenter(id), [id]);
   if (loading && !data) return <Loading label="Loading site" />;
   if (!data) return <NotFound what="Datacenter" />;
