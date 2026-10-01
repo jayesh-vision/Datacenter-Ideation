@@ -52,7 +52,7 @@ function HealthGauge({ value }: { value: number }) {
   const v = Math.max(0, Math.min(100, value));
   const c = v >= 60 ? C.accent : C.bad;
   return (
-    <svg width={size} height={size * 0.82} viewBox={`0 0 ${size} ${size * 0.82}`} role="img" aria-label={`Estate health ${value} of 100`}>
+    <svg width={size} height={size * 0.82} viewBox={`0 0 ${size} ${size * 0.82}`} role="img" aria-label={`Operations health ${value} of 100`}>
       <path d={arc(135, 405)} fill="none" style={{ stroke: 'var(--vw-color-slate-100)' }} strokeWidth={9} strokeLinecap="round" />
       {v > 0 && <path d={arc(135, 135 + (270 * v) / 100)} fill="none" style={{ stroke: c }} strokeWidth={9} strokeLinecap="round" />}
       <text x={cx} y={cy + 9} textAnchor="middle" style={{ fontSize: 'var(--vw-font-value-xxl)', fontWeight: 300, fill: 'var(--vw-color-gray-900)', fontFamily: 'var(--fontFamily)' }}>{value}</text>
@@ -74,7 +74,6 @@ function Situation({ d }: { d: CC }) {
   const bandChip = s.band === 'Healthy' ? 'success' : s.band === 'Watch' ? 'warning' : 'error';
   const crit = only1 === 'sev1' ? d.critical.filter(i => i.sev === 1) : d.critical;
   const n1 = d.critical.filter(i => i.sev === 1).length, n2 = d.critical.length - n1;
-  const [lead, ...rest] = s.headline.split(' · ');
   /* NST KPI: neutral metric, state carried by the variance line */
   const sig: { k: string; v: string; u?: string; l: string; note: string; tone: 'positive' | 'negative' | 'neutral'; to: string }[] = [
     { k: 'open', v: String(p.open), l: 'Open incidents', note: `${n1} SEV1 · ${n2} SEV2`, tone: 'neutral', to: '/incidents' },
@@ -102,16 +101,26 @@ function Situation({ d }: { d: CC }) {
 
       <section className="vw-card-section cmd-status">
         <div className="cmd-gauge">
-          <span className="vw-card-metric-label">Estate health</span>
+          <span className="vw-card-metric-label cmd-gauge-label">Operations health
+            <span className="cmd-info" tabIndex={0} title="Average of the four areas on the right. Counts each datacenter site, its edge links and its dependencies; alarms from downstream PoPs and sites are excluded."><I.Info size={13} /></span>
+          </span>
           <HealthGauge value={d.shi} />
           <span className={`vw-chip vw-chip--${bandChip} is-strong`}>{s.band}</span>
-          <span className="vw-footer-meta cmd-gauge-note">Average of the four areas</span>
-          <span className="vw-footer-meta cmd-gauge-note" title="Site, edge links and dependencies count; alarms from downstream PoPs and sites do not">Scope: sites + edge + dependencies</span>
         </div>
         <div className="cmd-status-main">
-          <div className="vw-flex vw-flex-col" style={{ gap: 6 }}>
-            <div className="vw-card-title-lg">{lead}</div>
-            <div className="vw-card-description cmd-sub">{rest.map((t, i) => <span key={i}>{t}</span>)}</div>
+          <div className="cmd-counts">
+            {[
+              { v: s.n1, l: 'SEV1 open', to: '/incidents?view=sev1', hot: s.n1 > 0 },
+              { v: s.n2, l: 'SEV2 open', to: '/incidents', warn: s.n2 > 0 },
+              { v: s.critSites, l: 'DCs affected', to: '/datacenters?view=incidents' },
+              { v: s.exposedPremium, l: 'Premium hit', to: '/customers?exposed=1' },
+              { v: fmtINR(s.revenueAtRisk), l: 'Revenue at risk / mo', to: '/services?status=Degraded' }
+            ].map(x => (
+              <Link key={x.l} to={x.to} title={x.l} className={`cmd-count${x.hot ? ' is-hot' : x.warn ? ' is-warn' : ''}`}>
+                <span className="vw-card-metric-xl">{x.v}</span>
+                <span className="vw-label">{x.l}</span>
+              </Link>
+            ))}
           </div>
           <div className="cmd-areas" role="list">
             {d.domains.map(x => {
@@ -171,17 +180,18 @@ function Situation({ d }: { d: CC }) {
               const left = i.sla.resolveLeft, used = Math.max(0, Math.min(100, ((i.resolveSlaMin - left) / i.resolveSlaMin) * 100));
               const late = left < 0;
               return (
-                <Link key={i.id} to={`/incidents/${i.id}`} className="vw-card-section vw-card--accent vw-card--clickable cmd-inc">
+                <div key={i.id} className="vw-card-section vw-card--accent cmd-inc">
                   <div className="vw-card-accent" style={{ background: i.sev === 1 ? C.bad : C.warn }} />
                   {/* fixed slots: every card has the same rows at the same heights */}
-                  <div className="ci-dc">
+                  <Link to={`/datacenters/${i.dcId}`} className="ci-dc" title={`Open datacenter ${i.dcId}`}>
                     <span className="vw-card-icon-sm ci-dc-ic"><I.Building2 size={16} /></span>
                     <div className="ci-dc-id">
                       <span className="ci-dc-name">{i.dcId}</span>
                       <span className="vw-label">{i.city}, {i.state} · {i.tier}</span>
                     </div>
-                    <span className="ci-dc-ctx" title="Open incidents at this datacenter">{i.siteOpen} open<small>at site</small></span>
-                  </div>
+                    <span className="ci-dc-ctx" title="Open incidents at this datacenter">{i.siteOpen} open<small>in DC</small></span>
+                  </Link>
+                  <Link to={`/incidents/${i.id}`} className="ci-body" title={`Open incident ${i.id}`}>
                   <div className="ci-head">
                     <span className={`vw-chip ${i.sev === 1 ? 'vw-chip--error' : 'vw-chip--warning'} is-strong cmd-chip`}>SEV{i.sev}</span>
                     <span className="vw-card-activity-label">{i.id}</span>
@@ -210,6 +220,7 @@ function Situation({ d }: { d: CC }) {
                     <span className="vw-value ci-clamp2">{i.nextAction ?? 'All actions complete — run closure checks'}</span>
                   </div>
                 </Link>
+                  </div>
               );
             })}
           </div>

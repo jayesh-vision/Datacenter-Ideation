@@ -237,7 +237,7 @@
 .cmd-area-go { display: inline-flex; align-items: center; gap: 8px; color: var(--vw-color-gray-400); }
 
 /* Critical-now card: a fixed row template so cards align field for field */
-.cmd-inc { display: grid !important; grid-template-rows: 52px 24px 40px 40px 44px 30px 70px; row-gap: 10px; align-content: start; }
+
 .ci-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .ci-age { margin-left: auto; white-space: nowrap; }
 .ci-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 20px; }
@@ -267,3 +267,30 @@
 .cmd-inc { padding-top: calc(var(--vw-space-md) + 3px) !important; }
 .ci-head .vw-card-activity-label { white-space: nowrap; }
 .ci-head .cmd-chip { flex-shrink: 0; }
+
+/* two click targets: datacenter header -> site, body -> incident */
+.cmd-inc { display: flex !important; flex-direction: column; padding: 0 !important; gap: 0 !important; }
+.ci-dc { margin: 0 !important; padding: 15px var(--vw-space-md) 10px !important; color: inherit; text-decoration: none; border-radius: var(--vw-radius-lg) var(--vw-radius-lg) 0 0; transition: background .15s; }
+.ci-dc:hover { background: var(--primaryColor50); }
+.ci-dc:hover .ci-dc-name { color: var(--primaryColor700); }
+.ci-body { display: grid; grid-template-rows: 24px 40px 40px 44px 30px 70px; row-gap: 10px; align-content: start; padding: 12px var(--vw-space-md) var(--vw-space-md); color: inherit; text-decoration: none; border-radius: 0 0 var(--vw-radius-lg) var(--vw-radius-lg); transition: background .15s; }
+.ci-body:hover { background: var(--vw-color-slate-50); }
+.ci-body:hover .ci-head .vw-card-activity-label { color: var(--primaryColor700); }
+.ci-dc:focus-visible, .ci-body:focus-visible { outline: 2px solid var(--primaryColor500); outline-offset: -2px; }
+
+/* status card: compact gauge + headline counts */
+.cmd-status { grid-template-columns: 168px minmax(0, 1fr) !important; align-items: stretch !important; }
+.cmd-gauge { gap: 6px !important; justify-content: center; }
+.cmd-gauge-label { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.cmd-info { display: inline-flex; color: var(--vw-color-gray-400); cursor: help; }
+.cmd-info:hover, .cmd-info:focus-visible { color: var(--primaryColor500); outline: none; }
+.cmd-counts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border: 1px solid var(--vw-color-slate-200); border-radius: var(--vw-radius-sm); overflow: hidden; }
+.cmd-count { display: flex; flex-direction: column; gap: 4px; padding: 10px var(--vw-space-md); color: inherit; text-decoration: none; border-left: 1px solid var(--vw-color-slate-200); position: relative; min-width: 0; }
+.cmd-count:first-child { border-left: 0; }
+.cmd-count:hover { background: var(--vw-color-slate-50); }
+.cmd-count .vw-card-metric-xl { color: var(--vw-color-gray-900); white-space: nowrap; }
+.cmd-count .vw-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmd-count.is-hot::before, .cmd-count.is-warn::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; }
+.cmd-count.is-hot::before { background: var(--vw-color-red-500); }
+.cmd-count.is-hot .vw-card-metric-xl { color: var(--vw-color-red-600); }
+.cmd-count.is-warn::before { background: var(--vw-color-amber-500); }

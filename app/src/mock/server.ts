@@ -392,7 +392,7 @@ export function commandCenter() {
   ].sort((a, b) => b.at - a.at).slice(0, 10);
   const powerPct = pw.pct;
   const insights = [
-    `Estate health ${shi}/100 — weakest area is ${weakest.label} at ${weakest.value}%.`,
+    `Operations health ${shi}/100 — weakest area is ${weakest.label} at ${weakest.value}%.`,
     `${stale.length} site${stale.length === 1 ? ' has' : 's have'} a stale discovery collector; ${reconOpen.length} inventory records await reconciliation.`,
     exhaust[0] ? `${exhaust[0].aNe} ${exhaust[0].aIf} is forecast to cross 85% in ${Math.max(1, Math.round(exhaust[0].forecastMonths))} month${Math.max(1, Math.round(exhaust[0].forecastMonths)) === 1 ? '' : 's'} at ${exhaust[0].growthPct}%/mo growth.` : 'No backhaul link crosses 85% inside six months.',
     `Estate power at ${powerPct}% of capacity with ${Math.round(pw.headroom).toLocaleString('en-IN')} kW headroom; ${pw.pipeline} kW committed in approved plans.`
@@ -457,7 +457,7 @@ export function commandCenter() {
   const revenueAtRisk = exposedSvc.reduce((a, x) => a + x.revenueMonthly, 0);
 
   return {
-    situation: { headline, band: shi >= 85 && breaching.length === 0 ? 'Healthy' : shi >= 60 ? 'Watch' : 'Degraded', weakest, revenueAtRisk, exposedPremium: exposedCustomers.filter(c => c.premium).length, services: db.services.length, customers: db.customers.length, lldp: lldp.length },
+    situation: { n1: open.filter(i => i.sev === 1).length, n2: open.filter(i => i.sev === 2).length, critSites: new Set(open.filter(i => i.sev <= 2).map(i => i.dcId)).size, exposedServices: exposedSvc.length, headline, band: shi >= 85 && breaching.length === 0 ? 'Healthy' : shi >= 60 ? 'Watch' : 'Degraded', weakest, revenueAtRisk, exposedPremium: exposedCustomers.filter(c => c.premium).length, services: db.services.length, customers: db.customers.length, lldp: lldp.length },
     topIncidents, critical, svcStatus, exposedCustomers: exposedCustomers.slice(0, 6), causes, changeImplicated, recommendations, upcoming, dcMap, regions,
     pulse: { facilityAlarms, activeChanges: activeChanges.length, unreachable: unreachable.length, health, open: open.length, breaching: breaching.length, critMajor: al.filter(a => a.severity === 'critical' || a.severity === 'major').length, powerHeadroom: pw.headroom, linksDown: linksDown.length, servicesDegraded: degraded.length,
       pue: Math.round((s.filter(x => x.status !== 'planned').reduce((a, x) => a + x.pue, 0) / s.filter(x => x.status !== 'planned').length) * 100) / 100,
