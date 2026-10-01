@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Buttons — styles &amp; sizes — NST Design System</title>
+  <link rel="stylesheet" href="../colors.css">
+  <link rel="stylesheet" href="../spacing.css">
+  <link rel="stylesheet" href="../typography-tokens.css">
+  <link rel="stylesheet" href="../theme-tokens.css">
+  <link rel="stylesheet" href="../components.css">
+  <style>
+    @font-face { font-family: 'Inter'; src: url('../fonts/Inter-VariableFont_opsz_wght.ttf') format('truetype-variations'); font-weight: 100 900; font-style: normal; font-display: swap; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #fff; padding: 24px 28px 28px; font-family: 'Inter', system-ui, sans-serif; color: #111827; }
+
+    .block { margin-bottom: 22px; }
+    .block-label { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #9CA3AF; margin-bottom: 10px; }
+    .row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
+    .col { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+    .meta { font-size: 10px; font-weight: 400; color: #9CA3AF; font-family: 'SF Mono', 'Fira Code', monospace; white-space: nowrap; }
+    hr { border: none; border-top: 1px solid #F3F4F6; margin: 0 0 22px; }
+    .icon { width: 16px; height: 16px; flex-shrink: 0; display: block; }
+  </style>
+</head>
+<body>
+
+  <!-- SIZES -->
+  <div class="block">
+    <div class="block-label">Sizes — .nst-btn--xs|sm|md|lg</div>
+    <div class="row">
+      <div class="col"><button class="nst-btn nst-btn--filled nst-btn--xs">Button</button><span class="meta">xs · 12px · p:4px</span></div>
+      <div class="col"><button class="nst-btn nst-btn--filled nst-btn--sm">Button</button><span class="meta">sm · 13px · 6&times;8</span></div>
+      <div class="col"><button class="nst-btn nst-btn--filled nst-btn--md">Button</button><span class="meta">md · 14px · 8&times;16 (default)</span></div>
+      <div class="col"><button class="nst-btn nst-btn--filled nst-btn--lg">Button</button><span class="meta">lg · 16px · 8&times;16</span></div>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- STATES -->
+  <div class="block">
+    <div class="block-label">States</div>
+    <div class="row">
+      <div class="col"><button class="nst-btn nst-btn--filled">Default</button><span class="meta">primaryColor500</span></div>
+      <div class="col"><button class="nst-btn nst-btn--filled" style="background:var(--primaryColor400);border-color:var(--primaryColor400);">Hover</button><span class="meta">primaryColor400</span></div>
+      <div class="col"><button class="nst-btn nst-btn--filled is-disabled" disabled>Disabled</button><span class="meta">gray-100 / gray-400</span></div>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- VARIANTS -->
+  <div class="block">
+    <div class="block-label">Variants — md (default = outline)</div>
+    <div class="row" style="align-items:center;">
+      <button class="nst-btn nst-btn--filled">Filled</button>
+      <button class="nst-btn">Outline</button>
+      <button class="nst-btn nst-btn--gray">Gray</button>
+      <button class="nst-btn nst-btn--ghost">Ghost</button>
+      <button class="nst-btn nst-btn--action">Action</button>
+      <button class="nst-btn nst-btn--danger">Danger</button>
+      <button class="nst-btn nst-btn--danger-subtle">Danger subtle</button>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ICON PLACEMENT -->
+  <div class="block">
+    <div class="block-label">Icon Placement — md &middot; Filled</div>
+    <div class="row">
+      <div class="col">
+        <button class="nst-btn nst-btn--filled">
+          <svg class="icon" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          Button
+        </button>
+        <span class="meta">Lead icon</span>
+      </div>
+      <div class="col">
+        <button class="nst-btn nst-btn--filled">
+          Button
+          <svg class="icon" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <span class="meta">Trail icon</span>
+      </div>
+      <div class="col">
+        <button class="nst-btn nst-btn--filled">
+          <svg class="icon" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          Button
+          <svg class="icon" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <span class="meta">Both icons</span>
+      </div>
+      <div class="col">
+        <button class="nst-btn nst-btn--filled nst-btn--icon" title="Action">
+          <svg class="icon" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+        <span class="meta">Icon only &middot; .nst-btn--icon</span>
+      </div>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ICON PLACEMENT × ALL VARIANTS -->
+  <div class="block">
+    <div class="block-label">Icon Placement — md &middot; All variants</div>
+    <div class="row" style="align-items:center; gap:6px;">
+      <button class="nst-btn nst-btn--filled"><svg class="icon" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Filled</button>
+      <button class="nst-btn"><svg class="icon" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Outline</button>
+      <button class="nst-btn nst-btn--gray"><svg class="icon" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Gray</button>
+      <button class="nst-btn nst-btn--ghost"><svg class="icon" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Ghost</button>
+      <button class="nst-btn nst-btn--action"><svg class="icon" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Action</button>
+      <button class="nst-btn nst-btn--danger"><svg class="icon" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Danger</button>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ICON ONLY — ALL SIZES -->
+  <div class="block">
+    <div class="block-label">Icon only — All sizes &middot; .nst-btn--icon.nst-btn--xs|sm|md|lg</div>
+    <div class="row">
+      <div class="col"><button class="nst-btn nst-btn--filled nst-btn--icon nst-btn--xs" title="Action"><svg class="icon" style="width:12px;height:12px;" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button><span class="meta">xs &middot; 24px</span></div>
+      <div class="col"><button class="nst-btn nst-btn--filled nst-btn--icon nst-btn--sm" title="Action"><svg class="icon" style="width:14px;height:14px;" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button><span class="meta">sm &middot; 30px</span></div>
+      <div class="col"><button class="nst-btn nst-btn--filled nst-btn--icon nst-btn--md" title="Action"><svg class="icon" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button><span class="meta">md &middot; 36px</span></div>
+      <div class="col"><button class="nst-btn nst-btn--filled nst-btn--icon nst-btn--lg" title="Action"><svg class="icon" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button><span class="meta">lg &middot; 40px</span></div>
+    </div>
+  </div>
+
+</body>
+</html>

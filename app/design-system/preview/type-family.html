@@ -1,0 +1,38 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>@font-face{font-family:'Inter';src:url('../fonts/Inter-VariableFont_opsz_wght.ttf') format('truetype-variations');font-weight:100 900;font-style:normal;font-display:swap;}</style>
+<style>
+  :root { --gray-900:#111827; --gray-500:#6B7280; --gray-400:#9CA3AF; --gray-200:#E5E7EB; --gray-100:#F3F4F6; --gray-50:#F9FAFB; }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:Inter,system-ui,-apple-system,sans-serif;background:#fff;-webkit-font-smoothing:antialiased;padding:20px;color:var(--gray-900);}
+  .stack-row{display:grid;grid-template-columns:130px 1fr;align-items:center;gap:16px;padding:12px 16px;border-bottom:1px solid var(--gray-100);}
+  .stack-row:hover{background:var(--gray-50);}
+  .weight-row{display:grid;grid-template-columns:60px 200px 1fr 200px;align-items:center;gap:16px;padding:13px 16px;border-bottom:1px solid var(--gray-100);}
+  .weight-row:last-child{border-bottom:none;}
+  .weight-row:hover{background:var(--gray-50);}
+  .label{font-family:ui-monospace,SFMono-Regular,monospace;font-size:11px;color:var(--gray-400);text-transform:uppercase;letter-spacing:.05em;}
+  .val{font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px;color:var(--gray-500);}
+  .sample{font-family:Inter,system-ui,-apple-system,sans-serif;font-size:22px;color:var(--gray-900);}
+  .chars{font-family:ui-monospace,monospace;font-size:10px;color:var(--gray-400);letter-spacing:.04em;}
+</style>
+</head>
+<body>
+  <div class="stack-row"><span class="label">Font stack</span><span class="val">Inter, system-ui, -apple-system, sans-serif</span></div>
+  <div class="weight-row">
+    <span class="val">300</span>
+    <span class="label">Light · display scales</span>
+    <span class="sample" style="font-weight:300;">The quick brown fox</span>
+    <span class="chars">AaBbCcDd 0123456789</span>
+  </div>
+  <div class="weight-row">
+    <span class="val">400</span>
+    <span class="label">Regular · body text</span>
+    <span class="sample" style="font-weight:400;">The quick brown fox</span>
+    <span class="chars">AaBbCcDd 0123456789</span>
+  </div>
+  <div class="weight-row">
+    <span class="val">500</span>
+    <span class="label">Medium · headings & labels</span>
+    <span class="sample" style="font-weight:500;">The quick brown fox</span>
+    <span class="chars">AaBbCcDd 0123456789</span>
+  </div>
+</body></html>

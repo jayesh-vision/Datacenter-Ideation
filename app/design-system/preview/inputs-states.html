@@ -1,0 +1,293 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="../colors.css">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:Inter,system-ui,-apple-system,sans-serif;background:#fff;padding:24px;-webkit-font-smoothing:antialiased;color:var(--vw-color-gray-900);}
+
+  .label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--vw-color-gray-400);margin-bottom:8px;}
+  .group{display:flex;flex-direction:column;gap:16px;max-width:380px;}
+  .state-block{display:flex;flex-direction:column;gap:0;}
+  .state-name{
+    overflow: hidden;
+    color: var(--vw-color-gray-500);
+    font-feature-settings: 'ss01' on, 'cv01' on, 'cv11' on;
+    text-overflow: ellipsis;
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 500;
+    line-height: 18px;
+    margin-bottom: 0;
+    white-space: nowrap;
+  }
+
+  /* ── Base input shell ── */
+  .input{
+    display:flex;
+    min-height:36px;
+    padding:6px 8px;
+    align-items:center;
+    gap:8px;
+    border-radius:8px;
+    border:1px solid var(--vw-color-gray-200);
+    background:var(--vw-color-white);
+    width:100%;
+  }
+  .input svg{ flex-shrink:0; color:var(--vw-color-gray-400); }
+  .input .placeholder{ flex:1; font-size:14px; line-height:20px; color:var(--vw-color-gray-400); }
+  .input .value      { flex:1; font-size:14px; line-height:20px; color:var(--vw-color-gray-700); }
+  .input .chevron    { flex-shrink:0; color:var(--vw-color-gray-400); }
+  .input .cursor     { width:1.5px; height:16px; background:var(--vw-color-blue-600); border-radius:1px; animation:blink 1s step-end infinite; }
+  @keyframes blink{ 0%,100%{opacity:1;} 50%{opacity:0;} }
+
+  /* ── State variants ── */
+  .input.hover   { border-color:var(--vw-color-gray-400); }
+  .input.active  { border-color:var(--vw-color-blue-500); box-shadow:0 0 0 3px var(--vw-color-blue-100); }
+  .input.error   { border-color:var(--vw-color-red-500); }
+  .input.error.active { box-shadow:0 0 0 3px var(--vw-color-red-100); }
+  .input.disabled{ background:var(--vw-color-gray-50); border-color:var(--vw-color-gray-200); cursor:not-allowed; }
+  .input.disabled .placeholder { color:var(--vw-color-gray-300); }
+  .input.disabled svg { color:var(--vw-color-gray-300); }
+
+  .hint     { font-size:12px; line-height:18px; color:var(--vw-color-gray-400); }
+  .hint.err { color:var(--vw-color-red-600); }
+
+  /* search icon */
+  .ic-search{ width:16px;height:16px; }
+  .ic-chevron{ width:14px;height:14px; }
+
+  /* ── Description field (textarea) ── */
+  .ta-wrap {
+    position: relative;
+    border-radius: 8px;
+    border: 1px solid var(--vw-color-gray-200);
+    background: var(--vw-color-white);
+    display: flex;
+    flex-direction: column;
+    height: 140px;
+    transition: border-color 150ms, box-shadow 150ms;
+  }
+  .ta-wrap.hover          { border-color: var(--vw-color-gray-400); }
+  .ta-wrap.active,
+  .ta-wrap:focus-within   { border-color: var(--vw-color-blue-500); box-shadow: 0 0 0 3px var(--vw-color-blue-100); }
+  .ta-wrap.error          { border-color: var(--vw-color-red-500); }
+  .ta-wrap.error.active,
+  .ta-wrap.error:focus-within { border-color: var(--vw-color-red-500); box-shadow: 0 0 0 3px var(--vw-color-red-100); }
+  .ta-wrap.disabled       { background: var(--vw-color-gray-50); border-color: var(--vw-color-gray-200); }
+
+  .ta {
+    flex: 1; border: none; outline: none; resize: none;
+    padding: 8px 8px 0;
+    font-size: 14px; line-height: 20px;
+    color: var(--vw-color-gray-700);
+    background: transparent;
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    min-height: 0; overflow: hidden;
+  }
+  .ta::placeholder { color: var(--vw-color-gray-400); }
+  .ta:disabled     { color: var(--vw-color-gray-300); cursor: not-allowed; }
+
+  .ta-footer {
+    display: flex; align-items: center; justify-content: flex-end;
+    gap: 8px; padding: 4px 8px 6px; flex-shrink: 0;
+  }
+  .ta-counter {
+    font-size: 12px; line-height: 18px;
+    color: var(--vw-color-gray-400);
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+  }
+  .ta-counter.over          { color: var(--vw-color-red-500); font-weight: 500; }
+  .ta-wrap.disabled .ta-counter { color: var(--vw-color-gray-300); }
+
+  .ta-resize {
+    color: var(--vw-color-gray-300);
+    cursor: se-resize;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: color 100ms;
+    user-select: none; -webkit-user-select: none;
+  }
+  .ta-resize:hover { color: var(--vw-color-gray-500); }
+  .ta-wrap.disabled .ta-resize { cursor: not-allowed; color: var(--vw-color-gray-200); pointer-events: none; }
+</style>
+</head>
+<body>
+
+<div class="group">
+
+  <!-- Default -->
+  <div class="state-block">
+    <div class="state-name">Default</div>
+    <div class="input">
+      <svg class="ic-search" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 L13.5 13.5"/></svg>
+      <span class="placeholder">Placeholder</span>
+      <svg class="ic-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6 L8 10 L12 6"/></svg>
+    </div>
+  </div>
+
+  <!-- Hover -->
+  <div class="state-block">
+    <div class="state-name">Hover</div>
+    <div class="input hover">
+      <svg class="ic-search" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 L13.5 13.5"/></svg>
+      <span class="placeholder">Placeholder</span>
+      <svg class="ic-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6 L8 10 L12 6"/></svg>
+    </div>
+  </div>
+
+  <!-- Active / Focused -->
+  <div class="state-block">
+    <div class="state-name">Active (focused)</div>
+    <div class="input active">
+      <svg class="ic-search" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 L13.5 13.5"/></svg>
+      <span class="value">Typed value<span class="cursor"></span></span>
+      <svg class="ic-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6 L8 10 L12 6"/></svg>
+    </div>
+  </div>
+
+  <!-- Filled -->
+  <div class="state-block">
+    <div class="state-name">Filled</div>
+    <div class="input">
+      <svg class="ic-search" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 L13.5 13.5"/></svg>
+      <span class="value">Selected value</span>
+      <svg class="ic-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6 L8 10 L12 6"/></svg>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div class="state-block">
+    <div class="state-name">Error</div>
+    <div class="input error">
+      <svg class="ic-search" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 L13.5 13.5"/></svg>
+      <span class="value">Invalid value</span>
+      <svg class="ic-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6 L8 10 L12 6"/></svg>
+    </div>
+    <div class="hint err">This field is required.</div>
+  </div>
+
+  <!-- Disabled -->
+  <div class="state-block">
+    <div class="state-name">Disabled</div>
+    <div class="input disabled">
+      <svg class="ic-search" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 L13.5 13.5"/></svg>
+      <span class="placeholder">Placeholder</span>
+      <svg class="ic-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6 L8 10 L12 6"/></svg>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Description Field ── -->
+<div style="margin-top:32px;">
+  <div class="label">Description field</div>
+  <div class="group">
+
+    <!-- Default (interactive) -->
+    <div class="state-block">
+      <div class="state-name">Default</div>
+      <div class="ta-wrap" id="ta-default">
+        <textarea class="ta" placeholder="Placeholder" maxlength="200"
+          oninput="updateCounter(this,'cnt-default',200)"></textarea>
+        <div class="ta-footer">
+          <span class="ta-counter" id="cnt-default">0/200</span>
+          <span class="ta-resize" onmousedown="startResize(event,'ta-default')">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 13L13 5M9.5 13L13 9.5"/></svg>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hover -->
+    <div class="state-block">
+      <div class="state-name">Hover</div>
+      <div class="ta-wrap hover">
+        <textarea class="ta" placeholder="Placeholder" style="pointer-events:none;" tabindex="-1"></textarea>
+        <div class="ta-footer">
+          <span class="ta-counter">0/200</span>
+          <span class="ta-resize" style="pointer-events:none;">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 13L13 5M9.5 13L13 9.5"/></svg>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active / Focused -->
+    <div class="state-block">
+      <div class="state-name">Active (focused)</div>
+      <div class="ta-wrap active">
+        <textarea class="ta" style="pointer-events:none;color:var(--vw-color-gray-700);" tabindex="-1">Typed value</textarea>
+        <div class="ta-footer">
+          <span class="ta-counter">11/200</span>
+          <span class="ta-resize" style="pointer-events:none;">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 13L13 5M9.5 13L13 9.5"/></svg>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filled -->
+    <div class="state-block">
+      <div class="state-name">Filled</div>
+      <div class="ta-wrap">
+        <textarea class="ta" style="pointer-events:none;color:var(--vw-color-gray-700);" tabindex="-1">This is the filled content of the description field.</textarea>
+        <div class="ta-footer">
+          <span class="ta-counter">51/200</span>
+          <span class="ta-resize" style="pointer-events:none;">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 13L13 5M9.5 13L13 9.5"/></svg>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error -->
+    <div class="state-block">
+      <div class="state-name">Error</div>
+      <div class="ta-wrap error">
+        <textarea class="ta" style="pointer-events:none;color:var(--vw-color-gray-700);" tabindex="-1">Invalid content entered here</textarea>
+        <div class="ta-footer">
+          <span class="ta-counter">26/200</span>
+          <span class="ta-resize" style="pointer-events:none;">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 13L13 5M9.5 13L13 9.5"/></svg>
+          </span>
+        </div>
+      </div>
+      <div class="hint err">This field contains invalid content.</div>
+    </div>
+
+    <!-- Disabled -->
+    <div class="state-block">
+      <div class="state-name">Disabled</div>
+      <div class="ta-wrap disabled">
+        <textarea class="ta" placeholder="Placeholder" disabled></textarea>
+        <div class="ta-footer">
+          <span class="ta-counter">0/200</span>
+          <span class="ta-resize">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 13L13 5M9.5 13L13 9.5"/></svg>
+          </span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function updateCounter(ta, id, max) {
+  const len = ta.value.length;
+  const el = document.getElementById(id);
+  el.textContent = len + '/' + max;
+  el.classList.toggle('over', len >= max);
+}
+function startResize(e, id) {
+  e.preventDefault();
+  const wrap = document.getElementById(id);
+  const startY = e.clientY;
+  const startH = wrap.offsetHeight;
+  function onMove(ev) { wrap.style.height = Math.max(80, startH + ev.clientY - startY) + 'px'; }
+  function onUp()     { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+</script>
+</body></html>

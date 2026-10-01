@@ -1,0 +1,23 @@
+<!-- shared preview shell — each card imports tokens and sets canvas -->
+<style>
+  :root { --card-pad: 20px; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: var(--card-pad);
+    background: #FFFFFF;
+    color: #252525;
+    font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .col { display: flex; flex-direction: column; gap: 8px; }
+  .swatch {
+    width: 56px; height: 56px; border-radius: 12px;
+    border: 1px solid rgba(0,0,0,.06);
+    display: flex; align-items: flex-end; justify-content: flex-start;
+    padding: 6px;
+    font-size: 10px; font-weight: 500; color: rgba(0,0,0,.55);
+  }
+  .swatch.dark { color: rgba(255,255,255,.85); }
+  .tag { font-size: 11px; color: #7C7C7C; }
+</style>

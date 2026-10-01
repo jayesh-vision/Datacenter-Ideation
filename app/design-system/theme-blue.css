@@ -1,0 +1,42 @@
+/* ============================================================
+   NST Design System — Theme: Blue (Default)
+   Primary: #1C81EF
+
+   Usage (scoped):  <div data-theme="blue"> … </div>
+   Usage (global):  <html data-theme="blue">
+   Note: This is the default system theme. These values
+   are already present in colors_and_type.css — this file
+   makes the blue theme explicit and portable.
+   ============================================================ */
+
+[data-theme="blue"] {
+
+  /* ── Accent color scale ─────────────────────────────────── */
+  --accentColor50:  #eff6ff;   /* --vw-color-blue-50  */
+  --accentColor100: #dbeafe;   /* --vw-color-blue-100 */
+  --accentColor200: #bfdbfe;   /* --vw-color-blue-200 */
+  --accentColor300: #93c5fd;   /* --vw-color-blue-300 */
+  --accentColor400: #60a5fa;   /* --vw-color-blue-400 */
+  --accentColor500: #1C81EF;   /* brand primary       */
+  --accentColor600: #2563eb;   /* --vw-color-blue-600 */
+  --accentColor700: #1d4ed8;   /* --vw-color-blue-700 */
+  --accentColor800: #1e40af;   /* --vw-color-blue-800 */
+  --accentColor900: #1e3a8a;   /* --vw-color-blue-900 */
+
+  /* ── Semantic primary overrides ─────────────────────────── */
+  --color-primary:        #1C81EF;   /* accentColor500 — default */
+  --color-primary-hover:  #4290ED;   /* lifted               */
+  --color-primary-press:  #1767BE;   /* pressed              */
+
+  /* ── vw-color-accent remapping ──────────────────────────── */
+  --vw-color-accent-50:  #eff6ff;
+  --vw-color-accent-100: #dbeafe;
+  --vw-color-accent-200: #bfdbfe;
+  --vw-color-accent-300: #93c5fd;
+  --vw-color-accent-400: #60a5fa;
+  --vw-color-accent-500: #1C81EF;
+  --vw-color-accent-600: #2563eb;
+  --vw-color-accent-700: #1d4ed8;
+  --vw-color-accent-800: #1e40af;
+  --vw-color-accent-900: #1e3a8a;
+}

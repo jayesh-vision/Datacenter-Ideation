@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Selection Controls — NST Design System</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #fff;
+    font-family: Inter, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    padding: 20px;
+    color: #252525;
+  }
+  button { font-family: inherit; }
+  .group-label {
+    font-size: 11px; color: #7C7C7C;
+    text-transform: uppercase; letter-spacing: .05em;
+    font-family: ui-monospace, monospace;
+    margin-bottom: 10px;
+  }
+  .col { display: flex; flex-direction: column; gap: 10px; }
+  .row { display: flex; gap: 40px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
+/* ── Checkbox ── */
+const Checkbox = ({ checked, indeterminate, onChange, disabled, label }) => (
+  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: disabled ? 'not-allowed' : 'pointer' }}>
+    <span
+      onClick={() => !disabled && onChange && onChange(!checked)}
+      style={{
+        width: 18, height: 18, borderRadius: 4,
+        background: disabled ? '#E3E3E3' : (checked || indeterminate) ? '#1C81EF' : '#fff',
+        border: disabled ? 'none' : `1px solid ${checked || indeterminate ? '#1C81EF' : '#E9E9E9'}`,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        flexShrink: 0, transition: 'all 150ms',
+      }}
+    >
+      {checked && !indeterminate && (
+        <svg width="10" height="8" viewBox="0 0 10 8">
+          <path d="M1 4 L4 7 L9 1" stroke="#fff" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      )}
+      {indeterminate && <span style={{ width: 8, height: 1.5, background: '#fff', borderRadius: 1 }}></span>}
+    </span>
+    {label && <span style={{ font: '400 14px/20px Inter', color: disabled ? '#A8A8A8' : '#252525' }}>{label}</span>}
+  </label>
+);
+
+/* ── Radio ── */
+const Radio = ({ checked, onChange, disabled, label, value }) => (
+  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: disabled ? 'not-allowed' : 'pointer' }}>
+    <span
+      onClick={() => !disabled && onChange && onChange(value)}
+      style={{
+        width: 18, height: 18, borderRadius: '50%',
+        background: disabled ? '#E3E3E3' : '#fff',
+        border: `1px solid ${!disabled && checked ? '#1C81EF' : '#E3E3E3'}`,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        flexShrink: 0, transition: 'all 150ms',
+      }}
+    >
+      {checked && (
+        <span style={{ width: 9, height: 9, borderRadius: '50%', background: disabled ? '#A8A8A8' : '#1C81EF' }}></span>
+      )}
+    </span>
+    {label && <span style={{ font: '400 14px/20px Inter', color: disabled ? '#A8A8A8' : '#252525' }}>{label}</span>}
+  </label>
+);
+
+/* ── Toggle ── */
+const Toggle = ({ on, onChange, disabled, label }) => (
+  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: disabled ? 'not-allowed' : 'pointer' }}>
+    <span
+      onClick={() => !disabled && onChange && onChange(!on)}
+      style={{
+        width: 28, height: 16, borderRadius: 999, padding: 2, boxSizing: 'border-box',
+        background: disabled ? '#E3E3E3' : on ? '#1C81EF' : '#E3E3E3',
+        display: 'inline-flex', justifyContent: on ? 'flex-end' : 'flex-start',
+        flexShrink: 0, transition: 'all 200ms ease-out',
+      }}
+    >
+      <span style={{ width: 12, height: 12, borderRadius: 999, background: '#fff', boxShadow: '0 2px 4px rgba(0,0,0,.1)' }}></span>
+    </span>
+    {label && <span style={{ font: '400 14px/20px Inter', color: disabled ? '#A8A8A8' : '#252525' }}>{label}</span>}
+  </label>
+);
+
+/* ── Demo ── */
+const Demo = () => {
+  const [cb, setCb] = React.useState({ unchecked: false, checked: true, indeterminate: false, disabled: false });
+  const [radio, setRadio] = React.useState('on');
+  const [tog, setTog] = React.useState({ off: false, on: true, disabled: false });
+
+  return (
+    <div className="row">
+
+      {/* Checkbox */}
+      <div>
+        <div className="group-label">Checkbox</div>
+        <div className="col">
+          <Checkbox label="Unchecked" checked={false} onChange={() => {}} />
+          <Checkbox label="Checked"   checked={true}  onChange={() => {}} />
+          <Checkbox label="Indeterminate" checked={false} indeterminate={true} onChange={() => {}} />
+          <Checkbox label="Disabled"  checked={false} disabled />
+          <Checkbox label="Disabled checked" checked={true} disabled />
+        </div>
+      </div>
+
+      {/* Radio */}
+      <div>
+        <div className="group-label">Radio</div>
+        <div className="col">
+          <Radio label="Off"      value="off"      checked={radio === 'off'}      onChange={setRadio} />
+          <Radio label="On"       value="on"       checked={radio === 'on'}       onChange={setRadio} />
+          <Radio label="Disabled" value="disabled" checked={false} disabled />
+          <Radio label="Disabled checked" value="dis-checked" checked={true} disabled />
+        </div>
+      </div>
+
+      {/* Toggle */}
+      <div>
+        <div className="group-label">Toggle</div>
+        <div className="col">
+          <Toggle label="Off"      on={false} onChange={() => {}} />
+          <Toggle label="On"       on={true}  onChange={() => {}} />
+          <Toggle label="Disabled" on={false} disabled />
+          <Toggle label="Disabled on" on={true} disabled />
+        </div>
+      </div>
+
+    </div>
+  );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+</script>
+</body>
+</html>

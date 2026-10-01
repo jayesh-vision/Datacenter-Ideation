@@ -1,0 +1,35 @@
+---
+description: Mandatory NST / Vision Waves design system rules — never invent UI styles
+alwaysApply: true
+---
+
+# NST design system (mandatory)
+
+Before writing or editing **any** HTML, CSS, JSX, or UI mock in this repo:
+
+1. **Read `COMPONENTS.md`** and pick the matching component entry.
+2. **Use `nst-design-system.css`** + Poppins for all legacy/dashboard/enterprise UI.
+3. **Reuse existing classes** from `vw-cards.css`, `vw-chips.css`, `vw-utilities.css`, or `components.css` — never invent parallel styles when a registry entry exists.
+4. **Check `preview/`** for the closest specimen and mirror its structure.
+
+## Default stack (legacy apps)
+
+```html
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="nst-design-system.css">
+```
+
+Cards: `.vw-card-section`, `.vw-card-title`, `.vw-card-metric-lg`, `.vw-chip--success`  
+Layout: `.vw-flex`, `.vw-page-gap`, `.vw-justify-between`  
+Tokens: `var(--vw-color-*)`, `var(--vw-space-*)` — not hardcoded hex.
+
+## Do not
+
+- Drop design-system instructions and freestyle layouts
+- Use Inter, Tailwind, Bootstrap, or random color palettes
+- Create custom `.card` / `.badge` classes when `.vw-card-*` / `.vw-chip-*` exist
+- Use `colors_and_type.css` or `ui_kits/admin-console/` for dashboard/KPI screens
+
+## If unsure
+
+Open `preview/vw-cards.html` or `preview/kpi-card.html` and copy patterns verbatim, then adapt content only.

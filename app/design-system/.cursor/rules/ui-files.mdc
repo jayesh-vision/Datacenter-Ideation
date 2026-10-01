@@ -1,0 +1,18 @@
+---
+description: UI file conventions — HTML/CSS/JSX must use repo components
+globs: "**/*.{html,css,jsx,tsx,vue,scss}"
+alwaysApply: false
+---
+
+# UI file rules
+
+When creating or editing UI files in this repo:
+
+1. Import `nst-design-system.css` (not standalone token files unless extending the system).
+2. Map each UI element to `COMPONENTS.md` before coding.
+3. Copy structure from the matching `preview/*.html` specimen when one exists.
+4. Allowed inline styles: layout only (`max-width`, `minmax()`, `grid-template-columns`). Not colors, fonts, padding, or borders.
+5. New dashboard/card UI → `.vw-card-*` + `.vw-chip-*` only.
+6. New forms/tables → `.nst-*` from `components.css` after reading `preview/inputs-states.html` or `preview/table.html`.
+
+If no registry match exists, say so and propose adding to the design system — do not invent a one-off design.

@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Filter Popover — NST Design System</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #F4F4F4;
+    font-family: Inter, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    gap: 20px;
+    padding: 40px;
+  }
+  button { font-family: inherit; }
+  input  { font-family: inherit; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+
+/* ─────────────────────────────────────────────
+   Primitives
+───────────────────────────────────────────── */
+
+const CloseButton = ({ onClick }) => {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        width: 32, height: 32, flexShrink: 0,
+        borderRadius: 8,
+        border: '1px solid #E9E9E9',
+        background: hover ? '#F4F4F4' : '#FFFFFF',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        cursor: 'pointer',
+        color: '#515151',
+        transition: 'background 150ms ease-out',
+      }}
+    >
+      <i className="ph ph-x" style={{ fontSize: 16, lineHeight: 1 }}></i>
+    </button>
+  );
+};
+
+const GhostButton = ({ children, onClick }) => {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        height: 36, borderRadius: 8, padding: '0 14px',
+        background: hover ? '#F4F4F4' : '#FFFFFF',
+        border: '1px solid #E9E9E9',
+        font: '500 14px/20px Inter',
+        color: '#252525',
+        cursor: 'pointer',
+        transition: 'background 150ms ease-out',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {children}
+    </button>
+  );
+};
+
+const PrimaryButton = ({ children, onClick }) => {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        height: 36, borderRadius: 8, padding: '0 16px',
+        background: hover ? '#4290ED' : '#1C81EF',
+        border: 'none',
+        font: '500 14px/20px Inter',
+        color: '#FFFFFF',
+        cursor: 'pointer',
+        transition: 'background 150ms ease-out',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {children}
+    </button>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   FilterChip — selected value tag
+───────────────────────────────────────────── */
+const FilterChip = ({ label, onRemove }) => {
+  const [hoverX, setHoverX] = React.useState(false);
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      height: 26, borderRadius: 999,
+      padding: '0 6px 0 10px',
+      background: '#F4F4F4',
+      border: '1px solid #E9E9E9',
+      font: '400 13px/18px Inter',
+      color: '#515151',
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      maxWidth: '100%',
+    }}>
+      {label}
+      <button
+        onClick={onRemove}
+        onMouseEnter={() => setHoverX(true)}
+        onMouseLeave={() => setHoverX(false)}
+        style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 16, height: 16,
+          border: 'none', background: 'none',
+          cursor: 'pointer', padding: 0,
+          color: hoverX ? '#252525' : '#A8A8A8',
+          transition: 'color 100ms',
+        }}
+      >
+        <i className="ph ph-x" style={{ fontSize: 11, lineHeight: 1 }}></i>
+      </button>
+    </span>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   SearchField
+───────────────────────────────────────────── */
+const SearchField = ({ value, onChange, placeholder }) => {
+  const [focus, setFocus] = React.useState(false);
+  const [hover, setHover] = React.useState(false);
+  const borderColor = focus ? '#1C81EF' : hover ? '#A8A8A8' : '#E9E9E9';
+  const shadow = focus ? '0 0 0 3px #DBEAFE' : 'none';
+  return (
+    <div
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        height: 36, borderRadius: 8,
+        border: `1px solid ${borderColor}`,
+        boxShadow: shadow,
+        padding: '0 10px',
+        background: '#FFFFFF',
+        transition: 'border-color 150ms ease-out, box-shadow 150ms ease-out',
+      }}
+    >
+      <input
+        value={value}
+        onChange={onChange}
+        onFocus={() => setFocus(true)}
+        onBlur={() => setFocus(false)}
+        placeholder={placeholder}
+        style={{
+          flex: 1, border: 'none', outline: 'none', background: 'transparent',
+          font: '400 14px/20px Inter',
+          color: '#252525',
+          minWidth: 0,
+        }}
+      />
+      <i className="ph ph-magnifying-glass" style={{ fontSize: 16, color: '#A8A8A8', flexShrink: 0, lineHeight: 1 }}></i>
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   FilterPopover
+───────────────────────────────────────────── */
+const TABS = [
+  { id: 'collective', label: 'Collective', placeholder: 'Search for collective' },
+  { id: 'team',       label: 'Team',       placeholder: 'Search for team'       },
+  { id: 'agent',      label: 'Agent',      placeholder: 'Search for agent'      },
+];
+
+const INITIAL_FILTERS = {
+  collective: ['HR operation'],
+  team: [],
+  agent: [],
+};
+
+const FilterPopover = ({ onClose }) => {
+  const [activeTab, setActiveTab]       = React.useState('collective');
+  const [search, setSearch]             = React.useState({ collective: '', team: '', agent: '' });
+  const [selected, setSelected]         = React.useState(INITIAL_FILTERS);
+
+  const tab = TABS.find(t => t.id === activeTab);
+
+  const removeChip = (id, val) =>
+    setSelected(p => ({ ...p, [id]: p[id].filter(v => v !== val) }));
+
+  const reset = () => {
+    setSelected({ collective: [], team: [], agent: [] });
+    setSearch({ collective: '', team: '', agent: '' });
+  };
+
+  return (
+    <div style={{
+      width: 472,
+      height: 408,
+      background: '#FFFFFF',
+      borderRadius: 12,
+      border: '1px solid #E9E9E9',
+      boxShadow: '0 8px 24px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06)',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+    }}>
+
+      {/* ── Header ── */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '16px',
+        flexShrink: 0,
+        borderBottom: '1px solid #E9E9E9',
+      }}>
+        <span style={{ font: '500 16px/24px Inter', color: '#252525' }}>Filter</span>
+        <CloseButton onClick={onClose} />
+      </div>
+
+      {/* ── Body ── */}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+
+        {/* Left: vertical tab list */}
+        <div style={{ width: 160, flexShrink: 0, overflowY: 'auto' }}>
+          {TABS.map((t) => {
+            const active = t.id === activeTab;
+            return (
+              <React.Fragment key={t.id}>
+                <button
+                  onClick={() => setActiveTab(t.id)}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    padding: '13px 16px',
+                    border: 'none',
+                    borderBottom: active ? '2px solid #1C81EF' : '2px solid transparent',
+                    background: 'none',
+                    textAlign: 'left',
+                    font: `${active ? 600 : 400} 14px/20px Inter`,
+                    color: active ? '#1C81EF' : '#252525',
+                    cursor: 'pointer',
+                    transition: 'color 150ms ease-out',
+                  }}
+                >
+                  {t.label}
+                </button>
+                {!active && (
+                  <div style={{ height: 1, background: '#E9E9E9' }}></div>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+
+        {/* Vertical separator */}
+        <div style={{ width: 1, background: '#E9E9E9', flexShrink: 0 }}></div>
+
+        {/* Right: filter content */}
+        <div style={{ flex: 1, padding: '16px', overflowY: 'auto' }}>
+          <div style={{ font: '500 14px/20px Inter', color: '#252525', marginBottom: 12 }}>
+            {tab.label}
+          </div>
+
+          <SearchField
+            value={search[activeTab]}
+            onChange={e => setSearch(p => ({ ...p, [activeTab]: e.target.value }))}
+            placeholder={tab.placeholder}
+          />
+
+          {selected[activeTab].length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+              {selected[activeTab].map(val => (
+                <FilterChip
+                  key={val}
+                  label={val}
+                  onRemove={() => removeChip(activeTab, val)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+      </div>
+
+      {/* ── Footer ── */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '12px 16px',
+        flexShrink: 0,
+        borderTop: '1px solid #E9E9E9',
+      }}>
+        <GhostButton>Advance filter</GhostButton>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <GhostButton onClick={reset}>Reset</GhostButton>
+          <PrimaryButton onClick={onClose}>Apply</PrimaryButton>
+        </div>
+      </div>
+
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   Demo wrapper
+───────────────────────────────────────────── */
+const App = () => {
+  const [open, setOpen] = React.useState(true);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+      {!open && (
+        <PrimaryButton onClick={() => setOpen(true)}>Open filter</PrimaryButton>
+      )}
+      {open && <FilterPopover onClose={() => setOpen(false)} />}
+    </div>
+  );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 32" width="128" height="32">
+  <g fill="none">
+    <rect x="0" y="4" width="24" height="24" rx="6" fill="#1C81EF"></rect>
+    <path d="M7 20 L12 10 L17 20 M9 17 H15" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+    <text x="34" y="22" font-family="Inter, system-ui, sans-serif" font-size="18" font-weight="600" fill="#252525" letter-spacing="-0.01em">aurora</text>
+  </g>
+</svg>

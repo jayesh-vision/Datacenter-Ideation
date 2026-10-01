@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="../colors_and_type.css">
+  <link rel="stylesheet" href="../theme-blue.css">
+  <link rel="stylesheet" href="../theme-black.css">
+  <link rel="stylesheet" href="../theme-green.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #fff;
+      padding: 24px;
+      font-family: 'Inter', system-ui, sans-serif;
+      color: #252525;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────── */
+    .themes-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 20px;
+      max-width: 1280px;
+    }
+
+    .theme-panel {
+      border: 1px solid #E9E9E9;
+      border-radius: 14px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      background: #fff;
+    }
+
+    /* ── Panel header ───────────────────────────────────────── */
+    .panel-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .theme-dot {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--color-primary);
+      border: 1px solid rgba(0,0,0,.08);
+      flex-shrink: 0;
+    }
+
+    .panel-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: #111827;
+      line-height: 1.2;
+    }
+
+    .panel-hex {
+      font-size: 11px;
+      font-family: 'SF Mono', 'Fira Code', ui-monospace, monospace;
+      color: #9CA3AF;
+      margin-top: 2px;
+    }
+
+    /* ── Section ────────────────────────────────────────────── */
+    .section-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #9CA3AF;
+      margin-bottom: 10px;
+    }
+
+    /* ── Scale swatches ─────────────────────────────────────── */
+    .scale-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 5px;
+    }
+
+    .scale-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .scale-swatch {
+      height: 38px;
+      border-radius: 7px;
+      border: 1px solid rgba(0,0,0,.06);
+      position: relative;
+    }
+
+    .scale-swatch--primary::after {
+      content: '★';
+      position: absolute;
+      bottom: 3px;
+      right: 4px;
+      font-size: 8px;
+      color: rgba(255,255,255,.75);
+      line-height: 1;
+    }
+
+    /* For light swatches the star should be dark */
+    .scale-swatch--primary.scale-swatch--light::after {
+      color: rgba(0,0,0,.3);
+    }
+
+    .scale-stop {
+      font-size: 10px;
+      font-weight: 500;
+      color: #6B7280;
+      line-height: 1;
+    }
+
+    .scale-hex {
+      font-size: 9px;
+      font-family: 'SF Mono', 'Fira Code', ui-monospace, monospace;
+      color: #9CA3AF;
+      line-height: 1;
+    }
+
+    /* ── Semantic states ────────────────────────────────────── */
+    .states-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .state-item {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .state-swatch {
+      height: 48px;
+      border-radius: 9px;
+      border: 1px solid rgba(0,0,0,.07);
+    }
+
+    .state-name {
+      font-size: 11px;
+      font-weight: 500;
+      color: #374151;
+    }
+
+    .state-hex {
+      font-size: 10px;
+      font-family: 'SF Mono', 'Fira Code', ui-monospace, monospace;
+      color: #9CA3AF;
+    }
+
+    /* ── Demo buttons ───────────────────────────────────────── */
+    .btns-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      align-items: center;
+    }
+
+    .demo-btn {
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 18px;
+      padding: 7px 14px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+      white-space: nowrap;
+    }
+
+    .demo-btn--filled {
+      background: var(--color-primary);
+      color: #fff;
+    }
+    .demo-btn--filled:hover {
+      background: var(--color-primary-hover);
+    }
+
+    .demo-btn--outline {
+      background: #fff;
+      color: var(--color-primary);
+      border: 1.5px solid var(--color-primary);
+    }
+    .demo-btn--outline:hover {
+      background: var(--accentColor50);
+    }
+
+    .demo-btn--ghost {
+      background: transparent;
+      color: #252525;
+      border: 1.5px solid #E5E7EB;
+    }
+    .demo-btn--ghost:hover {
+      background: #F3F4F6;
+    }
+
+    .demo-btn--action {
+      background: transparent;
+      color: var(--color-primary);
+      padding-left: 0;
+      padding-right: 0;
+    }
+    .demo-btn--action:hover {
+      color: var(--color-primary-hover);
+    }
+
+    /* Hover state simulation badges */
+    .demo-btn--filled-hover {
+      background: var(--color-primary-hover);
+      color: #fff;
+    }
+    .demo-btn--filled-press {
+      background: var(--color-primary-press);
+      color: #fff;
+    }
+
+    /* ── Demo input ─────────────────────────────────────────── */
+    .input-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .demo-input {
+      width: 100%;
+      height: 36px;
+      padding: 7px 10px;
+      border-radius: 8px;
+      border: 1.5px solid #E5E7EB;
+      background: #fff;
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 13px;
+      color: #374151;
+      outline: none;
+      transition: border-color 0.12s, box-shadow 0.12s;
+    }
+
+    .demo-input::placeholder {
+      color: #9CA3AF;
+    }
+
+    .demo-input:focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px var(--accentColor100);
+    }
+
+    /* Simulated focus state for static display */
+    .demo-input--focused {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px var(--accentColor100);
+    }
+
+    .input-meta {
+      font-size: 10px;
+      color: #9CA3AF;
+      font-family: 'SF Mono', 'Fira Code', ui-monospace, monospace;
+    }
+
+    /* ── Chip / badge ───────────────────────────────────────── */
+    .demo-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      height: 24px;
+      padding: 0 9px;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 500;
+      background: var(--accentColor50);
+      color: var(--color-primary);
+      border: 1px solid var(--accentColor200);
+    }
+
+    .demo-chip--filled {
+      background: var(--color-primary);
+      color: #fff;
+      border-color: transparent;
+    }
+  </style>
+</head>
+<body>
+
+<div class="themes-grid">
+
+  <!-- ══════════════════ BLUE THEME ═══════════════════ -->
+  <div class="theme-panel" data-theme="blue">
+
+    <div class="panel-header">
+      <div class="theme-dot"></div>
+      <div>
+        <div class="panel-name">Blue <span style="font-size:10px;font-weight:400;color:#9CA3AF;margin-left:4px;">Default</span></div>
+        <div class="panel-hex">--color-primary: #1C81EF</div>
+      </div>
+    </div>
+
+    <!-- Scale -->
+    <div>
+      <div class="section-label">Accent Scale</div>
+      <div class="scale-grid">
+        <div class="scale-item">
+          <div class="scale-swatch" style="background:#eff6ff;"></div>
+          <span class="scale-stop">50</span>
+          <span class="scale-hex">#eff6ff</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-swatch" style="background:#dbeafe;"></div>
+          <span class="scale-stop">100</span>
+          <span class="scale-hex">#dbeafe</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-swatch" style="background:#bfdbfe;"></div>
+          <span class="scale-stop">200</span>
+          <span class="scale-hex">#bfdbfe</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-swatch" style="background:#93c5fd;"></div>
+          <span class="scale-stop">300</span>
+          <span class="scale-hex">#93c5fd</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-swatch" style="background:#60a5fa;"></div>
+          <span class="scale-stop">400</span>
+          <span class="scale-hex">#60a5fa</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-swatch scale-swatch--primary" style="background:#1C81EF;"></div>
+          <span class="scale-stop" style="color:#111827;font-weight:600;">500 ★</span>
+          <span class="scale-hex">#1C81EF</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-swatch" style="background:#2563eb;"></div>
+          <span class="scale-stop">600</span>
+          <span class="scale-hex">#2563eb</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-swatch" style="background:#1d4ed8;"></div>
+          <span class="scale-stop">700</span>
+          <span class="scale-hex">#1d4ed8</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-swatch" style="background:#1e40af;"></div>
+          <span class="scale-stop">800</span>
+          <span class="scale-hex">#1e40af</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-swatch" style="background:#1e3a8a;"></div>
+          <span class="scale-stop">900</span>
+          <span class="scale-hex">#1e3a8a</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Semantic States -->
+    <div>
+      <div class="section-label">Primary States</div>
+      <div class="states-row">
+        <div class="state-item">
+          <div class="state-swatch" style="background:#1C81EF;"></div>
+          <span class="state-name">Default</span>
+          <span class="state-hex">#1C81EF</span>
+        </div>
+        <div class="state-item">
+          <div class="state-swatch" style="background:#4290ED;"></div>
+          <span class="state-name">Hover</span>
+          <span class="state-hex">#4290ED</span>
+        </div>
+        <div class="state-item">
+          <div class="state-swatch" style="background:#1767BE;"></div>
+          <span class="state-name">Press</span>
+          <span class="state-hex">#1767BE</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div>
+      <div class="section-label">Buttons</div>
+      <div class="btns-row">
+        <button class="demo-btn demo-btn--filled">Filled</button>
+        <button class="demo-btn demo-btn--outline">Outline</button>
+        <button class="demo-btn demo-btn--ghost">Ghost</button>
+        <button class="demo-btn demo-btn--action">Action</button>
+      </div>
+    </div>
+
+    <!-- Button hover states -->
+    <div>
+      <div class="section-label">Button States</div>
+      <div class="btns-row">
+        <button class="demo-btn demo-btn--filled">Default</button>
+        <button class="demo-btn demo-btn--filled-hover">Hover</button>
+        <button class="demo-btn demo-btn--filled-press">Press</button>
+      </div>
+    </div>
+
+    <!-- Input focus -->
+    <div>
+      <div class="section-label">Input Focus Ring</div>
+      <div class="input-wrap">
+        <input class="demo-input demo-input--focused" value="Focused input" readonly>
+        <span class="input-meta">border: var(--color-primary) · ring: var(--accentColor100)</span>
+      </div>
+    </div>
+
+    <!-- Chips -->
+    <div>
+      <div class="section-label">Chips</div>
+      <div class="btns-row">
+        <span class="demo-chip">Label</span>
+        <span class="demo-chip demo-chip--filled">Label</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══════════════════ BLACK THEME ══════════════════ -->
+  <div class="theme-panel" data-theme="black">
+
+    <div class="panel-header">
+      <div class="theme-dot"></div>
+      <div>
+        <div class="panel-name">Black</div>
+        <div class="panel-hex">--color-primary: #090909</div>
+      </div>
+    </div>
+
+    <!-- Scale -->
+    <div>
+      <div class="section-label">Accent Scale</div>
+      <div class="scale-grid">
+        <div class="scale-item">
+          <div class="scale-swatch" style="background:#f2f2f2;"></div>
+          <span class="scale-stop">50</span>
+          <span class="scale-hex">#f2f2f2</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-swatch" style="background:#d9d9d9;"></div>
+          <span class="scale-stop">100</span>
+          <span class="scale-hex">#d9d9d9</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-swatch" style="background:#bfbfbf;"></div>
+          <span class="scale-stop">200</span>
+          <span class="scale-hex">#bfbfbf</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-swatch" style="background:#8c8c8c;"></div>
+          <span class="scale-stop">300</span>
+          <span class="scale-hex">#8c8c8c</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-swatch" style="background:#595959;"></div>
+          <span class="scale-stop">400</span>
+          <span class="scale-hex">#595959</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-swatch scale-swatch--primary" style="background:#090909;"></div>
+          <span class="scale-stop" style="color:#111827;font-weight:600;">500 ★</span>
+          <span class="scale-hex">#090909</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-swatch" style="background:#000000;"></div>
+          <span class="scale-stop">600</span>
+          <span class="scale-hex">#000000</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-swatch" style="background:#0a0a0a;"></div>
+          <span class="scale-stop">700</span>
+          <span class="scale-hex">#0a0a0a</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-swatch" style="background:#000000;"></div>
+          <span class="scale-stop">800</span>
+          <span class="scale-hex">#000000</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-swatch" style="background:#000000;"></div>
+          <span class="scale-stop">900</span>
+          <span class="scale-hex">#000000</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Semantic States -->
+    <div>
+      <div class="section-label">Primary States</div>
+      <div class="states-row">
+        <div class="state-item">
+          <div class="state-swatch" style="background:#090909;"></div>
+          <span class="state-name">Default</span>
+          <span class="state-hex">#090909</span>
+        </div>
+        <div class="state-item">
+          <div class="state-swatch" style="background:#595959;"></div>
+          <span class="state-name">Hover</span>
+          <span class="state-hex">#595959</span>
+        </div>
+        <div class="state-item">
+          <div class="state-swatch" style="background:#000000;"></div>
+          <span class="state-name">Press</span>
+          <span class="state-hex">#000000</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div>
+      <div class="section-label">Buttons</div>
+      <div class="btns-row">
+        <button class="demo-btn demo-btn--filled">Filled</button>
+        <button class="demo-btn demo-btn--outline">Outline</button>
+        <button class="demo-btn demo-btn--ghost">Ghost</button>
+        <button class="demo-btn demo-btn--action">Action</button>
+      </div>
+    </div>
+
+    <!-- Button hover states -->
+    <div>
+      <div class="section-label">Button States</div>
+      <div class="btns-row">
+        <button class="demo-btn demo-btn--filled">Default</button>
+        <button class="demo-btn demo-btn--filled-hover">Hover</button>
+        <button class="demo-btn demo-btn--filled-press">Press</button>
+      </div>
+    </div>
+
+    <!-- Input focus -->
+    <div>
+      <div class="section-label">Input Focus Ring</div>
+      <div class="input-wrap">
+        <input class="demo-input demo-input--focused" value="Focused input" readonly>
+        <span class="input-meta">border: var(--color-primary) · ring: var(--accentColor100)</span>
+      </div>
+    </div>
+
+    <!-- Chips -->
+    <div>
+      <div class="section-label">Chips</div>
+      <div class="btns-row">
+        <span class="demo-chip">Label</span>
+        <span class="demo-chip demo-chip--filled">Label</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══════════════════ GREEN THEME ══════════════════ -->
+  <div class="theme-panel" data-theme="green">
+
+    <div class="panel-header">
+      <div class="theme-dot"></div>
+      <div>
+        <div class="panel-name">Green</div>
+        <div class="panel-hex">--color-primary: #50c7a9</div>
+      </div>
+    </div>
+
+    <!-- Scale -->
+    <div>
+      <div class="section-label">Accent Scale</div>
+      <div class="scale-grid">
+        <div class="scale-item">
+          <div class="scale-swatch" style="background:#eaf8f5;"></div>
+          <span class="scale-stop">50</span>
+          <span class="scale-hex">#eaf8f5</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-swatch" style="background:#cbeee5;"></div>
+          <span class="scale-stop">100</span>
+          <span class="scale-hex">#cbeee5</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-swatch" style="background:#a8e3d4;"></div>
+          <span class="scale-stop">200</span>
+          <span class="scale-hex">#a8e3d4</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-swatch" style="background:#85d8c3;"></div>
+          <span class="scale-stop">300</span>
+          <span class="scale-hex">#85d8c3</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-swatch" style="background:#6acfb6;"></div>
+          <span class="scale-stop">400</span>
+          <span class="scale-hex">#6acfb6</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-swatch scale-swatch--primary" style="background:#50c7a9;"></div>
+          <span class="scale-stop" style="color:#111827;font-weight:600;">500 ★</span>
+          <span class="scale-hex">#50c7a9</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-swatch" style="background:#49c1a2;"></div>
+          <span class="scale-stop">600</span>
+          <span class="scale-hex">#49c1a2</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-swatch" style="background:#40ba98;"></div>
+          <span class="scale-stop">700</span>
+          <span class="scale-hex">#40ba98</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-swatch" style="background:#37b38f;"></div>
+          <span class="scale-stop">800</span>
+          <span class="scale-hex">#37b38f</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-swatch" style="background:#27a67e;"></div>
+          <span class="scale-stop">900</span>
+          <span class="scale-hex">#27a67e</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Semantic States -->
+    <div>
+      <div class="section-label">Primary States</div>
+      <div class="states-row">
+        <div class="state-item">
+          <div class="state-swatch" style="background:#50c7a9;"></div>
+          <span class="state-name">Default</span>
+          <span class="state-hex">#50c7a9</span>
+        </div>
+        <div class="state-item">
+          <div class="state-swatch" style="background:#6acfb6;"></div>
+          <span class="state-name">Hover</span>
+          <span class="state-hex">#6acfb6</span>
+        </div>
+        <div class="state-item">
+          <div class="state-swatch" style="background:#49c1a2;"></div>
+          <span class="state-name">Press</span>
+          <span class="state-hex">#49c1a2</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div>
+      <div class="section-label">Buttons</div>
+      <div class="btns-row">
+        <button class="demo-btn demo-btn--filled">Filled</button>
+        <button class="demo-btn demo-btn--outline">Outline</button>
+        <button class="demo-btn demo-btn--ghost">Ghost</button>
+        <button class="demo-btn demo-btn--action">Action</button>
+      </div>
+    </div>
+
+    <!-- Button hover states -->
+    <div>
+      <div class="section-label">Button States</div>
+      <div class="btns-row">
+        <button class="demo-btn demo-btn--filled">Default</button>
+        <button class="demo-btn demo-btn--filled-hover">Hover</button>
+        <button class="demo-btn demo-btn--filled-press">Press</button>
+      </div>
+    </div>
+
+    <!-- Input focus -->
+    <div>
+      <div class="section-label">Input Focus Ring</div>
+      <div class="input-wrap">
+        <input class="demo-input demo-input--focused" value="Focused input" readonly>
+        <span class="input-meta">border: var(--color-primary) · ring: var(--accentColor100)</span>
+      </div>
+    </div>
+
+    <!-- Chips -->
+    <div>
+      <div class="section-label">Chips</div>
+      <div class="btns-row">
+        <span class="demo-chip">Label</span>
+        <span class="demo-chip demo-chip--filled">Label</span>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,85 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>@font-face{font-family:'Inter';src:url('../fonts/Inter-VariableFont_opsz_wght.ttf') format('truetype-variations');font-weight:100 900;font-style:normal;font-display:swap;}</style>
+<style>
+  :root { --gray-900:#111827; --gray-500:#6B7280; --gray-400:#9CA3AF; --gray-100:#F3F4F6; --gray-50:#F9FAFB; }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:Inter,system-ui,-apple-system,sans-serif;background:#fff;-webkit-font-smoothing:antialiased;padding:20px;color:var(--gray-900);}
+  .row{display:grid;grid-template-columns:220px 240px 1fr;align-items:center;gap:16px;padding:11px 16px;border-bottom:1px solid var(--gray-100);}
+  .row:last-child{border-bottom:none;}
+  .row:hover{background:var(--gray-50);}
+  .tag{font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px;color:var(--gray-500);}
+  .spec{font-family:ui-monospace,SFMono-Regular,monospace;font-size:11px;color:var(--gray-400);}
+  .divider{padding:8px 16px 4px;font-family:ui-monospace,monospace;font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#C4C4C4;border-bottom:1px solid var(--gray-100);}
+
+  /* existing .display-1–4 */
+  .display-1{font-size:36px;font-weight:300;line-height:1.4;color:var(--gray-900);}
+  .display-2{font-size:32px;font-weight:300;line-height:1.4;color:var(--gray-900);}
+  .display-3{font-size:28px;font-weight:300;line-height:1.4;color:var(--gray-900);}
+  .display-4{font-size:22px;font-weight:300;line-height:1.4;color:var(--gray-900);}
+
+  /* new .display-5–10 from vw-card-metric-* */
+  .display-5 {font-size:18px;font-weight:300;line-height:1.4;color:var(--gray-900);}
+  .display-6 {font-size:16px;font-weight:400;line-height:1.4;color:var(--gray-900);}
+  .display-7 {font-size:14px;font-weight:400;line-height:1.2;color:var(--gray-900);}
+  .display-8 {font-size:12px;font-weight:600;line-height:1.2;color:var(--gray-900);}
+  .display-9 {font-size:11px;font-weight:600;line-height:1.2;color:var(--gray-900);}
+  .display-10{font-size:10px;font-weight:600;line-height:1.2;color:var(--gray-900);}
+</style>
+</head>
+<body>
+
+  <div class="divider">Scale — xxxl to lg &nbsp;·&nbsp; weight 300</div>
+  <div class="row">
+    <span class="tag">.display-1 &nbsp;/&nbsp; vw-card-metric-xxxl</span>
+    <span class="spec">36px · 300 · lh 1.4 · gray-900</span>
+    <span class="display-1">Display 1</span>
+  </div>
+  <div class="row">
+    <span class="tag">.display-2 &nbsp;/&nbsp; vw-card-metric-xxl</span>
+    <span class="spec">32px · 300 · lh 1.4 · gray-900</span>
+    <span class="display-2">Display 2</span>
+  </div>
+  <div class="row">
+    <span class="tag">.display-3 &nbsp;/&nbsp; vw-card-metric-xl</span>
+    <span class="spec">28px · 300 · lh 1.4 · gray-900</span>
+    <span class="display-3">Display 3</span>
+  </div>
+  <div class="row">
+    <span class="tag">.display-4 &nbsp;/&nbsp; vw-card-metric-lg</span>
+    <span class="spec">22px · 300 · lh 1.4 · gray-900</span>
+    <span class="display-4">Display 4</span>
+  </div>
+  <div class="row">
+    <span class="tag">.display-5 &nbsp;/&nbsp; vw-card-metric-lg-sub</span>
+    <span class="spec">18px · 300 · lh 1.4 · gray-900</span>
+    <span class="display-5">Display 5</span>
+  </div>
+
+  <div class="divider">Scale — md to xxxs &nbsp;·&nbsp; weight 400 – 600</div>
+  <div class="row">
+    <span class="tag">.display-6 &nbsp;/&nbsp; vw-card-metric-md</span>
+    <span class="spec">16px · 400 · lh 1.4 · gray-900</span>
+    <span class="display-6">Display 6</span>
+  </div>
+  <div class="row">
+    <span class="tag">.display-7 &nbsp;/&nbsp; vw-card-metric-sm</span>
+    <span class="spec">14px · 400 · lh 1.2 · gray-900</span>
+    <span class="display-7">Display 7</span>
+  </div>
+  <div class="row">
+    <span class="tag">.display-8 &nbsp;/&nbsp; vw-card-metric-xs</span>
+    <span class="spec">12px · 600 · lh 1.2 · gray-900</span>
+    <span class="display-8">Display 8</span>
+  </div>
+  <div class="row">
+    <span class="tag">.display-9 &nbsp;/&nbsp; vw-card-metric-xxs</span>
+    <span class="spec">11px · 600 · lh 1.2 · gray-900</span>
+    <span class="display-9">Display 9</span>
+  </div>
+  <div class="row">
+    <span class="tag">.display-10 &nbsp;/&nbsp; vw-card-metric-xxxs</span>
+    <span class="spec">10px · 600 · lh 1.2 · gray-900</span>
+    <span class="display-10">Display 10</span>
+  </div>
+
+</body></html>

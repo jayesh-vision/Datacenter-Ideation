@@ -1,0 +1,277 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>@font-face{font-family:'Inter';src:url('../fonts/Inter-VariableFont_opsz_wght.ttf') format('truetype-variations');font-weight:100 900;font-style:normal;font-display:swap;}</style>
+<style>
+  :root {
+    --vw-color-gray-900: #111827;
+    --vw-color-gray-500: #6B7280;
+    --vw-color-slate-700: #334155;
+    --gray-50:  #F9FAFB;
+    --gray-100: #F3F4F6;
+    --gray-200: #E5E7EB;
+    --gray-300: #D1D5DB;
+    --gray-400: #9CA3AF;
+    --gray-600: #4B5563;
+    --blue-600: #2563EB;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    background: #fff;
+    color: var(--vw-color-gray-900);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    padding: 20px;
+    font-size: 13px;
+  }
+
+  /* ── Accordion shell ── */
+  .accordion { display: flex; flex-direction: column; gap: 8px; max-width: 860px; }
+
+  .ac { border: 1px solid var(--gray-200); border-radius: 8px; overflow: hidden; }
+
+  .ac-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; cursor: pointer; user-select: none;
+    background: #fff;
+    transition: background 120ms;
+  }
+  .ac-header:hover { background: var(--gray-50); }
+
+  .ac-title {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; font-weight: 500; color: var(--vw-color-gray-900);
+  }
+  .ac-badge {
+    font-size: 11px; font-weight: 500; color: var(--gray-400);
+    background: var(--gray-100); border-radius: 999px; padding: 1px 8px;
+  }
+
+  .ac-chevron { color: var(--gray-400); transition: transform 200ms ease; flex-shrink: 0; }
+  .ac.open .ac-chevron { transform: rotate(90deg); }
+
+  .ac-body { display: none; border-top: 1px solid var(--gray-200); }
+  .ac.open .ac-body { display: block; }
+
+  /* ── Type row ── */
+  .type-row {
+    display: grid;
+    grid-template-columns: 180px 220px 1fr;
+    align-items: center;
+    gap: 16px;
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--gray-100);
+  }
+  .type-row:last-child { border-bottom: none; }
+  .type-row:hover { background: var(--gray-50); }
+
+  .tr-tag {
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 11.5px; color: var(--blue-600);
+    background: #EFF6FF; border-radius: 4px;
+    padding: 2px 7px; display: inline-block;
+    white-space: nowrap;
+  }
+  .tr-spec {
+    font-size: 11px; color: var(--gray-400);
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    white-space: nowrap;
+  }
+  .tr-preview { color: inherit; } /* override per row via inline style */
+
+  /* ── Display classes ── */
+  .display-1 { font-size: 2.25rem; font-weight: 300; line-height: 1.4; color: var(--vw-color-gray-900); }
+  .display-2 { font-size: 2rem;    font-weight: 300; line-height: 1.4; color: var(--vw-color-gray-900); }
+  .display-3 { font-size: 1.75rem; font-weight: 300; line-height: 1.4; color: var(--vw-color-gray-900); }
+  .display-4 { font-size: 1.375rem;font-weight: 300; line-height: 1.4; color: var(--vw-color-gray-900); }
+
+  /* ── Heading tags ── */
+  h1 { font-size: 1.25rem;  font-weight: 500; line-height: 1.75; color: var(--vw-color-gray-900); }
+  h2 { font-size: 1rem;     font-weight: 500; line-height: 1.75; color: var(--vw-color-gray-900); }
+  h3 { font-size: 0.875rem; font-weight: 500; line-height: 1.5;  color: var(--vw-color-gray-900); }
+  h4 { font-size: 0.875rem; font-weight: 400; line-height: 1.2;  color: var(--vw-color-gray-500); }
+  h5 { font-size: 0.75rem;  font-weight: 400; line-height: 1.2;  color: var(--vw-color-gray-500); }
+
+  /* ── Body classes ── */
+  .text-large  { font-size: 1rem;     font-weight: 400; line-height: 1.5;  color: var(--vw-color-slate-700); }
+  .text-body   { font-size: 0.875rem; font-weight: 400; line-height: 1.25; color: var(--vw-color-gray-500); }
+  .text-small  { font-size: 0.75rem;  font-weight: 400; line-height: 1.2;  color: var(--vw-color-gray-500); }
+  .text-xsmall { font-size: 0.6875rem;font-weight: 400; line-height: 1.2;  color: var(--vw-color-gray-500); }
+
+  /* ── Type Family section ── */
+  .font-sample {
+    display: flex; align-items: center; gap: 20px;
+    padding: 14px 16px; border-bottom: 1px solid var(--gray-100);
+  }
+  .font-sample:last-child { border-bottom: none; }
+  .font-sample:hover { background: var(--gray-50); }
+  .fs-weight  { width: 60px; font-family: ui-monospace, monospace; font-size: 11px; color: var(--gray-400); }
+  .fs-spec    { width: 220px; font-family: ui-monospace, monospace; font-size: 11px; color: var(--gray-400); }
+  .fs-preview { flex: 1; font-family: Inter, system-ui, -apple-system, sans-serif; font-size: 22px; color: var(--vw-color-gray-900); }
+  .fs-chars   { font-family: ui-monospace, monospace; font-size: 10px; color: var(--gray-300); letter-spacing: .04em; }
+
+  /* stack row */
+  .stack-row {
+    padding: 14px 16px; border-bottom: 1px solid var(--gray-100); display: flex; align-items: center; gap: 16px;
+  }
+  .stack-row:last-child { border-bottom: none; }
+  .stack-label { font-size: 11px; font-weight: 500; color: var(--gray-400); text-transform: uppercase; letter-spacing: .06em; width: 130px; }
+  .stack-val   { font-family: ui-monospace, monospace; font-size: 11.5px; color: var(--gray-600); }
+</style>
+</head>
+<body>
+
+<div class="accordion">
+
+  <!-- 1 · Display -->
+  <div class="ac open" id="ac-display">
+    <div class="ac-header" onclick="toggle('ac-display')">
+      <span class="ac-title">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 4h12M4 8h8M6 12h4"/></svg>
+        Display
+        <span class="ac-badge">4 classes</span>
+      </span>
+      <svg class="ac-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l4 4-4 4"/></svg>
+    </div>
+    <div class="ac-body">
+      <div class="type-row">
+        <span class="tr-tag">.display-1</span>
+        <span class="tr-spec">36px · 300 · lh 1.4 · gray-900</span>
+        <span class="display-1">Display 1</span>
+      </div>
+      <div class="type-row">
+        <span class="tr-tag">.display-2</span>
+        <span class="tr-spec">32px · 300 · lh 1.4 · gray-900</span>
+        <span class="display-2">Display 2</span>
+      </div>
+      <div class="type-row">
+        <span class="tr-tag">.display-3</span>
+        <span class="tr-spec">28px · 300 · lh 1.4 · gray-900</span>
+        <span class="display-3">Display 3</span>
+      </div>
+      <div class="type-row">
+        <span class="tr-tag">.display-4</span>
+        <span class="tr-spec">22px · 300 · lh 1.4 · gray-900</span>
+        <span class="display-4">Display 4</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2 · Heading -->
+  <div class="ac open" id="ac-heading">
+    <div class="ac-header" onclick="toggle('ac-heading')">
+      <span class="ac-title">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 3v10M13 3v10M3 8h10"/></svg>
+        Heading
+        <span class="ac-badge">h1 – h5</span>
+      </span>
+      <svg class="ac-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l4 4-4 4"/></svg>
+    </div>
+    <div class="ac-body">
+      <div class="type-row">
+        <span class="tr-tag">h1</span>
+        <span class="tr-spec">20px · 500 · lh 1.75 · gray-900</span>
+        <h1>Heading 1</h1>
+      </div>
+      <div class="type-row">
+        <span class="tr-tag">h2</span>
+        <span class="tr-spec">16px · 500 · lh 1.75 · gray-900</span>
+        <h2>Heading 2</h2>
+      </div>
+      <div class="type-row">
+        <span class="tr-tag">h3</span>
+        <span class="tr-spec">14px · 500 · lh 1.5 · gray-900</span>
+        <h3>Heading 3</h3>
+      </div>
+      <div class="type-row">
+        <span class="tr-tag">h4</span>
+        <span class="tr-spec">14px · 400 · lh 1.2 · gray-500</span>
+        <h4>Heading 4</h4>
+      </div>
+      <div class="type-row">
+        <span class="tr-tag">h5</span>
+        <span class="tr-spec">12px · 400 · lh 1.2 · gray-500</span>
+        <h5>Heading 5</h5>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3 · Body -->
+  <div class="ac open" id="ac-body">
+    <div class="ac-header" onclick="toggle('ac-body')">
+      <span class="ac-title">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 4h12M2 8h10M2 12h8"/></svg>
+        Body
+        <span class="ac-badge">4 styles</span>
+      </span>
+      <svg class="ac-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l4 4-4 4"/></svg>
+    </div>
+    <div class="ac-body">
+      <div class="type-row">
+        <span class="tr-tag">.text-large</span>
+        <span class="tr-spec">16px · 400 · lh 1.5 · slate-700</span>
+        <span class="text-large">Body large — interface primary</span>
+      </div>
+      <div class="type-row">
+        <span class="tr-tag">p / body (Default)</span>
+        <span class="tr-spec">14px · 400 · lh 1.25 · gray-500</span>
+        <span class="text-body">Body medium — default interface text</span>
+      </div>
+      <div class="type-row">
+        <span class="tr-tag">small</span>
+        <span class="tr-spec">12px · 400 · lh 1.2 · gray-500</span>
+        <span class="text-small">Body small — captions, helper text</span>
+      </div>
+      <div class="type-row">
+        <span class="tr-tag">.text-xsmall</span>
+        <span class="tr-spec">11px · 400 · lh 1.2 · gray-500</span>
+        <span class="text-xsmall">Body xsmall — labels, metadata</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 · Type Family -->
+  <div class="ac open" id="ac-family">
+    <div class="ac-header" onclick="toggle('ac-family')">
+      <span class="ac-title">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 13 L8 3 L12 13 M6 9.5h4"/></svg>
+        Type Family
+        <span class="ac-badge">Inter</span>
+      </span>
+      <svg class="ac-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l4 4-4 4"/></svg>
+    </div>
+    <div class="ac-body">
+      <div class="stack-row">
+        <span class="stack-label">Font stack</span>
+        <span class="stack-val">Inter, system-ui, -apple-system, sans-serif</span>
+      </div>
+      <div class="font-sample">
+        <span class="fs-weight">300</span>
+        <span class="fs-spec">Light · display scales</span>
+        <span class="fs-preview" style="font-weight:300;">The quick brown fox</span>
+        <span class="fs-chars">AaBbCcDd 0123456789</span>
+      </div>
+      <div class="font-sample">
+        <span class="fs-weight">400</span>
+        <span class="fs-spec">Regular · body & default</span>
+        <span class="fs-preview" style="font-weight:400;">The quick brown fox</span>
+        <span class="fs-chars">AaBbCcDd 0123456789</span>
+      </div>
+      <div class="font-sample">
+        <span class="fs-weight">500</span>
+        <span class="fs-spec">Medium · headings & labels</span>
+        <span class="fs-preview" style="font-weight:500;">The quick brown fox</span>
+        <span class="fs-chars">AaBbCcDd 0123456789</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function toggle(id) {
+    document.getElementById(id).classList.toggle('open');
+  }
+</script>
+</body></html>

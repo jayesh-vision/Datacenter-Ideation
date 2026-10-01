@@ -1,0 +1,26 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>@font-face{font-family:'Inter';src:url('../fonts/Inter-VariableFont_opsz_wght.ttf') format('truetype-variations');font-weight:100 900;font-style:normal;font-display:swap;}</style>
+<style>
+  :root { --gray-900:#111827; --gray-500:#6B7280; --gray-400:#9CA3AF; --gray-100:#F3F4F6; --gray-50:#F9FAFB; }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:Inter,system-ui,-apple-system,sans-serif;background:#fff;-webkit-font-smoothing:antialiased;padding:20px;color:var(--gray-900);}
+  .row{display:grid;grid-template-columns:160px 230px 1fr;align-items:center;gap:16px;padding:12px 16px;border-bottom:1px solid var(--gray-100);}
+  .row:last-child{border-bottom:none;}
+  .row:hover{background:var(--gray-50);}
+  .tag{font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px;color:var(--gray-500);}
+  .spec{font-family:ui-monospace,SFMono-Regular,monospace;font-size:11px;color:var(--gray-400);}
+  h1,h2,h3,h4,h5{font-family:Inter,system-ui,-apple-system,sans-serif;}
+  h1{font-size:1.25rem;font-weight:500;line-height:1.75;color:var(--gray-900);}
+  h2{font-size:1rem;font-weight:500;line-height:1.75;color:var(--gray-900);}
+  h3{font-size:0.875rem;font-weight:500;line-height:1.5;color:var(--gray-900);}
+  h4{font-size:0.875rem;font-weight:400;line-height:1.2;color:var(--gray-500);}
+  h5{font-size:0.75rem;font-weight:400;line-height:1.2;color:var(--gray-500);}
+</style>
+</head>
+<body>
+  <div class="row"><span class="tag">h1</span><span class="spec">20px · 500 · lh 1.75 · gray-900</span><h1>Heading 1</h1></div>
+  <div class="row"><span class="tag">h2</span><span class="spec">16px · 500 · lh 1.75 · gray-900</span><h2>Heading 2</h2></div>
+  <div class="row"><span class="tag">h3</span><span class="spec">14px · 500 · lh 1.5 · gray-900</span><h3>Heading 3</h3></div>
+  <div class="row"><span class="tag">h4</span><span class="spec">14px · 400 · lh 1.2 · gray-500</span><h4>Heading 4</h4></div>
+  <div class="row"><span class="tag">h5</span><span class="spec">12px · 400 · lh 1.2 · gray-500</span><h5>Heading 5</h5></div>
+</body></html>

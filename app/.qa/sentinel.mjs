@@ -1,0 +1,11 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
+const errs = []; p.on('pageerror', e => errs.push(e.message));
+await p.goto('http://localhost:5181/inventory/datacenters', { waitUntil: 'networkidle' });
+await p.locator('.sentinel-btn').click(); await p.waitForTimeout(300);
+await p.locator('.sentinel-sugg').first().click(); await p.waitForTimeout(1000);
+await p.locator('.sentinel-input input').fill('what services depend on MH-DC-001-PE-T4-01?'); await p.locator('.sentinel-input button').click(); await p.waitForTimeout(1000);
+await p.screenshot({ path: '.qa/out/sentinel.png' });
+await p.keyboard.press('Escape'); await p.keyboard.press('Meta+k'); await p.keyboard.type('enterprise'); await p.waitForTimeout(400);
+await p.screenshot({ path: '.qa/out/palette.png' });
+console.log(errs.length ? errs : 'no errors'); await b.close();

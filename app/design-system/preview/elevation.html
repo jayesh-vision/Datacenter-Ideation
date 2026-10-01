@@ -1,0 +1,43 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="../colors.css">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:Inter,system-ui,-apple-system,sans-serif;background:#F8FAFC;padding:32px 24px;-webkit-font-smoothing:antialiased;}
+  .row{display:flex;gap:32px;align-items:flex-start;}
+  .card{width:180px;display:flex;flex-direction:column;gap:12px;}
+  .surface{
+    width:180px;height:100px;border-radius:10px;background:#fff;
+  }
+  .level-1{
+    border:1px solid #CBD5E1; /* vw-color-slate-200 */
+    box-shadow:none;
+  }
+  .level-2{
+    border:1px solid #CBD5E1;
+    box-shadow:0 2px 4px 0 rgba(0,0,0,0.06);
+  }
+  .label{font-size:12px;font-weight:500;color:#374151;line-height:18px;}
+  .token{font-family:ui-monospace,SFMono-Regular,monospace;font-size:10.5px;color:#9CA3AF;line-height:16px;margin-top:2px;}
+</style>
+</head>
+<body>
+<div class="row">
+  <div class="card">
+    <div class="surface level-1"></div>
+    <div>
+      <div class="label">Resting — border only</div>
+      <div class="token">border: 1px solid slate-200</div>
+      <div class="token">box-shadow: none</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="surface level-2"></div>
+    <div>
+      <div class="label">Raised — shadow-sm</div>
+      <div class="token">border: 1px solid slate-200</div>
+      <div class="token">box-shadow: 0 2px 4px 0 rgba(0,0,0,.06)</div>
+    </div>
+  </div>
+</div>
+</body></html>

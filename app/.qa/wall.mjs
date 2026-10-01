@@ -1,0 +1,15 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: Number(process.env.W ?? 1440), height: 900 } });
+const errs = []; p.on('pageerror', e => errs.push(e.message));
+const ok = (n, c) => console.log(c ? 'PASS' : 'FAIL', n);
+await p.goto('http://localhost:5181/', { waitUntil: 'networkidle' }); await p.waitForTimeout(500);
+ok('no Raise change / Maintenance buttons', await p.locator('.cmd-head button', { hasText: /Raise change|Maintenance/ }).count() === 0);
+ok('no wall on page', await p.locator('.page .wall').count() === 0);
+await p.locator('.cmd-head button', { hasText: 'Estate by datacenter' }).click(); await p.waitForTimeout(400);
+ok('drawer shows 23 live tiles', await p.locator('.drawer .tile').count() === 23);
+await p.screenshot({ path: `.qa/out/wall_${process.env.W ?? 1440}.png` });
+await p.locator('.drawer .seg button', { hasText: 'With incidents' }).click(); await p.waitForTimeout(200);
+const n = await p.locator('.drawer .tile').count(); ok(`filter with incidents → ${n} tiles`, n > 0 && n < 23);
+await p.locator('.drawer .tile').first().click(); await p.waitForTimeout(500);
+ok('tile opens site and closes drawer', /\/datacenters\//.test(p.url()) && await p.locator('.drawer').count() === 0);
+console.log(errs.length ? errs : 'no page errors'); await b.close();

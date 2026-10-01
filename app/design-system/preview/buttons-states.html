@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Buttons — states — NST Design System</title>
+<link rel="stylesheet" href="../colors.css">
+<link rel="stylesheet" href="../spacing.css">
+<link rel="stylesheet" href="../typography-tokens.css">
+<link rel="stylesheet" href="../theme-tokens.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+  @font-face { font-family: 'Inter'; src: url('../fonts/Inter-VariableFont_opsz_wght.ttf') format('truetype-variations'); font-weight: 100 900; font-style: normal; font-display: swap; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #fff; padding: 20px; font-family: 'Inter', system-ui, sans-serif; color: #252525; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .caption { font-size: 11px; color: #7C7C7C; margin-top: 12px; }
+</style>
+</head>
+<body>
+
+<div class="row">
+  <button class="nst-btn nst-btn--filled nst-btn--lg">Default</button>
+  <button class="nst-btn nst-btn--filled nst-btn--lg" style="background:var(--primaryColor400);border-color:var(--primaryColor400);">Hover</button>
+  <button class="nst-btn nst-btn--filled nst-btn--lg" style="background:var(--vw-color-blue-700);border-color:var(--vw-color-blue-700);">Press</button>
+  <button class="nst-btn nst-btn--filled nst-btn--lg is-disabled" disabled>Disabled</button>
+  <button class="nst-btn nst-btn--filled nst-btn--lg" style="outline:2px solid var(--primaryColor500);outline-offset:2px;">Focus</button>
+</div>
+<div class="caption">Default &middot; Hover &middot; Press &middot; Disabled &middot; Focus — all .nst-btn.nst-btn--filled.nst-btn--lg</div>
+
+</body>
+</html>

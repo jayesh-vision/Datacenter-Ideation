@@ -1,0 +1,5 @@
+# Local reference material — not part of the published design system
+reference-only/
+
+# macOS
+.DS_Store

@@ -1,0 +1,26 @@
+/* ============================================================
+   NST Design System — Complete bundle
+   Matches Vision Waves guidelines (reference-only) token + class system.
+
+   Usage:
+     <link rel="stylesheet" href="nst-design-system.css">
+     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+   Layer order:
+     1. colors.css          — --vw-color-* primitives
+     2. spacing.css         — --vw-space-*, --vw-radius-*
+     3. typography-tokens.css
+     4. theme-tokens.css    — --grayColor*, --primaryColor*, etc.
+     5. vw-cards.css        — .vw-card-* classes
+     6. vw-chips.css        — .vw-chip-* classes
+     7. vw-utilities.css    — .vw-flex, .vw-page-gap, etc.
+     8. components.css      — .nst-* form/table primitives (optional)
+   ============================================================ */
+
+@import url('colors.css');
+@import url('spacing.css');
+@import url('typography-tokens.css');
+@import url('theme-tokens.css');
+@import url('vw-cards.css');
+@import url('vw-chips.css');
+@import url('vw-utilities.css');

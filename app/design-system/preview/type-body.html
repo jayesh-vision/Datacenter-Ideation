@@ -1,0 +1,23 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>@font-face{font-family:'Inter';src:url('../fonts/Inter-VariableFont_opsz_wght.ttf') format('truetype-variations');font-weight:100 900;font-style:normal;font-display:swap;}</style>
+<style>
+  :root { --gray-900:#111827; --gray-500:#6B7280; --slate-700:#334155; --gray-400:#9CA3AF; --gray-100:#F3F4F6; --gray-50:#F9FAFB; }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:Inter,system-ui,-apple-system,sans-serif;background:#fff;-webkit-font-smoothing:antialiased;padding:20px;color:var(--gray-900);}
+  .row{display:grid;grid-template-columns:160px 230px 1fr;align-items:center;gap:16px;padding:12px 16px;border-bottom:1px solid var(--gray-100);}
+  .row:last-child{border-bottom:none;}
+  .row:hover{background:var(--gray-50);}
+  .tag{font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px;color:var(--gray-500);}
+  .spec{font-family:ui-monospace,SFMono-Regular,monospace;font-size:11px;color:var(--gray-400);}
+  .text-large{font-size:1rem;font-weight:400;line-height:1.5;color:var(--slate-700);}
+  .text-body{font-size:0.875rem;font-weight:400;line-height:1.25;color:var(--gray-500);}
+  .text-small{font-size:0.75rem;font-weight:400;line-height:1.2;color:var(--gray-500);}
+  .text-xsmall{font-size:0.6875rem;font-weight:400;line-height:1.2;color:var(--gray-500);}
+</style>
+</head>
+<body>
+  <div class="row"><span class="tag">.text-large</span><span class="spec">16px · 400 · lh 1.5 · slate-700</span><span class="text-large">Body large — primary interface text</span></div>
+  <div class="row"><span class="tag">p / body</span><span class="spec">14px · 400 · lh 1.25 · gray-500</span><span class="text-body">Body medium — default paragraph text</span></div>
+  <div class="row"><span class="tag">small</span><span class="spec">12px · 400 · lh 1.2 · gray-500</span><span class="text-small">Body small — captions and helper text</span></div>
+  <div class="row"><span class="tag">.text-xsmall</span><span class="spec">11px · 400 · lh 1.2 · gray-500</span><span class="text-xsmall">Body xsmall — metadata and labels</span></div>
+</body></html>

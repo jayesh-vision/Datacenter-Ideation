@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    @font-face { font-family: 'Inter'; src: url('../fonts/Inter-VariableFont_opsz_wght.ttf') format('truetype-variations'); font-weight: 100 900; font-style: normal; font-display: swap; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #fff; padding: 32px 28px 36px; font-family: 'Inter', system-ui, sans-serif; }
+
+    .section-label {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; color: #9CA3AF; margin-bottom: 28px;
+    }
+
+    /* ── Stepper shell ── */
+    .stepper { display: flex; align-items: flex-start; }
+
+    /* ── Connector line ──
+       Step width = circle width (24px) so connectors touch circles with zero gap.
+       margin-top = (24 - 1.5) / 2 ≈ 11px to vertically centre the 1.5px line. */
+    .connector {
+      flex-shrink: 0;
+      width: 120px;
+      height: 1.5px;
+      margin-top: 11px;
+      align-self: flex-start;
+    }
+    .connector.blue  { background: #1C81EF; }
+    .connector.gray  { background: #D1D5DB; }
+
+    /* ── Step column — width locked to circle width so line touches circle ── */
+    .step {
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      width: 24px; /* matches circle; labels overflow visibly */
+      flex-shrink: 0;
+    }
+
+    /* ── Circle ── */
+    .circle {
+      width: 24px; height: 24px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 600; flex-shrink: 0;
+    }
+    .step.done     .circle { background: #1C81EF; color: #fff; }
+    .step.active   .circle { background: #fff; border: 1px solid #1C81EF; color: #1C81EF; }
+    .step.upcoming .circle { background: #fff; border: 1px solid #D1D5DB; color: #6B7280; }
+
+    /* ── Label ── */
+    .label {
+      font-size: 13px; font-weight: 500; line-height: 18px;
+      color: #1C81EF; text-align: center; white-space: nowrap;
+    }
+    .step.upcoming .label { color: #6B7280; }
+
+    /* ── Description ── */
+    .desc {
+      font-size: 12px; font-weight: 400; line-height: 17px;
+      color: #1C81EF; text-align: center; white-space: nowrap;
+    }
+    .step.upcoming .desc { color: #6B7280; }
+
+    .block { margin-bottom: 36px; }
+    .block:last-child { margin-bottom: 0; }
+  </style>
+</head>
+<body>
+
+  <!-- State: 2 done · 1 active · 1 upcoming -->
+  <div class="block">
+    <div class="section-label">Steps 1–2 done · Step 3 active · Step 4 upcoming</div>
+    <div class="stepper">
+
+      <div class="step done">
+        <div class="circle">
+          <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
+            <path d="M1 5L4.5 8.5L11 1.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="label">Select source</div>
+        <div class="desc">Name and description</div>
+      </div>
+
+      <div class="connector blue"></div>
+
+      <div class="step done">
+        <div class="circle">
+          <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
+            <path d="M1 5L4.5 8.5L11 1.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="label">Configure connect…</div>
+        <div class="desc">Name and description</div>
+      </div>
+
+      <div class="connector blue"></div>
+
+      <div class="step active">
+        <div class="circle">3</div>
+        <div class="label">Transform</div>
+        <div class="desc">Name and description</div>
+      </div>
+
+      <div class="connector gray"></div>
+
+      <div class="step upcoming">
+        <div class="circle">4</div>
+        <div class="label">Data profiling</div>
+        <div class="desc">Name and description</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- State: Step 1 active · all upcoming -->
+  <div class="block">
+    <div class="section-label">Step 1 active · Steps 2–4 upcoming</div>
+    <div class="stepper">
+
+      <div class="step active">
+        <div class="circle">1</div>
+        <div class="label">Select source</div>
+        <div class="desc">Name and description</div>
+      </div>
+
+      <div class="connector gray"></div>
+
+      <div class="step upcoming">
+        <div class="circle">2</div>
+        <div class="label">Configure connect…</div>
+        <div class="desc">Name and description</div>
+      </div>
+
+      <div class="connector gray"></div>
+
+      <div class="step upcoming">
+        <div class="circle">3</div>
+        <div class="label">Transform</div>
+        <div class="desc">Name and description</div>
+      </div>
+
+      <div class="connector gray"></div>
+
+      <div class="step upcoming">
+        <div class="circle">4</div>
+        <div class="label">Data profiling</div>
+        <div class="desc">Name and description</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- State: All done -->
+  <div class="block">
+    <div class="section-label">All steps done</div>
+    <div class="stepper">
+
+      <div class="step done">
+        <div class="circle">
+          <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
+            <path d="M1 5L4.5 8.5L11 1.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="label">Select source</div>
+        <div class="desc">Name and description</div>
+      </div>
+
+      <div class="connector blue"></div>
+
+      <div class="step done">
+        <div class="circle">
+          <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
+            <path d="M1 5L4.5 8.5L11 1.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="label">Configure connect…</div>
+        <div class="desc">Name and description</div>
+      </div>
+
+      <div class="connector blue"></div>
+
+      <div class="step done">
+        <div class="circle">
+          <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
+            <path d="M1 5L4.5 8.5L11 1.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="label">Transform</div>
+        <div class="desc">Name and description</div>
+      </div>
+
+      <div class="connector blue"></div>
+
+      <div class="step done">
+        <div class="circle">
+          <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
+            <path d="M1 5L4.5 8.5L11 1.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="label">Data profiling</div>
+        <div class="desc">Name and description</div>
+      </div>
+
+    </div>
+  </div>
+
+</body>
+</html>

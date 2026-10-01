@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Uploader — NST Design System</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="../colors.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+      background: #fff;
+      padding: 32px 24px;
+      -webkit-font-smoothing: antialiased;
+      color: var(--vw-color-gray-900);
+    }
+
+    /* ── Section label ── */
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--vw-color-gray-400);
+      margin-bottom: 12px;
+    }
+
+    .section { margin-bottom: 36px; }
+
+    /* ══════════════════════════════════════
+       UPLOADER COMPONENT
+    ══════════════════════════════════════ */
+
+    .nst-uploader {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+
+      padding: 20px 32px;
+      background: var(--vw-color-white);
+      border: 1px solid #E2E8F0;
+      border-radius: 8px;
+
+      cursor: pointer;
+      transition: border-color 150ms ease, background 150ms ease, box-shadow 150ms ease;
+      outline: none;
+      width: 100%;
+      max-width: 480px;
+      text-align: center;
+    }
+
+    /* Hover state */
+    .nst-uploader:hover,
+    .nst-uploader.hover {
+      border-color: var(--vw-color-blue-400);
+      background: var(--vw-color-blue-50);
+    }
+
+    /* Drag-over state */
+    .nst-uploader.drag-over {
+      border-color: #1C81EF;
+      background: var(--vw-color-blue-50);
+      box-shadow: 0 0 0 3px var(--vw-color-blue-100);
+    }
+
+    /* Disabled state */
+    .nst-uploader.disabled {
+      background: var(--vw-color-gray-50);
+      border-color: var(--vw-color-gray-200);
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    /* ── Icon container ── */
+    .nst-uploader__icon {
+      width: 40px;
+      height: 40px;
+      border: 1px solid #E2E8F0;
+      border-radius: 10px;
+      background: var(--vw-color-white);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: border-color 150ms ease, background 150ms ease;
+    }
+
+    .nst-uploader:hover .nst-uploader__icon,
+    .nst-uploader.hover .nst-uploader__icon {
+      border-color: var(--vw-color-blue-200);
+      background: var(--vw-color-blue-50);
+    }
+
+    .nst-uploader.drag-over .nst-uploader__icon {
+      border-color: #1C81EF;
+      background: var(--vw-color-blue-100);
+    }
+
+    .nst-uploader.disabled .nst-uploader__icon {
+      background: var(--vw-color-gray-100);
+      border-color: var(--vw-color-gray-200);
+    }
+
+    .nst-uploader__icon svg {
+      color: var(--vw-color-gray-400);
+      transition: color 150ms ease;
+    }
+    .nst-uploader:hover .nst-uploader__icon svg,
+    .nst-uploader.hover .nst-uploader__icon svg {
+      color: #1C81EF;
+    }
+    .nst-uploader.drag-over .nst-uploader__icon svg {
+      color: #1C81EF;
+    }
+    .nst-uploader.disabled .nst-uploader__icon svg {
+      color: var(--vw-color-gray-300);
+    }
+
+    /* ── Text block ── */
+    .nst-uploader__body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .nst-uploader__heading {
+      font-size: 14px;
+      font-weight: 400;
+      line-height: 24px;
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .nst-uploader__heading .highlight {
+      color: #1C81EF;
+    }
+
+    .nst-uploader__heading .rest {
+      color: #1F2937;
+    }
+
+    .nst-uploader.disabled .nst-uploader__heading .highlight,
+    .nst-uploader.disabled .nst-uploader__heading .rest {
+      color: var(--vw-color-gray-400);
+    }
+
+    .nst-uploader__subtext {
+      font-size: 12px;
+      line-height: 20px;
+      color: #6B7280;
+    }
+
+    .nst-uploader.disabled .nst-uploader__subtext {
+      color: var(--vw-color-gray-300);
+    }
+
+    /* hidden input */
+    .nst-uploader input[type="file"] {
+      display: none;
+    }
+
+    /* ══════════════════════════════════════
+       FILE LIST (uploaded state)
+    ══════════════════════════════════════ */
+
+    .nst-file-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+      max-width: 480px;
+      margin-top: 8px;
+    }
+
+    .nst-file-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid #E2E8F0;
+      border-radius: 8px;
+      background: var(--vw-color-white);
+    }
+
+    .nst-file-item__icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      background: var(--vw-color-blue-50);
+      border: 1px solid var(--vw-color-blue-100);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: #1C81EF;
+    }
+
+    .nst-file-item__info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .nst-file-item__name {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--vw-color-gray-800);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 18px;
+    }
+
+    .nst-file-item__meta {
+      font-size: 11px;
+      color: var(--vw-color-gray-400);
+      line-height: 16px;
+    }
+
+    .nst-file-item__remove {
+      flex-shrink: 0;
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      color: var(--vw-color-gray-400);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 120ms ease, color 120ms ease;
+      padding: 0;
+    }
+
+    .nst-file-item__remove:hover {
+      background: var(--vw-color-red-50);
+      color: var(--vw-color-red-500);
+    }
+
+    /* Progress bar inside file item */
+    .nst-file-item__progress {
+      width: 100%;
+      height: 3px;
+      border-radius: 2px;
+      background: var(--vw-color-gray-100);
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    .nst-file-item__progress-bar {
+      height: 100%;
+      border-radius: 2px;
+      background: #1C81EF;
+      transition: width 600ms ease;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Default ── -->
+  <div class="section">
+    <div class="section-label">Default</div>
+    <label class="nst-uploader" id="uploader-default" tabindex="0">
+      <input type="file" multiple accept=".jpg,.png">
+      <div class="nst-uploader__icon">
+        <!-- Cloud upload icon -->
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M13 13l-3-3-3 3"/>
+          <path d="M10 10v7"/>
+          <path d="M16.39 12.39A5 5 0 0 0 12 5a4.93 4.93 0 0 0-.84.07A5 5 0 1 0 4.6 12.4"/>
+        </svg>
+      </div>
+      <div class="nst-uploader__body">
+        <div class="nst-uploader__heading">
+          <span class="highlight">Upload</span>
+          <span class="rest">or drag files here</span>
+        </div>
+        <div class="nst-uploader__subtext">.jpg, .png (Max 3 MB)</div>
+      </div>
+    </label>
+  </div>
+
+  <!-- ── Hover ── -->
+  <div class="section">
+    <div class="section-label">Hover</div>
+    <label class="nst-uploader hover" tabindex="0">
+      <input type="file" multiple accept=".jpg,.png">
+      <div class="nst-uploader__icon">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M13 13l-3-3-3 3"/>
+          <path d="M10 10v7"/>
+          <path d="M16.39 12.39A5 5 0 0 0 12 5a4.93 4.93 0 0 0-.84.07A5 5 0 1 0 4.6 12.4"/>
+        </svg>
+      </div>
+      <div class="nst-uploader__body">
+        <div class="nst-uploader__heading">
+          <span class="highlight">Upload</span>
+          <span class="rest">or drag files here</span>
+        </div>
+        <div class="nst-uploader__subtext">.jpg, .png (Max 3 MB)</div>
+      </div>
+    </label>
+  </div>
+
+  <!-- ── Drag Over ── -->
+  <div class="section">
+    <div class="section-label">Drag Over</div>
+    <label class="nst-uploader drag-over" tabindex="0">
+      <input type="file" multiple accept=".jpg,.png">
+      <div class="nst-uploader__icon">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M13 13l-3-3-3 3"/>
+          <path d="M10 10v7"/>
+          <path d="M16.39 12.39A5 5 0 0 0 12 5a4.93 4.93 0 0 0-.84.07A5 5 0 1 0 4.6 12.4"/>
+        </svg>
+      </div>
+      <div class="nst-uploader__body">
+        <div class="nst-uploader__heading">
+          <span class="highlight">Upload</span>
+          <span class="rest">or drag files here</span>
+        </div>
+        <div class="nst-uploader__subtext">.jpg, .png (Max 3 MB)</div>
+      </div>
+    </label>
+  </div>
+
+  <!-- ── With uploaded files ── -->
+  <div class="section">
+    <div class="section-label">With Files (uploading)</div>
+    <label class="nst-uploader" tabindex="0">
+      <input type="file" multiple accept=".jpg,.png">
+      <div class="nst-uploader__icon">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M13 13l-3-3-3 3"/>
+          <path d="M10 10v7"/>
+          <path d="M16.39 12.39A5 5 0 0 0 12 5a4.93 4.93 0 0 0-.84.07A5 5 0 1 0 4.6 12.4"/>
+        </svg>
+      </div>
+      <div class="nst-uploader__body">
+        <div class="nst-uploader__heading">
+          <span class="highlight">Upload</span>
+          <span class="rest">or drag files here</span>
+        </div>
+        <div class="nst-uploader__subtext">.jpg, .png (Max 3 MB)</div>
+      </div>
+    </label>
+
+    <div class="nst-file-list">
+      <!-- Uploading -->
+      <div class="nst-file-item">
+        <div class="nst-file-item__icon">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2.5" y="1.5" width="9" height="13" rx="1.5"/>
+            <path d="M5 5.5h4M5 8h4M5 10.5h2.5"/>
+          </svg>
+        </div>
+        <div class="nst-file-item__info">
+          <div class="nst-file-item__name">product-photo.jpg</div>
+          <div class="nst-file-item__meta">1.2 MB · Uploading…</div>
+          <div class="nst-file-item__progress">
+            <div class="nst-file-item__progress-bar" style="width: 65%;"></div>
+          </div>
+        </div>
+        <button class="nst-file-item__remove" aria-label="Remove file">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M2 2l10 10M12 2L2 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Uploaded -->
+      <div class="nst-file-item">
+        <div class="nst-file-item__icon">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2.5" y="1.5" width="9" height="13" rx="1.5"/>
+            <path d="M5 5.5h4M5 8h4M5 10.5h2.5"/>
+          </svg>
+        </div>
+        <div class="nst-file-item__info">
+          <div class="nst-file-item__name">banner-design.png</div>
+          <div class="nst-file-item__meta">870 KB · Done</div>
+        </div>
+        <button class="nst-file-item__remove" aria-label="Remove file">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M2 2l10 10M12 2L2 12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Disabled ── -->
+  <div class="section">
+    <div class="section-label">Disabled</div>
+    <label class="nst-uploader disabled" tabindex="-1">
+      <input type="file" multiple accept=".jpg,.png" disabled>
+      <div class="nst-uploader__icon">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M13 13l-3-3-3 3"/>
+          <path d="M10 10v7"/>
+          <path d="M16.39 12.39A5 5 0 0 0 12 5a4.93 4.93 0 0 0-.84.07A5 5 0 1 0 4.6 12.4"/>
+        </svg>
+      </div>
+      <div class="nst-uploader__body">
+        <div class="nst-uploader__heading">
+          <span class="highlight">Upload</span>
+          <span class="rest">or drag files here</span>
+        </div>
+        <div class="nst-uploader__subtext">.jpg, .png (Max 3 MB)</div>
+      </div>
+    </label>
+  </div>
+
+  <script>
+    // Wire up the interactive default uploader
+    const uploader = document.getElementById('uploader-default');
+
+    uploader.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploader.classList.add('drag-over');
+    });
+
+    uploader.addEventListener('dragleave', () => {
+      uploader.classList.remove('drag-over');
+    });
+
+    uploader.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploader.classList.remove('drag-over');
+    });
+
+    uploader.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        uploader.querySelector('input').click();
+      }
+    });
+  </script>
+
+</body>
+</html>

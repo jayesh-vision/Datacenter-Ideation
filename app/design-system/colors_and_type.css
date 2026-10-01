@@ -1,0 +1,126 @@
+/* ============================================================
+   Aurora Design System — tokens
+   Source: Figma "Claude Design system test - Partial file"
+   ============================================================ */
+
+/* Inter Variable Font — self-hosted */
+@font-face {
+  font-family: 'Inter';
+  src: url('fonts/Inter-VariableFont_opsz_wght.ttf') format('truetype-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* ---------- Brand ---------- */
+  --color-primary:        #1C81EF;   /* rgb(28,129,239)  */
+  --color-primary-hover:  #4290ED;   /* rgb(66,144,237)  */
+  --color-primary-press:  #1767BE;   /* rgb(23,103,190)  */
+
+  /* ---------- Neutrals ---------- */
+  --color-ink-1:     #252525;   /* headings, strong text */
+  --color-ink-2:     #515151;   /* body, secondary text */
+  --color-ink-3:     #7C7C7C;   /* tertiary (label hint) */
+  --color-ink-4:     #A8A8A8;   /* disabled text / placeholder */
+
+  --color-border:         #E9E9E9;
+  --color-border-strong:  #E3E3E3;
+  --color-surface-muted:  #F4F4F4;
+  --color-surface:        #FFFFFF;
+  --color-bg:             #F4F4F4;
+
+  /* chip dark bg (tooltip) */
+  --color-tooltip-bg:     #252525;
+
+  /* ---------- Semantic (pastel bg / text) ---------- */
+  --color-success-bg:   #D1FAE5;
+  --color-success-text: #047857;
+
+  --color-danger-bg:    #FEE2E2;
+  --color-danger-text:  #B91C1C;
+  --color-danger-border:#B21313;
+  --color-destructive:  #FF2020;
+
+  --color-warn-bg:      #FFEDD5;
+  --color-warn-text:    #C2410C;
+
+  --color-caution-bg:   #FEF9C5;
+  --color-caution-text: #A16207;
+
+  --color-info-bg:      #DBEAFE;
+  --color-info-text:    #1D4EB8;
+
+  --color-teal-bg:      #CFFAFE;
+  --color-teal-text:    #0E7490;
+
+  --color-promo:        #9747FF;  /* stroke accent */
+
+  /* ---------- Radius ---------- */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  /* ---------- Spacing (4pt grid) ---------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* ---------- Elevation ---------- */
+  /* Two elevation levels — both share the same border */
+  --elevation-border: 1px solid var(--color-border); /* #E9E9E9 */
+
+  /* Level 1 — resting, border only */
+  --shadow-resting: none;
+
+  /* Level 2 — raised, shadow + border */
+  --shadow-sm: 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+
+  /* ---------- Type scale ---------- */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --fs-caption: 12px;   --lh-caption: 18px;
+  --fs-small:   14px;   --lh-small:   20px;
+  --fs-body:    16px;   --lh-body:    24px;
+  --fs-h3:      20px;   --lh-h3:      28px;
+  --fs-h2:      24px;   --lh-h2:      32px;
+  --fs-h1:      32px;   --lh-h1:      40px;
+
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+  --fw-bold:     700;
+
+  /* ---------- Motion ---------- */
+  --ease: cubic-bezier(.2,.6,.2,1);
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+}
+
+/* =============== Semantic text roles =============== */
+
+html, body {
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  color: var(--color-ink-1);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.ds-h1 { font-size: var(--fs-h1); line-height: var(--lh-h1); font-weight: var(--fw-semibold); color: var(--color-ink-1); letter-spacing: -0.01em; }
+.ds-h2 { font-size: var(--fs-h2); line-height: var(--lh-h2); font-weight: var(--fw-semibold); color: var(--color-ink-1); letter-spacing: -0.005em; }
+.ds-h3 { font-size: var(--fs-h3); line-height: var(--lh-h3); font-weight: var(--fw-semibold); color: var(--color-ink-1); }
+.ds-body      { font-size: var(--fs-body);    line-height: var(--lh-body);    font-weight: var(--fw-regular); color: var(--color-ink-2); }
+.ds-body-strong { font-size: var(--fs-body);  line-height: var(--lh-body);    font-weight: var(--fw-medium);  color: var(--color-ink-1); }
+.ds-small     { font-size: var(--fs-small);   line-height: var(--lh-small);   font-weight: var(--fw-regular); color: var(--color-ink-2); }
+.ds-label     { font-size: var(--fs-small);   line-height: var(--lh-small);   font-weight: var(--fw-medium);  color: var(--color-ink-1); }
+.ds-caption   { font-size: var(--fs-caption); line-height: var(--lh-caption); font-weight: var(--fw-regular); color: var(--color-ink-3); }
+.ds-caption-strong { font-size: var(--fs-caption); line-height: var(--lh-caption); font-weight: var(--fw-semibold); color: var(--color-ink-1); }

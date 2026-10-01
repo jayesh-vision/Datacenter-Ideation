@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Comment Section</title>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --font: 'Inter', ui-sans-serif, system-ui, sans-serif;
+      --blue:  #1C81EF;
+      --blue-h:#1767BE;
+      --ink1:  #252525;
+      --ink2:  #515151;
+      --ink3:  #7C7C7C;
+      --ink4:  #A8A8A8;
+      --border:#E9E9E9;
+      --row-border: #F1F1F1;
+      --bg:    #F4F4F4;
+      --red:   #DC2626;
+      --red-bg:#FEE2E2;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      font-family: var(--font);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Bulletproof full-viewport fill for any iframe depth */
+    #root {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      background: #fff;
+    }
+
+    /* ── Panel ── */
+    .panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Scroll area ── */
+    .scroll {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    .scroll::-webkit-scrollbar { width: 4px; }
+    .scroll::-webkit-scrollbar-thumb { background: #E0E0E0; border-radius: 2px; }
+
+    /* ── Comment row ── */
+    .comment {
+      padding: 16px 20px 14px;
+      border-bottom: 1px solid var(--row-border);
+      position: relative;
+    }
+    .comment:last-child { border-bottom: none; }
+
+    /* ── Header: avatar + name + time + hover actions ── */
+    .comment-header {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin-bottom: 7px;
+    }
+
+    .avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 600; color: #fff;
+      flex-shrink: 0; user-select: none; letter-spacing: 0.02em;
+    }
+
+    .author-name {
+      font-size: 14px; font-weight: 600; color: var(--ink1);
+      line-height: 1;
+    }
+
+    .comment-time {
+      font-size: 12px; color: var(--ink4);
+      line-height: 1;
+    }
+
+    .edited-badge {
+      font-size: 11px; color: #C0C0C0; font-style: italic;
+    }
+
+    /* Action buttons — right side, controlled via React hover state */
+    .comment-actions {
+      margin-left: auto;
+      display: flex;
+      gap: 2px;
+      align-items: center;
+      flex-shrink: 0;
+      transition: opacity 140ms ease;
+    }
+
+    .action-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 30px; height: 30px; border-radius: 7px;
+      border: none; background: transparent; cursor: pointer;
+      color: var(--ink4);
+      transition: background 120ms, color 120ms;
+      padding: 0;
+    }
+    .action-btn:hover { background: #F2F2F2; color: var(--ink2); }
+    .action-btn.active { background: #EFF6FF; color: var(--blue); }
+    .action-btn.danger { background: var(--red-bg); color: var(--red); }
+
+    /* ── Body text (full-width, NOT under avatar) ── */
+    .comment-body {
+      font-size: 14px;
+      color: var(--ink2);
+      line-height: 22px;
+      word-break: break-word;
+    }
+
+    /* ── Edit inline ── */
+    .edit-area {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 22px;
+      color: var(--ink1);
+      resize: none;
+      outline: none;
+      min-height: 72px;
+      transition: border-color 120ms, box-shadow 120ms;
+    }
+    .edit-area:focus { border-color: var(--blue); box-shadow: 0 0 0 3px #DBEAFE; }
+
+    /* ── Replies toggle ── */
+    .replies-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--ink3);
+      cursor: pointer;
+      border: none;
+      background: none;
+      padding: 0;
+      font-family: var(--font);
+      transition: color 120ms;
+      line-height: 1;
+    }
+    .replies-toggle:hover { color: var(--ink1); }
+
+    /* ── Nested replies container ── */
+    .replies-list {
+      margin-top: 10px;
+      padding-left: 44px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Reply composer (inline) ── */
+    .reply-composer {
+      margin-top: 10px;
+    }
+
+    .reply-textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 22px;
+      color: var(--ink1);
+      resize: none;
+      outline: none;
+      min-height: 88px;
+      transition: border-color 120ms, box-shadow 120ms;
+    }
+    .reply-textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px #DBEAFE; }
+    .reply-textarea::placeholder { color: var(--ink4); }
+
+    .composer-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    /* ── Shared buttons ── */
+    .btn-ghost {
+      padding: 0 16px; height: 32px;
+      border-radius: 8px; border: none; background: transparent;
+      cursor: pointer; font-family: var(--font);
+      font-size: 13px; font-weight: 500; color: var(--ink2);
+      transition: background 120ms;
+    }
+    .btn-ghost:hover { background: #F2F2F2; }
+
+    .btn-primary {
+      padding: 0 18px; height: 32px;
+      border-radius: 8px; border: none;
+      background: var(--blue); cursor: pointer;
+      font-family: var(--font);
+      font-size: 13px; font-weight: 500; color: #fff;
+      transition: background 120ms;
+    }
+    .btn-primary:hover    { background: var(--blue-h); }
+    .btn-primary:disabled { background: #BFDBFE; cursor: not-allowed; }
+
+    /* ── Bottom input bar ── */
+    .input-bar {
+      flex-shrink: 0;
+      border-top: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      background: #fff;
+    }
+
+    .input-field {
+      flex: 1;
+      border: none; outline: none;
+      font-family: var(--font);
+      font-size: 14px; line-height: 22px;
+      color: var(--ink1);
+      resize: none;
+      min-height: 22px; max-height: 110px;
+      overflow-y: auto;
+      background: transparent;
+    }
+    .input-field::placeholder { color: var(--ink4); }
+
+    .send-btn {
+      width: 44px; height: 44px; border-radius: 12px;
+      background: var(--blue); border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; flex-shrink: 0;
+      transition: background 120ms, transform 80ms;
+    }
+    .send-btn:hover   { background: var(--blue-h); }
+    .send-btn:active  { transform: scale(0.92); }
+    .send-btn:disabled { background: #BFDBFE; cursor: not-allowed; transform: none; }
+
+    /* ── Animations ── */
+    @keyframes fade-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fade-in 160ms ease forwards; }
+
+    @keyframes flash { 0% { background: #EFF6FF; } 100% { background: transparent; } }
+    .flash { animation: flash 1.8s ease forwards; border-radius: 4px; }
+
+    /* ── Empty state ── */
+    .empty {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      height: 100%; gap: 10px;
+      color: var(--ink4); font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+  const { useState, useRef, useEffect, useCallback } = React;
+
+  /* ── Helpers ── */
+  const PALETTES = ['#7C3AED','#1C81EF','#059669','#D97706','#DC2626','#0891B2','#BE185D','#EA580C'];
+  function avatarBg(s) {
+    let h = 0;
+    for (const c of s) h = (h * 31 + c.charCodeAt(0)) & 0xffff;
+    return PALETTES[h % PALETTES.length];
+  }
+  function timeAgo(ts) {
+    const s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 60)     return 'just now';
+    if (s < 3600)   return `${Math.floor(s/60)} min ago`;
+    if (s < 86400)  return `${Math.floor(s/3600)} hours ago`;
+    if (s < 604800) return `${Math.floor(s/86400)} days ago`;
+    return new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  }
+  let _seq = 10;
+  const nid = () => `nc${++_seq}`;
+  const ME = { name: 'Arjun Mehta', initials: 'AM' };
+
+  function treeUpdate(list, id, fn) {
+    return list.map(c => c.id === id ? fn(c) : { ...c, replies: treeUpdate(c.replies, id, fn) });
+  }
+  function treeDelete(list, id) {
+    return list.filter(c => c.id !== id).map(c => ({ ...c, replies: treeDelete(c.replies, id) }));
+  }
+  function treeAddReply(list, pid, r) {
+    return list.map(c => {
+      if (c.id === pid) return { ...c, replies: [...c.replies, r] };
+      return { ...c, replies: treeAddReply(c.replies, pid, r) };
+    });
+  }
+  function autoH(el, max) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, max || 200) + 'px';
+  }
+
+  /* ── Seed data ── */
+  const SEED = [
+    {
+      id:'c1', author:'Punit Chawla', initials:'PC', edited:false,
+      ts: Date.now() - 18*3600000,
+      text:'Client requires a warehouse near highway so they can quickly transfer goods.',
+      replies:[
+        {
+          id:'c1r1', author:'Rishabh Raghuvanshi', initials:'RR', edited:false,
+          ts: Date.now() - 6*3600000,
+          text:'They specifically mentioned loading bays for 20-tonne trucks — highway access is non-negotiable per the brief.',
+          replies:[
+            {
+              id:'c1r1r1', author:'Punit Chawla', initials:'PC', edited:false,
+              ts: Date.now() - 5*3600000,
+              text:'Noted — adding truck bay requirements to the spec doc now.',
+              replies:[],
+            },
+          ],
+        },
+        {
+          id:'c1r2', author:ME.name, initials:ME.initials, edited:false,
+          ts: Date.now() - 2*3600000,
+          text:'Should we loop in the logistics team before finalising the warehouse shortlist?',
+          replies:[],
+        },
+      ],
+    },
+    {
+      id:'c2', author:'Sarah Thompson', initials:'ST', edited:false,
+      ts: Date.now() - 3*3600000,
+      text:'Do we know if temperature-controlled storage is needed? Some product lines might be sensitive to heat.',
+      replies:[],
+    },
+    {
+      id:'c3', author:ME.name, initials:ME.initials, edited:false,
+      ts: Date.now() - 45*60000,
+      text:"I'll follow up with the client tomorrow to clarify storage requirements and minimum square footage.",
+      replies:[],
+    },
+  ];
+
+  /* ── Icons ── */
+  const IcoReply = () => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="9 14 4 9 9 4"/>
+      <path d="M20 20v-7a4 4 0 0 0-4-4H4"/>
+    </svg>
+  );
+  const IcoEdit = () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+    </svg>
+  );
+  const IcoTrash = () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6"/>
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+    </svg>
+  );
+  const IcoSend = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+    </svg>
+  );
+  const IcoUp = () => (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="18 15 12 9 6 15"/>
+    </svg>
+  );
+  const IcoDn = () => (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="6 9 12 15 18 9"/>
+    </svg>
+  );
+
+  /* ── Avatar ── */
+  function Av({ initials, size }) {
+    size = size || 36;
+    return (
+      <div className="avatar" style={{ width:size, height:size, background:avatarBg(initials), fontSize: Math.round(size*0.33) }}>
+        {initials}
+      </div>
+    );
+  }
+
+  /* ── Reply Composer ── */
+  function ReplyComposer({ onSubmit, onCancel }) {
+    const [val, setVal] = useState('');
+    const ref = useRef(null);
+    useEffect(() => { if(ref.current) ref.current.focus(); }, []);
+    function submit() { const t = val.trim(); if(t) onSubmit(t); }
+    return (
+      <div className="reply-composer fade-in">
+        <textarea
+          ref={ref}
+          className="reply-textarea"
+          placeholder="Write a reply…"
+          value={val}
+          onChange={e => { setVal(e.target.value); autoH(e.target, 200); }}
+          onKeyDown={e => {
+            if(e.key === 'Escape') onCancel();
+            if(e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit();
+          }}
+        />
+        <div className="composer-actions">
+          <button className="btn-ghost" onClick={onCancel}>Cancel</button>
+          <button className="btn-primary" onClick={submit} disabled={!val.trim()}>Reply</button>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Comment Item ── */
+  function CommentItem({ comment, depth, onReply, onEdit, onDelete, isNew }) {
+    const [open,     setOpen]     = useState(depth === 0 && comment.replies.length > 0);
+    const [replyBox, setReplyBox] = useState(false);
+    const [editing,  setEditing]  = useState(false);
+    const [editVal,  setEditVal]  = useState(comment.text);
+    const [pendDel,  setPendDel]  = useState(false);
+    const [hovered,  setHovered]  = useState(false);
+    const delRef = useRef(null);
+
+    useEffect(() => () => clearTimeout(delRef.current), []);
+    useEffect(() => { setEditVal(comment.text); }, [comment.text]);
+
+    const rc    = comment.replies.length;
+    const isOwn = comment.author === ME.name;
+
+    function toggleReply() {
+      setReplyBox(v => { if(!v) setOpen(true); return !v; });
+    }
+    function submitReply(text) {
+      onReply(comment.id, text);
+      setReplyBox(false);
+      setOpen(true);
+    }
+    function saveEdit() {
+      const t = editVal.trim();
+      if(t) onEdit(comment.id, t);
+      setEditing(false);
+    }
+    function clickDel() {
+      if(pendDel) { clearTimeout(delRef.current); onDelete(comment.id); }
+      else {
+        setPendDel(true);
+        delRef.current = setTimeout(() => setPendDel(false), 2500);
+      }
+    }
+
+    const avSize = depth === 0 ? 36 : 30;
+
+    return (
+      <div
+        className={`comment${isNew ? ' flash' : ''}`}
+        onMouseEnter={e => { e.stopPropagation(); setHovered(true); }}
+        onMouseLeave={() => { setHovered(false); if(pendDel){ clearTimeout(delRef.current); setPendDel(false); } }}
+      >
+        {/* Header */}
+        <div className="comment-header">
+          <Av initials={comment.initials} size={avSize} />
+          <span className="author-name">{comment.author}</span>
+          <span className="comment-time">{timeAgo(comment.ts)}</span>
+          {comment.edited && <span className="edited-badge">· edited</span>}
+
+          {/* Hover actions — only visible on direct hover */}
+          <div className="comment-actions" style={{ opacity: hovered && !editing ? 1 : 0, pointerEvents: hovered && !editing ? 'auto' : 'none' }}>
+            <button
+              className={`action-btn${replyBox ? ' active' : ''}`}
+              title="Reply"
+              onClick={toggleReply}
+            ><IcoReply /></button>
+            {isOwn && (
+              <button
+                className="action-btn"
+                title="Edit"
+                onClick={() => { setEditing(true); setEditVal(comment.text); }}
+              ><IcoEdit /></button>
+            )}
+            {isOwn && (
+              <button
+                className={`action-btn${pendDel ? ' danger' : ''}`}
+                title={pendDel ? 'Click again to confirm' : 'Delete'}
+                onClick={clickDel}
+              ><IcoTrash /></button>
+            )}
+          </div>
+        </div>
+
+        {/* Body */}
+        {editing ? (
+          <div>
+            <textarea
+              className="edit-area"
+              value={editVal}
+              autoFocus
+              onChange={e => { setEditVal(e.target.value); autoH(e.target, 240); }}
+              onKeyDown={e => {
+                if(e.key === 'Escape') setEditing(false);
+                if(e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveEdit();
+              }}
+            />
+            <div className="composer-actions">
+              <button className="btn-ghost" onClick={() => setEditing(false)}>Cancel</button>
+              <button className="btn-primary" onClick={saveEdit} disabled={!editVal.trim()}>Save</button>
+            </div>
+          </div>
+        ) : (
+          <div className="comment-body">{comment.text}</div>
+        )}
+
+        {/* Replies toggle + composer + list */}
+        {!editing && (
+          <div>
+            {(rc > 0 || replyBox) && (
+              <div style={{ display:'flex', flexDirection:'column', gap: 0 }}>
+                {rc > 0 && (
+                  <button className="replies-toggle" onClick={() => setOpen(v => !v)}>
+                    {open ? <IcoUp /> : <IcoDn />}
+                    <span>Replies{rc > 0 ? '' : ''}</span>
+                  </button>
+                )}
+
+                {replyBox && (
+                  <ReplyComposer
+                    onSubmit={submitReply}
+                    onCancel={() => setReplyBox(false)}
+                  />
+                )}
+
+                {open && rc > 0 && (
+                  <div className="replies-list fade-in">
+                    {comment.replies.map(r => (
+                      <CommentItem
+                        key={r.id}
+                        comment={r}
+                        depth={depth + 1}
+                        onReply={onReply}
+                        onEdit={onEdit}
+                        onDelete={onDelete}
+                        isNew={false}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  /* ── Root component ── */
+  function CommentSection() {
+    const [comments, setComments] = useState(SEED);
+    const [text, setText]         = useState('');
+    const [newIds, setNewIds]     = useState({});
+    const scrollRef = useRef(null);
+    const inputRef  = useRef(null);
+
+    function post() {
+      const t = text.trim();
+      if(!t) return;
+      const id = nid();
+      setComments(p => [...p, { id, author:ME.name, initials:ME.initials, ts:Date.now(), text:t, replies:[], edited:false }]);
+      setNewIds(p => ({ ...p, [id]: true }));
+      setText('');
+      if(inputRef.current) inputRef.current.style.height = 'auto';
+      setTimeout(() => { if(scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, 60);
+      setTimeout(() => setNewIds(p => { const n={...p}; delete n[id]; return n; }), 2000);
+    }
+
+    const onReply  = useCallback((pid, t) => {
+      const r = { id:nid(), author:ME.name, initials:ME.initials, ts:Date.now(), text:t, replies:[], edited:false };
+      setComments(p => treeAddReply(p, pid, r));
+    }, []);
+
+    const onEdit   = useCallback((id, t) => {
+      setComments(p => treeUpdate(p, id, c => ({ ...c, text:t, edited:true })));
+    }, []);
+
+    const onDelete = useCallback((id) => {
+      setComments(p => treeDelete(p, id));
+    }, []);
+
+    return (
+      <div className="panel">
+        <div className="scroll" ref={scrollRef}>
+          {comments.length === 0 ? (
+            <div className="empty">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#C8C8C8" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              <span>No comments yet — be the first.</span>
+            </div>
+          ) : (
+            comments.map(c => (
+              <CommentItem
+                key={c.id}
+                comment={c}
+                depth={0}
+                onReply={onReply}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                isNew={!!newIds[c.id]}
+              />
+            ))
+          )}
+        </div>
+
+        {/* Bottom bar */}
+        <div className="input-bar">
+          <textarea
+            ref={inputRef}
+            className="input-field"
+            placeholder="Type a comment…"
+            value={text}
+            rows={1}
+            onChange={e => { setText(e.target.value); autoH(e.target, 110); }}
+            onKeyDown={e => {
+              if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); post(); }
+            }}
+          />
+          <button className="send-btn" onClick={post} disabled={!text.trim()} title="Send (Enter)">
+            <IcoSend />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<CommentSection />);
+  </script>
+</body>
+</html>

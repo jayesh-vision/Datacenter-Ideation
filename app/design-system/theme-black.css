@@ -1,0 +1,39 @@
+/* ============================================================
+   NST Design System — Theme: Black
+   Primary: #090909
+
+   Usage (scoped):  <div data-theme="black"> … </div>
+   Usage (global):  <html data-theme="black">
+   ============================================================ */
+
+[data-theme="black"] {
+
+  /* ── Accent color scale ─────────────────────────────────── */
+  --accentColor50:  #f2f2f2;
+  --accentColor100: #d9d9d9;
+  --accentColor200: #bfbfbf;
+  --accentColor300: #8c8c8c;
+  --accentColor400: #595959;
+  --accentColor500: #090909;
+  --accentColor600: #000000;
+  --accentColor700: #0a0a0a;
+  --accentColor800: #000000;
+  --accentColor900: #000000;
+
+  /* ── Semantic primary overrides ─────────────────────────── */
+  --color-primary:        #090909;   /* accentColor500 — default */
+  --color-primary-hover:  #595959;   /* accentColor400 — lifted  */
+  --color-primary-press:  #000000;   /* accentColor600 — pressed */
+
+  /* ── vw-color-accent remapping ──────────────────────────── */
+  --vw-color-accent-50:  #f2f2f2;
+  --vw-color-accent-100: #d9d9d9;
+  --vw-color-accent-200: #bfbfbf;
+  --vw-color-accent-300: #8c8c8c;
+  --vw-color-accent-400: #595959;
+  --vw-color-accent-500: #090909;
+  --vw-color-accent-600: #000000;
+  --vw-color-accent-700: #0a0a0a;
+  --vw-color-accent-800: #000000;
+  --vw-color-accent-900: #000000;
+}

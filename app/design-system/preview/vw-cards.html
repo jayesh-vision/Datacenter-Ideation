@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>vw-cards — NST Design System</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../nst-design-system.css">
+  <style>
+    body {
+      background: var(--vw-color-gray-50);
+      padding: var(--vw-space-2xl);
+    }
+    .demo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: var(--vw-space-lg);
+      max-width: 1200px;
+    }
+    h1 {
+      font-size: var(--vw-font-heading-xl);
+      font-weight: 500;
+      margin: 0 0 var(--vw-space-sm);
+    }
+    .intro {
+      color: var(--vw-color-gray-600);
+      margin-bottom: var(--vw-space-2xl);
+      max-width: 640px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1 class="vw-page-title">vw-cards</h1>
+  <p class="vw-page-description intro">
+    Card patterns using <code>.vw-card-section</code>, metrics, chips, and semantic variants — aligned with production guidelines.
+  </p>
+
+  <div class="demo-grid">
+
+    <div class="vw-card-section vw-flex vw-flex-col vw-page-gap-sm">
+      <div class="vw-card-title">Report name</div>
+      <div class="vw-card-description">Short summary using vw-card classes only.</div>
+    </div>
+
+    <div class="vw-card-section vw-flex vw-flex-col vw-justify-between">
+      <div class="vw-card-title">Potential revenue</div>
+      <div class="vw-flex vw-justify-between vw-items-baseline vw-gap-sm vw-wrap">
+        <div class="vw-card-metric-lg">₹2.5M</div>
+        <div class="vw-card-variance is-positive">+12%</div>
+      </div>
+    </div>
+
+    <div class="vw-card-section vw-flex vw-flex-col vw-page-gap-sm">
+      <div class="vw-flex vw-items-center vw-gap-sm">
+        <div class="vw-card-title">Leads</div>
+        <span class="vw-chip vw-chip--success">Active</span>
+      </div>
+      <div class="vw-card-metric-lg">20</div>
+    </div>
+
+    <div class="vw-card-section vw-card--success vw-flex vw-flex-col vw-page-gap-sm">
+      <div class="vw-card-title">Success</div>
+      <div class="vw-card-metric-md">100</div>
+    </div>
+
+    <div class="vw-card-section vw-card--error vw-flex vw-flex-col vw-page-gap-sm">
+      <div class="vw-card-title">Error</div>
+      <div class="vw-card-metric-md">5</div>
+    </div>
+
+    <div class="vw-card-parent">
+      <div class="vw-card-title">Parent card</div>
+      <div class="vw-card-child">
+        <div class="vw-card-title-sm">Child item</div>
+        <div class="vw-card-activity-value">December 26, 2024</div>
+      </div>
+      <div class="vw-card-child-shaded">
+        <div class="vw-card-title-sm">Shaded child</div>
+        <div class="vw-card-activity-value">January 3, 2025</div>
+      </div>
+    </div>
+
+    <div class="vw-card-section vw-card--accent vw-flex vw-flex-col vw-page-gap-sm" style="padding-top: calc(var(--vw-space-lg) + 3px);">
+      <div class="vw-card-accent" style="background:var(--vw-color-emerald-500);"></div>
+      <div class="vw-card-title">Accent strip &middot; healthy</div>
+      <div class="vw-card-description">.vw-card--accent + .vw-card-accent — status colour without tinting the surface</div>
+    </div>
+
+    <div class="vw-card-section vw-card--accent vw-flex vw-flex-col vw-page-gap-sm" style="padding-top: calc(var(--vw-space-lg) + 3px);">
+      <div class="vw-card-accent" style="background:var(--vw-color-red-500);"></div>
+      <div class="vw-card-title">Accent strip &middot; failing</div>
+      <div class="vw-card-description">Same pattern, red strip for a failing/blocked state</div>
+    </div>
+
+  </div>
+
+</body>
+</html>

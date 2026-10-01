@@ -1,0 +1,24 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
+const errs = []; p.on('pageerror', e => errs.push(e.message));
+const driftOf = async () => {
+  await p.locator('.rail-link', { hasText: 'Datacenters' }).click(); await p.waitForTimeout(600);
+  return (await p.locator('tr', { hasText: 'MH-DC-001' }).first().locator("td").nth(8).innerText()).trim();
+};
+await p.goto('http://localhost:5181/inventory/datacenters', { waitUntil: 'networkidle' }); await p.waitForTimeout(500);
+const before = await driftOf();
+await p.locator('.rail-link', { hasText: 'Reconciliation' }).click(); await p.waitForTimeout(600);
+await p.locator('select[aria-label="Site"]').selectOption('MH-DC-001'); await p.waitForTimeout(300);
+await p.locator('select[aria-label="Gap type"]').selectOption('drift'); await p.waitForTimeout(500);
+await p.locator('tbody tr').first().click(); await p.waitForTimeout(400);
+await p.screenshot({ path: '.qa/out/recon-drawer.png' });
+await p.locator('.decide button', { hasText: 'Accept observed values' }).click(); await p.waitForTimeout(600);
+const resolved = await p.locator('.drawer .note--good', { hasText: 'Accepted observed values' }).count();
+await p.screenshot({ path: '.qa/out/recon-resolved.png' });
+await p.locator('.drawer-head button[aria-label="Close"]').click();
+const after = await driftOf();
+console.log('drift before', before, 'after', after, 'resolved shown', resolved === 1);
+await p.locator('.rail-link', { hasText: 'Reconciliation' }).click(); await p.waitForTimeout(500);
+await p.locator('.tab', { hasText: 'Audit trail' }).click(); await p.waitForTimeout(500);
+console.log('audit rows top:', (await p.locator('tbody tr').first().innerText()).replace(/\s+/g, ' ').slice(0, 140));
+console.log(errs.length ? 'ERR ' + errs.join(' | ') : 'no page errors'); await b.close();

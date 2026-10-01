@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Semantic table — NST Design System</title>
+<link rel="stylesheet" href="../colors.css">
+<link rel="stylesheet" href="../spacing.css">
+<link rel="stylesheet" href="../typography-tokens.css">
+<link rel="stylesheet" href="../theme-tokens.css">
+<link rel="stylesheet" href="../vw-chips.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+  @font-face { font-family: 'Inter'; src: url('../fonts/Inter-VariableFont_opsz_wght.ttf') format('truetype-variations'); font-weight: 100 900; font-style: normal; font-display: swap; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 28px; background: #F4F4F4; font-family: 'Inter', system-ui, sans-serif; color: #252525; }
+  .block-label { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #A8A8A8; margin-bottom: 12px; }
+  .wrap { max-width: 720px; }
+</style>
+</head>
+<body>
+
+  <div class="block-label">Semantic table — .nst-table (real &lt;table&gt;, prefer over the grid variant for plain data)</div>
+  <div class="wrap">
+    <table class="nst-table">
+      <thead>
+        <tr><th>Status</th><th>Name</th><th>Owner</th><th>Updated</th></tr>
+      </thead>
+      <tbody>
+        <tr class="is-clickable">
+          <td><span class="vw-chip vw-chip--success" style="font-size:11px;">Active</span></td>
+          <td class="nst-table-td--primary">payments-api</td>
+          <td>s.rao</td>
+          <td>2h ago</td>
+        </tr>
+        <tr class="is-clickable is-selected">
+          <td><span class="vw-chip vw-chip--warning" style="font-size:11px;">Draft</span></td>
+          <td class="nst-table-td--primary">checkout-web</td>
+          <td>a.kumar</td>
+          <td>yesterday</td>
+        </tr>
+        <tr class="is-clickable">
+          <td><span class="vw-chip vw-chip--error" style="font-size:11px;">Blocked</span></td>
+          <td class="nst-table-td--primary">orders-svc</td>
+          <td>p.shah</td>
+          <td>5h ago</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</body>
+</html>
