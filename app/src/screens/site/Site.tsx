@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { getDatacenter, runDiscovery, useQuery, clockNow } from '../../api';
@@ -13,12 +13,13 @@ import { Finance } from './Finance';
 import { Details } from './Details';
 import { Equipment } from './Equipment';
 import { Timeline } from './Timeline';
+const Twin = lazy(() => import('./twin/Twin'));
 import '../../styles/site.css';
 
 export type SiteData = NonNullable<Awaited<ReturnType<typeof getDatacenter>>>;
-type Tab = 'attention' | 'elements' | 'capex' | 'opex' | 'details' | 'equipment' | 'timeline';
+type Tab = 'overview' | 'attention' | 'elements' | 'capex' | 'opex' | 'details' | 'equipment' | 'timeline';
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'attention', label: 'Attention' }, { id: 'elements', label: 'Network elements' }, { id: 'capex', label: 'Capex' }, { id: 'opex', label: 'Opex' },
+  { id: 'overview', label: 'Overview' }, { id: 'attention', label: 'Attention' }, { id: 'elements', label: 'Network elements' }, { id: 'capex', label: 'Capex' }, { id: 'opex', label: 'Opex' },
   { id: 'details', label: 'Site details' }, { id: 'equipment', label: 'Site equipment' }, { id: 'timeline', label: 'Timeline' }
 ];
 
@@ -35,8 +36,7 @@ export function Site() {
   if (loading && !data) return <Loading label="Loading site" />;
   if (!data) return <NotFound what="Datacenter" />;
   const { dc, summary: s } = data;
-  const gaps = s.notDiscovered + s.drifted + dc.risks.length;
-  const tab = (sp.get('tab') as Tab) || (gaps ? 'attention' : 'details');
+  const tab = (sp.get('tab') as Tab) || 'overview';
   const go = (t: Tab) => { const n = new URLSearchParams(sp); n.set('tab', t); ['role', 'disc', 'q', 'kind'].forEach(k => n.delete(k)); setSp(n, { replace: true }); };
   const now = clockNow();
   const roles = Object.entries(s.byRole).sort((a, b) => b[1] - a[1]);
@@ -117,6 +117,7 @@ export function Site() {
         {dc.status === 'planned' ? <span className="fresh">No collector assigned · record data only</span> : <Fresh>Inventory as of {fmtAgo(Math.max(...dc.collectors.map(c => c.lastSeen)), now)}</Fresh>}
       </div>
 
+      {tab === 'overview' && <Suspense fallback={<Loading label="Loading 3D view" />}><Twin dcId={dc.id} /></Suspense>}
       {tab === 'attention' && <Attention data={data} />}
       {tab === 'elements' && <Elements dcId={dc.id} />}
       {(tab === 'capex' || tab === 'opex') && <Finance data={data} view={tab} />}

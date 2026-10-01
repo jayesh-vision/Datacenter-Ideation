@@ -1,0 +1,84 @@
+/* Digital twin (site Overview tab). NST tokens only; 3D palette lives in Scene.tsx. */
+.twin { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: var(--vw-space-lg); align-items: start; }
+.twin-main { display: flex; flex-direction: column; gap: var(--vw-space-sm); min-width: 0; }
+.twin-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--vw-space-sm); flex-wrap: wrap; }
+.twin-crumbs { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; min-width: 0; }
+.twin-crumbs button { border: 0; background: transparent; padding: 4px 6px; border-radius: 6px; font: inherit; font-size: 13px; color: var(--primaryColor700); cursor: pointer; font-weight: 500; }
+.twin-crumbs button:hover { background: var(--primaryColor50); }
+.twin-crumbs button.is-last { color: var(--vw-color-gray-900); font-weight: 600; cursor: default; }
+.twin-canvas { position: relative; height: 600px; border: 1px solid var(--vw-color-slate-200); border-radius: var(--vw-radius-lg); overflow: hidden; background: #F8FAFC; }
+.twin-canvas canvas { display: block; outline: none; }
+.twin-legend { position: absolute; right: 12px; top: 12px; display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; padding: 6px 10px; border-radius: 10px; background: rgba(255, 255, 255, .92); border: 1px solid var(--vw-color-slate-200); font-size: var(--vw-font-label-xs); color: var(--vw-color-gray-600); pointer-events: none; max-width: 60%; overflow: hidden; }
+.twin-legend span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.twin-legend i { width: 10px; height: 10px; border-radius: 3px; border: 1px solid rgba(15, 23, 42, .08); }
+.twin-leaders { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
+.twin-leaders line { stroke: #64748B; stroke-width: 1; stroke-opacity: .7; }
+.twin-tip { position: absolute; left: 12px; bottom: 12px; pointer-events: none; z-index: 5; display: flex; flex-direction: column; gap: 2px; padding: 8px 11px; border-radius: 10px; background: rgba(15, 23, 42, .92); color: #fff; font-size: 12px; max-width: 320px; white-space: normal; box-shadow: 0 6px 20px -8px rgba(15, 23, 42, .4); }
+.twin-tip b { font-weight: 600; font-family: var(--num); }
+.twin-tip span { color: rgba(255, 255, 255, .78); line-height: 1.35; }
+.twin-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 3; }
+.twin-label { position: absolute; left: 0; top: 0; pointer-events: none; will-change: transform; }
+.twin-label > * { pointer-events: auto; }
+.twin-label.is-center > * { transform: translate(-50%, -50%); }
+.twin-label.is-left > * { transform: translate(0, -50%); }
+.twin-label.is-right > * { transform: translate(-100%, -50%); }
+.twin-label.is-rack button { font-size: 11.5px; }
+.twin-label button, .twin-label span { display: inline-flex; flex-direction: column; align-items: center; gap: 0; padding: 3px 8px; border-radius: 7px; border: 1px solid var(--vw-color-slate-200); background: rgba(255, 255, 255, .94); font: inherit; font-family: var(--num); font-size: 11px; font-weight: 600; color: var(--vw-color-gray-800); white-space: nowrap; cursor: pointer; box-shadow: 0 1px 3px rgba(15, 23, 42, .08); line-height: 1.3; }
+.twin-label button:hover { border-color: var(--primaryColor500); color: var(--primaryColor700); }
+.twin-label.is-sel button { background: var(--primaryColor500); border-color: var(--primaryColor500); color: #fff; }
+.twin-label small { font-family: 'Poppins', sans-serif; font-weight: 400; font-size: 10px; color: var(--vw-color-gray-500); }
+.twin-label.is-room button { font-size: 11px; padding: 3px 9px; color: var(--primaryColor700); }
+.twin-label.is-floor button { font-family: 'Poppins', sans-serif; font-size: 12px; }
+.twin-label.is-static span { cursor: default; font-weight: 500; }
+.twin-label.is-u span { font-size: 10px; font-weight: 500; color: var(--vw-color-gray-500); background: rgba(255, 255, 255, .85); padding: 0 4px; border: 0; box-shadow: none; }
+.twin-label.is-eq button { font-size: 10.5px; padding: 2px 7px; font-weight: 500; }
+.twin-label.is-eq.is-sel button { background: var(--primaryColor500); border-color: var(--primaryColor500); color: #fff; }
+.twin-nogl { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--vw-color-gray-500); text-align: center; padding: 24px; }
+.twin-nogl b { color: var(--vw-color-gray-900); }
+
+/* side panel */
+.twin-side { display: flex; flex-direction: column; gap: var(--vw-space-sm); max-height: 650px; overflow-y: auto; scrollbar-width: thin; padding-right: 2px; }
+.twin-card { padding: var(--vw-space-md) var(--vw-space-lg); display: flex; flex-direction: column; gap: 6px; }
+.twin-card-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.twin-card-h .count { font-family: var(--num); font-size: 11px; font-weight: 600; background: var(--vw-color-slate-100); color: var(--vw-color-gray-600); border-radius: 9px; padding: 1px 7px; margin-left: 6px; }
+.twin-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 5px 0; border-top: 1px solid var(--vw-color-slate-100); font-size: var(--vw-font-label-sm); }
+.twin-row:first-of-type { border-top: 0; }
+.twin-row .vw-value { font-size: var(--vw-font-label-sm); text-align: right; min-width: 0; }
+.twin-meter { display: inline-flex; align-items: center; gap: 8px; }
+.twin-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 4px; }
+.twin-stats > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.twin-stats .vw-card-metric-md { color: var(--vw-color-gray-900); white-space: nowrap; }
+.twin-stats small { font-size: var(--vw-font-label-xs); color: var(--vw-color-gray-500); font-weight: 400; }
+.twin-stats .vw-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.twin-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.twin-list button { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: 'name chip go' 'sub chip go'; align-items: center; gap: 0 8px; text-align: left; padding: 7px 8px 7px 10px; border: 1px solid var(--vw-color-slate-200); border-radius: var(--vw-radius-sm); background: var(--vw-color-white); font: inherit; color: inherit; cursor: pointer; }
+.twin-list button:hover { border-color: var(--primaryColor500); background: var(--primaryColor50); }
+.twin-list button > .vw-card-activity-label { grid-area: name; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.twin-list button > .vw-label { grid-area: sub; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.twin-list button > .vw-chip { grid-area: chip; }
+.twin-list button > svg { grid-area: go; color: var(--vw-color-gray-400); }
+.twin-note { margin: 0; font-size: var(--vw-font-label-sm); color: var(--vw-color-gray-500); line-height: 1.45; }
+.twin-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.twin-inline { border: 0; background: none; padding: 0; font: inherit; font-size: inherit; cursor: pointer; }
+@media (max-width: 1280px) { .twin { grid-template-columns: minmax(0, 1fr) 340px; } .twin-canvas { height: 560px; } }
+
+/* panel path: mirrors the canvas breadcrumb inside the first card */
+.twin-path { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--vw-color-slate-100); }
+.twin-path-back { display: inline-flex; align-items: center; gap: 4px; align-self: flex-start; border: 0; background: none; padding: 2px 0; font: inherit; font-size: var(--vw-font-label-sm); color: var(--primaryColor700); cursor: pointer; font-weight: 500; }
+.twin-path-back:hover { text-decoration: underline; }
+.twin-path-back:focus-visible, .twin-path-row button:focus-visible { outline: 2px solid var(--primaryColor500); outline-offset: 2px; border-radius: 4px; }
+.twin-path-row { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; font-size: var(--vw-font-label-xs); color: var(--vw-color-gray-400); }
+.twin-path-row button { border: 0; background: none; padding: 1px 3px; font: inherit; font-size: var(--vw-font-label-xs); color: var(--primaryColor700); cursor: pointer; }
+.twin-path-row button:hover { text-decoration: underline; }
+.twin-path-row b { color: var(--vw-color-gray-900); font-weight: 600; padding: 1px 3px; }
+
+/* canvas overlay: layer toggle + reset (top-right) */
+.twin-tools { position: absolute; top: 12px; right: 12px; z-index: 5; display: flex; align-items: center; gap: 6px; padding: 4px; background: rgba(255, 255, 255, .92); border: 1px solid var(--vw-color-slate-200); border-radius: var(--vw-radius-sm); box-shadow: 0 1px 2px rgba(15, 23, 42, .06); }
+.twin-tools .seg { background: var(--vw-color-slate-100); }
+.twin-reset { background: var(--vw-color-white); }
+
+/* full screen: canvas fills the viewport, panel stays on the right */
+.twin.is-full { position: fixed; inset: 0; z-index: 900; background: var(--vw-color-slate-50); padding: var(--vw-space-md); height: 100vh; }
+.twin.is-full .twin-main, .twin.is-full .twin-canvas { height: 100%; }
+.twin.is-full .twin-side { max-height: calc(100vh - 2 * var(--vw-space-md)); overflow-y: auto; }
+.twin:fullscreen { background: var(--vw-color-slate-50); }

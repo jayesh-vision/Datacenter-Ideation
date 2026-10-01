@@ -45,22 +45,24 @@ export function CommandCenter() {
 
 /* Estate-health gauge drawn with NST tokens; value in Poppins light like
    .vw-card-metric-* so it reads as a metric, not a graphic. */
-function HealthGauge({ value }: { value: number }) {
-  const size = 132, r = size / 2 - 10, cx = size / 2, cy = size / 2 + 2;
-  const pt = (deg: number) => [cx + r * Math.cos((deg * Math.PI) / 180), cy + r * Math.sin((deg * Math.PI) / 180)];
+function HealthGauge({ value, band }: { value: number; band: string }) {
+  const size = 156, r = size / 2 - 12, cx = size / 2, cy = size / 2 + 4;
+  const pt = (deg: number, rr = r) => [cx + rr * Math.cos((deg * Math.PI) / 180), cy + rr * Math.sin((deg * Math.PI) / 180)];
   const arc = (from: number, to: number) => { const [x1, y1] = pt(from), [x2, y2] = pt(to); return `M${x1},${y1} A${r},${r} 0 ${to - from > 180 ? 1 : 0} 1 ${x2},${y2}`; };
   const v = Math.max(0, Math.min(100, value));
-  const c = v >= 60 ? C.accent : C.bad;
+  const c = band === 'Healthy' ? 'var(--vw-color-emerald-500)' : band === 'Watch' ? 'var(--vw-color-amber-500)' : 'var(--vw-color-red-500)';
   return (
-    <svg width={size} height={size * 0.82} viewBox={`0 0 ${size} ${size * 0.82}`} role="img" aria-label={`Operations health ${value} of 100`}>
-      <path d={arc(135, 405)} fill="none" style={{ stroke: 'var(--vw-color-slate-100)' }} strokeWidth={9} strokeLinecap="round" />
-      {v > 0 && <path d={arc(135, 135 + (270 * v) / 100)} fill="none" style={{ stroke: c }} strokeWidth={9} strokeLinecap="round" />}
-      <text x={cx} y={cy + 9} textAnchor="middle" style={{ fontSize: 'var(--vw-font-value-xxl)', fontWeight: 300, fill: 'var(--vw-color-gray-900)', fontFamily: 'var(--fontFamily)' }}>{value}</text>
-      <text x={cx} y={cy + 27} textAnchor="middle" style={{ fontSize: 'var(--vw-font-label-sm)', fill: 'var(--vw-color-gray-500)', fontFamily: 'var(--fontFamily)' }}>of 100</text>
+    <svg width={size} height={size * 0.8} viewBox={`0 0 ${size} ${size * 0.8}`} role="img" aria-label={`Operations health ${value} of 100, ${band}`}>
+      <path d={arc(135, 405)} fill="none" style={{ stroke: 'var(--vw-color-slate-100)' }} strokeWidth={10} strokeLinecap="round" />
+      {v > 0 && <path d={arc(135, 135 + (270 * v) / 100)} fill="none" style={{ stroke: c }} strokeWidth={10} strokeLinecap="round" />}
+      {[0, 25, 50, 75, 100].map(t => { const a = 135 + 2.7 * t; const [x1, y1] = pt(a, r - 10), [x2, y2] = pt(a, r - 14); return <line key={t} x1={x1} y1={y1} x2={x2} y2={y2} style={{ stroke: 'var(--vw-color-slate-300)' }} strokeWidth={1.5} />; })}
+      <text x={cx} y={cy + 10} textAnchor="middle" style={{ fontSize: 'var(--vw-font-value-xxxl)', fontWeight: 300, fill: 'var(--vw-color-gray-900)', fontFamily: 'var(--fontFamily)' }}>{value}</text>
+      <text x={cx} y={cy + 28} textAnchor="middle" style={{ fontSize: 'var(--vw-font-label-sm)', fill: 'var(--vw-color-gray-500)', fontFamily: 'var(--fontFamily)' }}>of 100</text>
     </svg>
   );
 }
 
+const AREA_ICON: Record<string, I.LucideIcon> = { response: I.Siren, network: I.Network, power: I.Zap, cooling: I.Thermometer };
 const SIG_ICON: Record<string, I.LucideIcon> = { open: I.Siren, sla: I.AlarmClock, alm: I.BellRing, links: I.Unlink, svc: I.Waypoints, avail: I.Activity, power: I.Zap, slam: I.ArrowLeftRight };
 
 function Situation({ d }: { d: CC }) {
@@ -99,47 +101,46 @@ function Situation({ d }: { d: CC }) {
         </div>
       </div>
 
-      <section className="vw-card-section cmd-status">
-        <div className="cmd-gauge">
+      <section className="vw-card-section ops">
+        <div className="ops-gauge">
           <span className="vw-card-metric-label cmd-gauge-label">Operations health
             <span className="cmd-info" tabIndex={0} title="Average of the four areas on the right. Counts each datacenter site, its edge links and its dependencies; alarms from downstream PoPs and sites are excluded."><I.Info size={13} /></span>
           </span>
-          <HealthGauge value={d.shi} />
+          <HealthGauge value={d.shi} band={s.band} />
           <span className={`vw-chip vw-chip--${bandChip} is-strong`}>{s.band}</span>
+          <span className="vw-label ops-weak">Weakest: {s.weakest.label}</span>
         </div>
-        <div className="cmd-status-main">
-          <div className="cmd-counts">
+        <div className="ops-main">
+          <div className="ops-counts">
             {[
-              { v: s.n1, l: 'SEV1 open', to: '/incidents?view=sev1', hot: s.n1 > 0 },
-              { v: s.n2, l: 'SEV2 open', to: '/incidents', warn: s.n2 > 0 },
-              { v: s.critSites, l: 'DCs affected', to: '/datacenters?view=incidents' },
-              { v: s.exposedPremium, l: 'Premium hit', to: '/customers?exposed=1' },
-              { v: fmtINR(s.revenueAtRisk), l: 'Revenue at risk / mo', to: '/services?status=Degraded' }
+              { v: s.n1, l: 'SEV1 open', to: '/incidents?view=sev1', tone: s.n1 > 0 ? 'hot' : '' },
+              { v: s.n2, l: 'SEV2 open', to: '/incidents', tone: s.n2 > 0 ? 'warn' : '' },
+              { v: s.critSites, l: 'DCs affected', to: '/datacenters?view=incidents', tone: '' },
+              { v: s.exposedPremium, l: 'Premium hit', to: '/customers?exposed=1', tone: '' },
+              { v: fmtINR(s.revenueAtRisk), l: 'Revenue at risk', to: '/services?status=Degraded', tone: '' }
             ].map(x => (
-              <Link key={x.l} to={x.to} title={x.l} className={`cmd-count${x.hot ? ' is-hot' : x.warn ? ' is-warn' : ''}`}>
-                <span className="vw-card-metric-xl">{x.v}</span>
-                <span className="vw-label">{x.l}</span>
+              <Link key={x.l} to={x.to} title={x.l === 'Revenue at risk' ? 'Monthly revenue on degraded services' : x.l} className={`ops-count${x.tone ? ` is-${x.tone}` : ''}`}>
+                <i /><span className="vw-card-metric-lg">{x.v}</span><span className="vw-label">{x.l}</span>
               </Link>
             ))}
           </div>
-          <div className="cmd-areas" role="list">
+          <div className="ops-areas" role="list">
             {d.domains.map(x => {
+              const Ic = AREA_ICON[x.key] ?? I.Activity;
               const st = x.state;
               return (
-                <Link key={x.key} to={x.to} role="listitem" className={`vw-card-child vw-card--clickable cmd-area is-${st}`} title={`${x.measure} — open the worklist`}>
-                  <div className="vw-flex vw-justify-between vw-items-center vw-gap-sm">
-                    <span className="vw-card-activity-label">{x.label}</span>
-                    <span className="cmd-area-go">
-                      {st === 'critical' ? <span className="vw-chip vw-chip--error cmd-chip">Critical</span> : st === 'attention' ? <span className="vw-chip vw-chip--warning cmd-chip">Needs attention</span> : <span className="vw-chip vw-chip--neutral cmd-chip">Normal</span>}
-                      <I.ChevronRight size={15} />
-                    </span>
+                <Link key={x.key} to={x.to} role="listitem" className={`ops-area vw-card--clickable is-${st}`} title={`${x.measure} — open the worklist`}>
+                  <div className="ops-area-head">
+                    <span className="vw-card-icon-sm ops-area-ic"><Ic size={16} /></span>
+                    <span className="vw-card-activity-label ops-area-name">{x.label}</span>
+                    <span className={`ops-state is-${st}`}><i />{st === 'critical' ? 'Critical' : st === 'attention' ? 'Attention' : 'Normal'}</span>
                   </div>
-                  <div className="cmd-area-score">
-                    <span className="vw-card-metric-md">{x.value}%</span>
-                    <div className="bar"><i style={{ width: `${x.value}%`, background: st === 'critical' ? C.bad : st === 'attention' ? C.warn : C.accent }} /></div>
+                  <div className="ops-area-score">
+                    <span className="vw-card-metric-lg">{x.value}%</span>
+                    <span className="vw-label ops-area-measure">{x.measure}</span>
                   </div>
-                  <span className="vw-label">{x.measure}</span>
-                  <span className="vw-card-description cmd-area-detail">{x.detail}</span>
+                  <div className="bar"><i style={{ width: `${x.value}%`, background: st === 'critical' ? C.bad : st === 'attention' ? C.warn : C.accent }} /></div>
+                  <span className="ops-area-detail" title={x.detail}>{x.detail}</span>
                 </Link>
               );
             })}

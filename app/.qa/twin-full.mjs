@@ -1,0 +1,17 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
+const errs = []; p.on('pageerror', e => errs.push(e.message));
+let fails = 0; const ok = (n, c) => { console.log(c ? 'PASS' : 'FAIL', n); if (!c) fails++; };
+await p.goto('http://localhost:5181/datacenters/MH-DC-001', { waitUntil: 'domcontentloaded' }); await p.waitForTimeout(3000);
+const before = await p.locator('.twin-canvas').boundingBox();
+await p.locator('[data-twin="fullscreen"]').click(); await p.waitForTimeout(1500);
+const full = await p.locator('.twin-canvas').boundingBox();
+ok(`full screen enlarges canvas (${Math.round(before.height)} → ${Math.round(full.height)} px tall)`, full.height > before.height + 150);
+ok('panel still visible in full screen', await p.locator('.twin.is-full [data-twin="panel"]').isVisible());
+await p.locator('[data-twin-floor="0"]').click(); await p.waitForTimeout(1200);
+ok('navigation works in full screen', (await p.locator('.twin-canvas').getAttribute('data-twin-level-now')) === 'floor');
+await p.screenshot({ path: '.qa/out/twin_fullscreen.png' });
+await p.keyboard.press('Escape'); await p.waitForTimeout(800);
+ok('Esc exits full screen', await p.locator('.twin.is-full').count() === 0);
+console.log(errs.length ? errs : 'no page errors'); console.log(fails ? `${fails} FAILED` : 'ALL PASS'); await b.close();

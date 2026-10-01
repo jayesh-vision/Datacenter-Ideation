@@ -2,10 +2,10 @@ import { chromium } from 'playwright';
 const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
 const errs = []; p.on('pageerror', e => errs.push(e.message));
 const ok = (n, c) => console.log(c ? 'PASS' : 'FAIL', n);
-await p.goto('http://localhost:5181/datacenters/MH-DC-001', { waitUntil: 'networkidle' }); await p.waitForTimeout(400);
-ok('default tab attention', (await p.locator('.pill.is-active').innerText()).startsWith('Attention'));
+await p.goto('http://localhost:5181/datacenters/MH-DC-001', { waitUntil: 'domcontentloaded' }); await p.waitForTimeout(2500); // default tab is the 3D twin
+ok('default tab overview', (await p.locator('.pill.is-active').innerText()).startsWith('Overview'));
 const nd0 = await p.locator('.strip-item', { hasText: 'Not discovered' }).locator('.v').innerText();
-await p.locator('button:has-text("Run discovery")').click(); await p.waitForTimeout(800);
+await p.locator('button:has-text("Run discovery")').click(); await p.waitForTimeout(3000);
 const nd1 = await p.locator('.strip-item', { hasText: 'Not discovered' }).locator('.v').innerText();
 ok(`discovery ${nd0} → ${nd1}`, Number(nd1) < Number(nd0) && await p.locator('.note--good').count() === 1);
 await p.locator('.strip-item', { hasText: 'Capex committed' }).click(); await p.waitForTimeout(300); ok('strip → capex', p.url().includes('tab=capex'));
