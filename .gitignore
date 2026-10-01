@@ -6,3 +6,4 @@ dist/
 app/.qa/out/
 app/.qa/dev.log
 *.tsbuildinfo
+.env*
