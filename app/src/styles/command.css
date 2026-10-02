@@ -395,3 +395,5 @@
 }
 .hero-verdict > svg { flex-shrink: 0; }
 .hero-line { font-size: var(--vw-font-heading-lg) !important; }
+/* keep the map's overlay z-indexes inside the map so drawers and popups sit above them */
+.hero-map { isolation: isolate; }

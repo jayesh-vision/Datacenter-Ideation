@@ -66,5 +66,5 @@ Hero card = health ring + verdict + 4 areas as rows (left) and the live DcMap (r
 Don't reintroduce rows of boxed KPI tiles on the landing page.
 
 ## Testing cadence (user, 02-Oct-2026)
-Small change → verify only the affected screen (screenshot/measure at 1440 and 1280). Full suite `app/.qa/regress.sh` only on request
-or before push/deploy. Digital twin is final: don't edit `src/screens/site/twin/*`, don't run `twin.mjs` / `twin-full.mjs`.
+Small change → verify only the affected screen (screenshot/measure at 1440 and 1280). Full suite `app/.qa/regress.sh` ONLY when the
+user explicitly asks — not even before push/deploy. Digital twin is final: don't edit `src/screens/site/twin/*`, don't run `twin.mjs` / `twin-full.mjs`.
