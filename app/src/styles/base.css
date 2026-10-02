@@ -3,7 +3,7 @@
 .topbar-crumbs { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 13.5px; color: var(--ink-500); overflow: hidden; white-space: nowrap; }
 .topbar-crumbs b { color: var(--ink-900); font-weight: 500; }
 /* Opstral brand (user's product) — every Ask Opstral AI button (OpstralBtn) and the drawer mark */
-:root { --opstral-lime: #A8D417; --opstral-ink: #262626; --opstral-ink-hover: #333333; }
+:root { --opstral-lime: #ACD719; --opstral-ink: #262626; --opstral-ink-hover: #333333; }
 .nst-btn.opstral-btn, .sentinel-ico, .opstral-badge { --opstral-hole: var(--opstral-ink); }
 .opstral-badge { display: inline-grid; place-items: center; flex-shrink: 0; border-radius: 5px; background: var(--opstral-ink); color: var(--opstral-lime); }
 .nst-btn.opstral-btn { gap: 8px; background: var(--opstral-ink); border-color: var(--opstral-ink); color: var(--opstral-lime); }
