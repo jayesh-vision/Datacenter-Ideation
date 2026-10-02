@@ -10,6 +10,7 @@ import { fmtAgo, fmtDate, fmtDateTime, fmtKw, fmtNum } from '../lib/format';
 import { OpsKpi } from './ops/shared';
 import { NotFound } from './NotFound';
 import '../styles/plan.css';
+import { OpstralBtn } from '../ui/OpstralMark';
 
 type TabId = 'power' | 'cooling' | 'environment' | 'maintenance';
 const TEMP = { lo: 18, hi: 27 }, HUM = { lo: 40, hi: 60 };
@@ -47,7 +48,7 @@ export function Facilities() {
         sub={<>Power chain, backup readiness, cooling and environment for <DcLink id={dc.id} /> · {dc.address}, {dc.city} · {dc.tier}</>}
         actions={<>
           <select className="select" value={dcId} onChange={e => set('dc', e.target.value)} aria-label="Datacenter">{live.map(d => <option key={d.id} value={d.id}>{d.id} · {d.city}</option>)}</select>
-          <Btn icon={I.Sparkles} onClick={() => ask(`What is at risk in ${dc.id}?`)}>Ask Opstral AI</Btn>
+          <OpstralBtn onClick={() => ask(`What is at risk in ${dc.id}?`)} />
         </>} />
       <div className="kpis kpis-5">
         <OpsKpi label="Power in use" value={fmtNum(Math.round(totalKw * 10) / 10)} unit="kW" icon={ic(I.Zap)} tone={pwrPct >= 85 ? 'warn' : undefined} sub={`${pwrPct}% of ${fmtNum(dc.power.capacityKw)} kW capacity`} onClick={() => set('tab', '')} />

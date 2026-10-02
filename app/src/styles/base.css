@@ -2,12 +2,14 @@
 
 .topbar-crumbs { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 13.5px; color: var(--ink-500); overflow: hidden; white-space: nowrap; }
 .topbar-crumbs b { color: var(--ink-900); font-weight: 500; }
-/* Opstral brand (user's product) — used only by the topbar Ask Opstral AI button */
+/* Opstral brand (user's product) — every Ask Opstral AI button (OpstralBtn) and the drawer mark */
 :root { --opstral-lime: #A8D417; --opstral-ink: #262626; --opstral-ink-hover: #333333; }
-.sentinel-btn { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px 0 10px; border-radius: 10px; border: 1px solid var(--opstral-ink); background: var(--opstral-ink); color: var(--opstral-lime); font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; }
-.sentinel-btn:hover { background: var(--opstral-ink-hover); border-color: var(--opstral-ink-hover); }
-.sentinel-btn:focus-visible { outline: 2px solid var(--opstral-lime); outline-offset: 2px; }
-.sentinel-ico { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; background: var(--vw-color-purple-100); color: var(--vw-color-purple-700); }
+.nst-btn.opstral-btn, .sentinel-ico, .opstral-badge { --opstral-hole: var(--opstral-ink); }
+.opstral-badge { display: inline-grid; place-items: center; flex-shrink: 0; border-radius: 5px; background: var(--opstral-ink); color: var(--opstral-lime); }
+.nst-btn.opstral-btn { gap: 8px; background: var(--opstral-ink); border-color: var(--opstral-ink); color: var(--opstral-lime); }
+.nst-btn.opstral-btn:hover { background: var(--opstral-ink-hover); border-color: var(--opstral-ink-hover); color: var(--opstral-lime); }
+.nst-btn.opstral-btn:focus-visible { outline: 2px solid var(--opstral-lime); outline-offset: 2px; }
+.sentinel-ico { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: var(--opstral-ink); color: var(--opstral-lime); }
 
 .bell-row { display: flex; gap: 12px; padding: 12px; text-align: left; cursor: pointer; align-items: flex-start; width: 100%; }
 .bell-row:hover { border-color: var(--vw-color-slate-300); }

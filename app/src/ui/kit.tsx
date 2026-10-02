@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowDownRight, ArrowUpRight, Check, ChevronRight, Minus, MoreHorizontal, Search, Trash2, X, type LucideIcon } from 'lucide-react';
 import type { Tone } from '../lib/tone';
@@ -30,7 +30,7 @@ export function IconBtn({ icon: I, title, onClick, active, size = 16 }: { icon: 
 }
 
 export function Panel({ title, sub, icon: I, count, actions, children, flush, foot, className = '', style }: {
-  title?: ReactNode; sub?: ReactNode; icon?: LucideIcon; count?: number | string; actions?: ReactNode; children: ReactNode; flush?: boolean; foot?: ReactNode; className?: string; style?: CSSProperties;
+  title?: ReactNode; sub?: ReactNode; icon?: ComponentType<{ size?: number }>; count?: number | string; actions?: ReactNode; children: ReactNode; flush?: boolean; foot?: ReactNode; className?: string; style?: CSSProperties;
 }) {
   return (
     <section className={`panel vw-card-section ${className}`} style={style}>

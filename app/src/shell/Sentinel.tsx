@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { askSentinel, sentinelSuggestions, type Answer, type Ctx } from '../api';
 import { Drawer } from '../ui/kit';
+import { OpstralMark } from '../ui/OpstralMark';
 
 type Turn = { q: string; a?: Answer };
 
@@ -24,7 +25,7 @@ export function Sentinel({ open, onClose, ctx, initial }: { open: boolean; onClo
 
   return (
     <Drawer open={open} onClose={onClose} width={500}
-      title={<span className="row" style={{ gap: 8 }}><span className="sentinel-ico"><I.Sparkles size={15} /></span>Opstral AI</span>}
+      title={<span className="row" style={{ gap: 8 }}><span className="sentinel-ico"><OpstralMark size={18} /></span>Opstral AI</span>}
       sub={<>Answers from live inventory, telemetry, topology and change records{focus ? <> · focused on <b className="mono">{focus}</b></> : null}</>}
       foot={
         <form className="sentinel-input" onSubmit={e => { e.preventDefault(); ask(q); }}>

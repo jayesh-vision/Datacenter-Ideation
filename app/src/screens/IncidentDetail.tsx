@@ -11,6 +11,7 @@ import { fmtAgo, fmtBw, fmtDateTime, fmtDateTimeS } from '../lib/format';
 import { NotFound } from './NotFound';
 import { TYPE_ICON } from './Incidents';
 import { fmtHm, refTo, slaText, useToast, OpsKpi } from './ops/shared';
+import { OpstralBadge, OpstralBtn } from '../ui/OpstralMark';
 
 const FLOW: IncidentStatus[] = ['Open', 'Investigating', 'Mitigated', 'Resolved', 'Closed'];
 
@@ -59,7 +60,7 @@ export function IncidentDetail() {
           {open && <Btn icon={I.CircleCheck} disabled={!checksOk} onClick={resolveAll} title={checksOk ? 'All closure checks passed' : 'Run closure checks first — every check must pass before resolving (DC-OPS-008)'}>Resolve</Btn>}
           {inc.status === 'Resolved' && <Btn variant="filled" icon={I.Archive} onClick={() => advanceIncident(inc.id)}>Close incident</Btn>}
           {open && <Btn icon={I.PencilLine} onClick={async () => { const c = await raiseEmergencyChange(inc.id); toast.show(`Emergency change ${c} raised`, 'Pending approval · scope taken from the affected devices.', { to: `/changes?id=${c}`, label: 'Open change' }); }}>Raise emergency change</Btn>}
-          <Btn icon={I.Sparkles} onClick={() => ask(`What changed before ${inc.id}?`)}>Ask Opstral AI</Btn>
+          <OpstralBtn onClick={() => ask(`What changed before ${inc.id}?`)} />
           <span className="grow" />
           {!checksOk && open && <span className="faint" style={{ fontSize: 12 }}><I.Lock size={12} style={{ verticalAlign: -2 }} /> Resolve unlocks after closure checks pass</span>}
         </div>
@@ -152,7 +153,7 @@ export function IncidentDetail() {
             </form>
             <ol className="wl">{[...inc.worklog].reverse().map((w, k) => (
               <li key={k} className={`wl-${w.kind}`}>
-                <span className="wl-ico">{w.kind === 'ai' ? <I.Sparkles size={12} /> : w.kind === 'system' ? <I.Cpu size={12} /> : <I.User size={12} />}</span>
+                <span className="wl-ico">{w.kind === 'ai' ? <OpstralBadge size={11} /> : w.kind === 'system' ? <I.Cpu size={12} /> : <I.User size={12} />}</span>
                 <div><div className="row between"><b>{w.who}</b><span className="faint num">{fmtDateTime(w.at)}</span></div><p>{w.text}</p></div>
               </li>))}</ol>
           </Panel>

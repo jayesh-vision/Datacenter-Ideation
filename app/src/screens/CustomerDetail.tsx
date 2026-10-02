@@ -10,6 +10,7 @@ import { fmtBw, fmtINR } from '../lib/format';
 import { TYPE_TONE, atRisk } from './Services';
 import { NotFound } from './NotFound';
 import '../styles/plan.css';
+import { OpstralBtn } from '../ui/OpstralMark';
 
 type Row = Service & { customer: Customer };
 
@@ -41,7 +42,7 @@ export function CustomerDetail() {
   return (
     <div className="page">
       <PageHead title={c.name} chips={<><Chip tone="neutral">{c.segment}</Chip>{c.premium && <Chip tone="purple">Premium</Chip>}{c.exposed > 0 && <Chip tone="error">{c.exposed} exposed</Chip>}</>}
-        sub={<span className="mono">{c.id}</span>} actions={<Btn icon={I.Sparkles} onClick={() => ask(incidents[0] ? `Who is impacted by ${incidents[0].id}?` : `What services depend on ${services[0]?.neId ?? ''}?`)}>Ask Opstral AI</Btn>} />
+        sub={<span className="mono">{c.id}</span>} actions={<OpstralBtn onClick={() => ask(incidents[0] ? `Who is impacted by ${incidents[0].id}?` : `What services depend on ${services[0]?.neId ?? ''}?`)} />} />
       <section className="card" style={{ padding: '16px 20px' }}>
         <KV cols={5} items={[['Location', `${c.city}, ${c.state}`], ['Service plan', c.plan], ['Account manager', c.accountManager], ['Footprint', <span title={dcs.join(', ')}>{dcs.length} datacenters</span>], ['Criticality', c.premium ? 'Premium — proactive notification' : 'Standard']]} />
       </section>

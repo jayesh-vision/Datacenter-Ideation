@@ -10,6 +10,7 @@ import { ForecastChart } from './plan/charts';
 import { TYPE_TONE } from './Services';
 import { NotFound } from './NotFound';
 import '../styles/plan.css';
+import { OpstralBadge, OpstralBtn } from '../ui/OpstralMark';
 
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const SVC_LIMIT = 90;
@@ -50,7 +51,7 @@ export function ServiceDetail() {
     <div className="page">
       <PageHead title={<span className="mono">{s.id}</span>} chips={<><ServiceChip s={s.status} /><Chip tone={TYPE_TONE[s.type]}>{s.type}</Chip>{s.critical && <Chip tone="purple">Premium</Chip>}</>}
         sub={<><CustLink id={c.id}>{c.name}</CustLink> · {c.plan} · delivered from <DcLink id={s.dcId} /> ({dc.city})</>}
-        actions={<Btn icon={I.Sparkles} onClick={() => ask(`What services depend on ${bh?.id ?? ne.id}?`)}>Ask Opstral AI</Btn>} />
+        actions={<OpstralBtn onClick={() => ask(`What services depend on ${bh?.id ?? ne.id}?`)} />} />
 
       <div className="kpis kpis-5">
         <Kpi label="Bandwidth" value={fmtBw(s.bandwidthMbps)} icon={I.Gauge} tone="info" basis={`handoff ${s.ifName}`} />
@@ -106,7 +107,7 @@ export function ServiceDetail() {
           </div>
         </Panel>
         <section className={`card rec-card tone-b-${rec.tone}`}>
-          <div className="rec-head"><I.Sparkles size={15} />Recommended action</div>
+          <div className="rec-head"><OpstralBadge size={14} />Recommended action</div>
           <b>{rec.title}</b>
           <p>{rec.why}</p>
           <div className="faint" style={{ fontSize: 11.5 }}>Evidence: service telemetry, backhaul forecast, open incidents and SLA ledger for {s.id}.</div>
