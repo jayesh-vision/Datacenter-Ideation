@@ -4,16 +4,24 @@ import type { TwinData } from '../../../api/ext-twin';
 import { PLATE_T, RACK_D, RACK_W, U_H, type Level, type Sel, type TwinLayout } from './layout';
 import type { TwinNe } from '../../../api/ext-twin';
 import type { Pick } from './Scene';
+import type { Attention } from './attention';
 
 export interface Anchor { id: string; world: [number, number, number]; cls: string; text: string; sub?: string; pick?: Pick; align: 'left' | 'right' | 'center'; column?: { slot: number; total: number; leaderFrom: [number, number, number] } }
 
 export const LIFT = 2.2;
 export const floorY = (L: TwinLayout, fi: number, sel: Sel, level: Level) => L.floors[fi].y + (level !== 'building' && sel.floor !== null && fi > sel.floor ? LIFT : 0);
 
-export function buildAnchors(L: TwinLayout, data: TwinData, sel: Sel, level: Level): Anchor[] {
+export function buildAnchors(L: TwinLayout, data: TwinData, sel: Sel, level: Level, att?: Attention): Anchor[] {
   const out: Anchor[] = [];
   if (level === 'building') {
-    L.floors.forEach(f => out.push({ id: `f${f.idx}`, world: [-f.w / 2 - 0.3, f.y + 1.4, f.d / 2], cls: 'is-floor', text: f.name, sub: `${f.rooms.length} rooms`, pick: { floor: f.idx }, align: 'center' }));
+    L.floors.forEach(f => { const a = att?.floor.get(f.idx); out.push({ id: `f${f.idx}`, world: [-f.w / 2 - 0.3, f.y + 1.4, f.d / 2], cls: `is-floor${a ? ` is-att-${a.sev}` : ''}`, text: f.name, sub: a ? `${a.n} issue${a.n > 1 ? 's' : ''} · ${f.rooms.length} room${f.rooms.length > 1 ? 's' : ''}` : `${f.rooms.length} room${f.rooms.length > 1 ? 's' : ''}`, pick: { floor: f.idx }, align: 'center' }); });
+    /* the worst few racks get a pinned callout above their beacon */
+    /* critical only, one per room, three at most — the panel lists everything */
+    const seenRoom = new Set<string>();
+    (att?.items ?? []).filter(i => i.rackId && i.sev === 'critical' && !seenRoom.has(i.roomId) && seenRoom.add(i.roomId)).slice(0, 3).forEach(i => {
+      const room = L.rooms.find(r => r.id === i.roomId); const rk = room?.racks.find(k => k.rack.id === i.rackId); if (!room || !rk) return;
+      out.push({ id: `att${i.id}`, world: [room.x + rk.x, L.floors[room.floorIdx].y + PLATE_T + rk.h + (i.sev === 'critical' ? 2.3 : 1.9), room.z + rk.z], cls: `is-att is-att-${i.sev}`, text: rk.rack.name, sub: i.title, pick: i.pick, align: 'center' });
+    });
     if (L.dg) out.push({ id: 'dg', world: [L.dg.x, L.dg.h + 1.1, L.dg.z], cls: 'is-static', text: `DG · ${data.dc.power.dg.kva} kVA`, align: 'center' });
     return out;
   }

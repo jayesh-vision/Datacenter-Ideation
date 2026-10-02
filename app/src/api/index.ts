@@ -6,7 +6,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as S from '../mock/server';
 import { ask, suggestions, type Answer, type Ctx } from '../mock/sentinel';
-import type { ActionStep, CapacityPlan, Change, ChangeStatus, ReconTask } from './types';
+import type { ActionStep, CapacityPlan, Change, ChangeStatus, Persona, ReconTask } from './types';
+import { PERSONAS, PERSONA_BY_ID, type PersonaDef, type PersonaVocab } from '../mock/personas';
 
 const LATENCY = 90;
 const wait = <T,>(f: () => T): Promise<T> => new Promise(res => setTimeout(() => res(structuredClone(f())), LATENCY));
@@ -15,6 +16,19 @@ const mutate = <T,>(f: () => T): Promise<T> => new Promise(res => setTimeout(() 
 /* change feed: a real backend would push this over SSE / websocket */
 export const onDataChange = S.subscribe;
 export const clockNow = () => S.now();
+
+/* ---- persona (datacenter business model): one setting for the whole estate */
+export const getPersona = (): Persona => S.getPersona();                                            // GET /settings/persona
+export const setPersona = (p: Persona) => mutate(() => S.setPersona(p));                             // PUT /settings/persona
+export { PERSONAS, PERSONA_BY_ID };
+export type { PersonaDef, PersonaVocab };
+/* synchronous vocabulary for render-time strings in components that already refetch on data change */
+export const vocabNow = (): PersonaVocab => PERSONA_BY_ID[S.getPersona()].vocab;
+export function usePersona(): { persona: Persona; def: PersonaDef; vocab: PersonaVocab } {
+  const [p, setP] = useState<Persona>(S.getPersona());
+  useEffect(() => onDataChange(() => setP(S.getPersona())), []);
+  return { persona: p, def: PERSONA_BY_ID[p], vocab: PERSONA_BY_ID[p].vocab };
+}
 
 /* ---- estate & inventory */
 export const getEstate = () => wait(S.estate);                                                     // GET /estate

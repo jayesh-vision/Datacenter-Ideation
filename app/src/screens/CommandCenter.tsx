@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { clockNow, getCommandCenter, useQuery } from '../api';
+import { clockNow, getCommandCenter, useQuery, vocabNow } from '../api';
 import { usePage, Loading, useSentinel } from '../shell/page';
 import { Panel, Chip, Drawer, Seg } from '../ui/kit';
 import { StackBar } from '../ui/status';
@@ -105,7 +105,7 @@ function Situation({ d }: { d: CC }) {
               </span>
               <span className={`vw-chip vw-chip--${bandChip} is-strong`} style={{ alignSelf: 'flex-start' }}>{s.band}</span>
               <p className="hero-line">{s.n1 ? <><b className="hot">{s.n1} SEV1</b> and </> : null}<b>{s.n2} SEV2</b> open across <b>{s.critSites} datacenters</b></p>
-              <span className="vw-label">{s.exposedPremium} premium customers affected · {p.breaching} incidents past SLA · weakest area: {s.weakest.label}</span>
+              <span className="vw-label">{s.exposedPremium} {vocabNow().premium.toLowerCase()} {vocabNow().customers.toLowerCase()} affected · {p.breaching} incidents past SLA · weakest area: {s.weakest.label}</span>
             </div>
           </div>
           <div className="hero-areas" role="list">
@@ -145,7 +145,7 @@ function Situation({ d }: { d: CC }) {
           { k: 'open', l: 'Open incidents', v: String(p.open), note: `${p.breaching} past SLA`, bad: p.breaching > 0, t: d.trends.open, to: '/incidents' },
           { k: 'alm', l: 'Major+ alarms', v: String(p.critMajor), note: 'critical and major', t: d.trends.critMajor, to: '/alerts?sev=critical' },
           { k: 'links', l: 'Links down', v: String(p.linksDown), note: `of ${fmtNum(s.lldp)} physical`, t: d.trends.linksDown, to: '/alerts?q=Link%20Down' },
-          { k: 'svc', l: 'Services degraded', v: String(p.servicesDegraded), note: `of ${fmtNum(s.services)}`, t: d.trends.services, to: '/incidents' },
+          { k: 'svc', l: `${vocabNow().services} degraded`, v: String(p.servicesDegraded), note: `of ${fmtNum(s.services)}`, t: d.trends.services, to: '/incidents' },
           { k: 'avail', l: 'Availability', v: `${p.availability}%`, note: `${p.unreachable} unreachable`, t: d.trends.availability, to: '/alerts?q=Unreachable' },
           { k: 'power', l: 'IT + facility power', v: `${fmtNum(d.trends.powerKw[23])} kW`, note: `${p.facilityAlarms} facility alarms`, bad: p.facilityAlarms > 0, t: d.trends.powerKw, to: '/facilities' }
         ].map(x => (
@@ -204,9 +204,9 @@ function Situation({ d }: { d: CC }) {
                     <span className="vw-value ci-clamp1">{i.cause}</span>
                   </div>
                   <div className="ci-impact">
-                    <div><span className="vw-card-metric-sm">{i.impact.services}</span><span className="vw-label">services</span></div>
-                    <div><span className="vw-card-metric-sm">{i.impact.premium}</span><span className="vw-label">premium</span></div>
-                    <div><span className="vw-card-metric-sm">{i.impact.customers}</span><span className="vw-label">customers</span></div>
+                    <div><span className="vw-card-metric-sm">{i.impact.services}</span><span className="vw-label">{vocabNow().services.toLowerCase()}</span></div>
+                    <div><span className="vw-card-metric-sm">{i.impact.premium}</span><span className="vw-label">{vocabNow().premium.toLowerCase()}</span></div>
+                    <div><span className="vw-card-metric-sm">{i.impact.customers}</span><span className="vw-label">{vocabNow().customers.toLowerCase()}</span></div>
                   </div>
                   <div className="ci-sla">
                     <div className="ci-sla-row">
@@ -249,7 +249,7 @@ function SlaCell({ left, total, breaching }: { left: number; total: number; brea
 
 function ImpactBoard({ d }: { d: CC }) {
   return (
-    <Panel className="cmd-fill" title="What is happening" sub="Open incidents ranked by severity and customer impact" icon={I.Siren} count={d.pulse.open}
+    <Panel className="cmd-fill" title="What is happening" sub={`Open incidents ranked by severity and ${vocabNow().customer.toLowerCase()} impact`} icon={I.Siren} count={d.pulse.open}
       actions={<Link to="/incidents" className="panel-link">All incidents<I.ChevronRight size={14} /></Link>} flush>
       <div className="board">
         {d.topIncidents.map(i => (
@@ -258,7 +258,7 @@ function ImpactBoard({ d }: { d: CC }) {
             <div style={{ minWidth: 0 }}>
               <div className="t">{i.title}</div>
               <div className="m"><span className="mono">{i.id}</span><span>·</span><span>{i.dcId}</span><span>·</span><span>{i.owner}</span><span>·</span><span>{i.status}</span></div>
-              <div className="imp">{i.impact.services ? <>{i.impact.services} services · {i.impact.customers} customers · <b>{i.impact.premium} premium</b></> : <span className="faint">no customer service on the affected scope</span>}</div>
+              <div className="imp">{i.impact.services ? <>{i.impact.services} {vocabNow().services.toLowerCase()} · {i.impact.customers} {vocabNow().customers.toLowerCase()} · <b>{i.impact.premium} {vocabNow().premium.toLowerCase()}</b></> : <span className="faint">no {vocabNow().customer.toLowerCase()} {vocabNow().service.toLowerCase()} on the affected scope</span>}</div>
             </div>
             <SlaCell left={i.sla.resolveLeft} total={i.resolveSlaMin} breaching={i.sla.breaching} />
           </Link>
@@ -277,25 +277,25 @@ function ImpactBoard({ d }: { d: CC }) {
 function Exposure({ d }: { d: CC }) {
   const st = d.svcStatus;
   return (
-    <Panel title="Who is affected" sub="Customer exposure from degraded services" icon={I.Users}
+    <Panel title="Who is affected" sub={`${vocabNow().customer} exposure from degraded ${vocabNow().services.toLowerCase()}`} icon={I.Users}
       actions={<Link to="/incidents" className="panel-link">Incidents<I.ChevronRight size={14} /></Link>}>
-      <div className="expo-top"><span className="big">{d.situation.exposedServices}</span><span className="sub">services degraded · {d.exposedCustomers.length} customers affected</span></div>
+      <div className="expo-top"><span className="big">{d.situation.exposedServices}</span><span className="sub">{vocabNow().services.toLowerCase()} degraded · {d.exposedCustomers.length} {vocabNow().customers.toLowerCase()} affected</span></div>
       <div className="col" style={{ gap: 6, marginTop: 10 }}>
         <StackBar height={8} parts={[{ value: st.Active, color: C.soft, label: 'Active' }, { value: st.Degraded, color: C.warn, label: 'Degraded' }, { value: st.Down, color: C.bad, label: 'Down' }, { value: st.Disabled, color: C.track, label: 'Disabled' }]} />
         <div className="row between" style={{ fontSize: 11.5, color: 'var(--ink-500)' }}><span><b className="num" style={{ color: 'var(--ink-800)' }}>{fmtNum(st.Active)}</b> active</span><span><b className="num" style={{ color: 'var(--ink-800)' }}>{st.Degraded}</b> degraded</span><span><b className="num" style={{ color: 'var(--ink-800)' }}>{st.Down}</b> down</span><span><b className="num">{st.Disabled}</b> disabled</span></div>
       </div>
-      <div className="cmd-label" style={{ marginTop: 14 }}>Exposed customers <span className="n">{d.situation.exposedPremium} premium</span></div>
+      <div className="cmd-label" style={{ marginTop: 14 }}>Exposed {vocabNow().customers.toLowerCase()} <span className="n">{d.situation.exposedPremium} {vocabNow().premium.toLowerCase()}</span></div>
       <div className="expo-list">
         {d.exposedCustomers.map(c => (
           <Link key={c.id} to={`/customers/${c.id}`} className="expo-row">
             <div style={{ minWidth: 0 }}>
-              <div className="n"><span>{c.name}</span>{c.premium && <Chip tone="neutral" size="xs">Premium</Chip>}</div>
-              <div className="s">{c.services} service{c.services === 1 ? '' : 's'} degraded · SLA {c.minSla}% · {c.segment}</div>
+              <div className="n"><span>{c.name}</span>{c.premium && <Chip tone="neutral" size="xs">{vocabNow().premium}</Chip>}</div>
+              <div className="s">{c.services} {vocabNow().service.toLowerCase()}{c.services === 1 ? '' : 's'} degraded · SLA {c.minSla}% · {c.segment}</div>
             </div>
             <div className="r">{c.services}<small>degraded</small></div>
           </Link>
         ))}
-        {!d.exposedCustomers.length && <div className="wk-empty">No customer currently rides a degraded service.</div>}
+        {!d.exposedCustomers.length && <div className="wk-empty">No {vocabNow().customer.toLowerCase()} currently rides a degraded {vocabNow().service.toLowerCase()}.</div>}
       </div>
     </Panel>
   );

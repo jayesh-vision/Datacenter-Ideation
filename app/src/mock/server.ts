@@ -3,22 +3,39 @@
 
 import type {
   ActionStep, Alert, AlertScope, EdgeStatus, OpsState, AuditEntry, CapacityPlan, Change, ChangeStatus, Datacenter, DcSummary, Incident, IncidentStatus, Interface, Link, Location,
-  NetworkElement, ReconTask, RolloutStatus, Service, Severity, TimelineEvent
+  ImpactCause, NetworkElement, Persona, ReconTask, RolloutStatus, Service, Severity, TimelineEvent
 } from '../api/types';
+import { NE_CATEGORY } from '../api/types';
 import { generate, finaliseHealth, type Db } from './generate';
+import { isPersona } from './personas';
 import { mulberry32 } from '../lib/rng';
 import { impactOf, isOpen, RESOLVE_SLA, RESPONSE_SLA } from './incidents';
 import { DAY, HOUR, MIN } from './seed';
 import { monthsTo, dateAfterMonths, WARN, CRIT } from '../lib/forecast';
 
-let db: Db = generate();
+/* Persona: which business model the estate is generated as. Switching it rebuilds
+   the whole mock estate (same sites, different racks, customers and services) and
+   notifies every subscriber, so each screen refetches. Remembered per browser. */
+const loadPersona = (): Persona => { try { const v = localStorage.getItem('dco.persona'); return isPersona(v) ? v : 'network'; } catch { return 'network'; } };
+let persona: Persona = loadPersona();
+let db: Db = generate(persona);
 let version = 0;
 const listeners = new Set<() => void>();
 export const subscribe = (f: () => void) => { listeners.add(f); return () => { listeners.delete(f); }; };
 const changed = () => { version++; finaliseHealth(db); summaryCache.clear(); listeners.forEach(f => f()); };
 export const getVersion = () => version;
-export const reset = () => { db = generate(); changed(); };
+const rebuild = () => { db = generate(persona); edgeCache.clear(); changed(); };
+export const reset = () => rebuild();
+export const getPersona = () => persona;
+export function setPersona(p: Persona) {
+  if (p === persona) return;
+  persona = p;
+  try { localStorage.setItem('dco.persona', p); } catch { /* storage blocked */ }
+  rebuild();
+}
 export const now = () => db.now;
+/* colocation tenant equipment: on record, powered and cooled, but never polled */
+const isOpaque = (n: NetworkElement) => n.role === 'Tenant gear';
 
 /* ------------------------------------------------------------ roll-ups */
 
@@ -27,7 +44,7 @@ const summaryCache = new Map<string, DcSummary>();
    depend on a datacenter) never count as datacenter issues. */
 const liveAlerts = () => db.alerts.filter(a => a.state !== 'cleared' && a.scope !== 'downstream');
 
-export const opsStateOf = (n: NetworkElement): OpsState => n.discovery !== 'not-discovered' ? 'in-service' : n.ndReason === 'planned' ? 'planned' : 'unmonitored';
+export const opsStateOf = (n: NetworkElement): OpsState => isOpaque(n) ? 'tenant-owned' : n.discovery !== 'not-discovered' ? 'in-service' : n.ndReason === 'planned' ? 'planned' : 'unmonitored';
 
 /* Edge links of a site: LLDP links with exactly one end inside it. */
 const edgeCache = new Map<string, Link[]>();
@@ -70,8 +87,9 @@ export function summarize(dc: Datacenter): DcSummary {
   const al = alertsInScope(dc.id);
   const downstreamExcluded = db.alerts.filter(a => a.state !== 'cleared' && a.dcId === dc.id && a.scope === 'downstream').length;
   const svcs = db.services.filter(s => s.dcId === dc.id);
-  const live = nes.filter(n => n.discovery !== 'not-discovered');
+  const live = nes.filter(n => n.discovery !== 'not-discovered' && !isOpaque(n));
   const powerKw = Math.round(dc.power.split.reduce((a, s) => a + s.kw, 0) * 10) / 10;
+  const byCategory = nes.reduce((a, n) => { a[NE_CATEGORY[n.role]]++; return a; }, { network: 0, compute: 0, storage: 0, tenant: 0 });
   const s: DcSummary = {
     id: dc.id, name: dc.name, status: dc.status, category: dc.category, city: dc.city, state: dc.state, regionId: dc.regionId, circleId: dc.circleId, address: dc.address, tier: dc.tier,
     ne: nes.length, discovered, verified, drifted, notDiscovered: nes.length - discovered, coveragePct: nes.length ? Math.round((discovered / nes.length) * 100) : 0, links, byRole,
@@ -86,6 +104,7 @@ export function summarize(dc: Datacenter): DcSummary {
     linksDown: db.links.filter(l => l.protocol === 'LLDP' && l.state === 'down' && (db.neById.get(l.aNe)!.dcId === dc.id || db.neById.get(l.zNe)!.dcId === dc.id)).length,
     unreachable: live.filter(n => n.icmp.state === 'critical').length,
     installed: nes.filter(n => opsStateOf(n) !== 'planned').length, inService: nes.filter(n => opsStateOf(n) === 'in-service').length, unmonitored: nes.filter(n => opsStateOf(n) === 'unmonitored').length, planned: nes.filter(n => opsStateOf(n) === 'planned').length,
+    tenantOwned: nes.filter(n => opsStateOf(n) === 'tenant-owned').length, byCategory,
     edge: edgeStatus(dc.id), byScope: { site: al.filter(a => a.scope === 'site').length, edge: al.filter(a => a.scope === 'edge').length, dependency: al.filter(a => a.scope === 'dependency').length }, downstreamExcluded,
     facilityIssues: [...dc.power.ups.filter(u => u.state !== 'Online').map(u => `${u.name} ${u.state.toLowerCase()}`), ...dc.cooling.units.filter(u => u.status === 'Failed').map(u => `${u.name} failed`), ...dc.power.feeds.filter(f => f.status === 'Alarm').map(f => `${f.source} lost`)]
   };
@@ -162,7 +181,7 @@ export function locations(q: { kind?: string; status?: string; circle?: string; 
 export function networkElements(q: { dcId?: string; discovery?: string; role?: string }) {
   const al = liveAlerts();
   return db.nes.filter(n => (!q.dcId || n.dcId === q.dcId) && (!q.discovery || n.discovery === q.discovery) && (!q.role || n.role === q.role)).map(n => ({
-    ...n, alarms: al.filter(a => a.neId === n.id).length, rack: n.rackId.split('-').slice(-1)[0], opsState: opsStateOf(n)
+    ...n, alarms: al.filter(a => a.neId === n.id).length, rack: n.rackId.split('-').slice(-1)[0], opsState: opsStateOf(n), category: NE_CATEGORY[n.role], tenant: n.tenantId ? db.customers.find(c => c.id === n.tenantId)?.name : undefined
   }));
 }
 
@@ -199,8 +218,58 @@ export function link(id: string) {
 /* ------------------------------------------------------- services/customers */
 
 export function servicesOf(q: { dcId?: string; neId?: string; customerId?: string; linkId?: string }) {
-  return db.services.filter(s => (!q.dcId || s.dcId === q.dcId) && (!q.neId || s.neId === q.neId) && (!q.customerId || s.customerId === q.customerId) && (!q.linkId || s.linkIds.includes(q.linkId)))
-    .map(s => ({ ...s, customer: db.customers.find(c => c.id === s.customerId)! }));
+  const list = db.services.filter(s => (!q.dcId || s.dcId === q.dcId) && (!q.neId || s.neId === q.neId) && (!q.customerId || s.customerId === q.customerId) && (!q.linkId || s.linkIds.includes(q.linkId)));
+  const why = causeIndex();
+  return list.map(s => ({ ...s, customer: db.customers.find(c => c.id === s.customerId)!, causes: why(s) }));
+}
+
+/* Why a service is impacted. A fault counts against a service only when it sits on
+   that service's own path: an alarm on one of its links, an interface alarm on its
+   hand-off or link ports, a major/critical device alarm on a device in its path, a
+   rack-level fault in a rack hosting its devices, or a critical site-wide facility
+   alarm. Healthy neighbours in the same rack are not implicated. */
+const SEV_W: Record<Severity, number> = { critical: 0, major: 1, minor: 2, warning: 3 };
+function causeIndex() {
+  const al = liveAlerts();
+  const byLink = new Map<string, Alert[]>(), byNe = new Map<string, Alert[]>(), byRack = new Map<string, Alert[]>(), siteCrit = new Map<string, Alert[]>();
+  const add = (m: Map<string, Alert[]>, k: string, a: Alert) => m.set(k, [...(m.get(k) ?? []), a]);
+  for (const a of al) {
+    if (a.linkId) add(byLink, a.linkId, a);
+    if (a.neId) add(byNe, a.neId, a);
+    if (a.rackId) add(byRack, a.rackId, a);
+    else if (!a.neId && a.severity === 'critical' && a.scope === 'site' && (a.source === 'Power' || a.source === 'Cooling')) add(siteCrit, a.dcId, a);
+  }
+  const linkById = new Map(db.links.map(l => [l.id, l]));
+  const shortOf = (id: string) => id.replace(/^[A-Z]{2}-DC-\d{3}-/, '');
+  return (s: Service): ImpactCause[] => {
+    const out = new Map<string, ImpactCause>();
+    /* one entry per physical fault: a shared fault id, or one port for all its interface alarms */
+    const put = (a: Alert, kind: ImpactCause['kind'], where: string, to: string, key = a.fault?.id ?? a.code) => {
+      const e = out.get(key);
+      if (!e) { out.set(key, { code: key, title: a.title, where: a.fault?.where ?? where, severity: a.severity, kind, to, related: 0 }); return; }
+      if (e.title === a.title) return;
+      e.related++;
+      if (SEV_W[a.severity] < SEV_W[e.severity]) { e.title = a.title; e.severity = a.severity; }
+    };
+    const ports = new Set<string>([`${s.neId}:${s.ifName}`]);
+    for (const id of s.linkIds) { const l = linkById.get(id); if (!l) continue; ports.add(`${l.aNe}:${l.aIf}`); ports.add(`${l.zNe}:${l.zIf}`); (byLink.get(id) ?? []).forEach(a => put(a, 'link', `${shortOf(l.aNe)} ${l.aIf} ↔ ${shortOf(l.zNe)}`, `/alerts?q=${a.code}`, a.fault?.id ?? (a.neId && a.ifName ? `${a.neId}:${a.ifName}` : a.code))); }
+    const nes = [...new Set([s.neId, ...s.path])];
+    const racks = new Set<string>();
+    for (const id of nes) {
+      const n = db.neById.get(id); if (!n) continue;
+      racks.add(n.rackId);
+      for (const a of byNe.get(id) ?? []) {
+        if (a.ifName) { if (ports.has(`${id}:${a.ifName}`)) put(a, 'interface', `${shortOf(id)} ${a.ifName}`, `/ne/${id}?tab=alerts`, a.fault?.id ?? `${id}:${a.ifName}`); }
+        /* device-level: hardware, power or reachability faults only — load (CPU) and config drift do not break a service */
+        else if ((a.severity === 'critical' || a.severity === 'major') && a.category !== 'Performance' && a.source !== 'Discovery') put(a, 'device', `${shortOf(id)} · ${shortOf(n.rackId)} U${n.u}`, `/ne/${id}?tab=alerts`);
+      }
+    }
+    for (const r of racks) for (const a of byRack.get(r) ?? []) put(a, 'rack', shortOf(r), `/datacenters/${s.dcId}?tab=attention`);
+    for (const a of siteCrit.get(s.dcId) ?? []) put(a, 'site', s.dcId, `/facilities?dc=${s.dcId}`);
+    const list = [...out.values()].sort((a, b) => SEV_W[a.severity] - SEV_W[b.severity]);
+    if (!list.length && s.status === 'Degraded' && s.utilPct >= 90) list.push({ code: `${s.id}-UTIL`, title: s.unit === 'kW' ? `Drawing ${Math.round(s.utilPct)}% of contracted power` : s.unit === 'cabinets' ? `Cabinet space ${Math.round(s.utilPct)}% used` : s.unit === 'hours' ? `Remote-hands allowance ${Math.round(s.utilPct)}% used` : s.unit === 'Mbps' ? `Utilisation ${Math.round(s.utilPct)}% of ${s.qty >= 1000 ? `${s.qty / 1000} Gbps` : `${s.qty} Mbps`}` : `Running at ${Math.round(s.utilPct)}% of its size`, where: shortOf(s.neId), severity: 'warning', kind: 'utilisation', to: `/services/${s.id}`, related: 0 });
+    return list;
+  };
 }
 
 export function service(id: string) {
@@ -323,7 +392,7 @@ export function capacity(dcId?: string) {
 
 export function commandCenter() {
   const s = datacenters();
-  const live = db.nes.filter(n => n.discovery !== 'not-discovered');
+  const live = db.nes.filter(n => n.discovery !== 'not-discovered' && !isOpaque(n));
   const al = liveAlerts();
   const open = incidents({ status: 'open' });
   const breaching = open.filter(i => i.sla.breaching);
@@ -487,13 +556,19 @@ const fmtWhenShort = (t: number) => { const d = new Date(t); const M = ['Jan','F
 
 /* ---------------------------------------------------------------- topology */
 
+/* The layered map shows the network fabric; hosts hang off their ToR and are
+   counted, not drawn (a cloud hall would be hundreds of identical nodes). */
 export function topology(dcId: string) {
-  const nes = db.nes.filter(n => n.dcId === dcId && n.discovery !== 'not-discovered');
+  const all = db.nes.filter(n => n.dcId === dcId && n.discovery !== 'not-discovered');
+  const nes = all.filter(n => NE_CATEGORY[n.role] === 'network');
   const ids = new Set(nes.map(n => n.id));
   const al = liveAlerts();
   const edges = db.links.filter(l => l.protocol === 'LLDP' && ids.has(l.aNe) && ids.has(l.zNe)).map(l => ({ id: l.id, a: l.aNe, z: l.zNe, state: l.state, util: l.utilPct }));
-  const external = db.links.filter(l => l.protocol === 'LLDP' && (ids.has(l.aNe) !== ids.has(l.zNe))).map(l => ({ id: l.id, local: ids.has(l.aNe) ? l.aNe : l.zNe, remote: ids.has(l.aNe) ? l.zNe : l.aNe, state: l.state, util: l.utilPct }));
-  return { nodes: nes.map(n => ({ id: n.id, name: n.name, layer: n.layer, role: n.role, health: n.healthScore, reach: n.icmp.state !== 'critical', alarms: al.filter(a => a.neId === n.id).length, util: Math.max(0, ...(db.ifaces.get(n.id) ?? []).map(i => i.utilPct)) })), edges, external };
+  const other = (l: Link) => (ids.has(l.aNe) ? l.zNe : l.aNe);
+  const external = db.links.filter(l => l.protocol === 'LLDP' && (ids.has(l.aNe) !== ids.has(l.zNe)) && db.neById.get(other(l))!.dcId !== dcId).map(l => ({ id: l.id, local: ids.has(l.aNe) ? l.aNe : l.zNe, remote: other(l), state: l.state, util: l.utilPct }));
+  const hostsOf = new Map<string, number>();
+  for (const l of db.links) if (l.protocol === 'LLDP' && ids.has(l.aNe) !== ids.has(l.zNe)) { const h = db.neById.get(other(l))!; if (h.dcId === dcId && NE_CATEGORY[h.role] !== 'network') { const t = ids.has(l.aNe) ? l.aNe : l.zNe; hostsOf.set(t, (hostsOf.get(t) ?? 0) + 1); } }
+  return { nodes: nes.map(n => ({ id: n.id, name: n.name, layer: n.layer, role: n.role, health: n.healthScore, reach: n.icmp.state !== 'critical', alarms: al.filter(a => a.neId === n.id).length, util: Math.max(0, ...(db.ifaces.get(n.id) ?? []).map(i => i.utilPct)), hosts: Math.round((hostsOf.get(n.id) ?? 0) / 2) })), edges, external, hosts: all.length - nes.length, tenantGear: all.filter(isOpaque).length };
 }
 
 /* ------------------------------------------------------------- mutations */
@@ -617,7 +692,7 @@ export function search(q: string) {
   const s = q.trim().toLowerCase(); if (s.length < 2) return [];
   const out: { kind: string; id: string; label: string; sub: string; to: string }[] = [];
   db.datacenters.forEach(d => { if (`${d.id} ${d.city} ${d.address}`.toLowerCase().includes(s)) out.push({ kind: 'Datacenter', id: d.id, label: d.id, sub: `${d.city} · ${d.address}`, to: `/datacenters/${d.id}` }); });
-  for (const n of db.nes) { if (out.length > 40) break; if (`${n.id} ${n.ip} ${n.serial}`.toLowerCase().includes(s)) out.push({ kind: 'Network element', id: n.id, label: n.id, sub: `${n.role} · ${n.vendor} ${n.model} · ${n.ip}`, to: `/ne/${n.id}` }); }
+  for (const n of db.nes) { if (out.length > 40) break; if (`${n.id} ${n.ip} ${n.serial}`.toLowerCase().includes(s)) out.push({ kind: 'Device', id: n.id, label: n.id, sub: `${n.role} · ${n.vendor} ${n.model}${n.ip ? ` · ${n.ip}` : ''}`, to: `/ne/${n.id}` }); }
   db.services.forEach(x => { if (x.id.toLowerCase().includes(s)) out.push({ kind: 'Service', id: x.id, label: x.id, sub: `${x.type} · ${db.customers.find(c => c.id === x.customerId)!.name}`, to: `/services/${x.id}` }); });
   db.customers.forEach(c => { if (`${c.id} ${c.name}`.toLowerCase().includes(s)) out.push({ kind: 'Customer', id: c.id, label: c.name, sub: `${c.id} · ${c.segment}`, to: `/customers/${c.id}` }); });
   db.incidents.forEach(i => { if (`${i.id} ${i.title}`.toLowerCase().includes(s)) out.push({ kind: 'Incident', id: i.id, label: i.id, sub: i.title, to: `/incidents/${i.id}` }); });

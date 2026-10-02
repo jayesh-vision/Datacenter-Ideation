@@ -22,11 +22,11 @@ const TABS: Tab[] = ['overview', 'hardware', 'links', 'impact', 'alerts'];
 const ROLE_ICON: Record<string, I.LucideIcon> = { Router: I.Router, Switch: I.Network, DWDM: I.Waves, Firewall: I.ShieldCheck, Access: I.RadioTower };
 
 /* Operational state of a device (same rule as the site Equipment tab) */
-export type OpsState = 'in-service' | 'unmonitored' | 'planned';
-export const opsStateOf = (ne: Ne): OpsState => (ne.discovery !== 'not-discovered' ? 'in-service' : ne.ndReason === 'planned' ? 'planned' : 'unmonitored');
+export type OpsState = 'in-service' | 'unmonitored' | 'planned' | 'tenant-owned';
+export const opsStateOf = (ne: Ne): OpsState => (ne.role === 'Tenant gear' ? 'tenant-owned' : ne.discovery !== 'not-discovered' ? 'in-service' : ne.ndReason === 'planned' ? 'planned' : 'unmonitored');
 
 /* Operational status from alarms, reachability and monitoring state */
-export type OpsStatus = 'critical' | 'attention' | 'normal' | 'unmonitored' | 'planned';
+export type OpsStatus = 'critical' | 'attention' | 'normal' | 'unmonitored' | 'planned' | 'tenant-owned';
 export function opsStatusOf(d: NeData): OpsStatus {
   const st = opsStateOf(d.ne);
   if (st !== 'in-service') return st;
@@ -37,7 +37,7 @@ export function opsStatusOf(d: NeData): OpsStatus {
 }
 const STATUS_LABEL: Record<OpsStatus, { label: string; tone: 'error' | 'warning' | 'success' | 'neutral' | 'info' }> = {
   critical: { label: 'Critical', tone: 'error' }, attention: { label: 'Needs attention', tone: 'warning' }, normal: { label: 'Normal', tone: 'success' },
-  unmonitored: { label: 'Not monitored', tone: 'neutral' }, planned: { label: 'Planned', tone: 'info' }
+  unmonitored: { label: 'Not monitored', tone: 'neutral' }, planned: { label: 'Planned', tone: 'info' }, 'tenant-owned': { label: 'Tenant-owned', tone: 'neutral' }
 };
 
 /* One device, as operations sees it: status, health, links, the services it
@@ -91,12 +91,14 @@ export function NetworkElement() {
           <div><dt>Lifecycle</dt><dd>{ne.lifecycle}</dd></div>
         </dl>
         {nd && (
-          <div className={`note ${opsState === 'planned' ? 'note--info' : 'note--warn'} ne-banner`}>
-            {opsState === 'planned' ? <I.CalendarClock size={16} /> : <I.EyeOff size={16} />}
+          <div className={`note ${opsState === 'planned' || opsState === 'tenant-owned' ? 'note--info' : 'note--warn'} ne-banner`}>
+            {opsState === 'planned' ? <I.CalendarClock size={16} /> : opsState === 'tenant-owned' ? <I.Building2 size={16} /> : <I.EyeOff size={16} />}
             <div style={{ flex: 1 }}>{opsState === 'planned'
               ? <><b>Planned — not installed.</b> Rack space {ne.rackId.split('-').slice(-1)[0]} · U{ne.u} is reserved for this device; it has no telemetry, links or services yet.</>
+              : opsState === 'tenant-owned'
+              ? <><b>Tenant-owned equipment.</b> A block of customer gear in leased cabinet {ne.rackId.split('-').slice(-1)[0]} · U{ne.u}. The operator monitors the cabinet’s power draw and environment; the tenant monitors the devices inside.</>
               : <><b>Not monitored.</b> Installed but no collector reports its telemetry ({ND_REASON[ne.ndReason ?? 'no-collector'].toLowerCase()}). Health, alarms and links are unknown — a monitoring blind spot.</>}</div>
-            <Link className="nst-btn nst-btn--xs" to={opsState === 'planned' ? `/datacenters/${ne.dcId}?tab=overview` : `/datacenters/${ne.dcId}?tab=elements&view=unmonitored`}>{opsState === 'planned' ? 'Site overview' : 'Unmonitored devices'}</Link>
+            <Link className="nst-btn nst-btn--xs" to={opsState === 'planned' ? `/datacenters/${ne.dcId}?tab=overview` : opsState === 'tenant-owned' ? `/datacenters/${ne.dcId}?tab=customers` : `/datacenters/${ne.dcId}?tab=elements&view=unmonitored`}>{opsState === 'planned' ? 'Site overview' : opsState === 'tenant-owned' ? 'Tenants' : 'Unmonitored devices'}</Link>
           </div>
         )}
       </section>

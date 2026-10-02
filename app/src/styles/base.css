@@ -164,3 +164,26 @@ td .cell-2 small { font-size: 11.5px; color: var(--ink-500); }
 .dt-toolbar + .tabs, .card > .tabs { margin: 0 var(--vw-space-lg); }
 .tabs { gap: 0; }
 .tab { height: 38px; padding: 0 12px; font-size: 13px; }
+
+/* persona switch (top bar) */
+.persona { position: relative; display: inline-flex; }
+.persona-btn { display: inline-flex; align-items: center; gap: 9px; height: 36px; padding: 0 10px 0 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink-900); font: inherit; cursor: pointer; white-space: nowrap; }
+.persona-btn:hover, .persona-btn.is-open { border-color: var(--primaryColor500); }
+.persona-btn:disabled { cursor: progress; }
+.persona-ic { width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; background: var(--primaryColor50); color: var(--primaryColor700); flex-shrink: 0; }
+.persona-ic .spinner { width: 13px; height: 13px; }
+.persona-txt { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.1; }
+.persona-txt small { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-400); font-weight: 500; }
+.persona-txt b { font-size: 12.5px; font-weight: 500; }
+.persona-chev { color: var(--ink-400); }
+.persona-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 50; width: 360px; padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 12px 32px rgba(15, 23, 42, .12); }
+.persona-menu-h { padding: 6px 10px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-400); font-weight: 500; }
+.persona-opt { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: transparent; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.persona-opt:hover { background: var(--vw-color-slate-50); }
+.persona-opt.is-on { background: var(--primaryColor50); }
+.persona-opt-txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.persona-opt-txt b { font-size: 13px; font-weight: 500; color: var(--ink-900); }
+.persona-opt-txt span { font-size: 11.5px; color: var(--ink-500); line-height: 1.3; }
+.persona-check { color: var(--primaryColor700); flex-shrink: 0; }
+.persona-menu-f { padding: 8px 10px 4px; font-size: 11px; color: var(--ink-400); border-top: 1px solid var(--line); margin-top: 4px; }
+@media (max-width: 1280px) { .persona-txt small { display: none; } .persona-btn { gap: 7px; } }

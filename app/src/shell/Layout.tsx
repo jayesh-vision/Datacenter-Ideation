@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { OpstralBtn } from '../ui/OpstralMark';
-import { clockNow, getAlerts, getCommandCenter, resetDemo, useQuery, CURRENT_USER } from '../api';
+import { clockNow, getAlerts, getCommandCenter, resetDemo, useQuery, CURRENT_USER, PERSONAS, setPersona, usePersona } from '../api';
+import type { Persona } from '../api/types';
 import { fmtAgo, fmtDow, fmtShortDate, fmtTime } from '../lib/format';
 import { Drawer } from '../ui/kit';
 import { SevDot } from '../ui/status';
@@ -26,6 +27,58 @@ const NAV: { group: string; items: { to: string; label: string; icon: I.LucideIc
 ];
 /* Services and customers appear only as impact (incident, device, site pages);
    capacity planning lives in the separate Plan & Build section. */
+
+const PERSONA_ICON: Record<Persona, I.LucideIcon> = { network: I.Network, colocation: I.Building2, cloud: I.Cloud, enterprise: I.Landmark };
+
+/* Top-bar persona switch: the business model the whole estate is modelled as.
+   Changing it regenerates the mock estate and every screen refetches. */
+function PersonaSwitch() {
+  const { persona, def } = usePersona();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const nav = useNavigate();
+  const loc = useLocation();
+  useEffect(() => {
+    if (!open) return;
+    const f = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', f); window.addEventListener('keydown', k);
+    return () => { document.removeEventListener('mousedown', f); window.removeEventListener('keydown', k); };
+  }, [open]);
+  const pick = async (p: Persona) => {
+    setOpen(false);
+    if (p === persona) return;
+    setBusy(true);
+    await setPersona(p);
+    setBusy(false);
+    /* entity pages (device, workload, customer, incident) hold ids that only exist in one persona */
+    if (/^\/(ne|services|customers|incidents)\/./.test(loc.pathname)) nav('/datacenters');
+  };
+  const Icon = PERSONA_ICON[persona];
+  return (
+    <div ref={ref} className="persona" data-persona={persona}>
+      <button type="button" className={`persona-btn${open ? ' is-open' : ''}`} onClick={() => setOpen(o => !o)} aria-haspopup="listbox" aria-expanded={open} title="Datacenter persona — changes the data model of the whole application" disabled={busy}>
+        <span className="persona-ic">{busy ? <span className="spinner" /> : <Icon size={15} />}</span>
+        <span className="persona-txt"><small>Persona</small><b>{def.label}</b></span>
+        <I.ChevronDown size={14} className="persona-chev" />
+      </button>
+      {open && (
+        <div className="persona-menu" role="listbox" aria-label="Datacenter persona">
+          <div className="persona-menu-h">Model the estate as</div>
+          {PERSONAS.map(p => { const PI = PERSONA_ICON[p.id]; return (
+            <button key={p.id} type="button" role="option" aria-selected={p.id === persona} className={`persona-opt${p.id === persona ? ' is-on' : ''}`} onClick={() => pick(p.id)}>
+              <span className="persona-ic"><PI size={16} /></span>
+              <span className="persona-opt-txt"><b>{p.label}</b><span>{p.tagline}</span></span>
+              {p.id === persona && <I.Check size={15} className="persona-check" />}
+            </button>
+          ); })}
+          <div className="persona-menu-f">Same sites, power and cooling · different racks, {PERSONAS.find(p => p.id === persona)!.vocab.customers.toLowerCase()} and {PERSONAS.find(p => p.id === persona)!.vocab.services.toLowerCase()}</div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function Layout() {
   const loc = useLocation();
@@ -99,6 +152,7 @@ export function Layout() {
               ))}
             </nav>
             <div className="topbar-spacer" />
+            <PersonaSwitch />
             <button type="button" className="topbar-search" onClick={() => setPalette(true)}><I.Search size={15} /><span className="ellipsis">Search estate…</span><kbd>⌘K</kbd></button>
             <OpstralBtn onClick={() => openSentinel()} />
             <span className="topbar-clock" title="Mock operations clock — data is a deterministic snapshot"><span className="live-dot" />{fmtDow(now)} {fmtShortDate(now)} · {fmtTime(now)}</span>

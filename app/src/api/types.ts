@@ -4,6 +4,10 @@
 
 export type LocationKind = 'datacenter' | 'pop' | 'site';
 export type RolloutStatus = 'on-air' | 'in-progress' | 'planned' | 'failed';
+/* Datacenter persona — the business model the whole estate is modelled as.
+   The physical layer (power, cooling, racks, alarms, incidents) is shared;
+   what sits in the racks, who the customer is and what a service is change. */
+export type Persona = 'network' | 'colocation' | 'cloud' | 'enterprise';
 export type Blocker = 'power' | 'fiber' | 'commissioning' | 'supply' | 'lease' | 'civil' | 'regulatory';
 
 export interface Region { id: string; name: string }
@@ -19,13 +23,19 @@ export interface Location {
   passive: { fiberSpans: number; odf: number; racks: number; powerPlant: number; splices: number; patchCords: number; ducts: number };
 }
 
-export type NeRole = 'Router' | 'Switch' | 'DWDM' | 'Firewall' | 'Access';
+export type NeRole = 'Router' | 'Switch' | 'DWDM' | 'Firewall' | 'Access' | 'Server' | 'Storage' | 'GPU' | 'Tenant gear';
+export type NeCategory = 'network' | 'compute' | 'storage' | 'tenant';
+export const NE_CATEGORY: Record<NeRole, NeCategory> = { Router: 'network', Switch: 'network', DWDM: 'network', Firewall: 'network', Access: 'network', Server: 'compute', GPU: 'compute', Storage: 'storage', 'Tenant gear': 'tenant' };
 export type Discovery = 'verified' | 'drifted' | 'not-discovered';
 export type NotDiscoveredReason = 'planned' | 'no-collector' | 'collector-unavailable' | 'not-applicable';
 export type Health = 'healthy' | 'degraded' | 'critical' | 'unknown';
 
 export interface PowerFeed { id: string; type: 'AC' | 'DC'; source: string; rating: string; loadKw: number; capacityKw: number; status: 'Normal' | 'Warning' | 'Alarm' }
-export interface Rack { id: string; name: string; dcId: string; floor: string; room: string; role: string; heightU: number; usedU: number; drawKw: number; budgetKw: number; ports: number; portsUsed: number; tempC: number }
+export interface Rack {
+  id: string; name: string; dcId: string; floor: string; room: string; role: string; heightU: number; usedU: number; drawKw: number; budgetKw: number; ports: number; portsUsed: number; tempC: number;
+  /* colocation: a cabinet leased to a tenant; the operator sees power and environment only */
+  owner?: 'operator' | 'tenant'; tenantId?: string; contractedKw?: number;
+}
 export interface PortClass { cls: string; total: number; used: number }
 export interface UpsUnit { id: string; name: string; capacityKw: number; loadPct: number; redundancy: 'N' | 'N+1' | '2N'; batteryMin: number; state: 'Online' | 'On battery' | 'Bypass' | 'Fault' }
 export interface CoolingUnit { id: string; name: string; type: 'CRAH' | 'CRAC' | 'CDU'; zone: string; capacityKw: number; loadPct: number; supplyC: number; returnC: number; status: 'Operational' | 'Maintenance' | 'Failed' }
@@ -60,6 +70,8 @@ export interface NetworkElement {
   radius: { successPct: number; failures24h: number; primary: 'Reachable' | 'Unreachable'; secondary: 'Reachable' | 'Unreachable'; lastAuth: number; state: Health; pri: string; sec: string };
   modules: { slot: string; name: string; serial: string; state: 'OK' | 'Fault' | 'Empty'; tempC: number }[];
   isPe: boolean;
+  /* chassis height (rack units); tenant gear = an opaque block of customer equipment */
+  uSize?: number; tenantId?: string;
 }
 
 export type IfState = 'up' | 'down' | 'admin-down' | 'reserved';
@@ -75,14 +87,21 @@ export interface Link {
   state: LinkState; role: 'Fabric' | 'Uplink' | 'Backhaul' | 'Peering' | 'Access'; sessions: number; growthPct: number; history: number[]; physical: { cable: string; strand: string; aPort: string; zPort: string } | null;
 }
 
-export type ServiceType = 'IRV' | 'Leased Line' | 'L2VPN' | 'L3VPN' | 'Other';
+export type ServiceType =
+  | 'IRV' | 'Leased Line' | 'L2VPN' | 'L3VPN' | 'Other'                                   // network / telco
+  | 'Cabinet lease' | 'Power circuit' | 'Cross-connect' | 'Remote hands'                   // colocation
+  | 'VM' | 'Storage volume' | 'Managed DB' | 'GPU cluster' | 'Kubernetes'                  // cloud
+  | 'Core application' | 'Database' | 'Collaboration' | 'Analytics' | 'Backup & DR';       // enterprise
+export type ServiceUnit = 'Mbps' | 'kW' | 'vCPU' | 'TB' | 'GPU' | 'users' | 'cabinets' | 'hours';
 export type ServiceStatus = 'Active' | 'Degraded' | 'Down' | 'Disabled';
 export interface Service {
   id: string; type: ServiceType; customerId: string; dcId: string; neId: string; ifName: string; path: string[]; linkIds: string[];
   bandwidthMbps: number; utilPct: number; status: ServiceStatus; slaTarget: number; uptime30d: number; growthPct: number; revenueMonthly: number; critical: boolean;
+  /* what the service is sized in: Mbps for circuits, kW for a power circuit, vCPU for a VM… */
+  qty: number; unit: ServiceUnit;
 }
 
-export interface Customer { id: string; name: string; segment: 'Enterprise' | 'Carrier' | 'Government' | 'BFSI' | 'Healthcare' | 'Media'; city: string; state: string; plan: string; premium: boolean; revenueMonthly: number; accountManager: string }
+export interface Customer { id: string; name: string; segment: string; city: string; state: string; plan: string; premium: boolean; revenueMonthly: number; accountManager: string }
 
 export type Severity = 'critical' | 'major' | 'minor' | 'warning';
 export interface Alert {
@@ -92,6 +111,10 @@ export interface Alert {
   /* operational scope relative to `dcId` (see AlertScope); `node` names a
      remote (non-datacenter) device when there is no NetworkElement record */
   scope: AlertScope; category: AlertCategory; node?: string; nodeLocation?: string; hops?: number; symptomOf?: string;
+  /* rack-level fault (PDU breaker, cabinet power or inlet temperature): hits every service hosted in that rack */
+  rackId?: string;
+  /* one physical fault seen on several devices (e.g. a shelf midplane under two sleds): same id, shared location */
+  fault?: { id: string; where: string };
 }
 
 /* What counts as a datacenter issue (operations model):
@@ -104,8 +127,9 @@ export interface Alert {
 /* Operational state of a device (operations view, not inventory):
    in-service — installed and reporting telemetry;
    unmonitored — installed but no telemetry (collector missing or down);
-   planned — on record but not installed; holds reserved rack space only. */
-export type OpsState = 'in-service' | 'unmonitored' | 'planned';
+   planned — on record but not installed; holds reserved rack space only;
+   tenant-owned — colocation customer equipment: power and environment only. */
+export type OpsState = 'in-service' | 'unmonitored' | 'planned' | 'tenant-owned';
 
 export type AlertScope = 'site' | 'edge' | 'dependency' | 'downstream';
 export type AlertCategory = 'Facility' | 'Network' | 'Device' | 'Performance';
@@ -141,6 +165,9 @@ export interface CapacityPlan { id: string; dcId: string; dimension: 'Power' | '
 
 export interface TimelineEvent { at: number; kind: 'commissioning' | 'change' | 'incident' | 'maintenance' | 'capacity' | 'discovery'; title: string; ref?: string }
 
+/* Why a service is impacted: an active fault on its path, its links, its rack or the site. */
+export interface ImpactCause { code: string; title: string; where: string; severity: Severity; kind: 'device' | 'interface' | 'link' | 'rack' | 'site' | 'utilisation'; to: string; related: number }
+
 /* Derived roll-ups returned by the API so screens never re-count. */
 export interface DcSummary {
   id: string; name: string; status: RolloutStatus; category: Location['category']; city: string; state: string; regionId: string; circleId: string; address: string; tier: Datacenter['tier'];
@@ -150,5 +177,6 @@ export interface DcSummary {
   /* operational roll-ups */
   coolPct: number; worstSev: number; servicesDegraded: number; linksDown: number; unreachable: number; facilityIssues: string[];
   edge: EdgeStatus; byScope: Record<'site' | 'edge' | 'dependency', number>; downstreamExcluded: number;
-  installed: number; inService: number; unmonitored: number; planned: number;
+  installed: number; inService: number; unmonitored: number; planned: number; tenantOwned: number;
+  byCategory: Record<NeCategory, number>;
 }

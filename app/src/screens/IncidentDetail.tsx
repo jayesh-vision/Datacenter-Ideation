@@ -2,12 +2,12 @@ import { ScopeChip } from '../ui/scope';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { addWorklog, advanceIncident, clockNow, getIncident, hypothesisFeedback, raiseEmergencyChange, runClosureChecks, setActionStatus, useQuery } from '../api';
+import { addWorklog, advanceIncident, clockNow, getIncident, hypothesisFeedback, raiseEmergencyChange, runClosureChecks, setActionStatus, useQuery, vocabNow } from '../api';
 import type { ActionStep, IncidentStatus } from '../api/types';
 import { usePage, Loading, useSentinel } from '../shell/page';
 import { Btn, Chip, Panel } from '../ui/kit';
 import { ChangeChip, CustLink, DcLink, IncidentChip, PriChip, SevChip, SevDot, SeverityChip, SvcLink, ServiceChip } from '../ui/status';
-import { fmtAgo, fmtBw, fmtDateTime, fmtDateTimeS } from '../lib/format';
+import { fmtAgo, fmtDateTime, fmtDateTimeS, fmtQty } from '../lib/format';
 import { NotFound } from './NotFound';
 import { TYPE_ICON } from './Incidents';
 import { fmtHm, refTo, slaText, useToast, OpsKpi } from './ops/shared';
@@ -41,7 +41,8 @@ export function IncidentDetail() {
   const ifName = alerts.find(a => a.ifName)?.ifName;
   const premium = customers.filter(c => c.premium);
   /* premium customers first, then by bandwidth */
-  const svcSorted = [...services].sort((a, b) => Number(b.customer.premium) - Number(a.customer.premium) || b.bandwidthMbps - a.bandwidthMbps);
+  const svcSorted = [...services].sort((a, b) => Number(b.customer.premium) - Number(a.customer.premium) || b.qty - a.qty);
+  const V = vocabNow();
   const resolveAll = async () => { for (let k = FLOW.indexOf(inc.status); k < FLOW.indexOf('Resolved'); k++) await advanceIncident(inc.id); };
 
   return (
@@ -118,14 +119,14 @@ export function IncidentDetail() {
               {ne && <><I.ChevronRight size={14} className="faint" /><Link to={`/ne/${encodeURIComponent(ne.id)}`} className="dep-node"><I.Router size={14} /><span><small>Network element</small>{ne.id.replace(`${inc.dcId}-`, '')}</span></Link></>}
               {(lnk || ifName) && <><I.ChevronRight size={14} className="faint" /><Link to={ne ? `/ne/${encodeURIComponent(ne.id)}?tab=links${ifName ? `&if=${encodeURIComponent(ifName)}` : ''}` : '#'} className="dep-node"><I.Cable size={14} /><span><small>{lnk ? 'Interface / link' : 'Interface'}</small>{ifName ?? lnk!.id}</span></Link></>}
               <I.ChevronRight size={14} className="faint" />
-              <a href="#inc-svcs" className={`dep-node${services.length ? ' is-hot' : ''}`}><I.Waypoints size={14} /><span><small>Services</small>{services.length}</span></a>
+              <a href="#inc-svcs" className={`dep-node${services.length ? ' is-hot' : ''}`}><I.Waypoints size={14} /><span><small>{V.services}</small>{services.length}</span></a>
               <I.ChevronRight size={14} className="faint" />
-              <a href="#inc-svcs" className={`dep-node${premium.length ? ' is-hot' : ''}`}><I.Users size={14} /><span><small>Customers</small>{customers.length}{premium.length ? ` · ${premium.length} premium` : ''}</span></a>
+              <a href="#inc-svcs" className={`dep-node${premium.length ? ' is-hot' : ''}`}><I.Users size={14} /><span><small>{V.customers}</small>{customers.length}{premium.length ? ` · ${premium.length} ${V.premium.toLowerCase()}` : ''}</span></a>
             </div>
             <p className="impact-sum">{inc.impact.summary}</p>
             <div className="grid g-4 impact-stats">
-              <div><span>Services</span><b className="num">{services.length}</b></div>
-              <div><span>Customers</span><b className="num">{customers.length}</b></div>
+              <div><span>{V.services}</span><b className="num">{services.length}</b></div>
+              <div><span>{V.customers}</span><b className="num">{customers.length}</b></div>
               <div><span>Premium exposed</span><b className={`num ${premium.length ? 'bad' : ''}`}>{premium.length}</b></div>
               <div><span>Scope</span><b className="num">{inc.affected.length} affected</b></div>
             </div>
@@ -137,7 +138,7 @@ export function IncidentDetail() {
                     <tr key={s.id} className="is-click" onClick={() => nav(`/services/${s.id}`)}>
                       <td><span className="cell-2"><SvcLink id={s.id} /><small>{s.type}</small></span></td>
                       <td><span className="cell-2"><CustLink id={s.customerId}>{s.customer.name}</CustLink><small>{s.customer.premium ? <span className="premium-tag">Premium</span> : s.customer.segment}</small></span></td>
-                      <td className="is-right num">{fmtBw(s.bandwidthMbps)}</td><td><ServiceChip s={s.status} size="xs" /></td>
+                      <td className="is-right num">{fmtQty(s.qty, s.unit)}</td><td><ServiceChip s={s.status} size="xs" /></td>
                       <td className="is-right num">{s.slaTarget}% · <span className={s.uptime30d < s.slaTarget ? 'bad' : ''}>{s.uptime30d}%</span></td>
                     </tr>))}</tbody>
                 </table>

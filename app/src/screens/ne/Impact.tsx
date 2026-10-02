@@ -4,13 +4,14 @@ import type { ServiceType } from '../../api/types';
 import { Chip, Panel } from '../../ui/kit';
 import { DataTable, type Col } from '../../ui/DataTable';
 import { CustLink, Meter, ServiceChip, SvcLink } from '../../ui/status';
-import { fmtBw } from '../../lib/format';
+import { fmtQty } from '../../lib/format';
 import { OpsKpi } from '../ops/shared';
 import type { NeData } from './NetworkElement';
 import { NoTelemetry } from './common';
 
 type S = NeData['services'][number];
-const FAMILIES: { t: ServiceType; label: string }[] = [{ t: 'IRV', label: 'IRV' }, { t: 'Leased Line', label: 'Leased Line' }, { t: 'L2VPN', label: 'L2VPN' }, { t: 'L3VPN', label: 'L3VPN' }, { t: 'Other', label: 'Others' }];
+/* service families present on this device — circuit types, colocation contracts, cloud workloads or enterprise applications */
+const familiesOf = (svcs: { type: ServiceType }[]): { t: ServiceType; label: string }[] => [...new Set(svcs.map(s => s.type))].map(t => ({ t, label: t === 'Other' ? 'Others' : t }));
 const isOpen = (s: string) => s === 'Open' || s === 'Investigating' || s === 'Mitigated';
 
 /* Impact — the services and customers that ride this device, as operational
@@ -20,7 +21,7 @@ export function Impact({ d }: { d: NeData }) {
   const nav = useNavigate();
   if (d.ne.discovery === 'not-discovered') return <NoTelemetry ne={d.ne} what="services" />;
   const svcs = d.services;
-  if (!svcs.length) return <section className="vw-card-section"><div className="empty"><span className="empty-ico"><I.Waypoints size={22} /></span><b>No services terminate on this element</b><div>{d.ne.role === 'Switch' ? 'Switches carry infrastructure traffic; services are handed off on PE routers.' : 'This element carries transit traffic only.'} Services that traverse it are listed on its links.</div></div></section>;
+  if (!svcs.length) return <section className="vw-card-section"><div className="empty"><span className="empty-ico"><I.Waypoints size={22} /></span><b>Nothing is hosted on this element</b><div>{d.ne.role === 'Switch' ? 'Switches carry infrastructure traffic; what rides them is listed on their links.' : d.ne.role === 'Tenant gear' ? 'Tenant-owned equipment: the operator sees the cabinet’s power and environment, not what runs inside.' : 'This element carries transit traffic only; what traverses it is listed on its links.'}</div></div></section>;
 
   const live = svcs.filter(s => s.status !== 'Disabled');
   const linkById = new Map(d.links.map(l => [l.id, l]));
@@ -36,7 +37,7 @@ export function Impact({ d }: { d: NeData }) {
     const bad = s.linkIds.map(id => linkById.get(id)).find(l => l && (l.state === 'down' || incLinks.has(l.id) || l.utilPct >= 85));
     if (bad) { const local = bad.aNe === d.ne.id ? bad.aIf : bad.zIf; return bad.state === 'down' ? `rides ${local} (down)` : incLinks.has(bad.id) ? `rides ${local} (in incident)` : `rides ${local} (${bad.utilPct}% utilised)`; }
     if (alarmIfs.has(s.ifName)) return `alarm on handoff ${s.ifName}`;
-    if (s.utilPct >= 90) return `${s.utilPct}% of ${fmtBw(s.bandwidthMbps)}`;
+    if (s.utilPct >= 90) return `${s.utilPct}% of ${fmtQty(s.qty, s.unit)}`;
     return null;
   };
   const atRisk = live.map(s => ({ s, why: riskOf(s) })).filter(x => x.why);
@@ -44,13 +45,13 @@ export function Impact({ d }: { d: NeData }) {
   const custsAtRisk = new Set(atRisk.map(x => x.s.customerId));
   const premAtRisk = [...custsAtRisk].filter(id => custs.get(id)?.premium).length;
   const belowSla = live.filter(s => s.uptime30d < s.slaTarget).length;
-  const fam = FAMILIES.map(f => ({ ...f, cs: svcs.filter(s => s.type === f.t) })).filter(f => f.cs.length);
+  const fam = familiesOf(svcs).map(f => ({ ...f, cs: svcs.filter(s => s.type === f.t) })).filter(f => f.cs.length);
 
   const cols: Col<S>[] = [
     { key: 'id', header: 'Service', render: s => <span className="cell-2"><SvcLink id={s.id} /><small>{s.type} · handoff <span className="mono">{s.ifName}</span></small></span>, sort: s => s.id },
     { key: 'cust', header: 'Customer', render: s => <span className="cell-2"><CustLink id={s.customerId}>{s.customer.name}</CustLink><small>{s.customer.segment}{s.customer.premium ? ' · premium' : ''}</small></span>, sort: s => s.customer.name },
     { key: 'st', header: 'Status', render: s => { const why = riskOf(s); return <span className="cell-2" style={{ gap: 3 }}><ServiceChip s={s.status} size="xs" />{why && s.status === 'Active' && <small className="warn">{why}</small>}</span>; }, sort: s => (riskOf(s) ? 0 : 1) },
-    { key: 'util', header: 'Bandwidth · utilisation', render: s => <span className="cell-2"><Meter pct={s.utilPct} width={56} /><small className="num">{fmtBw(s.bandwidthMbps)}</small></span>, sort: s => s.utilPct },
+    { key: 'util', header: 'Size · utilisation', render: s => <span className="cell-2"><Meter pct={s.utilPct} width={56} /><small className="num">{fmtQty(s.qty, s.unit)}</small></span>, sort: s => s.utilPct },
     { key: 'up', header: 'Uptime 30 d / SLA', align: 'right', render: s => <span className="cell-2 num" style={{ alignItems: 'flex-end' }}><span className={s.uptime30d < s.slaTarget ? 'bad' : ''}>{s.uptime30d}%</span><small>target {s.slaTarget}%</small></span>, sort: s => s.uptime30d - s.slaTarget }
   ];
 

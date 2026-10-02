@@ -143,5 +143,7 @@ export function cameraPose(L: TwinLayout, sel: Sel): [number[], number[]] {
     const f = L.floors[sel.floor];
     if (f) return [[f.w * 0.35, f.y + 7.5 + f.d * 0.3, f.d * 0.85 + 4], [0, f.y + 0.5, 0]];
   }
+  /* multi-storey: back off with the building's height so every floor stays in frame */
+  if (L.floors.length > 3) { const R = Math.max(w, d, h * 1.25); return [[R * 1.0, h * 0.8 + R * 0.45, R * 1.15], [0, h * 0.45, 0]]; }
   return [[w * 0.95, h * 1.1 + 6, d * 1.05 + 6], [0, h * 0.42, 0]];
 }

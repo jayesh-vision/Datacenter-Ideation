@@ -1,7 +1,7 @@
 import { Suspense, lazy, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { getDatacenter, getIncidents, useQuery, clockNow } from '../../api';
+import { getDatacenter, getIncidents, useQuery, clockNow, usePersona } from '../../api';
 import { usePage, Loading, useSentinel } from '../../shell/page';
 import { Btn, Chip } from '../../ui/kit';
 import { RolloutChip, Fresh } from '../../ui/status';
@@ -13,9 +13,9 @@ import { Customers } from './Customers';
 import { Assets } from './Assets';
 import { Elements } from './Elements';
 import { Details } from './Details';
-import { Equipment } from './Equipment';
 import { Timeline } from './Timeline';
 import { FlagRow } from './FlagRow';
+import { TopologyView } from '../Topology';
 const Twin = lazy(() => import('./twin/Twin'));
 import '../../styles/site.css';
 import { OpstralBtn } from '../../ui/OpstralMark';
@@ -23,10 +23,11 @@ import { OpstralBtn } from '../../ui/OpstralMark';
 export type SiteData = NonNullable<Awaited<ReturnType<typeof getDatacenter>>>;
 /* Operations tabs. Capex/Opex (finance) and discovery/reconciliation
    (inventory) belong to Plan & Build / Inventory, not here. */
-type Tab = 'overview' | 'attention' | 'metrics' | 'customers' | 'assets' | 'elements' | 'details' | 'equipment' | 'timeline';
+type Tab = 'overview' | 'attention' | 'topology' | 'metrics' | 'customers' | 'assets' | 'elements' | 'details' | 'timeline';
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'overview', label: 'Overview' }, { id: 'attention', label: 'Attention' }, { id: 'metrics', label: 'Metrics' }, { id: 'customers', label: 'Customers' },
-  { id: 'assets', label: 'Assets' }, { id: 'elements', label: 'Equipment' }, { id: 'details', label: 'Power & space' }, { id: 'equipment', label: 'Cabling' }, { id: 'timeline', label: 'Ops log' }
+  /* Cabling ('equipment') is hidden per the user (02-Oct-2026); component kept, old ?tab=equipment links fall back to Overview */
+  { id: 'overview', label: 'Overview' }, { id: 'attention', label: 'Attention' }, { id: 'topology', label: 'Topology' }, { id: 'metrics', label: 'Metrics' }, { id: 'customers', label: 'Customers' },
+  { id: 'assets', label: 'Assets' }, { id: 'elements', label: 'Equipment' }, { id: 'details', label: 'Power & space' }, { id: 'timeline', label: 'Ops log' }
 ];
 
 const FLAG_LABEL: Record<string, string> = { inc: 'incidents', alm: 'alarms', edge: 'edge', net: 'faults', pwr: 'power', cool: 'cooling', pue: 'PUE', svc: 'svc degraded' };
@@ -39,6 +40,7 @@ export function Site() {
   const nav = useNavigate();
   const ask = useSentinel();
   usePage([{ label: 'Datacenters', to: '/datacenters' }, { label: id }], { dcId: id });
+  const { vocab } = usePersona();
   const { data, loading } = useQuery(() => getDatacenter(id), [id]);
   const { data: incs } = useQuery(() => getIncidents({ dcId: id, status: 'open' }), [id]);
   /* header collapse — per-viewer convenience, collapsed by default to give the tabs room */
@@ -48,7 +50,7 @@ export function Site() {
   if (!data) return <NotFound what="Datacenter" />;
   const { dc, summary: s } = data;
   const tab: Tab = TABS.some(t => t.id === sp.get('tab')) ? (sp.get('tab') as Tab) : 'overview';
-  const go = (t: Tab) => { const n = new URLSearchParams(sp); n.set('tab', t); ['role', 'disc', 'q', 'kind', 'view', 'cview'].forEach(k => n.delete(k)); setSp(n, { replace: true }); };
+  const go = (t: Tab) => { const n = new URLSearchParams(sp); n.set('tab', t); ['role', 'disc', 'q', 'kind', 'view', 'cview', 'cause', 'layer'].forEach(k => n.delete(k)); setSp(n, { replace: true }); };
   const now = clockNow();
   const staleCol = dc.collectors.filter(c => c.state !== 'up');
 
@@ -70,12 +72,12 @@ export function Site() {
   const kpis: K[] = [
     { k: 'inc', l: 'Incidents', v: String(s.openIncidents), note: s.openIncidents ? [n1 ? `${n1} SEV1` : '', n2 ? `${n2} SEV2` : '', past ? `${past} past SLA` : ''].filter(Boolean).join(' · ') || 'SEV3/4 only' : 'none open', tone: n1 || past ? 'negative' : 'neutral', icon: I.Siren, to: `/incidents?dc=${dc.id}` },
     { k: 'alm', l: 'Active alarms', v: String(s.activeAlerts), note: s.critAlerts ? `${s.critAlerts} critical` : 'none critical', tone: s.critAlerts ? 'negative' : 'neutral', icon: I.BellRing, to: `/alerts?dc=${dc.id}` },
-    { k: 'edge', l: 'Edge links', v: `${s.edge.up}/${s.edge.total}`, note: s.edge.state === 'redundant' ? 'all up · redundant' : s.edge.state === 'isolated' ? 'site isolated' : 'redundancy lost', tone: s.edge.state === 'isolated' ? 'negative' : s.edge.state === 'redundancy-lost' ? 'warn' : 'neutral', icon: I.Cable, to: `/topology?dc=${dc.id}` },
+    { k: 'edge', l: 'Edge links', v: `${s.edge.up}/${s.edge.total}`, note: s.edge.state === 'redundant' ? 'all up · redundant' : s.edge.state === 'isolated' ? 'site isolated' : 'redundancy lost', tone: s.edge.state === 'isolated' ? 'negative' : s.edge.state === 'redundancy-lost' ? 'warn' : 'neutral', icon: I.Cable, to: `/datacenters/${dc.id}?tab=topology` },
     { k: 'net', l: 'Network faults', v: String(s.linksDown + s.unreachable), note: [s.linksDown ? `${s.linksDown} link${s.linksDown === 1 ? '' : 's'} down` : '', s.unreachable ? `${s.unreachable} unreachable` : ''].filter(Boolean).join(' · ') || 'all links up', tone: s.linksDown || s.unreachable ? 'warn' : 'neutral', icon: I.Network, to: `/alerts?dc=${dc.id}&q=Down` },
     { k: 'pwr', l: 'Power load', v: `${pwrPct}%`, note: upsBad.length ? `${upsBad[0].name} ${upsBad[0].state.toLowerCase()}` : feedsBad.length ? `${feedsBad.length} feed lost` : `UPS ${dc.power.ups.length}/${dc.power.ups.length} online`, tone: upsBad.length ? 'negative' : feedsBad.length || pwrPct >= 85 ? 'warn' : 'neutral', icon: I.Zap, to: `/facilities?dc=${dc.id}` },
     { k: 'cool', l: 'Cooling load', v: `${s.coolPct}%`, note: unitsFailed.length ? `${unitsFailed[0].name} failed` : `${unitsRun}/${dc.cooling.units.length} units · ${maxTemp}°C`, tone: unitsFailed.length || maxTemp > 27 ? 'negative' : 'neutral', icon: I.Thermometer, to: `/facilities?dc=${dc.id}&tab=cooling` },
     { k: 'pue', l: 'PUE', v: s.pue.toFixed(2), note: 'facility ÷ IT load', tone: 'neutral', icon: I.Gauge, to: `/facilities?dc=${dc.id}` },
-    { k: 'svc', l: 'Services', v: fmtNum(s.services), note: s.servicesDegraded ? `${s.servicesDegraded} degraded` : `${s.customers} customers`, tone: s.servicesDegraded ? 'warn' : 'neutral', icon: I.Waypoints, to: `/services?dc=${dc.id}` }
+    { k: 'svc', l: vocab.services, v: fmtNum(s.services), note: s.servicesDegraded ? `${s.servicesDegraded} degraded` : `${s.customers} ${vocab.customers.toLowerCase()}`, tone: s.servicesDegraded ? 'warn' : 'neutral', icon: I.Waypoints, to: `/datacenters/${dc.id}?tab=customers` }
   ];
 
   const stateLabel = planned ? 'Planned' : siteState === 'critical' ? 'Critical' : siteState === 'attention' ? 'Needs attention' : 'Normal';
@@ -99,7 +101,7 @@ export function Site() {
           empty={<span className="vw-footer-meta"><I.CircleCheck size={13} /> all KPIs normal</span>} />}
         {!planned && <span className="dch-bar-fresh" title="Latest telemetry from this site's collectors"><Fresh>{fmtAgo(Math.max(...dc.collectors.map(c => c.lastSeen)), now)}</Fresh></span>}
         <div className="dch-bar-actions">
-          <Btn icon={I.Network} title="Topology" onClick={() => nav(`/topology?dc=${dc.id}`)} disabled={!s.discovered} />
+          <Btn icon={I.Network} title="Topology" onClick={() => go('topology')} disabled={!s.discovered} />
           <Btn icon={I.Zap} title="Facilities" onClick={() => nav(`/facilities?dc=${dc.id}`)} />
           <Btn icon={I.ArrowLeftRight} title="Changes & maintenance" onClick={() => nav(`/changes?dc=${dc.id}`)} />
           <OpstralBtn title="Ask Opstral AI about this datacenter" onClick={() => ask(`What is at risk in ${dc.id}?`)}>Opstral AI</OpstralBtn>
@@ -132,7 +134,7 @@ export function Site() {
             <span className="vw-footer-meta" title="Average health score of the site's discovered devices">{planned ? 'not live' : `device health ${s.healthScore}/100`}</span>
           </div>
           <div className="dch-actions">
-            <Btn icon={I.Network} onClick={() => nav(`/topology?dc=${dc.id}`)} disabled={!s.discovered}>Topology</Btn>
+            <Btn icon={I.Network} onClick={() => go('topology')} disabled={!s.discovered}>Topology</Btn>
             <Btn icon={I.Zap} onClick={() => nav(`/facilities?dc=${dc.id}`)}>Facilities</Btn>
             <Btn icon={I.ArrowLeftRight} onClick={() => nav(`/changes?dc=${dc.id}`)}>Changes</Btn>
             <OpstralBtn title="Ask Opstral AI about this datacenter" onClick={() => ask(`What is at risk in ${dc.id}?`)}>Opstral AI</OpstralBtn>
@@ -156,18 +158,18 @@ export function Site() {
       <div className="pills" role="tablist">
           {TABS.map(t => {
             const n = t.id === 'attention' ? s.openIncidents + s.critAlerts : t.id === 'elements' ? s.installed : t.id === 'customers' ? s.customers : undefined;
-            return <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={`pill${tab === t.id ? ' is-active' : ''}`} onClick={() => go(t.id)}>{t.label}{n ? <span className="count">{n}</span> : null}</button>;
+            return <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={`pill${tab === t.id ? ' is-active' : ''}`} onClick={() => go(t.id)}>{t.id === 'customers' ? vocab.customers : t.label}{n ? <span className="count">{n}</span> : null}</button>;
           })}
       </div>
 
       {tab === 'overview' && <Suspense fallback={<Loading label="Loading 3D view" />}><Twin dcId={dc.id} /></Suspense>}
       {tab === 'attention' && <Attention data={data} />}
+      {tab === 'topology' && <TopologyView key={dc.id} dc={dc.id} />}
       {tab === 'metrics' && <Metrics data={data} />}
       {tab === 'customers' && <Customers data={data} />}
       {tab === 'assets' && <Assets data={data} />}
       {tab === 'elements' && <Elements dcId={dc.id} />}
       {tab === 'details' && <Details data={data} />}
-      {tab === 'equipment' && <Equipment data={data} />}
       {tab === 'timeline' && <Timeline data={data} />}
     </div>
   );

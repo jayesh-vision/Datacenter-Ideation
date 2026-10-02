@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { getDatacenters, useQuery } from '../api';
+import { getDatacenters, useQuery, vocabNow } from '../api';
 import type { DcSummary } from '../api/types';
 import { usePage, Loading, useSentinel } from '../shell/page';
 import { DataTable, type Col } from '../ui/DataTable';
@@ -57,7 +57,7 @@ export function Datacenters() {
     { key: 'fac', header: 'Facility', sort: d => d.facilityIssues.length, render: d => d.facilityIssues.length
       ? <span className="dcl-issue" title={d.facilityIssues.join(' · ')}><I.TriangleAlert size={13} />{d.facilityIssues[0]}{d.facilityIssues.length > 1 ? ` +${d.facilityIssues.length - 1}` : ''}</span>
       : <span className="vw-label">Normal</span> },
-    { key: 'svc', header: 'Services', align: 'right', sort: d => d.servicesDegraded * 1000 + d.services, render: d => <span className="cell-2" style={{ alignItems: 'flex-end' }}><span className="dcl-num">{d.services} <span className="vw-label">· {d.customers} customers</span></span><small style={{ color: d.servicesDegraded ? BAD : undefined }}>{d.servicesDegraded ? `${d.servicesDegraded} degraded` : 'all active'}</small></span> }
+    { key: 'svc', header: vocabNow().services, align: 'right', sort: d => d.servicesDegraded * 1000 + d.services, render: d => <span className="cell-2" style={{ alignItems: 'flex-end' }}><span className="dcl-num">{d.services} <span className="vw-label">· {d.customers} {vocabNow().customers.toLowerCase()}</span></span><small style={{ color: d.servicesDegraded ? BAD : undefined }}>{d.servicesDegraded ? `${d.servicesDegraded} degraded` : 'all active'}</small></span> }
   ];
 
   const tally = (xs: DcSummary[]) => ({ n: xs.length, inc: xs.reduce((a, d) => a + d.openIncidents, 0), hot: xs.filter(d => d.worstSev > 0 && d.worstSev <= 2).length, alarms: xs.reduce((a, d) => a + d.activeAlerts, 0), fac: xs.filter(d => d.facilityIssues.length).length });
@@ -100,7 +100,7 @@ export function Datacenters() {
               ]} />
               {(region || q || view !== 'all') && <button type="button" className="panel-link" onClick={() => setSp(new URLSearchParams(), { replace: true })}><I.X size={13} />Clear filters</button>}
               <span className="grow" />
-              <span className="vw-label">{fmtNum(rows.reduce((a, d) => a + d.services, 0))} services</span>
+              <span className="vw-label">{fmtNum(rows.reduce((a, d) => a + d.services, 0))} {vocabNow().services.toLowerCase()}</span>
             </div>
           } />
       </section>

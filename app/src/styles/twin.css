@@ -84,3 +84,36 @@
 /* right panel matches the canvas height (600 / 560 at 1280); scrolls inside */
 .twin-side { max-height: 600px; }
 @media (max-width: 1280px) { .twin-side { max-height: 560px; } }
+
+/* rack equipment quick filters (panel) */
+.twin-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; }
+.twin-fchip { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px; border: 1px solid var(--vw-color-slate-200); border-radius: 999px; background: var(--vw-color-white); font: inherit; font-size: 12px; color: var(--vw-color-gray-700); cursor: pointer; white-space: nowrap; }
+.twin-fchip .count { font-size: 11px; color: var(--vw-color-gray-500); font-variant-numeric: tabular-nums; }
+.twin-fchip:hover:not(:disabled) { border-color: var(--primaryColor500); }
+.twin-fchip.is-on { background: var(--primaryColor50); border-color: var(--primaryColor500); color: var(--primaryColor700); }
+.twin-fchip.is-on .count { color: var(--primaryColor700); }
+.twin-fchip.is-alert svg { color: var(--vw-color-red-500); }
+.twin-fchip.is-alert.is-on { background: var(--vw-color-red-50); border-color: var(--vw-color-red-500); color: var(--vw-color-red-700); }
+.twin-fchip.is-alert.is-on .count { color: var(--vw-color-red-700); }
+.twin-fchip:disabled { opacity: .5; cursor: default; }
+.twin-fsep { width: 1px; height: 18px; background: var(--vw-color-slate-200); margin: 0 2px; }
+
+/* attention (default view) */
+.twin-att { border-color: var(--vw-color-red-200, #FECACA); }
+.twin-att .twin-list button.is-critical { border-left: 3px solid var(--vw-color-red-500); }
+.twin-att .twin-list button.is-major { border-left: 3px solid var(--vw-color-amber-500); }
+.twin-label.is-floor.is-att-critical button { border-color: var(--vw-color-red-500); box-shadow: 0 0 0 2px rgba(239, 68, 68, .18); }
+.twin-label.is-floor.is-att-major button { border-color: var(--vw-color-amber-500); box-shadow: 0 0 0 2px rgba(245, 158, 11, .18); }
+.twin-label.is-floor.is-att-critical small { color: var(--vw-color-red-600); }
+.twin-label.is-floor.is-att-major small { color: var(--vw-color-amber-700); }
+.twin-label.is-att button { flex-direction: column; align-items: flex-start; max-width: 220px; padding: 4px 9px; border-width: 1px 1px 1px 3px; }
+.twin-label.is-att button small { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.twin-label.is-att-critical.is-att button { border-left-color: var(--vw-color-red-500); }
+.twin-label.is-att-major.is-att button { border-left-color: var(--vw-color-amber-500); }
+
+/* collapsible panel cards */
+.twin-fold { display: inline-flex; align-items: center; gap: 6px; padding: 0; margin: 0 0 0 -2px; border: 0; background: transparent; font: inherit; color: inherit; cursor: pointer; text-align: left; min-width: 0; }
+.twin-fold-ic { color: var(--vw-color-gray-400); flex-shrink: 0; transition: transform .15s ease; }
+.twin-fold:hover .twin-fold-ic, .twin-fold:hover .vw-card-title-sm { color: var(--primaryColor700); }
+.twin-card.is-folded .twin-fold-ic { transform: rotate(-90deg); }
+.twin-card.is-folded .twin-card-h { margin-bottom: 0; }

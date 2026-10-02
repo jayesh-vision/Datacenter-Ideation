@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import * as I from 'lucide-react';
-import { getNetworkElements, useQuery } from '../../api';
+import { getNetworkElements, useQuery, usePersona } from '../../api';
 import { Panel } from '../../ui/kit';
 import { Stat } from './Metrics';
 import { Meter } from '../../ui/status';
@@ -10,13 +10,15 @@ import { fmtNum } from '../../lib/format';
 import type { SiteData } from './Site';
 
 const PALETTE = ['#1C81EF', '#0d9488', '#7c3aed', '#db2777', '#0891b2', '#64748b'];
-const ROLE_LABEL: Record<string, string> = { Router: 'Routers', Switch: 'Switches', Firewall: 'Firewalls', DWDM: 'DWDM / optical', Access: 'Access' };
+const ROLE_LABEL: Record<string, string> = { Router: 'Routers', Switch: 'Switches', Firewall: 'Firewalls', DWDM: 'DWDM / optical', Access: 'Access', Server: 'Servers', Storage: 'Storage arrays', GPU: 'GPU nodes', 'Tenant gear': 'Tenant equipment' };
+const CAT_LABEL: Record<string, string> = { network: 'Network', compute: 'Compute', storage: 'Storage', tenant: 'Tenant-owned' };
 
 /* Site composition — floors, rooms, racks and space, installed equipment by
    category, facility assets, ports and pooled compute. Installed devices only
    (planned devices hold reserved rack space and are counted separately). */
 export function Assets({ data }: { data: SiteData }) {
   const { dc, summary: s } = data;
+  const { persona, vocab } = usePersona();
   const { data: nes } = useQuery(() => getNetworkElements({ dcId: dc.id }), [dc.id]);
 
   const a = useMemo(() => {
@@ -24,6 +26,7 @@ export function Assets({ data }: { data: SiteData }) {
     const planned = (nes ?? []).length - inst.length;
     const byRole = Object.entries(inst.reduce<Record<string, number>>((m, n) => { m[n.role] = (m[n.role] ?? 0) + 1; return m; }, {})).sort((x, y) => y[1] - x[1]);
     const byLayer = Object.entries(inst.reduce<Record<string, number>>((m, n) => { m[n.layer] = (m[n.layer] ?? 0) + 1; return m; }, {})).sort((x, y) => y[1] - x[1]);
+    const byCat = Object.entries(inst.reduce<Record<string, number>>((m, n) => { m[n.category] = (m[n.category] ?? 0) + 1; return m; }, {})).sort((x, y) => y[1] - x[1]);
     const usedU = dc.racks.reduce((t, r) => t + r.usedU, 0), totU = dc.racks.reduce((t, r) => t + r.heightU, 0);
     const rooms = dc.floors.flatMap(f => f.rooms.map(rm => {
       const rs = dc.racks.filter(r => r.floor === f.name && r.room === rm);
@@ -41,7 +44,7 @@ export function Assets({ data }: { data: SiteData }) {
       { k: 'Env sensors', v: dc.cooling.sensors.length, sub: 'temp · RH · smoke · leak', icon: I.Thermometer }
     ];
     const fullest = [...dc.racks].sort((x, y) => y.usedU / y.heightU - x.usedU / x.heightU)[0];
-    return { inst, planned, byRole, byLayer, usedU, totU, rooms, facility, fullest };
+    return { inst, planned, byRole, byLayer, byCat, usedU, totU, rooms, facility, fullest };
   }, [nes, dc]);
   if (!nes) return null;
   const c = dc.compute;
@@ -52,7 +55,7 @@ export function Assets({ data }: { data: SiteData }) {
         { key: 'fl', label: 'Floors', value: dc.floors.length, sub: `${a.rooms.length} rooms` },
         { key: 'rk', label: 'Racks', value: dc.racks.length, sub: `${dc.racks.filter(r => r.usedU === 0).length} empty` },
         { key: 'u', label: 'Rack space used', value: `${fmtNum(a.usedU)} U`, sub: `${fmtNum(a.totU - a.usedU)} U free` },
-        { key: 'ne', label: 'Network devices', value: a.inst.length, sub: a.planned ? `+${a.planned} planned` : 'all installed' },
+        { key: 'ne', label: persona === 'network' ? 'Network devices' : persona === 'colocation' ? 'Devices & tenant blocks' : 'Hosts & network devices', value: a.inst.length, sub: a.planned ? `+${a.planned} planned` : 'all installed' },
         { key: 'fac', label: 'Facility assets', value: a.facility.reduce((t, f) => t + f.v, 0), sub: 'power · cooling' },
         { key: 'pt', label: 'Ports in use', value: fmtNum(s.portsUsed), sub: `of ${fmtNum(s.portsTotal)}` }
       ]} />
@@ -75,12 +78,12 @@ export function Assets({ data }: { data: SiteData }) {
           </div></div>
         </Panel>
 
-        <Panel title="Network equipment by category" icon={I.Router} sub={`${a.inst.length} installed devices`}>
+        <Panel title={`${vocab.equipment} by category`} icon={I.Router} sub={`${a.inst.length} installed devices`}>
           <div className="asset-split">
             <Donut size={150} centerValue={String(a.inst.length)} centerLabel="devices" slices={a.byRole.map(([k, v], i) => ({ key: k, label: ROLE_LABEL[k] ?? k, value: v, color: PALETTE[i % PALETTE.length] }))} />
             <div className="asset-layers">
-              <span className="vw-label">By network layer</span>
-              <div className="asset-tiles">{a.byLayer.map(([k, v]) => <Stat key={k} l={k[0].toUpperCase() + k.slice(1)} v={String(v)} sub={`${Math.round((v / Math.max(1, a.inst.length)) * 100)}%`} />)}</div>
+              <span className="vw-label">{persona === 'network' ? 'By network layer' : 'By category'}</span>
+              <div className="asset-tiles">{(persona === 'network' ? a.byLayer : a.byCat).map(([k, v]) => <Stat key={k} l={persona === 'network' ? k[0].toUpperCase() + k.slice(1) : CAT_LABEL[k] ?? k} v={String(v)} sub={`${Math.round((v / Math.max(1, a.inst.length)) * 100)}%`} />)}</div>
             </div>
           </div>
         </Panel>

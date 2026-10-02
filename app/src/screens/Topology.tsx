@@ -4,7 +4,7 @@ import * as I from 'lucide-react';
 import { clockNow, getDatacenters, getNetworkElement, getTopology, useQuery } from '../api';
 import { usePage, PageHead, Loading } from '../shell/page';
 import { useSize } from '../charts/core';
-import { Btn, Chip, Drawer, KV, Seg, Toggle } from '../ui/kit';
+import { Btn, Chip, Drawer, Empty, KV, Seg, Toggle } from '../ui/kit';
 import { HealthChip, Legend, SevDot } from '../ui/status';
 import { scoreColor, utilColor } from '../lib/vocab';
 import { fmtAgo } from '../lib/format';
@@ -19,25 +19,40 @@ const G = 'var(--vw-color-emerald-500)', A = 'var(--vw-color-orange-500)', R = '
 export function Topology() {
   const [sp, setSp] = useSearchParams();
   const dc = sp.get('dc') ?? 'MH-DC-001';
-  const base = (sp.get('layer') ?? 'health') as Base;
   const set = (k: string, v: string) => { const n = new URLSearchParams(sp); v ? n.set(k, v) : n.delete(k); setSp(n, { replace: true }); };
-  const [badges, setBadges] = useState(true);
-  const [links, setLinks] = useState(true);
-  const [pick, setPick] = useState<string | null>(null);
-  usePage([{ label: 'Operate' }, { label: 'Topology' }, { label: dc }], { dcId: dc, neId: pick ?? undefined });
+  usePage([{ label: 'Operate' }, { label: 'Topology' }, { label: dc }], { dcId: dc });
   const { data: dcs } = useQuery(getDatacenters, []);
-  const { data: topo } = useQuery(() => getTopology(dc), [dc]);
-  if (!dcs || !topo) return <Loading />;
-  const unreach = topo.nodes.filter(n => !n.reach).length;
+  if (!dcs) return <Loading />;
   const dcRow = dcs.find(d => d.id === dc);
 
   return (
     <div className="page">
       <PageHead title="Network topology" sub={`Layered physical (LLDP) topology for ${dc}${dcRow ? ` · ${dcRow.city}` : ''}. Hover a node to trace its neighbours; click for detail.`}
         actions={<>
-          <select className="select" value={dc} onChange={e => { set('dc', e.target.value); setPick(null); }} aria-label="Datacenter">{dcs.filter(d => d.discovered > 0).map(d => <option key={d.id} value={d.id}>{d.id} · {d.city}</option>)}</select>
-          <Link to={`/datacenters/${dc}`} className="nst-btn nst-btn--sm"><I.Building2 size={15} />Site profile</Link>
+          <select className="select" value={dc} onChange={e => set('dc', e.target.value)} aria-label="Datacenter">{dcs.filter(d => d.discovered > 0).map(d => <option key={d.id} value={d.id}>{d.id} · {d.city}</option>)}</select>
+          <Link to={`/datacenters/${dc}?tab=topology`} className="nst-btn nst-btn--sm"><I.Building2 size={15} />Site profile</Link>
         </>} />
+      <TopologyView key={dc} dc={dc} />
+    </div>
+  );
+}
+
+/* The topology body (controls, canvas, node drawer) for one datacenter — used by the
+   Topology page and by the datacenter page's Topology tab. Base layer lives in ?layer. */
+export function TopologyView({ dc }: { dc: string }) {
+  const [sp, setSp] = useSearchParams();
+  const base = (sp.get('layer') ?? 'health') as Base;
+  const set = (k: string, v: string) => { const n = new URLSearchParams(sp); v ? n.set(k, v) : n.delete(k); setSp(n, { replace: true }); };
+  const [badges, setBadges] = useState(true);
+  const [links, setLinks] = useState(true);
+  const [pick, setPick] = useState<string | null>(null);
+  const { data: topo } = useQuery(() => getTopology(dc), [dc]);
+  if (!topo) return <Loading label="Loading topology" />;
+  if (!topo.nodes.length) return <section className="card"><Empty icon={I.Network} title="No topology yet">{dc} has no discovered network elements, so there is no LLDP topology to draw.</Empty></section>;
+  const unreach = topo.nodes.filter(n => !n.reach).length;
+
+  return (
+    <>
       <section className="card topo-bar">
         <div className="row wrap" style={{ gap: 12 }}>
           <span className="ops-label" style={{ margin: 0 }}>Base layer</span>
@@ -51,6 +66,8 @@ export function Topology() {
           {LAYERS.map(L => <Chip key={L.id} tone="neutral" size="xs">{L.label} <b className="num">{topo.nodes.filter(n => n.layer === L.id).length}</b></Chip>)}
           <Chip tone={unreach ? 'error' : 'success'} size="xs">Unreachable <b className="num">{unreach}</b></Chip>
           <Chip tone="info" size="xs">Backhaul <b className="num">{topo.external.length}</b></Chip>
+          {topo.hosts > 0 && <Chip tone="neutral" size="xs" title="Compute, storage and GPU hosts hang off their ToR switches and are not drawn">Hosts behind ToR <b className="num">{topo.hosts - topo.tenantGear}</b></Chip>}
+          {topo.tenantGear > 0 && <Chip tone="neutral" size="xs" title="Tenant-owned equipment is not polled and is not part of the operator fabric">Tenant equipment <b className="num">{topo.tenantGear}</b></Chip>}
         </div>
       </section>
       <TopoCanvas topo={topo} dc={dc} base={base} badges={badges} links={links} pick={pick} setPick={setPick} />
@@ -58,7 +75,7 @@ export function Topology() {
         foot={pick && <><Btn onClick={() => setPick(null)}>Close</Btn><Link className="nst-btn nst-btn--sm nst-btn--filled" to={`/ne/${encodeURIComponent(pick)}`}>Open network element<I.ArrowRight size={15} /></Link></>}>
         {pick && <NodeSummary id={pick} />}
       </Drawer>
-    </div>
+    </>
   );
 }
 
@@ -144,7 +161,7 @@ function TopoCanvas({ topo, dc, base, badges, links, pick, setPick }: { topo: Aw
                 const dim = hi && !hi.has(n.id);
                 return (
                   <g key={n.id} className={`topo-node${dim ? ' is-dim' : ''}${pick === n.id ? ' is-pick' : ''}`} transform={`translate(${p.x},${p.y})`} onMouseEnter={() => setHover(n.id)} onMouseLeave={() => setHover(null)} onClick={() => setPick(n.id)}>
-                    <title>{`${n.name}\n${n.role} · health ${n.health} · ${n.alarms} alarms · peak ${Math.round(n.util)}%${n.reach ? '' : ' · UNREACHABLE'}`}</title>
+                    <title>{`${n.name}\n${n.role} · health ${n.health} · ${n.alarms} alarms · peak ${Math.round(n.util)}%${n.hosts ? ` · ${n.hosts} hosts` : ''}${n.reach ? '' : ' · UNREACHABLE'}`}</title>
                     <circle r={p.r + 6} className="hit" />
                     <circle r={p.r} fill={color(n)} />
                     {badges && n.alarms > 0 && <g transform={`translate(${p.r * 0.75},${-p.r * 0.75})`}><circle r={7} className="topo-badge" /><text className="topo-badge-t" textAnchor="middle" dy={3}>{n.alarms > 9 ? '9+' : n.alarms}</text></g>}

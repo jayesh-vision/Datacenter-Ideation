@@ -4,7 +4,7 @@ import { clockNow, getService, useQuery } from '../api';
 import { usePage, PageHead, Loading, useSentinel } from '../shell/page';
 import { Btn, Chip, Kpi, Panel, Empty } from '../ui/kit';
 import { CustLink, DcLink, IncLink, IncidentChip, LinkStateChip, Meter, NeLink, ServiceChip, SevChip, SeverityChip, Fresh } from '../ui/status';
-import { fmtAgo, fmtBw, fmtINR, fmtMonth } from '../lib/format';
+import { fmtAgo, fmtBw, fmtINR, fmtMonth, fmtQty } from '../lib/format';
 import { monthsTo, dateAfterMonths, project } from '../lib/forecast';
 import { ForecastChart } from './plan/charts';
 import { TYPE_TONE } from './Services';
@@ -41,7 +41,7 @@ export function ServiceDetail() {
     if (s.status === 'Disabled') return { tone: 'neutral', title: 'No action — service disabled', why: 'The service is administratively disabled; no traffic or SLA exposure.', act: null as null | { label: string; to: string } };
     if (bh?.state === 'down') return { tone: 'error', title: 'Re-route onto the protected path', why: `Backhaul ${bh.aIf} is down; the service is running on its standby LSP with no further redundancy.`, act: { label: 'Open link', to: `/ne/${ne.id}?tab=links&if=${encodeURIComponent(bh.aNe === ne.id ? bh.aIf : bh.zIf)}` } };
     if (incidents.length) return { tone: 'error', title: `Follow ${incidents[0].id} action plan and notify ${c.name}`, why: `${incidents[0].title}. ${c.premium ? 'Premium customer — proactive notification is required by the SLA.' : ''}`, act: { label: `Open ${incidents[0].id}`, to: `/incidents/${incidents[0].id}` } };
-    if (s.utilPct >= SVC_LIMIT || m90 <= 3) return { tone: 'warning', title: `Upgrade bandwidth from ${fmtBw(s.bandwidthMbps)}`, why: s.utilPct >= SVC_LIMIT ? `Utilisation ${s.utilPct}% is above the ${SVC_LIMIT}% service threshold.` : `At +${s.growthPct}%/mo it crosses ${SVC_LIMIT}% in ~${Math.max(1, Math.round(m90))} months.`, act: { label: 'Customer view', to: `/customers/${c.id}` } };
+    if (s.utilPct >= SVC_LIMIT || m90 <= 3) return { tone: 'warning', title: `${s.unit === 'Mbps' ? 'Upgrade bandwidth' : 'Right-size'} from ${fmtQty(s.qty, s.unit)}`, why: s.utilPct >= SVC_LIMIT ? `Utilisation ${s.utilPct}% is above the ${SVC_LIMIT}% service threshold.` : `At +${s.growthPct}%/mo it crosses ${SVC_LIMIT}% in ~${Math.max(1, Math.round(m90))} months.`, act: { label: 'Customer view', to: `/customers/${c.id}` } };
     if (bh && bh.forecastMonths <= 6) return { tone: 'warning', title: 'Raise a capacity plan for the backhaul span', why: `${bh.aNe} ${bh.aIf} is at ${bh.utilPct}% and crosses 85% ${bh.forecastMonths === 0 ? 'already' : `around ${fmtMonth(bh.forecastDate!)}`}; this service shares it.`, act: { label: 'Capacity · network', to: '/capacity?tab=network' } };
     if (slaGap < 0) return { tone: 'warning', title: 'Review service credit exposure', why: `30-day uptime ${s.uptime30d}% is ${Math.abs(slaGap)} pts below the ${s.slaTarget}% target.`, act: { label: 'Customer view', to: `/customers/${c.id}` } };
     return { tone: 'success', title: 'No action required', why: Number.isFinite(m90) ? `Healthy — ${Math.round(m90)} months of headroom before ${SVC_LIMIT}% at +${s.growthPct}%/mo.` : 'Healthy — no growth trend.', act: null };
@@ -49,12 +49,12 @@ export function ServiceDetail() {
 
   return (
     <div className="page">
-      <PageHead title={<span className="mono">{s.id}</span>} chips={<><ServiceChip s={s.status} /><Chip tone={TYPE_TONE[s.type]}>{s.type}</Chip>{s.critical && <Chip tone="purple">Premium</Chip>}</>}
+      <PageHead title={<span className="mono">{s.id}</span>} chips={<><ServiceChip s={s.status} /><Chip tone={(TYPE_TONE[s.type] ?? 'neutral')}>{s.type}</Chip>{s.critical && <Chip tone="purple">Premium</Chip>}</>}
         sub={<><CustLink id={c.id}>{c.name}</CustLink> · {c.plan} · delivered from <DcLink id={s.dcId} /> ({dc.city})</>}
         actions={<OpstralBtn onClick={() => ask(`What services depend on ${bh?.id ?? ne.id}?`)} />} />
 
       <div className="kpis kpis-5">
-        <Kpi label="Bandwidth" value={fmtBw(s.bandwidthMbps)} icon={I.Gauge} tone="info" basis={`handoff ${s.ifName}`} />
+        <Kpi label={s.unit === 'Mbps' ? 'Bandwidth' : 'Size'} value={fmtQty(s.qty, s.unit)} icon={I.Gauge} tone="info" basis={s.ifName ? `handoff ${s.ifName}` : s.type} />
         <Kpi label="Utilisation" value={s.utilPct} unit="%" icon={I.Activity} tone={s.utilPct >= SVC_LIMIT ? 'error' : s.utilPct >= 75 ? 'warning' : 'success'} basis={`threshold ${SVC_LIMIT}%`} />
         <Kpi label="30-day uptime" value={s.uptime30d} unit="%" icon={I.ShieldCheck} tone={slaGap < 0 ? 'error' : 'success'} basis={<>SLA target {s.slaTarget}% · <span className={slaGap < 0 ? 'bad' : 'good'}>{slaGap >= 0 ? '+' : ''}{slaGap} pts</span></>} />
         <Kpi label="Revenue / month" value={fmtINR(s.revenueMonthly)} icon={I.IndianRupee} tone="purple" basis={`${fmtINR(s.revenueMonthly * 12)} a year`} />
@@ -68,7 +68,7 @@ export function ServiceDetail() {
             <CustLink id={c.id}>{c.name}</CustLink>
             <small>{c.id} · {c.segment} · {c.city}</small>
           </div>
-          <PathEdge label={fmtBw(s.bandwidthMbps)} />
+          <PathEdge label={fmtQty(s.qty, s.unit)} />
           <div className="path-node">
             <span className="path-k"><I.Plug size={14} />Handoff interface</span>
             <span className="mono strong">{s.ifName}</span>

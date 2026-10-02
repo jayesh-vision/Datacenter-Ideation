@@ -29,14 +29,16 @@ export function Elements({ dcId }: { dcId: string }) {
   const unmon = installed.filter(n => n.opsState === 'unmonitored').length;
 
   const cols: Col<Row>[] = [
-    { key: 'name', header: 'Device', render: n => <span className="cell-2"><NeLink id={n.id}>{n.id.replace(`${dcId}-`, '')}</NeLink><small>{n.role} · {n.layer}{n.isPe ? ' · PE' : ''}</small></span>, sort: n => n.id },
+    { key: 'name', header: 'Device', render: n => <span className="cell-2"><NeLink id={n.id}>{n.id.replace(`${dcId}-`, '')}</NeLink><small>{n.opsState === 'tenant-owned' ? `${n.tenant ?? 'Tenant'} · ${n.model}` : `${n.role} · ${n.layer}${n.isPe ? ' · PE' : ''}`}</small></span>, sort: n => n.id },
     { key: 'vendor', header: 'Vendor / model', render: n => <span className="cell-2">{n.model}<small>{n.vendor} · {n.os}</small></span>, sort: n => `${n.vendor} ${n.model}` },
     { key: 'rack', header: 'Rack · U', render: n => <span className="mono nowrap">{n.rack} · U{n.u}</span>, sort: n => n.rackId },
-    { key: 'state', header: 'Monitoring', render: n => n.opsState === 'unmonitored'
+    { key: 'state', header: 'Monitoring', render: n => n.opsState === 'tenant-owned'
+      ? <span className="cell-2"><span className="vw-chip vw-chip--neutral cmd-chip" style={{ alignSelf: 'flex-start' }}>Tenant-owned</span><small>power &amp; environment only</small></span>
+      : n.opsState === 'unmonitored'
       ? <span className="cell-2"><span className="vw-chip vw-chip--warning cmd-chip" style={{ alignSelf: 'flex-start' }}>Not monitored</span><small>no telemetry</small></span>
       : <span className="cell-2"><span className="vw-chip vw-chip--neutral cmd-chip" style={{ alignSelf: 'flex-start' }}>In service</span><small className="mono">{n.ip}</small></span>, sort: n => n.opsState },
-    { key: 'health', header: 'Health', align: 'right', render: n => n.opsState === 'unmonitored' ? <span className="faint">—</span> : <span className="num strong" style={{ color: n.healthScore < 80 ? scoreColor(n.healthScore) : undefined }}>{Math.round(n.healthScore)}</span>, sort: n => n.healthScore },
-    { key: 'load', header: 'CPU · mem · temp', render: n => n.opsState === 'unmonitored' ? <span className="faint">—</span> : <span className="num nowrap">{n.cpu}% · {n.mem}% · {n.tempC}°C</span>, sort: n => n.cpu },
+    { key: 'health', header: 'Health', align: 'right', render: n => n.opsState !== 'in-service' ? <span className="faint">—</span> : <span className="num strong" style={{ color: n.healthScore < 80 ? scoreColor(n.healthScore) : undefined }}>{Math.round(n.healthScore)}</span>, sort: n => n.healthScore },
+    { key: 'load', header: 'CPU · mem · temp', render: n => n.opsState !== 'in-service' ? <span className="faint">—</span> : <span className="num nowrap">{n.cpu}% · {n.mem}% · {n.tempC}°C</span>, sort: n => n.cpu },
     { key: 'alarms', header: 'Alarms', align: 'right', render: n => <span className={`num ${n.alarms ? 'bad' : 'faint'}`}>{n.alarms}</span>, sort: n => n.alarms }
   ];
 

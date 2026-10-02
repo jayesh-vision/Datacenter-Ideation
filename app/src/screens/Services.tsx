@@ -12,7 +12,7 @@ import '../styles/plan.css';
 
 type Row = Service & { customer: Customer };
 export const FAMILIES: ServiceType[] = ['IRV', 'Leased Line', 'L2VPN', 'L3VPN', 'Other'];
-export const TYPE_TONE: Record<ServiceType, 'info' | 'purple' | 'cyan' | 'orange' | 'neutral'> = { IRV: 'neutral', 'Leased Line': 'orange', L2VPN: 'purple', L3VPN: 'info', Other: 'cyan' };
+export const TYPE_TONE: Partial<Record<ServiceType, 'info' | 'purple' | 'cyan' | 'orange' | 'neutral'>> = { IRV: 'neutral', 'Leased Line': 'orange', L2VPN: 'purple', L3VPN: 'info', Other: 'cyan' };
 const STATUSES: ServiceStatus[] = ['Active', 'Degraded', 'Down', 'Disabled'];
 export const atRisk = (s: Service) => s.status === 'Degraded' || s.status === 'Down' || s.utilPct >= 90;
 
@@ -38,7 +38,7 @@ export function Services() {
   const scope = rows;
 
   const cols: Col<Row>[] = [
-    { key: 'id', header: 'Service', render: s => <span className="cell-2" style={{ gap: 3 }}><b className="mono strong">{s.id}</b><span><Chip tone={TYPE_TONE[s.type]} size="xs">{s.type}</Chip></span></span>, sort: s => s.id },
+    { key: 'id', header: 'Service', render: s => <span className="cell-2" style={{ gap: 3 }}><b className="mono strong">{s.id}</b><span><Chip tone={(TYPE_TONE[s.type] ?? 'neutral')} size="xs">{s.type}</Chip></span></span>, sort: s => s.id },
     { key: 'cust', header: 'Customer', render: s => <span className="cell-2"><CustLink id={s.customerId}>{s.customer.name}</CustLink><small>{s.customer.segment}{s.critical ? ' · premium' : ''}</small></span>, sort: s => s.customer.name },
     { key: 'ne', header: 'Datacenter · NE · handoff', render: s => <span className="cell-2"><span><DcLink id={s.dcId} /> · <NeLink id={s.neId} tab="services">{s.neId.replace(`${s.dcId}-`, '')}</NeLink></span><small className="mono">{s.ifName}</small></span>, sort: s => s.neId },
     { key: 'status', header: 'Status', render: s => <ServiceChip s={s.status} size="xs" />, sort: s => STATUSES.indexOf(s.status) },

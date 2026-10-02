@@ -5,7 +5,7 @@ import * as S from '../mock/server';
 import type { Alert, Datacenter, DcSummary, EdgeStatus, NetworkElement, Severity } from './types';
 
 export interface TwinNe extends NetworkElement {
-  opsState: 'in-service' | 'unmonitored' | 'planned'; alarms: number; worst: Severity | null; linksDown: number; links: number; services: number; uSize: number; edge: boolean; edgeTo?: string;
+  opsState: 'in-service' | 'unmonitored' | 'planned' | 'tenant-owned'; alarms: number; worst: Severity | null; linksDown: number; links: number; services: number; uSize: number; edge: boolean; edgeTo?: string;
 }
 export interface TwinData {
   dc: Datacenter; summary: DcSummary; nes: TwinNe[]; alerts: Alert[]; incidents: ReturnType<typeof S.incidents>; edge: EdgeStatus;
@@ -15,7 +15,7 @@ const SEV: Record<Severity, number> = { critical: 0, major: 1, minor: 2, warning
 const wait = <T,>(f: () => T): Promise<T> => new Promise(res => setTimeout(() => res(structuredClone(f())), 60));
 
 /* chassis height in rack units by role / layer (matches the generator) */
-export const uSizeOf = (n: NetworkElement) => (n.role === 'DWDM' ? 6 : n.role === 'Firewall' ? 3 : n.layer === 'spine' ? 4 : 1);
+export const uSizeOf = (n: NetworkElement) => n.uSize ?? (n.role === 'DWDM' ? 6 : n.role === 'Firewall' ? 3 : n.layer === 'spine' ? 4 : 1);
 
 export const getTwinData = (dcId: string): Promise<TwinData | null> => wait(() => {
   const db = S.raw();

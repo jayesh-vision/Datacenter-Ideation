@@ -38,6 +38,8 @@ export const plural = (n: number, one: string, many = `${one}s`) => `${fmtNum(n)
 /* money in Indian units: ₹8.77 Cr, ₹98.88 L */
 export const fmtINR = (n: number, digits = 2) => (Math.abs(n) >= 1e7 ? `₹${(n / 1e7).toFixed(digits)} Cr` : Math.abs(n) >= 1e5 ? `₹${(n / 1e5).toFixed(digits)} L` : `₹${Math.round(n).toLocaleString('en-IN')}`);
 export const fmtBw = (mbps: number) => (mbps >= 1000 ? `${+(mbps / 1000).toFixed(1)} Gbps` : `${mbps} Mbps`);
+/* a service quantity in its own unit (Mbps, kW, vCPU, TB, users…) */
+export const fmtQty = (qty: number, unit: string) => (unit === 'Mbps' ? fmtBw(qty) : unit === 'kW' ? fmtKw(qty) : `${fmtNum(qty)} ${unit}`);
 export const fmtKw = (kw: number) => `${kw >= 1000 ? Math.round(kw).toLocaleString('en-IN') : +kw.toFixed(1)} kW`;
 export const fmtUptime = (min: number) => { const d = Math.floor(min / 1440), h = Math.floor((min % 1440) / 60); return d ? `${d}d ${h}h` : `${h}h ${Math.round(min % 60)}m`; };
 export const fmtMonth = (t: number) => { const d = new Date(t); return `${MON[d.getMonth()]} ${d.getFullYear()}`; };

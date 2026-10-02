@@ -23,8 +23,15 @@ export function impactOf(db: Db, scope: { neIds?: string[]; linkIds?: string[]; 
 
 const step = (id: number, s: Omit<ActionStep, 'id' | 'status'> & { status?: ActionStep['status'] }): ActionStep => ({ status: 'pending', ...s, id: `A${id}` });
 
-export function buildIncidents(db: Db) {
+const DEFAULT_TITLES: Record<Incident['type'], string[]> = {
+  Network: ['Interface flapping on backhaul', 'BGP session reset storm', 'OSPF adjacency loss on AGG pair', 'Optical degradation on uplink', 'Access router unreachable'],
+  Power: ['Rectifier module alarm', 'UPS on bypass', 'PDU breaker trip'], Cooling: ['CRAH filter blocked — high return temperature', 'Chiller pump fault'], Capacity: ['Backhaul exhaustion warning', 'Port fill above 90% on leaf'],
+  Rack: ['Rack over power budget'], Security: ['RADIUS authentication failures spike']
+};
+
+export function buildIncidents(db: Db, TITLES: Record<Incident['type'], string[]> = DEFAULT_TITLES, persona: 'network' | 'colocation' | 'cloud' | 'enterprise' = 'network') {
   const now = db.now;
+  const telco = persona === 'network';
   const r = mulberry32(777);
   const inc: Incident[] = db.incidents;
   const newId = () => `INC-${String(++db.seq.inc).padStart(4, '0')}`;
@@ -68,7 +75,7 @@ export function buildIncidents(db: Db) {
       { cause: 'Far-end device fault', confidence: 2, evidence: [{ label: 'Far-end port shows no errors or alarms', ref: x3.aNe === HERO ? x3.zNe : x3.aNe }] }
     ],
     actions: [
-      step(1, { step: 'Move premium L3VPN / leased-line traffic off xe-0/0/3 onto xe-0/0/1 (RSVP re-optimise)', owner: 'Priya Nair · NOC', expected: '6 services leave the flapping path; xe-0/0/1 rises to ~61%', rollback: 'Revert LSP preference', verify: 'LSP up on new path; service latency < 5 ms', disruptive: true }),
+      step(1, { step: telco ? 'Move premium L3VPN / leased-line traffic off xe-0/0/3 onto xe-0/0/1 (RSVP re-optimise)' : 'Move backhaul traffic off xe-0/0/3 onto xe-0/0/1 (RSVP re-optimise)', owner: 'Priya Nair · NOC', expected: telco ? '6 services leave the flapping path; xe-0/0/1 rises to ~61%' : 'Site traffic leaves the flapping span; xe-0/0/1 rises to ~61%', rollback: 'Revert LSP preference', verify: 'LSP up on new path; latency < 5 ms', disruptive: true }),
       step(2, { step: 'Replace SFP on xe-0/0/3 (lot 22B → spare lot 24A)', owner: 'Rahul Deshpande · Field', expected: 'Rx power back above −7 dBm; flaps stop', rollback: 'Re-insert original optic', verify: 'Rx ≥ −7 dBm, 0 flaps for 15 min', disruptive: true }),
       step(3, { step: 'Run a 15-minute BER test on the span', owner: 'Rahul Deshpande · Field', expected: 'BER < 1e-12', rollback: 'n/a', verify: 'Test report attached', disruptive: false }),
       step(4, { step: 'Reset counters and watch for 24 hours', owner: 'Priya Nair · NOC', expected: 'CRC count stays at 0', rollback: 'n/a', verify: 'No new ALM on xe-0/0/3', disruptive: false }),
@@ -76,7 +83,7 @@ export function buildIncidents(db: Db) {
     ],
     changeIds: [chgPatch.id],
     similar: { text: 'Four other nodes on the same optical vendor batch show the same drift signature. Worth a batch-level RMA rather than four separate ones.', nodes: peers.map(p => p.id) }
-  }, { linkIds: [x3.id] }, im => `${im.services.length} services traverse the affected path. ${im.premium.length} premium customers are exposed — Enterprise Corp's L3VPN carries a 99.99% SLA and its headroom for the month is thin.`);
+  }, { linkIds: [x3.id] }, im => telco ? `${im.services.length} services traverse the affected path. ${im.premium.length} premium customers are exposed — Enterprise Corp's L3VPN carries a 99.99% SLA and its headroom for the month is thin.` : im.services.length ? `${im.services.length} services ride the affected backhaul span; ${im.premium.length} priority ${persona === 'colocation' ? 'tenants' : persona === 'cloud' ? 'accounts' : 'business units'} exposed if the second span also degrades.` : 'No hosted service rides this backhaul span directly; the site keeps its second edge path. Operational risk only.');
 
   /* 2 — UPS on battery */
   const upsAlert = db.alerts.find(a => a.scope !== "downstream" && a.dcId === 'DL-DC-009' && a.title.includes('On Battery'))!;
@@ -177,11 +184,6 @@ export function buildIncidents(db: Db) {
 
   /* history for MTTR / problem trends */
   const TYPES: Incident['type'][] = ['Network', 'Network', 'Network', 'Power', 'Cooling', 'Capacity', 'Rack', 'Security'];
-  const TITLES: Record<Incident['type'], string[]> = {
-    Network: ['Interface flapping on backhaul', 'BGP session reset storm', 'OSPF adjacency loss on AGG pair', 'Optical degradation on uplink', 'Access router unreachable'],
-    Power: ['Rectifier module alarm', 'UPS on bypass', 'PDU breaker trip'], Cooling: ['CRAH filter blocked — high return temperature', 'Chiller pump fault'], Capacity: ['Backhaul exhaustion warning', 'Port fill above 90% on leaf'],
-    Rack: ['Rack over power budget'], Security: ['RADIUS authentication failures spike']
-  };
   const live = db.datacenters.filter(d => d.status !== 'planned');
   for (let i = 0; i < 38; i++) {
     const t = pick(r, TYPES); const sev = pick(r, [2, 3, 3, 4, 4] as const); const dc = pick(r, live);

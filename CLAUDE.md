@@ -50,9 +50,24 @@ An alarm counts against a datacenter only when it is in scope (`Alert.scope`, co
 Edge redundancy (`DcSummary.edge`): redundant / redundancy-lost / isolated. Guarded by `npx tsx .qa/scope-check.ts`.
 Scope decisions 02-Oct-2026: the menu is Command center · Datacenters · Facilities · Topology · Alerts · Incidents · Changes & maintenance.
 Network services, Customers and Capacity & forecast are parked (code kept, routes redirect); services and customers appear only as
-impact on incidents, devices and sites. Revenue is not shown anywhere operational. Site tabs: Overview (3D) · Attention · Metrics (aggregated thermal/power/backup/fault KPIs)
+impact on incidents, devices and sites. Revenue is not shown anywhere operational. Site tabs: Overview (3D) · Attention · Topology (`TopologyView` from screens/Topology.tsx, same view as the /topology page) · Metrics (aggregated thermal/power/backup/fault KPIs)
 · Customers (customers served from the DC) · Assets (floors/rooms/racks, equipment by category, facility plant) · Equipment
-(installed devices only; planned devices = reserved rack space) · Power & space · Cabling · Ops log. No discovery/drift/reconciliation UI.
+(installed devices only; planned devices = reserved rack space) · Power & space · Ops log. Cabling tab hidden (02-Oct-2026; `site/Equipment.tsx` kept). No discovery/drift/reconciliation UI.
+
+## Personas (02-Oct-2026) — one estate, four business models
+Top-bar dropdown (`shell/Layout.tsx` PersonaSwitch) sets `Persona` = network | colocation | cloud | enterprise (localStorage `dco.persona`).
+`mock/server.ts` regenerates the whole mock (`generate(persona)`) and notifies subscribers, so every screen refetches. Sites, power,
+cooling, alarms and incidents are shared; `mock/personas.ts` holds per-persona vocabulary (customer/service/premium words, capacity
+unit), customers, service types (`Service.qty` + `unit`), room names and incident titles. Rack contents: telco = routers/switches/DWDM
+(unchanged, byte-identical to before — MH-DC-001 179/103/21/76 holds ONLY in the network persona); colocation = operator MMR + opaque
+`Tenant gear` blocks (role, `Rack.owner/tenantId/contractedKw`, OpsState `tenant-owned`, never polled); cloud/enterprise = leaf–spine
+fabric + Server/Storage/GPU hosts (telemetry, modules, host alerts). `NE_CATEGORY` maps role → network/compute/storage/tenant.
+Screens read words via `usePersona()` / `vocabNow()`; topology draws network devices only (hosts counted per ToR).
+QA: `node .qa/persona.mjs` (all screens × 4 personas + dropdown) and `.qa/persona-twin.mjs`.
+Tall sites (6–7 floors, `PersonaDef.tall`): network DL-DC-009, colocation KA-DC-020, cloud TN-DC-022, enterprise HR-DC-011.
+Twin default view highlights attention (`twin/attention.ts`): beacons on racks with critical/major issues, red/amber floor & room
+edges, issue counts on floor labels, ≤3 critical callouts (one per room) and a "Needs attention" card that drills to the item.
+Customer lists show "Why at risk" from `servicesOf().causes` (server.ts `causeIndex`); seeded scenarios at MH-DC-001 per persona.
 
 ## Visual rhythm (02-Oct-2026) — one system, not per-screen styling
 - `OpsKpi` (screens/ops/shared.tsx) is THE KPI card everywhere: `.app-kpi` = white `.vw-card-section`, grey icon, light metric,

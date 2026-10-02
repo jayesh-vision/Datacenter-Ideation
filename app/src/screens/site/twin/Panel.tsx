@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import * as I from 'lucide-react';
 import type { TwinData, TwinNe } from '../../../api/ext-twin';
@@ -5,6 +6,7 @@ import type { Level, RackL, RoomL, Sel, TwinLayout } from './layout';
 import { HealthChip, Meter, SeverityChip } from '../../../ui/status';
 import { fmtKw, fmtNum } from '../../../lib/format';
 import type { Pick } from './Scene';
+import type { Attention } from './attention';
 
 export interface Crumb { label: string; go: () => void }
 
@@ -27,19 +29,41 @@ export function PanelPath({ crumbs }: { crumbs: Crumb[] }) {
 }
 
 const Row = ({ k, v }: { k: string; v: React.ReactNode }) => <div className="twin-row"><span className="vw-label">{k}</span><span className="vw-value">{v}</span></div>;
-const Card = ({ title, children, count, action, path }: { title: string; children: React.ReactNode; count?: number; action?: React.ReactNode; path?: Crumb[] }) => (
-  <section className="vw-card-section twin-card">
-    {path && <PanelPath crumbs={path} />}
-    <div className="twin-card-h"><span className="vw-card-title-sm">{title}{count !== undefined && <span className="count">{count}</span>}</span>{action}</div>
-    {children}
-  </section>
-);
+/* collapsed cards, remembered per browser: a card's key is its title, or 'summary'
+   for the top card whose title changes with the selection (floor, room, rack…) */
+const loadFolded = (): Set<string> => { try { return new Set(JSON.parse(localStorage.getItem('dco.twin.folded') ?? '[]')); } catch { return new Set(); } };
+function useFolded(key: string): [boolean, () => void] {
+  const [folded, setFolded] = useState(() => loadFolded().has(key));
+  useEffect(() => { setFolded(loadFolded().has(key)); }, [key]);
+  const toggle = () => setFolded(f => {
+    const all = loadFolded(); if (f) all.delete(key); else all.add(key);
+    try { localStorage.setItem('dco.twin.folded', JSON.stringify([...all])); } catch { /* storage blocked */ }
+    return !f;
+  });
+  return [folded, toggle];
+}
+function Card({ title, children, count, action, path, foldKey }: { title: string; children: React.ReactNode; count?: number; action?: React.ReactNode; path?: Crumb[]; foldKey?: string }) {
+  const [folded, toggle] = useFolded(foldKey ?? (path ? 'summary' : title));
+  return (
+    <section className={`vw-card-section twin-card${folded ? ' is-folded' : ''}`}>
+      {path && <PanelPath crumbs={path} />}
+      <div className="twin-card-h">
+        <button type="button" className="twin-fold" onClick={toggle} aria-expanded={!folded} title={folded ? 'Expand section' : 'Collapse section'}>
+          <I.ChevronDown size={15} className="twin-fold-ic" />
+          <span className="vw-card-title-sm">{title}{count !== undefined && <span className="count">{count}</span>}</span>
+        </button>
+        {action}
+      </div>
+      {!folded && children}
+    </section>
+  );
+}
 const ratio = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
 const BAD = 'var(--vw-color-red-500)', ACCENT = 'var(--primaryColor500)', WARN = 'var(--vw-color-amber-500)';
 const loadColor = (p: number) => (p >= 85 ? BAD : p >= 75 ? WARN : ACCENT);
 
 /* Right-hand context: numbers come from the same summary the KPI strip uses. */
-export function TwinPanel({ data, L, sel, level, onPick, crumbs }: { data: TwinData; L: TwinLayout; sel: Sel; level: Level; onPick: (p: Pick) => void; crumbs: Crumb[] }) {
+export function TwinPanel({ data, L, sel, level, onPick, crumbs, att }: { data: TwinData; L: TwinLayout; sel: Sel; level: Level; onPick: (p: Pick) => void; crumbs: Crumb[]; att?: Attention }) {
   const { dc, summary: s } = data;
   const room = sel.room !== null ? L.rooms.find(r => r.id === sel.room) : undefined;
   const rk = sel.rack ? L.racks.find(r => r.rack.id === sel.rack) : undefined;
@@ -86,15 +110,17 @@ export function TwinPanel({ data, L, sel, level, onPick, crumbs }: { data: TwinD
         </div>
         {dc.status === 'planned' && <p className="twin-note">Planned site — record data only. Racks and equipment are shown as ghosts until the collector sees them.</p>}
       </Card>
-      <Card title="Floors">
+      {att && att.items.length > 0 && <AttentionCard att={att} onPick={onPick} />}
+      <Card title="Floors" count={L.floors.length}>
         <ul className="twin-list" data-twin="floors">
-          {L.floors.map(f => (
+          {L.floors.map(f => { const a = att?.floor.get(f.idx); return (
             <li key={f.idx}><button type="button" data-twin-floor={f.idx} onClick={() => onPick({ floor: f.idx })}>
               <span className="vw-card-activity-label">{f.name}</span>
               <span className="vw-label">{f.rooms.map(r => r.name).join(' · ')}</span>
+              {a && <span className={`vw-chip ${a.sev === 'critical' ? 'vw-chip--error' : 'vw-chip--warning'} cmd-chip`}>{a.n} issue{a.n > 1 ? 's' : ''}</span>}
               <I.ChevronRight size={14} />
             </button></li>
-          ))}
+          ); })}
         </ul>
       </Card>
       <Card title="Power & cooling">
@@ -179,36 +205,66 @@ function RackPanel({ rk, room, data, onPick, path }: { rk: RackL; room?: RoomL; 
         <Row k="Alarms" v={alarms ? <span style={{ color: BAD }}>{alarms} on {rk.nes.filter(n => n.alarms).length} devices</span> : 'None'} />
         {room?.sensor && <Row k="Zone" v={`${room.sensor.tempC}°C · ${room.sensor.humidity}% RH`} />}
       </Card>
-      <Card title="Equipment" count={rk.nes.length} action={rk.reserved.length ? <span className="vw-label" title="Planned devices: space reserved, not installed">{rk.reserved.reduce((a, n) => a + n.uSize, 0)} U reserved</span> : undefined}>
-        {rk.nes.length === 0 && <p className="twin-note">{r.role === 'ODF / patching' ? 'Passive rack: ODF and patch panels only.' : 'Empty rack.'}</p>}
-        <ul className="twin-list" data-twin="equipment">
-          {[...rk.nes].reverse().map(n => (
-            <li key={n.id}><button type="button" data-twin-ne={n.id} onClick={() => onPick({ floor: room?.floorIdx, room: room?.id, rack: r.id, ne: n.id })}>
-              <span className="vw-card-activity-label">{n.name.replace(`${n.dcId}-`, '')}<span className="vw-label"> · U{n.u}{n.uSize > 1 ? `–${n.u + n.uSize - 1}` : ''}</span></span>
-              <span className="vw-label">{n.role} · {n.vendor} {n.model}</span>
-              {n.opsState === 'unmonitored' ? <span className="vw-chip vw-chip--neutral cmd-chip" title="Installed, no telemetry">Not monitored</span> : n.worst ? <SeverityChip s={n.worst} size="xs" /> : <HealthChip s={n.health} size="xs" />}
-              <I.ChevronRight size={14} />
-            </button></li>
-          ))}
-        </ul>
-      </Card>
+      <RackEquipment key={r.id} rk={rk} room={room} onPick={onPick} />
     </>
+  );
+}
+
+/* quick-filter groups: network roles for a telco rack, host kinds for a cloud rack, tenant blocks in colocation */
+const GROUP: Record<string, string> = { Router: 'Routers', Switch: 'Switches', Access: 'Switches', Server: 'Servers', Storage: 'Storage', GPU: 'GPU', 'Tenant gear': 'Tenant-owned' };
+const typeOf = (n: TwinNe): string => GROUP[n.role] ?? 'Other';
+const hasAlert = (n: TwinNe) => n.alarms > 0 || !!n.worst;
+
+/* Rack equipment list with quick filters: device type (single choice) + "with alerts" toggle. */
+function RackEquipment({ rk, room, onPick }: { rk: RackL; room?: RoomL; onPick: (p: Pick) => void }) {
+  const r = rk.rack;
+  const [type, setType] = useState<string>('all');
+  const [alerts, setAlerts] = useState(false);
+  const count = (t: string) => rk.nes.filter(n => t === 'all' || typeOf(n) === t).length;
+  const nAlert = rk.nes.filter(hasAlert).length;
+  const shown = [...rk.nes].reverse().filter(n => (type === 'all' || typeOf(n) === type) && (!alerts || hasAlert(n)));
+  const present = [...new Set(rk.nes.map(typeOf))].sort((a, b) => count(b) - count(a));
+  const types: { id: string; label: string }[] = [{ id: 'all', label: 'All' }, ...present.map(g => ({ id: g, label: g }))];
+  return (
+    <Card title="Equipment" count={rk.nes.length} action={rk.reserved.length ? <span className="vw-label" title="Planned devices: space reserved, not installed">{rk.reserved.reduce((a, n) => a + n.uSize, 0)} U reserved</span> : undefined}>
+      {rk.nes.length === 0 ? <p className="twin-note">{r.role === 'ODF / patching' ? 'Passive rack: ODF and patch panels only.' : 'Empty rack.'}</p> : (
+        <div className="twin-filters" role="group" aria-label="Filter equipment" data-twin="eq-filters">
+          {types.filter(t => t.id === 'all' || (count(t.id) && present.length > 1)).map(t => (
+            <button key={t.id} type="button" className={`twin-fchip${type === t.id ? ' is-on' : ''}`} aria-pressed={type === t.id} data-twin-filter={t.id} onClick={() => setType(t.id)}>{t.label}<span className="count">{count(t.id)}</span></button>
+          ))}
+          <span className="twin-fsep" />
+          <button type="button" className={`twin-fchip is-alert${alerts ? ' is-on' : ''}`} aria-pressed={alerts} disabled={!nAlert} data-twin-filter="alerts" title={nAlert ? 'Show only devices with an active alarm or fault' : 'No device in this rack has an active alarm'} onClick={() => setAlerts(v => !v)}><I.TriangleAlert size={12} />Alerts<span className="count">{nAlert}</span></button>
+        </div>
+      )}
+      <ul className="twin-list" data-twin="equipment">
+        {shown.map(n => (
+          <li key={n.id}><button type="button" data-twin-ne={n.id} onClick={() => onPick({ floor: room?.floorIdx, room: room?.id, rack: r.id, ne: n.id })}>
+            <span className="vw-card-activity-label">{n.name.replace(`${n.dcId}-`, '')}<span className="vw-label"> · U{n.u}{n.uSize > 1 ? `–${n.u + n.uSize - 1}` : ''}</span></span>
+            <span className="vw-label">{n.role === 'Tenant gear' ? `Tenant-owned block · ${n.model}` : `${n.role} · ${n.vendor} ${n.model}`}{n.alarms ? ` · ${n.alarms} alarm${n.alarms > 1 ? 's' : ''}` : ''}</span>
+            {n.opsState === 'tenant-owned' ? <span className="vw-chip vw-chip--neutral cmd-chip" title="Tenant-owned: power and environment only">Tenant-owned</span> : n.opsState === 'unmonitored' ? <span className="vw-chip vw-chip--neutral cmd-chip" title="Installed, no telemetry">Not monitored</span> : n.worst ? <SeverityChip s={n.worst} size="xs" /> : <HealthChip s={n.health} size="xs" />}
+            <I.ChevronRight size={14} />
+          </button></li>
+        ))}
+      </ul>
+      {rk.nes.length > 0 && !shown.length && <p className="twin-note">No equipment matches this filter. <button type="button" className="ent-link twin-inline" onClick={() => { setType('all'); setAlerts(false); }}>Clear filters</button></p>}
+    </Card>
   );
 }
 
 function EquipmentPanel({ ne, rk, data, onPick, path }: { ne: TwinNe; rk: RackL; data: TwinData; onPick: (p: Pick) => void; path: Crumb[] }) {
   const nd = ne.opsState === 'unmonitored';
+  const tenant = ne.opsState === 'tenant-owned';
   const al = data.alerts.filter(a => a.neId === ne.id);
   return (
     <>
-      <Card title={ne.name.replace(`${ne.dcId}-`, '')} path={path} action={nd ? <span className="vw-chip vw-chip--neutral cmd-chip">Not monitored</span> : <HealthChip s={ne.health} size="xs">{ne.health} · {ne.healthScore}</HealthChip>}>
+      <Card title={ne.name.replace(`${ne.dcId}-`, '')} path={path} action={tenant ? <span className="vw-chip vw-chip--neutral cmd-chip">Tenant-owned</span> : nd ? <span className="vw-chip vw-chip--neutral cmd-chip">Not monitored</span> : <HealthChip s={ne.health} size="xs">{ne.health} · {ne.healthScore}</HealthChip>}>
         <Row k="Role" v={`${ne.role} · ${ne.layer}`} />
         <Row k="Model" v={`${ne.vendor} ${ne.model}`} />
         <Row k="OS" v={ne.os} />
         <Row k="Serial" v={<span className="mono">{ne.serial}</span>} />
         <Row k="IP / MAC" v={<span className="mono">{ne.ip} · {ne.mac}</span>} />
         <Row k="Position" v={<button type="button" className="ent-link twin-inline" onClick={() => onPick({ rack: rk.rack.id })}>{rk.rack.name} · U{ne.u}{ne.uSize > 1 ? `–${ne.u + ne.uSize - 1}` : ''}</button>} />
-        {!nd && (
+        {!nd && !tenant && (
           <div className="twin-stats" style={{ marginTop: 8 }}>
             <div><span className="vw-card-metric-md" style={{ color: ne.cpu > 75 ? WARN : undefined }}>{ne.cpu}<small>%</small></span><span className="vw-label">CPU</span></div>
             <div><span className="vw-card-metric-md">{ne.mem}<small>%</small></span><span className="vw-label">memory</span></div>
@@ -217,6 +273,7 @@ function EquipmentPanel({ ne, rk, data, onPick, path }: { ne: TwinNe; rk: RackL;
           </div>
         )}
         {nd && <p className="twin-note">Installed but not reporting telemetry — no collector polls it. Health and alarms are unknown until monitoring is restored.</p>}
+        {tenant && <p className="twin-note">Tenant-owned equipment in a leased cabinet. The operator monitors the cabinet’s power draw and environment only; the tenant monitors the devices.</p>}
       </Card>
       <Card title="Alarms" count={al.length} action={<Link to={`/ne/${ne.id}?tab=alerts`} className="panel-link">Diagnostics<I.ChevronRight size={14} /></Link>}>
         {al.length ? al.slice(0, 5).map(a => <Row key={a.id} k={a.code} v={<span className="row" style={{ gap: 6 }}><SeverityChip s={a.severity} size="xs" />{a.title}</span>} />) : <p className="twin-note">No active alarms.</p>}
@@ -232,5 +289,33 @@ function EquipmentPanel({ ne, rk, data, onPick, path }: { ne: TwinNe; rk: RackL;
         </div>
       </Card>
     </>
+  );
+}
+
+/* default view: what needs attention, worst first — each line drills straight to it */
+function AttentionCard({ att, onPick }: { att: Attention; onPick: (p: Pick) => void }) {
+  const [all, setAll] = useState(false);
+  const [folded, toggle] = useFolded('Needs attention');
+  const crit = att.items.filter(i => i.sev === 'critical').length;
+  const shown = all ? att.items : att.items.slice(0, 5);
+  return (
+    <section className={`vw-card-section twin-card twin-att${folded ? ' is-folded' : ''}`} data-twin="attention">
+      <div className="twin-card-h">
+        <button type="button" className="twin-fold" onClick={toggle} aria-expanded={!folded} title={folded ? 'Expand section' : 'Collapse section'}><I.ChevronDown size={15} className="twin-fold-ic" /><span className="vw-card-title-sm">Needs attention<span className="count">{att.items.length}</span></span></button>
+        {crit > 0 && <span className="vw-chip vw-chip--error cmd-chip">{crit} critical</span>}
+      </div>
+      {!folded && <>
+      <ul className="twin-list">
+        {shown.map(i => (
+          <li key={i.id}><button type="button" className={`is-${i.sev}`} data-twin-att={i.id} onClick={() => onPick(i.pick)}>
+            <span className="vw-card-activity-label">{i.title}</span>
+            <span className="vw-label">{i.where}</span>
+            <SeverityChip s={i.sev} size="xs" /><I.ChevronRight size={14} />
+          </button></li>
+        ))}
+      </ul>
+      {att.items.length > 5 && <button type="button" className="panel-link" style={{ marginTop: 6 }} onClick={() => setAll(v => !v)}>{all ? 'Show fewer' : `Show all ${att.items.length}`}</button>}
+      </>}
+    </section>
   );
 }

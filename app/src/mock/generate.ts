@@ -4,10 +4,16 @@
 import { mulberry32, seedOf, pick, intBetween, between, chance, type Rnd } from '../lib/rng';
 import type {
   Alert, AuditEntry, CapacityPlan, Change, Circle, CoolingUnit, Customer, Datacenter, EnvSensor, Incident, Interface, Link, LinkState, Location,
-  NetworkElement, NeRole, Protocol, Rack, ReconTask, Region, RolloutStatus, Service, ServiceType, Severity, UpsUnit, CableCore
+  NetworkElement, NeRole, Persona, Protocol, Rack, ReconTask, Region, RolloutStatus, Service, ServiceType, Severity, UpsUnit, CableCore
 } from '../api/types';
+import { NE_CATEGORY } from '../api/types';
 import { ACCOUNT_MANAGERS, BLOCKERS, CIRCLES, CITIES, CUSTOMERS, DAY, DCS, HOUR, MIN, NOW, PEOPLE, POP_STATUS, REGIONS, SITE_STATUS } from './seed';
 import { buildIncidents } from './incidents';
+import { PERSONA_BY_ID } from './personas';
+
+/* a host (compute / storage / GPU) or an opaque block of tenant equipment */
+const isHost = (n: NetworkElement) => NE_CATEGORY[n.role] === 'compute' || NE_CATEGORY[n.role] === 'storage';
+const isTenantGear = (n: NetworkElement) => n.role === 'Tenant gear';
 
 export interface Db {
   now: number;
@@ -79,6 +85,13 @@ const ACCESS_MODELS = [['CISCO', 'NCS 540', 'IOS XR 7.8.1', 'CS'], ['JUNIPER', '
 const SWITCH_MODELS = [['CISCO', 'Nexus 93180YC', 'NX-OS 10.3(4a)', 'CS'], ['ARISTA', '7050SX3-48YC', 'EOS 4.31.1F', 'AR'], ['JUNIPER', 'QFX5120-48Y', '22.2R3', 'JU']] as const;
 const DWDM_MODELS = [['CIENA', '6500 D7', 'R16.2', 'CI'], ['NOKIA', '1830 PSS-16II', 'R23.6', 'NK']] as const;
 const FW_MODELS = [['FORTINET', 'FortiGate 3700F', 'FortiOS 7.4.3', 'FG']] as const;
+/* cloud / enterprise hosts and fabric; colocation tenant blocks */
+const SPINE_MODELS = [['ARISTA', '7800R3-36P', 'EOS 4.31.1F', 'AR'], ['CISCO', 'Nexus 9364D', 'NX-OS 10.3(4a)', 'CS']] as const;
+const SERVER_MODELS = [['DELL', 'PowerEdge R760', 'ESXi 8.0u2', 'DL'], ['HPE', 'ProLiant DL380 Gen11', 'RHEL 9.3', 'HP'], ['SUPERMICRO', 'SYS-121H', 'Ubuntu 22.04', 'SM']] as const;
+const STORAGE_MODELS = [['NETAPP', 'AFF A400', 'ONTAP 9.14', 'NA'], ['DELL', 'PowerStore 1200T', 'PowerStoreOS 3.6', 'DL'], ['PURE', 'FlashArray X70', 'Purity 6.6', 'PU']] as const;
+const GPU_MODELS = [['NVIDIA', 'DGX H100', 'DGX OS 6', 'NV'], ['SUPERMICRO', 'SYS-821GE (8×H100)', 'Ubuntu 22.04', 'SM']] as const;
+const TENANT_MODELS = [['Tenant-owned', 'Blade chassis', '—', 'TN'], ['Tenant-owned', 'Rack servers', '—', 'TN'], ['Tenant-owned', 'Storage array', '—', 'TN'], ['Tenant-owned', 'Network stack', '—', 'TN'], ['Tenant-owned', 'HPC nodes', '—', 'TN'], ['Tenant-owned', 'Mixed equipment', '—', 'TN']] as const;
+const HOST_VENDORS = new Set(['DELL', 'HPE', 'SUPERMICRO', 'NETAPP', 'PURE', 'NVIDIA']);
 
 function ifName(vendor: string, kind: 'ge' | 'xe' | 'et', i: number): string {
   if (vendor === 'JUNIPER') return kind === 'et' ? `et-0/1/${i}` : kind === 'xe' ? `xe-0/0/${i}` : `ge-0/2/${i}`;
@@ -86,13 +99,17 @@ function ifName(vendor: string, kind: 'ge' | 'xe' | 'et', i: number): string {
   if (vendor === 'NOKIA') return kind === 'et' ? `1/2/c${i + 1}` : kind === 'xe' ? `1/1/c${i + 1}` : `1/3/${i + 1}`;
   if (vendor === 'ARISTA') return kind === 'et' ? `Ethernet49/${i + 1}` : `Ethernet${i + 1}`;
   if (vendor === 'CIENA') return `1-A-${i + 1}`;
+  if (HOST_VENDORS.has(vendor)) return kind === 'et' ? `ib${i}` : `eth${i}`;
   return kind === 'et' ? `port${i + 41}` : `port${i + 1}`;
 }
 
 interface NeDraft { ne: NetworkElement; uSize: number; drawKw: number; plan: { kind: 'ge' | 'xe' | 'et'; n: number }[] }
 
-function buildNes(dcRow: typeof DCS[number], r: Rnd) {
-  const [dcId, , , , dcStatus, total, discovered, drifted] = dcRow;
+function buildNes(dcRow: typeof DCS[number], r: Rnd, persona: Persona) {
+  const [dcId, , , , dcStatus, total0, discovered0, drifted0] = dcRow;
+  /* the seed rows are sized for the telco estate; other personas scale them */
+  const sc = PERSONA_BY_ID[persona].scale;
+  const total = Math.round(total0 * sc), discovered = Math.round(discovered0 * sc), drifted = Math.round(drifted0 * sc);
   const fw = total >= 160 ? 2 : 0;
   const dwdm = total >= 100 ? 2 : 1;
   const routers = Math.round(total * 0.592);
@@ -112,20 +129,52 @@ function buildNes(dcRow: typeof DCS[number], r: Rnd) {
       }
     });
   };
+  /* every persona has the same WAN edge: four PE routers (the hero PE and its backhaul live here) */
   for (let i = 1; i <= 4; i++) add('Router', 'core', `${dcId}-PE-T4-0${i}`, i <= 2 ? ROUTER_MODELS[0] : dcVendor, 1, 0.45, [{ kind: 'xe', n: 12 }, { kind: 'et', n: 4 }, { kind: 'ge', n: 16 }], true);
-  for (let i = 1; i <= fw; i++) add('Firewall', 'core', `${dcId}-FW-0${i}`, FW_MODELS[0], 3, 1.1, [{ kind: 'xe', n: 8 }]);
-  for (let i = 1; i <= dwdm; i++) add('DWDM', 'core', `${dcId}-OLA-0${i}`, pick(r, DWDM_MODELS), 6, 0.9, [{ kind: 'et', n: 8 }]);
-  for (let i = 1; i <= spineN; i++) add('Router', 'spine', `${dcId}-AGG-R${String(i).padStart(2, '0')}`, ROUTER_MODELS[1], 4, 1.6, [{ kind: 'xe', n: 16 }, { kind: 'et', n: 8 }]);
-  for (let i = 1; i <= leafN; i++) add('Switch', 'leaf', `${dcId}-ACC-${String(i).padStart(2, '0')}`, pick(r, SWITCH_MODELS), 1, 0.38, [{ kind: 'xe', n: 32 }, { kind: 'et', n: 4 }]);
-  const accR = routers - 4 - spineN;
-  for (let i = 1; i <= accR; i++) add('Router', 'access', `${dcId}-CSR-${String(i).padStart(3, '0')}`, pick(r, ACCESS_MODELS), 1, 0.16, [{ kind: 'ge', n: 8 }, { kind: 'xe', n: 4 }]);
-  for (let i = 1; i <= switches - leafN; i++) add('Switch', 'access', `${dcId}-TOR-${String(i).padStart(3, '0')}`, pick(r, SWITCH_MODELS), 1, 0.24, [{ kind: 'xe', n: 24 }, { kind: 'et', n: 2 }]);
+  if (persona === 'network') {
+    for (let i = 1; i <= fw; i++) add('Firewall', 'core', `${dcId}-FW-0${i}`, FW_MODELS[0], 3, 1.1, [{ kind: 'xe', n: 8 }]);
+    for (let i = 1; i <= dwdm; i++) add('DWDM', 'core', `${dcId}-OLA-0${i}`, pick(r, DWDM_MODELS), 6, 0.9, [{ kind: 'et', n: 8 }]);
+    for (let i = 1; i <= spineN; i++) add('Router', 'spine', `${dcId}-AGG-R${String(i).padStart(2, '0')}`, ROUTER_MODELS[1], 4, 1.6, [{ kind: 'xe', n: 16 }, { kind: 'et', n: 8 }]);
+    for (let i = 1; i <= leafN; i++) add('Switch', 'leaf', `${dcId}-ACC-${String(i).padStart(2, '0')}`, pick(r, SWITCH_MODELS), 1, 0.38, [{ kind: 'xe', n: 32 }, { kind: 'et', n: 4 }]);
+    const accR = routers - 4 - spineN;
+    for (let i = 1; i <= accR; i++) add('Router', 'access', `${dcId}-CSR-${String(i).padStart(3, '0')}`, pick(r, ACCESS_MODELS), 1, 0.16, [{ kind: 'ge', n: 8 }, { kind: 'xe', n: 4 }]);
+    for (let i = 1; i <= switches - leafN; i++) add('Switch', 'access', `${dcId}-TOR-${String(i).padStart(3, '0')}`, pick(r, SWITCH_MODELS), 1, 0.24, [{ kind: 'xe', n: 24 }, { kind: 'et', n: 2 }]);
+  } else if (persona === 'colocation') {
+    /* operator plant is small: edge, firewalls, DWDM, meet-me-room switches, a few shared access switches;
+       everything else is tenant-owned equipment the operator does not see inside */
+    const fwC = total >= 100 ? 2 : 1, dwC = total >= 60 ? 2 : 1;
+    const spC = Math.max(2, Math.round(total * 0.03)), mmrC = Math.max(4, Math.round(total * 0.08)), torC = Math.max(2, Math.round(total * 0.06));
+    for (let i = 1; i <= fwC; i++) add('Firewall', 'core', `${dcId}-FW-0${i}`, FW_MODELS[0], 3, 1.1, [{ kind: 'xe', n: 8 }]);
+    for (let i = 1; i <= dwC; i++) add('DWDM', 'core', `${dcId}-OLA-0${i}`, pick(r, DWDM_MODELS), 6, 0.9, [{ kind: 'et', n: 8 }]);
+    for (let i = 1; i <= spC; i++) add('Router', 'spine', `${dcId}-AGG-R${String(i).padStart(2, '0')}`, ROUTER_MODELS[1], 4, 1.6, [{ kind: 'xe', n: 16 }, { kind: 'et', n: 8 }]);
+    for (let i = 1; i <= mmrC; i++) add('Switch', 'leaf', `${dcId}-MMR-SW-${String(i).padStart(2, '0')}`, pick(r, SWITCH_MODELS), 1, 0.38, [{ kind: 'xe', n: 48 }, { kind: 'et', n: 4 }]);
+    for (let i = 1; i <= torC; i++) add('Switch', 'access', `${dcId}-TOR-${String(i).padStart(3, '0')}`, pick(r, SWITCH_MODELS), 1, 0.24, [{ kind: 'xe', n: 24 }, { kind: 'et', n: 2 }]);
+    const tenantN = total - drafts.length;
+    for (let i = 1; i <= tenantN; i++) { const u = pick(r, [2, 4, 4, 6, 8, 10] as const); add('Tenant gear', 'access', `${dcId}-TN-${String(i).padStart(3, '0')}`, pick(r, TENANT_MODELS), u, r1(u * between(r, 0.25, 0.45)), []); }
+  } else {
+    /* cloud / enterprise: a leaf–spine fabric and rows of hosts (compute, storage, GPU) */
+    const cloud = persona === 'cloud';
+    const fwH = cloud ? (total >= 300 ? 2 : 1) : 2, dwH = total >= 150 ? 2 : 1;
+    const hostEst = Math.round(total * (cloud ? 0.8 : 0.72));
+    const torH = Math.max(2, Math.ceil(hostEst / 20)), leafH = Math.max(4, Math.ceil(torH / 6)), spH = cloud ? Math.max(4, Math.min(8, Math.round(leafH / 2))) : 2;
+    for (let i = 1; i <= fwH; i++) add('Firewall', 'core', `${dcId}-FW-0${i}`, FW_MODELS[0], 3, 1.1, [{ kind: 'xe', n: 8 }]);
+    for (let i = 1; i <= dwH; i++) add('DWDM', 'core', `${dcId}-OLA-0${i}`, pick(r, DWDM_MODELS), 6, 0.9, [{ kind: 'et', n: 8 }]);
+    for (let i = 1; i <= spH; i++) add('Switch', 'spine', `${dcId}-${cloud ? 'SPINE' : 'CORE-SW'}-${String(i).padStart(2, '0')}`, pick(r, SPINE_MODELS), 4, 1.8, [{ kind: 'xe', n: 16 }, { kind: 'et', n: 32 }]);
+    for (let i = 1; i <= leafH; i++) add('Switch', 'leaf', `${dcId}-${cloud ? 'LEAF' : 'DIST-SW'}-${String(i).padStart(2, '0')}`, pick(r, SWITCH_MODELS), 2, 0.6, [{ kind: 'xe', n: 32 }, { kind: 'et', n: 8 }]);
+    for (let i = 1; i <= torH; i++) add('Switch', 'access', `${dcId}-TOR-${String(i).padStart(3, '0')}`, pick(r, SWITCH_MODELS), 1, 0.3, [{ kind: 'xe', n: 48 }, { kind: 'et', n: 16 }]);
+    const hosts = total - drafts.length;
+    const sto = Math.round(hosts * (cloud ? 0.18 : 0.26)), gpu = Math.round(hosts * (cloud ? 0.12 : 0.06)), cmp = hosts - sto - gpu;
+    for (let i = 1; i <= cmp; i++) add('Server', 'access', `${dcId}-${cloud ? 'CMP' : 'ESX'}-${String(i).padStart(4, '0')}`, pick(r, SERVER_MODELS), i % 3 === 0 ? 2 : 1, 0.5, [{ kind: 'xe', n: 2 }]);
+    for (let i = 1; i <= sto; i++) add('Storage', 'access', `${dcId}-${cloud ? 'STO' : 'SAN'}-${String(i).padStart(3, '0')}`, pick(r, STORAGE_MODELS), 4, 1.4, [{ kind: 'xe', n: 4 }]);
+    for (let i = 1; i <= gpu; i++) add('GPU', 'access', `${dcId}-GPU-${String(i).padStart(3, '0')}`, pick(r, GPU_MODELS), 8, 10.2, [{ kind: 'et', n: 8 }]);
+  }
+  drafts.forEach(d => { d.ne.uSize = d.uSize; });
 
   /* discovery state: newest access gear is what's not discovered yet */
   const notDisc = total - discovered;
   const candidates = drafts.filter(d => d.ne.layer === 'access').reverse().concat(drafts.filter(d => d.ne.layer !== 'access' && !d.ne.isPe).reverse(), drafts.filter(d => d.ne.isPe));
   const nd = candidates.slice(0, notDisc);
-  const reasonBag = dcId === 'MH-DC-001'
+  const reasonBag = dcId === 'MH-DC-001' && persona === 'network'
     ? [...Array(48).fill('planned'), ...Array(22).fill('no-collector'), ...Array(4).fill('collector-unavailable'), ...Array(2).fill('not-applicable')]
     : dcStatus === 'planned' ? Array(notDisc).fill('planned') : nd.map(() => pick(r, ['planned', 'planned', 'no-collector', 'collector-unavailable']));
   nd.forEach((d, i) => { d.ne.discovery = 'not-discovered'; d.ne.ndReason = reasonBag[i] as NetworkElement['ndReason']; d.ne.lifecycle = d.ne.ndReason === 'planned' ? 'Planned' : 'Ready'; });
@@ -151,19 +200,24 @@ function buildNes(dcRow: typeof DCS[number], r: Rnd) {
 
 /* -------------------------------------------------------------- facility */
 
-function placeInRacks(dcId: string, drafts: NeDraft[], r: Rnd) {
+function placeInRacks(dcId: string, drafts: NeDraft[], r: Rnd, persona: Persona, customers: Customer[]) {
+  const def = PERSONA_BY_ID[persona];
   const totalU = drafts.reduce((a, d) => a + d.uSize, 0) + 0;
-  const nRacks = Math.max(4, Math.ceil(totalU / 26));
+  const tall = def.tall.dcId === dcId;
+  /* a multi-storey site spreads the same equipment over more rooms: at least 3 racks per room */
+  const nRacks = Math.max(4, Math.ceil(totalU / 26), tall ? def.tall.floors.reduce((a, f) => a + f.rooms.length, 0) * 3 : 0);
   const big = nRacks > 8;
-  const floors = big ? [{ name: 'Ground', rooms: ['MDF', 'Hall A'] }, { name: '1st floor', rooms: ['Equipment room', 'Hall B'] }] : [{ name: 'Ground', rooms: ['MDF'] }, { name: '1st floor', rooms: ['Equipment room'] }];
+  const floors = (tall ? def.tall.floors : big ? def.rooms.big : def.rooms.small).map(f => ({ name: f.name, rooms: [...f.rooms] }));
   const rooms = floors.flatMap(f => f.rooms.map(rm => ({ floor: f.name, room: rm })));
   const racks: Rack[] = Array.from({ length: nRacks }, (_, i) => {
     const loc = rooms[Math.min(rooms.length - 1, Math.floor((i / nRacks) * rooms.length))];
     const name = `RACK-${String.fromCharCode(65 + (i % 26))}${i >= 26 ? Math.floor(i / 26) : ''}`;
     return { id: `${dcId}-${name}`, name, dcId, floor: loc.floor, room: loc.room, role: i === 0 ? 'Core' : i === 1 ? 'Aggregation' : i === nRacks - 1 ? 'ODF / patching' : 'Access', heightU: i % 3 === 1 ? 42 : 45, usedU: 0, drawKw: 0, budgetKw: 0, ports: 0, portsUsed: 0, tempC: 0 };
   });
-  let ri = 0;
+  let ri = 0, cumU = 0;
   for (const d of drafts) {
+    /* a tall site fills each rack only to its even share, so every floor carries load */
+    if (tall) { ri = Math.max(ri, Math.min(racks.length - 2, Math.floor((cumU / totalU) * (racks.length - 1)))); cumU += d.uSize; }
     while (ri < racks.length - 2 && racks[ri].usedU + d.uSize > racks[ri].heightU - 10) ri++;
     const rk = racks[ri];
     d.ne.rackId = rk.id; d.ne.u = rk.usedU + 2;
@@ -173,12 +227,36 @@ function placeInRacks(dcId: string, drafts: NeDraft[], r: Rnd) {
   /* patch panels / ODF occupy U in the last rack */
   const odf = racks[racks.length - 1]; odf.usedU += 18; odf.drawKw += 0.4;
   racks.forEach(rk => { rk.drawKw = r1(rk.drawKw); rk.budgetKw = Math.max(rk.role === 'Core' || rk.role === 'Aggregation' ? 12 : 8, Math.ceil(rk.drawKw / between(r, 0.55, 0.8))); });
+  if (persona !== 'network') {
+    /* rack role follows what is in it; colocation cabinets belong to tenants */
+    const byRack = new Map<string, NeDraft[]>();
+    drafts.forEach(d => byRack.set(d.ne.rackId, [...(byRack.get(d.ne.rackId) ?? []), d]));
+    const tenants = shuffle(r, customers);
+    let ti = 0, left = 0, tenant: Customer | null = null;
+    racks.forEach((rk, i) => {
+      const ds = byRack.get(rk.id) ?? [];
+      if (i === racks.length - 1 && !ds.length) { rk.role = 'ODF / patching'; rk.owner = 'operator'; return; }
+      const count = (f: (d: NeDraft) => boolean) => ds.filter(f).length;
+      if (ds.length && count(d => isTenantGear(d.ne)) === ds.length) {
+        if (left === 0) { tenant = tenants[ti++ % tenants.length]; left = /cage/i.test(tenant.plan) ? intBetween(r, 4, 6) : /suite/i.test(tenant.plan) ? intBetween(r, 2, 3) : intBetween(r, 1, 2); }
+        left--;
+        rk.role = 'Tenant cabinet'; rk.owner = 'tenant'; rk.tenantId = tenant!.id; rk.contractedKw = rk.budgetKw;
+        ds.forEach(d => { d.ne.tenantId = tenant!.id; });
+        return;
+      }
+      rk.owner = 'operator';
+      if (!ds.length) return;
+      const top = (['compute', 'storage', 'network', 'tenant'] as const).map(c => [c, count(d => NE_CATEGORY[d.ne.role] === c)] as const).sort((a, b) => b[1] - a[1])[0][0];
+      rk.role = top === 'compute' ? (count(d => d.ne.role === 'GPU') > count(d => d.ne.role === 'Server') ? 'GPU' : 'Compute') : top === 'storage' ? 'Storage' : persona === 'colocation' ? (i === 0 ? 'Core' : 'Meet-me room') : (i === 0 ? 'Core' : 'Network');
+    });
+  }
   return { racks, floors };
 }
 
 /* ------------------------------------------------------------------ build */
 
-export function generate(): Db {
+export function generate(persona: Persona = 'network'): Db {
+  const def = PERSONA_BY_ID[persona];
   const r = mulberry32(20261001);
   const { regions, circles, locations } = buildEstate(r);
   const nes: NetworkElement[] = [];
@@ -191,7 +269,7 @@ export function generate(): Db {
   const draftsByDc = new Map<string, NeDraft[]>();
   for (const row of DCS) {
     const rr = mulberry32(seedOf(row[0]) ^ 0x5eed);
-    const drafts = buildNes(row, rr);
+    const drafts = buildNes(row, rr, persona);
     draftsByDc.set(row[0], drafts);
     for (const d of drafts) {
       nes.push(d.ne);
@@ -251,6 +329,9 @@ export function generate(): Db {
     leaf.forEach((l, i) => { if (spine.length) { adjacency(l, spine[i % spine.length], ['100G'], ['10G'], 'Uplink', rr, []); adjacency(l, spine[(i + 3) % spine.length], ['100G'], ['10G'], 'Uplink', rr, []); } });
     accR.forEach((a, i) => { if (spine.length) { adjacency(a, spine[i % spine.length], ['10G'], ['10G'], 'Access', rr, ['OSPF']); if (i % 2 === 0) adjacency(a, spine[(i + 5) % spine.length], ['10G'], ['10G'], 'Access', rr, ['OSPF']); } });
     tor.forEach((t, i) => { if (leaf.length) { adjacency(t, leaf[i % leaf.length], ['100G', '10G'], ['10G'], 'Access', rr, []); adjacency(t, leaf[(i + 1) % leaf.length], ['100G', '10G'], ['10G'], 'Access', rr, []); } });
+    /* hosts dual-home to a ToR pair; GPU nodes take 100G ports */
+    const hosts = live.filter(isHost);
+    hosts.forEach((h, i) => { if (!tor.length) return; const k = h.role === 'GPU' ? ['100G'] : ['10G']; adjacency(h, tor[i % tor.length], k, k, 'Access', rr, []); adjacency(h, tor[(i + 1) % tor.length], k, k, 'Access', rr, []); });
   }
 
   /* inter-DC backhaul: each live PE offers its five reserved backhaul ports */
@@ -330,7 +411,7 @@ export function generate(): Db {
   }
   /* server- and CPE-facing ports on access gear are in use too */
   for (const n of nes) {
-    if (n.discovery === 'not-discovered' || n.isPe || n.layer === 'core' || n.layer === 'spine') continue;
+    if (n.discovery === 'not-discovered' || n.isPe || n.layer === 'core' || n.layer === 'spine' || isHost(n) || isTenantGear(n)) continue;
     const rr = mulberry32(seedOf(n.id) ^ 0x9f);
     for (const it of freeIf.get(n.id)!) if (it.speedMbps <= 10000 && chance(rr, n.role === 'Switch' ? 0.62 : 0.5)) {
       it.state = chance(rr, 0.04) ? 'down' : 'up'; it.utilPct = it.state === 'up' ? r1(between(rr, 4, 58)) : 0; it.description = n.role === 'Switch' ? 'Server NIC' : 'Customer CPE';
@@ -342,29 +423,29 @@ export function generate(): Db {
   heroX3.flaps24h = 8; heroX3.crcErrors = 1284; heroX3.inErrors = 3117; heroX3.optics = { model: 'SFP-10G-LR', rxDbm: -11.8, txDbm: -1.9, tempC: 58 };
 
   /* -------- customers + services */
-  const customers: Customer[] = CUSTOMERS.map(([name, segment, city, state, plan, premium], i) => ({
-    id: `CUST-${String(1202 + ((i * 7919) % 8800)).padStart(4, '0')}`, name, segment: segment as Customer['segment'], city, state, plan, premium, revenueMonthly: 0, accountManager: ACCOUNT_MANAGERS[i % ACCOUNT_MANAGERS.length]
+  const customers: Customer[] = (persona === 'network' ? CUSTOMERS : def.customers).map(([name, segment, city, state, plan, premium], i) => ({
+    id: `CUST-${String(1202 + ((i * 7919) % 8800)).padStart(4, '0')}`, name, segment, city, state, plan, premium, revenueMonthly: 0, accountManager: ACCOUNT_MANAGERS[i % ACCOUNT_MANAGERS.length]
   }));
   const services: Service[] = [];
   let svcSeq = 1100;
   const TYPES: ServiceType[] = ['IRV', 'Leased Line', 'L2VPN', 'L3VPN', 'Other'];
   const BW = [100, 200, 500, 1000, 1000, 2000, 10000];
-  const typeCode: Record<ServiceType, string> = { IRV: 'IR', 'Leased Line': 'LL', L2VPN: 'L2', L3VPN: 'L3', Other: 'OT' };
+  const typeCode: Partial<Record<ServiceType, string>> = { IRV: 'IR', 'Leased Line': 'LL', L2VPN: 'L2', L3VPN: 'L3', Other: 'OT' };
   const makeSvc = (pe: NetworkElement, type: ServiceType, cust: Customer, bw: number, util: number, link: Link | undefined, rr: Rnd, idOverride?: string) => {
     const handoff = take(pe.id, ['1G', '10G'], i => /xe-0\/0\/[0-5]$/.test(i.name));
     if (!handoff) return;
-    const id = idOverride ?? `SVC-${typeCode[type]}-${svcSeq++}`;
+    const id = idOverride ?? `SVC-${typeCode[type] ?? 'OT'}-${svcSeq++}`;
     handoff.state = 'up'; handoff.utilPct = util; handoff.description = `CUST: ${cust.name} · ${id}`;
     const remote = link ? (link.aNe === pe.id ? link.zNe : link.aNe) : undefined;
     const sla = cust.premium ? (type === 'L3VPN' ? 99.99 : 99.9) : 99.5;
     services.push({
       id, type, customerId: cust.id, dcId: pe.dcId, neId: pe.id, ifName: handoff.name, path: remote ? [pe.id, remote] : [pe.id], linkIds: link ? [link.id] : [],
       bandwidthMbps: bw, utilPct: util, status: 'Active', slaTarget: sla, uptime30d: r2(Math.min(99.999, chance(rr, 0.12) ? sla - between(rr, 0.04, 0.4) : sla + between(rr, 0.005, (100 - sla) * 0.9))), growthPct: r1(between(rr, 0.5, 4.2)),
-      revenueMonthly: Math.round((bw >= 1000 ? 1.8 : 3.2) * bw * (type === 'L3VPN' ? 260 : type === 'IRV' ? 140 : 210) / 10) * 10, critical: cust.premium
+      revenueMonthly: Math.round((bw >= 1000 ? 1.8 : 3.2) * bw * (type === 'L3VPN' ? 260 : type === 'IRV' ? 140 : 210) / 10) * 10, critical: cust.premium, qty: bw, unit: 'Mbps'
     });
   };
   const byName = (n: string) => customers.find(c => c.name === n)!;
-  for (const pe of nes.filter(n => n.isPe && n.discovery !== 'not-discovered')) {
+  for (const pe of nes.filter(n => n.isPe && n.discovery !== 'not-discovered' && persona === 'network')) {
     const rr = mulberry32(seedOf(pe.id) ^ 0x5c);
     const bhLinks = links.filter(l => l.protocol === 'LLDP' && (l.aNe === pe.id || l.zNe === pe.id) && (l.role === 'Backhaul' || l.role === 'Uplink') && neById.get(l.aNe)!.dcId !== neById.get(l.zNe)!.dcId);
     if (pe.id === HERO) {
@@ -402,7 +483,8 @@ export function generate(): Db {
   /* -------- NE telemetry */
   for (const n of nes) {
     const rr = mulberry32(seedOf(n.id) ^ 0x7e);
-    if (n.discovery === 'not-discovered') { n.health = 'unknown'; n.healthScore = 0; continue; }
+    if (n.discovery === 'not-discovered' || isTenantGear(n)) { n.health = 'unknown'; n.healthScore = 0; continue; }
+    if (isHost(n)) { hostTelemetry(n, rr); continue; }
     n.cpu = intBetween(rr, 12, 58); n.mem = intBetween(rr, 30, 72); n.tempC = intBetween(rr, 33, 47);
     n.uptimeMin = intBetween(rr, 3 * 1440, 220 * 1440); n.lastReboot = NOW - n.uptimeMin * MIN; n.lastSeen = NOW - intBetween(rr, 1, 9) * MIN; n.collector = `COL-${n.dcId}-${(seedOf(n.id) % 2) + 1}`;
     n.icmp = { lossPct: r2(between(rr, 0, 0.12)), latencyMs: r2(between(rr, 0.4, 1.6)), jitterMs: r2(between(rr, 0.1, 0.6)), availability: 99.99, state: 'healthy', hourly: hours(rr, 0.995) };
@@ -429,8 +511,9 @@ export function generate(): Db {
     const rr = mulberry32(seedOf(id) ^ 0xdc);
     const c = circles.find(x => x.id === circleId)!;
     const drafts = draftsByDc.get(id)!;
-    const { racks, floors } = placeInRacks(id, drafts, rr);
+    const { racks, floors } = placeInRacks(id, drafts, rr, persona, customers);
     const dcNes = drafts.map(d => d.ne);
+    const hostN = { cmp: dcNes.filter(n => n.role === 'Server').length, sto: dcNes.filter(n => n.role === 'Storage').length, gpu: dcNes.filter(n => n.role === 'GPU').length };
     for (const rk of racks) {
       const inRack = dcNes.filter(n => n.rackId === rk.id);
       const ifs = inRack.flatMap(n => ifaces.get(n.id)!);
@@ -463,7 +546,9 @@ export function generate(): Db {
     const odfUsed = Math.round(cores * between(rr, 0.45, 0.62));
     portCls.set('Optical (ODF)', { total: cores * 4, used: odfUsed * 4 - intBetween(rr, 0, 6) });
     /* cabling ledger: the first cores of the incoming cable land on PE / ACC ports */
-    const pe1 = dcNes.find(n => n.id === `${id}-PE-T4-01`)!, acc1 = dcNes.find(n => n.id === `${id}-ACC-01`) ?? dcNes[dcNes.length - 1];
+    const hasIf = (n: NetworkElement) => (ifaces.get(n.id)?.length ?? 0) >= 6;
+    const pe1 = dcNes.find(n => n.id === `${id}-PE-T4-01`)!, acc1 = dcNes.find(n => n.id === `${id}-ACC-01`) ?? (persona === 'network' ? dcNes[dcNes.length - 1] : dcNes.find(n => !n.isPe && hasIf(n)) ?? pe1);
+    const ledgerPool = persona === 'network' ? dcNes : dcNes.filter(hasIf);
     const peIf = ifaces.get(pe1.id)!, accIf = ifaces.get(acc1.id)!;
     const ledger: CableCore[] = Array.from({ length: cores }, (_, i) => ({ port: i + 1, state: 'free' as const }));
     const patch = (port: number, ne: NetworkElement, inIf: string, outPort: number, outIf: string, strand: string) => { ledger[port - 1] = { port, state: 'connected', neId: ne.id, inIf, outPort, outIf, strand }; };
@@ -473,7 +558,7 @@ export function generate(): Db {
     patch(6, acc1, accIf[3].name, 6, accIf[5]?.name ?? accIf[2].name, 'Brown');
     patch(7, pe1, peIf.find(i => i.name.endsWith('/3'))?.name ?? peIf[3].name, 7, peGe[peGe.length - 1]?.name ?? peIf[1].name, 'Orange');
     ledger[8] = { port: 9, state: 'direct', outPort: 9, strand: 'Red' };
-    for (let i = 10; i < Math.min(cores, 10 + Math.round(cores * 0.25)); i++) if (i !== 8) ledger[i] = { port: i + 1, state: 'connected', neId: dcNes[(i * 5) % dcNes.length].id, inIf: ifaces.get(dcNes[(i * 5) % dcNes.length].id)![0].name, outPort: i + 1, outIf: ifaces.get(dcNes[(i * 5) % dcNes.length].id)![1]?.name ?? '', strand: STRANDS[i % STRANDS.length] };
+    for (let i = 10; i < Math.min(cores, 10 + Math.round(cores * 0.25)); i++) if (i !== 8) ledger[i] = { port: i + 1, state: 'connected', neId: ledgerPool[(i * 5) % ledgerPool.length].id, inIf: ifaces.get(ledgerPool[(i * 5) % ledgerPool.length].id)![0].name, outPort: i + 1, outIf: ifaces.get(ledgerPool[(i * 5) % ledgerPool.length].id)![1]?.name ?? '', strand: STRANDS[i % STRANDS.length] };
 
     const nScale = dcNes.length / 179;
     const capexApproved = id === 'MH-DC-001' ? 9.56e7 : Math.round(9.56e7 * nScale * between(rr, 0.8, 1.2) / 1e5) * 1e5;
@@ -494,7 +579,7 @@ export function generate(): Db {
         { item: 'Electricity', monthly: Math.round(opexMonthly * 0.41) }, { item: 'Facility lease', monthly: Math.round(opexMonthly * 0.24) }, { item: 'AMC & support', monthly: Math.round(opexMonthly * 0.17) },
         { item: 'Backhaul bandwidth', monthly: Math.round(opexMonthly * 0.12) }, { item: 'Field operations', monthly: opexMonthly - Math.round(opexMonthly * 0.41) - Math.round(opexMonthly * 0.24) - Math.round(opexMonthly * 0.17) - Math.round(opexMonthly * 0.12) }
       ] },
-      power: { capacityKw, acKw, dcKw, peakKw, pue, load24h, split: [{ label: 'Network equipment', kw: itKw }, { label: 'Cooling', kw: coolKw }, { label: 'Lighting & other', kw: r1(Math.max(0, totalKw - itKw - coolKw)) }],
+      power: { capacityKw, acKw, dcKw, peakKw, pue, load24h, split: [{ label: persona === 'network' ? 'Network equipment' : persona === 'colocation' ? 'Tenant & operator equipment' : 'IT equipment', kw: itKw }, { label: 'Cooling', kw: coolKw }, { label: 'Lighting & other', kw: r1(Math.max(0, totalKw - itKw - coolKw)) }],
         feeds: [{ id: 'AC-1', type: 'AC', source: 'Utility feed A', rating: `${Math.round(capacityKw * 0.7 * 1000 / 415 / 1.732)} A · 415 V`, loadKw: acKw, capacityKw: Math.round(capacityKw * 0.7), status: 'Normal' },
           ...(tier !== 'Tier II' ? [{ id: 'AC-2', type: 'AC' as const, source: 'Utility feed B', rating: `${Math.round(capacityKw * 0.7 * 1000 / 415 / 1.732)} A · 415 V`, loadKw: 0, capacityKw: Math.round(capacityKw * 0.7), status: 'Normal' as const }] : []),
           { id: 'DC-1', type: 'DC', source: 'Rectifier RECT-01', rating: `48 V · ${Math.round(capacityKw * 0.3 * 1000 / 48 / 10) * 10} A`, loadKw: dcKw, capacityKw: Math.round(capacityKw * 0.3), status: 'Normal' }],
@@ -503,7 +588,9 @@ export function generate(): Db {
         history12m: Array.from({ length: 12 }, (_, i) => r1(totalKw * (0.82 + i * 0.016 + between(rr, -0.01, 0.01)))) },
       cooling: { capacityKw: coolCap, loadKw: heatKw, redundancy: 'N+1', units, sensors },
       floors, racks, ports: [...portCls.entries()].map(([cls, v]) => ({ cls, ...v })), cabling: { cable: `G.652D Single Mode · ${cores} Core`, cores, ledger },
-      compute: { cpuCores: Math.round(dcNes.length * 96), cpuUsed: Math.round(dcNes.length * 96 * between(rr, 0.5, 0.72)), memGb: dcNes.length * 512, memUsed: Math.round(dcNes.length * 512 * between(rr, 0.45, 0.66)), storageTb: dcNes.length * 18, storageUsed: Math.round(dcNes.length * 18 * between(rr, 0.42, 0.7)) },
+      compute: persona === 'network' || persona === 'colocation'
+        ? { cpuCores: Math.round(dcNes.length * 96), cpuUsed: Math.round(dcNes.length * 96 * between(rr, 0.5, 0.72)), memGb: dcNes.length * 512, memUsed: Math.round(dcNes.length * 512 * between(rr, 0.45, 0.66)), storageTb: dcNes.length * 18, storageUsed: Math.round(dcNes.length * 18 * between(rr, 0.42, 0.7)) }
+        : (() => { const cores = hostN.cmp * 64 + hostN.gpu * 112, mem = hostN.cmp * 512 + hostN.gpu * 2048, tb = hostN.sto * 400 + hostN.cmp * 8; return { cpuCores: cores, cpuUsed: Math.round(cores * between(rr, 0.55, 0.82)), memGb: mem, memUsed: Math.round(mem * between(rr, 0.5, 0.78)), storageTb: tb, storageUsed: Math.round(tb * between(rr, 0.48, 0.8)) }; })(),
       risks: [], readiness: []
     };
     if (status === 'on-air') dc.power.history12m[11] = totalKw;
@@ -531,17 +618,108 @@ export function generate(): Db {
   dc13.readiness = [{ step: 'Site created & planned inventory loaded', done: true }, { step: 'Collectors assigned', done: false, note: 'Awaiting rack & power handover' }, { step: 'Assets discovered', done: false }, { step: 'Inventory reconciled', done: false },
     { step: 'Power, racks & ports validated', done: false }, { step: 'Connectivity mapped', done: false }, { step: 'Services commissioned', done: false }, { step: 'Move to on-air', done: false }];
 
+  if (persona !== 'network') buildPersonaServices(persona, datacenters, nes, links, customers, services, () => svcSeq++);
+
   const db: Db = { now: NOW, regions, circles, locations, datacenters, nes, neById, ifaces, links, services, customers, alerts: [], incidents: [], changes: [], recon: [], audit: [], plans: [], seq: { alm: 1000, inc: 0, chg: 2000, rec: 0, aud: 0, plan: 0 } };
 
   buildAlerts(db);
   buildDownstream(db);
-  buildChanges(db);
-  buildIncidents(db);
+  if (persona !== 'network') buildScenario(db, persona);
+  buildChanges(db, persona);
+  buildIncidents(db, def.incidentTitles, persona);
   buildRecon(db);
   buildPlans(db);
   finaliseHealth(db);
   buildRisks(db);
   return db;
+}
+
+/* ------------------------------------------------- hosts & persona services */
+
+/* compute / storage / GPU nodes report like any monitored device, with their own module set */
+function hostTelemetry(n: NetworkElement, rr: Rnd) {
+  const gpu = n.role === 'GPU';
+  n.cpu = gpu ? intBetween(rr, 40, 95) : intBetween(rr, 15, 85); n.mem = intBetween(rr, 35, 88); n.tempC = intBetween(rr, 28, 45);
+  n.uptimeMin = intBetween(rr, 3 * 1440, 220 * 1440); n.lastReboot = NOW - n.uptimeMin * MIN; n.lastSeen = NOW - intBetween(rr, 1, 9) * MIN; n.collector = `COL-${n.dcId}-${(seedOf(n.id) % 2) + 1}`;
+  n.icmp = { lossPct: r2(between(rr, 0, 0.12)), latencyMs: r2(between(rr, 0.2, 0.9)), jitterMs: r2(between(rr, 0.05, 0.3)), availability: 99.99, state: 'healthy', hourly: hours(rr, 0.995) };
+  n.ntp = { offsetMs: r2(between(rr, 0.05, 0.9)), delayMs: r2(between(rr, 0.4, 1.4)), jitterMs: r2(between(rr, 0.2, 1.6)), stratum: intBetween(rr, 2, 3), state: 'Synchronised', primary: '10.16.16.10', secondary: '10.16.16.11', lastSync: NOW - intBetween(rr, 1, 30) * MIN, hourly: hours(rr, 0.99) };
+  n.radius = { successPct: r1(between(rr, 99.2, 100)), failures24h: intBetween(rr, 0, 3), primary: 'Reachable', secondary: 'Reachable', lastAuth: NOW - intBetween(rr, 5, 120) * MIN, state: 'healthy', pri: '10.25.25.5', sec: '10.25.25.6' };
+  const psu = (k: number) => ({ slot: `PSU${k}`, name: 'Power supply', serial: `${n.serial}-P${k}`, state: (chance(rr, 0.006) ? 'Fault' : 'OK') as 'OK' | 'Fault', tempC: n.tempC - 4 });
+  if (n.role === 'Server') n.modules = [psu(1), psu(2), { slot: 'FAN', name: 'Fan module', serial: `${n.serial}-FN`, state: 'OK', tempC: n.tempC - 3 }, ...[0, 1, 2, 3].map(k => ({ slot: `DISK${k}`, name: 'NVMe 3.84 TB', serial: `${n.serial}-D${k}`, state: (chance(rr, 0.005) ? 'Fault' : 'OK') as 'OK' | 'Fault', tempC: n.tempC + 6 }))];
+  else if (n.role === 'Storage') n.modules = [{ slot: 'CTRL-A', name: 'Controller A', serial: `${n.serial}-CA`, state: 'OK', tempC: n.tempC + 8 }, { slot: 'CTRL-B', name: 'Controller B', serial: `${n.serial}-CB`, state: chance(rr, 0.012) ? 'Fault' : 'OK', tempC: n.tempC + 8 }, psu(1), psu(2), { slot: 'FAN', name: 'Fan module', serial: `${n.serial}-FN`, state: 'OK', tempC: n.tempC - 3 }, { slot: 'SHELF-1', name: 'Disk shelf 24 × 7.68 TB', serial: `${n.serial}-S1`, state: 'OK', tempC: n.tempC + 5 }];
+  else n.modules = [psu(1), psu(2), psu(3), psu(4), { slot: 'FAN', name: 'Fan module', serial: `${n.serial}-FN`, state: 'OK', tempC: n.tempC - 3 }, ...[0, 1, 2, 3, 4, 5, 6, 7].map(k => ({ slot: `GPU${k}`, name: 'H100 80 GB', serial: `${n.serial}-G${k}`, state: (chance(rr, 0.003) ? 'Fault' : 'OK') as 'OK' | 'Fault', tempC: intBetween(rr, 55, 79) }))];
+  if (chance(rr, 0.006)) { n.icmp.lossPct = 100; n.icmp.availability = r2(between(rr, 62, 88)); n.icmp.state = 'critical'; n.icmp.hourly = n.icmp.hourly.map((h, i) => (i > 18 ? false : h)); }
+}
+
+/* colocation contracts (cabinet lease, power circuit, cross-connect, remote hands) sit on
+   tenant cabinets and MMR switches; cloud workloads and enterprise applications sit on hosts.
+   Status follows the infrastructure: a cabinet over its contracted draw, a host that is
+   unreachable, a ToR uplink down. */
+function buildPersonaServices(persona: Persona, datacenters: Datacenter[], nes: NetworkElement[], links: Link[], customers: Customer[], services: Service[], nextSeq: () => number) {
+  const def = PERSONA_BY_ID[persona];
+  const lldp = links.filter(l => l.protocol === 'LLDP');
+  const linksOf = (id: string) => lldp.filter(l => l.aNe === id || l.zNe === id);
+  const neById = new Map(nes.map(n => [n.id, n]));
+  const push = (rr: Rnd, t: typeof def.serviceTypes[number], cust: Customer, dcId: string, host: NetworkElement, qty: number, util: number, lk: Link[], extra: Partial<Service> = {}) => {
+    const sla = cust.premium ? def.sla.premium : def.sla.standard;
+    const downLink = lk.some(l => l.state === 'down'), hostDown = host.icmp.state === 'critical';
+    const s: Service = {
+      id: `SVC-${t.code}-${nextSeq()}`, type: t.type, customerId: cust.id, dcId, neId: host.id, ifName: extra.ifName ?? (isHost(host) ? 'eth0' : ''), path: extra.path ?? [host.id, ...lk.map(l => (l.aNe === host.id ? l.zNe : l.aNe)).slice(0, 2)], linkIds: lk.map(l => l.id),
+      bandwidthMbps: t.unit === 'Mbps' ? qty : 10000, utilPct: util, status: hostDown ? 'Down' : downLink || util >= 90 ? 'Degraded' : 'Active', slaTarget: sla,
+      uptime30d: r2(Math.min(99.999, chance(rr, 0.1) ? sla - between(rr, 0.02, 0.3) : sla + between(rr, 0.001, (100 - sla) * 0.9))), growthPct: r1(between(rr, 0.3, 3.5)),
+      revenueMonthly: Math.round(qty * (t.unit === 'kW' ? 9000 : t.unit === 'vCPU' ? 1800 : t.unit === 'TB' ? 1100 : t.unit === 'GPU' ? 42000 : t.unit === 'users' ? 60 : t.unit === 'cabinets' ? 120000 : t.unit === 'hours' ? 1500 : 4) / 100) * 100,
+      critical: cust.premium, qty, unit: t.unit, ...extra
+    };
+    services.push(s);
+    return s;
+  };
+  for (const dc of datacenters) {
+    if (dc.status === 'planned') continue;
+    const rr = mulberry32(seedOf(dc.id) ^ 0x5d);
+    const live = nes.filter(n => n.dcId === dc.id && n.discovery !== 'not-discovered');
+    if (persona === 'colocation') {
+      const byTenant = new Map<string, Rack[]>();
+      dc.racks.filter(rk => rk.owner === 'tenant' && rk.tenantId).forEach(rk => byTenant.set(rk.tenantId!, [...(byTenant.get(rk.tenantId!) ?? []), rk]));
+      const mmr = live.filter(n => n.layer === 'leaf');
+      const T = Object.fromEntries(def.serviceTypes.map(t => [t.type, t])) as Record<string, typeof def.serviceTypes[number]>;
+      for (const [tid, racks] of byTenant) {
+        const cust = customers.find(c => c.id === tid)!;
+        const gear = racks.flatMap(rk => nes.filter(n => n.rackId === rk.id));
+        if (!gear.length) continue;
+        push(rr, T['Cabinet lease'], cust, dc.id, gear[0], racks.length, intBetween(rr, 40, 95), [], { ifName: racks.map(rk => rk.name).join(', '), path: [gear[0].id] });
+        racks.forEach(rk => { const g = nes.find(n => n.rackId === rk.id)!; const kw = rk.contractedKw ?? rk.budgetKw; push(rr, T['Power circuit'], cust, dc.id, g, kw, Math.min(100, Math.round((rk.drawKw / kw) * 100)), [], { ifName: `${rk.name} · PDU A+B`, path: [g.id] }); });
+        const xc = intBetween(rr, 1, 3);
+        for (let i = 0; i < xc && mmr.length; i++) { const sw = mmr[(seedOf(tid) + i) % mmr.length]; push(rr, T['Cross-connect'], cust, dc.id, sw, pick(rr, T['Cross-connect'].qty), r1(between(rr, 15, 80)), linksOf(sw.id).slice(0, 1), { ifName: `MMR panel ${intBetween(rr, 1, 12)} · P${intBetween(rr, 1, 48)}` }); }
+        if (chance(rr, 0.4)) push(rr, T['Remote hands'], cust, dc.id, gear[0], pick(rr, T['Remote hands'].qty), intBetween(rr, 10, 70), [], { ifName: 'monthly allowance', path: [gear[0].id] });
+      }
+    } else {
+      const hosts = live.filter(isHost);
+      const forRole = (role: NetworkElement['role']) => def.serviceTypes.filter(t => (t.host as string[]).includes(role));
+      if (persona === 'cloud') {
+        hosts.forEach((h, i) => {
+          const every = h.role === 'GPU' ? 1 : h.role === 'Storage' ? 2 : 4;
+          if (i % every !== 0) return;
+          const n = h.role === 'Server' && chance(rr, 0.3) ? 2 : 1;
+          for (let k = 0; k < n; k++) { const ts = forRole(h.role); if (!ts.length) return; const t = pick(rr, ts); push(rr, t, pick(rr, customers), dc.id, h, pick(rr, t.qty), r1(between(rr, 18, 92)), linksOf(h.id)); }
+        });
+      } else {
+        /* enterprise: an application runs on a small cluster of hosts */
+        const servers = hosts.filter(h => h.role === 'Server'), storage = hosts.filter(h => h.role === 'Storage'), gpus = hosts.filter(h => h.role === 'GPU');
+        const apps = Math.max(6, Math.round(servers.length / 5));
+        for (let i = 0; i < apps; i++) {
+          const t = pick(rr, def.serviceTypes);
+          const pool = t.host.includes('Storage') ? storage : t.host.includes('GPU') && gpus.length && chance(rr, 0.5) ? gpus : servers;
+          if (!pool.length) continue;
+          const k = intBetween(rr, 2, 3), start = (i * 3) % Math.max(1, pool.length);
+          const cluster = Array.from({ length: Math.min(k, pool.length) }, (_, j) => pool[(start + j) % pool.length]);
+          const lk = cluster.flatMap(h => linksOf(h.id));
+          push(rr, t, customers[(i * 5 + seedOf(dc.id)) % customers.length], dc.id, cluster[0], pick(rr, t.qty), r1(between(rr, 20, 88)), lk, { path: [...cluster.map(h => h.id), ...lk.map(l => (cluster.some(h => h.id === l.aNe) ? l.zNe : l.aNe)).slice(0, 2)], ifName: `${cluster.length}-node cluster` });
+        }
+      }
+    }
+  }
+  for (const c of customers) c.revenueMonthly = services.filter(s => s.customerId === c.id).reduce((a, s) => a + s.revenueMonthly, 0);
+  void neById;
 }
 
 /* ---------------------------------------------------------------- alerts */
@@ -606,7 +784,7 @@ function buildDownstream(db: Db) {
     }
   }
   /* an edge link to a PoP (leaves the site) IS a datacenter issue */
-  const agg = db.neById.get('MH-DC-001-AGG-R05');
+  const agg = db.nes.filter(n => n.dcId === 'MH-DC-001' && n.layer === 'spine' && n.discovery !== 'not-discovered')[4] ?? db.nes.find(n => n.dcId === 'MH-DC-001' && n.layer === 'spine');
   const pop = db.locations.find(l => l.kind === 'pop' && l.circleId === 'MH' && l.status === 'on-air');
   if (agg && pop) addAlert(db, { neId: agg.id, dcId: 'MH-DC-001', ifName: 'xe-0/0/15', node: `${pop.id}-AGG-01`, nodeLocation: `${pop.city} PoP`, severity: 'major', title: 'Link Down', description: `Uplink to ${pop.id}-AGG-01 lost carrier; PoP still reachable over its second uplink`, source: 'Link', type: 'Link', category: 'Network', scope: 'edge', start: db.now - 95 * MIN, state: 'active' });
   /* a shared service the site depends on */
@@ -636,9 +814,15 @@ function buildAlerts(db: Db) {
     else if (l.protocol === 'LLDP' && l.utilPct >= 82 && l.role !== 'Access') addAlert(db, { neId: l.aNe, dcId: l.dcId, ifName: l.aIf, linkId: l.id, severity: l.utilPct >= 90 ? 'major' : 'warning', title: 'Link Utilisation High', description: `${Math.round(l.utilPct)}% of ${l.capacityMbps / 1000} Gbps; growing ${l.growthPct}%/mo`, source: 'Link', type: 'Capacity', start: now - intBetween(rr, 60, 4000) * MIN, state: 'active' });
   }
   for (const n of db.nes) {
-    if (n.id === HERO || n.discovery === 'not-discovered') continue;
+    if (n.id === HERO || n.discovery === 'not-discovered' || isTenantGear(n)) continue;
     const rr = mulberry32(seedOf(n.id) ^ 0xa2);
-    if (n.icmp.state === 'critical') addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'critical', title: 'Device Unreachable', description: 'ICMP 100% loss for 5 consecutive probes; SNMP timeouts', source: 'Interface', type: 'Reachability', start: now - intBetween(rr, 15, 240) * MIN, state: 'active' });
+    if (n.icmp.state === 'critical') addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'critical', title: 'Device Unreachable', description: isHost(n) ? 'Host not responding to ICMP or the hypervisor agent for 5 consecutive probes' : 'ICMP 100% loss for 5 consecutive probes; SNMP timeouts', source: 'Interface', type: 'Reachability', start: now - intBetween(rr, 15, 240) * MIN, state: 'active' });
+    if (isHost(n)) {
+      if (n.modules.some(m => /^DISK/.test(m.slot) && m.state === 'Fault')) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'minor', title: 'Disk Failure Predicted', description: `${n.modules.find(m => /^DISK/.test(m.slot) && m.state === 'Fault')!.slot} SMART reallocated-sector count rising; replace within 7 days`, source: 'Environment', type: 'Hardware', start: now - intBetween(rr, 60, 4000) * MIN, state: 'active' });
+      if (n.modules.some(m => /^CTRL/.test(m.slot) && m.state === 'Fault')) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'major', title: 'Storage Controller Failover', description: 'Controller B faulted; array running on controller A without redundancy', source: 'Environment', type: 'Hardware', start: now - intBetween(rr, 30, 900) * MIN, state: 'active' });
+      if (n.role === 'GPU' && n.modules.some(m => /^GPU/.test(m.slot) && m.tempC > 75)) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'major', title: 'GPU Thermal Throttling', description: `${n.modules.filter(m => /^GPU/.test(m.slot) && m.tempC > 75).length} GPU(s) above 75°C; clocks reduced`, source: 'Environment', type: 'Thermal', start: now - intBetween(rr, 20, 600) * MIN, state: 'active' });
+      if (chance(rr, 0.006)) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'minor', title: 'Memory ECC Errors', description: 'Correctable ECC errors above threshold on DIMM A3', source: 'Environment', type: 'Hardware', start: now - intBetween(rr, 60, 3000) * MIN, state: 'active' });
+    }
     if (chance(rr, 0.012)) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'minor', title: 'High Memory Utilization', description: `Memory at ${n.mem + 18}% for 30 minutes`, source: 'CPU', type: 'Memory', start: now - intBetween(rr, 20, 2000) * MIN, state: chance(rr, 0.4) ? 'acknowledged' : 'active' });
     if (chance(rr, 0.008)) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'warning', title: 'NTP Offset Drift', description: 'Clock offset above 50 ms against primary', source: 'Protocol', type: 'NTP', start: now - intBetween(rr, 20, 2000) * MIN, state: 'active' });
     if (n.modules.some(m => m.state === 'Fault')) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'major', title: 'Power Supply Fault', description: 'PSU2 reports output failure; running on single PSU', source: 'Power', type: 'Hardware', start: now - intBetween(rr, 60, 3000) * MIN, state: 'active' });
@@ -648,14 +832,78 @@ function buildAlerts(db: Db) {
     for (const u of dc.cooling.units) if (u.status === 'Failed') addAlert(db, { dcId: dc.id, severity: 'critical', title: `${u.name} Cooling Unit Failed`, description: `Compressor trip; ${u.zone} running on remaining units`, source: 'Cooling', type: 'Cooling', start: now - 3 * HOUR - 40 * MIN, state: 'active' });
     for (const s of dc.cooling.sensors) if (s.tempC > 27) addAlert(db, { dcId: dc.id, severity: 'major', title: 'Zone Temperature High', description: `${s.zone} at ${s.tempC}°C (threshold 27°C)`, source: 'Environment', type: 'Thermal', start: now - 3 * HOUR, state: 'active' });
     for (const u of dc.power.ups) if (u.state === 'On battery') addAlert(db, { dcId: dc.id, severity: 'critical', title: `${u.name} On Battery`, description: `Utility feed A lost; ${u.batteryMin} min autonomy at ${u.loadPct}% load`, source: 'Power', type: 'UPS', start: now - 52 * MIN, state: 'active' });
-    for (const rk of dc.racks) if (rk.drawKw / rk.budgetKw >= 0.9) addAlert(db, { dcId: dc.id, severity: 'major', title: 'Rack Over Power Budget', description: `${rk.name} drawing ${rk.drawKw} kW of ${rk.budgetKw} kW budget`, source: 'Power', type: 'Rack', start: now - 7 * HOUR, state: 'active' });
+    for (const rk of dc.racks) if (rk.drawKw / rk.budgetKw >= 0.9) addAlert(db, { dcId: dc.id, severity: 'major', title: 'Rack Over Power Budget', description: rk.owner === 'tenant' ? `${rk.name} (${db.customers.find(c => c.id === rk.tenantId)?.name ?? 'tenant'}) drawing ${rk.drawKw} kW of ${rk.contractedKw ?? rk.budgetKw} kW contracted` : `${rk.name} drawing ${rk.drawKw} kW of ${rk.budgetKw} kW budget`, source: 'Power', type: 'Rack', start: now - 7 * HOUR, state: 'active', rackId: rk.id });
     for (const c of dc.collectors) if (c.state !== 'up') addAlert(db, { dcId: dc.id, severity: 'major', title: 'Collector Stale', description: `${c.name} last reported ${Math.round((now - c.lastSeen) / MIN)} min ago; discovery paused`, source: 'Discovery', type: 'Collector', start: c.lastSeen, state: 'active' });
+  }
+}
+
+/* ------------------------------------------------------------ scenarios */
+
+/* Hand-set failure scenarios at MH-DC-001 so the "who is impacted, and why" chain is
+   concrete: only some devices in a rack fail, and only the customers on those devices
+   are impacted — each with its own cause.
+   cloud / enterprise: in the busiest compute rack, 2 sleds share a shelf whose midplane
+     faulted, and 1 other server lost power (PDU-B outlet trip + failed PSU);
+   colocation: one tenant cabinet's PDU-A breaker tripped, one tenant's cross-connect
+     lost signal in the meet-me room, one cabinet runs hot. */
+function buildScenario(db: Db, persona: Persona) {
+  const DC = 'MH-DC-001';
+  const dc = db.datacenters.find(d => d.id === DC);
+  if (!dc) return;
+  const def = PERSONA_BY_ID[persona];
+  const now = db.now;
+  const svcOn = (id: string) => db.services.filter(s => s.status !== 'Disabled' && (s.neId === id || s.path.includes(id)));
+  const short = (id: string) => id.replace(`${DC}-`, '');
+  if (persona === 'cloud' || persona === 'enterprise') {
+    const live = db.nes.filter(n => n.dcId === DC && n.role === 'Server' && n.discovery !== 'not-discovered' && n.icmp.state !== 'critical');
+    const byRack = new Map<string, NetworkElement[]>();
+    live.forEach(n => byRack.set(n.rackId, [...(byRack.get(n.rackId) ?? []), n]));
+    const [rackId, servers] = [...byRack.entries()].sort((a, b) => b[1].length - a[1].length)[0] ?? [];
+    if (!rackId || servers.length < 4) return;
+    const rk = dc.racks.find(r => r.id === rackId)!;
+    /* the three that fail; make sure each carries customer load */
+    const withLoad = servers.filter(n => svcOn(n.id).length);
+    const pickSet = [...withLoad, ...servers.filter(n => !withLoad.includes(n))].slice(0, 3);
+    const t = def.serviceTypes.find(x => (x.host as string[]).includes('Server'))!;
+    pickSet.forEach((n, i) => {
+      if (svcOn(n.id).length) return;
+      const cust = db.customers[(i * 7 + 3) % db.customers.length];
+      db.services.push({ id: `SVC-${t.code}-${9100 + i}`, type: t.type, customerId: cust.id, dcId: DC, neId: n.id, ifName: 'eth0', path: [n.id], linkIds: [], bandwidthMbps: 10000, utilPct: 48, status: 'Active', slaTarget: cust.premium ? def.sla.premium : def.sla.standard, uptime30d: cust.premium ? def.sla.premium + 0.005 : def.sla.standard + 0.01, growthPct: 1.2, revenueMonthly: 58000, critical: cust.premium, qty: t.qty[2] ?? t.qty[0], unit: t.unit });
+    });
+    const [s1, s2, s3] = pickSet;
+    const shelf = 3;
+    const fault = { id: `${rk.id}-SHELF-${shelf}`, where: `${rk.name} shelf ${shelf} · ${short(s1.id)}, ${short(s2.id)}` };
+    for (const n of [s1, s2]) {
+      n.modules = [...n.modules.filter(m => m.slot !== 'SHELF'), { slot: 'SHELF', name: `Shelf ${shelf} midplane (4-node chassis)`, serial: `${n.serial}-SH${shelf}`, state: 'Fault', tempC: n.tempC + 4 }];
+      addAlert(db, { neId: n.id, dcId: DC, fault, severity: 'major', title: 'Shelf Midplane Fault', description: `${rk.name} shelf ${shelf} midplane fault: sled NICs flapping and local NVMe paths degraded on ${short(s1.id)} and ${short(s2.id)}`, source: 'Environment', type: 'Hardware', start: now - 47 * MIN, state: 'active' });
+      svcOn(n.id).forEach(s => { s.status = 'Degraded'; });
+    }
+    s3.modules = s3.modules.map(m => (m.slot === 'PSU1' ? { ...m, state: 'Fault' as const } : m));
+    s3.icmp = { ...s3.icmp, state: 'critical', lossPct: 100, availability: 96.4 };
+    addAlert(db, { neId: s3.id, dcId: DC, severity: 'critical', title: 'Host Power Lost', description: `PDU-B outlet 14 breaker tripped while PSU1 had already failed — ${short(s3.id)} in ${rk.name} is down`, source: 'Power', type: 'Hardware', start: now - 22 * MIN, state: 'active' });
+    svcOn(s3.id).forEach(s => { s.status = 'Down'; });
+  } else if (persona === 'colocation') {
+    const tenantRacks = dc.racks.filter(r => r.owner === 'tenant' && r.tenantId);
+    const tenants = [...new Set(tenantRacks.map(r => r.tenantId!))];
+    if (tenants.length < 3) return;
+    const svc = (tid: string, f: (s: Service) => boolean) => db.services.filter(s => s.dcId === DC && s.customerId === tid && f(s));
+    /* 1: PDU-A breaker trip in tenant A's first cabinet — B feed carries it, no redundancy */
+    const rA = tenantRacks.find(r => r.tenantId === tenants[0])!;
+    addAlert(db, { dcId: DC, rackId: rA.id, severity: 'major', title: 'Cabinet PDU-A Breaker Trip', description: `${rA.name} PDU-A breaker tripped; cabinet running on the B feed only (no power redundancy)`, source: 'Power', type: 'Rack', start: now - 38 * MIN, state: 'active' });
+    db.services.filter(s => s.dcId === DC && s.customerId === tenants[0] && s.path.some(id => db.neById.get(id)?.rackId === rA.id)).forEach(s => { s.status = 'Degraded'; });
+    /* 2: tenant B's cross-connect lost signal at the meet-me room */
+    const xc = svc(tenants[1], s => s.type === 'Cross-connect')[0];
+    if (xc) { addAlert(db, { neId: xc.neId, dcId: DC, ifName: xc.ifName, severity: 'critical', title: 'Cross-connect Loss of Signal', description: `${xc.ifName} on ${short(xc.neId)}: LOS on the tenant hand-off; carrier side reports clean light`, source: 'Interface', type: 'Interface', start: now - 64 * MIN, state: 'active' }); xc.status = 'Down'; }
+    /* 3: tenant C's cabinet runs hot — at risk, not yet degraded */
+    const rC = tenantRacks.find(r => r.tenantId === tenants[2])!;
+    rC.tempC = 29.6;
+    addAlert(db, { dcId: DC, rackId: rC.id, severity: 'minor', title: 'Cabinet Inlet Temperature High', description: `${rC.name} inlet 29.6°C (ASHRAE 27°C); blanking panels missing in the tenant cabinet`, source: 'Environment', type: 'Thermal', start: now - 2 * HOUR, state: 'active' });
   }
 }
 
 /* --------------------------------------------------------------- changes */
 
-function buildChanges(db: Db) {
+function buildChanges(db: Db, persona: Persona = 'network') {
   const n = db.now;
   const C = (c: Omit<Change, 'id' | 'created'> & { created?: number }) => { db.changes.push({ ...c, id: `CHG-${++db.seq.chg}`, created: c.created ?? c.windowStart - 4 * DAY }); };
   C({ kind: 'Change', title: 'Re-patch ODF RACK-D core 7 to PE-T4-01 xe-0/0/3 (new backhaul span)', dcId: 'MH-DC-001', scope: ['MH-DC-001-PE-T4-01'], risk: 'Medium', status: 'Completed', windowStart: n - 15 * HOUR - 20 * MIN, windowEnd: n - 14 * HOUR - 20 * MIN, requester: 'Rahul Deshpande', approver: 'Priya Nair', rollback: 'Restore previous patch at ODF-2/P7' });
@@ -667,7 +915,8 @@ function buildChanges(db: Db) {
   C({ kind: 'Change', title: 'Add 100G backhaul KA-DC-020 ↔ TN-DC-022', dcId: 'KA-DC-020', scope: ['KA-DC-020-PE-T4-01', 'TN-DC-022-PE-T4-01'], risk: 'Medium', status: 'Pending approval', windowStart: n + 9 * DAY, windowEnd: n + 9 * DAY + 4 * HOUR, requester: 'Priya Nair', rollback: 'Shut new interfaces; traffic stays on existing span' });
   C({ kind: 'Change', title: 'Enable BFD on PE–AGG uplinks', dcId: 'UP-DC-005', scope: ['UP-DC-005-PE-T4-01', 'UP-DC-005-PE-T4-02'], risk: 'Low', status: 'Completed', windowStart: n - 5 * DAY, windowEnd: n - 5 * DAY + 2 * HOUR, requester: 'Sarah Chen', approver: 'Priya Nair', rollback: 'Remove BFD stanza' });
   C({ kind: 'Maintenance', title: 'Quarterly fire-suppression inspection', dcId: 'WB-DC-016', scope: [], risk: 'Low', status: 'Approved', windowStart: n + 3 * DAY, windowEnd: n + 3 * DAY + 3 * HOUR, requester: 'Sneha Patil', approver: 'Kavita Rao', rollback: 'n/a — inspection only' });
-  C({ kind: 'Change', title: 'Migrate L2VPN services to EVPN on TOR pair 007/008', dcId: 'TN-DC-022', scope: ['TN-DC-022-TOR-007', 'TN-DC-022-TOR-008'], risk: 'High', status: 'Rolled back', windowStart: n - 3 * DAY, windowEnd: n - 3 * DAY + 3 * HOUR, requester: 'David Kim', approver: 'Priya Nair', rollback: 'Restore VPLS config from backup' });
+  const evpn = persona === 'cloud' ? ['Upgrade TOR pair 007/008 to EOS 4.32 (EVPN fabric)', 'Roll back to EOS 4.31 image'] : persona === 'colocation' ? ['Re-terminate tenant cross-connects on MMR-SW-01/02', 'Restore original patching at MMR panels'] : persona === 'enterprise' ? ['Migrate server VLANs to EVPN on TOR pair 007/008', 'Restore VLAN trunk config from backup'] : ['Migrate L2VPN services to EVPN on TOR pair 007/008', 'Restore VPLS config from backup'];
+  C({ kind: 'Change', title: evpn[0], dcId: 'TN-DC-022', scope: persona === 'colocation' ? ['TN-DC-022-MMR-SW-01', 'TN-DC-022-MMR-SW-02'] : ['TN-DC-022-TOR-007', 'TN-DC-022-TOR-008'], risk: 'High', status: 'Rolled back', windowStart: n - 3 * DAY, windowEnd: n - 3 * DAY + 3 * HOUR, requester: 'David Kim', approver: 'Priya Nair', rollback: evpn[1] });
   C({ kind: 'Change', title: 'RADIUS server certificate renewal', dcId: 'HR-DC-011', scope: [], risk: 'Low', status: 'Draft', windowStart: n + 12 * DAY, windowEnd: n + 12 * DAY + HOUR, requester: 'James Wilson', rollback: 'Re-import previous certificate' });
   C({ kind: 'Maintenance', title: 'ODF re-labelling & cable audit', dcId: 'KL-DC-024', scope: [], risk: 'Low', status: 'Approved', windowStart: n + 5 * DAY, windowEnd: n + 5 * DAY + 6 * HOUR, requester: 'Meera Iyer', approver: 'Kavita Rao', rollback: 'n/a' });
 }
@@ -706,6 +955,7 @@ export function finaliseHealth(db: Db) {
   act.forEach(a => { const l = byNe.get(a.neId!) ?? []; l.push(a); byNe.set(a.neId!, l); });
   for (const n of db.nes) {
     if (n.discovery === 'not-discovered') continue;
+    if (isTenantGear(n)) { n.health = 'unknown'; n.healthScore = 0; continue; }
     const al = byNe.get(n.id) ?? [];
     const pen = al.reduce((t, a) => t + (a.severity === 'critical' ? 4 : a.severity === 'major' ? 1.5 : a.severity === 'minor' ? 0.3 : 0.1), 0);
     let s = 100 - pen - (n.cpu + n.mem) / 40 - Math.max(0, n.cpu - 75) * 0.12 - Math.max(0, n.tempC - 50) * 0.1;

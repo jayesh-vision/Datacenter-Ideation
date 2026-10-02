@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as I from 'lucide-react';
 import { getTwinData } from '../../../api/ext-twin';
-import { useQuery } from '../../../api';
+import { useQuery, usePersona } from '../../../api';
 import { Loading } from '../../../shell/page';
 import { Seg } from '../../../ui/kit';
 import { buildLayout, type Level, type Sel } from './layout';
 import { TwinScene, type Hover, type Layer, type Pick, type PosMap } from './Scene';
 import { buildAnchors, type Anchor } from './anchors';
 import { TwinPanel } from './Panel';
+import { buildAttention } from './attention';
 import '../../../styles/twin.css';
 
 const LAYERS: { id: Layer; label: string; legend: { c: string; l: string }[] }[] = [
@@ -24,11 +25,13 @@ const levelOf = (s: Sel): Level => (s.ne ? 'equipment' : s.rack ? 'rack' : s.roo
    → Equipment, one scene, four overlay layers, and a context panel. */
 export default function Twin({ dcId }: { dcId: string }) {
   const { data } = useQuery(() => getTwinData(dcId), [dcId]);
+  const { persona } = usePersona();
   const [sel, setSel] = useState<Sel>({ floor: null, room: null, rack: null, ne: null });
   const [layer, setLayer] = useState<Layer>('health');
   const [hover, setHover] = useState<Hover | null>(null);
   const [gl] = useState(hasWebGL);
   const [full, setFull] = useState(false);
+  const [resetTick, setResetTick] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setFull(false); };
@@ -37,7 +40,7 @@ export default function Twin({ dcId }: { dcId: string }) {
   }, []);
   const posRef = useRef<PosMap>(new Map());
   const L = useMemo(() => (data ? buildLayout(data.dc, data.nes) : null), [data]);
-  useEffect(() => { setSel({ floor: null, room: null, rack: null, ne: null }); }, [dcId]);
+  useEffect(() => { setSel({ floor: null, room: null, rack: null, ne: null }); }, [dcId, persona]);
   const level = levelOf(sel);
 
   const onPick = useCallback((p: Pick) => {
@@ -51,7 +54,8 @@ export default function Twin({ dcId }: { dcId: string }) {
     setSel(s => (s.ne ? { ...s, ne: null } : s.rack ? { ...s, rack: null } : s.room !== null ? { ...s, room: null } : { floor: null, room: null, rack: null, ne: null }));
   }, [L]);
 
-  const anchors = useMemo(() => (data && L ? buildAnchors(L, data, sel, level) : []), [data, L, sel, level]);
+  const att = useMemo(() => (data && L ? buildAttention(L, data) : undefined), [data, L]);
+  const anchors = useMemo(() => (data && L ? buildAnchors(L, data, sel, level, att) : []), [data, L, sel, level, att]);
   useEffect(() => { document.body.style.cursor = hover ? 'pointer' : ''; return () => { document.body.style.cursor = ''; }; }, [hover]);
   if (!data || !L) return <Loading label="Building the digital twin" />;
   const { dc } = data;
@@ -76,13 +80,13 @@ export default function Twin({ dcId }: { dcId: string }) {
     <div className={`twin${full ? ' is-full' : ''}`} ref={rootRef}>
       <div className="twin-main">
         <div className="twin-canvas" data-twin-level-now={level}>
-          {gl ? <><TwinScene L={L} data={data} layer={layer} sel={sel} level={level} onPick={onPick} setHover={setHover} anchors={anchors} posRef={posRef} /><LabelOverlay anchors={anchors} posRef={posRef} onPick={onPick} /></>
+          {gl ? <><TwinScene L={L} data={data} layer={layer} sel={sel} level={level} onPick={onPick} setHover={setHover} att={att} anchors={anchors} posRef={posRef} resetTick={resetTick} /><LabelOverlay anchors={anchors} posRef={posRef} onPick={onPick} /></>
             : <div className="twin-nogl"><I.Box size={28} /><b>3D view unavailable</b><span>This browser has no WebGL. Use the lists on the right to navigate floors, rooms, racks and equipment.</span></div>}
           {/* only view controls live on the canvas; navigation is the panel's path and lists */}
           <div className="twin-tools">
             <Seg size="sm" value={layer} onChange={setLayer} options={LAYERS.map(l => ({ id: l.id, label: l.label }))} />
             <button type="button" className="nst-icon-btn twin-reset" title={full ? 'Exit expanded view (Esc)' : 'Expand view'} aria-label={full ? 'Exit expanded view' : 'Expand view'} aria-pressed={full} data-twin="fullscreen" onClick={toggleFull}>{full ? <I.Minimize2 size={15} /> : <I.Maximize2 size={15} />}</button>
-            <button type="button" className="nst-icon-btn twin-reset" title="Reset view" aria-label="Reset view" data-twin="reset" onClick={() => setSel({ floor: null, room: null, rack: null, ne: null })}><I.RotateCcw size={15} /></button>
+            <button type="button" className="nst-icon-btn twin-reset" title="Reset view" aria-label="Reset view" data-twin="reset" onClick={() => { setSel({ floor: null, room: null, rack: null, ne: null }); setResetTick(t => t + 1); }}><I.RotateCcw size={15} /></button>
           </div>
           {hover && <div className="twin-tip" role="status"><b>{hover.title}</b><span>{hover.sub}</span></div>}
           <div className="twin-legend" title="Click to drill in · click empty space to step out · drag to orbit · scroll to zoom">
@@ -91,7 +95,7 @@ export default function Twin({ dcId }: { dcId: string }) {
         </div>
       </div>
       <aside className="twin-side" data-twin="panel">
-        <TwinPanel data={data} L={L} sel={sel} level={level} onPick={onPick} crumbs={crumbs} />
+        <TwinPanel data={data} L={L} sel={sel} level={level} onPick={onPick} crumbs={crumbs} att={att} />
       </aside>
     </div>
   );

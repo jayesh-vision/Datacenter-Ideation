@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { clockNow, getAlerts, getChanges, getIncidents, getNetworkElements, useQuery } from '../../api';
+import { clockNow, getAlerts, getChanges, getIncidents, getNetworkElements, useQuery, vocabNow } from '../../api';
 import type { Alert, AlertCategory } from '../../api/types';
 import { Empty, Panel } from '../../ui/kit';
 import { ChangeChip, SevDot, SeverityChip } from '../../ui/status';
@@ -59,7 +59,7 @@ export function Attention({ data }: { data: SiteData }) {
             <div className="att-list">{[...incs].sort((a, b) => a.sev - b.sev || a.sla.resolveLeft - b.sla.resolveLeft).map(i => (
               <Link key={i.id} to={`/incidents/${i.id}`} className="att-row">
                 <span className={`vw-chip ${i.sev === 1 ? 'vw-chip--error' : i.sev === 2 ? 'vw-chip--warning' : 'vw-chip--neutral'} is-strong cmd-chip`}>SEV{i.sev}</span>
-                <span className="att-main"><b>{i.title}</b><small>{i.id} · {i.status} · {i.owner} · {i.impact.services} services</small></span>
+                <span className="att-main"><b>{i.title}</b><small>{i.id} · {i.status} · {i.owner} · {i.impact.services} {vocabNow().services.toLowerCase()}</small></span>
                 <span className={`att-sla${i.sla.breaching ? ' is-late' : ''}`}>{i.sla.resolveLeft < 0 ? `Overdue ${fmtDur(-i.sla.resolveLeft)}` : `${fmtDur(i.sla.resolveLeft)} left`}</span>
               </Link>))}</div>
           ) : <Empty icon={I.ShieldCheck} title="No open incidents" />}
@@ -92,7 +92,7 @@ export function Attention({ data }: { data: SiteData }) {
           </div>
         </Panel>
 
-        <Panel title="Edge links" icon={I.Cable} actions={<Link to={`/topology?dc=${dc.id}`} className="panel-link">Topology<I.ChevronRight size={14} /></Link>}>
+        <Panel title="Edge links" icon={I.Cable} actions={<Link to={`/datacenters/${dc.id}?tab=topology`} className="panel-link">Topology<I.ChevronRight size={14} /></Link>}>
           <div className="att-edge">
             <span className="vw-card-metric-lg">{s.edge.up}/{s.edge.total}</span>
             <span className={`att-edge-state is-${s.edge.state}`}>{s.edge.state === 'redundant' ? 'All up · redundant' : s.edge.state === 'isolated' ? 'Site isolated' : 'Redundancy lost'}</span>

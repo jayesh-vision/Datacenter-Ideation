@@ -6,6 +6,7 @@ import type CameraControlsImpl from 'camera-controls';
 import type { TwinData, TwinNe } from '../../../api/ext-twin';
 import { PLATE_T, RACK_D, RACK_W, U_H, cameraPose, type FloorL, type Level, type PowerL, type RackL, type RoomL, type Sel, type TwinLayout } from './layout';
 import { LIFT, type Anchor } from './anchors';
+import type { Attention } from './attention';
 
 export type Layer = 'health' | 'power' | 'thermal' | 'connectivity';
 export interface Hover { kind: 'floor' | 'room' | 'rack' | 'ne' | 'cooling' | 'power' | 'dg'; title: string; sub: string }
@@ -14,7 +15,7 @@ export type PosMap = Map<string, [number, number, boolean]>;
 
 /* Restrained palette: slate shell, graphite cabinets, brand blue accent; red/amber only for faults. */
 const P = { plate: '#F1F5F9', slab: '#E9EEF4', wall: '#CBD5E1', body: '#334155', frame: '#475569', interior: '#1E293B', face: '#1F2937', rail: '#0F172A', accent: '#1C81EF', bad: '#EF4444', warn: '#F59E0B', ok: '#22C55E', cold: '#DBEAFE', hot: '#FEE2E2', tray: '#94A3B8', pipe: '#60A5FA', ghost: '#CBD5E1', crah: '#E2E8F0', plant: '#E2E8F0' };
-const ROLE: Record<string, string> = { Router: '#3B82F6', Switch: '#2DD4BF', DWDM: '#94A3B8', Firewall: '#A78BFA', Access: '#60A5FA' };
+const ROLE: Record<string, string> = { Router: '#3B82F6', Switch: '#2DD4BF', DWDM: '#94A3B8', Firewall: '#A78BFA', Access: '#60A5FA', Server: '#0EA5E9', Storage: '#8B5CF6', GPU: '#F97316', 'Tenant gear': '#CBD5E1' };
 const SEV_C: Record<string, string> = { critical: P.bad, major: P.warn, minor: '#FCD34D', warning: '#FDE68A' };
 const DIM = 0.07;
 const SEV_RANK: Record<string, number> = { critical: 0, major: 1, minor: 2, warning: 3 };
@@ -34,7 +35,24 @@ const Std = ({ color, dim, rough = 0.85, metal = 0.05, opacity = 1, emissive, ei
   <meshStandardMaterial color={color} roughness={rough} metalness={metal} transparent opacity={dim ? DIM : opacity} depthWrite={!dim && opacity > 0.5} emissive={emissive ?? '#000000'} emissiveIntensity={emissive ? ei : 0} />
 );
 
-interface Ctx { L: TwinLayout; data: TwinData; layer: Layer; sel: Sel; level: Level; onPick: (p: Pick) => void; setHover: (h: Hover | null) => void }
+interface Ctx { L: TwinLayout; data: TwinData; layer: Layer; sel: Sel; level: Level; onPick: (p: Pick) => void; setHover: (h: Hover | null) => void; att?: Attention }
+const ATT_C = { critical: P.bad, major: P.warn } as const;
+
+/* attention beacon over a rack with an issue: a stalk and a glowing marker that
+   draws through the building shell and floor slabs, so it is seen from the default view */
+function Beacon({ h, sev }: { h: number; sev: 'critical' | 'major' }) {
+  const c = ATT_C[sev];
+  const top = h + (sev === 'critical' ? 1.9 : 1.5);
+  const halo = useRef<import('three').Mesh>(null);
+  useFrame(({ clock }) => { const m = halo.current; if (!m) return; const k = 1 + 0.35 * (0.5 + 0.5 * Math.sin(clock.elapsedTime * (sev === 'critical' ? 4 : 2.4))); m.scale.setScalar(k); });
+  return (
+    <group>
+      <Line points={[[0, h + 0.05, 0], [0, top, 0]]} color={c} lineWidth={2} transparent opacity={0.9} depthTest={false} renderOrder={20} />
+      <mesh position={[0, top, 0]} renderOrder={21}><sphereGeometry args={[0.16, 18, 18]} /><meshBasicMaterial color={c} depthTest={false} transparent opacity={0.95} /></mesh>
+      <mesh ref={halo} position={[0, top, 0]} renderOrder={19}><sphereGeometry args={[0.3, 18, 18]} /><meshBasicMaterial color={c} depthTest={false} transparent opacity={0.22} depthWrite={false} /></mesh>
+    </group>
+  );
+}
 type Ev = { stopPropagation: () => void };
 
 /* faceplate texture: rows of small port rectangles + two handles, drawn once */
@@ -77,7 +95,7 @@ function Reserved({ ne, dim }: { ne: TwinNe; dim: boolean }) {
 function Equipment({ ne, rk, ctx, detail, dim }: { ne: TwinNe; rk: RackL; ctx: Ctx; detail: boolean; dim: boolean }) {
   const h = ne.uSize * U_H - 0.006, y = (ne.u - 1) * U_H + h / 2 + 0.04;
   const ghost = false;
-  const noTelemetry = ne.opsState === 'unmonitored';
+  const noTelemetry = ne.opsState !== 'in-service';
   const selected = ctx.sel.ne === ne.id;
   const otherSel = ctx.level === 'equipment' && !selected;
   const psuBad = ne.modules.some(m => /PSU|PEM/.test(m.slot) && m.state === 'Fault');
@@ -89,7 +107,7 @@ function Equipment({ ne, rk, ctx, detail, dim }: { ne: TwinNe; rk: RackL; ctx: C
   return (
     <group position={[0, y, 0]}>
       <mesh castShadow onClick={(e: Ev) => { e.stopPropagation(); ctx.onPick({ rack: rk.rack.id, ne: ne.id }); }}
-        onPointerOver={(e: Ev) => { e.stopPropagation(); ctx.setHover({ kind: 'ne', title: ne.name, sub: `${ne.role} · ${ne.vendor} ${ne.model} · U${ne.u}${ne.uSize > 1 ? `–${ne.u + ne.uSize - 1}` : ''}${noTelemetry ? ' · no telemetry' : ne.alarms ? ` · ${ne.alarms} alarm${ne.alarms > 1 ? 's' : ''}` : ' · healthy'}` }); }}
+        onPointerOver={(e: Ev) => { e.stopPropagation(); ctx.setHover({ kind: 'ne', title: ne.name, sub: `${ne.role} · ${ne.vendor} ${ne.model} · U${ne.u}${ne.uSize > 1 ? `–${ne.u + ne.uSize - 1}` : ''}${ne.opsState === 'tenant-owned' ? ' · tenant-owned' : noTelemetry ? ' · no telemetry' : ne.alarms ? ` · ${ne.alarms} alarm${ne.alarms > 1 ? 's' : ''}` : ' · healthy'}` }); }}
         onPointerOut={() => ctx.setHover(null)}>
         <boxGeometry args={[RACK_W - 0.07, h, RACK_D - 0.16]} />
         <Std color={ghost ? P.ghost : P.face} dim={dim} opacity={op} rough={0.6} metal={0.3} />
@@ -121,6 +139,8 @@ function Rack3D({ rk, room, floor, ctx }: { rk: RackL; room: RoomL; floor: Floor
   const ghostRack = ctx.data.dc.status === 'planned' || (rk.nes.length === 0 && rk.reserved.length > 0);
   const band = bandTone(rk, layer);
   const critical = layer === 'health' && band === P.bad;
+  const attSev = ctx.att?.rack.get(rk.rack.id);
+  const showBeacon = !!attSev && !dim && (level === 'building' || level === 'floor');
   const bodyC = ghostRack ? P.ghost : P.body, frameC = ghostRack ? P.ghost : P.frame;
   const bodyOp = ghostRack ? 0.35 : 1;
   const h = rk.h, t = 0.025;
@@ -155,6 +175,8 @@ function Rack3D({ rk, room, floor, ctx }: { rk: RackL; room: RoomL; floor: Floor
       {showEq && odf && <mesh position={[0, (rk.rack.usedU - 9) * U_H + 0.04, 0]}><boxGeometry args={[RACK_W - 0.07, 18 * U_H - 0.01, RACK_D - 0.2]} /><Std color="#64748B" dim={dim} rough={0.9} /></mesh>}
       {detail && <Line points={[[RACK_W / 2 - 0.02, h + 0.03, RACK_D / 2 - 0.1], [RACK_W / 2 - 0.02, h + 0.45, RACK_D / 2 - 0.1], [RACK_W / 2 - 0.02, h + 0.45, 0]]} color="#475569" lineWidth={2} />}
       {selected && <mesh position={[0, h / 2, 0]}><boxGeometry args={[RACK_W + 0.02, h + 0.04, RACK_D + 0.02]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /><Edges color={P.accent} lineWidth={2} /></mesh>}
+      {showBeacon && <mesh position={[0, h / 2, 0]}><boxGeometry args={[RACK_W + 0.05, h + 0.05, RACK_D + 0.05]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /><Edges color={ATT_C[attSev!]} lineWidth={2} /></mesh>}
+      {showBeacon && <Beacon h={h} sev={attSev!} />}
     </group>
   );
 }
@@ -230,9 +252,10 @@ function Room3D({ room, floor, ctx }: { room: RoomL; floor: FloorL; ctx: Ctx }) 
   const edgeRacks = showStubs ? room.racks.filter(r => r.nes.some(n => n.edge)) : [];
   const downRacks = showStubs ? room.racks.filter(r => r.nes.some(n => n.linksDown)) : [];
   const stubX = room.w / 2 + 0.9;
+  const roomAtt = (level === 'building' || level === 'floor') && !dim ? ctx.att?.room.get(room.id) : undefined;
   return (
     <group position={[room.x, 0, room.z]}>
-      <mesh position={[0, 0.03, 0]} receiveShadow onClick={pick} onPointerOver={over} onPointerOut={out}><boxGeometry args={[room.w, 0.06, room.d]} /><Std color={slabTone(room, layer)} dim={dim} rough={0.95} /><Edges color={dim ? '#E2E8F0' : '#94A3B8'} /></mesh>
+      <mesh position={[0, 0.03, 0]} receiveShadow onClick={pick} onPointerOver={over} onPointerOut={out}><boxGeometry args={[room.w, 0.06, room.d]} /><Std color={slabTone(room, layer)} dim={dim} rough={0.95} /><Edges color={roomAtt ? ATT_C[roomAtt] : dim ? '#E2E8F0' : '#94A3B8'} lineWidth={roomAtt ? 2.2 : 1} /></mesh>
       {(level === 'building' || level === 'floor') && <SlabLabel room={room} y={0.07} dim={dim} />}
       {/* glass walls with visible edges */}
       <mesh position={[0, 1.45, 0]} onClick={pick} onPointerOver={over} onPointerOut={out}><boxGeometry args={[room.w, 2.9, room.d]} /><meshPhysicalMaterial color="#DBEAFE" transparent opacity={dim ? 0.02 : zoomed ? 0.04 : 0.1} roughness={0.15} metalness={0} depthWrite={false} /><Edges color={dim ? '#EEF2F6' : '#94A3B8'} lineWidth={1} /></mesh>
@@ -259,11 +282,12 @@ function Floor3D({ floor, ctx }: { floor: FloorL; ctx: Ctx }) {
   const isolate = level !== 'building' && sel.floor !== null;
   const dim = isolate && sel.floor !== floor.idx;
   const lift = isolate && sel.floor !== null && floor.idx > sel.floor ? LIFT : 0;
+  const fAtt = level === 'building' ? ctx.att?.floor.get(floor.idx) : undefined;
   return (
     <group position={[0, floor.y + lift, 0]}>
       <mesh position={[0, PLATE_T / 2, 0]} receiveShadow onClick={(e: Ev) => { e.stopPropagation(); ctx.onPick({ floor: floor.idx }); }}
         onPointerOver={(e: Ev) => { e.stopPropagation(); ctx.setHover({ kind: 'floor', title: floor.name, sub: `${floor.rooms.length} rooms · ${floor.rooms.reduce((a, r) => a + r.racks.length, 0)} racks` }); }} onPointerOut={() => ctx.setHover(null)}>
-        <boxGeometry args={[floor.w, PLATE_T, floor.d]} /><Std color={P.plate} dim={dim} rough={0.95} /><Edges color={dim ? '#E2E8F0' : '#64748B'} lineWidth={1.2} />
+        <boxGeometry args={[floor.w, PLATE_T, floor.d]} /><Std color={P.plate} dim={dim} rough={0.95} /><Edges color={fAtt ? ATT_C[fAtt.sev] : dim ? '#E2E8F0' : '#64748B'} lineWidth={fAtt ? 2.4 : 1.2} />
       </mesh>
       <group position={[0, PLATE_T, 0]}>{floor.rooms.map(r => <Room3D key={r.id} room={r} floor={floor} ctx={ctx} />)}</group>
     </group>
@@ -281,7 +305,9 @@ function FootprintGrid({ w, d }: { w: number; d: number }) {
   return <group position={[0, 0.002, 0]}>{pts.map((p, i) => <Line key={i} points={p} color="#CBD5E1" lineWidth={0.6} transparent opacity={0.55} />)}</group>;
 }
 
-function Rig({ pose }: { pose: [number[], number[]] }) {
+/* re-applies the pose when it changes, and on every reset tick (so Reset view also
+   undoes a manual orbit/zoom when the selection is already the default) */
+function Rig({ pose, resetTick }: { pose: [number[], number[]]; resetTick: number }) {
   const ref = useRef<CameraControlsImpl>(null);
   const key = pose.flat().map(n => n.toFixed(2)).join(',');
   const first = useRef(true);
@@ -290,7 +316,7 @@ function Rig({ pose }: { pose: [number[], number[]] }) {
     const [e, t] = pose;
     c.setLookAt(e[0], e[1], e[2], t[0], t[1], t[2], !first.current);
     first.current = false;
-  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [key, resetTick]); // eslint-disable-line react-hooks/exhaustive-deps
   return <CameraControls ref={ref} makeDefault minDistance={0.6} maxDistance={90} maxPolarAngle={Math.PI / 2.05} dollyToCursor smoothTime={0.5} />;
 }
 
@@ -308,8 +334,8 @@ function Projector({ anchors, posRef }: { anchors: Anchor[]; posRef: MutableRefO
   return null;
 }
 
-export function TwinScene({ L, data, layer, sel, level, onPick, setHover, anchors, posRef }: Ctx & { anchors: Anchor[]; posRef: MutableRefObject<PosMap> }) {
-  const ctx: Ctx = { L, data, layer, sel, level, onPick, setHover };
+export function TwinScene({ L, data, layer, sel, level, onPick, setHover, att, anchors, posRef, resetTick = 0 }: Ctx & { anchors: Anchor[]; posRef: MutableRefObject<PosMap>; resetTick?: number }) {
+  const ctx: Ctx = { L, data, layer, sel, level, onPick, setHover, att };
   const pose = useMemo(() => cameraPose(L, sel), [L, sel]);
   const { w, d, h } = L.building;
   const shell = level === 'building';
@@ -338,7 +364,7 @@ export function TwinScene({ L, data, layer, sel, level, onPick, setHover, anchor
       )}
       {L.floors.map(f => <Floor3D key={f.idx} floor={f} ctx={ctx} />)}
       <Projector anchors={anchors} posRef={posRef} />
-      <Rig pose={pose} />
+      <Rig pose={pose} resetTick={resetTick} />
     </Canvas>
   );
 }

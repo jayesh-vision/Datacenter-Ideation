@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { search } from '../api';
 
 type Row = { kind: string; label: string; sub: string; to: string };
-const ICON: Record<string, I.LucideIcon> = { Datacenter: I.Building2, 'Network element': I.Router, Service: I.Waypoints, Customer: I.Users, Incident: I.Siren, Alert: I.BellRing, Change: I.ArrowLeftRight, Go: I.Zap };
+const ICON: Record<string, I.LucideIcon> = { Datacenter: I.Building2, 'Network element': I.Router, Device: I.Server, Service: I.Waypoints, Customer: I.Users, Incident: I.Siren, Alert: I.BellRing, Change: I.ArrowLeftRight, Go: I.Zap };
 const QUICK: Row[] = [
   { kind: 'Go', label: 'MH-DC-001 · Pune Data Park', sub: 'In-progress datacenter with open reconciliation', to: '/datacenters/MH-DC-001' },
   { kind: 'Go', label: 'MH-DC-001-PE-T4-01 · Alerts & diagnostics', sub: 'Flapping backhaul with AI root-cause', to: '/ne/MH-DC-001-PE-T4-01?tab=alerts' },
