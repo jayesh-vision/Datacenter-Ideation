@@ -8,6 +8,9 @@ import { RolloutChip, Fresh } from '../../ui/status';
 import { fmtAgo, fmtNum } from '../../lib/format';
 import { NotFound } from '../NotFound';
 import { Attention } from './Attention';
+import { Metrics } from './Metrics';
+import { Customers } from './Customers';
+import { Assets } from './Assets';
 import { Elements } from './Elements';
 import { Details } from './Details';
 import { Equipment } from './Equipment';
@@ -18,10 +21,10 @@ import '../../styles/site.css';
 export type SiteData = NonNullable<Awaited<ReturnType<typeof getDatacenter>>>;
 /* Operations tabs. Capex/Opex (finance) and discovery/reconciliation
    (inventory) belong to Plan & Build / Inventory, not here. */
-type Tab = 'overview' | 'attention' | 'elements' | 'details' | 'equipment' | 'timeline';
+type Tab = 'overview' | 'attention' | 'metrics' | 'customers' | 'assets' | 'elements' | 'details' | 'equipment' | 'timeline';
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'overview', label: 'Overview' }, { id: 'attention', label: 'Attention' }, { id: 'elements', label: 'Equipment' },
-  { id: 'details', label: 'Power & space' }, { id: 'equipment', label: 'Cabling' }, { id: 'timeline', label: 'Ops log' }
+  { id: 'overview', label: 'Overview' }, { id: 'attention', label: 'Attention' }, { id: 'metrics', label: 'Metrics' }, { id: 'customers', label: 'Customers' },
+  { id: 'assets', label: 'Assets' }, { id: 'elements', label: 'Equipment' }, { id: 'details', label: 'Power & space' }, { id: 'equipment', label: 'Cabling' }, { id: 'timeline', label: 'Ops log' }
 ];
 
 /* Datacenter page (operations): identity + operational KPIs, the 3D twin,
@@ -38,7 +41,7 @@ export function Site() {
   if (!data) return <NotFound what="Datacenter" />;
   const { dc, summary: s } = data;
   const tab: Tab = TABS.some(t => t.id === sp.get('tab')) ? (sp.get('tab') as Tab) : 'overview';
-  const go = (t: Tab) => { const n = new URLSearchParams(sp); n.set('tab', t); ['role', 'disc', 'q', 'kind', 'view'].forEach(k => n.delete(k)); setSp(n, { replace: true }); };
+  const go = (t: Tab) => { const n = new URLSearchParams(sp); n.set('tab', t); ['role', 'disc', 'q', 'kind', 'view', 'cview'].forEach(k => n.delete(k)); setSp(n, { replace: true }); };
   const now = clockNow();
   const staleCol = dc.collectors.filter(c => c.state !== 'up');
 
@@ -117,7 +120,7 @@ export function Site() {
       <div className="row between wrap" style={{ gap: 12 }}>
         <div className="pills" role="tablist">
           {TABS.map(t => {
-            const n = t.id === 'attention' ? s.openIncidents + s.critAlerts : t.id === 'elements' ? s.installed : undefined;
+            const n = t.id === 'attention' ? s.openIncidents + s.critAlerts : t.id === 'elements' ? s.installed : t.id === 'customers' ? s.customers : undefined;
             return <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={`pill${tab === t.id ? ' is-active' : ''}`} onClick={() => go(t.id)}>{t.label}{n ? <span className="count">{n}</span> : null}</button>;
           })}
         </div>
@@ -126,6 +129,9 @@ export function Site() {
 
       {tab === 'overview' && <Suspense fallback={<Loading label="Loading 3D view" />}><Twin dcId={dc.id} /></Suspense>}
       {tab === 'attention' && <Attention data={data} />}
+      {tab === 'metrics' && <Metrics data={data} />}
+      {tab === 'customers' && <Customers data={data} />}
+      {tab === 'assets' && <Assets data={data} />}
       {tab === 'elements' && <Elements dcId={dc.id} />}
       {tab === 'details' && <Details data={data} />}
       {tab === 'equipment' && <Equipment data={data} />}

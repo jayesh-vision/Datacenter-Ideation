@@ -50,7 +50,8 @@ An alarm counts against a datacenter only when it is in scope (`Alert.scope`, co
 Edge redundancy (`DcSummary.edge`): redundant / redundancy-lost / isolated. Guarded by `npx tsx .qa/scope-check.ts`.
 Scope decisions 02-Oct-2026: the menu is Command center · Datacenters · Facilities · Topology · Alerts · Incidents · Changes & maintenance.
 Network services, Customers and Capacity & forecast are parked (code kept, routes redirect); services and customers appear only as
-impact on incidents, devices and sites. Revenue is not shown anywhere operational. Site tabs: Overview (3D) · Attention · Equipment
+impact on incidents, devices and sites. Revenue is not shown anywhere operational. Site tabs: Overview (3D) · Attention · Metrics (aggregated thermal/power/backup/fault KPIs)
+· Customers (customers served from the DC) · Assets (floors/rooms/racks, equipment by category, facility plant) · Equipment
 (installed devices only; planned devices = reserved rack space) · Power & space · Cabling · Ops log. No discovery/drift/reconciliation UI.
 
 ## Visual rhythm (02-Oct-2026) — one system, not per-screen styling

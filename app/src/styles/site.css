@@ -255,3 +255,52 @@ div.att-row { cursor: default; }
 }
 /* datacenter page: bottom padding matches the side padding (no extra band under the twin) */
 .page.site { padding-bottom: var(--vw-space-xl); }
+
+/* ---- Metrics / Customers / Assets tabs */
+.mx-vitals { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); padding: 0 !important; overflow: hidden; }
+.mx-vital { display: flex; flex-direction: column; gap: 6px; padding: var(--vw-space-md) var(--vw-space-lg); border-left: 1px solid var(--vw-color-slate-200); min-width: 0; }
+.mx-vital:first-child { border-left: 0; }
+.mx-vital-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; min-height: 30px; }
+.mx-vital-row .vw-card-metric-lg { color: var(--vw-color-gray-900); white-space: nowrap; }
+.mx-spark { width: 64px; flex-shrink: 0; }
+.mx-note { font-weight: 400 !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mx-row { align-items: stretch; }
+.mx-row > .panel { height: 100%; }
+.mx-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--vw-space-sm); margin: 4px 0 12px; }
+.mx-stats-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.mx-stats-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.mx-stat { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid var(--vw-color-slate-200); border-radius: var(--vw-radius-sm); background: var(--vw-color-slate-50); min-width: 0; }
+.mx-stat-v { font-size: var(--vw-font-value-sm); color: var(--vw-color-gray-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mx-stat-v.is-bad { color: var(--vw-color-red-600); }
+.mx-stat-s { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mx-table { width: 100%; }
+.mx-table td.num { white-space: nowrap; }
+.mx-table tfoot td { font-weight: 500; color: var(--vw-color-gray-900); border-top: 1px solid var(--vw-color-slate-200); }
+.asset-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--vw-space-sm); }
+.asset-room-stats { padding: 12px 16px 16px; }
+.asset-room-stats .mx-stats { margin: 0; }
+.mx-table th, .mx-table td { padding: 8px 10px; font-size: 13px; }
+.mx-sub { font-size: var(--vw-font-label-sm); font-weight: 500; color: var(--vw-color-gray-700); margin: 14px 0 6px; }
+.mx-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.mx-fuel { display: flex; flex-direction: column; gap: 6px; }
+.mx-ok { display: flex; align-items: center; gap: 6px; color: var(--vw-color-emerald-700); margin: 6px 0 0; }
+.cust-grid { grid-template-columns: minmax(0, 1fr) 300px; align-items: start; }
+.cust-grid .dt-table td.is-wrap .cell-2 > small { white-space: normal; overflow: visible; }
+.asset-split { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--vw-space-lg); }
+.asset-split > .dn { justify-self: center; }
+.asset-layers, .asset-ports { display: flex; flex-direction: column; gap: 8px; }
+.asset-layer { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 13px; color: var(--vw-color-gray-700); }
+.asset-fac { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--vw-space-sm); }
+.asset-fac-item { display: flex; gap: 8px; align-items: flex-start; min-width: 0; }
+.asset-fac-ic { width: 30px; height: 30px; border-radius: var(--vw-radius-sm); display: grid; place-items: center; background: var(--vw-color-slate-100); color: var(--vw-color-gray-600); flex-shrink: 0; }
+.asset-fac-main { display: flex; flex-direction: column; min-width: 0; }
+.asset-fac-main .vw-card-metric-sm { color: var(--vw-color-gray-900); }
+.asset-fac-sub { font-size: 11px; }
+@media (max-width: 1280px) {
+  .mx-vitals { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .mx-vital:nth-child(4) { border-left: 0; }
+  .mx-vital:nth-child(n+4) { border-top: 1px solid var(--vw-color-slate-200); }
+  .cust-grid { grid-template-columns: minmax(0, 1fr) 260px; }
+}
+@media (max-width: 1280px) { .pills { gap: 6px; } .pill { padding: 0 12px; } .cust-grid { grid-template-columns: minmax(0, 1fr) 240px; } }
+.asset-layer > span:first-child { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
