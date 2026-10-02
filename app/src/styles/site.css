@@ -253,3 +253,5 @@ div.att-row { cursor: default; }
   .dch-actions { margin-left: 0 !important; }
   .dch-sub > span:nth-child(2) { display: none; }
 }
+/* datacenter page: bottom padding matches the side padding (no extra band under the twin) */
+.page.site { padding-bottom: var(--vw-space-xl); }
