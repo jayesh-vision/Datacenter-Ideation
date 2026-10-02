@@ -5,7 +5,7 @@ import { Panel } from '../../ui/kit';
 import { Stat } from './Metrics';
 import { Meter } from '../../ui/status';
 import { Donut } from '../../charts/Donut';
-import { OpsKpi } from '../ops/shared';
+import { SummaryStrip } from './SummaryStrip';
 import { fmtNum } from '../../lib/format';
 import type { SiteData } from './Site';
 
@@ -48,14 +48,14 @@ export function Assets({ data }: { data: SiteData }) {
 
   return (
     <div className="col" style={{ gap: 16 }}>
-      <div className="kpis kpis-6">
-        <OpsKpi label="Floors" value={dc.floors.length} sub={`${a.rooms.length} rooms`} icon={<I.Layers size={16} />} />
-        <OpsKpi label="Racks" value={dc.racks.length} sub={`${dc.racks.filter(r => r.usedU === 0).length} empty`} icon={<I.Server size={16} />} />
-        <OpsKpi label="Rack space used" value={`${fmtNum(a.usedU)} U`} sub={`${fmtNum(a.totU - a.usedU)} U free of ${fmtNum(a.totU)}`} icon={<I.LayoutGrid size={16} />} />
-        <OpsKpi label="Network devices" value={a.inst.length} sub={a.planned ? `+${a.planned} planned (reserved)` : 'all installed'} icon={<I.Router size={16} />} />
-        <OpsKpi label="Facility assets" value={a.facility.reduce((t, f) => t + f.v, 0)} sub="power · cooling · sensors" icon={<I.Zap size={16} />} />
-        <OpsKpi label="Ports in use" value={fmtNum(s.portsUsed)} sub={`of ${fmtNum(s.portsTotal)}`} icon={<I.Cable size={16} />} />
-      </div>
+      <SummaryStrip items={[
+        { key: 'fl', label: 'Floors', value: dc.floors.length, sub: `${a.rooms.length} rooms` },
+        { key: 'rk', label: 'Racks', value: dc.racks.length, sub: `${dc.racks.filter(r => r.usedU === 0).length} empty` },
+        { key: 'u', label: 'Rack space used', value: `${fmtNum(a.usedU)} U`, sub: `${fmtNum(a.totU - a.usedU)} U free` },
+        { key: 'ne', label: 'Network devices', value: a.inst.length, sub: a.planned ? `+${a.planned} planned` : 'all installed' },
+        { key: 'fac', label: 'Facility assets', value: a.facility.reduce((t, f) => t + f.v, 0), sub: 'power · cooling' },
+        { key: 'pt', label: 'Ports in use', value: fmtNum(s.portsUsed), sub: `of ${fmtNum(s.portsTotal)}` }
+      ]} />
 
       <div className="grid g-2 mx-row">
         <Panel title="Space by room" icon={I.Building2} sub="Racks, U used / free and draw per room" flush>

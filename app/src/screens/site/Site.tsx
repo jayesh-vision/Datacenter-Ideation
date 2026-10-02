@@ -97,6 +97,7 @@ export function Site() {
           ]}
           more={k => <button type="button" className="vw-chip vw-chip--neutral dch-flag" title="Show all site KPIs" onClick={toggleHead}>+{k} more</button>}
           empty={<span className="vw-footer-meta"><I.CircleCheck size={13} /> all KPIs normal</span>} />}
+        {!planned && <span className="dch-bar-fresh" title="Latest telemetry from this site's collectors"><Fresh>{fmtAgo(Math.max(...dc.collectors.map(c => c.lastSeen)), now)}</Fresh></span>}
         <div className="dch-bar-actions">
           <Btn icon={I.Network} title="Topology" onClick={() => nav(`/topology?dc=${dc.id}`)} disabled={!s.discovered} />
           <Btn icon={I.Zap} title="Facilities" onClick={() => nav(`/facilities?dc=${dc.id}`)} />
@@ -152,14 +153,11 @@ export function Site() {
       </div>
       </>}
 
-      <div className="row between wrap" style={{ gap: 12 }}>
-        <div className="pills" role="tablist">
+      <div className="pills" role="tablist">
           {TABS.map(t => {
             const n = t.id === 'attention' ? s.openIncidents + s.critAlerts : t.id === 'elements' ? s.installed : t.id === 'customers' ? s.customers : undefined;
             return <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={`pill${tab === t.id ? ' is-active' : ''}`} onClick={() => go(t.id)}>{t.label}{n ? <span className="count">{n}</span> : null}</button>;
           })}
-        </div>
-        {dc.status === 'planned' ? <span className="fresh">No collector assigned · record data only</span> : <Fresh>Telemetry as of {fmtAgo(Math.max(...dc.collectors.map(c => c.lastSeen)), now)}</Fresh>}
       </div>
 
       {tab === 'overview' && <Suspense fallback={<Loading label="Loading 3D view" />}><Twin dcId={dc.id} /></Suspense>}

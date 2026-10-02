@@ -5,7 +5,7 @@ import { getServices, useQuery } from '../../api';
 import { DataTable, type Col } from '../../ui/DataTable';
 import { Panel, SearchBox, Seg } from '../../ui/kit';
 import { BarList } from '../../charts/BarList';
-import { OpsKpi } from '../ops/shared';
+import { SummaryStrip } from './SummaryStrip';
 import { fmtBw, fmtNum } from '../../lib/format';
 import type { SiteData } from './Site';
 
@@ -54,12 +54,12 @@ export function Customers({ data }: { data: SiteData }) {
 
   return (
     <div className="col" style={{ gap: 16 }}>
-      <div className="kpis">
-        <OpsKpi label="Customers served" value={rows.length} sub={`${rows.filter(r => r.premium).length} premium`} icon={<I.Users size={16} />} onClick={() => set('cview', '')} active={view === 'all'} />
-        <OpsKpi label="Services from this DC" value={fmtNum(svcs.length)} sub={fmtBw(svcs.reduce((a, s) => a + s.bandwidthMbps, 0)) + ' provisioned'} icon={<I.Waypoints size={16} />} />
-        <OpsKpi label="Customers at risk" value={atRisk.length} sub="degraded service or below SLA" tone={atRisk.length ? 'warn' : undefined} icon={<I.TriangleAlert size={16} />} onClick={() => set('cview', 'risk')} active={view === 'risk'} />
-        <OpsKpi label="Premium affected" value={atRisk.filter(r => r.premium).length} sub={`of ${rows.filter(r => r.premium).length} premium customers`} tone={atRisk.some(r => r.premium) ? 'bad' : undefined} icon={<I.Star size={16} />} onClick={() => set('cview', 'premium')} active={view === 'premium'} />
-      </div>
+      <SummaryStrip items={[
+        { key: 'all', label: 'Customers served', value: rows.length, sub: `${rows.filter(r => r.premium).length} premium`, onClick: () => set('cview', ''), active: view === 'all' },
+        { key: 'svc', label: 'Services from this DC', value: fmtNum(svcs.length), sub: fmtBw(svcs.reduce((a, s) => a + s.bandwidthMbps, 0)) + ' provisioned' },
+        { key: 'risk', label: 'Customers at risk', value: atRisk.length, sub: 'degraded or below SLA', tone: atRisk.length ? 'warn' : undefined, onClick: () => set('cview', 'risk'), active: view === 'risk' },
+        { key: 'prem', label: 'Premium affected', value: atRisk.filter(r => r.premium).length, sub: `of ${rows.filter(r => r.premium).length} premium`, tone: atRisk.some(r => r.premium) ? 'bad' : undefined, onClick: () => set('cview', 'premium'), active: view === 'premium' }
+      ]} />
       <div className="grid cust-grid">
         <section className="card">
           <DataTable rows={shown} cols={cols} pageSize={15} defaultSort={{ key: 'state', dir: 'desc' }} onRow={r => nav(`/customers/${r.id}`)}

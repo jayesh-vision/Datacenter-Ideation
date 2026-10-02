@@ -57,6 +57,9 @@ impact on incidents, devices and sites. Revenue is not shown anywhere operationa
 ## Visual rhythm (02-Oct-2026) — one system, not per-screen styling
 - `OpsKpi` (screens/ops/shared.tsx) is THE KPI card everywhere: `.app-kpi` = white `.vw-card-section`, grey icon, light metric,
   `.vw-card-variance` note; state only via the 3px top accent (red = fault, amber = attention). No pastel-tinted tiles.
+- Datacenter page (02-Oct-2026): header collapses to a slim bar (default; remembered per browser) with flagged-KPI chips
+  (`site/FlagRow.tsx`, auto-fits, "+N more") and telemetry freshness. Inside site tabs use `site/SummaryStrip.tsx`
+  (one slim card, clickable items = filters), not rows of OpsKpi cards.
 - Page: `.page` gap/padding, panel density, tabs and table toolbar come from the tail of `styles/base.css`; per-screen CSS does layout only.
 - Side-by-side cards must be equal height (`.qa/heights.mjs` checks the command center); nothing clipped at 1280.
 - Palette: slate/white, brand blue accent, red/amber for faults only. The digital twin (`screens/site/twin`) is signed off — don't restyle it.
