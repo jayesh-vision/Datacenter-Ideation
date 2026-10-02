@@ -77,6 +77,9 @@ Customer lists show "Why at risk" from `servicesOf().causes` (server.ts `causeIn
   (one slim card, clickable items = filters), not rows of OpsKpi cards.
 - Page: `.page` gap/padding, panel density, tabs and table toolbar come from the tail of `styles/base.css`; per-screen CSS does layout only.
 - Side-by-side cards must be equal height (`.qa/heights.mjs` checks the command center); nothing clipped at 1280.
+- Grids (02-Oct-2026, from the user's platform reference): light slate-50 header band, regular 13px labels, roomy 13.5px rows,
+  `table-layout: auto` (columns size to content; DataTable ignores `width` hints except in compact tables), text cells wrap,
+  equal-width NST pastel pills (status pills have a dot; no solid SEV1). Check with `node .qa/grids.mjs <persona>` (no table overflow).
 - Palette: slate/white, brand blue accent, red/amber for faults only. The digital twin (`screens/site/twin`) is signed off — don't restyle it.
 
 ## Command center layout (02-Oct-2026, after the user rejected the 17-box version)

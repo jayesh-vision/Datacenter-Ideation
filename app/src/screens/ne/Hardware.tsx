@@ -29,8 +29,8 @@ export function Hardware({ d }: { d: NeData }) {
     { key: 'err', header: 'In / CRC errors', align: 'right', render: i => <span className={`num ${i.crcErrors > 100 || i.inErrors > 100 ? 'bad' : i.inErrors ? 'warn' : 'faint'}`}>{fmtNum(i.inErrors)} / {fmtNum(i.crcErrors)}</span>, sort: i => i.inErrors + i.crcErrors },
     { key: 'flaps', header: 'Flaps 24 h', align: 'right', render: i => <span className={`num ${i.flaps24h >= 3 ? 'bad' : 'faint'}`}>{i.flaps24h}</span>, sort: i => i.flaps24h },
     { key: 'rx', header: 'Optics Rx', align: 'right', render: i => (i.optics ? <span className={`num ${i.optics.rxDbm < -10 ? 'bad' : i.optics.rxDbm < -8 ? 'warn' : ''}`} title={`${i.optics.model} · Tx ${i.optics.txDbm} dBm · ${i.optics.tempC}°C`}>{i.optics.rxDbm} dBm</span> : <span className="faint">—</span>), sort: i => i.optics?.rxDbm ?? 0 },
-    { key: 'desc', header: 'Description', render: i => <span className="ellipsis ne-desc" title={i.description}>{i.description || <span className="faint">—</span>}</span> },
-    { key: 'peer', header: 'Peer', render: i => (i.peer ? <span className="cell-2"><NeLink id={i.peer.neId} /><small className="mono">{i.peer.ifName}</small></span> : <span className="faint">—</span>) }
+    { key: 'desc', header: 'Description', wrap: true, render: i => <span className="ellipsis ne-desc" title={i.description}>{i.description || <span className="faint">—</span>}</span> },
+    { key: 'peer', header: 'Peer', wrap: true, render: i => (i.peer ? <span className="cell-2"><NeLink id={i.peer.neId} /><small className="mono">{i.peer.ifName}</small></span> : <span className="faint">—</span>) }
   ];
 
   return (

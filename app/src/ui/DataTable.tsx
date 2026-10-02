@@ -4,6 +4,7 @@ import { CheckBox, Empty } from './kit';
 
 export interface Col<T> {
   key: string; header: ReactNode; render: (row: T) => ReactNode;
+  /** width hint — only used by compact tables; full grids size columns to their content */
   sort?: (row: T) => number | string; align?: 'right'; width?: number | string; wrap?: boolean;
   /** hide the column when the viewport is narrower than this (px) — lets a wide table keep its key columns readable */
   hideBelow?: number;
@@ -51,7 +52,7 @@ export function DataTable<T extends { id: string }>({
             <tr>
               {selectable && <th style={{ width: 40 }}><CheckBox on={allOn} mixed={!allOn && someOn} label="Select page" onChange={v => { const n = new Set(sel); view.forEach(r => (v ? n.add(r.id) : n.delete(r.id))); onSelect?.(n); }} /></th>}
               {cols.map(c => (
-                <th key={c.key} className={c.align === 'right' ? 'is-right' : ''} style={{ width: c.width }}>
+                <th key={c.key} className={c.align === 'right' ? 'is-right' : ''} style={compact ? { width: c.width } : undefined}>
                   {c.sort ? (
                     <button type="button" className={`dt-sort${sort?.key === c.key ? ' is-active' : ''}`} onClick={() => setSort(s => (s?.key === c.key ? { key: c.key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key: c.key, dir: 'desc' }))}>
                       {c.header}<ArrowDown size={12} style={{ transform: sort?.key === c.key && sort.dir === 'asc' ? 'rotate(180deg)' : undefined }} />

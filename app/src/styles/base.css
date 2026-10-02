@@ -187,3 +187,26 @@ td .cell-2 small { font-size: 11.5px; color: var(--ink-500); }
 .persona-check { color: var(--primaryColor700); flex-shrink: 0; }
 .persona-menu-f { padding: 8px 10px 4px; font-size: 11px; color: var(--ink-400); border-top: 1px solid var(--line); margin-top: 4px; }
 @media (max-width: 1280px) { .persona-txt small { display: none; } .persona-btn { gap: 7px; } }
+
+/* ---------------------------------------------------------------------------
+   Grid / list (02-Oct-2026, per the user's platform reference): one look for every
+   table — light grey header band with regular-weight labels, roomy rows,
+   content-sized columns, equal-width pastel pills (status pills carry a dot).
+   --------------------------------------------------------------------------- */
+.dt-table th, .nst-table th {
+  background: var(--vw-color-slate-50); font-family: 'Poppins', system-ui, sans-serif; font-size: 13px; font-weight: 400;
+  color: var(--vw-color-gray-500); letter-spacing: 0; text-transform: none; padding: 12px 14px; border-bottom: 1px solid var(--vw-color-slate-200); vertical-align: middle;
+}
+.dt-table td, .nst-table td { font-family: 'Poppins', system-ui, sans-serif; font-size: 13.5px; color: var(--vw-color-gray-800); padding: 13px 14px; vertical-align: middle; border-bottom: 1px solid var(--vw-color-slate-100); }
+.dt-table td .num, .dt-table td .mono, .nst-table td .num, .nst-table td .mono { font-family: var(--num); }
+.dt-table td .cell-2 small, .nst-table td .cell-2 small, .dt-table td small { font-size: 12.5px; color: var(--vw-color-gray-500); }
+.dt-table .dt-sort { gap: 6px; color: inherit; font-weight: 400; }
+.dt-table .dt-sort.is-active { color: var(--vw-color-gray-800); }
+.dt-table tbody tr.is-click:hover td, .nst-table tbody tr:hover td { background: var(--vw-color-slate-50); }
+/* pills inside grids: equal width, centred text, softer weight */
+.dt-table td .vw-chip, .nst-table td .vw-chip { min-width: 72px; justify-content: center; padding: 4px 10px; font-size: 12.5px; line-height: 18px; font-weight: 400; border-radius: 999px; }
+.dt-table td .vw-chip .chip-dot, .nst-table td .vw-chip .chip-dot { width: 6px; height: 6px; }
+.dt-table td .vw-chip.chip-xs:not(:has(.chip-dot)), .nst-table td .vw-chip.chip-xs:not(:has(.chip-dot)) { min-width: 52px; padding: 3px 8px; font-size: 12px; }
+.dt-table td .cust-tier, .dt-table td .cell-2 .vw-chip { min-width: 0; padding: 1px 8px; font-size: 11.5px; }
+.dt-pager, .dt-count { font-family: 'Poppins', system-ui, sans-serif; }
+@media (max-width: 1280px) { .dt-table th, .nst-table th, .dt-table td, .nst-table td { padding-left: 10px; padding-right: 10px; } .dt-table th { white-space: normal; line-height: 1.3; } }

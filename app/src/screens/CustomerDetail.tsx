@@ -36,8 +36,7 @@ export function CustomerDetail() {
     { key: 'status', header: 'Status', render: s => <ServiceChip s={s.status} size="xs" /> },
     { key: 'bw', header: 'Size', align: 'right', render: s => <span className="num">{fmtQty(s.qty, s.unit)}</span>, sort: s => s.qty },
     { key: 'util', header: 'Utilisation', render: s => <Meter pct={s.utilPct} width={60} />, sort: s => s.utilPct },
-    { key: 'sla', header: 'SLA / uptime', align: 'right', render: s => <span className="num">{s.slaTarget}% / <span className={s.uptime30d < s.slaTarget ? 'bad' : ''}>{s.uptime30d}%</span></span>, sort: s => s.uptime30d - s.slaTarget },
-    { key: 'rev', header: 'Revenue / mo', align: 'right', render: s => <span className="num">{fmtINR(s.revenueMonthly)}</span>, sort: s => s.revenueMonthly }
+    { key: 'sla', header: 'SLA / uptime', align: 'right', render: s => <span className="num">{s.slaTarget}% / <span className={s.uptime30d < s.slaTarget ? 'bad' : ''}>{s.uptime30d}%</span></span>, sort: s => s.uptime30d - s.slaTarget }
   ];
 
   return (

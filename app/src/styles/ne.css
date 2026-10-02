@@ -135,3 +135,6 @@
 }
 .ne-impact { grid-template-columns: minmax(0, 1fr) 360px; }
 @media (max-width: 1280px) { .ne-hw .dt-table th:nth-child(8), .ne-hw .dt-table td:nth-child(8) { display: none; } }
+/* hardware grid: description wraps instead of widening the table */
+.ne-hw .dt-table td .ne-desc { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ne-hw .dt-table td .ent-link.mono { white-space: normal; overflow-wrap: anywhere; }

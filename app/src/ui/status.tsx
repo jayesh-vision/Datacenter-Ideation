@@ -5,16 +5,16 @@ import { CHANGE, DISCOVERY, HEALTH, INCIDENT, LINK_STATE, ROLLOUT, SERVICE, SEVE
 import { Chip } from './kit';
 
 type Sz = 'sm' | 'xs';
-export const RolloutChip = ({ s, size = 'sm' }: { s: RolloutStatus; size?: Sz }) => <Chip tone={ROLLOUT[s].tone} size={size}>{ROLLOUT[s].label}</Chip>;
+export const RolloutChip = ({ s, size = 'sm' }: { s: RolloutStatus; size?: Sz }) => <Chip tone={ROLLOUT[s].tone} size={size} dot>{ROLLOUT[s].label}</Chip>;
 export const SeverityChip = ({ s, size = 'sm' }: { s: Severity; size?: Sz }) => <Chip tone={SEVERITY[s].tone} size={size}>{SEVERITY[s].label}</Chip>;
 export const DiscoveryChip = ({ s, size = 'sm' }: { s: Discovery; size?: Sz }) => <Chip tone={DISCOVERY[s].tone} size={size} dot>{DISCOVERY[s].label}</Chip>;
 export const HealthChip = ({ s, size = 'sm', children }: { s: Health; size?: Sz; children?: ReactNode }) => <Chip tone={HEALTH[s].tone} size={size} dot>{children ?? HEALTH[s].label}</Chip>;
-export const LinkStateChip = ({ s, size = 'xs' }: { s: LinkState; size?: Sz }) => <Chip tone={LINK_STATE[s].tone} size={size}>{LINK_STATE[s].label}</Chip>;
-export const ServiceChip = ({ s, size = 'sm' }: { s: ServiceStatus; size?: Sz }) => <Chip tone={SERVICE[s].tone} size={size}>{SERVICE[s].label}</Chip>;
-export const IncidentChip = ({ s, size = 'sm' }: { s: IncidentStatus; size?: Sz }) => <Chip tone={INCIDENT[s].tone} size={size}>{s}</Chip>;
-export const SevChip = ({ n, size = 'sm' }: { n: number; size?: Sz }) => <Chip tone={SEV_TONE[n]} size={size} solid={n === 1}>SEV{n}</Chip>;
+export const LinkStateChip = ({ s, size = 'xs' }: { s: LinkState; size?: Sz }) => <Chip tone={LINK_STATE[s].tone} size={size} dot>{LINK_STATE[s].label}</Chip>;
+export const ServiceChip = ({ s, size = 'sm' }: { s: ServiceStatus; size?: Sz }) => <Chip tone={SERVICE[s].tone} size={size} dot>{SERVICE[s].label}</Chip>;
+export const IncidentChip = ({ s, size = 'sm' }: { s: IncidentStatus; size?: Sz }) => <Chip tone={INCIDENT[s].tone} size={size} dot>{s}</Chip>;
+export const SevChip = ({ n, size = 'sm' }: { n: number; size?: Sz }) => <Chip tone={SEV_TONE[n]} size={size}>SEV{n}</Chip>;
 export const PriChip = ({ n, size = 'sm' }: { n: number; size?: Sz }) => <Chip tone={SEV_TONE[n]} size={size}>P{n}</Chip>;
-export const ChangeChip = ({ s, size = 'sm' }: { s: ChangeStatus; size?: Sz }) => <Chip tone={CHANGE[s].tone} size={size}>{s}</Chip>;
+export const ChangeChip = ({ s, size = 'sm' }: { s: ChangeStatus; size?: Sz }) => <Chip tone={CHANGE[s].tone} size={size} dot>{s}</Chip>;
 export const SevDot = ({ s }: { s: Severity }) => <i className="sev-dot" style={{ background: SEVERITY[s].color }} title={SEVERITY[s].label} />;
 
 /* utilisation meter: bar + % in a fixed-width row, coloured by threshold */

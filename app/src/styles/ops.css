@@ -188,15 +188,20 @@
    wrap inside a budget instead of pushing the table past its card */
 /* fixed layout is the only thing that stops nowrap cells growing the table past
    its card; percentage widths leave the title column whatever remains */
-.page .dt-table.nst-table { table-layout: fixed; }
+/* auto layout: columns size to their content (no even split of spare width) */
+.page .dt-table.nst-table { table-layout: auto; }
 .page .dt-table td.is-wrap { white-space: normal; }
-/* columns fit the card (measured); clip sub-pixel content spill inside fixed cells without truncating visible text */
-.page .dt-table td:not(.is-wrap) { overflow: hidden; }
+/* auto layout: text cells may wrap so the table fits its card; numbers, ids and pills stay on one line */
+.page .dt-table td { white-space: normal; overflow-wrap: break-word; }
+.page .dt-table td .num, .page .dt-table td .mono, .page .dt-table td .vw-chip, .page .dt-table td .nowrap, .page .dt-table td a.ne-link { white-space: nowrap; }
 .page .dt-table td.is-wrap .cell-2 > .strong { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.page .dt-table td.is-wrap .cell-2 > small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.page .dt-table td .cell-2 > small { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 /* Changes header: actions stay on the title row at 1280 */
 @media (max-width: 1320px) { .page-head p { max-width: 560px; } }
 
 /* fixed-layout tables: pixel widths for chip/id/date columns, wrapping text columns take the remainder */
 .page .dt-table td.is-wrap { white-space: normal; overflow-wrap: anywhere; }
 .page .dt-table td.is-wrap > .strong { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* the descriptive text column (title / name with a subline) keeps a readable width in auto layout */
+.page .dt-table td:has(> .cell-2 > .strong:not(.mono)) { min-width: 220px; }
+@media (max-width: 1280px) { .page .dt-table td:has(> .cell-2 > .strong:not(.mono)) { min-width: 180px; } }

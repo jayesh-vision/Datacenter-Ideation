@@ -133,13 +133,13 @@ export function IncidentDetail() {
             {services.length > 0 && (
               <div id="inc-svcs" className="dt-scroll" style={{ marginTop: 12 }}>
                 <table className="nst-table dt-table inc-svc-table">
-                  <thead><tr><th>Service</th><th>Customer</th><th className="is-right">Bandwidth</th><th>Status</th><th className="is-right">SLA · uptime 30d</th></tr></thead>
+                  <thead><tr><th>Service</th><th>Customer</th><th className="is-right">Size</th><th>Status</th><th className="is-right">Uptime 30 d</th></tr></thead>
                   <tbody>{(allSvc ? svcSorted : svcSorted.slice(0, 8)).map(s => (
                     <tr key={s.id} className="is-click" onClick={() => nav(`/services/${s.id}`)}>
                       <td><span className="cell-2"><SvcLink id={s.id} /><small>{s.type}</small></span></td>
                       <td><span className="cell-2"><CustLink id={s.customerId}>{s.customer.name}</CustLink><small>{s.customer.premium ? <span className="premium-tag">Premium</span> : s.customer.segment}</small></span></td>
                       <td className="is-right num">{fmtQty(s.qty, s.unit)}</td><td><ServiceChip s={s.status} size="xs" /></td>
-                      <td className="is-right num">{s.slaTarget}% · <span className={s.uptime30d < s.slaTarget ? 'bad' : ''}>{s.uptime30d}%</span></td>
+                      <td className="is-right"><span className="cell-2" style={{ alignItems: 'flex-end' }}><span className={`num ${s.uptime30d < s.slaTarget ? 'bad' : ''}`}>{s.uptime30d}%</span><small className="num">target {s.slaTarget}%</small></span></td>
                     </tr>))}</tbody>
                 </table>
                 {services.length > 8 && <button type="button" className="panel-link" style={{ margin: '10px 4px 0' }} onClick={() => setAllSvc(v => !v)}>{allSvc ? 'Show top 8' : `Show all ${services.length} services`}<I.ChevronDown size={14} style={{ transform: allSvc ? 'rotate(180deg)' : undefined }} /></button>}

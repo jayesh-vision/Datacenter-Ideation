@@ -7,7 +7,7 @@ import { usePage, PageHead, Loading } from '../shell/page';
 import { DataTable, type Col } from '../ui/DataTable';
 import { Btn, SearchBox, Tabs } from '../ui/kit';
 import { Fresh, IncidentChip, PriChip, SevChip } from '../ui/status';
-import { fmtDateTime } from '../lib/format';
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format';
 import { OpsKpi, downloadCsv, fmtHm, slaText } from './ops/shared';
 
 type Row = Incident & { sla: { breaching: boolean; resolveLeft: number; responseBreached: boolean; responseMin: number } };
@@ -45,7 +45,7 @@ export function Incidents() {
     { key: 'pri', header: 'Pri', width: 52, render: i => <PriChip n={i.pri} size="xs" />, sort: i => -i.pri },
     { key: 'sla', header: 'SLA', width: 128, render: i => (isOpen(i) ? <span className={`num nowrap ${i.sla.resolveLeft < 0 ? 'bad strong' : i.sla.breaching ? 'warn' : ''}`}>{slaText(i.sla.resolveLeft)}{i.sla.resolveLeft >= 0 && i.sla.responseBreached && <small className="bad" style={{ display: 'block', fontSize: 11 }}>response breached</small>}</span> : <span className="muted num">{i.resolved ? `MTTR ${fmtHm((i.resolved - i.detected) / 60000)}` : '—'}</span>), sort: i => (isOpen(i) ? i.sla.resolveLeft : 1e9) },
     { key: 'owner', header: 'Owner', width: 118, wrap: true, render: i => <span className="strong" style={{ fontWeight: 400 }}>{i.owner}</span>, sort: i => i.owner },
-    { key: 'det', header: 'Detected', width: '15%', render: i => <span className="num nowrap">{fmtDateTime(i.detected)}</span>, sort: i => i.detected }
+    { key: 'det', header: 'Detected', width: '15%', render: i => <span className="cell-2"><span className="num">{fmtDate(i.detected)}</span><small className="num">{fmtTime(i.detected)}</small></span>, sort: i => i.detected }
   ];
   const exportCsv = () => downloadCsv(`incidents-${view}.csv`, [['ID', 'Status', 'Title', 'Type', 'Severity', 'Priority', 'Datacenter', 'Owner', 'Detected', 'Resolved', 'SLA'],
     ...rows.map(i => [i.id, i.status, i.title, i.type, `SEV${i.sev}`, `P${i.pri}`, i.dcId, i.owner, fmtDateTime(i.detected), i.resolved ? fmtDateTime(i.resolved) : '', isOpen(i) ? slaText(i.sla.resolveLeft) : ''])]);
