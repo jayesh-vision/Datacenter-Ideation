@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { getDatacenter, getIncidents, useQuery, clockNow } from '../../api';
@@ -15,6 +15,7 @@ import { Elements } from './Elements';
 import { Details } from './Details';
 import { Equipment } from './Equipment';
 import { Timeline } from './Timeline';
+import { FlagRow } from './FlagRow';
 const Twin = lazy(() => import('./twin/Twin'));
 import '../../styles/site.css';
 import { OpstralBtn } from '../../ui/OpstralMark';
@@ -28,6 +29,8 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'assets', label: 'Assets' }, { id: 'elements', label: 'Equipment' }, { id: 'details', label: 'Power & space' }, { id: 'equipment', label: 'Cabling' }, { id: 'timeline', label: 'Ops log' }
 ];
 
+const FLAG_LABEL: Record<string, string> = { inc: 'incidents', alm: 'alarms', edge: 'edge', net: 'faults', pwr: 'power', cool: 'cooling', pue: 'PUE', svc: 'svc degraded' };
+
 /* Datacenter page (operations): identity + operational KPIs, the 3D twin,
    what needs attention, installed equipment, power & space, cabling, ops log. */
 export function Site() {
@@ -38,6 +41,9 @@ export function Site() {
   usePage([{ label: 'Datacenters', to: '/datacenters' }, { label: id }], { dcId: id });
   const { data, loading } = useQuery(() => getDatacenter(id), [id]);
   const { data: incs } = useQuery(() => getIncidents({ dcId: id, status: 'open' }), [id]);
+  /* header collapse — per-viewer convenience, collapsed by default to give the tabs room */
+  const [compact, setCompact] = useState(() => { try { return localStorage.getItem('dco.site.header') !== 'expanded'; } catch { return true; } });
+  const toggleHead = () => setCompact(c => { try { localStorage.setItem('dco.site.header', c ? 'expanded' : 'compact'); } catch { /* storage blocked */ } return !c; });
   if (loading && !data) return <Loading label="Loading site" />;
   if (!data) return <NotFound what="Datacenter" />;
   const { dc, summary: s } = data;
@@ -72,8 +78,34 @@ export function Site() {
     { k: 'svc', l: 'Services', v: fmtNum(s.services), note: s.servicesDegraded ? `${s.servicesDegraded} degraded` : `${s.customers} customers`, tone: s.servicesDegraded ? 'warn' : 'neutral', icon: I.Waypoints, to: `/services?dc=${dc.id}` }
   ];
 
+  const stateLabel = planned ? 'Planned' : siteState === 'critical' ? 'Critical' : siteState === 'attention' ? 'Needs attention' : 'Normal';
+  const flagged = kpis.filter(x => x.tone !== 'neutral');
+  const collapseBtn = <button type="button" className="nst-btn nst-btn--sm nst-btn--icon dch-toggle" title={compact ? 'Show site details and KPIs' : 'Collapse site header'} aria-expanded={!compact} onClick={toggleHead}>{compact ? <I.ChevronDown size={16} /> : <I.ChevronUp size={16} />}</button>;
+
   return (
     <div className="page site">
+      {compact ? (
+      <section className="vw-card-section dch-bar">
+        <span className="dch-bar-ic"><I.Building2 size={16} /></span>
+        <h1 className="dch-bar-name" title={`${dc.address}, ${dc.city}, ${dc.state}`}>{dc.name}</h1>
+        <RolloutChip s={dc.status} />
+        <span className={`dch-state dch-bar-state is-${planned ? 'ok' : siteState}`}><i />{stateLabel}</span>
+        {planned ? <div className="dch-bar-flags"><span className="vw-footer-meta">site not live</span></div> : <FlagRow
+          items={[
+            ...flagged.map(x => ({ key: x.k, node: <Link to={x.to} className={`vw-chip ${x.tone === 'negative' ? 'vw-chip--error' : 'vw-chip--warning'} dch-flag`} title={`${x.l}: ${x.v} · ${x.note}`}><x.icon size={13} /><b>{x.k === 'svc' ? String(s.servicesDegraded) : x.v}</b> {FLAG_LABEL[x.k]}</Link> })),
+            ...(staleCol.length ? [{ key: 'stale', node: <span className="vw-chip vw-chip--warning dch-flag" title={`${staleCol.map(c => c.name).join(', ')} stale — telemetry older than the 15-minute freshness SLA`}><I.TriangleAlert size={13} />collector stale</span> }] : [])
+          ]}
+          more={k => <button type="button" className="vw-chip vw-chip--neutral dch-flag" title="Show all site KPIs" onClick={toggleHead}>+{k} more</button>}
+          empty={<span className="vw-footer-meta"><I.CircleCheck size={13} /> all KPIs normal</span>} />}
+        <div className="dch-bar-actions">
+          <Btn icon={I.Network} title="Topology" onClick={() => nav(`/topology?dc=${dc.id}`)} disabled={!s.discovered} />
+          <Btn icon={I.Zap} title="Facilities" onClick={() => nav(`/facilities?dc=${dc.id}`)} />
+          <Btn icon={I.ArrowLeftRight} title="Changes & maintenance" onClick={() => nav(`/changes?dc=${dc.id}`)} />
+          <OpstralBtn title="Ask Opstral AI about this datacenter" onClick={() => ask(`What is at risk in ${dc.id}?`)}>Opstral AI</OpstralBtn>
+          {collapseBtn}
+        </div>
+      </section>
+      ) : <>
       <section className="vw-card-section dch">
         <div className="dch-top">
           <span className="vw-card-icon-lg dch-ic"><I.Building2 size={22} /></span>
@@ -95,7 +127,7 @@ export function Site() {
           </div>
           <div className="dch-health">
             <span className="vw-card-metric-label">Site status</span>
-            <span className={`dch-state is-${planned ? 'ok' : siteState}`}><i />{planned ? 'Planned' : siteState === 'critical' ? 'Critical' : siteState === 'attention' ? 'Needs attention' : 'Normal'}</span>
+            <span className={`dch-state is-${planned ? 'ok' : siteState}`}><i />{stateLabel}</span>
             <span className="vw-footer-meta" title="Average health score of the site's discovered devices">{planned ? 'not live' : `device health ${s.healthScore}/100`}</span>
           </div>
           <div className="dch-actions">
@@ -104,6 +136,7 @@ export function Site() {
             <Btn icon={I.ArrowLeftRight} onClick={() => nav(`/changes?dc=${dc.id}`)}>Changes</Btn>
             <OpstralBtn title="Ask Opstral AI about this datacenter" onClick={() => ask(`What is at risk in ${dc.id}?`)}>Opstral AI</OpstralBtn>
           </div>
+          {collapseBtn}
         </div>
         {staleCol.length > 0 && <div className="note note--warn"><I.TriangleAlert size={15} />{staleCol.map(c => c.name).join(', ')} stale — telemetry for part of this site is older than the 15-minute freshness SLA.</div>}
       </section>
@@ -117,6 +150,7 @@ export function Site() {
           </Link>
         ))}
       </div>
+      </>}
 
       <div className="row between wrap" style={{ gap: 12 }}>
         <div className="pills" role="tablist">

@@ -185,6 +185,19 @@ a.tl-body:hover b { color: var(--primary-700); }
 .dch-state i { width: 10px; height: 10px; border-radius: 50%; background: var(--vw-color-emerald-500); }
 .dch-state.is-attention { color: var(--vw-color-amber-700); } .dch-state.is-attention i { background: var(--vw-color-amber-500); }
 .dch-state.is-critical { color: var(--vw-color-red-700); } .dch-state.is-critical i { background: var(--vw-color-red-500); }
+.dch-toggle { align-self: flex-start; flex-shrink: 0; }
+.dch-bar { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 16px; min-width: 0; }
+.dch-bar-ic { width: 30px; height: 30px; border-radius: var(--vw-radius-sm); display: grid; place-items: center; background: var(--vw-color-slate-100); color: var(--vw-color-gray-700); flex-shrink: 0; }
+.dch-bar-name { margin: 0; font-size: var(--vw-font-heading-md); font-weight: 600; color: var(--vw-color-gray-900); white-space: nowrap; }
+.dch-bar-state { font-size: 14px; padding-left: 12px; border-left: 1px solid var(--vw-color-slate-200); }
+.dch-bar-state i { width: 8px; height: 8px; }
+.dch-bar-flags { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; overflow: hidden; padding-left: 12px; border-left: 1px solid var(--vw-color-slate-200); }
+.dch-bar-flags .vw-footer-meta { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.dch-flag-wrap { display: inline-flex; flex-shrink: 0; }
+.dch-flag { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; text-decoration: none; cursor: pointer; flex-shrink: 0; }
+.dch-flag b { font-weight: 600; }
+button.dch-flag { border: 0; font: inherit; font-size: inherit; }
+.dch-bar-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .dch-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .dch-kpis { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: var(--vw-space-sm); }
 .dch-kpi { display: flex; flex-direction: column; gap: 8px; padding: var(--vw-space-md); color: inherit; text-decoration: none; min-width: 0; position: relative; overflow: hidden; }
