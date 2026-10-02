@@ -24,7 +24,7 @@ export function Sentinel({ open, onClose, ctx, initial }: { open: boolean; onClo
 
   return (
     <Drawer open={open} onClose={onClose} width={500}
-      title={<span className="row" style={{ gap: 8 }}><span className="sentinel-ico"><I.Sparkles size={15} /></span>Sentinel</span>}
+      title={<span className="row" style={{ gap: 8 }}><span className="sentinel-ico"><I.Sparkles size={15} /></span>Opstral AI</span>}
       sub={<>Answers from live inventory, telemetry, topology and change records{focus ? <> · focused on <b className="mono">{focus}</b></> : null}</>}
       foot={
         <form className="sentinel-input" onSubmit={e => { e.preventDefault(); ask(q); }}>

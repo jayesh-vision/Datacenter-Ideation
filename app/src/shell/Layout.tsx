@@ -99,7 +99,7 @@ export function Layout() {
             </nav>
             <div className="topbar-spacer" />
             <button type="button" className="topbar-search" onClick={() => setPalette(true)}><I.Search size={15} /><span className="ellipsis">Search estate…</span><kbd>⌘K</kbd></button>
-            <button type="button" className="sentinel-btn" onClick={() => openSentinel()}><I.Sparkles size={15} />Ask Sentinel</button>
+            <button type="button" className="sentinel-btn" onClick={() => openSentinel()}><I.Sparkles size={15} />Ask Opstral AI</button>
             <span className="topbar-clock" title="Mock operations clock — data is a deterministic snapshot"><span className="live-dot" />{fmtDow(now)} {fmtShortDate(now)} · {fmtTime(now)}</span>
             <button type="button" className="nst-icon-btn topbar-icon" title="Critical & major alarms" onClick={() => setBell(true)}><I.Bell size={17} />{crit.length > 0 && <span className="count">{crit.length > 9 ? '9+' : crit.length}</span>}</button>
             <span className="avatar-me" title={`${CURRENT_USER} · Global operations`}>JV</span>

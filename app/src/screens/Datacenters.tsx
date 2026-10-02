@@ -69,7 +69,7 @@ export function Datacenters() {
           <h1 className="vw-page-title">Datacenters</h1>
           <p className="vw-page-description" style={{ margin: '2px 0 0' }}>{all.n} live datacenters · {all.inc} open incidents · {all.alarms} active alarms · {all.fac} with a facility issue</p>
         </div>
-        <button type="button" className="nst-btn nst-btn--sm nst-btn--filled" onClick={() => ask('Which datacenter needs attention first?')}><I.Sparkles size={15} />Ask Sentinel</button>
+        <button type="button" className="nst-btn nst-btn--sm nst-btn--filled" onClick={() => ask('Which datacenter needs attention first?')}><I.Sparkles size={15} />Ask Opstral AI</button>
       </div>
 
       <div className="dcl-regions">

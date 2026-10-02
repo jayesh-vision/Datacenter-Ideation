@@ -7,7 +7,8 @@ fail=0
 step() { echo "== $1"; }
 step typecheck; npx tsc -b || fail=1
 step routes;    node .qa/all.mjs | tail -1 || fail=1
-for f in twin twin-full site-interact ne-interact ops-flow wall; do
+# digital twin is signed off: its (slow, software-GL) tests are not part of the routine suite
+for f in site-interact ne-interact ops-flow wall; do
   step "$f"
   out=$(node .qa/$f.mjs 2>&1)
   p=$(echo "$out" | grep -c '^PASS'); q=$(echo "$out" | grep -c '^FAIL')

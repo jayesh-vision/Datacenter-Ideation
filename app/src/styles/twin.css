@@ -78,7 +78,6 @@
 .twin-reset { background: var(--vw-color-white); }
 
 /* full screen: canvas fills the viewport, panel stays on the right */
-.twin.is-full { position: fixed; inset: 0; z-index: 900; background: var(--vw-color-slate-50); padding: var(--vw-space-md); height: 100vh; }
+.twin.is-full { position: fixed; top: var(--top-h); left: var(--rail-w); right: 0; bottom: 0; z-index: 40; background: var(--vw-color-slate-50); padding: var(--vw-space-md); height: auto; }
 .twin.is-full .twin-main, .twin.is-full .twin-canvas { height: 100%; }
-.twin.is-full .twin-side { max-height: calc(100vh - 2 * var(--vw-space-md)); overflow-y: auto; }
-.twin:fullscreen { background: var(--vw-color-slate-50); }
+.twin.is-full .twin-side { max-height: calc(100vh - var(--top-h) - 2 * var(--vw-space-md)); overflow-y: auto; }

@@ -31,10 +31,9 @@ export default function Twin({ dcId }: { dcId: string }) {
   const [full, setFull] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const onFs = () => { if (!document.fullscreenElement) setFull(false); };
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setFull(false); };
-    document.addEventListener('fullscreenchange', onFs); window.addEventListener('keydown', onKey);
-    return () => { document.removeEventListener('fullscreenchange', onFs); window.removeEventListener('keydown', onKey); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, []);
   const posRef = useRef<PosMap>(new Map());
   const L = useMemo(() => (data ? buildLayout(data.dc, data.nes) : null), [data]);
@@ -68,12 +67,9 @@ export default function Twin({ dcId }: { dcId: string }) {
   ];
   /* full screen: the whole twin (canvas + panel) so navigation stays available;
      native Fullscreen API when allowed, CSS overlay fallback otherwise */
-  const toggleFull = () => {
-    const el = rootRef.current; if (!el) return;
-    if (full) { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); setFull(false); return; }
-    setFull(true);
-    if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
-  };
+  /* expanded view fills the application content area (header and left menu
+     stay visible); not the browser's native full screen */
+  const toggleFull = () => setFull(f => !f);
   const legend = LAYERS.find(l => l.id === layer)!.legend;
 
   return (
@@ -85,7 +81,7 @@ export default function Twin({ dcId }: { dcId: string }) {
           {/* only view controls live on the canvas; navigation is the panel's path and lists */}
           <div className="twin-tools">
             <Seg size="sm" value={layer} onChange={setLayer} options={LAYERS.map(l => ({ id: l.id, label: l.label }))} />
-            <button type="button" className="nst-icon-btn twin-reset" title={full ? 'Exit full screen (Esc)' : 'Full screen'} aria-label={full ? 'Exit full screen' : 'Full screen'} aria-pressed={full} data-twin="fullscreen" onClick={toggleFull}>{full ? <I.Minimize2 size={15} /> : <I.Maximize2 size={15} />}</button>
+            <button type="button" className="nst-icon-btn twin-reset" title={full ? 'Exit expanded view (Esc)' : 'Expand view'} aria-label={full ? 'Exit expanded view' : 'Expand view'} aria-pressed={full} data-twin="fullscreen" onClick={toggleFull}>{full ? <I.Minimize2 size={15} /> : <I.Maximize2 size={15} />}</button>
             <button type="button" className="nst-icon-btn twin-reset" title="Reset view" aria-label="Reset view" data-twin="reset" onClick={() => setSel({ floor: null, room: null, rack: null, ne: null })}><I.RotateCcw size={15} /></button>
           </div>
           {hover && <div className="twin-tip" role="status"><b>{hover.title}</b><span>{hover.sub}</span></div>}

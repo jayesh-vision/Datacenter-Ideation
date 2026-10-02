@@ -59,7 +59,7 @@ export function IncidentDetail() {
           {open && <Btn icon={I.CircleCheck} disabled={!checksOk} onClick={resolveAll} title={checksOk ? 'All closure checks passed' : 'Run closure checks first — every check must pass before resolving (DC-OPS-008)'}>Resolve</Btn>}
           {inc.status === 'Resolved' && <Btn variant="filled" icon={I.Archive} onClick={() => advanceIncident(inc.id)}>Close incident</Btn>}
           {open && <Btn icon={I.PencilLine} onClick={async () => { const c = await raiseEmergencyChange(inc.id); toast.show(`Emergency change ${c} raised`, 'Pending approval · scope taken from the affected devices.', { to: `/changes?id=${c}`, label: 'Open change' }); }}>Raise emergency change</Btn>}
-          <Btn icon={I.Sparkles} onClick={() => ask(`What changed before ${inc.id}?`)}>Ask Sentinel</Btn>
+          <Btn icon={I.Sparkles} onClick={() => ask(`What changed before ${inc.id}?`)}>Ask Opstral AI</Btn>
           <span className="grow" />
           {!checksOk && open && <span className="faint" style={{ fontSize: 12 }}><I.Lock size={12} style={{ verticalAlign: -2 }} /> Resolve unlocks after closure checks pass</span>}
         </div>

@@ -7,7 +7,7 @@ ok('default tab overview', (await p.locator('.pill.is-active').innerText()).star
 // header: operations KPIs, discovery moved to the actions menu
 ok('header shows 8 operations KPIs', await p.locator('.dch-kpi').count() === 8);
 // operations scope: no discovery action, no finance tabs, equipment = installed devices
-await p.locator('.dch-actions button[aria-label="Actions"]').click(); ok('no Run discovery action', await p.locator('.menu-item', { hasText: 'Run discovery' }).count() === 0); await p.locator('.dch-actions button[aria-label="Actions"]').click();
+{ const acts = (await p.locator('.dch-actions .nst-btn').allInnerTexts()).map(t => t.trim()); ok(`header actions as 2x2 grid, no kebab (${acts.join(' | ')})`, acts.join('|') === 'Topology|Facilities|Changes|Opstral AI' && await p.locator('.dch-actions button[aria-label="More actions"]').count() === 0); ok('no Run discovery action', !acts.some(a => /discovery/i.test(a))); }
 ok('no Capex / Opex tabs', await p.locator('.pill', { hasText: /^Capex|^Opex/ }).count() === 0);
 const eqCount = Number((await p.locator('.pill', { hasText: 'Equipment' }).locator('.count').innerText()).replace(/,/g, ''));
 ok(`equipment tab counts installed devices (${eqCount} of 179)`, eqCount === 131);

@@ -540,8 +540,8 @@ export function addWorklog(id: string, text: string) { const i = db.incidents.fi
 export function setAction(incId: string, stepId: string, to: ActionStep['status']) {
   const i = db.incidents.find(x => x.id === incId); const s = i?.actions.find(a => a.id === stepId); if (!i || !s) return;
   s.status = to;
-  i.worklog.push({ at: db.now, who: to === 'awaiting-approval' ? 'Sentinel' : ME, text: `${s.step} — ${to.replace('-', ' ')}.`, kind: to === 'awaiting-approval' ? 'ai' : 'human' });
-  if (to === 'done' && i.actions.every(a => a.status === 'done' || a.status === 'rejected')) i.worklog.push({ at: db.now, who: 'Sentinel', text: 'All actions complete — run closure checks before resolving.', kind: 'ai' });
+  i.worklog.push({ at: db.now, who: to === 'awaiting-approval' ? 'Opstral AI' : ME, text: `${s.step} — ${to.replace('-', ' ')}.`, kind: to === 'awaiting-approval' ? 'ai' : 'human' });
+  if (to === 'done' && i.actions.every(a => a.status === 'done' || a.status === 'rejected')) i.worklog.push({ at: db.now, who: 'Opstral AI', text: 'All actions complete — run closure checks before resolving.', kind: 'ai' });
   changed();
 }
 export function runVerification(incId: string) {

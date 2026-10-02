@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import * as I from 'lucide-react';
 import { getDatacenter, getIncidents, useQuery, clockNow } from '../../api';
 import { usePage, Loading, useSentinel } from '../../shell/page';
-import { Btn, Chip, Menu } from '../../ui/kit';
+import { Btn, Chip } from '../../ui/kit';
 import { RolloutChip, Fresh } from '../../ui/status';
 import { fmtAgo, fmtNum } from '../../lib/format';
 import { NotFound } from '../NotFound';
@@ -81,9 +81,8 @@ export function Site() {
               <Chip tone="neutral">{dc.category}</Chip>
             </div>
             <div className="vw-card-description dch-sub">
-              <span><I.MapPin size={13} />{dc.address}, {dc.city}, {dc.state}</span>
+              <span title={`${dc.lat.toFixed(3)}°N ${dc.lng.toFixed(3)}°E`}><I.MapPin size={13} />{dc.address}, {dc.city}, {dc.state}</span>
               <span>{dc.zone} zone</span>
-              <span>{dc.lat.toFixed(3)}°N {dc.lng.toFixed(3)}°E</span>
             </div>
             <div className="vw-footer-meta dch-col" title="Telemetry collectors">
               <span>Collectors</span>
@@ -97,11 +96,9 @@ export function Site() {
           </div>
           <div className="dch-actions">
             <Btn icon={I.Network} onClick={() => nav(`/topology?dc=${dc.id}`)} disabled={!s.discovered}>Topology</Btn>
-            <Btn variant="filled" icon={I.Sparkles} onClick={() => ask(`What is at risk in ${dc.id}?`)}>Ask Sentinel</Btn>
-            <Menu items={[
-              { label: 'Facilities', icon: I.Zap, onClick: () => nav(`/facilities?dc=${dc.id}`) },
-              { label: 'Change & maintenance', icon: I.ArrowLeftRight, onClick: () => nav(`/changes?dc=${dc.id}`) }
-            ]} />
+            <Btn icon={I.Zap} onClick={() => nav(`/facilities?dc=${dc.id}`)}>Facilities</Btn>
+            <Btn icon={I.ArrowLeftRight} onClick={() => nav(`/changes?dc=${dc.id}`)}>Changes</Btn>
+            <Btn variant="filled" icon={I.Sparkles} title="Ask Opstral AI about this datacenter" onClick={() => ask(`What is at risk in ${dc.id}?`)}>Opstral AI</Btn>
           </div>
         </div>
         {staleCol.length > 0 && <div className="note note--warn"><I.TriangleAlert size={15} />{staleCol.map(c => c.name).join(', ')} stale — telemetry for part of this site is older than the 15-minute freshness SLA.</div>}

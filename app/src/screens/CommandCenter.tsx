@@ -89,7 +89,7 @@ function Situation({ d }: { d: CC }) {
         </div>
         <div className="vw-flex vw-gap-sm">
           <button type="button" className="nst-btn nst-btn--sm" onClick={() => setWall(true)}><I.LayoutGrid size={15} />Datacenter overview<span className="vw-chip vw-chip--neutral cmd-btn-chip">{d.dcMap.length}</span></button>
-          <button type="button" className="nst-btn nst-btn--sm nst-btn--filled" onClick={() => ask('What is at risk in the estate right now?')}><I.Sparkles size={15} />Ask Sentinel</button>
+          <button type="button" className="nst-btn nst-btn--sm nst-btn--filled" onClick={() => ask('What is at risk in the estate right now?')}><I.Sparkles size={15} />Ask Opstral AI</button>
         </div>
       </div>
 
@@ -330,7 +330,7 @@ const REC_ICON: Record<string, { icon: I.LucideIcon; tone: string; cta: string }
 function Recommendations({ d }: { d: CC }) {
   const ask = useSentinel();
   return (
-    <Panel title="What to do next" sub="Sentinel's ranked actions — disruptive steps stay approval-gated (DC-AI-006/007)" icon={I.Sparkles}
+    <Panel title="What to do next" sub="Opstral AI's ranked actions — disruptive steps stay approval-gated (DC-AI-006/007)" icon={I.Sparkles}
       actions={<button type="button" className="panel-link" onClick={() => ask('What should we do first?')}>Ask why<I.ChevronRight size={14} /></button>}>
       <div>
         {d.recommendations.map((r, k) => {

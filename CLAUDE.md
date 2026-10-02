@@ -64,3 +64,7 @@ impact on incidents, devices and sites. Revenue is not shown anywhere operationa
 Hero card = health ring + verdict + 4 areas as rows (left) and the live DcMap (right); one `.vitals` strip of 6 metrics with
 24 h sparklines (`commandCenter().trends`); then Critical now cards; then ImpactBoard | Recommendations, Exposure | Causes, 7-day board.
 Don't reintroduce rows of boxed KPI tiles on the landing page.
+
+## Testing cadence (user, 02-Oct-2026)
+Small change → verify only the affected screen (screenshot/measure at 1440 and 1280). Full suite `app/.qa/regress.sh` only on request
+or before push/deploy. Digital twin is final: don't edit `src/screens/site/twin/*`, don't run `twin.mjs` / `twin-full.mjs`.

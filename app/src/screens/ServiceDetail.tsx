@@ -50,7 +50,7 @@ export function ServiceDetail() {
     <div className="page">
       <PageHead title={<span className="mono">{s.id}</span>} chips={<><ServiceChip s={s.status} /><Chip tone={TYPE_TONE[s.type]}>{s.type}</Chip>{s.critical && <Chip tone="purple">Premium</Chip>}</>}
         sub={<><CustLink id={c.id}>{c.name}</CustLink> · {c.plan} · delivered from <DcLink id={s.dcId} /> ({dc.city})</>}
-        actions={<Btn icon={I.Sparkles} onClick={() => ask(`What services depend on ${bh?.id ?? ne.id}?`)}>Ask Sentinel</Btn>} />
+        actions={<Btn icon={I.Sparkles} onClick={() => ask(`What services depend on ${bh?.id ?? ne.id}?`)}>Ask Opstral AI</Btn>} />
 
       <div className="kpis kpis-5">
         <Kpi label="Bandwidth" value={fmtBw(s.bandwidthMbps)} icon={I.Gauge} tone="info" basis={`handoff ${s.ifName}`} />
