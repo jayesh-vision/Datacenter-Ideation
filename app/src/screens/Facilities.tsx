@@ -4,7 +4,7 @@ import * as I from 'lucide-react';
 import { clockNow, getAlerts, getChanges, getDatacenter, getDatacenters, useQuery } from '../api';
 import type { Datacenter, Rack } from '../api/types';
 import { usePage, PageHead, Loading, useSentinel } from '../shell/page';
-import { Btn, Chip, Panel, Tabs, Empty } from '../ui/kit';
+import { Chip, Panel, Tabs, Empty } from '../ui/kit';
 import { ChangeChip, DcLink, IncLink, Meter, RolloutChip, SeverityChip, Fresh } from '../ui/status';
 import { fmtAgo, fmtDate, fmtDateTime, fmtKw, fmtNum } from '../lib/format';
 import { OpsKpi } from './ops/shared';

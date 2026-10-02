@@ -30,7 +30,7 @@ export function IconBtn({ icon: I, title, onClick, active, size = 16 }: { icon: 
 }
 
 export function Panel({ title, sub, icon: I, count, actions, children, flush, foot, className = '', style }: {
-  title?: ReactNode; sub?: ReactNode; icon?: ComponentType<{ size?: number }>; count?: number | string; actions?: ReactNode; children: ReactNode; flush?: boolean; foot?: ReactNode; className?: string; style?: CSSProperties;
+  title?: ReactNode; sub?: ReactNode; icon?: ComponentType<{ size?: number; className?: string }>; count?: number | string; actions?: ReactNode; children: ReactNode; flush?: boolean; foot?: ReactNode; className?: string; style?: CSSProperties;
 }) {
   return (
     <section className={`panel vw-card-section ${className}`} style={style}>

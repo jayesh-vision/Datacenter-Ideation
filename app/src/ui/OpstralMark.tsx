@@ -21,6 +21,6 @@ export function OpstralBtn({ onClick, title, children = 'Ask Opstral AI' }: { on
 }
 
 /* Small in-page marker for AI-originated content (panel icon, worklog, recommendation). */
-export function OpstralBadge({ size = 15 }: { size?: number }) {
+export function OpstralBadge({ size = 15 }: { size?: number; className?: string }) {
   return <span className="opstral-badge" style={{ width: size + 5, height: size + 5 }}><OpstralMark size={size} /></span>;
 }

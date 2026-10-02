@@ -4,7 +4,7 @@ import { getCustomer, useQuery } from '../api';
 import type { Customer, Service } from '../api/types';
 import { usePage, PageHead, Loading, useSentinel } from '../shell/page';
 import { DataTable, type Col } from '../ui/DataTable';
-import { Btn, Chip, Kpi, Panel, Empty, KV } from '../ui/kit';
+import { Chip, Kpi, Panel, Empty, KV } from '../ui/kit';
 import { DcLink, IncLink, IncidentChip, Meter, NeLink, ServiceChip, SevChip } from '../ui/status';
 import { fmtBw, fmtINR } from '../lib/format';
 import { TYPE_TONE, atRisk } from './Services';
