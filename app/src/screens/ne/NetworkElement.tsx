@@ -63,21 +63,13 @@ export function NetworkElement() {
           <div><dt>IP address</dt><dd>{ne.ip}</dd></div>
           <div><dt>MAC address</dt><dd>{ne.mac}</dd></div>
         </dl>
-        {ne.discovery === 'drifted' && ne.drift && (
-          <div className="note note--warn ne-banner">
-            <I.GitCompareArrows size={16} />
-            <div style={{ flex: 1 }}>
-              <b>Record drifted from the network.</b> {ne.drift.map(d => <span key={d.attr} className="ne-drift"><span className="muted">{d.attr}</span> <s className="mono">{d.record}</s> → <span className="mono">{d.observed}</span></span>)}
-              {ne.duplicateSerialOf && <span> Serial also reported by <Link className="ent-link mono" to={`/ne/${ne.duplicateSerialOf}`}>{ne.duplicateSerialOf}</Link>.</span>}
-            </div>
-            <Link className="nst-btn nst-btn--xs" to={`/datacenters/${ne.dcId}?tab=elements&disc=drifted`}>Drifted elements</Link>
-          </div>
-        )}
         {nd && (
           <div className="note note--bad ne-banner">
             <I.SearchX size={16} />
-            <div style={{ flex: 1 }}><b>Not discovered.</b> On record but never seen by a collector — {ND_REASON[ne.ndReason ?? 'planned'].toLowerCase()}. Telemetry, links and services appear once it is discovered and reconciled.</div>
-            <Link className="nst-btn nst-btn--xs" to={`/datacenters/${ne.dcId}?tab=elements&disc=not-discovered`}>Undiscovered elements</Link>
+            <div style={{ flex: 1 }}>{ne.ndReason === 'planned'
+              ? <><b>Planned — not installed.</b> Rack space {ne.rackId.split('-').slice(-1)[0]} · U{ne.u} is reserved for this device; it has no telemetry, links or services yet.</>
+              : <><b>Not monitored.</b> Installed but no collector reports its telemetry ({ND_REASON[ne.ndReason ?? 'no-collector'].toLowerCase()}). Health, alarms and links are unknown — a monitoring blind spot.</>}</div>
+            <Link className="nst-btn nst-btn--xs" to={ne.ndReason === 'planned' ? `/datacenters/${ne.dcId}?tab=overview` : `/datacenters/${ne.dcId}?tab=elements&view=unmonitored`}>{ne.ndReason === 'planned' ? 'Site overview' : 'Unmonitored devices'}</Link>
           </div>
         )}
       </section>

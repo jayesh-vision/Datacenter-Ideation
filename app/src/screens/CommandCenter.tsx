@@ -8,7 +8,7 @@ import { StackBar } from '../ui/status';
 import { Sparkline } from '../charts/Sparkline';
 import { DcMap, type DcPin } from './overview/DcMap';
 import { ROLLOUT } from '../lib/vocab';
-import { fmtAgo, fmtDow, fmtDur, fmtINR, fmtNum, fmtShortDate, fmtTime } from '../lib/format';
+import { fmtAgo, fmtDow, fmtDur, fmtNum, fmtShortDate, fmtTime } from '../lib/format';
 import { DAY } from '../mock/seed';
 import '../styles/command.css';
 
@@ -82,7 +82,7 @@ function Situation({ d }: { d: CC }) {
     { k: 'sla', v: String(p.breaching), l: 'Past SLA', note: p.breaching ? `of ${p.open} open` : 'none overdue', tone: p.breaching ? 'negative' : 'neutral', to: '/incidents?view=breaching' },
     { k: 'alm', v: String(p.critMajor), l: 'Major+ alarms', note: 'critical and major', tone: 'neutral', to: '/alerts?sev=critical' },
     { k: 'links', v: String(p.linksDown), l: 'Links down', note: `of ${fmtNum(s.lldp)} physical`, tone: 'neutral', to: '/alerts?q=Link%20Down' },
-    { k: 'svc', v: String(p.servicesDegraded), l: 'Services degraded', note: `of ${fmtNum(s.services)} services`, tone: 'neutral', to: '/services?status=Degraded' },
+    { k: 'svc', v: String(p.servicesDegraded), l: 'Services degraded', note: `of ${fmtNum(s.services)} services`, tone: 'neutral', to: '/incidents' },
     { k: 'avail', v: `${p.availability}%`, l: 'Availability', note: `${p.unreachable} unreachable`, tone: 'neutral', to: '/alerts?q=Unreachable' },
     { k: 'power', v: String(p.facilityAlarms), l: 'Facility alarms', note: 'power and cooling', tone: p.facilityAlarms ? 'negative' : 'neutral', to: '/alerts?source=Power' },
     { k: 'slam', v: String(p.activeChanges), l: 'Changes in progress', note: 'open now', tone: 'neutral', to: '/changes?status=In%20progress' }
@@ -116,10 +116,10 @@ function Situation({ d }: { d: CC }) {
               { v: s.n1, l: 'SEV1 open', to: '/incidents?view=sev1', tone: s.n1 > 0 ? 'hot' : '' },
               { v: s.n2, l: 'SEV2 open', to: '/incidents', tone: s.n2 > 0 ? 'warn' : '' },
               { v: s.critSites, l: 'DCs affected', to: '/datacenters?view=incidents', tone: '' },
-              { v: s.exposedPremium, l: 'Premium hit', to: '/customers?exposed=1', tone: '' },
-              { v: fmtINR(s.revenueAtRisk), l: 'Revenue at risk', to: '/services?status=Degraded', tone: '' }
+              { v: s.exposedPremium, l: 'Premium hit', to: '/incidents', tone: '' },
+              { v: s.exposedServices, l: 'Services hit', to: '/incidents', tone: s.exposedServices ? 'warn' : '' }
             ].map(x => (
-              <Link key={x.l} to={x.to} title={x.l === 'Revenue at risk' ? 'Monthly revenue on degraded services' : x.l} className={`ops-count${x.tone ? ` is-${x.tone}` : ''}`}>
+              <Link key={x.l} to={x.to} title={x.l} className={`ops-count${x.tone ? ` is-${x.tone}` : ''}`}>
                 <i /><span className="vw-card-metric-lg">{x.v}</span><span className="vw-label">{x.l}</span>
               </Link>
             ))}
@@ -207,7 +207,7 @@ function Situation({ d }: { d: CC }) {
                   <div className="ci-impact">
                     <div><span className="vw-card-metric-sm">{i.impact.services}</span><span className="vw-label">services</span></div>
                     <div><span className="vw-card-metric-sm">{i.impact.premium}</span><span className="vw-label">premium</span></div>
-                    <div><span className="vw-card-metric-sm">{i.impact.services ? fmtINR(i.impact.revenueAtRisk) : '—'}</span><span className="vw-label">per month</span></div>
+                    <div><span className="vw-card-metric-sm">{i.impact.customers}</span><span className="vw-label">customers</span></div>
                   </div>
                   <div className="ci-sla">
                     <div className="ci-sla-row">
@@ -291,7 +291,7 @@ function ImpactBoard({ d }: { d: CC }) {
             <div style={{ minWidth: 0 }}>
               <div className="t">{i.title}</div>
               <div className="m"><span className="mono">{i.id}</span><span>·</span><span>{i.dcId}</span><span>·</span><span>{i.owner}</span><span>·</span><span>{i.status}</span></div>
-              <div className="imp">{i.impact.services ? <>{i.impact.services} services · <b>{i.impact.premium} premium</b> · {fmtINR(i.impact.revenueAtRisk)}/mo at risk</> : <span className="faint">no customer service on the affected scope</span>}</div>
+              <div className="imp">{i.impact.services ? <>{i.impact.services} services · {i.impact.customers} customers · <b>{i.impact.premium} premium</b></> : <span className="faint">no customer service on the affected scope</span>}</div>
             </div>
             <SlaCell left={i.sla.resolveLeft} total={i.resolveSlaMin} breaching={i.sla.breaching} />
           </Link>
@@ -309,11 +309,10 @@ function ImpactBoard({ d }: { d: CC }) {
 
 function Exposure({ d }: { d: CC }) {
   const st = d.svcStatus;
-  const maxRev = Math.max(1, ...d.exposedCustomers.map(c => c.revenue));
   return (
     <Panel title="Who is affected" sub="Customer exposure from degraded services" icon={I.Users}
-      actions={<Link to="/customers?exposed=1" className="panel-link">Customers<I.ChevronRight size={14} /></Link>}>
-      <div className="expo-top"><span className="big">{fmtINR(d.situation.revenueAtRisk)}</span><span className="sub">/ month of service revenue on degraded paths</span></div>
+      actions={<Link to="/incidents" className="panel-link">Incidents<I.ChevronRight size={14} /></Link>}>
+      <div className="expo-top"><span className="big">{d.situation.exposedServices}</span><span className="sub">services degraded · {d.exposedCustomers.length} customers affected</span></div>
       <div className="col" style={{ gap: 6, marginTop: 10 }}>
         <StackBar height={8} parts={[{ value: st.Active, color: C.soft, label: 'Active' }, { value: st.Degraded, color: C.warn, label: 'Degraded' }, { value: st.Down, color: C.bad, label: 'Down' }, { value: st.Disabled, color: C.track, label: 'Disabled' }]} />
         <div className="row between" style={{ fontSize: 11.5, color: 'var(--ink-500)' }}><span><b className="num" style={{ color: 'var(--ink-800)' }}>{fmtNum(st.Active)}</b> active</span><span><b className="num" style={{ color: 'var(--ink-800)' }}>{st.Degraded}</b> degraded</span><span><b className="num" style={{ color: 'var(--ink-800)' }}>{st.Down}</b> down</span><span><b className="num">{st.Disabled}</b> disabled</span></div>
@@ -325,9 +324,8 @@ function Exposure({ d }: { d: CC }) {
             <div style={{ minWidth: 0 }}>
               <div className="n"><span>{c.name}</span>{c.premium && <Chip tone="neutral" size="xs">Premium</Chip>}</div>
               <div className="s">{c.services} service{c.services === 1 ? '' : 's'} degraded · SLA {c.minSla}% · {c.segment}</div>
-              <div className="bar" style={{ height: 4, marginTop: 5, width: `${Math.max(8, (c.revenue / maxRev) * 100)}%` }}><i style={{ width: '100%', background: c.premium ? C.accent : C.soft }} /></div>
             </div>
-            <div className="r">{fmtINR(c.revenue)}<small>per month</small></div>
+            <div className="r">{c.services}<small>degraded</small></div>
           </Link>
         ))}
         {!d.exposedCustomers.length && <div className="wk-empty">No customer currently rides a degraded service.</div>}

@@ -13,11 +13,12 @@ const KIND: Record<TimelineEvent['kind'], { label: string; icon: I.LucideIcon; t
 };
 const refTo = (e: TimelineEvent) => !e.ref ? undefined : e.ref.startsWith('INC') ? `/incidents/${e.ref}` : e.ref.startsWith('CHG') ? `/changes?id=${e.ref}` : e.ref.startsWith('CAP') ? '/capacity' : undefined;
 
-/* DC-SITE-010 — commissioning, changes, incidents, maintenance and capacity
-   events for this site, newest first, with upcoming windows on top. */
+/* Operations log for this site: incidents, changes and maintenance windows,
+   newest first, with upcoming windows on top. */
 export function Timeline({ data }: { data: SiteData }) {
   const now = clockNow();
-  const all = data.timeline;
+  /* operations log: incidents, changes and maintenance only */
+  const all = data.timeline.filter(e => e.kind === 'incident' || e.kind === 'change' || e.kind === 'maintenance');
   const kinds = (Object.keys(KIND) as TimelineEvent['kind'][]).filter(k => all.some(e => e.kind === k));
   const [on, setOn] = useState<Set<string>>(new Set(kinds));
   const ev = all.filter(e => on.has(e.kind));
@@ -37,7 +38,7 @@ export function Timeline({ data }: { data: SiteData }) {
   };
 
   return (
-    <Panel title="Operational timeline" sub="Commissioning, changes, incidents, maintenance and capacity events at this site"
+    <Panel title="Ops log" sub="Incidents, changes and maintenance windows at this site"
       actions={<div className="row wrap" style={{ gap: 6 }}>{kinds.map(k => <button key={k} type="button" className={`tl-filter${on.has(k) ? ' is-on' : ''}`} onClick={() => toggle(k)}>{(() => { const C = KIND[k].icon; return <C size={13} />; })()}{KIND[k].label}<span className="num">{all.filter(e => e.kind === k).length}</span></button>)}</div>}>
       {!ev.length ? <Empty icon={I.CalendarX} title="No events for the selected types" /> : (
         <div className="col" style={{ gap: 18 }}>

@@ -4,12 +4,12 @@ import type { NetworkElement } from '../../api/types';
 import { Empty } from '../../ui/kit';
 import { ND_REASON } from '../../lib/vocab';
 
-/* not-discovered devices have no telemetry; say so instead of showing zeros */
+/* devices without telemetry (planned or unmonitored): say so instead of showing zeros */
 export function NoTelemetry({ ne, what }: { ne: NetworkElement; what: string }) {
   return (
     <section className="card">
-      <Empty icon={SearchX} title={`No ${what} yet`} action={<Link className="nst-btn nst-btn--sm" to={`/datacenters/${ne.dcId}?tab=elements&disc=not-discovered`}>Undiscovered elements</Link>}>
-        {ne.name} is on record but has never been seen by discovery ({ND_REASON[ne.ndReason ?? 'planned'].toLowerCase()}).
+      <Empty icon={SearchX} title={`No ${what} yet`} action={<Link className="nst-btn nst-btn--sm" to={`/datacenters/${ne.dcId}?tab=elements&view=unmonitored`}>Unmonitored devices</Link>}>
+        {ne.ndReason === 'planned' ? `${ne.name} is planned and not installed yet.` : `${ne.name} is installed but not monitored (${ND_REASON[ne.ndReason ?? 'no-collector'].toLowerCase()}).`}
       </Empty>
     </section>
   );

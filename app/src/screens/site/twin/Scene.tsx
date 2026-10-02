@@ -61,13 +61,27 @@ function getRailTex() {
   return railTex;
 }
 
+/* Space reserved for a planned (not installed) device: a faint dashed outline */
+function Reserved({ ne, dim }: { ne: TwinNe; dim: boolean }) {
+  const h = ne.uSize * U_H - 0.006, y = (ne.u - 1) * U_H + h / 2 + 0.04;
+  if (dim) return null;
+  return (
+    <mesh position={[0, y, 0]}>
+      <boxGeometry args={[RACK_W - 0.07, h, RACK_D - 0.16]} />
+      <meshBasicMaterial color="#94A3B8" transparent opacity={0.06} depthWrite={false} />
+      <Edges color="#94A3B8" lineWidth={1} />
+    </mesh>
+  );
+}
+
 function Equipment({ ne, rk, ctx, detail, dim }: { ne: TwinNe; rk: RackL; ctx: Ctx; detail: boolean; dim: boolean }) {
   const h = ne.uSize * U_H - 0.006, y = (ne.u - 1) * U_H + h / 2 + 0.04;
-  const ghost = ne.discovery === 'not-discovered';
+  const ghost = false;
+  const noTelemetry = ne.opsState === 'unmonitored';
   const selected = ctx.sel.ne === ne.id;
   const otherSel = ctx.level === 'equipment' && !selected;
   const psuBad = ne.modules.some(m => /PSU|PEM/.test(m.slot) && m.state === 'Fault');
-  const led = ne.worst ? SEV_C[ne.worst] : P.ok;
+  const led = noTelemetry ? '#94A3B8' : ne.worst ? SEV_C[ne.worst] : P.ok;
   const zf = RACK_D / 2 - 0.08;
   const strip = ROLE[ne.role] ?? P.frame;
   const tex = useMemo(() => (detail && !ghost ? getFaceTex() : null), [detail, ghost]);
@@ -75,7 +89,7 @@ function Equipment({ ne, rk, ctx, detail, dim }: { ne: TwinNe; rk: RackL; ctx: C
   return (
     <group position={[0, y, 0]}>
       <mesh castShadow onClick={(e: Ev) => { e.stopPropagation(); ctx.onPick({ rack: rk.rack.id, ne: ne.id }); }}
-        onPointerOver={(e: Ev) => { e.stopPropagation(); ctx.setHover({ kind: 'ne', title: ne.name, sub: `${ne.role} · ${ne.vendor} ${ne.model} · U${ne.u}${ne.uSize > 1 ? `–${ne.u + ne.uSize - 1}` : ''}${ghost ? ' · not discovered' : ne.alarms ? ` · ${ne.alarms} alarm${ne.alarms > 1 ? 's' : ''}` : ' · healthy'}` }); }}
+        onPointerOver={(e: Ev) => { e.stopPropagation(); ctx.setHover({ kind: 'ne', title: ne.name, sub: `${ne.role} · ${ne.vendor} ${ne.model} · U${ne.u}${ne.uSize > 1 ? `–${ne.u + ne.uSize - 1}` : ''}${noTelemetry ? ' · no telemetry' : ne.alarms ? ` · ${ne.alarms} alarm${ne.alarms > 1 ? 's' : ''}` : ' · healthy'}` }); }}
         onPointerOut={() => ctx.setHover(null)}>
         <boxGeometry args={[RACK_W - 0.07, h, RACK_D - 0.16]} />
         <Std color={ghost ? P.ghost : P.face} dim={dim} opacity={op} rough={0.6} metal={0.3} />
@@ -104,7 +118,7 @@ function Rack3D({ rk, room, floor, ctx }: { rk: RackL; room: RoomL; floor: Floor
   const dim = (level === 'floor' && sel.floor !== floor.idx) || ((level === 'room' || level === 'rack' || level === 'equipment') && !inRoom) || ((level === 'rack' || level === 'equipment') && !selected);
   const showEq = level !== 'building' && (level === 'floor' ? sel.floor === floor.idx : inRoom);
   const detail = selected && (level === 'rack' || level === 'equipment');
-  const ghostRack = ctx.data.dc.status === 'planned' || (rk.nes.length > 0 && rk.nes.every(n => n.discovery === 'not-discovered'));
+  const ghostRack = ctx.data.dc.status === 'planned' || (rk.nes.length === 0 && rk.reserved.length > 0);
   const band = bandTone(rk, layer);
   const critical = layer === 'health' && band === P.bad;
   const bodyC = ghostRack ? P.ghost : P.body, frameC = ghostRack ? P.ghost : P.frame;
@@ -137,6 +151,7 @@ function Rack3D({ rk, room, floor, ctx }: { rk: RackL; room: RoomL; floor: Floor
       <mesh position={[0, h - 0.07, RACK_D / 2 + 0.004]}><planeGeometry args={[RACK_W - 0.04, 0.05]} /><Std color={band ?? '#64748B'} dim={dim} opacity={bodyOp} emissive={band ?? undefined} ei={critical ? 1.1 : 0.5} rough={0.4} /></mesh>
       {critical && !dim && <mesh position={[0, h / 2, 0]}><boxGeometry args={[RACK_W + 0.03, h + 0.03, RACK_D + 0.03]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /><Edges color={P.bad} lineWidth={1.5} transparent opacity={0.8} /></mesh>}
       {showEq && rk.nes.map(n => <Equipment key={n.id} ne={n} rk={rk} ctx={ctx} detail={detail} dim={dim} />)}
+      {showEq && rk.reserved.map(n => <Reserved key={n.id} ne={n} dim={dim} />)}
       {showEq && odf && <mesh position={[0, (rk.rack.usedU - 9) * U_H + 0.04, 0]}><boxGeometry args={[RACK_W - 0.07, 18 * U_H - 0.01, RACK_D - 0.2]} /><Std color="#64748B" dim={dim} rough={0.9} /></mesh>}
       {detail && <Line points={[[RACK_W / 2 - 0.02, h + 0.03, RACK_D / 2 - 0.1], [RACK_W / 2 - 0.02, h + 0.45, RACK_D / 2 - 0.1], [RACK_W / 2 - 0.02, h + 0.45, 0]]} color="#475569" lineWidth={2} />}
       {selected && <mesh position={[0, h / 2, 0]}><boxGeometry args={[RACK_W + 0.02, h + 0.04, RACK_D + 0.02]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /><Edges color={P.accent} lineWidth={2} /></mesh>}

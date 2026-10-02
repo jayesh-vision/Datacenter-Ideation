@@ -164,3 +164,75 @@ a.tl-body:hover b { color: var(--primary-700); }
 .site .strip-item .v { font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .site-g-racks { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); }
 @media (max-width: 1360px) { .site-g-racks { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- datacenter header: identity + operations KPIs (NST classes carry visuals) */
+.dch { display: flex; flex-direction: column; gap: var(--vw-space-md); padding: var(--vw-space-lg) var(--vw-space-xl); }
+.dch-top { display: flex; align-items: center; gap: var(--vw-space-lg); min-width: 0; }
+.dch-ic { background: var(--vw-color-slate-100); color: var(--vw-color-gray-700); flex-shrink: 0; }
+.dch-id { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.dch-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dch-name { margin: 0; font-size: var(--vw-font-heading-xl); font-weight: 600; color: var(--vw-color-gray-900); letter-spacing: .01em; line-height: 1.2; }
+.dch-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 0; font-size: var(--vw-font-label-md); }
+.dch-sub > span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.dch-sub > span + span::before { content: '·'; margin: 0 10px; color: var(--vw-color-gray-400); }
+.dch-sub svg { color: var(--vw-color-gray-400); }
+.dch-col { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+.dch-col > span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.dch-col i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.dch-health { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; padding: 0 var(--vw-space-lg); border-left: 1px solid var(--vw-color-slate-200); border-right: 1px solid var(--vw-color-slate-200); flex-shrink: 0; }
+.dch-health .vw-card-metric-xl { color: var(--vw-color-gray-900); }
+.dch-state { display: inline-flex; align-items: center; gap: 8px; font-size: var(--vw-font-heading-md); font-weight: 600; color: var(--vw-color-emerald-700); white-space: nowrap; }
+.dch-state i { width: 10px; height: 10px; border-radius: 50%; background: var(--vw-color-emerald-500); }
+.dch-state.is-attention { color: var(--vw-color-amber-700); } .dch-state.is-attention i { background: var(--vw-color-amber-500); }
+.dch-state.is-critical { color: var(--vw-color-red-700); } .dch-state.is-critical i { background: var(--vw-color-red-500); }
+.dch-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.dch-kpis { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: var(--vw-space-sm); }
+.dch-kpi { display: flex; flex-direction: column; gap: 8px; padding: var(--vw-space-md); color: inherit; text-decoration: none; min-width: 0; position: relative; overflow: hidden; }
+.dch-kpi::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: transparent; }
+.dch-kpi.is-negative::before { background: var(--vw-color-red-500); }
+.dch-kpi.is-warn::before { background: var(--vw-color-amber-500); }
+.dch-kpi-h { display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; color: var(--vw-color-gray-400); }
+.dch-kpi-h .vw-card-metric-label { font-size: var(--vw-font-label-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dch-kpi .vw-card-metric-lg { white-space: nowrap; }
+.dch-kpi-note { font-weight: 400 !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dch-kpi.is-warn .dch-kpi-note { color: var(--vw-color-amber-700); }
+@media (max-width: 1280px) {
+  .dch-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .dch-top { flex-wrap: wrap; }
+  .dch-id { flex-basis: calc(100% - 70px); }
+  .dch-health { border: 0; padding: 0; margin-left: 62px; flex-direction: row; align-items: baseline; gap: 10px; }
+  .dch-actions { margin-left: auto; }
+}
+
+/* ---- Attention (operations) */
+.att-banner { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: var(--vw-radius-sm); border: 1px solid var(--vw-color-amber-200); background: var(--vw-color-amber-25); color: var(--vw-color-gray-800); font-size: var(--vw-font-label-md); }
+.att-banner svg { color: var(--vw-color-amber-600); flex-shrink: 0; }
+.att-banner.is-ok { border-color: var(--vw-color-emerald-200); background: var(--vw-color-emerald-25); }
+.att-banner.is-ok svg { color: var(--vw-color-emerald-600); }
+.att-list { display: flex; flex-direction: column; max-height: 360px; overflow-y: auto; scrollbar-width: thin; }
+.att-row { display: flex; align-items: center; gap: 10px; padding: 10px 18px; border: 0; border-top: 1px solid var(--vw-color-slate-100); background: none; text-align: left; font: inherit; color: inherit; text-decoration: none; width: 100%; cursor: pointer; }
+div.att-row { cursor: default; }
+.att-row:hover { background: var(--vw-color-slate-50); }
+.att-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.att-main b { font-size: 13px; font-weight: 500; color: var(--vw-color-gray-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.att-main small { font-size: 11.5px; color: var(--vw-color-gray-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.att-sla { font-size: 12px; font-weight: 600; color: var(--vw-color-gray-700); white-space: nowrap; }
+.att-sla.is-late { color: var(--vw-color-red-600); }
+.att-cats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 0 18px 12px; }
+.att-cat { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px; border: 1px solid var(--vw-color-slate-200); border-radius: var(--vw-radius-sm); background: var(--vw-color-slate-50); color: var(--vw-color-gray-500); text-decoration: none; min-width: 0; }
+.att-cat .vw-card-metric-sm { color: var(--vw-color-gray-900); }
+.att-cat .vw-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.att-cat em { font-style: normal; color: var(--vw-color-red-600); }
+.att-kv { display: flex; flex-direction: column; }
+.att-kv-row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--vw-color-slate-100); }
+.att-kv-row:first-child { border-top: 0; }
+.att-kv-row .vw-value { text-align: right; font-size: 13px; }
+.att-edge { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.att-edge .vw-card-metric-lg { color: var(--vw-color-gray-900); }
+.att-edge-state { font-size: 13px; font-weight: 500; color: var(--vw-color-emerald-700); }
+.att-edge-state.is-redundancy-lost { color: var(--vw-color-amber-700); }
+.att-edge-state.is-isolated { color: var(--vw-color-red-700); }
+.att-p { margin: 8px 0; font-size: 12.5px; }
+.att-cat-h { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.att-cat-v { display: flex; align-items: baseline; gap: 8px; }
+.att-cat-v em { font-size: 11px; }

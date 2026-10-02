@@ -10,7 +10,7 @@ const QUICK: Row[] = [
   { kind: 'Go', label: 'MH-DC-001 · Pune Data Park', sub: 'In-progress datacenter with open reconciliation', to: '/datacenters/MH-DC-001' },
   { kind: 'Go', label: 'MH-DC-001-PE-T4-01 · Alerts & diagnostics', sub: 'Flapping backhaul with AI root-cause', to: '/ne/MH-DC-001-PE-T4-01?tab=alerts' },
   { kind: 'Go', label: 'INC-0001 · RCA workspace', sub: 'Optical degradation incident', to: '/incidents/INC-0001' },
-  { kind: 'Go', label: 'Capacity forecast', sub: 'Power, cooling, space, ports, bandwidth', to: '/capacity' },
+  { kind: 'Go', label: 'Facilities', sub: 'Power chain, UPS, DG, cooling and environment', to: '/facilities' },
   { kind: 'Go', label: 'Datacenters', sub: 'Operational state of every live datacenter', to: '/datacenters' }
 ];
 

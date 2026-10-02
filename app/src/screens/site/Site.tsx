@@ -1,15 +1,14 @@
-import { Suspense, lazy, useState } from 'react';
+import { Suspense, lazy } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { getDatacenter, runDiscovery, useQuery, clockNow } from '../../api';
+import { getDatacenter, getIncidents, useQuery, clockNow } from '../../api';
 import { usePage, Loading, useSentinel } from '../../shell/page';
-import { Btn, Chip } from '../../ui/kit';
+import { Btn, Chip, Menu } from '../../ui/kit';
 import { RolloutChip, Fresh } from '../../ui/status';
-import { fmtAgo, fmtINR, fmtNum } from '../../lib/format';
+import { fmtAgo, fmtNum } from '../../lib/format';
 import { NotFound } from '../NotFound';
 import { Attention } from './Attention';
 import { Elements } from './Elements';
-import { Finance } from './Finance';
 import { Details } from './Details';
 import { Equipment } from './Equipment';
 import { Timeline } from './Timeline';
@@ -17,110 +16,120 @@ const Twin = lazy(() => import('./twin/Twin'));
 import '../../styles/site.css';
 
 export type SiteData = NonNullable<Awaited<ReturnType<typeof getDatacenter>>>;
-type Tab = 'overview' | 'attention' | 'elements' | 'capex' | 'opex' | 'details' | 'equipment' | 'timeline';
+/* Operations tabs. Capex/Opex (finance) and discovery/reconciliation
+   (inventory) belong to Plan & Build / Inventory, not here. */
+type Tab = 'overview' | 'attention' | 'elements' | 'details' | 'equipment' | 'timeline';
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'overview', label: 'Overview' }, { id: 'attention', label: 'Attention' }, { id: 'elements', label: 'Network elements' }, { id: 'capex', label: 'Capex' }, { id: 'opex', label: 'Opex' },
-  { id: 'details', label: 'Site details' }, { id: 'equipment', label: 'Site equipment' }, { id: 'timeline', label: 'Timeline' }
+  { id: 'overview', label: 'Overview' }, { id: 'attention', label: 'Attention' }, { id: 'elements', label: 'Equipment' },
+  { id: 'details', label: 'Power & space' }, { id: 'equipment', label: 'Cabling' }, { id: 'timeline', label: 'Ops log' }
 ];
 
-/* INV-02 / INV-04 / INV-05 — one site profile: identity, reconciliation,
-   finance, physical plant, cabling and the operational timeline. */
+/* Datacenter page (operations): identity + operational KPIs, the 3D twin,
+   what needs attention, installed equipment, power & space, cabling, ops log. */
 export function Site() {
   const { id = '' } = useParams();
   const [sp, setSp] = useSearchParams();
   const nav = useNavigate();
   const ask = useSentinel();
-  const [disc, setDisc] = useState<{ busy: boolean; msg?: string }>({ busy: false });
   usePage([{ label: 'Datacenters', to: '/datacenters' }, { label: id }], { dcId: id });
   const { data, loading } = useQuery(() => getDatacenter(id), [id]);
+  const { data: incs } = useQuery(() => getIncidents({ dcId: id, status: 'open' }), [id]);
   if (loading && !data) return <Loading label="Loading site" />;
   if (!data) return <NotFound what="Datacenter" />;
   const { dc, summary: s } = data;
-  const tab = (sp.get('tab') as Tab) || 'overview';
-  const go = (t: Tab) => { const n = new URLSearchParams(sp); n.set('tab', t); ['role', 'disc', 'q', 'kind'].forEach(k => n.delete(k)); setSp(n, { replace: true }); };
+  const tab: Tab = TABS.some(t => t.id === sp.get('tab')) ? (sp.get('tab') as Tab) : 'overview';
+  const go = (t: Tab) => { const n = new URLSearchParams(sp); n.set('tab', t); ['role', 'disc', 'q', 'kind', 'view'].forEach(k => n.delete(k)); setSp(n, { replace: true }); };
   const now = clockNow();
-  const roles = Object.entries(s.byRole).sort((a, b) => b[1] - a[1]);
-  const capexPct = s.capexApproved ? Math.round((s.capexCommitted / s.capexApproved) * 100) : 0;
   const staleCol = dc.collectors.filter(c => c.state !== 'up');
 
-  const doDiscovery = () => {
-    setDisc({ busy: true });
-    runDiscovery(dc.id).then(n => setDisc({ busy: false, msg: n ? `Collector sweep found ${n} element${n === 1 ? '' : 's'} — records reconciled and audited.` : 'Collector sweep complete — no new elements found. Remaining gaps are planned or need a field visit.' }));
-  };
 
-  const strip: { l: string; v: string; s: string; c: string; to: Tab }[] = [
-    { l: 'Network elements', v: fmtNum(s.ne), s: roles.map(([k, v]) => `${k} ${v}`).join(' · '), c: 'var(--vw-color-sky-500)', to: 'elements' },
-    { l: 'Discovered', v: fmtNum(s.discovered), s: `${s.coveragePct}% of record`, c: 'var(--vw-color-emerald-500)', to: 'elements' },
-    { l: 'Drifted', v: fmtNum(s.drifted), s: 'incl. duplicate serials', c: 'var(--vw-color-amber-400)', to: 'attention' },
-    { l: 'Not discovered', v: fmtNum(s.notDiscovered), s: 'planned or no collector', c: 'var(--vw-color-red-400)', to: 'attention' },
-    { l: 'Links terminating', v: fmtNum(s.links), s: 'LLDP · OSPF · ISIS · BGP · LSP', c: 'var(--vw-color-purple-400)', to: 'equipment' },
-    { l: 'Capex committed', v: fmtINR(s.capexCommitted), s: `one-off · ${capexPct}% of ${fmtINR(s.capexApproved)}`, c: 'var(--vw-color-cyan-500)', to: 'capex' },
-    { l: 'Opex run rate', v: s.opexMonthly ? `${fmtINR(s.opexMonthly)}/mo` : '—', s: s.opexMonthly ? `recurring · ${fmtINR(s.opexMonthly * 12)} a year` : 'not yet billing', c: 'var(--vw-color-teal-500)', to: 'opex' }
+  /* operations KPIs for this site — each opens the place to act on it */
+  const planned = dc.status === 'planned';
+  const open = incs ?? [];
+  const n1 = open.filter(i => i.sev === 1).length, n2 = open.filter(i => i.sev === 2).length;
+  const past = open.filter(i => i.sla.breaching).length;
+  const pwrPct = s.powerCapKw ? Math.round((s.powerKw / s.powerCapKw) * 100) : 0;
+  const upsBad = dc.power.ups.filter(u => u.state !== 'Online');
+  const feedsBad = dc.power.feeds.filter(f => f.status === 'Alarm');
+  const unitsRun = dc.cooling.units.filter(u => u.status === 'Operational').length;
+  const unitsFailed = dc.cooling.units.filter(u => u.status === 'Failed');
+  const maxTemp = Math.max(...dc.cooling.sensors.map(z => z.tempC));
+  const siteState: 'critical' | 'attention' | 'ok' = n1 || upsBad.some(u => u.state === 'On battery' || u.state === 'Fault') || s.edge.state === 'isolated' ? 'critical'
+    : s.openIncidents || s.critAlerts || s.linksDown || s.unreachable || unitsFailed.length || feedsBad.length || s.edge.state !== 'redundant' ? 'attention' : 'ok';
+  type K = { k: string; l: string; v: string; note: string; tone: 'neutral' | 'negative' | 'warn'; icon: I.LucideIcon; to: string };
+  const kpis: K[] = [
+    { k: 'inc', l: 'Incidents', v: String(s.openIncidents), note: s.openIncidents ? [n1 ? `${n1} SEV1` : '', n2 ? `${n2} SEV2` : '', past ? `${past} past SLA` : ''].filter(Boolean).join(' · ') || 'SEV3/4 only' : 'none open', tone: n1 || past ? 'negative' : 'neutral', icon: I.Siren, to: `/incidents?dc=${dc.id}` },
+    { k: 'alm', l: 'Active alarms', v: String(s.activeAlerts), note: s.critAlerts ? `${s.critAlerts} critical` : 'none critical', tone: s.critAlerts ? 'negative' : 'neutral', icon: I.BellRing, to: `/alerts?dc=${dc.id}` },
+    { k: 'edge', l: 'Edge links', v: `${s.edge.up}/${s.edge.total}`, note: s.edge.state === 'redundant' ? 'all up · redundant' : s.edge.state === 'isolated' ? 'site isolated' : 'redundancy lost', tone: s.edge.state === 'isolated' ? 'negative' : s.edge.state === 'redundancy-lost' ? 'warn' : 'neutral', icon: I.Cable, to: `/topology?dc=${dc.id}` },
+    { k: 'net', l: 'Network faults', v: String(s.linksDown + s.unreachable), note: [s.linksDown ? `${s.linksDown} link${s.linksDown === 1 ? '' : 's'} down` : '', s.unreachable ? `${s.unreachable} unreachable` : ''].filter(Boolean).join(' · ') || 'all links up', tone: s.linksDown || s.unreachable ? 'warn' : 'neutral', icon: I.Network, to: `/alerts?dc=${dc.id}&q=Down` },
+    { k: 'pwr', l: 'Power load', v: `${pwrPct}%`, note: upsBad.length ? `${upsBad[0].name} ${upsBad[0].state.toLowerCase()}` : feedsBad.length ? `${feedsBad.length} feed lost` : `UPS ${dc.power.ups.length}/${dc.power.ups.length} online`, tone: upsBad.length ? 'negative' : feedsBad.length || pwrPct >= 85 ? 'warn' : 'neutral', icon: I.Zap, to: `/facilities?dc=${dc.id}` },
+    { k: 'cool', l: 'Cooling load', v: `${s.coolPct}%`, note: unitsFailed.length ? `${unitsFailed[0].name} failed` : `${unitsRun}/${dc.cooling.units.length} units · ${maxTemp}°C`, tone: unitsFailed.length || maxTemp > 27 ? 'negative' : 'neutral', icon: I.Thermometer, to: `/facilities?dc=${dc.id}&tab=cooling` },
+    { k: 'pue', l: 'PUE', v: s.pue.toFixed(2), note: 'facility ÷ IT load', tone: 'neutral', icon: I.Gauge, to: `/facilities?dc=${dc.id}` },
+    { k: 'svc', l: 'Services', v: fmtNum(s.services), note: s.servicesDegraded ? `${s.servicesDegraded} degraded` : `${s.customers} customers`, tone: s.servicesDegraded ? 'warn' : 'neutral', icon: I.Waypoints, to: `/services?dc=${dc.id}` }
   ];
 
   return (
     <div className="page site">
-      <section className="card ent-head">
-        <div className="row between wrap" style={{ gap: 12 }}>
-          <div className="row wrap" style={{ gap: 8 }}>
-            <RolloutChip s={dc.status} />
-            <Chip tone="warning">{dc.category}</Chip>
-            <Chip tone="neutral">{dc.tier}</Chip>
-            {s.notDiscovered > 0 && <Chip tone="warning">{s.notDiscovered} not discovered</Chip>}
-            {s.drifted > 0 && <Chip tone="warning">{s.drifted} drifted</Chip>}
-            {s.openIncidents > 0 && <Link to={`/incidents?dc=${dc.id}`}><Chip tone="error" dot>{s.openIncidents} open incident{s.openIncidents === 1 ? '' : 's'}</Chip></Link>}
+      <section className="vw-card-section dch">
+        <div className="dch-top">
+          <span className="vw-card-icon-lg dch-ic"><I.Building2 size={22} /></span>
+          <div className="dch-id">
+            <div className="dch-name-row">
+              <h1 className="dch-name">{dc.name}</h1>
+              <RolloutChip s={dc.status} />
+              <Chip tone="neutral">{dc.tier}</Chip>
+              <Chip tone="neutral">{dc.category}</Chip>
+            </div>
+            <div className="vw-card-description dch-sub">
+              <span><I.MapPin size={13} />{dc.address}, {dc.city}, {dc.state}</span>
+              <span>{dc.zone} zone</span>
+              <span>{dc.lat.toFixed(3)}°N {dc.lng.toFixed(3)}°E</span>
+            </div>
+            <div className="vw-footer-meta dch-col" title="Telemetry collectors">
+              <span>Collectors</span>
+              {planned ? <span>none assigned</span> : dc.collectors.map(c => <span key={c.id}><i style={{ background: c.state === 'up' ? 'var(--vw-color-emerald-500)' : 'var(--vw-color-amber-500)' }} />{c.name.replace('Collector ', '')} · {fmtAgo(c.lastSeen, now)}</span>)}
+            </div>
           </div>
-          <div className="row wrap" style={{ gap: 8 }}>
+          <div className="dch-health">
+            <span className="vw-card-metric-label">Site status</span>
+            <span className={`dch-state is-${planned ? 'ok' : siteState}`}><i />{planned ? 'Planned' : siteState === 'critical' ? 'Critical' : siteState === 'attention' ? 'Needs attention' : 'Normal'}</span>
+            <span className="vw-footer-meta" title="Average health score of the site's discovered devices">{planned ? 'not live' : `device health ${s.healthScore}/100`}</span>
+          </div>
+          <div className="dch-actions">
             <Btn icon={I.Network} onClick={() => nav(`/topology?dc=${dc.id}`)} disabled={!s.discovered}>Topology</Btn>
-            <Btn icon={I.Radar} onClick={doDiscovery} disabled={disc.busy || dc.status === 'planned'} title={dc.status === 'planned' ? 'No collector assigned yet' : undefined}>{disc.busy ? 'Discovering…' : 'Run discovery'}</Btn>
             <Btn variant="filled" icon={I.Sparkles} onClick={() => ask(`What is at risk in ${dc.id}?`)}>Ask Sentinel</Btn>
+            <Menu items={[
+              { label: 'Facilities', icon: I.Zap, onClick: () => nav(`/facilities?dc=${dc.id}`) },
+              { label: 'Change & maintenance', icon: I.ArrowLeftRight, onClick: () => nav(`/changes?dc=${dc.id}`) }
+            ]} />
           </div>
         </div>
-        {disc.msg && <div className="note note--good"><I.CircleCheck size={15} />{disc.msg}</div>}
-        <dl className="ent-attrs" style={{ '--cols': 5 } as React.CSSProperties}>
-          <div><dt>Name</dt><dd>{dc.name}</dd></div>
-          <div><dt>Site type</dt><dd>{dc.siteType}</dd></div>
-          <div><dt>Location ID</dt><dd>{dc.locationId}</dd></div>
-          <div><dt>Address</dt><dd>{dc.address}</dd></div>
-          <div><dt>Coordinates</dt><dd>{dc.lat.toFixed(3)}°N {dc.lng.toFixed(3)}°E</dd></div>
-          <div><dt>Zone</dt><dd>{dc.zone}</dd></div>
-          <div><dt>State</dt><dd>{dc.state}</dd></div>
-          <div><dt>City</dt><dd>{dc.city}</dd></div>
-          <div><dt>Tier</dt><dd>{dc.tier}</dd></div>
-          <div><dt>Collectors</dt><dd className="col" style={{ gap: 2 }}>
-            {dc.status === 'planned' ? <span className="faint">Not assigned</span> : dc.collectors.map(c => (
-              <span key={c.id} className="row" style={{ gap: 6, fontSize: 12.5 }}>
-                <i className="site-dot" style={{ background: c.state === 'up' ? 'var(--vw-color-emerald-500)' : 'var(--vw-color-amber-500)' }} />
-                {c.name.replace('Collector ', '')}<span className={c.state === 'up' ? 'faint' : 'warn'}>{fmtAgo(c.lastSeen, now)}</span>
-              </span>
-            ))}
-          </dd></div>
-        </dl>
-        {staleCol.length > 0 && <div className="note note--warn"><I.TriangleAlert size={15} />{staleCol.map(c => c.name).join(', ')} stale — discovery data for part of this site is older than the 15-minute freshness SLA.</div>}
+        {staleCol.length > 0 && <div className="note note--warn"><I.TriangleAlert size={15} />{staleCol.map(c => c.name).join(', ')} stale — telemetry for part of this site is older than the 15-minute freshness SLA.</div>}
       </section>
 
-      <div className="strip" style={{ '--n': 7 } as React.CSSProperties}>
-        {strip.map(x => (
-          <button key={x.l} type="button" className="strip-item is-click" style={{ '--c': x.c } as React.CSSProperties} onClick={() => go(x.to)}>
-            <div className="l">{x.l}</div><div className="v">{x.v}</div><div className="s" title={x.s}>{x.s}</div>
-          </button>
+      <div className="dch-kpis">
+        {kpis.map(x => (
+          <Link key={x.k} to={x.to} className={`vw-card-section vw-card--clickable dch-kpi is-${x.tone}`} data-kpi={x.k}>
+            <div className="dch-kpi-h"><span className="vw-card-metric-label">{x.l}</span><x.icon size={15} /></div>
+            <span className="vw-card-metric-lg">{planned && x.k !== 'pue' ? '—' : x.v}</span>
+            <span className={`vw-card-variance ${x.tone === 'negative' ? 'is-negative' : 'is-neutral'} dch-kpi-note`} title={x.note}>{planned ? 'site not live' : x.note}</span>
+          </Link>
         ))}
       </div>
 
       <div className="row between wrap" style={{ gap: 12 }}>
         <div className="pills" role="tablist">
           {TABS.map(t => {
-            const n = t.id === 'attention' ? dc.risks.length : t.id === 'elements' ? s.ne : undefined;
+            const n = t.id === 'attention' ? s.openIncidents + s.critAlerts : t.id === 'elements' ? s.installed : undefined;
             return <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={`pill${tab === t.id ? ' is-active' : ''}`} onClick={() => go(t.id)}>{t.label}{n ? <span className="count">{n}</span> : null}</button>;
           })}
         </div>
-        {dc.status === 'planned' ? <span className="fresh">No collector assigned · record data only</span> : <Fresh>Inventory as of {fmtAgo(Math.max(...dc.collectors.map(c => c.lastSeen)), now)}</Fresh>}
+        {dc.status === 'planned' ? <span className="fresh">No collector assigned · record data only</span> : <Fresh>Telemetry as of {fmtAgo(Math.max(...dc.collectors.map(c => c.lastSeen)), now)}</Fresh>}
       </div>
 
       {tab === 'overview' && <Suspense fallback={<Loading label="Loading 3D view" />}><Twin dcId={dc.id} /></Suspense>}
       {tab === 'attention' && <Attention data={data} />}
       {tab === 'elements' && <Elements dcId={dc.id} />}
-      {(tab === 'capex' || tab === 'opex') && <Finance data={data} view={tab} />}
       {tab === 'details' && <Details data={data} />}
       {tab === 'equipment' && <Equipment data={data} />}
       {tab === 'timeline' && <Timeline data={data} />}

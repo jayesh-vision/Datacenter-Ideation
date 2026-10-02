@@ -5,7 +5,7 @@ import * as S from '../mock/server';
 import type { Alert, Datacenter, DcSummary, EdgeStatus, NetworkElement, Severity } from './types';
 
 export interface TwinNe extends NetworkElement {
-  alarms: number; worst: Severity | null; linksDown: number; links: number; services: number; uSize: number; edge: boolean; edgeTo?: string;
+  opsState: 'in-service' | 'unmonitored' | 'planned'; alarms: number; worst: Severity | null; linksDown: number; links: number; services: number; uSize: number; edge: boolean; edgeTo?: string;
 }
 export interface TwinData {
   dc: Datacenter; summary: DcSummary; nes: TwinNe[]; alerts: Alert[]; incidents: ReturnType<typeof S.incidents>; edge: EdgeStatus;
@@ -30,7 +30,7 @@ export const getTwinData = (dcId: string): Promise<TwinData | null> => wait(() =
     const edgeLink = ls.find(l => db.neById.get(l.aNe)!.dcId !== db.neById.get(l.zNe)!.dcId);
     const edge = !!edgeLink;
     const edgeTo = edgeLink ? (db.neById.get(edgeLink.aNe)!.dcId === dcId ? db.neById.get(edgeLink.zNe)!.dcId : db.neById.get(edgeLink.aNe)!.dcId) : undefined;
-    return { ...n, alarms: al.length, worst, linksDown: ls.filter(l => l.state === 'down').length, links: ls.length, services: db.services.filter(s => s.neId === n.id).length, uSize: uSizeOf(n), edge, edgeTo };
+    return { ...n, opsState: S.opsStateOf(n), alarms: al.length, worst, linksDown: ls.filter(l => l.state === 'down').length, links: ls.length, services: db.services.filter(s => s.neId === n.id).length, uSize: uSizeOf(n), edge, edgeTo };
   });
   return { dc, summary: S.summarize(dc), nes, alerts, incidents: S.incidents({ dcId, status: 'open' }), edge: S.edgeStatus(dcId) };
 });

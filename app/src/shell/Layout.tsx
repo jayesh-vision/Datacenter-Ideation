@@ -14,6 +14,7 @@ const NAV: { group: string; items: { to: string; label: string; icon: I.LucideIc
   { group: 'Overview', items: [{ to: '/', label: 'Command center', icon: I.LayoutDashboard }] },
   { group: 'Infrastructure', items: [
     { to: '/datacenters', label: 'Datacenters', icon: I.Building2, match: /^\/(datacenters|ne\/)/ },
+    { to: '/facilities', label: 'Facilities', icon: I.Zap },
     { to: '/topology', label: 'Topology', icon: I.Network }
   ] },
   { group: 'Operate', items: [
@@ -21,15 +22,9 @@ const NAV: { group: string; items: { to: string; label: string; icon: I.LucideIc
     { to: '/incidents', label: 'Incidents', icon: I.Siren, badge: 'incidents' },
     { to: '/changes', label: 'Changes & maintenance', icon: I.ArrowLeftRight, badge: 'changes' }
   ] },
-  { group: 'Services', items: [
-    { to: '/services', label: 'Network services', icon: I.Waypoints },
-    { to: '/customers', label: 'Customers', icon: I.Users }
-  ] },
-  { group: 'Plan', items: [
-    { to: '/capacity', label: 'Capacity & forecast', icon: I.Gauge },
-    { to: '/facilities', label: 'Facilities', icon: I.Zap }
-  ] }
 ];
+/* Services and customers appear only as impact (incident, device, site pages);
+   capacity planning lives in the separate Plan & Build section. */
 
 export function Layout() {
   const loc = useLocation();

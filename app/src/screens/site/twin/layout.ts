@@ -9,7 +9,8 @@ export const RACK_W = 0.6, RACK_D = 1.1, PITCH = 0.72;
 export const FLOOR_H = 4.2, PLATE_T = 0.18;
 const COLD = 1.6, HOT = 1.3, MARGIN = 1.1, WALL = 1.6, CORRIDOR = 1.4;
 
-export interface RackL { rack: Rack; x: number; z: number; rot: number; h: number; nes: TwinNe[]; row: number; col: number }
+/* nes = installed devices (what operations sees); reserved = planned devices that only hold rack space */
+export interface RackL { rack: Rack; x: number; z: number; rot: number; h: number; nes: TwinNe[]; reserved: TwinNe[]; row: number; col: number }
 export interface CoolingL { unit: CoolingUnit; x: number; z: number; w: number }
 export interface Aisle { x: number; z: number; w: number; d: number; kind: 'cold' | 'hot' }
 export interface PowerL { kind: 'ups' | 'rectifier' | 'battery'; label: string; x: number; z: number; w: number; d: number; h: number; ups?: UpsUnit; state: 'ok' | 'warn' | 'bad' }
@@ -40,7 +41,7 @@ function layoutRacks(racks: Rack[], nesByRack: Map<string, TwinNe[]>) {
     const zBase = z0 + pair * (pairD + HOT);
     const z = side === 0 ? zBase + RACK_D / 2 : zBase + RACK_D + COLD + RACK_D / 2;
     const x = -spanX / 2 + PITCH / 2 + col * PITCH;
-    out.push({ rack, x, z, rot: side === 0 ? 0 : Math.PI, h: rackHeight(rack), nes: nesByRack.get(rack.id) ?? [], row, col });
+    out.push({ rack, x, z, rot: side === 0 ? 0 : Math.PI, h: rackHeight(rack), nes: (nesByRack.get(rack.id) ?? []).filter(n => n.opsState !== 'planned'), reserved: (nesByRack.get(rack.id) ?? []).filter(n => n.opsState === 'planned'), row, col });
   });
   for (let p = 0; p < pairs; p++) {
     const zBase = z0 + p * (pairD + HOT);

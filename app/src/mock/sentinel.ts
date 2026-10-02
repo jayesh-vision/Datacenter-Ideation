@@ -74,7 +74,7 @@ export function ask(q: string, ctx: Ctx): Answer {
     const ls = linksOf({ protocol: 'LLDP' }).filter(l => (l.role === 'Backhaul' || l.role === 'Uplink') && (!lnk || l.id === lnk)).sort((a, b) => a.forecastMonths - b.forecastMonths).slice(0, lnk ? 1 : 5);
     return { title: lnk ? `When ${lnk} crosses 85%` : 'Links that exhaust first', confidence: 82,
       lines: ls.map(l => `${l.aNe} ${l.aIf} → ${l.zNe}: ${l.utilPct}% today, +${l.growthPct}%/mo (6-month trend ${l.history[0]}% → ${l.utilPct}%). ${l.forecastMonths === 0 ? 'Already above the 85% warning line.' : `Crosses 85% around ${fmtDate(l.forecastDate!)}; 95% in ~${Math.max(1, Math.round(l.critMonths))} months.`}`).concat(['Forecast = compound growth of the last six monthly peaks; approved capacity plans are not yet netted in.']),
-      evidence: ls.map(l => ({ label: `${l.aNe} ${l.aIf}`, to: `/ne/${l.aNe}?tab=links&if=${encodeURIComponent(l.aIf)}` })), actions: [{ label: 'Capacity · network', to: '/capacity?tab=network' }], followups: ['What is at risk in Pune?'] };
+      evidence: ls.map(l => ({ label: `${l.aNe} ${l.aIf}`, to: `/ne/${l.aNe}?tab=links&if=${encodeURIComponent(l.aIf)}` })), actions: [{ label: 'Capacity · network', to: '/alerts?q=Utilisation' }], followups: ['What is at risk in Pune?'] };
   }
   /* last 24 h */
   if (/last 24|today|recent/.test(t)) {

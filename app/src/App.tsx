@@ -9,11 +9,8 @@ import { Incidents } from './screens/Incidents';
 import { IncidentDetail } from './screens/IncidentDetail';
 import { Changes } from './screens/Changes';
 import { Topology } from './screens/Topology';
-import { Services } from './screens/Services';
 import { ServiceDetail } from './screens/ServiceDetail';
-import { Customers } from './screens/Customers';
 import { CustomerDetail } from './screens/CustomerDetail';
-import { Capacity } from './screens/Capacity';
 import { Facilities } from './screens/Facilities';
 import { NotFound } from './screens/NotFound';
 
@@ -41,11 +38,13 @@ export default function App() {
           <Route path="incidents/:id" element={<IncidentDetail />} />
           <Route path="changes" element={<Changes />} />
           <Route path="topology" element={<Topology />} />
-          <Route path="services" element={<Services />} />
+          {/* Service and customer catalogues are service operations; only impact drill-downs remain */}
+          <Route path="services" element={<Navigate to="/incidents" replace />} />
           <Route path="services/:id" element={<ServiceDetail />} />
-          <Route path="customers" element={<Customers />} />
+          <Route path="customers" element={<Navigate to="/incidents" replace />} />
           <Route path="customers/:id" element={<CustomerDetail />} />
-          <Route path="capacity" element={<Capacity />} />
+          {/* Capacity planning is parked for Plan & Build; current pressure lives in Facilities */}
+          <Route path="capacity" element={<Navigate to="/facilities" replace />} />
           <Route path="facilities" element={<Facilities />} />
           <Route path="*" element={<NotFound />} />
         </Route>

@@ -3,7 +3,7 @@ const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftsha
 const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
 const errs = []; p.on('pageerror', e => errs.push(e.message));
 let fails = 0; const ok = (n, c) => { console.log(c ? 'PASS' : 'FAIL', n); if (!c) fails++; };
-await p.goto('http://localhost:5181/datacenters/MH-DC-001', { waitUntil: 'domcontentloaded' }); await p.waitForTimeout(3000);
+await p.goto('http://localhost:5181/datacenters/MH-DC-001', { waitUntil: 'domcontentloaded' }); await p.waitForSelector('.twin-canvas canvas', { timeout: 30000 }); await p.waitForTimeout(1500);
 const before = await p.locator('.twin-canvas').boundingBox();
 await p.locator('[data-twin="fullscreen"]').click(); await p.waitForTimeout(1500);
 const full = await p.locator('.twin-canvas').boundingBox();

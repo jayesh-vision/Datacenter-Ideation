@@ -101,6 +101,12 @@ export interface Alert {
                 an edge link as it affects that link, monitoring collectors
    downstream — beyond the edge, depending ON the site; never counted as a
                 datacenter issue, only shown as impact when the site is the cause */
+/* Operational state of a device (operations view, not inventory):
+   in-service — installed and reporting telemetry;
+   unmonitored — installed but no telemetry (collector missing or down);
+   planned — on record but not installed; holds reserved rack space only. */
+export type OpsState = 'in-service' | 'unmonitored' | 'planned';
+
 export type AlertScope = 'site' | 'edge' | 'dependency' | 'downstream';
 export type AlertCategory = 'Facility' | 'Network' | 'Device' | 'Performance';
 export const DC_SCOPES: AlertScope[] = ['site', 'edge', 'dependency'];
@@ -144,4 +150,5 @@ export interface DcSummary {
   /* operational roll-ups */
   coolPct: number; worstSev: number; servicesDegraded: number; linksDown: number; unreachable: number; facilityIssues: string[];
   edge: EdgeStatus; byScope: Record<'site' | 'edge' | 'dependency', number>; downstreamExcluded: number;
+  installed: number; inService: number; unmonitored: number; planned: number;
 }

@@ -82,7 +82,7 @@ export function TwinPanel({ data, L, sel, level, onPick, crumbs }: { data: TwinD
           <div><span className="vw-card-metric-md">{L.floors.length}</span><span className="vw-label">floors</span></div>
           <div><span className="vw-card-metric-md">{L.rooms.filter(r => r.kind === 'it').length}</span><span className="vw-label">rooms</span></div>
           <div><span className="vw-card-metric-md">{dc.racks.length}</span><span className="vw-label">racks</span></div>
-          <div><span className="vw-card-metric-md">{fmtNum(s.ne)}</span><span className="vw-label">devices</span></div>
+          <div title={`${s.inService} in service · ${s.unmonitored} not monitored · ${s.planned} planned (reserved space only)`}><span className="vw-card-metric-md">{fmtNum(s.installed)}</span><span className="vw-label">devices</span></div>
         </div>
         {dc.status === 'planned' && <p className="twin-note">Planned site — record data only. Racks and equipment are shown as ghosts until the collector sees them.</p>}
       </Card>
@@ -179,14 +179,14 @@ function RackPanel({ rk, room, data, onPick, path }: { rk: RackL; room?: RoomL; 
         <Row k="Alarms" v={alarms ? <span style={{ color: BAD }}>{alarms} on {rk.nes.filter(n => n.alarms).length} devices</span> : 'None'} />
         {room?.sensor && <Row k="Zone" v={`${room.sensor.tempC}°C · ${room.sensor.humidity}% RH`} />}
       </Card>
-      <Card title="Equipment" count={rk.nes.length}>
+      <Card title="Equipment" count={rk.nes.length} action={rk.reserved.length ? <span className="vw-label" title="Planned devices: space reserved, not installed">{rk.reserved.reduce((a, n) => a + n.uSize, 0)} U reserved</span> : undefined}>
         {rk.nes.length === 0 && <p className="twin-note">{r.role === 'ODF / patching' ? 'Passive rack: ODF and patch panels only.' : 'Empty rack.'}</p>}
         <ul className="twin-list" data-twin="equipment">
           {[...rk.nes].reverse().map(n => (
             <li key={n.id}><button type="button" data-twin-ne={n.id} onClick={() => onPick({ floor: room?.floorIdx, room: room?.id, rack: r.id, ne: n.id })}>
               <span className="vw-card-activity-label">{n.name.replace(`${n.dcId}-`, '')}<span className="vw-label"> · U{n.u}{n.uSize > 1 ? `–${n.u + n.uSize - 1}` : ''}</span></span>
               <span className="vw-label">{n.role} · {n.vendor} {n.model}</span>
-              {n.discovery === 'not-discovered' ? <span className="vw-chip vw-chip--neutral cmd-chip">Not discovered</span> : n.worst ? <SeverityChip s={n.worst} size="xs" /> : <HealthChip s={n.health} size="xs" />}
+              {n.opsState === 'unmonitored' ? <span className="vw-chip vw-chip--neutral cmd-chip" title="Installed, no telemetry">Not monitored</span> : n.worst ? <SeverityChip s={n.worst} size="xs" /> : <HealthChip s={n.health} size="xs" />}
               <I.ChevronRight size={14} />
             </button></li>
           ))}
@@ -197,11 +197,11 @@ function RackPanel({ rk, room, data, onPick, path }: { rk: RackL; room?: RoomL; 
 }
 
 function EquipmentPanel({ ne, rk, data, onPick, path }: { ne: TwinNe; rk: RackL; data: TwinData; onPick: (p: Pick) => void; path: Crumb[] }) {
-  const nd = ne.discovery === 'not-discovered';
+  const nd = ne.opsState === 'unmonitored';
   const al = data.alerts.filter(a => a.neId === ne.id);
   return (
     <>
-      <Card title={ne.name.replace(`${ne.dcId}-`, '')} path={path} action={nd ? <span className="vw-chip vw-chip--neutral cmd-chip">Not discovered</span> : <HealthChip s={ne.health} size="xs">{ne.health} · {ne.healthScore}</HealthChip>}>
+      <Card title={ne.name.replace(`${ne.dcId}-`, '')} path={path} action={nd ? <span className="vw-chip vw-chip--neutral cmd-chip">Not monitored</span> : <HealthChip s={ne.health} size="xs">{ne.health} · {ne.healthScore}</HealthChip>}>
         <Row k="Role" v={`${ne.role} · ${ne.layer}`} />
         <Row k="Model" v={`${ne.vendor} ${ne.model}`} />
         <Row k="OS" v={ne.os} />
@@ -216,7 +216,7 @@ function EquipmentPanel({ ne, rk, data, onPick, path }: { ne: TwinNe; rk: RackL;
             <div><span className="vw-card-metric-md">{ne.links}</span><span className="vw-label">links{ne.linksDown ? ` · ${ne.linksDown} down` : ''}</span></div>
           </div>
         )}
-        {nd && <p className="twin-note">On record but never seen by a collector. Telemetry appears once discovered.</p>}
+        {nd && <p className="twin-note">Installed but not reporting telemetry — no collector polls it. Health and alarms are unknown until monitoring is restored.</p>}
       </Card>
       <Card title="Alarms" count={al.length} action={<Link to={`/ne/${ne.id}?tab=alerts`} className="panel-link">Diagnostics<I.ChevronRight size={14} /></Link>}>
         {al.length ? al.slice(0, 5).map(a => <Row key={a.id} k={a.code} v={<span className="row" style={{ gap: 6 }}><SeverityChip s={a.severity} size="xs" />{a.title}</span>} />) : <p className="twin-note">No active alarms.</p>}

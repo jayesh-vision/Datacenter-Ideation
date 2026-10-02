@@ -18,9 +18,9 @@ ok('Overview is the default tab', await p.locator('.pill.is-active').innerText()
 ok('Overview is the first pill', (await p.locator('.pill').first().innerText()) === 'Overview');
 let r = await check('building'); ok('level building', r.level === 'building'); await shot('building');
 // panel vs strip
-const stripNe = (await p.locator('.strip-item').first().locator('.v').innerText()).replace(/,/g, '');
+const stripNe = (await p.locator('.pill', { hasText: 'Equipment' }).locator('.count').innerText()).replace(/,/g, '');
 const panelNe = (await p.locator('.twin-side .twin-stats > div').nth(3).locator('.vw-card-metric-md').innerText()).replace(/,/g, '');
-ok(`panel devices ${panelNe} = strip NE ${stripNe}`, panelNe === stripNe);
+ok(`panel devices ${panelNe} = Equipment tab ${stripNe}`, panelNe === stripNe);
 // layers
 for (const l of ['Power', 'Thermal', 'Connectivity', 'Health']) { await p.locator('.twin-tools .seg button', { hasText: l }).click(); await settle(700); await shot('layer_' + l.toLowerCase()); }
 // drill floor

@@ -48,3 +48,7 @@ An alarm counts against a datacenter only when it is in scope (`Alert.scope`, co
 - **downstream**: remote PoPs and sites that depend ON the datacenter. They are never counted. When the datacenter is the cause,
   they appear as `symptomOf` impact under the incident, not as separate issues.
 Edge redundancy (`DcSummary.edge`): redundant / redundancy-lost / isolated. Guarded by `npx tsx .qa/scope-check.ts`.
+Scope decisions 02-Oct-2026: the menu is Command center · Datacenters · Facilities · Topology · Alerts · Incidents · Changes & maintenance.
+Network services, Customers and Capacity & forecast are parked (code kept, routes redirect); services and customers appear only as
+impact on incidents, devices and sites. Revenue is not shown anywhere operational. Site tabs: Overview (3D) · Attention · Equipment
+(installed devices only; planned devices = reserved rack space) · Power & space · Cabling · Ops log. No discovery/drift/reconciliation UI.

@@ -1,7 +1,7 @@
 // Sweep every route at 1440 and 1280: console errors, bad text, horizontal overflow, clipped KPI labels.
 import { chromium } from 'playwright';
 const ROUTES = ['/', '/datacenters', '/datacenters?region=west', '/datacenters?view=facility', '/datacenters/MH-DC-001?tab=overview', '/datacenters/KA-DC-020?tab=overview',
-  '/datacenters/MH-DC-001', '/datacenters/MH-DC-001?tab=attention', '/datacenters/MH-DC-001?tab=elements', '/datacenters/MH-DC-001?tab=capex', '/datacenters/MH-DC-001?tab=opex', '/datacenters/MH-DC-001?tab=details', '/datacenters/MH-DC-001?tab=equipment', '/datacenters/MH-DC-001?tab=timeline',
+  '/datacenters/MH-DC-001', '/datacenters/MH-DC-001?tab=attention', '/datacenters/MH-DC-001?tab=elements', '/datacenters/MH-DC-001?tab=details', '/datacenters/MH-DC-001?tab=equipment', '/datacenters/MH-DC-001?tab=timeline',
   '/datacenters/GJ-DC-013', '/datacenters/KA-DC-020?tab=details', '/datacenters/DL-DC-009',
   '/ne/MH-DC-001-PE-T4-01', '/ne/MH-DC-001-PE-T4-01?tab=hardware', '/ne/MH-DC-001-PE-T4-01?tab=links', '/ne/MH-DC-001-PE-T4-01?tab=services', '/ne/MH-DC-001-PE-T4-01?tab=alerts', '/ne/KA-DC-020-AGG-R03', '/ne/GJ-DC-013-PE-T4-01',
   '/alerts', '/incidents', '/incidents/INC-0001', '/incidents/INC-0002', '/incidents/INC-0003', '/incidents/INC-0030', '/changes', '/changes?id=CHG-2002', '/topology', '/topology?dc=KA-DC-020',

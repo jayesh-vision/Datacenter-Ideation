@@ -2,7 +2,7 @@
    one in-memory estate. Only src/api/index.ts talks to this module. */
 
 import type {
-  ActionStep, Alert, AlertScope, EdgeStatus, AuditEntry, CapacityPlan, Change, ChangeStatus, Datacenter, DcSummary, Incident, IncidentStatus, Interface, Link, Location,
+  ActionStep, Alert, AlertScope, EdgeStatus, OpsState, AuditEntry, CapacityPlan, Change, ChangeStatus, Datacenter, DcSummary, Incident, IncidentStatus, Interface, Link, Location,
   NetworkElement, ReconTask, RolloutStatus, Service, Severity, TimelineEvent
 } from '../api/types';
 import { generate, finaliseHealth, type Db } from './generate';
@@ -25,6 +25,8 @@ const summaryCache = new Map<string, DcSummary>();
 /* Datacenter operations scope. Downstream alarms (remote PoPs / sites that
    depend on a datacenter) never count as datacenter issues. */
 const liveAlerts = () => db.alerts.filter(a => a.state !== 'cleared' && a.scope !== 'downstream');
+
+export const opsStateOf = (n: NetworkElement): OpsState => n.discovery !== 'not-discovered' ? 'in-service' : n.ndReason === 'planned' ? 'planned' : 'unmonitored';
 
 /* Edge links of a site: LLDP links with exactly one end inside it. */
 const edgeCache = new Map<string, Link[]>();
@@ -82,6 +84,7 @@ export function summarize(dc: Datacenter): DcSummary {
     servicesDegraded: svcs.filter(x => x.status === 'Degraded' || x.status === 'Down').length,
     linksDown: db.links.filter(l => l.protocol === 'LLDP' && l.state === 'down' && (db.neById.get(l.aNe)!.dcId === dc.id || db.neById.get(l.zNe)!.dcId === dc.id)).length,
     unreachable: live.filter(n => n.icmp.state === 'critical').length,
+    installed: nes.filter(n => opsStateOf(n) !== 'planned').length, inService: nes.filter(n => opsStateOf(n) === 'in-service').length, unmonitored: nes.filter(n => opsStateOf(n) === 'unmonitored').length, planned: nes.filter(n => opsStateOf(n) === 'planned').length,
     edge: edgeStatus(dc.id), byScope: { site: al.filter(a => a.scope === 'site').length, edge: al.filter(a => a.scope === 'edge').length, dependency: al.filter(a => a.scope === 'dependency').length }, downstreamExcluded,
     facilityIssues: [...dc.power.ups.filter(u => u.state !== 'Online').map(u => `${u.name} ${u.state.toLowerCase()}`), ...dc.cooling.units.filter(u => u.status === 'Failed').map(u => `${u.name} failed`), ...dc.power.feeds.filter(f => f.status === 'Alarm').map(f => `${f.source} lost`)]
   };
@@ -158,7 +161,7 @@ export function locations(q: { kind?: string; status?: string; circle?: string; 
 export function networkElements(q: { dcId?: string; discovery?: string; role?: string }) {
   const al = liveAlerts();
   return db.nes.filter(n => (!q.dcId || n.dcId === q.dcId) && (!q.discovery || n.discovery === q.discovery) && (!q.role || n.role === q.role)).map(n => ({
-    ...n, alarms: al.filter(a => a.neId === n.id).length, rack: n.rackId.split('-').slice(-1)[0]
+    ...n, alarms: al.filter(a => a.neId === n.id).length, rack: n.rackId.split('-').slice(-1)[0], opsState: opsStateOf(n)
   }));
 }
 
@@ -379,11 +382,10 @@ export function commandCenter() {
     { key: 'sev1', n: open.filter(i => i.sev === 1).length, label: 'SEV1 incident(s) open', to: '/incidents?view=sev1', tone: 'error' },
     { key: 'links', n: linksDown.length, label: 'physical link(s) down', to: '/alerts?q=Link%20Down', tone: 'error' },
     { key: 'crit', n: al.filter(a => a.severity === 'critical' || a.severity === 'major').length, label: 'critical/major alarm(s) active', to: '/alerts?sev=critical', tone: 'warning' },
-    { key: 'svc', n: degraded.length, label: 'service(s) degraded', to: '/services?status=Degraded', tone: 'warning' },
+    { key: 'svc', n: degraded.length, label: 'service(s) degraded', to: '/incidents', tone: 'warning' },
     { key: 'stale', n: stale.length, label: 'site(s) with a stale collector', to: '/datacenters', tone: 'warning' },
-    { key: 'overwarn', n: overWarn.length, label: 'uplink(s) already above 85% utilisation', to: '/capacity?tab=network', tone: 'warning' },
-    { key: 'exhaust', n: exhaust.length, label: 'link(s) crossing 85% within 6 months', to: '/capacity?tab=network', tone: 'warning' },
-    { key: 'racks', n: overRacks.length, label: 'rack(s) over 85% of power budget', to: '/capacity?tab=power', tone: 'warning' },
+    { key: 'overwarn', n: overWarn.length, label: 'uplink(s) above 85% utilisation now', to: '/alerts?q=Utilisation', tone: 'warning' },
+    { key: 'racks', n: overRacks.length, label: 'rack(s) over 85% of power budget', to: '/facilities?tab=power', tone: 'warning' },
     { key: 'chg', n: pendingChg.length, label: 'change(s) awaiting approval', to: '/changes?status=Pending%20approval', tone: 'info' },
   ].filter(a => a.n > 0);
   const activity = [
