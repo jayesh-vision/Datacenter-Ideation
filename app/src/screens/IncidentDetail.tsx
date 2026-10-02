@@ -7,10 +7,10 @@ import type { ActionStep, IncidentStatus } from '../api/types';
 import { usePage, Loading, useSentinel } from '../shell/page';
 import { Btn, Chip, Panel } from '../ui/kit';
 import { ChangeChip, CustLink, DcLink, IncidentChip, PriChip, SevChip, SevDot, SeverityChip, SvcLink, ServiceChip } from '../ui/status';
-import { fmtAgo, fmtBw, fmtDateTime, fmtDateTimeS, fmtINR } from '../lib/format';
+import { fmtAgo, fmtBw, fmtDateTime, fmtDateTimeS } from '../lib/format';
 import { NotFound } from './NotFound';
 import { TYPE_ICON } from './Incidents';
-import { fmtHm, refTo, slaText, useToast } from './ops/shared';
+import { fmtHm, refTo, slaText, useToast, OpsKpi } from './ops/shared';
 
 const FLOW: IncidentStatus[] = ['Open', 'Investigating', 'Mitigated', 'Resolved', 'Closed'];
 
@@ -39,9 +39,8 @@ export function IncidentDetail() {
   const lnk = inc.affected.find(a => a.kind === 'Link');
   const ifName = alerts.find(a => a.ifName)?.ifName;
   const premium = customers.filter(c => c.premium);
-  const revenue = services.reduce((a, s) => a + s.revenueMonthly, 0);
-  /* premium and highest-revenue services first */
-  const svcSorted = [...services].sort((a, b) => Number(b.customer.premium) - Number(a.customer.premium) || b.revenueMonthly - a.revenueMonthly);
+  /* premium customers first, then by bandwidth */
+  const svcSorted = [...services].sort((a, b) => Number(b.customer.premium) - Number(a.customer.premium) || b.bandwidthMbps - a.bandwidthMbps);
   const resolveAll = async () => { for (let k = FLOW.indexOf(inc.status); k < FLOW.indexOf('Resolved'); k++) await advanceIncident(inc.id); };
 
   return (
@@ -66,14 +65,13 @@ export function IncidentDetail() {
         </div>
       </section>
 
-      <section className="card inc-sla">
-        <h3>SLA</h3>
-        <div className="grid g-3">
-          <div className={`sla-box${inc.sla.responseBreached ? ' is-bad' : ' is-good'}`}><span>Response</span><b>{inc.sla.responseBreached ? `Breached (${inc.sla.responseMin}m)` : inc.acknowledged ? `Met (${inc.sla.responseMin}m)` : `${inc.sla.responseLeft}m left`}</b></div>
-          <div className={`sla-box${open && inc.sla.resolveLeft < 0 ? ' is-bad' : ''}`}><span>Resolution</span><b>{open ? slaText(inc.sla.resolveLeft) : inc.resolved ? `Resolved in ${fmtHm((inc.resolved - inc.detected) / 60000)}` : '—'}</b></div>
-          <div className="sla-box"><span>Target</span><b>{fmtHm(inc.responseSlaMin)} / {fmtHm(inc.resolveSlaMin)}</b></div>
-        </div>
-      </section>
+      <div className="kpis kpis-3">
+        <OpsKpi label="Response SLA" tone={inc.sla.responseBreached ? 'bad' : undefined} value={inc.sla.responseBreached ? 'Breached' : inc.acknowledged ? 'Met' : 'Open'}
+          sub={inc.sla.responseBreached ? `acknowledged after ${inc.sla.responseMin} m · target ${fmtHm(inc.responseSlaMin)}` : inc.acknowledged ? `acknowledged in ${inc.sla.responseMin} m · target ${fmtHm(inc.responseSlaMin)}` : `${fmtHm(Math.max(0, inc.sla.responseLeft))} left to acknowledge`} />
+        <OpsKpi label="Resolution SLA" tone={open && inc.sla.resolveLeft < 0 ? 'bad' : open && inc.sla.resolveLeft < inc.resolveSlaMin * 0.25 ? 'warn' : undefined}
+          value={open ? slaText(inc.sla.resolveLeft) : inc.resolved ? fmtHm((inc.resolved - inc.detected) / 60000) : '—'} sub={open ? `target ${fmtHm(inc.resolveSlaMin)} from detection` : 'time to resolve'} />
+        <OpsKpi label="Severity · priority" value={`SEV${inc.sev} · P${inc.pri}`} sub={`${inc.type} · ${dc.city}`} />
+      </div>
 
       <div className="inc-grid">
         <div className="col" style={{ gap: 16 }}>
@@ -128,18 +126,18 @@ export function IncidentDetail() {
               <div><span>Services</span><b className="num">{services.length}</b></div>
               <div><span>Customers</span><b className="num">{customers.length}</b></div>
               <div><span>Premium exposed</span><b className={`num ${premium.length ? 'bad' : ''}`}>{premium.length}</b></div>
-              <div><span>Revenue on path / mo</span><b className="num">{fmtINR(revenue)}</b></div>
+              <div><span>Scope</span><b className="num">{inc.affected.length} affected</b></div>
             </div>
             {services.length > 0 && (
               <div id="inc-svcs" className="dt-scroll" style={{ marginTop: 12 }}>
                 <table className="nst-table dt-table inc-svc-table">
-                  <thead><tr><th>Service</th><th>Customer</th><th className="is-right">Bandwidth</th><th>Status</th><th className="is-right">SLA · uptime 30d</th><th className="is-right">Revenue/mo</th></tr></thead>
+                  <thead><tr><th>Service</th><th>Customer</th><th className="is-right">Bandwidth</th><th>Status</th><th className="is-right">SLA · uptime 30d</th></tr></thead>
                   <tbody>{(allSvc ? svcSorted : svcSorted.slice(0, 8)).map(s => (
                     <tr key={s.id} className="is-click" onClick={() => nav(`/services/${s.id}`)}>
                       <td><span className="cell-2"><SvcLink id={s.id} /><small>{s.type}</small></span></td>
                       <td><span className="cell-2"><CustLink id={s.customerId}>{s.customer.name}</CustLink><small>{s.customer.premium ? <span className="premium-tag">Premium</span> : s.customer.segment}</small></span></td>
                       <td className="is-right num">{fmtBw(s.bandwidthMbps)}</td><td><ServiceChip s={s.status} size="xs" /></td>
-                      <td className="is-right num">{s.slaTarget}% · <span className={s.uptime30d < s.slaTarget ? 'bad' : ''}>{s.uptime30d}%</span></td><td className="is-right num">{fmtINR(s.revenueMonthly)}</td>
+                      <td className="is-right num">{s.slaTarget}% · <span className={s.uptime30d < s.slaTarget ? 'bad' : ''}>{s.uptime30d}%</span></td>
                     </tr>))}</tbody>
                 </table>
                 {services.length > 8 && <button type="button" className="panel-link" style={{ margin: '10px 4px 0' }} onClick={() => setAllSvc(v => !v)}>{allSvc ? 'Show top 8' : `Show all ${services.length} services`}<I.ChevronDown size={14} style={{ transform: allSvc ? 'rotate(180deg)' : undefined }} /></button>}

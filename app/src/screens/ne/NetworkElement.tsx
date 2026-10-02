@@ -2,29 +2,50 @@ import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { getNetworkElement, useQuery } from '../../api';
+import type { NetworkElement as Ne } from '../../api/types';
 import { usePage, Loading } from '../../shell/page';
 import { Btn, Chip, Drawer, Tabs } from '../../ui/kit';
-import { DiscoveryChip, Meter } from '../../ui/status';
+import { Meter } from '../../ui/status';
 import { ND_REASON } from '../../lib/vocab';
 import { fmtDateTime, fmtUptime } from '../../lib/format';
 import { NotFound } from '../NotFound';
 import { Overview } from './Overview';
 import { Hardware } from './Hardware';
 import { Links } from './Links';
-import { NeServices } from './NeServices';
+import { Impact } from './Impact';
 import { NeAlerts } from './NeAlerts';
 import '../../styles/ne.css';
 
 export type NeData = NonNullable<Awaited<ReturnType<typeof getNetworkElement>>>;
-type Tab = 'overview' | 'hardware' | 'links' | 'services' | 'alerts';
+type Tab = 'overview' | 'hardware' | 'links' | 'impact' | 'alerts';
+const TABS: Tab[] = ['overview', 'hardware', 'links', 'impact', 'alerts'];
 const ROLE_ICON: Record<string, I.LucideIcon> = { Router: I.Router, Switch: I.Network, DWDM: I.Waves, Firewall: I.ShieldCheck, Access: I.RadioTower };
 
-/* INV-09 / INV-03 / INV-07 / INV-08 — one device, from health to the
-   services and customers that depend on it. */
+/* Operational state of a device (same rule as the site Equipment tab) */
+export type OpsState = 'in-service' | 'unmonitored' | 'planned';
+export const opsStateOf = (ne: Ne): OpsState => (ne.discovery !== 'not-discovered' ? 'in-service' : ne.ndReason === 'planned' ? 'planned' : 'unmonitored');
+
+/* Operational status from alarms, reachability and monitoring state */
+export type OpsStatus = 'critical' | 'attention' | 'normal' | 'unmonitored' | 'planned';
+export function opsStatusOf(d: NeData): OpsStatus {
+  const st = opsStateOf(d.ne);
+  if (st !== 'in-service') return st;
+  const act = d.alerts.filter(a => a.state !== 'cleared');
+  if (d.ne.icmp.state === 'critical' || act.some(a => a.severity === 'critical')) return 'critical';
+  if (act.length || d.ne.icmp.state === 'degraded' || d.links.some(l => l.protocol === 'LLDP' && l.state === 'down')) return 'attention';
+  return 'normal';
+}
+const STATUS_LABEL: Record<OpsStatus, { label: string; tone: 'error' | 'warning' | 'success' | 'neutral' | 'info' }> = {
+  critical: { label: 'Critical', tone: 'error' }, attention: { label: 'Needs attention', tone: 'warning' }, normal: { label: 'Normal', tone: 'success' },
+  unmonitored: { label: 'Not monitored', tone: 'neutral' }, planned: { label: 'Planned', tone: 'info' }
+};
+
+/* One device, as operations sees it: status, health, links, the services it
+   carries (impact) and its alarms with RCA. */
 export function NetworkElement() {
   const { id = '' } = useParams();
   const [sp, setSp] = useSearchParams();
-  const tab = (sp.get('tab') as Tab) || 'overview';
+  const tab: Tab = TABS.includes(sp.get('tab') as Tab) ? (sp.get('tab') as Tab) : sp.get('tab') === 'services' ? 'impact' : 'overview';
   const [res, setRes] = useState(false);
   const { data, loading } = useQuery(() => getNetworkElement(id), [id]);
   const ne = data?.ne;
@@ -32,44 +53,50 @@ export function NetworkElement() {
   if (loading && !data) return <Loading />;
   if (!data || !ne) return <NotFound what="Network element" />;
   const Ico = ROLE_ICON[ne.role] ?? I.Server;
-  const nd = ne.discovery === 'not-discovered';
+  const opsState = opsStateOf(ne);
+  const nd = opsState !== 'in-service';
+  const status = opsStatusOf(data);
+  const sl = STATUS_LABEL[status];
   const rackName = data.rack.name.replace('RACK-', 'Rack ');
   const active = data.alerts.filter(a => a.state !== 'cleared');
   const setTab = (t: Tab) => { const n = new URLSearchParams(); n.set('tab', t); setSp(n, { replace: true }); };
 
   return (
     <div className="page">
-      <section className="card ent-head">
-        <div className="ent-head-top">
-          <span className="ent-ico"><Ico size={24} /></span>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="ent-title">
-              <h1>{ne.name}</h1>
-              <Chip tone={ne.lifecycle === 'Ready' ? 'success' : ne.lifecycle === 'Planned' ? 'info' : 'warning'} size="sm">{ne.lifecycle}</Chip>
-              <Chip tone="neutral" size="sm">{ne.role}</Chip>
-              {ne.isPe && <Chip tone="purple" size="sm">PE · core</Chip>}
-              <DiscoveryChip s={ne.discovery} />
+      <section className="vw-card-section ne-head">
+        <div className="ne-head-top">
+          <span className="vw-card-icon-lg ne-ico"><Ico size={22} /></span>
+          <div className="ne-id">
+            <div className="ne-name-row">
+              <h1 className="ne-name">{ne.name}</h1>
+              <span className={`ne-status is-${status}`}><i />{sl.label}</span>
+              <Chip tone="neutral" size="sm">{ne.role}{ne.isPe ? ' · PE' : ''}</Chip>
+              <Chip tone="neutral" size="sm">{ne.layer}</Chip>
             </div>
-            <div className="ent-sub mono">{ne.dcId} · {ne.ip} · {ne.serial}{!nd && ne.lastSeen ? <span className="faint"> · last seen {fmtDateTime(ne.lastSeen)} via {ne.collector}</span> : null}</div>
+            <div className="vw-card-description ne-sub">
+              <span><I.Building2 size={13} /><Link className="ent-link" to={`/datacenters/${ne.dcId}`}>{ne.dcId}</Link></span>
+              <span><I.Server size={13} /><Link className="ent-link" to={`/datacenters/${ne.dcId}?tab=details`}>{rackName} · U{ne.u}</Link></span>
+              <span className="mono">{ne.ip}</span>
+              {!nd && ne.lastSeen && <span>polled {fmtDateTime(ne.lastSeen)} via {ne.collector}</span>}
+            </div>
           </div>
-          <Btn icon={I.Cpu} onClick={() => setRes(true)} disabled={nd} title={nd ? 'No telemetry until discovered' : undefined}>Node resources</Btn>
+          <Btn icon={I.Cpu} onClick={() => setRes(true)} disabled={nd} title={nd ? 'No telemetry' : undefined}>Node resources</Btn>
         </div>
-        <dl className="ent-attrs" style={{ '--cols': 7 } as React.CSSProperties}>
+        <dl className="ne-attrs">
           <div><dt>Vendor</dt><dd>{ne.vendor}</dd></div>
+          <div><dt>Model</dt><dd>{ne.model}</dd></div>
           <div><dt>OS version</dt><dd>{ne.os}</dd></div>
           <div><dt>Serial number</dt><dd>{ne.serial}</dd></div>
-          <div><dt>Rack location</dt><dd><Link className="ent-link" to={`/datacenters/${ne.dcId}?tab=details`}>{rackName} · U{ne.u}</Link></dd></div>
-          <div><dt>Model</dt><dd>{ne.model}</dd></div>
-          <div><dt>IP address</dt><dd>{ne.ip}</dd></div>
           <div><dt>MAC address</dt><dd>{ne.mac}</dd></div>
+          <div><dt>Lifecycle</dt><dd>{ne.lifecycle}</dd></div>
         </dl>
         {nd && (
-          <div className="note note--bad ne-banner">
-            <I.SearchX size={16} />
-            <div style={{ flex: 1 }}>{ne.ndReason === 'planned'
+          <div className={`note ${opsState === 'planned' ? 'note--info' : 'note--warn'} ne-banner`}>
+            {opsState === 'planned' ? <I.CalendarClock size={16} /> : <I.EyeOff size={16} />}
+            <div style={{ flex: 1 }}>{opsState === 'planned'
               ? <><b>Planned — not installed.</b> Rack space {ne.rackId.split('-').slice(-1)[0]} · U{ne.u} is reserved for this device; it has no telemetry, links or services yet.</>
               : <><b>Not monitored.</b> Installed but no collector reports its telemetry ({ND_REASON[ne.ndReason ?? 'no-collector'].toLowerCase()}). Health, alarms and links are unknown — a monitoring blind spot.</>}</div>
-            <Link className="nst-btn nst-btn--xs" to={ne.ndReason === 'planned' ? `/datacenters/${ne.dcId}?tab=overview` : `/datacenters/${ne.dcId}?tab=elements&view=unmonitored`}>{ne.ndReason === 'planned' ? 'Site overview' : 'Unmonitored devices'}</Link>
+            <Link className="nst-btn nst-btn--xs" to={opsState === 'planned' ? `/datacenters/${ne.dcId}?tab=overview` : `/datacenters/${ne.dcId}?tab=elements&view=unmonitored`}>{opsState === 'planned' ? 'Site overview' : 'Unmonitored devices'}</Link>
           </div>
         )}
       </section>
@@ -78,14 +105,14 @@ export function NetworkElement() {
         { id: 'overview', label: 'Overview' },
         { id: 'hardware', label: 'Hardware & interfaces', count: data.interfaces.length },
         { id: 'links', label: 'Links', count: data.links.length },
-        { id: 'services', label: 'Network services', count: data.services.length },
+        { id: 'impact', label: 'Impact', count: data.services.length },
         { id: 'alerts', label: 'Alerts & diagnostics', count: active.length }
       ]} />
 
       {tab === 'overview' && <Overview d={data} />}
       {tab === 'hardware' && <Hardware d={data} />}
       {tab === 'links' && <Links d={data} />}
-      {tab === 'services' && <NeServices d={data} />}
+      {tab === 'impact' && <Impact d={data} />}
       {tab === 'alerts' && <NeAlerts d={data} />}
 
       <Drawer open={res} onClose={() => setRes(false)} title="Node resources" sub={`${ne.name} · ${ne.vendor} ${ne.model}`} width={520}>

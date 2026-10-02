@@ -28,13 +28,12 @@ export function CommandCenter() {
     <div className="page cmd">
       <Situation d={data} />
       <div className="grid cmd-where">
-        <WhereMap d={data} />
         <ImpactBoard d={data} />
+        <Recommendations d={data} />
       </div>
       <div className="grid cmd-triad">
         <Exposure d={data} />
         <Causes d={data} />
-        <Recommendations d={data} />
       </div>
       <NextSevenDays d={data} />
     </div>
@@ -46,7 +45,7 @@ export function CommandCenter() {
 /* Estate-health gauge drawn with NST tokens; value in Poppins light like
    .vw-card-metric-* so it reads as a metric, not a graphic. */
 function HealthGauge({ value, band }: { value: number; band: string }) {
-  const size = 156, r = size / 2 - 12, cx = size / 2, cy = size / 2 + 4;
+  const size = 124, r = size / 2 - 10, cx = size / 2, cy = size / 2 + 3;
   const pt = (deg: number, rr = r) => [cx + rr * Math.cos((deg * Math.PI) / 180), cy + rr * Math.sin((deg * Math.PI) / 180)];
   const arc = (from: number, to: number) => { const [x1, y1] = pt(from), [x2, y2] = pt(to); return `M${x1},${y1} A${r},${r} 0 ${to - from > 180 ? 1 : 0} 1 ${x2},${y2}`; };
   const v = Math.max(0, Math.min(100, value));
@@ -56,14 +55,13 @@ function HealthGauge({ value, band }: { value: number; band: string }) {
       <path d={arc(135, 405)} fill="none" style={{ stroke: 'var(--vw-color-slate-100)' }} strokeWidth={10} strokeLinecap="round" />
       {v > 0 && <path d={arc(135, 135 + (270 * v) / 100)} fill="none" style={{ stroke: c }} strokeWidth={10} strokeLinecap="round" />}
       {[0, 25, 50, 75, 100].map(t => { const a = 135 + 2.7 * t; const [x1, y1] = pt(a, r - 10), [x2, y2] = pt(a, r - 14); return <line key={t} x1={x1} y1={y1} x2={x2} y2={y2} style={{ stroke: 'var(--vw-color-slate-300)' }} strokeWidth={1.5} />; })}
-      <text x={cx} y={cy + 10} textAnchor="middle" style={{ fontSize: 'var(--vw-font-value-xxxl)', fontWeight: 300, fill: 'var(--vw-color-gray-900)', fontFamily: 'var(--fontFamily)' }}>{value}</text>
-      <text x={cx} y={cy + 28} textAnchor="middle" style={{ fontSize: 'var(--vw-font-label-sm)', fill: 'var(--vw-color-gray-500)', fontFamily: 'var(--fontFamily)' }}>of 100</text>
+      <text x={cx} y={cy + 10} textAnchor="middle" style={{ fontSize: 'var(--vw-font-value-xxl)', fontWeight: 300, fill: 'var(--vw-color-gray-900)', fontFamily: 'var(--fontFamily)' }}>{value}</text>
+      <text x={cx} y={cy + 24} textAnchor="middle" style={{ fontSize: 'var(--vw-font-label-sm)', fill: 'var(--vw-color-gray-500)', fontFamily: 'var(--fontFamily)' }}>of 100</text>
     </svg>
   );
 }
 
 const AREA_ICON: Record<string, I.LucideIcon> = { response: I.Siren, network: I.Network, power: I.Zap, cooling: I.Thermometer };
-const SIG_ICON: Record<string, I.LucideIcon> = { open: I.Siren, sla: I.AlarmClock, alm: I.BellRing, links: I.Unlink, svc: I.Waypoints, avail: I.Activity, power: I.Zap, slam: I.ArrowLeftRight };
 
 function Situation({ d }: { d: CC }) {
   const nav = useNavigate();
@@ -76,18 +74,12 @@ function Situation({ d }: { d: CC }) {
   const bandChip = s.band === 'Healthy' ? 'success' : s.band === 'Watch' ? 'warning' : 'error';
   const crit = only1 === 'sev1' ? d.critical.filter(i => i.sev === 1) : d.critical;
   const n1 = d.critical.filter(i => i.sev === 1).length, n2 = d.critical.length - n1;
-  /* NST KPI: neutral metric, state carried by the variance line */
-  const sig: { k: string; v: string; u?: string; l: string; note: string; tone: 'positive' | 'negative' | 'neutral'; to: string }[] = [
-    { k: 'open', v: String(p.open), l: 'Open incidents', note: `${n1} SEV1 · ${n2} SEV2`, tone: 'neutral', to: '/incidents' },
-    { k: 'sla', v: String(p.breaching), l: 'Past SLA', note: p.breaching ? `of ${p.open} open` : 'none overdue', tone: p.breaching ? 'negative' : 'neutral', to: '/incidents?view=breaching' },
-    { k: 'alm', v: String(p.critMajor), l: 'Major+ alarms', note: 'critical and major', tone: 'neutral', to: '/alerts?sev=critical' },
-    { k: 'links', v: String(p.linksDown), l: 'Links down', note: `of ${fmtNum(s.lldp)} physical`, tone: 'neutral', to: '/alerts?q=Link%20Down' },
-    { k: 'svc', v: String(p.servicesDegraded), l: 'Services degraded', note: `of ${fmtNum(s.services)} services`, tone: 'neutral', to: '/incidents' },
-    { k: 'avail', v: `${p.availability}%`, l: 'Availability', note: `${p.unreachable} unreachable`, tone: 'neutral', to: '/alerts?q=Unreachable' },
-    { k: 'power', v: String(p.facilityAlarms), l: 'Facility alarms', note: 'power and cooling', tone: p.facilityAlarms ? 'negative' : 'neutral', to: '/alerts?source=Power' },
-    { k: 'slam', v: String(p.activeChanges), l: 'Changes in progress', note: 'open now', tone: 'neutral', to: '/changes?status=In%20progress' }
-  ];
   const scroll = (dir: number) => lane.current?.scrollBy({ left: dir * 340, behavior: 'smooth' });
+  const pins = useMemo<DcPin[]>(() => d.dcMap.map(x => ({
+    id: x.id, lat: x.lat, lng: x.lng, label: x.id, sub: `${x.city} · health ${x.health} · ${x.incidents} open incident${x.incidents === 1 ? '' : 's'} · ${x.alerts} alarms`,
+    color: x.worstSev && x.worstSev <= 2 ? C.bad : x.incidents || x.critAlerts ? C.warn : C.accent,
+    size: 12 + Math.round(Math.sqrt(x.ne) * 0.9), pulse: x.worstSev > 0 && x.worstSev <= 2, dim: false, badge: x.incidents || undefined
+  })), [d.dcMap]);
   return (
     <>
       <div className="vw-flex vw-justify-between vw-items-center vw-gap-sm cmd-head">
@@ -101,62 +93,68 @@ function Situation({ d }: { d: CC }) {
         </div>
       </div>
 
-      <section className="vw-card-section ops">
-        <div className="ops-gauge">
-          <span className="vw-card-metric-label cmd-gauge-label">Operations health
-            <span className="cmd-info" tabIndex={0} title="Average of the four areas on the right. Counts each datacenter site, its edge links and its dependencies; alarms from downstream PoPs and sites are excluded."><I.Info size={13} /></span>
-          </span>
-          <HealthGauge value={d.shi} band={s.band} />
-          <span className={`vw-chip vw-chip--${bandChip} is-strong`}>{s.band}</span>
-          <span className="vw-label ops-weak">Weakest: {s.weakest.label}</span>
-        </div>
-        <div className="ops-main">
-          <div className="ops-counts">
-            {[
-              { v: s.n1, l: 'SEV1 open', to: '/incidents?view=sev1', tone: s.n1 > 0 ? 'hot' : '' },
-              { v: s.n2, l: 'SEV2 open', to: '/incidents', tone: s.n2 > 0 ? 'warn' : '' },
-              { v: s.critSites, l: 'DCs affected', to: '/datacenters?view=incidents', tone: '' },
-              { v: s.exposedPremium, l: 'Premium hit', to: '/incidents', tone: '' },
-              { v: s.exposedServices, l: 'Services hit', to: '/incidents', tone: s.exposedServices ? 'warn' : '' }
-            ].map(x => (
-              <Link key={x.l} to={x.to} title={x.l} className={`ops-count${x.tone ? ` is-${x.tone}` : ''}`}>
-                <i /><span className="vw-card-metric-lg">{x.v}</span><span className="vw-label">{x.l}</span>
-              </Link>
-            ))}
+      {/* hero: health verdict + the live estate map — one surface */}
+      <section className="vw-card-section hero">
+        <div className="hero-left">
+          <div className="hero-verdict">
+            <HealthGauge value={d.shi} band={s.band} />
+            <div className="hero-verdict-txt">
+              <span className="vw-card-metric-label cmd-gauge-label">Operations health
+                <span className="cmd-info" tabIndex={0} title="Average of the four areas below. Counts each datacenter site, its edge links and its dependencies; downstream PoP and site alarms are excluded."><I.Info size={13} /></span>
+              </span>
+              <span className={`vw-chip vw-chip--${bandChip} is-strong`} style={{ alignSelf: 'flex-start' }}>{s.band}</span>
+              <p className="hero-line">{s.n1 ? <><b className="hot">{s.n1} SEV1</b> and </> : null}<b>{s.n2} SEV2</b> open across <b>{s.critSites} datacenters</b></p>
+              <span className="vw-label">{s.exposedPremium} premium customers affected · {p.breaching} incidents past SLA · weakest area: {s.weakest.label}</span>
+            </div>
           </div>
-          <div className="ops-areas" role="list">
+          <div className="hero-areas" role="list">
             {d.domains.map(x => {
               const Ic = AREA_ICON[x.key] ?? I.Activity;
               const st = x.state;
               return (
-                <Link key={x.key} to={x.to} role="listitem" className={`ops-area vw-card--clickable is-${st}`} title={`${x.measure} — open the worklist`}>
-                  <div className="ops-area-head">
-                    <span className="vw-card-icon-sm ops-area-ic"><Ic size={16} /></span>
-                    <span className="vw-card-activity-label ops-area-name">{x.label}</span>
-                    <span className={`ops-state is-${st}`}><i />{st === 'critical' ? 'Critical' : st === 'attention' ? 'Attention' : 'Normal'}</span>
-                  </div>
-                  <div className="ops-area-score">
-                    <span className="vw-card-metric-lg">{x.value}%</span>
-                    <span className="vw-label ops-area-measure">{x.measure}</span>
-                  </div>
-                  <div className="bar"><i style={{ width: `${x.value}%`, background: st === 'critical' ? C.bad : st === 'attention' ? C.warn : C.accent }} /></div>
-                  <span className="ops-area-detail" title={x.detail}>{x.detail}</span>
+                <Link key={x.key} to={x.to} role="listitem" className={`hero-area is-${st}`} title={`${x.measure} — open the worklist`}>
+                  <span className="hero-area-ic"><Ic size={16} /></span>
+                  <span className="hero-area-main">
+                    <span className="hero-area-top"><b>{x.label}</b><span className={`ops-state is-${st}`}><i />{st === 'critical' ? 'Critical' : st === 'attention' ? 'Attention' : 'Normal'}</span></span>
+                    <span className="hero-area-detail" title={x.detail}>{x.detail}</span>
+                  </span>
+                  <span className="hero-area-score"><span className="vw-card-metric-md">{x.value}%</span><span className="bar"><i style={{ width: `${x.value}%`, background: st === 'critical' ? C.bad : st === 'attention' ? C.warn : C.accent }} /></span></span>
                 </Link>
               );
             })}
           </div>
         </div>
+        <div className="hero-map">
+          <DcMap pins={pins} onPick={id => nav(`/datacenters/${id}`)} height={430} />
+          <div className="hero-map-head">
+            <span className="vw-card-activity-label">Live estate</span>
+            <span className="vw-label">{d.dcMap.length} datacenters · {d.dcMap.filter(x => x.worstSev && x.worstSev <= 2).length} with SEV1/2</span>
+          </div>
+          <div className="map-legend">
+            <span><i style={{ '--c': C.accent } as React.CSSProperties} />Healthy</span>
+            <span><i style={{ '--c': C.warn } as React.CSSProperties} />Incidents</span>
+            <span><i style={{ '--c': C.bad } as React.CSSProperties} />SEV1/2 running</span>
+          </div>
+        </div>
       </section>
 
-      <div className="cmd-kpis">
-        {sig.map(x => { const Ic = SIG_ICON[x.k]; return (
-          <button key={x.k} type="button" className="vw-card-section vw-card--clickable cmd-kpi" onClick={() => nav(x.to)}>
-            <div className="vw-flex vw-justify-between vw-items-start"><span className="vw-card-metric-label">{x.l}</span><Ic size={16} className="cmd-kpi-ic" /></div>
-            <div className="vw-card-metric-lg">{x.v}</div>
-            <div className={`vw-card-variance is-${x.tone}`}>{x.note}</div>
-          </button>
-        ); })}
-      </div>
+      {/* vitals: one strip, each metric with its 24 h trend */}
+      <section className="vw-card-section vitals">
+        {[
+          { k: 'open', l: 'Open incidents', v: String(p.open), note: `${p.breaching} past SLA`, bad: p.breaching > 0, t: d.trends.open, to: '/incidents' },
+          { k: 'alm', l: 'Major+ alarms', v: String(p.critMajor), note: 'critical and major', t: d.trends.critMajor, to: '/alerts?sev=critical' },
+          { k: 'links', l: 'Links down', v: String(p.linksDown), note: `of ${fmtNum(s.lldp)} physical`, t: d.trends.linksDown, to: '/alerts?q=Link%20Down' },
+          { k: 'svc', l: 'Services degraded', v: String(p.servicesDegraded), note: `of ${fmtNum(s.services)}`, t: d.trends.services, to: '/incidents' },
+          { k: 'avail', l: 'Availability', v: `${p.availability}%`, note: `${p.unreachable} unreachable`, t: d.trends.availability, to: '/alerts?q=Unreachable' },
+          { k: 'power', l: 'IT + facility power', v: `${fmtNum(d.trends.powerKw[23])} kW`, note: `${p.facilityAlarms} facility alarms`, bad: p.facilityAlarms > 0, t: d.trends.powerKw, to: '/facilities' }
+        ].map(x => (
+          <Link key={x.k} to={x.to} className="vital">
+            <span className="vw-card-metric-label">{x.l}</span>
+            <span className="vital-row"><span className="vw-card-metric-lg">{x.v}</span><span className="vital-spark"><Sparkline values={x.t} color={x.bad ? 'var(--vw-color-red-500)' : 'var(--primaryColor500)'} height={30} /></span></span>
+            <span className={`vw-card-variance ${x.bad ? 'is-negative' : 'is-neutral'} vital-note`}>{x.note} · 24 h</span>
+          </Link>
+        ))}
+      </section>
 
       <section className="vw-card-section cmd-crit">
         <div className="vw-flex vw-justify-between vw-items-center vw-gap-sm cmd-crit-head">
@@ -233,38 +231,6 @@ function Situation({ d }: { d: CC }) {
 }
 
 /* ---------------------------------------------------------------- where */
-
-function WhereMap({ d }: { d: CC }) {
-  const nav = useNavigate();
-  const pins = useMemo<DcPin[]>(() => d.dcMap.map(x => ({
-    id: x.id, lat: x.lat, lng: x.lng, label: x.id, sub: `${x.city} · ${ROLLOUT[x.status].label} · health ${x.status === 'planned' ? '—' : x.health} · ${x.incidents} open incident${x.incidents === 1 ? '' : 's'} · ${x.alerts} alarms`,
-    color: x.status === 'planned' ? C.muted : x.worstSev && x.worstSev <= 2 ? C.bad : x.incidents || x.critAlerts ? C.warn : C.accent,
-    size: 12 + Math.round(Math.sqrt(x.ne) * 0.9), pulse: x.worstSev > 0 && x.worstSev <= 2, dim: x.status === 'planned', badge: x.incidents || undefined
-  })), [d.dcMap]);
-  const hot = d.dcMap.filter(x => x.worstSev && x.worstSev <= 2).length;
-  return (
-    <Panel title="Where it is happening" sub={`${d.dcMap.length} live datacenters · ring = site state, halo = SEV1/2 incident running, badge = open incidents`} icon={I.MapPinned}
-      actions={<span className="row" style={{ gap: 6 }}><Chip tone="neutral" size="xs">{hot} sites with SEV1/2</Chip><Link to="/datacenters" className="panel-link">Datacenters<I.ChevronRight size={14} /></Link></span>} flush>
-      <div style={{ position: 'relative', padding: '0 0 0' }}>
-        <DcMap pins={pins} onPick={id => nav(`/datacenters/${id}`)} height={520} />
-        <div className="map-regions">
-          {d.regions.map(r => (
-            <button key={r.id} type="button" className="map-region" onClick={() => nav(`/datacenters?region=${r.id}`)}>
-              <b>{r.name}</b>
-              <span className="sub">{r.dcs} sites · {r.alerts} alarms</span>
-              <span className="inc" style={{ color: r.worstSev && r.worstSev <= 2 ? 'var(--vw-color-red-600)' : 'var(--vw-color-gray-700)' }}>{r.incidents} inc</span>
-            </button>
-          ))}
-        </div>
-        <div className="map-legend">
-          <span><i style={{ '--c': C.accent } as React.CSSProperties} />Healthy</span>
-          <span><i style={{ '--c': C.warn } as React.CSSProperties} />Incidents / critical alarms</span>
-          <span><i style={{ '--c': C.bad } as React.CSSProperties} />SEV1/2 running</span>
-                  </div>
-      </div>
-    </Panel>
-  );
-}
 
 /* ------------------------------------------------------------ what / impact */
 

@@ -7,6 +7,7 @@ import { Btn, CheckBox, Chip, Seg } from '../../ui/kit';
 import { IncidentChip, Legend, SevChip, SeverityChip } from '../../ui/status';
 import { SEVERITY } from '../../lib/vocab';
 import { fmtAgo, fmtDateTimeS } from '../../lib/format';
+import { ScopeChip } from '../../ui/scope';
 import type { NeData } from './NetworkElement';
 
 const SEVS: Severity[] = ['critical', 'major', 'minor', 'warning'];
@@ -31,7 +32,7 @@ export function NeAlerts({ d }: { d: NeData }) {
   const toggle = (id: string, on: boolean) => { const n = new Set(sel); on ? n.add(id) : n.delete(id); setSel(n); };
 
   return (
-    <section className="card ne-al">
+    <section className="vw-card-section ne-al">
       <div className="row between wrap" style={{ gap: 12 }}>
         <Seg<'alerts' | 'incidents'> value={view} onChange={setView} options={[{ id: 'alerts', label: `Alerts · ${live.length}`, icon: I.Bell }, { id: 'incidents', label: `Incidents · ${d.incidents.length}`, icon: I.FileText }]} />
       </div>
@@ -39,8 +40,7 @@ export function NeAlerts({ d }: { d: NeData }) {
         <div className="ne-al-grid">
           <div className="col" style={{ gap: 10, minWidth: 0 }}>
             <div className="ne-al-head">
-              <span className="kpi-ico tone-error"><I.CircleAlert size={16} /></span>
-              <div style={{ flex: 1, minWidth: 0 }}><b>Active alerts & events</b><span className="muted">Real-time monitoring across this element's resources</span></div>
+              <div style={{ flex: 1, minWidth: 0 }}><span className="vw-card-title-sm">Alarms on this device</span><span className="vw-label" style={{ display: 'block' }}>Scope says whether the alarm is inside the site, on an edge link, or on something the site depends on</span></div>
               <select className="select" value={sev} onChange={e => setSev(e.target.value)} aria-label="Severity"><option value="">All severity</option>{SEVS.map(s => <option key={s} value={s}>{SEVERITY[s].label}</option>)}</select>
               <select className="select" value={src} onChange={e => setSrc(e.target.value)} aria-label="Source"><option value="">All sources</option>{sources.map(s => <option key={s}>{s}</option>)}</select>
             </div>
@@ -48,7 +48,7 @@ export function NeAlerts({ d }: { d: NeData }) {
               <div className="dt-bulkbar ne-al-bulk"><b>{sel.size} selected</b><span className="grow" /><Btn size="xs" onClick={() => setSel(new Set())}>Clear</Btn><Btn size="xs" variant="filled" icon={I.Combine} disabled={busy} onClick={() => correlate([...sel])}>Correlate into incident</Btn></div>
             )}
             {!rows.length && <div className="empty"><span className="empty-ico"><I.BellOff size={22} /></span><b>No alerts match</b><div>{d.ne.discovery === 'not-discovered' ? 'Not discovered — no events are collected for this element yet.' : 'Clear a filter to see more.'}</div></div>}
-            {rows.map(a => <AlertCard key={a.id} a={a} on={sel.has(a.id)} onToggle={v => toggle(a.id, v)} now={now} />)}
+            <div className="ne-al-list">{rows.map(a => <AlertCard key={a.id} a={a} on={sel.has(a.id)} onToggle={v => toggle(a.id, v)} now={now} />)}</div>
             <div className="row between wrap ne-al-foot">
               <Legend items={SEVS.map(s => ({ label: SEVERITY[s].label, color: SEVERITY[s].color }))} />
               {d.alerts.some(a => a.state === 'cleared') && <label className="row muted" style={{ gap: 6, fontSize: 12.5, cursor: 'pointer' }}><input type="checkbox" checked={showCleared} onChange={e => setShowCleared(e.target.checked)} />Show cleared</label>}
@@ -74,23 +74,17 @@ export function NeAlerts({ d }: { d: NeData }) {
 function AlertCard({ a, on, onToggle, now }: { a: Alert; on: boolean; onToggle: (v: boolean) => void; now: number }) {
   return (
     <div className={`ne-alert${on ? ' is-sel' : ''}${a.state === 'cleared' ? ' is-cleared' : ''}`} style={{ '--sc': SEVERITY[a.severity].color } as React.CSSProperties}>
-      <div className="ne-alert-top">
-        {a.state !== 'cleared' && <CheckBox on={on} onChange={onToggle} label={`Select ${a.code}`} />}
-        <SeverityChip s={a.severity} />
-        <b className="ne-alert-title">{a.title}</b>
-        {a.ifName && <Chip tone="neutral" size="xs"><span className="mono">{a.ifName}</span></Chip>}
-        <span className="grow" />
-        {a.incidentId && <Link to={`/incidents/${a.incidentId}`} className="vw-chip vw-chip--info chip-xs mono" onClick={e => e.stopPropagation()}>{a.incidentId}</Link>}
-        <Chip tone={a.state === 'active' ? 'error' : a.state === 'acknowledged' ? 'warning' : 'success'} size="xs">{a.state === 'active' ? 'Active' : a.state === 'acknowledged' ? `Ack · ${a.ackBy ?? 'NOC'}` : 'Cleared'}</Chip>
-        {a.state === 'active' && <Btn size="xs" icon={I.Check} onClick={() => ackAlert(a.id)}>Acknowledge</Btn>}
-      </div>
-      <p className="ne-alert-desc">{a.description}</p>
-      <dl className="ne-alert-m">
-        <div><dt>Source</dt><dd>{a.source}</dd></div>
-        <div><dt>Alert type</dt><dd>{a.type}</dd></div>
-        <div><dt>Event start time</dt><dd className="num">{fmtDateTimeS(a.start)}<small className="faint" style={{ display: 'block', fontSize: 11.5 }}>{fmtAgo(a.start, now)}</small></dd></div>
-        <div><dt>Alert code</dt><dd className="mono">{a.code}</dd></div>
-      </dl>
+      {a.state !== 'cleared' ? <CheckBox on={on} onChange={onToggle} label={`Select ${a.code}`} /> : <span style={{ width: 18 }} />}
+      <span className="att-main">
+        <b className="ne-alert-title">{a.title}{a.ifName && <span className="mono ne-alert-if">{a.ifName}</span>}</b>
+        <small>{a.description}</small>
+        <small className="num">{a.code} · {a.category} · {a.type} · {fmtDateTimeS(a.start).slice(12)} · {fmtAgo(a.start, now)}</small>
+      </span>
+      <ScopeChip a={a} />
+      <SeverityChip s={a.severity} size="xs" />
+      {a.incidentId ? <Link to={`/incidents/${a.incidentId}`} className="vw-chip vw-chip--info chip-xs mono" onClick={e => e.stopPropagation()}>{a.incidentId}</Link> : <span className="ne-alert-noinc" />}
+      <Chip tone={a.state === 'active' ? 'error' : a.state === 'acknowledged' ? 'warning' : 'success'} size="xs">{a.state === 'active' ? 'Active' : a.state === 'acknowledged' ? `Ack · ${(a.ackBy ?? 'NOC').split(' ')[0]}` : 'Cleared'}</Chip>
+      {a.state === 'active' ? <Btn size="xs" icon={I.Check} onClick={() => ackAlert(a.id)}>Acknowledge</Btn> : <span className="ne-alert-noack" />}
     </div>
   );
 }

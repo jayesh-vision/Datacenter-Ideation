@@ -329,3 +329,69 @@
 .ops-area-detail { font-size: var(--vw-font-label-sm); color: var(--vw-color-gray-700); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 1280px) { .ops { grid-template-columns: 176px minmax(0, 1fr); gap: var(--vw-space-lg); } }
 @media (max-width: 1280px) { .ops-area-detail { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.4; } }
+
+/* status panel: compact gauge + counts + areas, nothing floating */
+.ops { grid-template-columns: 150px minmax(0, 1fr) !important; gap: var(--vw-space-lg) !important; align-items: stretch !important; padding: var(--vw-space-md) var(--vw-space-lg) !important; }
+.ops-gauge { gap: 2px !important; padding-right: var(--vw-space-md) !important; }
+.ops-gauge .vw-chip { margin-top: -2px !important; }
+.ops-main { gap: var(--vw-space-sm) !important; }
+.ops-count { padding: 8px 12px !important; gap: 0 !important; }
+.ops-count .vw-card-metric-lg { font-size: var(--vw-font-value-md) !important; }
+.ops-areas { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+.ops-area { padding: 10px 12px 10px 14px !important; gap: 6px !important; }
+.ops-area-head .ops-area-ic { width: 1.5rem !important; height: 1.5rem !important; }
+.ops-area-score .vw-card-metric-lg { font-size: var(--vw-font-value-md) !important; }
+.ops-area-measure { display: none; }
+.ops-area-detail { white-space: normal !important; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.4; min-height: 2.8em; }
+@media (max-width: 1280px) { .ops-areas { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } .ops { grid-template-columns: 140px minmax(0, 1fr) !important; } }
+.ops-area-name { white-space: normal !important; line-height: 1.25; }
+.ops-area-head { align-items: flex-start !important; }
+.ops-state { margin-top: 3px; }
+
+/* ---- hero: health verdict (left) + live estate map (right) ------------- */
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 0; padding: 0 !important; overflow: hidden; }
+.hero-left { display: flex; flex-direction: column; gap: var(--vw-space-md); padding: var(--vw-space-lg) var(--vw-space-xl); min-width: 0; }
+.hero-verdict { display: flex; align-items: center; gap: var(--vw-space-lg); }
+.hero-verdict-txt { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.hero-line { margin: 2px 0 0; font-size: var(--vw-font-heading-md); line-height: 1.45; color: var(--vw-color-gray-700); }
+.hero-line b { font-weight: 600; color: var(--vw-color-gray-900); }
+.hero-line b.hot { color: var(--vw-color-red-600); }
+.hero-areas { display: flex; flex-direction: column; border-top: 1px solid var(--vw-color-slate-200); }
+.hero-area { display: grid; grid-template-columns: 32px minmax(0, 1fr) 132px; align-items: center; gap: 12px; padding: 11px 4px; border-bottom: 1px solid var(--vw-color-slate-100); color: inherit; text-decoration: none; position: relative; }
+.hero-area:hover { background: var(--vw-color-slate-50); }
+.hero-area::before { content: ''; position: absolute; left: -24px; top: 10px; bottom: 10px; width: 3px; border-radius: 0 3px 3px 0; background: transparent; }
+.hero-area.is-critical::before { background: var(--vw-color-red-500); }
+.hero-area.is-attention::before { background: var(--vw-color-amber-500); }
+.hero-area-ic { width: 32px; height: 32px; border-radius: var(--vw-radius-sm); display: grid; place-items: center; background: var(--vw-color-slate-100); color: var(--vw-color-gray-700); }
+.hero-area-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hero-area-top { display: flex; align-items: center; gap: 10px; }
+.hero-area-top b { font-size: var(--vw-font-label-md); font-weight: 500; color: var(--vw-color-gray-900); }
+.hero-area-detail { font-size: var(--vw-font-label-sm); color: var(--vw-color-gray-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hero-area-score { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+.hero-area-score .vw-card-metric-md { color: var(--vw-color-gray-900); }
+.hero-area-score .bar { width: 100%; height: 5px; background: var(--vw-color-slate-100); }
+.hero-map { position: relative; border-left: 1px solid var(--vw-color-slate-200); min-height: 430px; }
+.hero-map .dcmap { border-radius: 0; position: absolute !important; inset: 0; height: auto !important; }
+.hero-map-head { position: absolute; top: 12px; left: 12px; z-index: 500; display: flex; flex-direction: column; gap: 1px; background: rgba(255, 255, 255, .94); border: 1px solid var(--vw-color-slate-200); border-radius: var(--vw-radius-sm); padding: 8px 12px; }
+
+/* ---- vitals strip --------------------------------------------------- */
+.vitals { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); padding: 0 !important; overflow: hidden; }
+.vital { display: flex; flex-direction: column; gap: 6px; padding: var(--vw-space-md) var(--vw-space-lg); border-left: 1px solid var(--vw-color-slate-200); color: inherit; text-decoration: none; min-width: 0; }
+.vital:first-child { border-left: 0; }
+.vital:hover { background: var(--vw-color-slate-50); }
+.vital-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
+.vital-row .vw-card-metric-lg { color: var(--vw-color-gray-900); white-space: nowrap; }
+.vital-spark { width: 72px; flex-shrink: 0; }
+.vital-note { font-weight: 400 !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmd-where { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) !important; }
+.cmd-triad { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
+@media (max-width: 1280px) {
+  .hero { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .hero-left { padding: var(--vw-space-md) var(--vw-space-lg); }
+  .hero-area::before { left: -16px; }
+  .vitals { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .vital:nth-child(4) { border-left: 0; }
+  .vital:nth-child(n+4) { border-top: 1px solid var(--vw-color-slate-200); }
+}
+.hero-verdict > svg { flex-shrink: 0; }
+.hero-line { font-size: var(--vw-font-heading-lg) !important; }

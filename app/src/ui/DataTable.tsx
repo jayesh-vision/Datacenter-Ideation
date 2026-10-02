@@ -5,15 +5,25 @@ import { CheckBox, Empty } from './kit';
 export interface Col<T> {
   key: string; header: ReactNode; render: (row: T) => ReactNode;
   sort?: (row: T) => number | string; align?: 'right'; width?: number | string; wrap?: boolean;
+  /** hide the column when the viewport is narrower than this (px) — lets a wide table keep its key columns readable */
+  hideBelow?: number;
+}
+
+function useViewportWidth() {
+  const [w, setW] = useState(() => (typeof window === 'undefined' ? 9999 : window.innerWidth));
+  useEffect(() => { const f = () => setW(window.innerWidth); window.addEventListener('resize', f); return () => window.removeEventListener('resize', f); }, []);
+  return w;
 }
 
 export function DataTable<T extends { id: string }>({
-  rows, cols, onRow, pageSize = 25, defaultSort, selectable, selected, onSelect, toolbar, bulkbar, maxHeight, empty, rowClass, compact
+  rows, cols: allCols, onRow, pageSize = 25, defaultSort, selectable, selected, onSelect, toolbar, bulkbar, maxHeight, empty, rowClass, compact
 }: {
   rows: T[]; cols: Col<T>[]; onRow?: (r: T) => void; pageSize?: number; defaultSort?: { key: string; dir: 'asc' | 'desc' };
   selectable?: boolean; selected?: Set<string>; onSelect?: (s: Set<string>) => void; toolbar?: ReactNode; bulkbar?: ReactNode;
   maxHeight?: number | string; empty?: ReactNode; rowClass?: (r: T) => string; compact?: boolean;
 }) {
+  const vw = useViewportWidth();
+  const cols = allCols.filter(c => !c.hideBelow || vw >= c.hideBelow);
   const [sort, setSort] = useState(defaultSort ?? null);
   const [page, setPage] = useState(0);
   useEffect(() => setPage(0), [rows.length]);

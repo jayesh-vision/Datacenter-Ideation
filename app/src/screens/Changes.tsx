@@ -28,34 +28,35 @@ export function Changes() {
   const sel = all.find(c => c.id === openId);
 
   const cols: Col<Change>[] = [
-    { key: 'id', header: 'ID', render: c => <span className="cell-2"><span className="mono strong">{c.id}</span>{c.emergency && <small className="bad">Emergency</small>}</span>, sort: c => Number(c.id.slice(4)) },
-    { key: 'title', header: 'Title', render: c => <span className="cell-2"><span className="strong" style={{ fontWeight: 500 }}>{c.title}</span><small>{c.scope.length ? `${c.scope.length} device${c.scope.length > 1 ? 's' : ''} in scope` : 'Facility scope'}{c.incidentId ? ` · ${c.incidentId}` : ''}</small></span>, wrap: true, width: '32%' },
-    { key: 'dc', header: 'Datacenter', render: c => <DcLink id={c.dcId} />, sort: c => c.dcId },
-    { key: 'kind', header: 'Kind', render: c => <Chip size="xs" tone={c.kind === 'Change' ? 'info' : 'cyan'}>{c.kind}</Chip>, sort: c => c.kind },
-    { key: 'risk', header: 'Risk', render: c => <Chip size="xs" tone={RISK_TONE[c.risk]}>{c.risk}</Chip>, sort: c => ['Low', 'Medium', 'High'].indexOf(c.risk) },
-    { key: 'status', header: 'Status', render: c => <ChangeChip s={c.status} size="xs" />, sort: c => STATUSES.indexOf(c.status) },
-    { key: 'win', header: 'Window', render: c => <span className="cell-2 num nowrap">{fmtDateTime(c.windowStart)}<small>{fmtHm((c.windowEnd - c.windowStart) / 60000)} · {c.windowStart > now ? `in ${fmtHm((c.windowStart - now) / 60000)}` : c.windowEnd > now ? 'window open' : `${fmtHm((now - c.windowEnd) / 60000)} ago`}</small></span>, sort: c => c.windowStart },
-    { key: 'who', header: 'Requester / approver', render: c => <span className="cell-2">{c.requester}<small>{c.approver ?? 'awaiting approver'}</small></span> }
+    { key: 'id', header: 'ID', width: '9%', render: c => <span className="cell-2"><span className="mono strong">{c.id}</span>{c.emergency && <small className="bad">Emergency</small>}</span>, sort: c => Number(c.id.slice(4)) },
+    { key: 'title', header: 'Title', render: c => <span className="cell-2"><span className="strong" style={{ fontWeight: 500 }}>{c.title}</span><small>{c.scope.length ? `${c.scope.length} device${c.scope.length > 1 ? 's' : ''} in scope` : 'Facility scope'}{c.incidentId ? ` · ${c.incidentId}` : ''}</small></span>, wrap: true },
+    { key: 'dc', header: 'Datacenter', width: '10%', render: c => <DcLink id={c.dcId} />, sort: c => c.dcId },
+    { key: 'kind', header: 'Kind', width: '11%', render: c => <Chip size="xs" tone={c.kind === 'Change' ? 'info' : 'cyan'}>{c.kind}</Chip>, sort: c => c.kind },
+    { key: 'risk', header: 'Risk', width: '8%', render: c => <Chip size="xs" tone={RISK_TONE[c.risk]}>{c.risk}</Chip>, sort: c => ['Low', 'Medium', 'High'].indexOf(c.risk) },
+    { key: 'status', header: 'Status', width: '12%', render: c => <ChangeChip s={c.status} size="xs" />, sort: c => STATUSES.indexOf(c.status) },
+    { key: 'win', header: 'Window', width: '14%', render: c => <span className="cell-2 num nowrap">{fmtDateTime(c.windowStart)}<small>{fmtHm((c.windowEnd - c.windowStart) / 60000)} · {c.windowStart > now ? `in ${fmtHm((c.windowStart - now) / 60000)}` : c.windowEnd > now ? 'window open' : `${fmtHm((now - c.windowEnd) / 60000)} ago`}</small></span>, sort: c => c.windowStart },
+    { key: 'who', header: 'Requester / approver', width: '14%', render: c => <span className="cell-2">{c.requester}<small>{c.approver ?? 'awaiting approver'}</small></span> }
   ];
   const d7 = now - 7 * 86400000;
   return (
     <div className="page">
-      <PageHead title="Changes & maintenance" sub="Every change and maintenance window with its dependency-aware impact. Approve, implement and close — or roll back — from one place."
+      <PageHead title="Changes & maintenance" sub="Change and maintenance windows with dependency-aware impact; approve, implement, close or roll back."
         actions={<><Btn icon={I.Wrench} onClick={() => set({ new: 'maintenance', id: '' })}>Schedule maintenance</Btn><Btn variant="filled" icon={I.Plus} onClick={() => set({ new: 'change', id: '' })}>New change</Btn></>} />
       <div className="kpis kpis-5">
         <OpsKpi label="Pending approval" value={all.filter(c => c.status === 'Pending approval').length} tone="warn" sub="needs an approver" onClick={() => set({ status: status === 'Pending approval' ? '' : 'Pending approval' })} active={status === 'Pending approval'} />
         <OpsKpi label="Approved · upcoming" value={all.filter(c => c.status === 'Approved' && c.windowStart > now).length} sub="scheduled windows" onClick={() => set({ status: status === 'Approved' ? '' : 'Approved' })} active={status === 'Approved'} />
         <OpsKpi label="In progress" value={all.filter(c => c.status === 'In progress').length} sub="window open now" onClick={() => set({ status: status === 'In progress' ? '' : 'In progress' })} active={status === 'In progress'} />
-        <OpsKpi label="Completed · 7 days" value={all.filter(c => c.status === 'Completed' && c.windowEnd > d7).length} tone="good" sub="verified and closed" onClick={() => set({ status: status === 'Completed' ? '' : 'Completed' })} active={status === 'Completed'} />
+        <OpsKpi label="Completed · 7 days" value={all.filter(c => c.status === 'Completed' && c.windowEnd > d7).length} sub="verified and closed" onClick={() => set({ status: status === 'Completed' ? '' : 'Completed' })} active={status === 'Completed'} />
         <OpsKpi label="Rolled back" value={all.filter(c => c.status === 'Rolled back').length} tone="bad" sub="post-change verification failed" onClick={() => set({ status: status === 'Rolled back' ? '' : 'Rolled back' })} active={status === 'Rolled back'} />
       </div>
       <section className="card">
         <DataTable rows={rows} cols={cols} onRow={c => set({ id: c.id, new: '' })} defaultSort={{ key: 'win', dir: 'desc' }}
-          toolbar={<div className="toolbar" style={{ width: '100%' }}>
-            <Seg<Kind> value={kind} onChange={v => set({ kind: v === 'all' ? '' : v })} options={[{ id: 'all', label: `All (${all.length})` }, { id: 'change', label: 'Changes' }, { id: 'maintenance', label: 'Maintenance' }]} />
-            <SearchBox value={q} onChange={v => set({ q: v })} placeholder="ID, title, datacenter" width={240} />
+          toolbar={<div className="ops-strip">
+            <Seg<Kind> value={kind} onChange={v => set({ kind: v === 'all' ? '' : v })} options={[{ id: 'all', label: `All ${all.length}` }, { id: 'change', label: 'Changes' }, { id: 'maintenance', label: 'Maintenance' }]} />
+            <span className="grow" />
+            <SearchBox value={q} onChange={v => set({ q: v })} placeholder="ID, title, datacenter" width={220} />
             <select className="select" value={status} onChange={e => set({ status: e.target.value })} aria-label="Status"><option value="">All statuses</option>{STATUSES.map(s => <option key={s}>{s}</option>)}</select>
-            <span className="grow" /><span className="dt-count">{rows.length} of {all.length}</span>
+            <span className="dt-count">{rows.length} of {all.length}</span>
           </div>} />
       </section>
       <Drawer open={!!sel} onClose={() => set({ id: '' })} width={600} title={sel ? <span className="row" style={{ gap: 8 }}><span className="mono">{sel.id}</span><ChangeChip s={sel.status} /></span> : ''} sub={sel?.title}

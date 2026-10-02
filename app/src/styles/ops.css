@@ -33,7 +33,7 @@
 .sla-box.is-bad { background: var(--vw-color-red-50); border-color: var(--vw-color-red-200); }
 .sla-box.is-bad b { color: var(--vw-color-red-600); }
 .sla-box.is-good b { color: var(--vw-color-emerald-700); }
-.inc-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.inc-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: var(--vw-space-lg); align-items: start; }
 .kv-table { width: 100%; border-collapse: separate; border-spacing: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; font-size: 13.5px; }
 .kv-table th { width: 30%; text-align: left; font-weight: 400; color: var(--ink-600); background: var(--vw-color-slate-50); padding: 10px 14px; border-bottom: 1px solid var(--line-soft); border-right: 1px solid var(--line-soft); }
 .kv-table td { padding: 10px 14px; color: var(--ink-900); border-bottom: 1px solid var(--line-soft); }
@@ -152,3 +152,51 @@
 .premium-tag { color: var(--vw-color-purple-700); font-weight: 500; }
 .topo-bar { display: flex; flex-direction: column; gap: 10px; }
 .topo-counts { gap: 8px; padding-top: 10px; border-top: 1px solid var(--line-soft); }
+
+/* ---- shared Operate rhythm ------------------------------------------------ */
+/* one strip: tabs / segment on the left, filters + actions on the right */
+.ops-strip { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; flex-wrap: wrap; }
+.ops-strip .tabs { border-bottom: 0; margin: -10px 0; }
+.ops-strip .tab { height: 44px; }
+.ops-strip .dt-count { margin-left: 4px; }
+.dt-toolbar .ops-strip .search { height: 34px; }
+/* incident header: title + actions on one row each, tighter */
+.inc-head { padding: var(--vw-space-md) var(--vw-space-lg); gap: 10px; }
+.inc-head h1 { font-size: var(--vw-font-heading-xl); font-weight: 500; }
+.inc-title { font-size: var(--vw-font-label-md); color: var(--vw-color-gray-700); }
+.inc-head .nst-btn { white-space: nowrap; }
+/* calm the AI diagnostics card and the alert rows: no tinted surfaces */
+.ai-card { border-color: var(--vw-color-slate-200); }
+.ai-card-head { background: var(--vw-color-slate-50); color: var(--vw-color-gray-900); border-bottom: 1px solid var(--vw-color-slate-200); }
+.ai-card-head span { color: var(--vw-color-gray-500); }
+.alert-row.sev-critical, .alert-row.sev-major, .alert-row.sev-minor, .alert-row.sev-warning { background: var(--vw-color-white); }
+.impact-stats > div { background: var(--vw-color-slate-50); border: 1px solid var(--vw-color-slate-200); }
+@media (max-width: 1280px) { .ops-strip .search { width: 180px !important; } }
+
+.alert-row { border-left-width: 1px; border-left-color: var(--vw-color-slate-200); }
+.alert-row.sev-critical, .alert-row.sev-major, .alert-row.sev-minor, .alert-row.sev-warning { border-left-color: var(--vw-color-slate-200); }
+.inc-grid > * { min-width: 0; }
+.inc-grid .ai-card, .inc-grid .panel { margin-top: 0; }
+.ops-strip .select { max-width: 150px; }
+/* Alerts has the most filters: below 1320px the strip becomes two tidy rows
+   (scope on the first, filters on the second) instead of a ragged wrap */
+@media (max-width: 1320px) {
+  .ops-strip.is-alerts { row-gap: 8px; }
+  .ops-strip.is-alerts > .grow { flex-basis: 100%; height: 0; }
+}
+/* Operate tables: content-sized columns (as Alerts) but the long text cells
+   wrap inside a budget instead of pushing the table past its card */
+/* fixed layout is the only thing that stops nowrap cells growing the table past
+   its card; percentage widths leave the title column whatever remains */
+.page .dt-table.nst-table { table-layout: fixed; }
+.page .dt-table td.is-wrap { white-space: normal; }
+/* columns fit the card (measured); clip sub-pixel content spill inside fixed cells without truncating visible text */
+.page .dt-table td:not(.is-wrap) { overflow: hidden; }
+.page .dt-table td.is-wrap .cell-2 > .strong { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.page .dt-table td.is-wrap .cell-2 > small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+/* Changes header: actions stay on the title row at 1280 */
+@media (max-width: 1320px) { .page-head p { max-width: 560px; } }
+
+/* fixed-layout tables: pixel widths for chip/id/date columns, wrapping text columns take the remainder */
+.page .dt-table td.is-wrap { white-space: normal; overflow-wrap: anywhere; }
+.page .dt-table td.is-wrap > .strong { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

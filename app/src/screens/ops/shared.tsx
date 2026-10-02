@@ -48,13 +48,13 @@ export function refTo(ref: string | undefined, alertNe?: (code: string) => strin
   return null;
 }
 
-export function OpsKpi({ label, value, sub, tone, onClick, active, icon }: { label: string; value: ReactNode; sub?: ReactNode; tone?: 'bad' | 'warn' | 'good'; onClick?: () => void; active?: boolean; icon?: ReactNode }) {
+export function OpsKpi({ label, value, sub, tone, onClick, active, icon, unit }: { label: string; value: ReactNode; sub?: ReactNode; tone?: 'bad' | 'warn' | 'good'; onClick?: () => void; active?: boolean; icon?: ReactNode; unit?: string }) {
+  const Tag = onClick ? 'button' : 'div';
   return (
-    <div className={`kpi vw-card-section${onClick ? ' is-click' : ''}${active ? ' is-active' : ''}`} onClick={onClick} role={onClick ? 'button' : undefined} tabIndex={onClick ? 0 : undefined}
-      onKeyDown={e => { if (onClick && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onClick(); } }}>
-      <div className="kpi-head"><span className="kpi-label">{label}</span>{icon}</div>
-      <div className="kpi-main"><span className={`kpi-value ${tone ?? ''}`}>{value}</span></div>
-      {sub && <div className="kpi-basis">{sub}</div>}
-    </div>
+    <Tag type={onClick ? 'button' : undefined} className={`vw-card-section${onClick ? ' vw-card--clickable' : ''} app-kpi${tone ? ` is-${tone}` : ''}${active ? ' is-active' : ''}`} onClick={onClick} aria-pressed={onClick ? active : undefined}>
+      <div className="app-kpi-h"><span className="vw-card-metric-label">{label}</span>{icon}</div>
+      <div className="app-kpi-v"><span className="vw-card-metric-lg">{value}</span>{unit && <span className="vw-label">{unit}</span>}</div>
+      {sub && <div className={`vw-card-variance ${tone === 'bad' ? 'is-negative' : tone === 'good' ? 'is-positive' : 'is-neutral'} app-kpi-s`}>{sub}</div>}
+    </Tag>
   );
 }

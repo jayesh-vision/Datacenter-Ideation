@@ -52,3 +52,15 @@ Scope decisions 02-Oct-2026: the menu is Command center · Datacenters · Facili
 Network services, Customers and Capacity & forecast are parked (code kept, routes redirect); services and customers appear only as
 impact on incidents, devices and sites. Revenue is not shown anywhere operational. Site tabs: Overview (3D) · Attention · Equipment
 (installed devices only; planned devices = reserved rack space) · Power & space · Cabling · Ops log. No discovery/drift/reconciliation UI.
+
+## Visual rhythm (02-Oct-2026) — one system, not per-screen styling
+- `OpsKpi` (screens/ops/shared.tsx) is THE KPI card everywhere: `.app-kpi` = white `.vw-card-section`, grey icon, light metric,
+  `.vw-card-variance` note; state only via the 3px top accent (red = fault, amber = attention). No pastel-tinted tiles.
+- Page: `.page` gap/padding, panel density, tabs and table toolbar come from the tail of `styles/base.css`; per-screen CSS does layout only.
+- Side-by-side cards must be equal height (`.qa/heights.mjs` checks the command center); nothing clipped at 1280.
+- Palette: slate/white, brand blue accent, red/amber for faults only. The digital twin (`screens/site/twin`) is signed off — don't restyle it.
+
+## Command center layout (02-Oct-2026, after the user rejected the 17-box version)
+Hero card = health ring + verdict + 4 areas as rows (left) and the live DcMap (right); one `.vitals` strip of 6 metrics with
+24 h sparklines (`commandCenter().trends`); then Critical now cards; then ImpactBoard | Recommendations, Exposure | Causes, 7-day board.
+Don't reintroduce rows of boxed KPI tiles on the landing page.

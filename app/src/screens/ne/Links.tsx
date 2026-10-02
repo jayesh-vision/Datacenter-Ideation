@@ -47,13 +47,13 @@ export function Links({ d }: { d: NeData }) {
 
   return (
     <>
-      <Panel title="Links" sub="Protocol adjacencies on this element — pick a protocol to list its links">
+      <Panel title="Protocol adjacencies" sub="Pick a protocol to list its links; down and init sessions are what need an operator">
         <div className="ne-proto">
           {CARDS.map(c => {
             const ls = d.links.filter(l => l.protocol === c.p);
             return (
               <button key={c.p} type="button" className={`ne-proto-card${proto === c.p ? ' is-active' : ''}`} onClick={() => setProto(c.p)} aria-pressed={proto === c.p}>
-                <div className="row" style={{ gap: 10 }}><span className={`kpi-ico tone-${c.tone}`}><c.icon size={15} /></span><span><b>{c.p}</b><small>Protocol links · {ls.length}</small></span></div>
+                <div className="row" style={{ gap: 10 }}><span className="vw-card-icon-sm ne-dep-ic"><c.icon size={15} /></span><span><b>{c.p}</b><small>{ls.length} link{ls.length === 1 ? '' : 's'}</small></span></div>
                 {c.rows.map(([label, f, cls]) => { const n = ls.filter(l => f(l.state)).length; return <div key={label} className="row between ne-proto-row"><span>{label}</span><b className={`num ${n ? cls : 'faint'}`}>{n}</b></div>; })}
               </button>
             );
@@ -61,21 +61,20 @@ export function Links({ d }: { d: NeData }) {
         </div>
       </Panel>
 
-      <section className="card">
-        <DataTable rows={rows} cols={cols} onRow={l => setOpen(l.id)} pageSize={20} defaultSort={{ key: 'util', dir: 'desc' }}
-          toolbar={<div className="toolbar" style={{ width: '100%' }}><b className="strong">{proto} links</b><span className="dt-count">{rows.length}</span><span className="grow" /><span className="faint" style={{ fontSize: 12 }}>Click a link to trace cable → interfaces → protocols → services</span></div>} />
+      <section className="vw-card-section" style={{ padding: 0, overflow: 'hidden' }}>
+        <DataTable rows={rows} cols={cols} onRow={l => setOpen(l.id)} pageSize={20} defaultSort={{ key: 'state', dir: 'asc' }}
+          toolbar={<div className="toolbar" style={{ width: '100%' }}><span className="vw-card-title-sm">{proto} links</span><span className="dt-count">{rows.length}</span><span className="grow" /><span className="vw-label">Click a link to trace cable → interfaces → protocols → services</span></div>} />
       </section>
 
       {countdown.length > 0 && sel && (
-        <section className="card ne-fc">
+        <section className="vw-card-section ne-fc">
           <div className="ne-fc-head">
-            <span className="kpi-ico tone-info" style={{ width: 40, height: 40, borderRadius: 12 }}><I.TrendingUp size={20} /></span>
-            <div style={{ flex: 1 }}><h3>Link capacity forecasting dashboard</h3><span className="muted">LLDP backhaul & uplink capacity analysis · compound growth of the last 6 monthly peaks</span></div>
-            <Chip tone="info" size="sm">LLDP protocol</Chip>
+            <span className="vw-card-icon-md ne-dep-ic"><I.TrendingUp size={18} /></span>
+            <div style={{ flex: 1 }}><span className="vw-card-title-sm">Link saturation watch</span><span className="vw-label" style={{ display: 'block' }}>Backhaul and uplinks on this device, soonest to cross the 85% warning line first · trend of the last 6 monthly peaks</span></div>
           </div>
           <div className="ne-fc-body">
             <div className="ne-fc-list">
-              <div className="ne-fc-label">{countdown.length} links in countdown · LLDP</div>
+              <div className="ne-fc-label">{countdown.length} backhaul / uplink{countdown.length === 1 ? '' : 's'}</div>
               {countdown.map(l => {
                 const k = linkIf(l, ne.id), r = riskOf(l), on = l.id === sel.id;
                 return (
@@ -84,8 +83,8 @@ export function Links({ d }: { d: NeData }) {
                     <dl>
                       <div><dt>Bandwidth utilisation</dt><dd className={l.utilPct >= WARN ? 'bad' : l.utilPct >= 75 ? 'warn' : 'good'}>{l.utilPct}%</dd></div>
                       <div><dt>Active sessions</dt><dd>{fmtNum(l.sessions)}</dd></div>
-                      <div><dt>Forecast to 85%</dt><dd>{l.forecastMonths === 0 ? 'Crossed' : l.forecastDate && l.forecastMonths < 60 ? fmtMonth(l.forecastDate) : '> 5 years'}</dd></div>
-                      <div><dt>Growth rate</dt><dd>+{l.growthPct}%/mo</dd></div>
+                      <div><dt>Crosses 85%</dt><dd>{l.forecastMonths === 0 ? 'Crossed' : l.forecastDate && l.forecastMonths < 60 ? fmtMonth(l.forecastDate) : '> 5 years'}</dd></div>
+                      <div><dt>Trend</dt><dd>+{l.growthPct}%/mo</dd></div>
                     </dl>
                   </button>
                 );
@@ -93,7 +92,7 @@ export function Links({ d }: { d: NeData }) {
             </div>
             <div className="ne-fc-chart">
               <div className="row between" style={{ marginBottom: 6 }}>
-                <h4>Link capacity forecast — <span className="mono">{linkIf(sel, ne.id).local}</span> <span className="muted" style={{ fontWeight: 400 }}>→ {linkIf(sel, ne.id).peerNe}</span></h4>
+                <h4><span className="mono">{linkIf(sel, ne.id).local}</span> <span className="muted" style={{ fontWeight: 400 }}>→ {linkIf(sel, ne.id).peerNe}</span></h4>
                 <button type="button" className="panel-link" onClick={() => setOpen(sel.id)}>Trace link<I.ChevronRight size={14} /></button>
               </div>
               <ForecastChart history={sel.history} growth={sel.growthPct} now={clockNow()} height={340} />

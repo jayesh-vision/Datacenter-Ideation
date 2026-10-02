@@ -35,13 +35,13 @@ export function Alerts() {
   if (!all || !dcs) return <Loading />;
 
   const cols: Col<Alert>[] = [
-    { key: 'sev', header: 'Severity', render: a => <span className="row" style={{ gap: 8 }}><SevDot s={a.severity} /><SeverityChip s={a.severity} size="xs" /></span>, sort: a => -SEVERITY[a.severity].rank },
+    { key: 'sev', header: 'Severity', width: '9%', render: a => <span className="row" style={{ gap: 8 }}><SevDot s={a.severity} /><SeverityChip s={a.severity} size="xs" /></span>, sort: a => -SEVERITY[a.severity].rank },
     { key: 'title', header: 'Alert', render: a => <span className="cell-2"><b className="strong">{a.title}</b><small className="al-desc">{a.description}</small></span>, wrap: true, width: '34%' },
-    { key: 'where', header: 'Source', render: a => <span className="cell-2">{a.neId ? <NeLink id={a.neId} tab="alerts" /> : a.node ? <span className="mono">{a.node}</span> : <DcLink id={a.dcId} tab="attention" />}<small>{a.ifName ? `${a.ifName} · ` : ''}{a.nodeLocation && !a.neId ? `${a.nodeLocation} · via ` : ''}{a.dcId}</small></span>, sort: a => a.neId ?? a.node ?? a.dcId },
-    { key: 'scope', header: 'Scope · category', render: a => <span className="cell-2" style={{ gap: 3 }}><ScopeChip a={a} /><small>{a.category} · {a.type}</small></span>, sort: a => SCOPE_ORDER.indexOf(a.scope) },
-    { key: 'start', header: 'Started', render: a => <span className="cell-2 num">{fmtAgo(a.start, now)}<small>{a.code} · {fmtDateTimeS(a.start).slice(12)}</small></span>, sort: a => a.start },
-    { key: 'state', header: 'State', render: a => <Chip size="xs" tone={a.state === 'active' ? 'error' : a.state === 'acknowledged' ? 'info' : 'neutral'}>{a.state === 'active' ? 'Active' : a.state === 'acknowledged' ? `Ack${a.ackBy ? ` · ${a.ackBy.split(' ')[0]}` : ''}` : 'Cleared'}</Chip>, sort: a => a.state },
-    { key: 'inc', header: 'Incident', render: a => (a.incidentId ? <IncLink id={a.incidentId} /> : <span className="faint">—</span>), sort: a => a.incidentId ?? '' }
+    { key: 'where', header: 'Source', width: 196, wrap: true, render: a => <span className="cell-2">{a.neId ? <NeLink id={a.neId} tab="alerts" /> : a.node ? <span className="mono">{a.node}</span> : <DcLink id={a.dcId} tab="attention" />}<small>{a.ifName ? `${a.ifName} · ` : ''}{a.nodeLocation && !a.neId ? `${a.nodeLocation} · via ` : ''}{a.dcId}</small></span>, sort: a => a.neId ?? a.node ?? a.dcId },
+    { key: 'scope', header: 'Scope · category', width: '14%', wrap: true, render: a => <span className="cell-2" style={{ gap: 3 }}><ScopeChip a={a} /><small>{a.category} · {a.type}</small></span>, sort: a => SCOPE_ORDER.indexOf(a.scope) },
+    { key: 'start', header: 'Started', width: 150, render: a => <span className="cell-2 num">{fmtAgo(a.start, now)}<small>{a.code} · {fmtDateTimeS(a.start).slice(12)}</small></span>, sort: a => a.start },
+    { key: 'state', header: 'State', width: 96, hideBelow: 1320, render: a => <Chip size="xs" tone={a.state === 'active' ? 'error' : a.state === 'acknowledged' ? 'info' : 'neutral'}>{a.state === 'active' ? 'Active' : a.state === 'acknowledged' ? `Ack${a.ackBy ? ` · ${a.ackBy.split(' ')[0]}` : ''}` : 'Cleared'}</Chip>, sort: a => a.state },
+    { key: 'inc', header: 'Incident', width: 92, render: a => (a.incidentId ? <IncLink id={a.incidentId} /> : <span className="faint">—</span>), sort: a => a.incidentId ?? '' }
   ];
   const selected = rows.filter(a => sel.has(a.id));
   const correlate = async () => {
@@ -57,8 +57,8 @@ export function Alerts() {
 
   return (
     <div className="page">
-      <PageHead title="Alerts" sub="Datacenter-scoped alarms: inside the site, on links leaving it, and on what it depends on. Downstream PoP and site alarms are kept separate and never count against a datacenter."
-        actions={<><Seg size="sm" value={scope} onChange={v => set('scope', v === 'dc' ? '' : v)} options={[{ id: 'dc', label: 'Datacenter scope' }, { id: 'downstream', label: 'Downstream' }, { id: 'all', label: 'All' }]} /><Fresh>Streaming · updated just now</Fresh></>} />
+      <PageHead title="Alerts" sub="Alarms inside each datacenter, on its edge links and on its dependencies; downstream alarms are kept separate."
+        actions={<Fresh>Streaming · updated just now</Fresh>} />
       <div className="kpis">
         {SEVS.map(s => {
           const n = base.filter(a => a.severity === s).length;
@@ -77,16 +77,17 @@ export function Alerts() {
             <button type="button" className="panel-link" onClick={() => setSel(new Set())}>Clear</button>
           </>}
           toolbar={
-            <div className="toolbar" style={{ width: '100%' }}>
-              <span className="dt-count">{rows.length} of {all.length}</span>
-              <SearchBox value={q} onChange={v => set('q', v)} placeholder="Code, title, NE, interface" width={260} />
+            <div className="ops-strip is-alerts">
+              <Seg size="sm" value={scope} onChange={v => set('scope', v === 'dc' ? '' : v)} options={[{ id: 'dc', label: 'DC scope' }, { id: 'downstream', label: 'Downstream' }, { id: 'all', label: 'All' }]} />
+              <span className="grow" />
+              <SearchBox value={q} onChange={v => set('q', v)} placeholder="Code, title, NE…" width={170} />
               <select className="select" value={sev} onChange={e => set('sev', e.target.value)} aria-label="Severity"><option value="">All severity</option>{SEVS.map(s => <option key={s} value={s}>{SEVERITY[s].label}</option>)}</select>
               <select className="select" value={source} onChange={e => set('source', e.target.value)} aria-label="Source"><option value="">All sources</option>{SOURCES.map(s => <option key={s}>{s}</option>)}</select>
-              <select className="select" value={dc} onChange={e => set('dc', e.target.value)} aria-label="Datacenter"><option value="">All datacenters ({dcs.length})</option>{dcs.map(d => <option key={d.id} value={d.id}>{d.id} · {d.city}</option>)}</select>
+              <select className="select" value={dc} onChange={e => set('dc', e.target.value)} aria-label="Datacenter"><option value="">All datacenters</option>{dcs.map(d => <option key={d.id} value={d.id}>{d.id} · {d.city}</option>)}</select>
               <select className="select" value={state} onChange={e => set('state', e.target.value === 'open' ? '' : e.target.value)} aria-label="State">
-                <option value="open">Active + acknowledged</option><option value="active">Active only</option><option value="acknowledged">Acknowledged</option><option value="cleared">Cleared</option><option value="all">All states</option>
+                <option value="open">Open</option><option value="active">Active only</option><option value="acknowledged">Acknowledged</option><option value="cleared">Cleared</option><option value="all">All states</option>
               </select>
-              {(sev || source || dc || q || sp.get('state')) && <button type="button" className="panel-link" onClick={() => setSp(new URLSearchParams(), { replace: true })}><I.X size={13} />Clear filters</button>}
+              {(sev || source || dc || q || sp.get('state')) && <button type="button" className="panel-link" onClick={() => setSp(new URLSearchParams(), { replace: true })}><I.X size={13} />Clear</button>}
             </div>
           } />
         <div className="ops-legend"><span className="mini-legend">{SEVS.map(s => <span key={s}><i style={{ background: SEVERITY[s].color }} />{SEVERITY[s].label}</span>)}</span><span className="faint">Select alerts that share a cause to correlate them — impact and RCA are computed from topology.</span></div>

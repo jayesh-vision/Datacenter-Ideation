@@ -129,3 +129,33 @@ td .cell-2 small { font-size: 11.5px; color: var(--ink-500); }
 .inc-symptoms { margin-top: var(--vw-space-sm); display: flex; flex-direction: column; gap: 6px; }
 .inc-symptoms ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
 .inc-symptoms li { display: flex; gap: 10px; align-items: baseline; font-size: var(--vw-font-label-sm); }
+
+/* ---- one visual rhythm for every screen (NST tokens) --------------------- */
+.page { gap: var(--vw-space-lg); padding: var(--vw-space-lg) var(--vw-space-xl) 48px; }
+.page-head { align-items: center; }
+.page-head h1 { font-size: var(--vw-font-heading-xl); font-weight: 500; }
+.page-head p { font-size: var(--vw-font-label-md); margin-top: 2px; max-width: 880px; }
+.kpis { gap: var(--vw-space-md); }
+.app-kpi { display: flex; flex-direction: column; gap: 8px; padding: var(--vw-space-md) var(--vw-space-lg) !important; text-align: left; font: inherit; color: inherit; min-width: 0; position: relative; overflow: hidden; }
+.app-kpi::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: transparent; }
+.app-kpi.is-bad::before { background: var(--vw-color-red-500); }
+.app-kpi.is-warn::before { background: var(--vw-color-amber-500); }
+.app-kpi.is-active { border-color: var(--primaryColor500); box-shadow: 0 0 0 3px var(--primaryColor100); }
+.app-kpi-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 20px; color: var(--vw-color-gray-400); }
+.app-kpi-h .vw-card-metric-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.app-kpi-v { display: flex; align-items: baseline; gap: 6px; }
+.app-kpi-v .vw-card-metric-lg { color: var(--vw-color-gray-900); white-space: nowrap; }
+.app-kpi-s { font-weight: 400 !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.app-kpi.is-bad .app-kpi-s { color: var(--vw-color-red-600); }
+.app-kpi.is-warn .app-kpi-s { color: var(--vw-color-amber-700); }
+.app-kpi.is-good .app-kpi-s { color: var(--vw-color-emerald-700); }
+.sev-swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+/* panels: tighter, consistent head + body */
+.panel-head { padding: var(--vw-space-md) var(--vw-space-lg) 10px; min-height: 0; }
+.panel-head h3 { font-size: var(--vw-font-heading-sm); font-weight: 500; }
+.panel-body { padding: 0 var(--vw-space-lg) var(--vw-space-lg); }
+/* tables: toolbar + tabs share one strip, no empty band */
+.dt-toolbar { padding: 10px var(--vw-space-lg); gap: 10px; }
+.dt-toolbar + .tabs, .card > .tabs { margin: 0 var(--vw-space-lg); }
+.tabs { gap: 0; }
+.tab { height: 38px; padding: 0 12px; font-size: 13px; }

@@ -6,6 +6,7 @@ import type {
   NetworkElement, ReconTask, RolloutStatus, Service, Severity, TimelineEvent
 } from '../api/types';
 import { generate, finaliseHealth, type Db } from './generate';
+import { mulberry32 } from '../lib/rng';
 import { impactOf, isOpen, RESOLVE_SLA, RESPONSE_SLA } from './incidents';
 import { DAY, HOUR, MIN } from './seed';
 import { monthsTo, dateAfterMonths, WARN, CRIT } from '../lib/forecast';
@@ -370,7 +371,7 @@ export function commandCenter() {
       detail: join([...upsBad.map(u => `${u.name} ${u.state.toLowerCase()} (${u.dc})`), ...(feedsBad.length ? [`${feedsBad.length} utility feed${feedsBad.length > 1 ? 's' : ''} lost${feedsBad.some(f => !upsBad.some(u => u.dc === f.dc)) ? ` (${[...new Set(feedsBad.map(f => f.dc))].join(', ')})` : ''}`] : [])], `All ${upsAll.length} UPS online · all feeds normal`),
       to: upsBad[0] ? `/facilities?dc=${upsBad[0].dc}` : '/facilities', state: (upsBad.some(u => u.state === 'On battery' || u.state === 'Fault') ? 'critical' : upsBad.length || feedsBad.length ? 'attention' : 'ok') as AreaState },
     { key: 'cooling', label: 'Cooling & environment', value: pct(units.length - unitsFailed.length + zones.length - zonesHot.length, units.length + zones.length), measure: 'Cooling units running and zones within 27°C',
-      detail: join([...unitsFailed.map(u => `${u.name} failed (${u.dc})`), ...(zonesHot.length ? [`${zonesHot.length} zone${zonesHot.length > 1 ? 's' : ''} above 27°C`] : []), ...(unitsMaint.length ? [`${unitsMaint.length} in maintenance`] : [])], 'All cooling units running · all zones in range'),
+      detail: join([...unitsFailed.map(u => `${u.name} failed (${u.dc})`), ...(zonesHot.length ? [`${zonesHot.length} zone${zonesHot.length > 1 ? 's' : ''} >27°C`] : []), ...(unitsMaint.length ? [`${unitsMaint.length} in maint.`] : [])], 'All cooling units running · all zones in range'),
       to: unitsFailed[0] ? `/facilities?dc=${unitsFailed[0].dc}&tab=cooling` : '/facilities?tab=cooling', state: (unitsFailed.length || zonesHot.length ? 'attention' : 'ok') as AreaState }
   ];
   const facilityAlarms = al.filter(a => !a.neId && (a.source === 'Power' || a.source === 'Cooling' || a.source === 'Environment')).length;
@@ -459,6 +460,17 @@ export function commandCenter() {
   const revenueAtRisk = exposedSvc.reduce((a, x) => a + x.revenueMonthly, 0);
 
   return {
+    /* 24 h hourly trends ending at the current value (deterministic mock telemetry history) */
+    trends: (() => {
+      const walk = (seed: number, end: number, spread: number, floor = 0) => { const r = mulberry32(seed); const out: number[] = []; let v = end; for (let h = 0; h < 24; h++) { out.unshift(Math.round(Math.max(floor, v) * 100) / 100); v = v + (r() - 0.55) * spread; } out[23] = end; return out; };
+      const powerSum = Array.from({ length: 24 }, (_, h) => Math.round(liveDcs.reduce((a, d) => a + (d.power.load24h[h] ?? 0), 0)));
+      return {
+        open: walk(11, open.length, 2.2, 8), critMajor: walk(12, al.filter(a => a.severity === 'critical' || a.severity === 'major').length, 4, 15),
+        linksDown: walk(13, linksDown.length, 1.6, 4), services: walk(14, degraded.length, 1.8, 3),
+        availability: walk(15, Math.round((live.reduce((a, n) => a + n.icmp.availability, 0) / live.length) * 100) / 100, 0.03, 99.7).map(v => Math.min(100, v)),
+        powerKw: powerSum
+      };
+    })(),
     situation: { n1: open.filter(i => i.sev === 1).length, n2: open.filter(i => i.sev === 2).length, critSites: new Set(open.filter(i => i.sev <= 2).map(i => i.dcId)).size, exposedServices: exposedSvc.length, headline, band: shi >= 85 && breaching.length === 0 ? 'Healthy' : shi >= 60 ? 'Watch' : 'Degraded', weakest, revenueAtRisk, exposedPremium: exposedCustomers.filter(c => c.premium).length, services: db.services.length, customers: db.customers.length, lldp: lldp.length },
     topIncidents, critical, svcStatus, exposedCustomers: exposedCustomers.slice(0, 6), causes, changeImplicated, recommendations, upcoming, dcMap, regions,
     pulse: { facilityAlarms, activeChanges: activeChanges.length, unreachable: unreachable.length, health, open: open.length, breaching: breaching.length, critMajor: al.filter(a => a.severity === 'critical' || a.severity === 'major').length, powerHeadroom: pw.headroom, linksDown: linksDown.length, servicesDegraded: degraded.length,

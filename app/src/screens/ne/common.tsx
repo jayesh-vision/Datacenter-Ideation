@@ -8,7 +8,7 @@ import { ND_REASON } from '../../lib/vocab';
 export function NoTelemetry({ ne, what }: { ne: NetworkElement; what: string }) {
   return (
     <section className="card">
-      <Empty icon={SearchX} title={`No ${what} yet`} action={<Link className="nst-btn nst-btn--sm" to={`/datacenters/${ne.dcId}?tab=elements&view=unmonitored`}>Unmonitored devices</Link>}>
+      <Empty icon={SearchX} title={`No ${what} yet`} action={<Link className="nst-btn nst-btn--sm" to={ne.ndReason === 'planned' ? `/datacenters/${ne.dcId}?tab=overview` : `/datacenters/${ne.dcId}?tab=elements&view=unmonitored`}>{ne.ndReason === 'planned' ? 'Site overview' : 'Unmonitored devices'}</Link>}>
         {ne.ndReason === 'planned' ? `${ne.name} is planned and not installed yet.` : `${ne.name} is installed but not monitored (${ND_REASON[ne.ndReason ?? 'no-collector'].toLowerCase()}).`}
       </Empty>
     </section>

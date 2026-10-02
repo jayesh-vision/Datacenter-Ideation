@@ -3,11 +3,12 @@ const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftsha
 const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
 const errs = []; p.on('pageerror', e => errs.push(e.message));
 let fails = 0; const ok = (n, c) => { console.log(c ? 'PASS' : 'FAIL', n); if (!c) fails++; };
-await p.goto('http://localhost:5181/datacenters/MH-DC-001', { waitUntil: 'domcontentloaded' }); await p.waitForSelector('.twin-canvas canvas', { timeout: 30000 }); await p.waitForTimeout(1500);
-const before = await p.locator('.twin-canvas').boundingBox();
+await p.goto('http://localhost:5181/datacenters/MH-DC-001', { waitUntil: 'domcontentloaded' }); await p.waitForSelector('.twin-canvas canvas', { timeout: 30000 }); await p.waitForFunction(() => (document.querySelector('.twin-canvas')?.getBoundingClientRect().height ?? 0) > 100, null, { timeout: 30000 }); await p.waitForTimeout(800);
+const rect = () => p.evaluate(() => { const e = document.querySelector('.twin-canvas'); const r = e ? e.getBoundingClientRect() : null; return r ? { height: r.height } : null; });
+const before = await rect();
 await p.locator('[data-twin="fullscreen"]').click(); await p.waitForTimeout(1500);
-const full = await p.locator('.twin-canvas').boundingBox();
-ok(`full screen enlarges canvas (${Math.round(before.height)} → ${Math.round(full.height)} px tall)`, full.height > before.height + 150);
+let full = await rect(); if (!full || !full.height) { await p.waitForTimeout(1200); full = await rect(); }
+ok(`full screen enlarges canvas (${Math.round(before?.height ?? 0)} → ${Math.round(full?.height ?? 0)} px tall)`, !!before && !!full && full.height > before.height + 150);
 ok('panel still visible in full screen', await p.locator('.twin.is-full [data-twin="panel"]').isVisible());
 await p.locator('[data-twin-floor="0"]').click(); await p.waitForTimeout(1200);
 ok('navigation works in full screen', (await p.locator('.twin-canvas').getAttribute('data-twin-level-now')) === 'floor');
