@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Interface, IfState } from '../../api/types';
-import { Chip, Panel, SearchBox, Seg } from '../../ui/kit';
+import { Chip, Panel } from '../../ui/kit';
+import { ListToolbar } from '../../ui/ListToolbar';
 import { DataTable, type Col } from '../../ui/DataTable';
 import { Meter, NeLink } from '../../ui/status';
 import { fmtBw, fmtNum } from '../../lib/format';
@@ -45,14 +46,14 @@ export function Hardware({ d }: { d: NeData }) {
       </Panel>
       <section className="vw-card-section ne-hw" style={{ padding: 0, overflow: 'hidden' }}>
         <DataTable rows={rows} cols={cols} pageSize={40} defaultSort={{ key: 'state', dir: 'asc' }}
-          toolbar={<div className="toolbar" style={{ width: '100%' }}>
-            <span className="dt-count">{rows.length} of {d.interfaces.length} interfaces</span>
-            <SearchBox value={q} onChange={setQ} placeholder="Interface, description, peer" width={240} />
-            <Seg<View> size="sm" value={view} onChange={setView} options={[{ id: 'all', label: `All ${d.interfaces.length}` }, { id: 'down', label: `Down ${nDown}` }, { id: 'errors', label: `Errors ${nErr}` }]} />
-            <select className="select" value={ty} onChange={e => setTy(e.target.value)} aria-label="Type"><option value="">All types</option>{types.map(t => <option key={t}>{t}</option>)}</select>
-            <span className="grow" />
-            <span className="vw-label">Rx below −10 dBm is flagged red</span>
-          </div>} />
+          toolbar={
+            <ListToolbar shown={rows.length} total={d.interfaces.length}
+              search={{ value: q, onChange: setQ, placeholder: 'Interface, description, peer' }}
+              filters={[
+                { id: 'view', label: 'Condition', quick: true, value: view, defaultValue: 'all', onChange: (v: string) => setView(v as View), options: [{ id: 'all', label: 'All interfaces', count: d.interfaces.length }, { id: 'down', label: 'Down', count: nDown }, { id: 'errors', label: 'With errors', count: nErr }] },
+                { id: 'type', label: 'Type', quick: true, value: ty, anyLabel: 'Any type', onChange: setTy, options: types.map(t => ({ id: t, label: t, count: d.interfaces.filter(i => i.type === t).length })) }
+              ]} />
+          } />
       </section>
     </>
   );

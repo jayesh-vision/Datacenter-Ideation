@@ -5,10 +5,13 @@ import { clockNow, createChange, getChanges, getDatacenters, getNetworkElements,
 import type { Change, ChangeStatus } from '../api/types';
 import { usePage, PageHead, Loading } from '../shell/page';
 import { DataTable, type Col } from '../ui/DataTable';
-import { Btn, Chip, Drawer, Field, KV, SearchBox, Seg, CheckBox } from '../ui/kit';
+import { Btn, Chip, Drawer, Field, KV, SearchBox, CheckBox } from '../ui/kit';
+import { ListToolbar, useParamPatch } from '../ui/ListToolbar';
 import { ChangeChip, DcLink, IncLink, NeLink } from '../ui/status';
 import { fmtDateTime, fmtINR } from '../lib/format';
-import { OpsKpi, fmtHm } from './ops/shared';
+import { fmtHm } from './ops/shared';
+import { Facts, MiniBars, SoftMeter, Split, StatGrid, StatTile, type Tone } from '../ui/Analytics';
+import { fmtDur } from '../lib/format';
 
 type Kind = 'all' | 'change' | 'maintenance';
 const STATUSES: ChangeStatus[] = ['Draft', 'Pending approval', 'Approved', 'In progress', 'Completed', 'Rolled back', 'Rejected'];
@@ -18,10 +21,11 @@ const RISK_TONE = { Low: 'success', Medium: 'warning', High: 'error' } as const;
    preview, approval and implementation transitions. */
 export function Changes() {
   const [sp, setSp] = useSearchParams();
+  const applyParams = useParamPatch();
   const kind = (sp.get('kind') ?? 'all') as Kind, status = sp.get('status') ?? '', q = sp.get('q') ?? '', openId = sp.get('id'), isNew = sp.get('new') as 'change' | 'maintenance' | null;
   const set = (patch: Record<string, string>) => { const n = new URLSearchParams(sp); Object.entries(patch).forEach(([k, v]) => (v ? n.set(k, v) : n.delete(k))); setSp(n, { replace: true }); };
   usePage([{ label: 'Operate' }, { label: 'Changes & maintenance' }]);
-  const { data: all } = useQuery(() => getChanges({}), []);
+  const { data: all, reload } = useQuery(() => getChanges({}), []);
   const now = clockNow();
   const rows = useMemo(() => (all ?? []).filter(c => (kind === 'all' || c.kind.toLowerCase() === kind) && (!status || c.status === status) && (!q || `${c.id} ${c.title} ${c.dcId} ${c.requester}`.toLowerCase().includes(q.toLowerCase()))), [all, kind, status, q]);
   if (!all) return <Loading />;
@@ -37,27 +41,21 @@ export function Changes() {
     { key: 'win', header: 'Window', width: '14%', render: c => <span className="cell-2 num nowrap">{fmtDateTime(c.windowStart)}<small>{fmtHm((c.windowEnd - c.windowStart) / 60000)} · {c.windowStart > now ? `in ${fmtHm((c.windowStart - now) / 60000)}` : c.windowEnd > now ? 'window open' : `${fmtHm((now - c.windowEnd) / 60000)} ago`}</small></span>, sort: c => c.windowStart },
     { key: 'who', header: 'Requester / approver', width: '14%', render: c => <span className="cell-2">{c.requester}<small>{c.approver ?? 'awaiting approver'}</small></span> }
   ];
-  const d7 = now - 7 * 86400000;
   return (
     <div className="page">
       <PageHead title="Changes & maintenance" sub="Change and maintenance windows with dependency-aware impact; approve, implement, close or roll back."
         actions={<><Btn icon={I.Wrench} onClick={() => set({ new: 'maintenance', id: '' })}>Schedule maintenance</Btn><Btn variant="filled" icon={I.Plus} onClick={() => set({ new: 'change', id: '' })}>New change</Btn></>} />
-      <div className="kpis kpis-5">
-        <OpsKpi label="Pending approval" value={all.filter(c => c.status === 'Pending approval').length} tone="warn" sub="needs an approver" onClick={() => set({ status: status === 'Pending approval' ? '' : 'Pending approval' })} active={status === 'Pending approval'} />
-        <OpsKpi label="Approved · upcoming" value={all.filter(c => c.status === 'Approved' && c.windowStart > now).length} sub="scheduled windows" onClick={() => set({ status: status === 'Approved' ? '' : 'Approved' })} active={status === 'Approved'} />
-        <OpsKpi label="In progress" value={all.filter(c => c.status === 'In progress').length} sub="window open now" onClick={() => set({ status: status === 'In progress' ? '' : 'In progress' })} active={status === 'In progress'} />
-        <OpsKpi label="Completed · 7 days" value={all.filter(c => c.status === 'Completed' && c.windowEnd > d7).length} sub="verified and closed" onClick={() => set({ status: status === 'Completed' ? '' : 'Completed' })} active={status === 'Completed'} />
-        <OpsKpi label="Rolled back" value={all.filter(c => c.status === 'Rolled back').length} tone="bad" sub="post-change verification failed" onClick={() => set({ status: status === 'Rolled back' ? '' : 'Rolled back' })} active={status === 'Rolled back'} />
-      </div>
+      <ChangeAnalytics all={all} now={now} status={status} onStatus={v => set({ status: status === v ? '' : v })} />
       <section className="card">
         <DataTable rows={rows} cols={cols} onRow={c => set({ id: c.id, new: '' })} defaultSort={{ key: 'win', dir: 'desc' }}
-          toolbar={<div className="ops-strip">
-            <Seg<Kind> value={kind} onChange={v => set({ kind: v === 'all' ? '' : v })} options={[{ id: 'all', label: `All ${all.length}` }, { id: 'change', label: 'Changes' }, { id: 'maintenance', label: 'Maintenance' }]} />
-            <span className="grow" />
-            <SearchBox value={q} onChange={v => set({ q: v })} placeholder="ID, title, datacenter" width={220} />
-            <select className="select" value={status} onChange={e => set({ status: e.target.value })} aria-label="Status"><option value="">All statuses</option>{STATUSES.map(s => <option key={s}>{s}</option>)}</select>
-            <span className="dt-count">{rows.length} of {all.length}</span>
-          </div>} />
+          toolbar={
+            <ListToolbar onApply={applyParams} shown={rows.length} total={all.length} onRefresh={reload}
+              search={{ value: q, onChange: v => set({ q: v }), placeholder: 'ID, title, datacenter' }}
+              filters={[
+                { id: 'kind', label: 'Kind', quick: true, value: kind, defaultValue: 'all', onChange: v => set({ kind: v === 'all' ? '' : v }), options: [{ id: 'all', label: 'All kinds', count: all.length }, { id: 'change', label: 'Changes', count: all.filter(c => c.kind === 'Change').length }, { id: 'maintenance', label: 'Maintenance', count: all.filter(c => c.kind === 'Maintenance').length }] },
+                { id: 'status', label: 'Status', quick: true, value: status, anyLabel: 'Any status', onChange: v => set({ status: v }), options: STATUSES.map(s => ({ id: s, label: s, count: all.filter(c => c.status === s).length })) }
+              ]} />
+          } />
       </section>
       <Drawer open={!!sel} onClose={() => set({ id: '' })} width={600} title={sel ? <span className="row" style={{ gap: 8 }}><span className="mono">{sel.id}</span><ChangeChip s={sel.status} /></span> : ''} sub={sel?.title}
         foot={sel && <Transitions c={sel} />}>
@@ -157,5 +155,46 @@ function NewChange({ kind, onDone }: { kind: 'change' | 'maintenance'; onDone: (
       <ImpactPreview im={im} />
       <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}><Link to="/changes" className="nst-btn nst-btn--sm">Cancel</Link><Btn variant="filled" icon={I.Send} disabled={!valid} onClick={submit}>Submit for approval</Btn></div>
     </div>
+  );
+}
+
+/* analytics strip: what is in flight, what waits on an approver, what lands this week, how risky, how it went */
+const ST_TONE: Partial<Record<ChangeStatus, Tone>> = { Draft: 'neutral', 'Pending approval': 'warning', Approved: 'info', 'In progress': 'purple' };
+function ChangeAnalytics({ all, now, status, onStatus }: { all: Change[]; now: number; status: string; onStatus: (s: string) => void }) {
+  const DAY = 86400000;
+  const live = all.filter(c => !['Completed', 'Rolled back', 'Rejected'].includes(c.status));
+  const pending = all.filter(c => c.status === 'Pending approval');
+  const oldest = pending.length ? Math.min(...pending.map(c => c.created)) : 0;
+  const week = all.filter(c => c.windowStart >= now - 6 * 3600000 && c.windowStart < now + 7 * DAY && !['Completed', 'Rolled back', 'Rejected'].includes(c.status));
+  const days = Array.from({ length: 7 }, (_, d) => week.filter(c => Math.floor((c.windowStart - (now - 6 * 3600000)) / DAY) === d).length);
+  const done30 = all.filter(c => (c.status === 'Completed' || c.status === 'Rolled back') && c.windowEnd > now - 30 * DAY);
+  const ok = done30.filter(c => c.status === 'Completed').length, rb = done30.length - ok;
+  const rate = done30.length ? Math.round((ok / done30.length) * 100) : 100;
+  const linked = all.filter(c => c.incidentId).length;
+  return (
+    <StatGrid>
+      <StatTile label="In the pipeline" value={live.length} sub="changes not yet closed">
+        <Split parts={(['Draft', 'Pending approval', 'Approved', 'In progress'] as ChangeStatus[]).map(st => ({ key: st, label: st === 'Pending approval' ? 'Pending' : st, n: all.filter(c => c.status === st).length, tone: ST_TONE[st]! }))} onPick={onStatus} active={status} />
+      </StatTile>
+      <StatTile label="Awaiting approval" value={pending.length} sub={oldest ? `oldest ${fmtDur((now - oldest) / 60000)}` : 'none waiting'} subTone={pending.length ? 'warn' : undefined} onClick={() => onStatus('Pending approval')} active={status === 'Pending approval'}>
+        <Split parts={[{ key: 'High', label: 'High', n: pending.filter(c => c.risk === 'High').length, tone: 'error' }, { key: 'Medium', label: 'Medium', n: pending.filter(c => c.risk === 'Medium').length, tone: 'warning' }, { key: 'Low', label: 'Low', n: pending.filter(c => c.risk === 'Low').length, tone: 'success' }]} />
+        <Facts items={[{ n: pending.filter(c => c.emergency).length, label: 'emergency' }]} />
+      </StatTile>
+      <StatTile label="Next 7 days" value={week.length} sub="windows scheduled">
+        <Split parts={[{ key: 'c', label: 'Change', n: week.filter(c => c.kind === 'Change').length, tone: 'info' }, { key: 'm', label: 'Maintenance', n: week.filter(c => c.kind === 'Maintenance').length, tone: 'cyan' }]} />
+        <MiniBars values={days} labels={['Today', '+6 d']} tone="info" />
+      </StatTile>
+      <StatTile label="Risk of open work" value={live.filter(c => c.risk === 'High').length} sub="high risk" subTone={live.some(c => c.risk === 'High') ? 'bad' : undefined}>
+        <Split parts={[{ key: 'High', label: 'High', n: live.filter(c => c.risk === 'High').length, tone: 'error' }, { key: 'Medium', label: 'Medium', n: live.filter(c => c.risk === 'Medium').length, tone: 'warning' }, { key: 'Low', label: 'Low', n: live.filter(c => c.risk === 'Low').length, tone: 'success' }]} />
+      </StatTile>
+      <StatTile label="Outcome · 30 days" value={`${rate}%`} sub="succeeded first time">
+        <SoftMeter pct={rate} tone={rate >= 90 ? 'success' : rate >= 75 ? 'warning' : 'error'} />
+        <Facts items={[{ n: ok, label: 'completed', onClick: () => onStatus('Completed') }, { n: rb, label: 'rolled back', tone: rb ? 'bad' : undefined, onClick: () => onStatus('Rolled back') }]} />
+      </StatTile>
+      <StatTile label="Change vs maintenance" value={all.length} sub="on record">
+        <Split parts={[{ key: 'c', label: 'Change', n: all.filter(c => c.kind === 'Change').length, tone: 'info' }, { key: 'm', label: 'Maintenance', n: all.filter(c => c.kind === 'Maintenance').length, tone: 'cyan' }]} />
+        <Facts items={[{ n: linked, label: 'raised from incidents' }, { n: live.filter(c => c.windowStart <= now && c.windowEnd >= now).length, label: live.filter(c => c.windowStart <= now && c.windowEnd >= now).length === 1 ? 'window open now' : 'windows open now' }]} />
+      </StatTile>
+    </StatGrid>
   );
 }

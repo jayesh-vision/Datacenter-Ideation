@@ -80,6 +80,19 @@ Customer lists show "Why at risk" from `servicesOf().causes` (server.ts `causeIn
 - Grids (02-Oct-2026, from the user's platform reference): light slate-50 header band, regular 13px labels, roomy 13.5px rows,
   `table-layout: auto` (columns size to content; DataTable ignores `width` hints except in compact tables), text cells wrap,
   equal-width NST pastel pills (status pills have a dot; no solid SEV1). Check with `node .qa/grids.mjs <persona>` (no table overflow).
+- List pages open with an analytics strip from `ui/Analytics.tsx` (StatGrid of 6 StatTiles: headline + soft proportion bar with
+  NST pill legend / meter / facts / mini bars / ranked list; tiles and pills click through to the list filters). Datacenters, Alerts,
+  Incidents, Changes use it; colours = NST pill palette (200–300 shades for bars). Check: `node .qa/analytics.mjs`.
+  Tile rhythm is fixed (label 18 · number 34 · qualifier 18 · bar) so every bar lines up; every tile leads with a bar or meter.
+- Facilities (04-Oct-2026 redesign): shared analytics strip, then tabs. Power = single-line power-path diagram (`PowerPath`, measured
+  layout, HTML nodes over SVG edges, animated flow, hover traces upstream/downstream), 24 h load chart vs capacity, "If utility power
+  fails" ride-through (UPS min → DG kW → fuel hours + readiness checks), rack load tiles + table. Cooling = heat balance + unit cards.
+  Environment = zone cards with safe-band tracks. Styles in `styles/facilities.css`. Check: `node .qa/facilities.mjs`.
+- Lists keep their toolbar and column header pinned under the top bar while rows scroll (sticky; wrappers use `overflow: clip`,
+  never `hidden`, around a `.dt`). Check: `node .qa/sticky.mjs`.
+- Every list uses `ui/ListToolbar.tsx` (no hand-built toolbars): `Showing N of M` · search · ≤2 quick filters (searchable dropdowns)
+  ··· refresh · filter icon (Filters panel: categories / options / Reset to default / Apply filters) · ⋮ actions. URL-backed lists pass
+  `onApply={useParamPatch()}`. All grid columns left-aligned (header = values). Check: `node .qa/toolbars.mjs`.
 - Palette: slate/white, brand blue accent, red/amber for faults only. The digital twin (`screens/site/twin`) is signed off — don't restyle it.
 
 ## Command center layout (02-Oct-2026, after the user rejected the 17-box version)

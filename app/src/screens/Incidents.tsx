@@ -1,14 +1,15 @@
 import { useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { clockNow, getDatacenters, getIncidents, useQuery } from '../api';
+import { clockNow, getDatacenters, getIncidents, useQuery, vocabNow } from '../api';
 import type { Incident } from '../api/types';
 import { usePage, PageHead, Loading } from '../shell/page';
 import { DataTable, type Col } from '../ui/DataTable';
-import { Btn, SearchBox, Tabs } from '../ui/kit';
+import { ListToolbar, useParamPatch } from '../ui/ListToolbar';
 import { Fresh, IncidentChip, PriChip, SevChip } from '../ui/status';
 import { fmtDate, fmtDateTime, fmtTime } from '../lib/format';
-import { OpsKpi, downloadCsv, fmtHm, slaText } from './ops/shared';
+import { downloadCsv, fmtHm, slaText } from './ops/shared';
+import { Facts, SoftMeter, Split, StatGrid, StatTile, type Tone } from '../ui/Analytics';
 
 type Row = Incident & { sla: { breaching: boolean; resolveLeft: number; responseBreached: boolean; responseMin: number } };
 type View = 'open' | 'sev1' | 'breaching' | 'all';
@@ -19,6 +20,7 @@ const isOpen = (i: Incident) => i.status === 'Open' || i.status === 'Investigati
 export function Incidents() {
   const nav = useNavigate();
   const [sp, setSp] = useSearchParams();
+  const applyParams = useParamPatch();
   const view = (sp.get('view') ?? 'open') as View, dc = sp.get('dc') ?? '', q = sp.get('q') ?? '';
   const set = (k: string, v: string) => { const n = new URLSearchParams(sp); v ? n.set(k, v) : n.delete(k); setSp(n, { replace: true }); };
   usePage([{ label: 'Operate' }, { label: 'Incidents' }], dc ? { dcId: dc } : {});
@@ -53,25 +55,57 @@ export function Incidents() {
   return (
     <div className="page">
       <PageHead title="Incidents" sub="Correlated operational incidents with SLA clocks, impact and owner." actions={<Fresh>Live · SLA clocks tick from detection</Fresh>} />
-      <div className="kpis">
-        <OpsKpi label="Open incidents" value={open.length} sub={`${open.filter(i => i.sev === 1).length} SEV1 · ${open.filter(i => i.sev === 2).length} SEV2 · ${open.filter(i => i.status === 'Mitigated').length} mitigated`} onClick={() => set('view', '')} active={view === 'open'} />
-        <OpsKpi label="SLA breaching" value={scoped.filter(i => i.sla.breaching).length} tone="bad" sub="response or resolution target missed" onClick={() => set('view', 'breaching')} active={view === 'breaching'} />
-        <OpsKpi label="Mean time to resolve" value={fmtHm(mttr)} sub={`${res30.length} resolved in the last 30 days`} />
-        <OpsKpi label="SLA compliance" value={`${slaPct}%`} tone={slaPct < 90 ? 'warn' : undefined} sub={`${met} of ${res30.length} resolved within target`} />
-      </div>
+      <IncidentAnalytics open={open} res30={res30} mttr={mttr} met={met} slaPct={slaPct} view={view} onView={v => set('view', v === 'open' ? '' : v)} />
       <section className="card">
         <DataTable rows={rows} cols={cols} onRow={i => nav(`/incidents/${i.id}`)} defaultSort={{ key: 'id', dir: 'desc' }} pageSize={25}
-          toolbar={<div className="ops-strip">
-            <Tabs<View> value={view} onChange={v => set('view', v === 'open' ? '' : v)} tabs={[
-              { id: 'open', label: 'Open', count: scoped.filter(isOpen).length }, { id: 'sev1', label: 'SEV1', count: scoped.filter(i => isOpen(i) && i.sev === 1).length },
-              { id: 'breaching', label: 'Breaching', count: scoped.filter(i => i.sla.breaching).length }, { id: 'all', label: 'All', count: scoped.length }]} />
-            <span className="grow" />
-            <select className="select" value={dc} onChange={e => set('dc', e.target.value)} aria-label="Datacenter"><option value="">All datacenters ({dcs.length})</option>{dcs.map(d => <option key={d.id} value={d.id}>{d.id} · {d.city}</option>)}</select>
-            <SearchBox value={q} onChange={v => set('q', v)} placeholder="Search incidents…" width={220} />
-            <Btn icon={I.Download} onClick={exportCsv}>Export</Btn>
-            <Btn icon={I.RefreshCw} title="Refresh" onClick={reload} />
-          </div>} />
+          toolbar={
+            <ListToolbar onApply={applyParams} shown={rows.length} total={scoped.length} onRefresh={reload}
+              search={{ value: q, onChange: v => set('q', v), placeholder: 'ID, title, owner, datacenter' }}
+              actions={[{ label: 'Export CSV', icon: I.Download, onClick: exportCsv }]}
+              filters={[
+                { id: 'view', label: 'View', quick: true, value: view, defaultValue: 'open', onChange: v => set('view', v === 'open' ? '' : v), options: [
+                  { id: 'open', label: 'Open', count: scoped.filter(isOpen).length }, { id: 'sev1', label: 'SEV1 open', count: scoped.filter(i => isOpen(i) && i.sev === 1).length },
+                  { id: 'breaching', label: 'Breaching SLA', count: scoped.filter(i => i.sla.breaching).length }, { id: 'all', label: 'All incidents', count: scoped.length }] },
+                { id: 'dc', label: 'Datacenter', quick: true, value: dc, anyLabel: 'Any datacenter', onChange: v => set('dc', v), options: dcs.map(d => ({ id: d.id, label: `${d.id} · ${d.city}` })) }
+              ]} />
+          } />
       </section>
     </div>
+  );
+}
+
+/* analytics strip: how much is open, how it stands against SLA, what kind, how fast we close, who is hit */
+const TYPE_TONE: Record<string, Tone> = { Network: 'info', Power: 'purple', Cooling: 'cyan', Rack: 'orange', Capacity: 'warning', Security: 'neutral' };
+function IncidentAnalytics({ open, res30, mttr, met, slaPct, view, onView }: { open: Row[]; res30: Row[]; mttr: number; met: number; slaPct: number; view: string; onView: (v: string) => void }) {
+  const V = vocabNow();
+  const breached = open.filter(i => i.sla.breaching);
+  const atRisk = open.filter(i => !i.sla.breaching && i.sla.resolveLeft < i.resolveSlaMin * 0.25);
+  const unack = open.filter(i => !i.acknowledged).length;
+  const types = ['Network', 'Power', 'Cooling', 'Rack', 'Capacity', 'Security'];
+  const svc = open.reduce((a, i) => a + i.impact.services, 0), cust = open.reduce((a, i) => a + i.impact.customers, 0), prem = open.reduce((a, i) => a + i.impact.premium, 0);
+  return (
+    <StatGrid>
+      <StatTile label="Open incidents" value={open.length} sub={`${open.filter(i => i.sev <= 2).length} SEV1/2`} subTone={open.some(i => i.sev === 1) ? 'bad' : undefined} onClick={() => onView('open')} active={view === 'open'}>
+        <Split parts={[1, 2, 3, 4].map(n => ({ key: `s${n}`, label: `SEV${n}`, n: open.filter(i => i.sev === n).length, tone: (['error', 'orange', 'warning', 'neutral'] as Tone[])[n - 1] }))} onPick={k => k === 's1' && onView('sev1')} active={view === 'sev1' ? 's1' : undefined} />
+      </StatTile>
+      <StatTile label="SLA clock" value={breached.length} sub="past SLA" subTone={breached.length ? 'bad' : undefined} onClick={() => onView('breaching')} active={view === 'breaching'}>
+        <Split parts={[{ key: 'b', label: 'Breached', n: breached.length, tone: 'error' }, { key: 'r', label: 'Due soon', n: atRisk.length, tone: 'warning' }, { key: 'ok', label: 'On track', n: open.length - breached.length - atRisk.length, tone: 'success' }]} />
+      </StatTile>
+      <StatTile label="Progress" value={`${open.length ? Math.round((open.filter(i => i.status !== 'Open').length / open.length) * 100) : 100}%`} sub="being worked">
+        <Split parts={[{ key: 'o', label: 'Open', n: open.filter(i => i.status === 'Open').length, tone: 'error' }, { key: 'i', label: 'Investigating', n: open.filter(i => i.status === 'Investigating').length, tone: 'warning' }, { key: 'm', label: 'Mitigated', n: open.filter(i => i.status === 'Mitigated').length, tone: 'info' }]} />
+        <Facts items={[{ n: unack, label: 'not acknowledged', tone: unack ? 'warn' : undefined }]} />
+      </StatTile>
+      <StatTile label="By type" value={types.filter(t => open.some(i => i.type === t)).length} sub="types open">
+        <Split parts={types.map(t => ({ key: t, label: t, n: open.filter(i => i.type === t).length, tone: TYPE_TONE[t] })).filter(p => p.n)} />
+      </StatTile>
+      <StatTile label="Resolution · 30 days" value={fmtHm(mttr)} sub="mean time to resolve">
+        <SoftMeter pct={slaPct} tone={slaPct >= 90 ? 'success' : slaPct >= 75 ? 'warning' : 'error'} />
+        <Facts items={[{ n: `${slaPct}%`, label: 'within SLA', tone: slaPct < 90 ? 'warn' : undefined }, { n: `${met}/${res30.length}`, label: 'resolved in time' }]} />
+      </StatTile>
+      <StatTile label={`${V.customer} impact`} value={svc} sub={`${V.services.toLowerCase()} affected`}>
+        <Split parts={[{ key: 'h', label: 'High', n: open.filter(i => i.impact.level === 'High').length, tone: 'error' }, { key: 'm', label: 'Medium', n: open.filter(i => i.impact.level === 'Medium').length, tone: 'warning' }, { key: 'l', label: 'Low', n: open.filter(i => i.impact.level === 'Low').length, tone: 'neutral' }]} />
+        <Facts items={[{ n: cust, label: V.customers.toLowerCase() }, { n: prem, label: V.premium.toLowerCase(), tone: prem ? 'bad' : undefined }]} />
+      </StatTile>
+    </StatGrid>
   );
 }

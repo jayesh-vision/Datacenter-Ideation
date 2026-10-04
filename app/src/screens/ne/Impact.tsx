@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ListToolbar } from '../../ui/ListToolbar';
 import * as I from 'lucide-react';
 import type { ServiceType } from '../../api/types';
 import { Chip, Panel } from '../../ui/kit';
@@ -19,6 +21,7 @@ const isOpen = (s: string) => s === 'Open' || s === 'Investigating' || s === 'Mi
    or a faulty link on this device, and who is behind it. */
 export function Impact({ d }: { d: NeData }) {
   const nav = useNavigate();
+  const [iq, setIq] = useState(''), [ist, setIst] = useState(''), [ity, setIty] = useState('');
   if (d.ne.discovery === 'not-discovered') return <NoTelemetry ne={d.ne} what="services" />;
   const svcs = d.services;
   if (!svcs.length) return <section className="vw-card-section"><div className="empty"><span className="empty-ico"><I.Waypoints size={22} /></span><b>Nothing is hosted on this element</b><div>{d.ne.role === 'Switch' ? 'Switches carry infrastructure traffic; what rides them is listed on their links.' : d.ne.role === 'Tenant gear' ? 'Tenant-owned equipment: the operator sees the cabinet’s power and environment, not what runs inside.' : 'This element carries transit traffic only; what traverses it is listed on its links.'}</div></div></section>;
@@ -45,6 +48,7 @@ export function Impact({ d }: { d: NeData }) {
   const custsAtRisk = new Set(atRisk.map(x => x.s.customerId));
   const premAtRisk = [...custsAtRisk].filter(id => custs.get(id)?.premium).length;
   const belowSla = live.filter(s => s.uptime30d < s.slaTarget).length;
+  const shownSvcs = svcs.filter(s => (!ist || s.status === ist) && (!ity || s.type === ity) && (!iq || `${s.id} ${s.customer.name} ${s.type}`.toLowerCase().includes(iq.toLowerCase())));
   const fam = familiesOf(svcs).map(f => ({ ...f, cs: svcs.filter(s => s.type === f.t) })).filter(f => f.cs.length);
 
   const cols: Col<S>[] = [
@@ -66,8 +70,15 @@ export function Impact({ d }: { d: NeData }) {
 
       <div className="grid g-main-side ne-impact" style={{ alignItems: 'start' }}>
         <section className="vw-card-section" style={{ padding: 0, overflow: 'hidden' }}>
-          <DataTable rows={svcs} cols={cols} onRow={s => nav(`/services/${s.id}`)} pageSize={20} defaultSort={{ key: 'st', dir: 'asc' }}
-            toolbar={<div className="toolbar" style={{ width: '100%' }}><span className="vw-card-title-sm">Service instances</span><span className="dt-count">{svcs.length}</span><span className="grow" /><span className="vw-label">at-risk first</span></div>} />
+          <DataTable rows={shownSvcs} cols={cols} onRow={s => nav(`/services/${s.id}`)} pageSize={20} defaultSort={{ key: 'st', dir: 'asc' }}
+            toolbar={
+              <ListToolbar shown={shownSvcs.length} total={svcs.length}
+                search={{ value: iq, onChange: setIq, placeholder: 'Service, customer' }}
+                filters={[
+                  { id: 'st', label: 'Status', quick: true, value: ist, anyLabel: 'Any status', onChange: setIst, options: [...new Set(svcs.map(s => s.status))].map(x => ({ id: x, label: x, count: svcs.filter(s => s.status === x).length })) },
+                  { id: 'ty', label: 'Type', quick: true, value: ity, anyLabel: 'Any type', onChange: setIty, options: [...new Set(svcs.map(s => s.type))].map(x => ({ id: x, label: x, count: svcs.filter(s => s.type === x).length })) }
+                ]} />
+            } />
         </section>
         <div className="col" style={{ gap: 16 }}>
           <Panel title="At risk now" count={atRisk.length} sub={incOnDevice ? `${openInc.length} open incident${openInc.length > 1 ? 's' : ''} on this device` : 'from faulty links and alarms on this device'} flush>

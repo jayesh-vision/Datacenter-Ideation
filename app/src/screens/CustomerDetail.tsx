@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { ListToolbar } from '../ui/ListToolbar';
 import * as I from 'lucide-react';
 import { getCustomer, useQuery, vocabNow } from '../api';
 import type { Customer, Service } from '../api/types';
@@ -18,7 +20,8 @@ export function CustomerDetail() {
   const { id = '' } = useParams();
   const nav = useNavigate();
   const ask = useSentinel();
-  const { data, loading } = useQuery(() => getCustomer(id), [id]);
+  const { data, loading, reload } = useQuery(() => getCustomer(id), [id]);
+  const [cq, setCq] = useState(''), [cst, setCst] = useState(''), [cdc, setCdc] = useState('');
   const V = vocabNow();
   usePage([{ label: V.customers, to: '/customers' }, { label: data?.customer.name ?? id }]);
   if (loading && !data) return <Loading />;
@@ -65,7 +68,15 @@ export function CustomerDetail() {
         ) : <Empty icon={I.CheckCircle2} title="No open incidents" />}
       </Panel>
       <Panel title="Services" count={services.length} icon={I.Waypoints} flush>
-        <DataTable rows={services} cols={cols} onRow={s => nav(`/services/${s.id}`)} defaultSort={{ key: 'util', dir: 'desc' }} />
+        <DataTable rows={services.filter(s => (!cst || s.status === cst) && (!cdc || s.dcId === cdc) && (!cq || `${s.id} ${s.type} ${s.neId}`.toLowerCase().includes(cq.toLowerCase())))} cols={cols} onRow={s => nav(`/services/${s.id}`)} defaultSort={{ key: 'util', dir: 'desc' }}
+          toolbar={
+            <ListToolbar shown={services.filter(s => (!cst || s.status === cst) && (!cdc || s.dcId === cdc) && (!cq || `${s.id} ${s.type} ${s.neId}`.toLowerCase().includes(cq.toLowerCase()))).length} total={services.length} onRefresh={reload}
+              search={{ value: cq, onChange: setCq, placeholder: 'Service ID, type, device' }}
+              filters={[
+                { id: 'st', label: 'Status', quick: true, value: cst, anyLabel: 'Any status', onChange: setCst, options: [...new Set(services.map(s => s.status))].map(x => ({ id: x, label: x, count: services.filter(s => s.status === x).length })) },
+                { id: 'dc', label: 'Datacenter', quick: true, value: cdc, anyLabel: 'Any datacenter', onChange: setCdc, options: dcs.map(x => ({ id: x, label: x, count: services.filter(s => s.dcId === x).length })) }
+              ]} />
+          } />
       </Panel>
     </div>
   );

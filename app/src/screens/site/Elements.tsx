@@ -1,9 +1,8 @@
 import { useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import * as I from 'lucide-react';
 import { getNetworkElements, useQuery } from '../../api';
 import { DataTable, type Col } from '../../ui/DataTable';
-import { SearchBox, Seg } from '../../ui/kit';
+import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
 import { NeLink } from '../../ui/status';
 import { scoreColor } from '../../lib/vocab';
 import { Loading } from '../../shell/page';
@@ -16,16 +15,16 @@ type View = 'all' | 'alarms' | 'unmonitored';
 export function Elements({ dcId }: { dcId: string }) {
   const nav = useNavigate();
   const [sp, setSp] = useSearchParams();
+  const applyParams = useParamPatch();
   const role = sp.get('role') ?? '', q = sp.get('q') ?? '', view = (sp.get('view') ?? 'all') as View;
   const set = (k: string, v: string) => { const n = new URLSearchParams(sp); v && v !== 'all' ? n.set(k, v) : n.delete(k); setSp(n, { replace: true }); };
-  const { data } = useQuery(() => getNetworkElements({ dcId }), [dcId]);
+  const { data, reload } = useQuery(() => getNetworkElements({ dcId }), [dcId]);
   const installed = useMemo(() => (data ?? []).filter(n => n.opsState !== 'planned'), [data]);
   const rows = useMemo(() => installed.filter(n => (!role || n.role === role)
     && (view === 'all' || (view === 'alarms' ? n.alarms > 0 : n.opsState === 'unmonitored'))
     && (!q || `${n.id} ${n.ip} ${n.serial} ${n.model} ${n.vendor}`.toLowerCase().includes(q.toLowerCase()))), [installed, role, view, q]);
   if (!data) return <Loading label="Loading equipment" />;
   const roles = [...new Set(installed.map(n => n.role))];
-  const planned = data.length - installed.length;
   const unmon = installed.filter(n => n.opsState === 'unmonitored').length;
 
   const cols: Col<Row>[] = [
@@ -46,17 +45,12 @@ export function Elements({ dcId }: { dcId: string }) {
     <section className="card">
       <DataTable rows={rows} cols={cols} onRow={n => nav(`/ne/${n.id}`)} defaultSort={{ key: 'alarms', dir: 'desc' }} pageSize={25}
         toolbar={
-          <div className="toolbar" style={{ width: '100%' }}>
-            <span className="dt-count">Showing {rows.length} of {installed.length}</span>
-            <SearchBox value={q} onChange={v => set('q', v)} placeholder="Device, IP, serial, model" width={240} />
-            <Seg size="sm" value={view} onChange={v => set('view', v)} options={[
-              { id: 'all', label: `All ${installed.length}` }, { id: 'alarms', label: `With alarms ${installed.filter(n => n.alarms).length}` }, { id: 'unmonitored', label: `Not monitored ${unmon}` }
+          <ListToolbar onApply={applyParams} shown={rows.length} total={installed.length} onRefresh={reload}
+            search={{ value: q, onChange: v => set('q', v), placeholder: 'Device, IP, serial, model' }}
+            filters={[
+              { id: 'view', label: 'Condition', quick: true, value: view, defaultValue: 'all', onChange: v => set('view', v), options: [{ id: 'all', label: 'All devices', count: installed.length }, { id: 'alarms', label: 'With alarms', count: installed.filter(n => n.alarms).length }, { id: 'unmonitored', label: 'Not monitored', count: unmon }] },
+              { id: 'role', label: 'Role', quick: true, value: role, anyLabel: 'Any role', onChange: v => set('role', v), options: roles.map(r => ({ id: r, label: r, count: installed.filter(n => n.role === r).length })) }
             ]} />
-            <select className="select" value={role} onChange={e => set('role', e.target.value)} aria-label="Role"><option value="">All roles</option>{roles.map(r => <option key={r} value={r}>{r}</option>)}</select>
-            {(role || q || view !== 'all') && <button type="button" className="panel-link" onClick={() => { ['role', 'q', 'view'].forEach(k => sp.delete(k)); setSp(new URLSearchParams(sp), { replace: true }); }}><I.X size={13} />Clear</button>}
-            <span className="grow" />
-            {planned > 0 && <span className="vw-label" title="Planned devices hold reserved rack space only; they appear as outlines in the 3D view">{planned} planned devices not installed</span>}
-          </div>
         } />
     </section>
   );

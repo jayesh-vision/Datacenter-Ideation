@@ -3,7 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { getServices, useQuery, usePersona } from '../../api';
 import { DataTable, type Col } from '../../ui/DataTable';
-import { Panel, SearchBox, Seg } from '../../ui/kit';
+import { Panel } from '../../ui/kit';
+import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
 import { BarList } from '../../charts/BarList';
 import { SummaryStrip } from './SummaryStrip';
 import { fmtNum, fmtQty } from '../../lib/format';
@@ -28,9 +29,10 @@ export function Customers({ data }: { data: SiteData }) {
   const [allCauses, setAllCauses] = useState(false);
   const nav = useNavigate();
   const [sp, setSp] = useSearchParams();
-  const q = sp.get('q') ?? '', view = (sp.get('cview') ?? 'all') as View, cause = sp.get('cause') ?? '';
+  const applyParams = useParamPatch();
+  const q = sp.get('q') ?? '', view = (sp.get('cview') ?? 'all') as View, cause = sp.get('cause') ?? '', seg = sp.get('seg') ?? '';
   const set = (k: string, v: string) => { const n = new URLSearchParams(sp); v && v !== 'all' ? n.set(k, v) : n.delete(k); setSp(n, { replace: true }); };
-  const { data: svcs } = useQuery(() => getServices({ dcId: dc.id }), [dc.id]);
+  const { data: svcs, reload } = useQuery(() => getServices({ dcId: dc.id }), [dc.id]);
 
   const rows = useMemo<Row[]>(() => {
     const by = new Map<string, Row>();
@@ -59,11 +61,10 @@ export function Customers({ data }: { data: SiteData }) {
     rows.forEach(r => r.causes.forEach(c => { const e = m.get(c.code) ?? { c, rows: [], svcs: 0 }; e.rows.push(r); e.svcs += c.svcs; m.set(c.code, e); }));
     return [...m.values()].sort((a, b) => SEV_RANK[a.c.severity] - SEV_RANK[b.c.severity] || b.rows.length - a.rows.length);
   }, [rows]);
-  const shown = rows.filter(r => (view === 'all' || (view === 'risk' ? risky(r) : r.premium)) && (!cause || r.causes.some(c => c.code === cause)) && (!q || `${r.name} ${r.id} ${r.segment}`.toLowerCase().includes(q.toLowerCase())));
+  const shown = rows.filter(r => (view === 'all' || (view === 'risk' ? risky(r) : r.premium)) && (!cause || r.causes.some(c => c.code === cause)) && (!seg || r.segment === seg) && (!q || `${r.name} ${r.id} ${r.segment}`.toLowerCase().includes(q.toLowerCase())));
   if (!svcs) return null;
 
   const atRisk = rows.filter(risky);
-  const activeCause = byCause.find(x => x.c.code === cause);
   const segs = Object.entries(rows.reduce<Record<string, number>>((a, r) => { a[r.segment] = (a[r.segment] ?? 0) + 1; return a; }, {})).sort((a, b) => b[1] - a[1]);
   const types = Object.entries((svcs ?? []).reduce<Record<string, number>>((a, s) => { a[s.type] = (a[s.type] ?? 0) + 1; return a; }, {})).sort((a, b) => b[1] - a[1]);
 
@@ -86,12 +87,15 @@ export function Customers({ data }: { data: SiteData }) {
       <div className="grid cust-grid">
         <section className="card">
           <DataTable rows={shown} cols={cols} pageSize={15} defaultSort={{ key: 'state', dir: 'desc' }} onRow={r => nav(`/customers/${r.id}`)}
-            toolbar={<div className="toolbar" style={{ width: '100%' }}>
-              <Seg size="sm" value={view} onChange={v => set('cview', v)} options={[{ id: 'all', label: `All ${rows.length}` }, { id: 'risk', label: `At risk ${atRisk.length}` }, { id: 'premium', label: `${vocab.premium} ${rows.filter(r => r.premium).length}` }]} />
-              {activeCause && <button type="button" className="vw-chip vw-chip--warning cmd-chip cust-cause-chip" onClick={() => set('cause', '')} title="Clear cause filter"><SevDot s={activeCause.c.severity} />{activeCause.c.title} · {activeCause.c.where}<I.X size={12} /></button>}
-              <span className="grow" />
-              <SearchBox value={q} onChange={v => set('q', v)} placeholder={vocab.searchHint} width={220} />
-            </div>} />
+            toolbar={
+              <ListToolbar onApply={applyParams} shown={shown.length} total={rows.length} onRefresh={reload}
+                search={{ value: q, onChange: v => set('q', v), placeholder: vocab.searchHint }}
+                filters={[
+                  { id: 'cview', label: 'Condition', quick: true, value: view, defaultValue: 'all', onChange: v => set('cview', v), options: [{ id: 'all', label: `All ${vocab.customers.toLowerCase()}`, count: rows.length }, { id: 'risk', label: 'At risk', count: atRisk.length }, { id: 'premium', label: vocab.premium, count: rows.filter(r => r.premium).length }] },
+                  { id: 'cause', label: 'Cause', quick: true, value: cause, anyLabel: 'Any cause', onChange: v => set('cause', v), options: byCause.map(x => ({ id: x.c.code, label: `${x.c.title} · ${x.c.where}`, count: x.rows.length })) },
+                  { id: 'seg', label: 'Segment', value: seg, anyLabel: 'Any segment', onChange: v => set('seg', v), options: segs.map(([k, v]) => ({ id: k, label: k, count: v })) }
+                ]} />
+            } />
         </section>
         <div className="col" style={{ gap: 16 }}>
           {byCause.length > 0 && (

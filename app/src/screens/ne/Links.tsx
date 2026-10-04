@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { ListToolbar } from '../../ui/ListToolbar';
 import * as I from 'lucide-react';
 import { clockNow, getLink, useQuery } from '../../api';
 import type { LinkState, Protocol } from '../../api/types';
@@ -28,11 +29,13 @@ export function Links({ d }: { d: NeData }) {
   const [sp, setSp] = useSearchParams();
   const [proto, setProto] = useState<Protocol>('LLDP');
   const [open, setOpen] = useState<string | null>(null);
+  const [lq, setLq] = useState(''), [lst, setLst] = useState(''), [lrole, setLrole] = useState('');
   const countdown = useMemo(() => d.links.filter(l => l.protocol === 'LLDP' && (l.role === 'Backhaul' || l.role === 'Uplink')).sort((a, b) => a.forecastMonths - b.forecastMonths), [d.links]);
   const pre = sp.get('if');
   const sel = countdown.find(l => linkIf(l, ne.id).local === pre) ?? countdown[0];
   if (ne.discovery === 'not-discovered') return <NoTelemetry ne={ne} what="links" />;
-  const rows = d.links.filter(l => l.protocol === proto);
+  const all = d.links.filter(l => l.protocol === proto);
+  const rows = all.filter(l => (!lst || l.state === lst) && (!lrole || l.role === lrole) && (!lq || `${linkIf(l, ne.id).local} ${linkIf(l, ne.id).peerNe} ${linkIf(l, ne.id).peerIf} ${l.id}`.toLowerCase().includes(lq.toLowerCase())));
 
   const cols: Col<L>[] = [
     { key: 'if', header: 'Local interface', render: l => <span className="mono strong">{linkIf(l, ne.id).local}</span>, sort: l => linkIf(l, ne.id).local },
@@ -63,7 +66,14 @@ export function Links({ d }: { d: NeData }) {
 
       <section className="vw-card-section" style={{ padding: 0, overflow: 'hidden' }}>
         <DataTable rows={rows} cols={cols} onRow={l => setOpen(l.id)} pageSize={20} defaultSort={{ key: 'state', dir: 'asc' }}
-          toolbar={<div className="toolbar" style={{ width: '100%' }}><span className="vw-card-title-sm">{proto} links</span><span className="dt-count">{rows.length}</span><span className="grow" /><span className="vw-label">Click a link to trace cable → interfaces → protocols → services</span></div>} />
+          toolbar={
+            <ListToolbar shown={rows.length} total={all.length} noun={`${proto} links`}
+              search={{ value: lq, onChange: setLq, placeholder: 'Interface, peer, link ID' }}
+              filters={[
+                { id: 'state', label: 'State', quick: true, value: lst, anyLabel: 'Any state', onChange: setLst, options: [...new Set(all.map(l => l.state))].map(x => ({ id: x, label: x[0].toUpperCase() + x.slice(1), count: all.filter(l => l.state === x).length })) },
+                { id: 'role', label: 'Role', quick: true, value: lrole, anyLabel: 'Any role', onChange: setLrole, options: [...new Set(all.map(l => l.role))].map(x => ({ id: x, label: x, count: all.filter(l => l.role === x).length })) }
+              ]} />
+          } />
       </section>
 
       {countdown.length > 0 && sel && (
