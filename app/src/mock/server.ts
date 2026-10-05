@@ -3,7 +3,7 @@
 
 import type {
   ActionStep, Alert, AlertScope, EdgeStatus, OpsState, AuditEntry, CapacityPlan, Change, ChangeStatus, Datacenter, DcSummary, Incident, IncidentStatus, Interface, Link, Location,
-  ImpactCause, NetworkElement, Persona, ReconTask, RolloutStatus, Service, Severity, TimelineEvent
+  ImpactCause, NetworkElement, Persona, ReconTask, RevDomain, RevIssue, RevenueView, RolloutStatus, Service, Severity, TimelineEvent
 } from '../api/types';
 import { NE_CATEGORY } from '../api/types';
 import { generate, finaliseHealth, type Db } from './generate';
@@ -11,6 +11,7 @@ import { isPersona } from './personas';
 import { mulberry32 } from '../lib/rng';
 import { impactOf, isOpen, RESOLVE_SLA, RESPONSE_SLA } from './incidents';
 import { DAY, HOUR, MIN } from './seed';
+import { buildRevenue, customerHits, revenueView, type RevModel } from './revenue';
 import { monthsTo, dateAfterMonths, WARN, CRIT } from '../lib/forecast';
 
 /* Persona: which business model the estate is generated as. Switching it rebuilds
@@ -22,7 +23,7 @@ let db: Db = generate(persona);
 let version = 0;
 const listeners = new Set<() => void>();
 export const subscribe = (f: () => void) => { listeners.add(f); return () => { listeners.delete(f); }; };
-const changed = () => { version++; finaliseHealth(db); summaryCache.clear(); listeners.forEach(f => f()); };
+const changed = () => { version++; finaliseHealth(db); summaryCache.clear(); revModel = null; revViews.clear(); listeners.forEach(f => f()); };
 export const getVersion = () => version;
 const rebuild = () => { db = generate(persona); edgeCache.clear(); changed(); };
 export const reset = () => rebuild();
@@ -40,6 +41,18 @@ const isOpaque = (n: NetworkElement) => n.role === 'Tenant gear';
 /* ------------------------------------------------------------ roll-ups */
 
 const summaryCache = new Map<string, DcSummary>();
+/* revenue-impact model: built once per data version, viewed per scope (estate or one datacenter) */
+let revModel: RevModel | null = null;
+const revViews = new Map<string, RevenueView>();
+const revenueModel = () => (revModel ??= buildRevenue(db, causeIndex()));
+export function revenue(q: { dcId?: string } = {}): RevenueView {
+  const k = q.dcId ?? '*';
+  let v = revViews.get(k);
+  if (!v) { v = revenueView(db, revenueModel(), q.dcId, id => edgeStatus(id).state); revViews.set(k, v); }
+  return v;
+}
+/* the revenue issue behind an incident (null when the incident touches no revenue) */
+export const revenueOfIncident = (id: string): RevIssue | null => revenue().issues.find(i => i.id === id) ?? null;
 /* Datacenter operations scope. Downstream alarms (remote PoPs / sites that
    depend on a datacenter) never count as datacenter issues. */
 const liveAlerts = () => db.alerts.filter(a => a.state !== 'cleared' && a.scope !== 'downstream');
@@ -90,6 +103,7 @@ export function summarize(dc: Datacenter): DcSummary {
   const live = nes.filter(n => n.discovery !== 'not-discovered' && !isOpaque(n));
   const powerKw = Math.round(dc.power.split.reduce((a, s) => a + s.kw, 0) * 10) / 10;
   const byCategory = nes.reduce((a, n) => { a[NE_CATEGORY[n.role]]++; return a; }, { network: 0, compute: 0, storage: 0, tenant: 0 });
+  const rv = revenue().byDc.find(d => d.id === dc.id);
   const s: DcSummary = {
     id: dc.id, name: dc.name, status: dc.status, category: dc.category, city: dc.city, state: dc.state, regionId: dc.regionId, circleId: dc.circleId, address: dc.address, tier: dc.tier,
     ne: nes.length, discovered, verified, drifted, notDiscovered: nes.length - discovered, coveragePct: nes.length ? Math.round((discovered / nes.length) * 100) : 0, links, byRole,
@@ -106,6 +120,7 @@ export function summarize(dc: Datacenter): DcSummary {
     installed: nes.filter(n => opsStateOf(n) !== 'planned').length, inService: nes.filter(n => opsStateOf(n) === 'in-service').length, unmonitored: nes.filter(n => opsStateOf(n) === 'unmonitored').length, planned: nes.filter(n => opsStateOf(n) === 'planned').length,
     tenantOwned: nes.filter(n => opsStateOf(n) === 'tenant-owned').length, byCategory,
     edge: edgeStatus(dc.id), byScope: { site: al.filter(a => a.scope === 'site').length, edge: al.filter(a => a.scope === 'edge').length, dependency: al.filter(a => a.scope === 'dependency').length }, downstreamExcluded,
+    mrr: rv?.mrr ?? 0, revAtRisk: (rv?.mrrDown ?? 0) + (rv?.mrrDegraded ?? 0), revExposed: rv?.mrrExposed ?? 0, revRate: rv?.rate ?? 0, revImpact: (rv?.lost ?? 0) + (rv?.credits ?? 0),
     facilityIssues: [...dc.power.ups.filter(u => u.state !== 'Online').map(u => `${u.name} ${u.state.toLowerCase()}`), ...dc.cooling.units.filter(u => u.status === 'Failed').map(u => `${u.name} failed`), ...dc.power.feeds.filter(f => f.status === 'Alarm').map(f => `${f.source} lost`)]
   };
   summaryCache.set(dc.id, s);
@@ -229,6 +244,15 @@ export function servicesOf(q: { dcId?: string; neId?: string; customerId?: strin
    rack-level fault in a rack hosting its devices, or a critical site-wide facility
    alarm. Healthy neighbours in the same rack are not implicated. */
 const SEV_W: Record<Severity, number> = { critical: 0, major: 1, minor: 2, warning: 3 };
+/* the operational domain of a fault — what kind of datacenter issue it is */
+export function domainOf(a: Alert): RevDomain {
+  const t = a.title;
+  if (/Utilisation|Over Power Budget|Capacity|Exhaust/i.test(t)) return 'Capacity';
+  if (a.linkId || a.ifName || a.source === 'Link' || a.source === 'Protocol' || /Link|Optical|Cross-connect|BGP|OSPF|Flap/i.test(t)) return 'Network';
+  if (a.source === 'Cooling' || /Temperature|Thermal|Cooling|CRAH|CRAC|Chiller/i.test(t)) return 'Cooling';
+  if (a.source === 'Power' || /UPS|PDU|PSU|Power|Breaker|Rectifier|Battery/i.test(t)) return 'Power';
+  return 'Device';
+}
 function causeIndex() {
   const al = liveAlerts();
   const byLink = new Map<string, Alert[]>(), byNe = new Map<string, Alert[]>(), byRack = new Map<string, Alert[]>(), siteCrit = new Map<string, Alert[]>();
@@ -240,13 +264,16 @@ function causeIndex() {
     else if (!a.neId && a.severity === 'critical' && a.scope === 'site' && (a.source === 'Power' || a.source === 'Cooling')) add(siteCrit, a.dcId, a);
   }
   const linkById = new Map(db.links.map(l => [l.id, l]));
+  const openInc = new Set(db.incidents.filter(isOpen).map(i => i.id));
   const shortOf = (id: string) => id.replace(/^[A-Z]{2}-DC-\d{3}-/, '');
   return (s: Service): ImpactCause[] => {
     const out = new Map<string, ImpactCause>();
     /* one entry per physical fault: a shared fault id, or one port for all its interface alarms */
     const put = (a: Alert, kind: ImpactCause['kind'], where: string, to: string, key = a.fault?.id ?? a.code) => {
       const e = out.get(key);
-      if (!e) { out.set(key, { code: key, title: a.title, where: a.fault?.where ?? where, severity: a.severity, kind, to, related: 0 }); return; }
+      const incId = a.incidentId && openInc.has(a.incidentId) ? a.incidentId : undefined;
+      if (!e) { out.set(key, { code: key, title: a.title, where: a.fault?.where ?? where, severity: a.severity, kind, to, related: 0, since: a.start, incidentId: incId, domain: domainOf(a) }); return; }
+      e.since = Math.min(e.since ?? a.start, a.start); e.incidentId ??= incId;
       if (e.title === a.title) return;
       e.related++;
       if (SEV_W[a.severity] < SEV_W[e.severity]) { e.title = a.title; e.severity = a.severity; }
@@ -267,7 +294,7 @@ function causeIndex() {
     for (const r of racks) for (const a of byRack.get(r) ?? []) put(a, 'rack', shortOf(r), `/datacenters/${s.dcId}?tab=attention`);
     for (const a of siteCrit.get(s.dcId) ?? []) put(a, 'site', s.dcId, `/facilities?dc=${s.dcId}`);
     const list = [...out.values()].sort((a, b) => SEV_W[a.severity] - SEV_W[b.severity]);
-    if (!list.length && s.status === 'Degraded' && s.utilPct >= 90) list.push({ code: `${s.id}-UTIL`, title: s.unit === 'kW' ? `Drawing ${Math.round(s.utilPct)}% of contracted power` : s.unit === 'cabinets' ? `Cabinet space ${Math.round(s.utilPct)}% used` : s.unit === 'hours' ? `Remote-hands allowance ${Math.round(s.utilPct)}% used` : s.unit === 'Mbps' ? `Utilisation ${Math.round(s.utilPct)}% of ${s.qty >= 1000 ? `${s.qty / 1000} Gbps` : `${s.qty} Mbps`}` : `Running at ${Math.round(s.utilPct)}% of its size`, where: shortOf(s.neId), severity: 'warning', kind: 'utilisation', to: `/services/${s.id}`, related: 0 });
+    if (!list.length && s.status === 'Degraded' && s.utilPct >= 90) list.push({ code: `${s.id}-UTIL`, title: s.unit === 'kW' ? `Drawing ${Math.round(s.utilPct)}% of contracted power` : s.unit === 'cabinets' ? `Cabinet space ${Math.round(s.utilPct)}% used` : s.unit === 'hours' ? `Remote-hands allowance ${Math.round(s.utilPct)}% used` : s.unit === 'Mbps' ? `Utilisation ${Math.round(s.utilPct)}% of ${s.qty >= 1000 ? `${s.qty / 1000} Gbps` : `${s.qty} Mbps`}` : `Running at ${Math.round(s.utilPct)}% of its size`, where: shortOf(s.neId), severity: 'warning', kind: 'utilisation', to: `/services/${s.id}`, related: 0, since: db.now - (4 + (s.id.charCodeAt(s.id.length - 1) + s.id.charCodeAt(s.id.length - 2)) % 20) * HOUR, domain: 'Capacity' });
     return list;
   };
 }
@@ -296,7 +323,10 @@ export function customer(id: string) {
   const c = customers().find(x => x.id === id); if (!c) return null;
   const svcs = servicesOf({ customerId: id });
   const incs = db.incidents.filter(i => isOpen(i) && svcs.some(s => i.affected.some(a => s.linkIds.includes(a.id) || a.id === s.neId) || impactOf(db, { linkIds: i.affected.filter(a => a.kind === 'Link').map(a => a.id) }).services.some(x => x.id === s.id)));
-  return { customer: c, services: svcs, incidents: incs };
+  /* money view of the same customer: their row in the revenue model and the open issues hitting them */
+  const rv = revenue();
+  const issueById = new Map(rv.issues.map(i => [i.id, i]));
+  return { customer: c, services: svcs, incidents: incs, revenue: rv.customers.find(x => x.id === id) ?? null, hits: customerHits(db, revenueModel(), id, k => issueById.get(k)) };
 }
 
 /* ---------------------------------------------------------------- alerts */
@@ -321,7 +351,9 @@ export function slaState(i: Incident) {
   };
 }
 export function incidents(q: { dcId?: string; status?: string }) {
-  return db.incidents.filter(i => (!q.dcId || i.dcId === q.dcId) && (!q.status || (q.status === 'open' ? isOpen(i) : i.status === q.status))).map(i => ({ ...i, sla: slaState(i) })).sort((a, b) => Number(b.id.slice(4)) - Number(a.id.slice(4)));
+  const rev = new Map(revenue().issues.map(x => [x.id, x]));
+  const money = (id: string) => { const x = rev.get(id); return x ? { rank: x.rank, rate: x.rate, impact: x.lost + x.credits, atRisk: x.mrrDown + x.mrrDegraded, exposed: x.mrrExposed, potentialRate: x.potentialRate, cliffMin: x.nextCliff?.inMin ?? null, underPrioritised: x.underPrioritised } : null; };
+  return db.incidents.filter(i => (!q.dcId || i.dcId === q.dcId) && (!q.status || (q.status === 'open' ? isOpen(i) : i.status === q.status))).map(i => ({ ...i, sla: slaState(i), revenue: money(i.id) })).sort((a, b) => Number(b.id.slice(4)) - Number(a.id.slice(4)));
 }
 export function incident(id: string) {
   const i = db.incidents.find(x => x.id === id); if (!i) return null;
@@ -332,7 +364,7 @@ export function incident(id: string) {
   const changes = [...new Map([...i.changeIds.map(c => db.changes.find(x => x.id === c)!), ...recentChanges].filter(Boolean).map(c => [c.id, c])).values()];
   const codes = new Set(al.map(a => a.code));
   const symptoms = db.alerts.filter(a => a.symptomOf && codes.has(a.symptomOf));
-  return { incident: { ...i, sla: slaState(i) }, alerts: al, symptoms, services: im.services.map(s => ({ ...s, customer: db.customers.find(c => c.id === s.customerId)! })), customers: im.customers, changes, dc: summarize(dcOf(i.dcId)!), similar: i.similar ? i.similar.nodes.map(n => db.neById.get(n)!).filter(Boolean) : [] };
+  return { incident: { ...i, sla: slaState(i) }, alerts: al, symptoms, services: im.services.map(s => ({ ...s, customer: db.customers.find(c => c.id === s.customerId)! })), customers: im.customers, changes, dc: summarize(dcOf(i.dcId)!), similar: i.similar ? i.similar.nodes.map(n => db.neById.get(n)!).filter(Boolean) : [], revenue: revenueOfIncident(i.id) };
 }
 
 /* ---------------------------------------------------------------- changes */
@@ -558,7 +590,10 @@ export function commandCenter() {
       availability: Math.round((live.reduce((a, n) => a + n.icmp.availability, 0) / live.length) * 100) / 100, mttrMin: Math.round(mttr), slaPct: resolved30.length ? Math.round((slaMet / resolved30.length) * 100) : 100,
       opexMonthly: s.reduce((a, x) => a + x.opexMonthly, 0), capexCommitted: s.reduce((a, x) => a + x.capexCommitted, 0), capexApproved: s.reduce((a, x) => a + x.capexApproved, 0),
       upsOk: ups.filter(u => u.state === 'Online').length, upsTotal: ups.length, coolingN1, liveDcs: db.datacenters.filter(d => d.status !== 'planned').length, rollout: rollout.length },
-    domains, shi, insights, attention, activity, estate: s, cap, exhaust
+    domains, shi, insights, attention, activity, estate: s, cap, exhaust,
+    /* money view of the same situation: what is being lost, what is at stake, the next credit step */
+    revenue: (() => { const r = revenue(); const losing = r.issues.filter(i => i.lost + i.credits + i.rate > 0), stake = [...r.issues].filter(i => i.mrrExposed > 0).sort((a, b) => b.mrrExposed - a.mrrExposed);
+      return { base: r.base.mrr, total: r.total, sla: r.sla, issues: r.issues.length, top: losing[0] ?? null, stake: stake[0] ?? null, byDomain: r.byDomain.map(d => ({ domain: d.domain, impact: d.lost + d.credits, exposed: d.mrrExposed })) }; })()
   };
 }
 

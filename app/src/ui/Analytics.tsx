@@ -28,26 +28,27 @@ export function StatTile({ label, value, sub, subTone, children, onClick, active
     : <div className="dco-tile">{body}</div>;
 }
 
-export interface Part { key: string; label: string; n: number; tone: Tone }
+/* `display` replaces the number shown next to the label (money, units); `n` still sizes the bar */
+export interface Part { key: string; label: string; n: number; tone: Tone; display?: ReactNode }
 /* calm palette: problems are red / amber, everything else is a blue-grey ramp by position */
 const RAMP = ['var(--primaryColor500)', 'var(--vw-color-blue-300)', 'var(--vw-color-slate-400)', 'var(--vw-color-slate-300)', 'var(--vw-color-slate-200)'];
 export const partColor = (tone: Tone, i: number) => (tone === 'error' ? 'var(--vw-color-red-400)' : tone === 'orange' ? 'var(--vw-color-amber-400)' : tone === 'warning' ? 'var(--vw-color-amber-200)' : RAMP[Math.min(i, RAMP.length - 1)]);
 /* proportion bar + two-column breakdown (at most four entries); entries can act as filters */
-export function Split({ parts, onPick, active, legend = true }: { parts: Part[]; onPick?: (k: string) => void; active?: string; legend?: boolean }) {
+export function Split({ parts, onPick, active, legend = true, other }: { parts: Part[]; onPick?: (k: string) => void; active?: string; legend?: boolean; other?: (n: number) => ReactNode }) {
   const total = parts.reduce((a, p) => a + p.n, 0) || 1;
   let ramp = 0;
   const colored = parts.map(p => ({ ...p, c: partColor(p.tone, ['error', 'orange', 'warning'].includes(p.tone) ? 0 : ramp++) }));
   /* at most three rows, in the caller's order (most severe first): fold the rest into "Other" */
-  const rows = colored.length <= 3 ? colored : [...colored.slice(0, 2), { key: '_other', label: 'Other', n: colored.slice(2).reduce((a, p) => a + p.n, 0), tone: 'neutral' as Tone, c: RAMP[4] }];
+  const rows = colored.length <= 3 ? colored : [...colored.slice(0, 2), { key: '_other', label: 'Other', n: colored.slice(2).reduce((a, p) => a + p.n, 0), tone: 'neutral' as Tone, c: RAMP[4], display: other?.(colored.slice(2).reduce((a, p) => a + p.n, 0)) }];
   return (
     <div className="dco-split">
-      <div className="dco-bar">{colored.filter(p => p.n).map(p => <i key={p.key} style={{ width: `${(p.n / total) * 100}%`, background: p.c }} title={`${p.label}: ${p.n}`} />)}</div>
+      <div className="dco-bar">{colored.filter(p => p.n).map(p => <i key={p.key} style={{ width: `${(p.n / total) * 100}%`, background: p.c }} title={`${p.label}: ${typeof p.display === 'string' ? p.display : p.n}`} />)}</div>
       {legend && <div className="dco-kv">{rows.map(p => {
         const click = onPick && p.key !== '_other';
         return (
           <span key={p.key} role={click ? 'button' : undefined} tabIndex={click ? 0 : undefined} className={`${click ? 'is-click' : ''}${active === p.key ? ' is-active' : ''}${p.n && p.tone === 'error' ? ' is-bad' : ''}`}
             onClick={e => { if (!click) return; e.stopPropagation(); onPick!(p.key); }} onKeyDown={e => { if (click && e.key === 'Enter') onPick!(p.key); }}>
-            <i style={{ background: p.c }} /><em>{p.label}</em><b>{p.n}</b>
+            <i style={{ background: p.c }} /><em>{p.label}</em><b>{p.display ?? p.n}</b>
           </span>
         );
       })}</div>}

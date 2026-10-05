@@ -3,11 +3,12 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { addWorklog, advanceIncident, clockNow, getIncident, hypothesisFeedback, raiseEmergencyChange, runClosureChecks, setActionStatus, useQuery, vocabNow } from '../api';
-import type { ActionStep, IncidentStatus } from '../api/types';
+import type { ActionStep, IncidentStatus, RevIssue } from '../api/types';
 import { usePage, Loading, useSentinel } from '../shell/page';
 import { Btn, Chip, Panel } from '../ui/kit';
 import { ChangeChip, CustLink, DcLink, IncidentChip, PriChip, SevChip, SevDot, SeverityChip, SvcLink, ServiceChip } from '../ui/status';
-import { fmtAgo, fmtDateTime, fmtDateTimeS, fmtQty } from '../lib/format';
+import { fmtAgo, fmtDateTime, fmtDateTimeS, fmtDur, fmtQty } from '../lib/format';
+import { CostCurve, DomainTag, Fig, inr, lc, perHr, perMo, stateText } from './revenue/parts';
 import { NotFound } from './NotFound';
 import { TYPE_ICON } from './Incidents';
 import { fmtHm, refTo, slaText, useToast, OpsKpi } from './ops/shared';
@@ -28,7 +29,7 @@ export function IncidentDetail() {
   usePage([{ label: 'Operate' }, { label: 'Incidents', to: '/incidents' }, { label: id }], { incidentId: id, dcId: data?.incident.dcId });
   if (!data) return loading ? <Loading /> : <NotFound what={`Incident ${id}`} />;
 
-  const { incident: inc, alerts, symptoms, services, customers, changes, dc, similar } = data;
+  const { incident: inc, alerts, symptoms, services, customers, changes, dc, similar, revenue: rev } = data;
   const now = clockNow();
   const open = inc.status === 'Open' || inc.status === 'Investigating' || inc.status === 'Mitigated';
   const next = FLOW[Math.min(FLOW.indexOf(inc.status) + 1, FLOW.length - 1)];
@@ -111,6 +112,8 @@ export function IncidentDetail() {
               </div>
             )}
           </Panel>
+
+          {open && rev && <RevenuePanel rev={rev} now={now} onAsk={() => ask(`What is ${inc.id} costing us?`)} />}
 
           <Panel title="Impact assessment" sub="Infrastructure → services → customers (DC-OPS-002, DC-NET-007)" actions={<Chip tone={inc.impact.level === 'High' ? 'error' : inc.impact.level === 'Medium' ? 'warning' : 'neutral'}>{inc.impact.level}</Chip>}>
             <div className="dep-path">
@@ -217,6 +220,41 @@ export function IncidentDetail() {
       </div>
       {toast.node}
     </div>
+  );
+}
+
+/* what this incident is costing: the hourly loss, the total so far, the next credit step and the cost of delay */
+function RevenuePanel({ rev: r, now, onAsk }: { rev: RevIssue; now: number; onAsk: () => void }) {
+  const V = vocabNow(), W = V.money;
+  const losing = r.rate + r.lost + r.credits > 0;
+  const avoid = Math.max(0, r.forecast24 - r.lost - r.credits);
+  return (
+    <Panel title={W.impact} icon={I.IndianRupee} sub={losing ? `What this incident has cost and what another day costs · ranked #${r.rank} of the open issues` : `Nothing is lost yet · ${r.exposed} ${V.services.toLowerCase()} are still running on this fault`}
+      actions={<><DomainTag d={r.domain} />{r.underPrioritised && <Chip tone="warning" size="xs">Review priority</Chip>}</>}>
+      <div className="rev-inc">
+        <div className="rev-figs">
+          {losing ? <>
+            <Fig label="Losing now" value={perHr(r.rate)} sub={stateText({ ...r, exposed: 0 })} tone="bad" />
+            <Fig label="Impact so far" value={inr(r.lost + r.credits)} sub={`${inr(r.credits)} ${lc(W.credits)}`} />
+            <Fig label="Next credit step" value={r.nextCliff ? inr(r.nextCliff.amount) : '—'} sub={r.nextCliff ? `in ${fmtDur(r.nextCliff.inMin)}` : 'none pending'} tone={r.nextCliff && r.nextCliff.inMin <= 60 ? 'warn' : undefined} />
+            <Fig label="By +24 h" value={inr(r.forecast24)} sub={`restore now, avoid ${inr(avoid)}`} />
+          </> : <>
+            <Fig label="At stake" value={perMo(r.mrrExposed)} sub={`${r.customers} ${V.customers.toLowerCase()}`} tone="warn" />
+            <Fig label="If it fails" value={perHr(r.potentialRate)} sub="for every hour down" />
+            <Fig label="Credits after 4 h" value={inr(r.potentialCredits)} sub="if the outage lasts that long" />
+            <Fig label="Lost so far" value="₹0" sub="nothing is down yet" />
+          </>}
+        </div>
+        <CostCurve curve={r.curve} now={now} height={150} />
+      </div>
+      <div className="rev-inc-foot">
+        <span className="vw-label">{r.top.slice(0, 3).map(c => `${c.name} ${inr(losing ? c.lost + c.credits : c.mrr)}${losing ? '' : '/mo'}`).join(' · ')}{r.customers > 3 ? ` · +${r.customers - 3} more` : ''}</span>
+        <span className="row" style={{ gap: 8 }}>
+          <Link to={`/revenue?rdc=${r.dcId}`} className="nst-btn nst-btn--sm nst-btn--ghost">{W.impact}<I.ArrowRight size={14} /></Link>
+          <OpstralBtn onClick={onAsk} />
+        </span>
+      </div>
+    </Panel>
   );
 }
 

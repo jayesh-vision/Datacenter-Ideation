@@ -8,14 +8,16 @@ import { Alerts } from './screens/Alerts';
 import { Incidents } from './screens/Incidents';
 import { IncidentDetail } from './screens/IncidentDetail';
 import { Changes } from './screens/Changes';
-import { Topology } from './screens/Topology';
 import { ServiceDetail } from './screens/ServiceDetail';
 import { CustomerDetail } from './screens/CustomerDetail';
 import { Facilities } from './screens/Facilities';
+import { Revenue } from './screens/Revenue';
 import { NotFound } from './screens/NotFound';
 
 /* Estate → Datacenter → Infrastructure → Connectivity → Services → Customers
    → Events → Impact → Diagnosis → Recommended action */
+/* /topology?dc=X → that datacenter's Topology tab; without a site, the Datacenters list */
+function TopologyRedirect() { const dc = new URLSearchParams(useLocation().search).get('dc'); return <Navigate to={dc ? `/datacenters/${dc}?tab=topology` : '/datacenters'} replace />; }
 function Keep({ to }: { to: string }) { const l = useLocation(); return <Navigate to={`${to}${l.search}`} replace />; }
 
 export default function App() {
@@ -37,7 +39,8 @@ export default function App() {
           <Route path="incidents" element={<Incidents />} />
           <Route path="incidents/:id" element={<IncidentDetail />} />
           <Route path="changes" element={<Changes />} />
-          <Route path="topology" element={<Topology />} />
+          {/* Topology lives only as a tab on the datacenter page (user, 05-Oct-2026); old links land on that tab */}
+          <Route path="topology" element={<TopologyRedirect />} />
           {/* Service and customer catalogues are service operations; only impact drill-downs remain */}
           <Route path="services" element={<Navigate to="/incidents" replace />} />
           <Route path="services/:id" element={<ServiceDetail />} />
@@ -46,6 +49,8 @@ export default function App() {
           {/* Capacity planning is parked for Plan & Build; current pressure lives in Facilities */}
           <Route path="capacity" element={<Navigate to="/facilities" replace />} />
           <Route path="facilities" element={<Facilities />} />
+          {/* Money view of operations: what each open issue costs (user, 05-Oct-2026) */}
+          <Route path="revenue" element={<Revenue />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

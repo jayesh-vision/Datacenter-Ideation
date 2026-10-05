@@ -11,6 +11,7 @@ import { Attention } from './Attention';
 import { Metrics } from './Metrics';
 import { Customers } from './Customers';
 import { Assets } from './Assets';
+import { SiteRevenue } from './Revenue';
 import { Elements } from './Elements';
 import { Details } from './Details';
 import { Timeline } from './Timeline';
@@ -23,10 +24,10 @@ import { OpstralBtn } from '../../ui/OpstralMark';
 export type SiteData = NonNullable<Awaited<ReturnType<typeof getDatacenter>>>;
 /* Operations tabs. Capex/Opex (finance) and discovery/reconciliation
    (inventory) belong to Plan & Build / Inventory, not here. */
-type Tab = 'overview' | 'attention' | 'topology' | 'metrics' | 'customers' | 'assets' | 'elements' | 'details' | 'timeline';
+type Tab = 'overview' | 'attention' | 'topology' | 'metrics' | 'customers' | 'revenue' | 'assets' | 'elements' | 'details' | 'timeline';
 const TABS: { id: Tab; label: string }[] = [
   /* Cabling ('equipment') is hidden per the user (02-Oct-2026); component kept, old ?tab=equipment links fall back to Overview */
-  { id: 'overview', label: 'Overview' }, { id: 'attention', label: 'Attention' }, { id: 'topology', label: 'Topology' }, { id: 'metrics', label: 'Metrics' }, { id: 'customers', label: 'Customers' },
+  { id: 'overview', label: 'Overview' }, { id: 'attention', label: 'Attention' }, { id: 'topology', label: 'Topology' }, { id: 'metrics', label: 'Metrics' }, { id: 'customers', label: 'Customers' }, { id: 'revenue', label: 'Revenue' },
   { id: 'assets', label: 'Assets' }, { id: 'elements', label: 'Equipment' }, { id: 'details', label: 'Power & space' }, { id: 'timeline', label: 'Ops log' }
 ];
 
@@ -50,7 +51,7 @@ export function Site() {
   if (!data) return <NotFound what="Datacenter" />;
   const { dc, summary: s } = data;
   const tab: Tab = TABS.some(t => t.id === sp.get('tab')) ? (sp.get('tab') as Tab) : 'overview';
-  const go = (t: Tab) => { const n = new URLSearchParams(sp); n.set('tab', t); ['role', 'disc', 'q', 'kind', 'view', 'cview', 'cause', 'layer'].forEach(k => n.delete(k)); setSp(n, { replace: true }); };
+  const go = (t: Tab) => { const n = new URLSearchParams(sp); n.set('tab', t); ['role', 'disc', 'q', 'kind', 'view', 'cview', 'cause', 'layer', 'rview', 'dom', 'rdc', 'seg'].forEach(k => n.delete(k)); setSp(n, { replace: true }); };
   const now = clockNow();
   const staleCol = dc.collectors.filter(c => c.state !== 'up');
 
@@ -158,7 +159,7 @@ export function Site() {
       <div className="pills" role="tablist">
           {TABS.map(t => {
             const n = t.id === 'attention' ? s.openIncidents + s.critAlerts : t.id === 'elements' ? s.installed : t.id === 'customers' ? s.customers : undefined;
-            return <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={`pill${tab === t.id ? ' is-active' : ''}`} onClick={() => go(t.id)}>{t.id === 'customers' ? vocab.customers : t.label}{n ? <span className="count">{n}</span> : null}</button>;
+            return <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={`pill${tab === t.id ? ' is-active' : ''}`} onClick={() => go(t.id)}>{t.id === 'customers' ? vocab.customers : t.id === 'revenue' ? vocab.money.noun : t.label}{n ? <span className="count">{n}</span> : null}</button>;
           })}
       </div>
 
@@ -167,6 +168,7 @@ export function Site() {
       {tab === 'topology' && <TopologyView key={dc.id} dc={dc.id} />}
       {tab === 'metrics' && <Metrics data={data} />}
       {tab === 'customers' && <Customers data={data} />}
+      {tab === 'revenue' && <SiteRevenue data={data} />}
       {tab === 'assets' && <Assets data={data} />}
       {tab === 'elements' && <Elements dcId={dc.id} />}
       {tab === 'details' && <Details data={data} />}

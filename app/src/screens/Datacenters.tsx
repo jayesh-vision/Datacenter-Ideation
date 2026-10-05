@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { clockNow, getAlerts, getDatacenters, getIncidents, useQuery, vocabNow } from '../api';
 import type { DcSummary, Severity } from '../api/types';
@@ -8,7 +8,7 @@ import { DataTable, type Col } from '../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../ui/ListToolbar';
 import { Meter } from '../ui/status';
 import { ROLLOUT, SEVERITY } from '../lib/vocab';
-import { fmtNum } from '../lib/format';
+import { fmtINR, fmtNum } from '../lib/format';
 import '../styles/datacenters.css';
 import { OpstralBtn } from '../ui/OpstralMark';
 import { DcCard } from './ops/DcCard';
@@ -50,7 +50,7 @@ export function Datacenters() {
     { key: 'inc', header: 'Open incidents', sort: d => (d.worstSev ? 10 - d.worstSev : 0) * 100 + d.openIncidents, render: d => d.openIncidents
       ? <span className="vw-flex vw-items-center vw-gap-sm"><span className="dcl-num">{d.openIncidents}</span>{d.worstSev > 0 && <span className={`vw-chip ${d.worstSev === 1 ? 'vw-chip--error' : d.worstSev === 2 ? 'vw-chip--warning' : 'vw-chip--neutral'} dcl-chip`}>SEV{d.worstSev}</span>}</span>
       : <span className="vw-label">None</span> },
-    { key: 'alarms', header: 'Alarms', align: 'right', sort: d => d.critAlerts * 1000 + d.activeAlerts, render: d => <span className="cell-2" style={{ alignItems: 'flex-end' }}><span className="dcl-num">{d.activeAlerts}</span><small style={{ color: d.critAlerts ? BAD : undefined }}>{d.critAlerts ? `${d.critAlerts} critical` : 'none critical'}</small></span> },
+    { key: 'alarms', header: 'Alarms', align: 'right', sort: d => d.critAlerts * 1000 + d.activeAlerts, render: d => <span className="cell-2" style={{ alignItems: 'flex-end' }}><span className="dcl-num">{d.activeAlerts}</span><small className="nowrap" style={{ color: d.critAlerts ? BAD : undefined }}>{d.critAlerts ? `${d.critAlerts} critical` : 'none critical'}</small></span> },
     { key: 'net', header: 'Network', sort: d => d.linksDown * 10 + d.unreachable, render: d => {
       const bits = [d.linksDown ? `${d.linksDown} link${d.linksDown === 1 ? '' : 's'} down` : '', d.unreachable ? `${d.unreachable} device${d.unreachable === 1 ? '' : 's'} unreachable` : ''].filter(Boolean);
       const edge = d.edge.state === 'isolated' ? <small style={{ color: BAD }}>Edge isolated · 0/{d.edge.total} up</small>
@@ -67,7 +67,14 @@ export function Datacenters() {
     { key: 'fac', header: 'Facility', sort: d => d.facilityIssues.length, render: d => d.facilityIssues.length
       ? <span className="dcl-issue" title={d.facilityIssues.join(' · ')}><I.TriangleAlert size={13} />{d.facilityIssues[0]}{d.facilityIssues.length > 1 ? ` +${d.facilityIssues.length - 1}` : ''}</span>
       : <span className="vw-label">Normal</span> },
-    { key: 'svc', header: vocabNow().services, align: 'right', sort: d => d.servicesDegraded * 1000 + d.services, render: d => <span className="cell-2" style={{ alignItems: 'flex-end' }}><span className="dcl-num">{d.services} <span className="vw-label">· {d.customers} {vocabNow().customers.toLowerCase()}</span></span><small style={{ color: d.servicesDegraded ? BAD : undefined }}>{d.servicesDegraded ? `${d.servicesDegraded} degraded` : 'all active'}</small></span> }
+    { key: 'svc', header: vocabNow().services, align: 'right', sort: d => d.servicesDegraded * 1000 + d.services, render: d => <span className="cell-2" style={{ alignItems: 'flex-end' }}><span className="dcl-num nowrap">{d.services} <span className="vw-label">· {d.customers} {vocabNow().customers.toLowerCase()}</span></span><small className="nowrap" style={{ color: d.servicesDegraded ? BAD : undefined }}>{d.servicesDegraded ? `${d.servicesDegraded} degraded` : 'all active'}</small></span> },
+    /* money view of the same site: what it hosts, what it is losing per hour, or what rides on a critical fault */
+    { key: 'rev', header: vocabNow().money.noun, sort: d => d.revRate * 1e6 + d.revExposed / 1e3 + d.mrr / 1e9, render: d => (d.mrr
+      ? <Link to={`/datacenters/${d.id}?tab=revenue`} className="cell-2 dcl-rev" onClick={e => e.stopPropagation()} title={`Open ${d.id} · ${vocabNow().money.impact}`}>
+        <span className="dcl-num nowrap">{fmtINR(d.mrr)}<span className="vw-label"> /mo</span></span>
+        <small className="nowrap" style={{ color: d.revRate ? BAD : d.revExposed ? '#926e00' : undefined }}>{d.revRate ? `losing ${fmtINR(d.revRate)}/h` : d.revExposed ? `${fmtINR(d.revExposed)} at stake` : 'no impact'}</small>
+      </Link>
+      : <span className="vw-label">—</span>) }
   ];
 
   const tally = (xs: DcSummary[]) => ({ n: xs.length, inc: xs.reduce((a, d) => a + d.openIncidents, 0), hot: xs.filter(d => d.worstSev > 0 && d.worstSev <= 2).length, alarms: xs.reduce((a, d) => a + d.activeAlerts, 0), fac: xs.filter(d => d.facilityIssues.length).length });

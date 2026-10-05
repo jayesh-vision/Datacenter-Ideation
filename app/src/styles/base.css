@@ -448,3 +448,8 @@ td .cell-2 small { font-size: 11.5px; color: var(--ink-500); }
 .dco-tile > .dco-detail > .dco-rank > span { height: 15px; }
 .dco-tile > .dco-detail { height: 100px; }
 .dco-tile > .dco-detail > .dco-facts { flex-shrink: 0; overflow: visible; }
+
+/* a second line that must stay on one line (short figures) — opt out of the two-line clamp */
+.page .dt-table td .cell-2 > small.nowrap { white-space: nowrap; display: block; overflow: visible; }
+.dcl-rev { color: inherit; text-decoration: none; }
+.dcl-rev:hover .dcl-num { color: var(--primaryColor700); }

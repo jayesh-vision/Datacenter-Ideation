@@ -1,0 +1,43 @@
+/* Customer page — identity header and layout; tiles, tables and chips come from the shared system. */
+.cd-head { display: flex; flex-direction: column; gap: 0; padding: 0 !important; overflow: hidden; }
+.cd-top { display: flex; align-items: center; gap: 16px; padding: 18px 20px 16px; min-width: 0; }
+.cd-avatar { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 12px; background: var(--vw-color-slate-100); color: var(--vw-color-gray-700); font-size: 17px; font-weight: 500; letter-spacing: .02em; flex-shrink: 0; }
+.cd-id { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
+.cd-name-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.cd-name { margin: 0; font-size: var(--vw-font-heading-xl, 22px); font-weight: 500; color: var(--vw-color-gray-900); letter-spacing: -.01em; }
+.cd-state { display: inline-flex; align-items: center; gap: 7px; margin-left: 4px; font-size: 13.5px; font-weight: 500; color: var(--vw-color-emerald-700); white-space: nowrap; }
+.cd-state i { width: 8px; height: 8px; border-radius: 50%; background: var(--vw-color-emerald-500); }
+.cd-state.is-attention { color: var(--vw-color-amber-700); } .cd-state.is-attention i { background: var(--vw-color-amber-500); }
+.cd-state.is-critical { color: var(--vw-color-red-700); } .cd-state.is-critical i { background: var(--vw-color-red-500); }
+.cd-sub { display: flex; align-items: center; gap: 6px 16px; flex-wrap: wrap; }
+.cd-sub > span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.cd-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+.cd-meta { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 0; border-top: 1px solid var(--vw-color-slate-200); }
+.cd-meta > div { display: flex; flex-direction: column; gap: 3px; padding: 12px 20px; border-left: 1px solid var(--vw-color-slate-200); min-width: 0; }
+.cd-meta > div:first-child { border-left: 0; }
+.cd-meta dt { font-size: 12px; color: var(--vw-color-gray-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cd-meta dd { margin: 0; display: flex; flex-direction: column; gap: 1px; font-size: 14.5px; font-weight: 500; color: var(--vw-color-gray-900); white-space: nowrap; min-width: 0; }
+.cd-meta dd > span { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.cd-meta dd small { font-size: 12px; font-weight: 400; color: var(--vw-color-gray-500); }
+.cd-am { display: inline-flex; align-items: center; justify-content: center; align-self: center; width: 22px; height: 22px; border-radius: 50%; background: var(--primaryColor50); color: var(--primaryColor700); font-size: 10.5px; font-weight: 600; flex-shrink: 0; }
+
+.cd-verdict { display: flex; align-items: center; gap: 10px; padding: 10px 20px; border-top: 1px solid var(--vw-color-slate-200); font-size: 13px; line-height: 1.5; color: var(--vw-color-gray-700); background: var(--vw-color-slate-50); }
+.cd-verdict > span { flex: 1; min-width: 0; }
+.cd-verdict b { font-weight: 500; color: var(--vw-color-gray-900); }
+.cd-verdict > svg { flex-shrink: 0; color: var(--vw-color-emerald-600); }
+.cd-verdict.is-critical { background: var(--vw-color-red-50); } .cd-verdict.is-critical > svg, .cd-verdict.is-critical b { color: #b21313; }
+.cd-verdict.is-attention { background: var(--vw-color-amber-50); } .cd-verdict.is-attention > svg { color: #926e00; }
+.cd-verdict-go { flex-shrink: 0; white-space: nowrap; }
+
+.cd-grid { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); align-items: stretch; }
+.cd-hits { width: 100%; }
+.cd-hits th, .cd-hits td { text-align: left; }
+.cd-more { display: block; margin-top: 10px; }
+
+@media (max-width: 1180px) {
+  .cd-grid { grid-template-columns: minmax(0, 1fr); }
+  .cd-meta { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cd-meta > div:nth-child(4) { border-left: 0; }
+  .cd-meta > div:nth-child(n+4) { border-top: 1px solid var(--vw-color-slate-200); }
+}

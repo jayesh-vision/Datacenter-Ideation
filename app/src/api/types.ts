@@ -166,7 +166,70 @@ export interface CapacityPlan { id: string; dcId: string; dimension: 'Power' | '
 export interface TimelineEvent { at: number; kind: 'commissioning' | 'change' | 'incident' | 'maintenance' | 'capacity' | 'discovery'; title: string; ref?: string }
 
 /* Why a service is impacted: an active fault on its path, its links, its rack or the site. */
-export interface ImpactCause { code: string; title: string; where: string; severity: Severity; kind: 'device' | 'interface' | 'link' | 'rack' | 'site' | 'utilisation'; to: string; related: number }
+export interface ImpactCause {
+  code: string; title: string; where: string; severity: Severity; kind: 'device' | 'interface' | 'link' | 'rack' | 'site' | 'utilisation'; to: string; related: number;
+  /* when the fault began, the open incident tracking it and its operational domain (used by the revenue-impact model) */
+  since?: number; incidentId?: string; domain?: RevDomain;
+}
+
+/* ---- Revenue impact: what each active datacenter issue is costing.
+   A service is `down` or `degraded` (it is losing revenue now) or `exposed` (still running, but riding a
+   critical fault such as a UPS on battery). Money per issue:
+     rate    — revenue being lost per hour right now (monthly charge ÷ 730 h; degraded counts at 30%)
+     lost    — service revenue lost so far (pro-rata for the time each service has been impacted)
+     credits — SLA credits the fault has triggered so far (10 / 25 / 50% of the monthly charge by SLA shortfall)
+   Exposed revenue costs nothing yet; `potentialRate` / `potentialCredits` say what it costs if the fault worsens. */
+export type RevDomain = 'Power' | 'Cooling' | 'Network' | 'Device' | 'Capacity';
+export const REV_DOMAINS: RevDomain[] = ['Power', 'Cooling', 'Network', 'Device', 'Capacity'];
+export interface RevMoney { mrrDown: number; mrrDegraded: number; mrrExposed: number; rate: number; lost: number; credits: number }
+export interface RevCliff { inMin: number; amount: number; services: number }
+export interface RevIssue extends RevMoney {
+  id: string; kind: 'incident' | 'fault'; title: string; where: string; dcId: string; domain: RevDomain; severity: Severity; to: string;
+  incident?: { id: string; sev: number; status: IncidentStatus; owner: string; resolveLeft: number; breaching: boolean };
+  since: number; services: number; down: number; degraded: number; exposed: number; customers: number; premium: number;
+  /* the next SLA-credit step this issue will trigger if it is not restored */
+  nextCliff: RevCliff | null;
+  /* total impact (lost + credits) if it runs another 24 h */
+  forecast24: number;
+  /* exposed revenue: what it costs if the fault takes the services down (per hour, and credits after a 4 h outage) */
+  potentialRate: number; potentialCredits: number;
+  /* a change completed at the site shortly before the fault */
+  changeId?: string;
+  /* revenue rank (1 = costing the most) and whether its incident priority looks too low for that */
+  rank: number; underPrioritised: boolean;
+  top: { id: string; name: string; premium: boolean; services: number; mrr: number; lost: number; credits: number; state: 'down' | 'degraded' | 'exposed' }[];
+  /* cumulative impact over time: from the start of the fault to 24 h from now (`potential` = if an exposed issue fails now) */
+  curve: { t: number[]; v: number[]; nowIdx: number; potential: boolean };
+}
+export interface RevCustomer extends RevMoney {
+  id: string; name: string; segment: string; premium: boolean; accountManager: string; mrr: number; services: number; down: number; degraded: number; exposed: number;
+  /* credits already owed for the last 30 days (earlier incidents), next credit step, weakest SLA position */
+  creditsLocked: number; nextCliffMin: number | null; belowSla: number; slaTarget: number; uptime: number; cause: string; issueId: string;
+}
+/* one open issue as it hits one customer: how many of their services, and what it has cost them */
+export interface RevCustomerHit extends RevMoney { issue: RevIssue; services: number; down: number; degraded: number; exposed: number; mrr: number }
+export interface RevDc extends RevMoney { id: string; city: string; state: string; tier: string; mrr: number; services: number; customers: number; issues: number; hist30: number; topIssue: string; topIssueId: string }
+export interface RevExposure {
+  id: string; kind: 'power' | 'cooling' | 'edge' | 'device' | 'rack'; dcId: string; what: string; why: string; mrr: number; rate: number; services: number; customers: number; premium: number; share: number; to: string;
+}
+export interface RevRack { id: string; name: string; room: string; mrr: number; services: number; customers: number; atRisk: number; state: 'down' | 'degraded' | 'exposed' | 'ok' }
+export interface RevenueView {
+  dcId?: string; now: number;
+  base: { mrr: number; services: number; customers: number };
+  total: RevMoney & { forecast24: number; potentialRate: number; potentialCredits: number; services: number; down: number; degraded: number; exposed: number; customers: number; premium: number };
+  sla: { withinPct: number; below: number; creditsLocked: number; nextCliff: (RevCliff & { issueId: string; title: string }) | null; cliff60: { services: number; amount: number } };
+  issues: RevIssue[];
+  byDomain: (RevMoney & { domain: RevDomain; issues: number; services: number; hist30: number })[];
+  byDc: RevDc[];
+  customers: RevCustomer[];
+  /* daily revenue impact for the last 30 days by domain (resolved incidents + what is open today) */
+  trend: { days: number[]; series: Record<RevDomain, number[]>; total: number; lost: number; credits: number; incidents: number; avgPerIncident: number; worstDay: { at: number; amount: number } | null };
+  exposures: RevExposure[];
+  /* revenue by rack inside one datacenter (by device when everything sits in one or two racks) */
+  racks: RevRack[]; rackBy: 'rack' | 'device';
+  changeInduced: { issues: number; impact: number; share: number };
+  method: { degradedFactor: number; tiers: { shortfall: string; credit: number }[]; outageHours: number };
+}
 
 /* Derived roll-ups returned by the API so screens never re-count. */
 export interface DcSummary {
@@ -179,4 +242,6 @@ export interface DcSummary {
   edge: EdgeStatus; byScope: Record<'site' | 'edge' | 'dependency', number>; downstreamExcluded: number;
   installed: number; inService: number; unmonitored: number; planned: number; tenantOwned: number;
   byCategory: Record<NeCategory, number>;
+  /* revenue hosted at the site, what is down or degraded, what rides a critical fault, the hourly loss and the impact so far */
+  mrr: number; revAtRisk: number; revExposed: number; revRate: number; revImpact: number;
 }

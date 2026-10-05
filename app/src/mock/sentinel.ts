@@ -2,7 +2,9 @@
    answered from the live mock estate, so every statement carries evidence the
    operator can open. A real LLM/RAG service would return the same shape. */
 
-import { raw, isOpen, impactOf, linksOf, summarize, slaState, changes as listChanges } from './server';
+import { raw, isOpen, impactOf, linksOf, summarize, slaState, changes as listChanges, revenue, getPersona } from './server';
+import { PERSONA_BY_ID } from './personas';
+import { fmtINR, fmtDur } from '../lib/format';
 import { HOUR, DAY } from './seed';
 import { fmtDateTime, fmtDate } from '../lib/format';
 
@@ -18,6 +20,8 @@ export function suggestions(ctx: Ctx): string[] {
   if (ctx.neId) s.push(`What services depend on ${ctx.neId}?`, `Why is ${ctx.neId} alarming?`);
   if (ctx.linkId) s.push(`What services depend on ${ctx.linkId}?`, `When will ${ctx.linkId} cross 85%?`);
   if (dc) s.push(`What is at risk in ${dc.city}?`, `Summarise ${dc.id}`);
+  if (ctx.incidentId) s.push(`What is ${ctx.incidentId} costing us?`);
+  s.push(dc ? `Which issue costs the most in ${dc.id}?` : 'Which issue is costing the most revenue?');
   s.push('What is at risk in Pune?', 'Which links will exhaust first?', 'What changed in the last 24 hours?');
   return [...new Set(s)].slice(0, 5);
 }
@@ -30,6 +34,39 @@ export function ask(q: string, ctx: Ctx): Answer {
   const lnk = q.match(/LNK-\d{5}/i)?.[0]?.toUpperCase() ?? ctx.linkId;
   const dcByText = db.datacenters.filter(d => t.includes(d.id.toLowerCase()) || t.includes(d.city.toLowerCase()) || t.includes(d.state.toLowerCase()));
 
+  /* revenue impact: what an issue costs, which issue costs the most, what is at stake */
+  if (/revenue|cost|costing|money|credit|penalt|losing|loss|rupee|₹|business value|business impact/.test(t)) {
+    const W0 = PERSONA_BY_ID[getPersona()].vocab.money;
+    const low = (x: string) => (/^(SLA|OLA) /.test(x) ? x.slice(0, 4) + x.slice(4).toLowerCase() : x.toLowerCase());
+    const PV = PERSONA_BY_ID[getPersona()].vocab, svcL = PV.services.toLowerCase(), custL = PV.customers.toLowerCase();
+    const W = { ...W0, lostL: low(W0.lost), creditsL: low(W0.credits), nounL: low(W0.noun), impactL: low(W0.impact) };
+    const scopeDc = dcByText[0]?.id ?? (incId ? undefined : ctx.dcId);
+    const r = revenue(scopeDc ? { dcId: scopeDc } : {});
+    const one = incId ? r.issues.find(i => i.id === incId) ?? revenue().issues.find(i => i.id === incId) : undefined;
+    const rate = (n: number) => `${fmtINR(n)}/h`;
+    if (incId && !one) return { title: `${incId} — no ${W.nounL} impact`, confidence: 92, lines: [`No ${PV.service.toLowerCase()} is down, degraded or exposed because of ${incId}. It is an operational risk only.`], evidence: [{ label: incId, to: `/incidents/${incId}` }], actions: [{ label: W.impact, to: '/revenue' }], followups: ['Which issue is costing the most revenue?'] };
+    if (one) {
+      const lines = one.rate + one.lost + one.credits > 0
+        ? [`${one.title} is costing ${rate(one.rate)}: ${fmtINR(one.lost)} of ${W.lostL} and ${fmtINR(one.credits)} of ${W.creditsL} so far.`,
+          `${one.down} down and ${one.degraded} degraded ${svcL} across ${one.customers} ${custL} (${one.premium} ${PV.premium.toLowerCase()}).`,
+          one.nextCliff ? `Next credit step: ${fmtINR(one.nextCliff.amount)} in ${fmtDur(one.nextCliff.inMin)}.` : 'No further credit step is pending.',
+          `Left unresolved for another 24 h it reaches ${fmtINR(one.forecast24)} — restoring now avoids ${fmtINR(Math.max(0, one.forecast24 - one.lost - one.credits))}.`]
+        : [`Nothing is lost yet. ${one.exposed} ${svcL} worth ${fmtINR(one.mrrExposed)} a month are still running on this fault.`, `If it takes them down it costs ${rate(one.potentialRate)}, plus ${fmtINR(one.potentialCredits)} of ${W.creditsL} after a ${r.method.outageHours} h outage.`];
+      if (one.changeId) lines.push(`It followed change ${one.changeId} at the same site.`);
+      if (one.underPrioritised) lines.push(`It ranks #${one.rank} by ${W.nounL} impact but is only SEV${one.incident!.sev} — review its priority.`);
+      return { title: `What ${one.id} is costing`, confidence: 90, lines, evidence: [{ label: one.id, to: one.to }, ...one.top.slice(0, 4).map(c => ({ label: c.name, to: `/customers/${c.id}` }))], actions: [{ label: `Open ${W.impactL}`, to: '/revenue' }], followups: ['Which issue is costing the most revenue?', `What changed before ${one.id}?`] };
+    }
+    const losing = r.issues.filter(i => i.rate + i.lost + i.credits > 0), stake = [...r.issues].filter(i => i.mrrExposed > 0).sort((a, b) => b.mrrExposed - a.mrrExposed);
+    const worstDomain = [...r.byDomain].sort((a, b) => b.hist30 - a.hist30)[0];
+    return { title: scopeDc ? `${W.impact} in ${scopeDc}` : `What is costing the most ${W.nounL}`, confidence: 88,
+      lines: [
+        `${fmtINR(r.total.lost + r.total.credits)} lost so far across ${losing.length} issue${losing.length === 1 ? '' : 's'}, growing at ${rate(r.total.rate)}. ${fmtINR(r.total.mrrExposed)} a month is still running but exposed to a critical fault.`,
+        ...losing.slice(0, 3).map(i => `#${i.rank} ${i.id.startsWith('INC') ? i.id : i.dcId} — ${i.title}: ${fmtINR(i.lost + i.credits)} so far, ${rate(i.rate)}${i.nextCliff ? `, next credit ${fmtINR(i.nextCliff.amount)} in ${fmtDur(i.nextCliff.inMin)}` : ''}.`),
+        ...(stake[0] ? [`Most at stake: ${stake[0].title} (${stake[0].dcId}) — ${fmtINR(stake[0].mrrExposed)} a month riding on it; ${rate(stake[0].potentialRate)} if it fails.`] : []),
+        ...(worstDomain && worstDomain.hist30 ? [`Over 30 days ${worstDomain.domain.toLowerCase()} issues cost the most: ${fmtINR(worstDomain.hist30)} of ${fmtINR(r.trend.total)}.`] : [])
+      ],
+      evidence: [...losing.slice(0, 3), ...stake.slice(0, 1)].map(i => ({ label: i.id.startsWith('INC') ? i.id : `${i.dcId} · ${i.title}`, to: i.to })), actions: [{ label: `Open ${W.impactL}`, to: scopeDc ? `/datacenters/${scopeDc}?tab=revenue` : '/revenue' }], followups: losing[0]?.incident ? [`What is ${losing[0].id} costing us?`, `What changed before ${losing[0].id}?`] : ['What is at risk in Pune?'] };
+  }
   /* what changed before an incident */
   if (/chang/.test(t) && incId && /before|prior|cause/.test(t)) {
     const i = db.incidents.find(x => x.id === incId);

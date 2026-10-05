@@ -7,11 +7,12 @@ import { usePage, PageHead, Loading } from '../shell/page';
 import { DataTable, type Col } from '../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../ui/ListToolbar';
 import { Fresh, IncidentChip, PriChip, SevChip } from '../ui/status';
-import { fmtDate, fmtDateTime, fmtTime } from '../lib/format';
+import { fmtDate, fmtDateTime, fmtINR, fmtTime } from '../lib/format';
 import { downloadCsv, fmtHm, slaText } from './ops/shared';
 import { Facts, SoftMeter, Split, StatGrid, StatTile, type Tone } from '../ui/Analytics';
+import '../styles/revenue.css';
 
-type Row = Incident & { sla: { breaching: boolean; resolveLeft: number; responseBreached: boolean; responseMin: number } };
+type Row = Incident & { sla: { breaching: boolean; resolveLeft: number; responseBreached: boolean; responseMin: number }; revenue: { rank: number; rate: number; impact: number; atRisk: number; exposed: number; potentialRate: number; cliffMin: number | null; underPrioritised: boolean } | null };
 type View = 'open' | 'sev1' | 'breaching' | 'all';
 export const TYPE_ICON: Record<Incident['type'], I.LucideIcon> = { Network: I.Network, Power: I.Zap, Cooling: I.Snowflake, Rack: I.Server, Capacity: I.Gauge, Security: I.ShieldAlert };
 const isOpen = (i: Incident) => i.status === 'Open' || i.status === 'Investigating' || i.status === 'Mitigated';
@@ -42,15 +43,18 @@ export function Incidents() {
     { key: 'status', header: 'Status', width: 112, render: i => <IncidentChip s={i.status} />, sort: i => ['Open', 'Investigating', 'Mitigated', 'Resolved', 'Closed'].indexOf(i.status) },
     { key: 'id', header: 'ID', width: 86, render: i => <span className="mono strong">{i.id}</span>, sort: i => Number(i.id.slice(4)) },
     { key: 'title', header: 'Title', render: i => <span className="cell-2"><span className="strong" style={{ fontWeight: 500 }}>{i.title}</span><small>{i.dcId} · {i.impact.services ? `${i.impact.services} services · ${i.impact.customers} customers` : 'no customer service affected'}</small></span>, wrap: true },
-    { key: 'type', header: 'Type', width: 96, render: i => { const Ic = TYPE_ICON[i.type]; return <span className="row" style={{ gap: 8 }}><span className={`type-ico t-${i.type.toLowerCase()}`}><Ic size={13} /></span>{i.type}</span>; }, sort: i => i.type },
-    { key: 'sev', header: 'Sev', width: 62, render: i => <SevChip n={i.sev} size="xs" />, sort: i => -i.sev },
-    { key: 'pri', header: 'Pri', width: 52, render: i => <PriChip n={i.pri} size="xs" />, sort: i => -i.pri },
+    { key: 'type', header: 'Type', width: 60, render: i => { const Ic = TYPE_ICON[i.type]; return <span className={`type-ico t-${i.type.toLowerCase()}`} title={i.type} aria-label={i.type}><Ic size={13} /></span>; }, sort: i => i.type },
+    { key: 'sev', header: 'Sev · Pri', width: 108, render: i => <span className="row nowrap" style={{ gap: 6 }}><SevChip n={i.sev} size="xs" /><PriChip n={i.pri} size="xs" /></span>, sort: i => -(i.sev * 10 + i.pri) },
     { key: 'sla', header: 'SLA', width: 128, render: i => (isOpen(i) ? <span className={`num nowrap ${i.sla.resolveLeft < 0 ? 'bad strong' : i.sla.breaching ? 'warn' : ''}`}>{slaText(i.sla.resolveLeft)}{i.sla.resolveLeft >= 0 && i.sla.responseBreached && <small className="bad" style={{ display: 'block', fontSize: 11 }}>response breached</small>}</span> : <span className="muted num">{i.resolved ? `MTTR ${fmtHm((i.resolved - i.detected) / 60000)}` : '—'}</span>), sort: i => (isOpen(i) ? i.sla.resolveLeft : 1e9) },
+    /* what the incident is costing: the hourly loss and the total so far, or what is riding on it */
+    { key: 'rev', header: vocabNow().money.noun, sort: i => (i.revenue ? i.revenue.impact + i.revenue.rate * 1e3 + i.revenue.exposed / 1e4 : -1), render: i => { const r = isOpen(i) ? i.revenue : null; return !r ? <span className="faint">—</span>
+      : r.rate + r.impact > 0 ? <span className="cell-2"><span className="num nowrap rev-amt rev-bad">{fmtINR(r.rate)}/h</span><small className="nowrap" title={r.underPrioritised ? `Ranks #${r.rank} by impact — review its priority` : undefined}>{fmtINR(r.impact)} so far</small></span>
+      : <span className="cell-2"><span className="num nowrap">{fmtINR(r.exposed)}/mo</span><small className="nowrap">at stake</small></span>; } },
     { key: 'owner', header: 'Owner', width: 118, wrap: true, render: i => <span className="strong" style={{ fontWeight: 400 }}>{i.owner}</span>, sort: i => i.owner },
-    { key: 'det', header: 'Detected', width: '15%', render: i => <span className="cell-2"><span className="num">{fmtDate(i.detected)}</span><small className="num">{fmtTime(i.detected)}</small></span>, sort: i => i.detected }
+    { key: 'det', header: 'Detected', width: '15%', hideBelow: 1340, render: i => <span className="cell-2"><span className="num">{fmtDate(i.detected)}</span><small className="num">{fmtTime(i.detected)}</small></span>, sort: i => i.detected }
   ];
-  const exportCsv = () => downloadCsv(`incidents-${view}.csv`, [['ID', 'Status', 'Title', 'Type', 'Severity', 'Priority', 'Datacenter', 'Owner', 'Detected', 'Resolved', 'SLA'],
-    ...rows.map(i => [i.id, i.status, i.title, i.type, `SEV${i.sev}`, `P${i.pri}`, i.dcId, i.owner, fmtDateTime(i.detected), i.resolved ? fmtDateTime(i.resolved) : '', isOpen(i) ? slaText(i.sla.resolveLeft) : ''])]);
+  const exportCsv = () => downloadCsv(`incidents-${view}.csv`, [['ID', 'Status', 'Title', 'Type', 'Severity', 'Priority', 'Datacenter', 'Owner', 'Detected', 'Resolved', 'SLA', 'Losing per hour', 'Impact so far', 'Monthly at stake'],
+    ...rows.map(i => [i.id, i.status, i.title, i.type, `SEV${i.sev}`, `P${i.pri}`, i.dcId, i.owner, fmtDateTime(i.detected), i.resolved ? fmtDateTime(i.resolved) : '', isOpen(i) ? slaText(i.sla.resolveLeft) : '', i.revenue?.rate ?? 0, i.revenue?.impact ?? 0, i.revenue?.exposed ?? 0])]);
 
   return (
     <div className="page">

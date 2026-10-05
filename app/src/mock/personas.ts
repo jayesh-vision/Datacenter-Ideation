@@ -8,6 +8,8 @@ import type { Incident, Persona, ServiceType, ServiceUnit } from '../api/types';
 export interface PersonaVocab {
   customer: string; customers: string; service: string; services: string; equipment: string;
   premium: string; capacityLabel: string; primaryUnit: ServiceUnit; handoff: string; searchHint: string;
+  /* money words: an operator earns revenue and owes SLA credits; an enterprise IT estate carries business value */
+  money: { noun: string; impact: string; lost: string; credits: string; base: string; billing: string };
 }
 export interface PersonaServiceType { type: ServiceType; code: string; unit: ServiceUnit; qty: number[]; host: ('Router' | 'Switch' | 'Server' | 'Storage' | 'GPU' | 'Tenant gear')[] }
 export interface PersonaDef {
@@ -27,7 +29,7 @@ export interface PersonaDef {
 
 const NETWORK: PersonaDef = {
   id: 'network', label: 'Network / Telco DC', short: 'Telco', tagline: 'Connectivity services — routers, switches and DWDM; customers buy circuits',
-  vocab: { customer: 'Customer', customers: 'Customers', service: 'Service', services: 'Services', equipment: 'Network equipment', premium: 'Premium', capacityLabel: 'Bandwidth', primaryUnit: 'Mbps', handoff: 'NE · handoff', searchHint: 'Customer, ID, segment' },
+  vocab: { customer: 'Customer', customers: 'Customers', service: 'Service', services: 'Services', equipment: 'Network equipment', premium: 'Premium', capacityLabel: 'Bandwidth', primaryUnit: 'Mbps', handoff: 'NE · handoff', searchHint: 'Customer, ID, segment', money: { noun: 'Revenue', impact: 'Revenue impact', lost: 'Revenue lost', credits: 'SLA credits', base: 'Monthly recurring revenue', billing: 'Circuits are billed monthly. An outage is rebated pro-rata for the time the circuit was down or degraded, and an SLA miss adds a credit against the monthly charge.' } },
   scale: 1,
   customers: [], serviceTypes: [], sla: { premium: 99.9, standard: 99.5 },
   rooms: { big: [{ name: 'Ground', rooms: ['MDF', 'Hall A'] }, { name: '1st floor', rooms: ['Equipment room', 'Hall B'] }], small: [{ name: 'Ground', rooms: ['MDF'] }, { name: '1st floor', rooms: ['Equipment room'] }] },
@@ -41,7 +43,7 @@ const NETWORK: PersonaDef = {
 
 const COLOCATION: PersonaDef = {
   id: 'colocation', label: 'Colocation DC', short: 'Colo', tagline: 'Space, power and interconnection — tenants own the gear in the cabinets',
-  vocab: { customer: 'Tenant', customers: 'Tenants', service: 'Contract', services: 'Contracts', equipment: 'Cabinets & plant', premium: 'Anchor', capacityLabel: 'Contracted power', primaryUnit: 'kW', handoff: 'Cabinet · circuit', searchHint: 'Tenant, ID, segment' },
+  vocab: { customer: 'Tenant', customers: 'Tenants', service: 'Contract', services: 'Contracts', equipment: 'Cabinets & plant', premium: 'Anchor', capacityLabel: 'Contracted power', primaryUnit: 'kW', handoff: 'Cabinet · circuit', searchHint: 'Tenant, ID, segment', money: { noun: 'Revenue', impact: 'Revenue impact', lost: 'Revenue lost', credits: 'SLA credits', base: 'Monthly contract revenue', billing: 'Space, power and cross-connects are billed monthly. Power or cooling outside the contracted envelope is rebated pro-rata, and an SLA miss adds a credit against the monthly charge.' } },
   scale: 0.6,
   customers: [
     ['Hyperscale Cloud East', 'Hyperscaler', 'Mumbai', 'Maharashtra', 'Private cage · 2N', true],
@@ -87,7 +89,7 @@ const COLOCATION: PersonaDef = {
 
 const CLOUD: PersonaDef = {
   id: 'cloud', label: 'Cloud DC', short: 'Cloud', tagline: 'Compute and storage at scale — thousands of hosts; accounts run instances',
-  vocab: { customer: 'Account', customers: 'Accounts', service: 'Workload', services: 'Workloads', equipment: 'Hosts & fabric', premium: 'Enterprise-tier', capacityLabel: 'vCPU allocated', primaryUnit: 'vCPU', handoff: 'Host · NIC', searchHint: 'Account, ID, segment' },
+  vocab: { customer: 'Account', customers: 'Accounts', service: 'Workload', services: 'Workloads', equipment: 'Hosts & fabric', premium: 'Enterprise-tier', capacityLabel: 'vCPU allocated', primaryUnit: 'vCPU', handoff: 'Host · NIC', searchHint: 'Account, ID, segment', money: { noun: 'Revenue', impact: 'Revenue impact', lost: 'Revenue lost', credits: 'Service credits', base: 'Monthly run-rate revenue', billing: 'Workloads are billed for the hours they run. Hours a workload is down are never billed, degraded hours are discounted, and an availability miss adds a service credit.' } },
   scale: 2.5,
   customers: [
     ['ShopSwift Commerce', 'Retail', 'Bengaluru', 'Karnataka', 'Enterprise support', true],
@@ -134,7 +136,7 @@ const CLOUD: PersonaDef = {
 
 const ENTERPRISE: PersonaDef = {
   id: 'enterprise', label: 'Enterprise / Private DC', short: 'Enterprise', tagline: 'Runs the firm’s own applications — business units are the customers',
-  vocab: { customer: 'Business unit', customers: 'Business units', service: 'Application', services: 'Applications', equipment: 'Servers & fabric', premium: 'Tier-1', capacityLabel: 'Users served', primaryUnit: 'users', handoff: 'Host · cluster', searchHint: 'Business unit, ID, segment' },
+  vocab: { customer: 'Business unit', customers: 'Business units', service: 'Application', services: 'Applications', equipment: 'Servers & fabric', premium: 'Tier-1', capacityLabel: 'Users served', primaryUnit: 'users', handoff: 'Host · cluster', searchHint: 'Business unit, ID, segment', money: { noun: 'Business value', impact: 'Business impact', lost: 'Cost of downtime', credits: 'OLA rebates', base: 'Monthly business value', billing: 'Each application carries the monthly value the business unit is charged for it. Downtime costs that value pro-rata, and an OLA miss is rebated to the business unit.' } },
   scale: 1.4,
   customers: [
     ['Retail Banking', 'Revenue', 'Mumbai', 'Maharashtra', 'Tier-1 · RTO 15 min', true],

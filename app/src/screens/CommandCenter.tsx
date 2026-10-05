@@ -8,8 +8,10 @@ import { StackBar } from '../ui/status';
 import { Sparkline } from '../charts/Sparkline';
 import { DcMap, type DcPin } from './overview/DcMap';
 import { ROLLOUT } from '../lib/vocab';
-import { fmtAgo, fmtDow, fmtDur, fmtNum, fmtShortDate, fmtTime } from '../lib/format';
+import { fmtAgo, fmtDow, fmtDur, fmtINR, fmtNum, fmtShortDate, fmtTime } from '../lib/format';
 import '../styles/command.css';
+import '../styles/revenue.css';
+import { lc } from './revenue/parts';
 import { DcCard } from './ops/DcCard';
 import { OpstralBadge, OpstralBtn } from '../ui/OpstralMark';
 
@@ -151,6 +153,8 @@ function Situation({ d }: { d: CC }) {
         ))}
       </section>
 
+      <RevenueBand d={d} />
+
       <section className="vw-card-section cmd-crit">
         <div className="vw-flex vw-justify-between vw-items-center vw-gap-sm cmd-crit-head">
           <div className="vw-flex vw-items-center vw-gap-sm">
@@ -176,6 +180,23 @@ function Situation({ d }: { d: CC }) {
       </section>
       <EstateWall d={d} open={wall} onClose={() => setWall(false)} />
     </>
+  );
+}
+
+/* one slim line of money under the vitals: what is being lost, what it has cost, what is at stake */
+function RevenueBand({ d }: { d: CC }) {
+  const r = d.revenue, W = vocabNow().money;
+  const cliff = r.sla.nextCliff;
+  return (
+    <Link to="/revenue" className="vw-card-section rev-band" title={`Open ${lc(W.impact)}`}>
+      <span className="rev-band-h"><span className="rev-band-ic"><I.IndianRupee size={16} /></span><b>{W.impact}</b></span>
+      <span className="rev-band-item"><span className="vw-label">Losing now</span><b className="num" style={{ color: r.total.rate ? '#b21313' : undefined }}>{fmtINR(r.total.rate)}/h</b></span>
+      <span className="rev-band-item"><span className="vw-label">Impact so far</span><b className="num">{fmtINR(r.total.lost + r.total.credits)}</b></span>
+      <span className="rev-band-item"><span className="vw-label">At stake</span><b className="num">{fmtINR(r.total.mrrExposed)}/mo</b></span>
+      <span className="rev-band-item"><span className="vw-label">Next credit step</span><b className="num">{cliff ? `${fmtINR(cliff.amount)} in ${fmtDur(cliff.inMin)}` : 'none pending'}</b></span>
+      <span className="rev-band-item rev-band-top" title={r.top?.title ?? r.stake?.title}><span className="vw-label">{r.top ? 'Costing the most' : r.stake ? 'Most at stake' : 'Open issues'}</span><b>{r.top ? `${r.top.incident ? `${r.top.id} · ` : ''}${r.top.dcId}` : r.stake ? `${r.stake.incident ? `${r.stake.id} · ` : ''}${r.stake.dcId}` : 'none'}</b></span>
+      <span className="rev-band-go">Open<I.ArrowRight size={14} /></span>
+    </Link>
   );
 }
 

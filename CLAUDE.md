@@ -48,10 +48,11 @@ An alarm counts against a datacenter only when it is in scope (`Alert.scope`, co
 - **downstream**: remote PoPs and sites that depend ON the datacenter. They are never counted. When the datacenter is the cause,
   they appear as `symptomOf` impact under the incident, not as separate issues.
 Edge redundancy (`DcSummary.edge`): redundant / redundancy-lost / isolated. Guarded by `npx tsx .qa/scope-check.ts`.
-Scope decisions 02-Oct-2026: the menu is Command center · Datacenters · Facilities · Topology · Alerts · Incidents · Changes & maintenance.
+Scope decisions 02-Oct-2026: the menu is Command center · Revenue impact (added 05-Oct-2026) · Datacenters · Facilities · Alerts · Incidents · Changes & maintenance.
+Topology left the menu 05-Oct-2026 (user): it lives only as the datacenter page's Topology tab; `/topology?dc=X` redirects to that tab.
 Network services, Customers and Capacity & forecast are parked (code kept, routes redirect); services and customers appear only as
-impact on incidents, devices and sites. Revenue is not shown anywhere operational. Site tabs: Overview (3D) · Attention · Topology (`TopologyView` from screens/Topology.tsx, same view as the /topology page) · Metrics (aggregated thermal/power/backup/fault KPIs)
-· Customers (customers served from the DC) · Assets (floors/rooms/racks, equipment by category, facility plant) · Equipment
+impact on incidents, devices and sites. Revenue was hidden until 05-Oct-2026; the user then asked for it — see "Revenue impact" below. Site tabs: Overview (3D) · Attention · Topology (`TopologyView` from screens/Topology.tsx, same view as the /topology page) · Metrics (aggregated thermal/power/backup/fault KPIs)
+· Customers (customers served from the DC) · Revenue (`site/Revenue.tsx`) · Assets (floors/rooms/racks, equipment by category, facility plant) · Equipment
 (installed devices only; planned devices = reserved rack space) · Power & space · Ops log. Cabling tab hidden (02-Oct-2026; `site/Equipment.tsx` kept). No discovery/drift/reconciliation UI.
 
 ## Personas (02-Oct-2026) — one estate, four business models
@@ -68,6 +69,31 @@ Tall sites (6–7 floors, `PersonaDef.tall`): network DL-DC-009, colocation KA-D
 Twin default view highlights attention (`twin/attention.ts`): beacons on racks with critical/major issues, red/amber floor & room
 edges, issue counts on floor labels, ≤3 critical callouts (one per room) and a "Needs attention" card that drills to the item.
 Customer lists show "Why at risk" from `servicesOf().causes` (server.ts `causeIndex`); seeded scenarios at MH-DC-001 per persona.
+
+## Revenue impact (05-Oct-2026) — what every open issue costs
+User ask: show revenue degradation caused by datacenter issues and which issue costs the most. Model = `mock/revenue.ts`
+(`buildRevenue` once per data version, `revenueView(dcId?)` per scope; API `getRevenue({ dcId })`, types `Rev*` in api/types.ts).
+- A service is **down**, **degraded** (losing now) or **exposed** (Active but riding a CRITICAL fault: UPS on battery, failed CRAH,
+  critical alarm on its path). Not a loss: a service hot inside its own contracted size (utilisation causes, tenant over power budget).
+- Each impacted service is charged to ONE issue = its most severe `ImpactCause` (link/port/rack/site before device, single-PSU last);
+  the issue is the open incident tracking that alarm, else faults grouped by site + title. `ImpactCause` carries `since/incidentId/domain`.
+- Money: rate = monthly ÷ 730 h (degraded × 0.3); lost = rate × hours since the alarm began; credits = extra SLA tier caused by the
+  impacted minutes (shortfall >0 → 10%, ≥0.5 pt → 25%, ≥2 pt → 50% of the monthly charge), net of credits already "locked in"
+  (uptime30d < target). `nextCliff` = next tier step; `forecast24`; exposed → `potentialRate` / `potentialCredits` (4 h outage).
+- Losses are charged to the datacenter where the FAULT is (a backhaul fault also degrades services homed at far-end sites).
+- Everything must reconcile: Σ issues = Σ causes = Σ datacenters = Σ customers = Σ site views = total. Check: `npx tsx .qa/revenue-check.ts`.
+- 30-day history = resolved incidents (duration × severity × site average) + locked-in credits + today's open impact.
+- Screens: `/revenue` (`screens/Revenue.tsx`: strip of 6 tiles, two answer cards "Costing the most right now" / "Most at stake" with a
+  cost-of-delay curve, tabs Issues · Customers · Datacenters · Causes & trend · One failure away; row → cost-breakdown drawer;
+  "How it is calculated" drawer). Shared parts in `screens/revenue/parts.tsx` (IssueTable, IssueDrawer, CostCurve, Fig, lc()).
+  Also: datacenter Revenue tab, incident "Revenue impact" panel, a column on the Datacenters and Incidents lists, a one-line band on
+  the Command center, Opstral AI answers ("Which issue is costing the most revenue?", "What is INC-0002 costing us?").
+- Words come from `vocab.money` (enterprise = Business value / Business impact / Cost of downtime / OLA rebates); use `lc()` to
+  lower-case them (keeps SLA/OLA). Money in a grid cell uses `.rev-amt`, NOT `.strong` (that class forces a 220px column).
+- Customer page (`screens/CustomerDetail.tsx`, 05-Oct-2026): identity header (avatar, state, facts row, one-line verdict with the main
+  cause), analytics strip of 6 tiles, "What is impacting this customer" (issues from `customer().hits`, money per issue) beside "Where
+  they are served", then the service grid. Styles `styles/customer.css`. Check: `node .qa/customer.mjs <persona>`.
+- Layout check: `node .qa/revenue.mjs <persona>` (no table overflow, no cut text, equal cards, drawer, all related screens).
 
 ## Visual rhythm (02-Oct-2026) — one system, not per-screen styling
 - `OpsKpi` (screens/ops/shared.tsx) is THE KPI card everywhere: `.app-kpi` = white `.vw-card-section`, grey icon, light metric,

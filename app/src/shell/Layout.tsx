@@ -13,11 +13,10 @@ import { Sentinel } from './Sentinel';
 
 type Badge = 'incidents' | 'alerts' | 'changes';
 const NAV: { group: string; items: { to: string; label: string; icon: I.LucideIcon; badge?: Badge; match?: RegExp }[] }[] = [
-  { group: 'Overview', items: [{ to: '/', label: 'Command center', icon: I.LayoutDashboard }] },
+  { group: 'Overview', items: [{ to: '/', label: 'Command center', icon: I.LayoutDashboard }, { to: '/revenue', label: 'Revenue impact', icon: I.IndianRupee }] },
   { group: 'Infrastructure', items: [
     { to: '/datacenters', label: 'Datacenters', icon: I.Building2, match: /^\/(datacenters|ne\/)/ },
-    { to: '/facilities', label: 'Facilities', icon: I.Zap },
-    { to: '/topology', label: 'Topology', icon: I.Network }
+    { to: '/facilities', label: 'Facilities', icon: I.Zap }
   ] },
   { group: 'Operate', items: [
     { to: '/alerts', label: 'Alerts', icon: I.BellRing, badge: 'alerts' },
@@ -84,6 +83,9 @@ export function Layout() {
   const loc = useLocation();
   const nav = useNavigate();
   const [meta, setMeta] = useState<PageMeta>({ crumbs: [], ctx: {} });
+  const { vocab } = usePersona();
+  /* the money page is "Revenue impact" for an operator and "Business impact" for an enterprise IT estate */
+  const navLabel = (it: { to: string; label: string }) => (it.to === '/revenue' ? vocab.money.impact : it.label);
   const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem('dco.rail') === '1'; } catch { return false; } });
   const [palette, setPalette] = useState(false);
   const [bell, setBell] = useState(false);
@@ -124,8 +126,8 @@ export function Layout() {
                   const b = it.badge ? badge[it.badge] : null;
                   const active = it.match ? it.match.test(loc.pathname) : it.to === '/' ? loc.pathname === '/' : loc.pathname.startsWith(it.to);
                   return (
-                    <NavLink key={it.to} to={it.to} end className={() => `rail-link${active ? ' is-active' : ''}`} title={collapsed ? it.label : undefined}>
-                      <it.icon size={18} /><span>{it.label}</span>
+                    <NavLink key={it.to} to={it.to} end className={() => `rail-link${active ? ' is-active' : ''}`} title={collapsed ? navLabel(it) : undefined}>
+                      <it.icon size={18} /><span>{navLabel(it)}</span>
                       {b && b.n > 0 && <em className={`rail-badge ${b.c}`} style={{ fontStyle: 'normal' }}>{b.n}</em>}
                       {b && b.n > 0 && <i className="rail-dot" />}
                     </NavLink>

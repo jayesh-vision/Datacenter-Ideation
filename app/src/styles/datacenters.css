@@ -66,3 +66,10 @@
 /* tile view: the Command center's datacenter card, one per site */
 .dcl-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--vw-space-md); padding: var(--vw-space-md); background: var(--vw-color-slate-50); }
 .dcl-tiles-empty { grid-column: 1 / -1; padding: 40px 0; text-align: center; color: var(--vw-color-gray-500); font-size: 13.5px; }
+
+/* narrow screens: the revenue column needs room — shorter load bars and facility note */
+@media (max-width: 1340px) {
+  .dcl-load .meter .bar { width: 26px !important; }
+  .dcl-load > span { grid-template-columns: 48px auto; }
+  .dcl-issue { max-width: 120px; }
+}
