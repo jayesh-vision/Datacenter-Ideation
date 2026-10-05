@@ -76,7 +76,7 @@ export function DcMap({ pins, links = [], onNav, height = 520 }: { pins: DcPin[]
     /* popup buttons navigate through the router */
     const onClick = (e: MouseEvent) => { const a = (e.target as HTMLElement).closest<HTMLElement>('[data-nav]'); if (a) { e.preventDefault(); nav.current(a.dataset.nav!); } };
     node.addEventListener('click', onClick);
-    m.on('popupclose', () => setSel(null));
+    m.on('click', () => setSel(null));   // a click on empty map closes the site card
     let fitted = false;
     const ro = new ResizeObserver(() => { if (!node.isConnected) return; m.invalidateSize({ animate: false, pan: false }); if (!fitted && node.clientHeight > 100) { fitted = true; m.fitBounds(INDIA, { animate: false, padding: [12, 12] }); } });
     ro.observe(node);
@@ -104,8 +104,7 @@ export function DcMap({ pins, links = [], onNav, height = 520 }: { pins: DcPin[]
       const html = `<div class="dcpin is-${p.kind}${first ? ' is-enter' : ''}" style="--s:${s}px;--d:${i * 25}ms">${p.kind !== 'ok' ? '<i class="dcpin-halo"></i>' : ''}${p.kind === 'crit' ? '<i class="dcpin-halo is-2"></i>' : ''}<i class="dcpin-ring"></i>${p.incidents ? `<b class="dcpin-badge">${p.incidents}</b>` : ''}${p.kind === 'crit' ? '' : `<span class="dcpin-label">${p.id}</span>`}</div>`;
       const mk = L.marker([p.lat, p.lng], { icon: L.divIcon({ html, className: 'dcpin-wrap', iconSize: [s, s], iconAnchor: [s / 2, s / 2] }), riseOnHover: true, zIndexOffset: order[p.kind] * 1000, keyboard: true, title: '' });
       mk.bindTooltip(`<b>${p.id}</b> · ${p.city}<br>${p.incidents ? `${p.incidents} open incident${p.incidents === 1 ? '' : 's'}${p.worstSev ? ` · worst SEV${p.worstSev}` : ''}` : 'no open incident'} · ${p.alerts} alarms`, { direction: 'top', offset: [0, -s / 2 - 4], className: 'map-tip' });
-      mk.bindPopup(popupHtml(p), { className: 'dcpop-wrap', closeButton: true, offset: [0, -s / 2], maxWidth: 300, minWidth: 272, autoPanPadding: [16, 60] });
-      mk.on('popupopen', () => { mk.closeTooltip(); setSel(p.id); });
+      mk.on('click', e => { L.DomEvent.stopPropagation(e); mk.closeTooltip(); setSel(cur => (cur === p.id ? null : p.id)); });
       mk.addTo(g);
       if (p.kind === 'crit') L.marker([p.lat, p.lng], { pane: 'dclabels', interactive: false, keyboard: false, icon: L.divIcon({ html: `<span class="dcpin-label is-fixed${first ? ' is-enter' : ''}" style="--o:${s / 2 + 3}px">${p.id}</span>`, className: 'dcpin-wrap', iconSize: [0, 0] }) }).addTo(g);
     });
@@ -127,8 +126,8 @@ export function DcMap({ pins, links = [], onNav, height = 520 }: { pins: DcPin[]
 
   const counts = { crit: pins.filter(p => p.kind === 'crit').length, warn: pins.filter(p => p.kind === 'warn').length, ok: pins.filter(p => p.kind === 'ok').length };
   const issues = pins.filter(p => p.kind !== 'ok');
-  const fitIssues = () => { const m = map.current; if (!m || !issues.length) return; m.closePopup(); m.flyToBounds(L.latLngBounds(issues.map(p => [p.lat, p.lng] as [number, number])).pad(0.25), { duration: 0.7, maxZoom: 7 }); };
-  const reset = () => { const m = map.current; if (!m) return; m.closePopup(); m.flyToBounds(INDIA, { duration: 0.7, padding: [4, 4] }); };
+  const fitIssues = () => { const m = map.current; if (!m || !issues.length) return; setSel(null); m.flyToBounds(L.latLngBounds(issues.map(p => [p.lat, p.lng] as [number, number])).pad(0.25), { duration: 0.7, maxZoom: 7 }); };
+  const reset = () => { const m = map.current; if (!m) return; setSel(null); m.flyToBounds(INDIA, { duration: 0.7, padding: [4, 4] }); };
 
   return (
     <div className={`map dcmap is-${base}${full ? ' is-full' : ''}`} style={full ? undefined : { height }}>
@@ -159,6 +158,7 @@ export function DcMap({ pins, links = [], onNav, height = 520 }: { pins: DcPin[]
         <span className="dcmap-leg-link" title="Backhaul between datacenters that is down"><i />Link down</span>
       </div>
       {full && <div className="dcmap-fulltitle"><b>Live estate</b><span>{pins.length} datacenters · {counts.crit} with SEV1/2 · {links.filter(l => l.down).length} backhaul down</span></div>}
+      {sel && byId.get(sel) && <SiteCard p={byId.get(sel)!} onClose={() => setSel(null)} onNav={path => nav.current(path)} />}
       {hint && <div className="dcmap-hint">Click the map, then scroll to zoom</div>}
     </div>
   );
@@ -171,18 +171,28 @@ function arc(a: [number, number], z: [number, number]): [number, number][] {
   return Array.from({ length: 21 }, (_, i) => { const t = i / 20; const u = 1 - t; return [u * u * a[0] + 2 * u * t * cx + t * t * z[0], u * u * a[1] + 2 * u * t * cy + t * t * z[1]] as [number, number]; });
 }
 
-function popupHtml(p: DcPin) {
-  const chip = p.kind === 'crit' ? `<span class="vw-chip vw-chip--error dcpop-chip"><i class="chip-dot"></i>SEV${p.worstSev} open</span>` : p.kind === 'warn' ? '<span class="vw-chip vw-chip--warning dcpop-chip"><i class="chip-dot"></i>Needs attention</span>' : '<span class="vw-chip vw-chip--success dcpop-chip"><i class="chip-dot"></i>Normal</span>';
-  const cell = (k: string, v: string, s: string, bad = false) => `<div><span>${k}</span><b>${v}</b><small class="${bad ? 'bad' : ''}">${s}</small></div>`;
-  return `<div class="dcpop">
-    <div class="dcpop-h"><b>${p.id}</b>${chip}</div>
-    <div class="dcpop-s">${p.city} · ${p.tier}</div>
-    <div class="dcpop-g">
-      ${cell('Incidents', String(p.incidents), p.breaching ? `${p.breaching} past SLA` : p.incidents ? 'within SLA' : 'none open', p.breaching > 0)}
-      ${cell('Alarms', String(p.alerts), p.critAlerts ? `${p.critAlerts} critical` : 'none critical', p.critAlerts > 0)}
-      ${cell('Power', `${p.powerPct}%`, 'of capacity', p.powerPct >= 85)}
-      ${cell('Cooling', `${p.coolPct}%`, p.facilityIssue ? 'facility issue' : 'of capacity', p.facilityIssue)}
+/* site summary, docked inside the map so it is never clipped by the map edge */
+function SiteCard({ p, onClose, onNav }: { p: DcPin; onClose: () => void; onNav: (path: string) => void }) {
+  const chip = p.kind === 'crit' ? { t: 'error', l: `SEV${p.worstSev} open` } : p.kind === 'warn' ? { t: 'warning', l: 'Needs attention' } : { t: 'success', l: 'Normal' };
+  const cells: [string, string, string, boolean][] = [
+    ['Incidents', String(p.incidents), p.breaching ? `${p.breaching} past SLA` : p.incidents ? 'within SLA' : 'none open', p.breaching > 0],
+    ['Alarms', String(p.alerts), p.critAlerts ? `${p.critAlerts} critical` : 'none critical', p.critAlerts > 0],
+    ['Power', `${p.powerPct}%`, 'of capacity', p.powerPct >= 85],
+    ['Cooling', `${p.coolPct}%`, p.facilityIssue ? 'facility issue' : 'of capacity', p.facilityIssue]
+  ];
+  return (
+    <div className="dcpop" role="dialog" aria-label={`${p.id} summary`} onClick={e => e.stopPropagation()}>
+      <div className="dcpop-h">
+        <div className="dcpop-id"><b>{p.id}</b><span>{p.city} · {p.tier}</span></div>
+        <span className={`vw-chip vw-chip--${chip.t} dcpop-chip`}><i className="chip-dot" />{chip.l}</span>
+        <button type="button" className="dcpop-x" aria-label="Close" onClick={onClose}><I.X size={15} /></button>
+      </div>
+      <div className="dcpop-g">{cells.map(([k, v, sub, bad]) => <div key={k}><span>{k}</span><b>{v}</b><small className={bad ? 'bad' : ''}>{sub}</small></div>)}</div>
+      <div className="dcpop-a">
+        <button type="button" className="nst-btn nst-btn--xs nst-btn--filled" onClick={() => onNav(`/datacenters/${p.id}`)}>Open datacenter</button>
+        {p.incidents > 0 && <button type="button" className="nst-btn nst-btn--xs" onClick={() => onNav(`/incidents?dc=${p.id}`)}>Incidents</button>}
+        <button type="button" className="nst-btn nst-btn--xs" onClick={() => onNav(`/facilities?dc=${p.id}`)}>Facilities</button>
+      </div>
     </div>
-    <div class="dcpop-a"><a href="/datacenters/${p.id}" data-nav="/datacenters/${p.id}" class="nst-btn nst-btn--xs nst-btn--filled">Open datacenter</a>${p.incidents ? `<a href="/incidents?dc=${p.id}" data-nav="/incidents?dc=${p.id}" class="nst-btn nst-btn--xs">Incidents</a>` : ''}<a href="/facilities?dc=${p.id}" data-nav="/facilities?dc=${p.id}" class="nst-btn nst-btn--xs">Facilities</a></div>
-  </div>`;
+  );
 }

@@ -105,16 +105,16 @@ function AlertAnalytics({ alarms, now, sev, onSev, onDc }: { alarms: Alert[]; no
   const hours = Array.from({ length: 24 }, (_, h) => alarms.filter(a => a.start > now - (24 - h) * 3600000 && a.start <= now - (23 - h) * 3600000).length);
   const raised = hours.reduce((x, y) => x + y, 0);
   const peak = hours.indexOf(Math.max(...hours));
-  const byDc = Object.entries(alarms.reduce<Record<string, number>>((m, a) => { m[a.dcId] = (m[a.dcId] ?? 0) + 1; return m; }, {})).sort((x, y) => y[1] - x[1]).slice(0, 4);
+  const byDc = Object.entries(alarms.reduce<Record<string, number>>((m, a) => { m[a.dcId] = (m[a.dcId] ?? 0) + 1; return m; }, {})).sort((x, y) => y[1] - x[1]).slice(0, 3);
   const critDc = new Set(alarms.filter(a => a.severity === 'critical').map(a => a.dcId));
   return (
     <StatGrid>
-      <StatTile label="Active alarms" value={alarms.length} sub={`${unack.length} unacknowledged`}>
+      <StatTile label="Active alarms" value={alarms.length} sub={`${unack.length} unacked`}>
         <Split parts={SEVS.map(s => ({ key: s, label: SEVERITY[s].label, n: alarms.filter(a => a.severity === s).length, tone: SEV_TONE[s] }))} onPick={onSev} active={sev} />
       </StatTile>
       <StatTile label="Acknowledged" value={`${ackPct}%`} sub={`${alarms.length - unack.length} of ${alarms.length}`}>
         <SoftMeter pct={ackPct} tone={ackPct >= 80 ? 'success' : ackPct >= 50 ? 'warning' : 'error'} />
-        <Facts items={[{ n: critUnack, label: 'critical not acknowledged', tone: critUnack ? 'bad' : undefined }, { n: oldest ? fmtDur((now - oldest) / 60000) : '—', label: 'oldest waiting' }]} />
+        <Facts items={[{ n: critUnack, label: 'critical waiting', tone: critUnack ? 'bad' : undefined }, { n: oldest ? fmtDur((now - oldest) / 60000) : '—', label: 'oldest' }]} />
       </StatTile>
       <StatTile label="Correlated" value={inInc.length} sub={`alarms in ${incs} incident${incs === 1 ? '' : 's'}`}>
         <Split parts={[{ key: 'in', label: 'In incidents', n: inInc.length, tone: 'info' }, { key: 'free', label: 'Uncorrelated', n: alarms.length - inInc.length, tone: 'neutral' }]} />
@@ -126,7 +126,7 @@ function AlertAnalytics({ alarms, now, sev, onSev, onDc }: { alarms: Alert[]; no
         <Split legend={false} parts={SEVS.map(s => ({ key: s, label: SEVERITY[s].label, n: alarms.filter(a => a.severity === s && a.start > now - 86400000).length, tone: SEV_TONE[s] }))} />
         <MiniBars values={hours} labels={['24 h ago', 'now']} hot={raised ? peak : undefined} />
       </StatTile>
-      <StatTile label="Top datacenters" value={`${alarms.length ? Math.round((byDc.reduce((a, x) => a + x[1], 0) / alarms.length) * 100) : 0}%`} sub="of alarms at the top four">
+      <StatTile label="Top datacenters" value={`${alarms.length ? Math.round((byDc.reduce((a, x) => a + x[1], 0) / alarms.length) * 100) : 0}%`} sub="of alarms in top 3">
         <SoftMeter pct={alarms.length ? (byDc.reduce((a, x) => a + x[1], 0) / alarms.length) * 100 : 0} tone="warning" />
         <RankList items={byDc.map(([dc, n]) => ({ key: dc, label: dc, n, tone: critDc.has(dc) ? 'error' : 'warning', onClick: () => onDc(dc) }))} />
       </StatTile>

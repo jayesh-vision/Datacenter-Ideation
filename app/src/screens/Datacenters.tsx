@@ -178,18 +178,18 @@ function EstateOverview({ live, alarms, incs, onView }: { live: DcSummary[]; ala
       <StatTile label="Open incidents" value={incs.length} sub={past ? `${past} past SLA` : 'all within SLA'} subTone={past ? 'bad' : undefined}>
         <Split parts={[1, 2, 3, 4].map(n => ({ key: `s${n}`, label: `SEV${n}`, n: sev(n), tone: SEV_TONE[n] }))} />
       </StatTile>
-      <StatTile label="Active alarms" value={fmtNum(alarms.length)} sub={`${fmtNum(unack)} unacknowledged`}>
+      <StatTile label="Active alarms" value={fmtNum(alarms.length)} sub={`${fmtNum(unack)} unacked`}>
         <Split parts={(['critical', 'major', 'minor', 'warning'] as Severity[]).map(s => ({ key: s, label: SEVERITY[s].label, n: asev(s), tone: ALM_TONE[s] }))} />
       </StatTile>
-      <StatTile label="Power & facility" value={`${powPct}%`} sub={`of ${fmtNum(Math.round(capKw))} kW capacity`}>
+      <StatTile label="Power & facility" value={`${powPct}%`} sub={`of ${fmtNum(Math.round(capKw))} kW`}>
         <SoftMeter pct={powPct} tone={powPct >= 85 ? 'error' : powPct >= 75 ? 'warning' : 'info'} />
         <Facts items={[{ n: fac.length, label: `facility issue${fac.length === 1 ? '' : 's'}`, tone: fac.length ? 'bad' : undefined, onClick: () => onView('facility') }, { n: hotPower, label: `site${hotPower === 1 ? '' : 's'} at ≥75% power` }]} />
       </StatTile>
-      <StatTile label="Edge redundancy" value={live.length - edgeLost - isolated} sub={`of ${live.length} sites fully redundant`}>
+      <StatTile label="Edge redundancy" value={live.length - edgeLost - isolated} sub={`of ${live.length} redundant`}>
         <Split parts={[{ key: 'red', label: 'Full', n: live.length - edgeLost - isolated, tone: 'success' }, { key: 'lost', label: 'Partial', n: edgeLost, tone: 'warning' }, { key: 'iso', label: 'Isolated', n: isolated, tone: 'error' }]} onPick={k => k !== 'red' && onView('edge')} />
         <Facts items={[{ n: linksDown, label: 'links down' }, { n: unreach, label: 'devices unreachable' }]} />
       </StatTile>
-      <StatTile label={`${V.customer} impact`} value={deg} sub={`of ${fmtNum(svc)} ${V.services.toLowerCase()} degraded`}>
+      <StatTile label={`${V.customer} impact`} value={deg} sub={`of ${fmtNum(svc)} degraded`}>
         <SoftMeter pct={svc ? Math.max(2, (deg / svc) * 100) : 0} tone={deg ? 'warning' : 'success'} />
         <Facts items={[{ n: custHit, label: `site${custHit === 1 ? '' : 's'} affected` }]} />
       </StatTile>

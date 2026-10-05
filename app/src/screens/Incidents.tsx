@@ -98,13 +98,13 @@ function IncidentAnalytics({ open, res30, mttr, met, slaPct, view, onView }: { o
       <StatTile label="By type" value={types.filter(t => open.some(i => i.type === t)).length} sub="types open">
         <Split parts={types.map(t => ({ key: t, label: t, n: open.filter(i => i.type === t).length, tone: TYPE_TONE[t] })).filter(p => p.n)} />
       </StatTile>
-      <StatTile label="Resolution · 30 days" value={fmtHm(mttr)} sub="mean time to resolve">
+      <StatTile label="Resolution · 30 days" value={fmtHm(mttr)} sub="MTTR">
         <SoftMeter pct={slaPct} tone={slaPct >= 90 ? 'success' : slaPct >= 75 ? 'warning' : 'error'} />
         <Facts items={[{ n: `${slaPct}%`, label: 'within SLA', tone: slaPct < 90 ? 'warn' : undefined }, { n: `${met}/${res30.length}`, label: 'resolved in time' }]} />
       </StatTile>
       <StatTile label={`${V.customer} impact`} value={svc} sub={`${V.services.toLowerCase()} affected`}>
         <Split parts={[{ key: 'h', label: 'High', n: open.filter(i => i.impact.level === 'High').length, tone: 'error' }, { key: 'm', label: 'Medium', n: open.filter(i => i.impact.level === 'Medium').length, tone: 'warning' }, { key: 'l', label: 'Low', n: open.filter(i => i.impact.level === 'Low').length, tone: 'neutral' }]} />
-        <Facts items={[{ n: cust, label: V.customers.toLowerCase() }, { n: prem, label: V.premium.toLowerCase(), tone: prem ? 'bad' : undefined }]} />
+        <Facts items={[{ n: prem, label: `${V.premium.toLowerCase()} · ${cust} total`, tone: prem ? 'bad' : undefined }]} />
       </StatTile>
     </StatGrid>
   );

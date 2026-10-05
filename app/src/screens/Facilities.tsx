@@ -79,13 +79,13 @@ export function Facilities() {
           <Split parts={[{ key: 'op', label: 'Running', n: units.filter(u => u.status === 'Operational').length, tone: 'success' }, { key: 'mt', label: 'Maint.', n: units.filter(u => u.status === 'Maintenance').length, tone: 'warning' }, { key: 'fl', label: 'Failed', n: units.filter(u => u.status === 'Failed').length, tone: 'error' }]} />
           <Facts items={[{ n: `${coolPct}%`, label: 'of capacity in use', tone: coolPct >= 85 ? 'warn' : undefined }]} />
         </StatTile>
-        <StatTile label="Environment" value={`${hottest}°C`} sub={hotZones.length ? `${hotZones.length} zone${hotZones.length > 1 ? 's' : ''} above ${TEMP.hi}°C` : 'hottest zone · in range'} subTone={hotZones.length ? 'bad' : undefined} onClick={() => set('tab', 'environment')} active={tab === 'environment'}>
+        <StatTile label="Environment" value={`${hottest}°C`} sub={hotZones.length ? `${hotZones.length} zone${hotZones.length > 1 ? 's' : ''} above ${TEMP.hi}°C` : 'hottest zone'} subTone={hotZones.length ? 'bad' : undefined} onClick={() => set('tab', 'environment')} active={tab === 'environment'}>
           <Split parts={[{ key: 'ok', label: 'In range', n: sensors.filter(s => s.tempC <= 25).length, tone: 'success' }, { key: 'warm', label: 'Warm', n: sensors.filter(s => s.tempC > 25 && s.tempC <= TEMP.hi).length, tone: 'warning' }, { key: 'hot', label: 'Hot', n: hotZones.length, tone: 'error' }]} />
           <Facts items={[{ n: `${Math.min(...sensors.map(s => s.humidity))}–${Math.max(...sensors.map(s => s.humidity))}%`, label: 'humidity' }]} />
         </StatTile>
         <StatTile label="Alarms & maintenance" value={fac.length} sub={fac.length ? `facility alarm${fac.length > 1 ? 's' : ''} active` : 'no facility alarms'} subTone={fac.some(a => a.severity === 'critical') ? 'bad' : undefined} onClick={() => set('tab', 'maintenance')} active={tab === 'maintenance'}>
           <Split parts={(['critical', 'major', 'minor', 'warning'] as Severity[]).map(sv => ({ key: sv, label: SEVERITY[sv].label, n: fac.filter(a => a.severity === sv).length, tone: SEV_TONE[sv] })).filter(x => x.n || x.key === 'critical')} />
-          <Facts items={[{ n: upcoming.length, label: 'maintenance due' }, ...(upcoming[0] ? [{ n: fmtDate(upcoming[0].windowStart), label: 'next' }] : [])]} />
+          <Facts items={[{ n: upcoming.length, label: upcoming[0] ? `due · next ${fmtDate(upcoming[0].windowStart).slice(0, 6)}` : 'maintenance due' }]} />
         </StatTile>
       </StatGrid>
 
@@ -284,15 +284,6 @@ function PowerTab({ dc }: { dc: Datacenter }) {
 
       <Panel title="Rack power" count={racks.length} sub={hotRacks ? `${hotRacks} rack${hotRacks > 1 ? 's' : ''} at or above 85% of budget` : 'Live draw against budget · every rack within budget'} icon={I.Server} flush>
         {racks.length ? <>
-          <div className="rk-strip">
-            {[...racks].sort((a, b) => pctOf(b) - pctOf(a)).map(r => { const pct = pctOf(r); const t = loadTone(pct); return (
-              <button key={r.id} type="button" className={`rk-tile is-${t}`} title={`${r.name} · ${r.floor} · ${r.room} · ${r.drawKw} of ${r.budgetKw} kW · inlet ${r.tempC}°C`} onClick={() => nav(`/datacenters/${dc.id}?tab=details`)}>
-                <span className="rk-name">{r.name.replace('RACK-', '')}</span>
-                <span className="rk-fill"><i style={{ height: `${Math.min(100, pct)}%`, background: SOFT[t] }} /></span>
-                <span className="rk-pct">{pct}%</span>
-              </button>
-            ); })}
-          </div>
           <RackTable racks={racks} onRow={() => nav(`/datacenters/${dc.id}?tab=details`)} />
         </> : <div className="panel-body"><Empty icon={I.Server} title="No racks energised yet" /></div>}
       </Panel>

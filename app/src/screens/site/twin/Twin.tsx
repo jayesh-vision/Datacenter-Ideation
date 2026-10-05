@@ -57,7 +57,7 @@ export default function Twin({ dcId }: { dcId: string }) {
   const att = useMemo(() => (data && L ? buildAttention(L, data) : undefined), [data, L]);
   const anchors = useMemo(() => (data && L ? buildAnchors(L, data, sel, level, att) : []), [data, L, sel, level, att]);
   useEffect(() => { document.body.style.cursor = hover ? 'pointer' : ''; return () => { document.body.style.cursor = ''; }; }, [hover]);
-  if (!data || !L) return <Loading label="Building the digital twin" />;
+  if (!data || !L) return <Loading label="Loading Data center view" />;
   const { dc } = data;
   const room = sel.room !== null ? L.rooms.find(r => r.id === sel.room) : undefined;
   const rk = sel.rack ? L.racks.find(r => r.rack.id === sel.rack) : undefined;

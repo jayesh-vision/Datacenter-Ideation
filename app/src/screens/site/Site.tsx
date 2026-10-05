@@ -162,7 +162,7 @@ export function Site() {
           })}
       </div>
 
-      {tab === 'overview' && <Suspense fallback={<Loading label="Loading 3D view" />}><Twin dcId={dc.id} /></Suspense>}
+      {tab === 'overview' && <Suspense fallback={<Loading label="Loading Data center view" />}><Twin dcId={dc.id} /></Suspense>}
       {tab === 'attention' && <Attention data={data} />}
       {tab === 'topology' && <TopologyView key={dc.id} dc={dc.id} />}
       {tab === 'metrics' && <Metrics data={data} />}

@@ -473,3 +473,23 @@
 .dcmap-fulltitle { position: absolute; top: 12px; left: 12px; z-index: 500; display: flex; flex-direction: column; gap: 1px; padding: 8px 12px; border: 1px solid var(--vw-color-slate-200); border-radius: var(--vw-radius-sm); background: rgba(255, 255, 255, .96); font-size: 12px; color: var(--vw-color-gray-500); }
 .dcmap-fulltitle b { font-size: 14px; font-weight: 500; color: var(--vw-color-gray-900); }
 .hero-map:has(.dcmap.is-full) > .hero-map-head { display: none; }
+
+/* docked site card (replaces the Leaflet popup) */
+.dcmap .dcpop { position: absolute; z-index: 560; top: 12px; right: 56px; width: 292px; min-width: 0; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; background: #fff; border: 1px solid var(--vw-color-slate-200); border-radius: 12px; box-shadow: 0 12px 28px rgba(15, 23, 42, .16); animation: dcpop-in .16s ease-out; }
+@keyframes dcpop-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.dcmap .dcpop-h { display: flex; align-items: flex-start; gap: 8px; padding-right: 0; }
+.dcpop-id { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.dcpop-id b { font-size: 15px; font-weight: 600; color: var(--vw-color-gray-900); }
+.dcpop-id span { font-size: 12px; color: var(--vw-color-gray-500); }
+.dcmap .dcpop-chip { flex-shrink: 0; margin-top: 1px; }
+.dcpop-x { width: 24px; height: 24px; margin: -2px -4px 0 0; display: grid; place-items: center; flex-shrink: 0; border: 0; border-radius: 6px; background: transparent; color: var(--vw-color-gray-500); cursor: pointer; }
+.dcpop-x:hover { background: var(--vw-color-slate-100); color: var(--vw-color-gray-900); }
+.dcmap .dcpop-g { grid-template-columns: repeat(4, minmax(0, 1fr)); justify-content: stretch; gap: 8px; }
+.dcmap .dcpop-a { flex-wrap: nowrap; gap: 6px; }
+.dcmap .dcpop-a .nst-btn { flex: 1 1 auto; justify-content: center; white-space: nowrap; }
+.dcmap .dcpop { width: 300px; }
+.dcmap .dcpop-g { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; padding: 10px 0; }
+.dcmap .dcpop-g > div { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 8px; align-items: baseline; }
+.dcmap .dcpop-g span { grid-column: 1 / -1; }
+.dcmap .dcpop-g small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dcmap .dcpop { top: 76px; }

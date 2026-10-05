@@ -170,7 +170,6 @@ function ChangeAnalytics({ all, now, status, onStatus }: { all: Change[]; now: n
   const done30 = all.filter(c => (c.status === 'Completed' || c.status === 'Rolled back') && c.windowEnd > now - 30 * DAY);
   const ok = done30.filter(c => c.status === 'Completed').length, rb = done30.length - ok;
   const rate = done30.length ? Math.round((ok / done30.length) * 100) : 100;
-  const linked = all.filter(c => c.incidentId).length;
   return (
     <StatGrid>
       <StatTile label="In the pipeline" value={live.length} sub="changes not yet closed">
@@ -187,13 +186,13 @@ function ChangeAnalytics({ all, now, status, onStatus }: { all: Change[]; now: n
       <StatTile label="Risk of open work" value={live.filter(c => c.risk === 'High').length} sub="high risk" subTone={live.some(c => c.risk === 'High') ? 'bad' : undefined}>
         <Split parts={[{ key: 'High', label: 'High', n: live.filter(c => c.risk === 'High').length, tone: 'error' }, { key: 'Medium', label: 'Medium', n: live.filter(c => c.risk === 'Medium').length, tone: 'warning' }, { key: 'Low', label: 'Low', n: live.filter(c => c.risk === 'Low').length, tone: 'success' }]} />
       </StatTile>
-      <StatTile label="Outcome · 30 days" value={`${rate}%`} sub="succeeded first time">
+      <StatTile label="Outcome · 30 days" value={`${rate}%`} sub="first-time success">
         <SoftMeter pct={rate} tone={rate >= 90 ? 'success' : rate >= 75 ? 'warning' : 'error'} />
         <Facts items={[{ n: ok, label: 'completed', onClick: () => onStatus('Completed') }, { n: rb, label: 'rolled back', tone: rb ? 'bad' : undefined, onClick: () => onStatus('Rolled back') }]} />
       </StatTile>
       <StatTile label="Change vs maintenance" value={all.length} sub="on record">
         <Split parts={[{ key: 'c', label: 'Change', n: all.filter(c => c.kind === 'Change').length, tone: 'info' }, { key: 'm', label: 'Maintenance', n: all.filter(c => c.kind === 'Maintenance').length, tone: 'cyan' }]} />
-        <Facts items={[{ n: linked, label: 'raised from incidents' }, { n: live.filter(c => c.windowStart <= now && c.windowEnd >= now).length, label: live.filter(c => c.windowStart <= now && c.windowEnd >= now).length === 1 ? 'window open now' : 'windows open now' }]} />
+        <Facts items={[{ n: live.filter(c => c.windowStart <= now && c.windowEnd >= now).length, label: live.filter(c => c.windowStart <= now && c.windowEnd >= now).length === 1 ? 'window open now' : 'windows open now' }]} />
       </StatTile>
     </StatGrid>
   );
