@@ -25,7 +25,7 @@ for (const W of [1440, 1280]) {
     if (errs.length) { bad(`${name}@${W} console ${errs[0].slice(0, 200)}`); errs.length = 0; }
     if (shots) await p.screenshot({ path: `.qa/out/rev-${persona}-${name}-${W}.png`, fullPage: true });
   };
-  await open('/revenue'); await checks('issues');
+  await open('/revenue'); await p.waitForSelector('.rev-hero', { timeout: 5000 }).catch(() => {}); await checks('issues');
   // heroes line up
   const hs = await p.$$eval('.rev-hero', els => els.map(e => Math.round(e.getBoundingClientRect().height)));
   if (hs.length !== 2 || Math.abs(hs[0] - hs[1]) > 1) bad(`heroes@${W} heights ${hs}`);
@@ -44,7 +44,7 @@ for (const W of [1440, 1280]) {
   // method drawer
   await open('/revenue'); await p.click('text=How it is calculated'); await p.waitForTimeout(250); if (!(await p.$('.drawer .rev-method'))) bad('method drawer'); await p.keyboard.press('Escape');
   // datacenter tab
-  for (const dc of ['MH-DC-001', 'DL-DC-009']) { await open(`/datacenters/${dc}?tab=revenue`); await checks(`site-${dc}`); if (!(await p.$('.sum-strip'))) bad(`site ${dc} no strip`); }
+  for (const dc of ['MH-DC-001', 'DL-DC-009']) { await open(`/datacenters/${dc}?tab=revenue`); await p.waitForSelector('.sum-strip', { timeout: 5000 }).catch(() => {}); await checks(`site-${dc}`); if (!(await p.$('.sum-strip'))) bad(`site ${dc} no strip`); }
   // lists and command center
   await open('/datacenters'); await checks('dc-list');
   await open('/incidents'); await checks('inc-list');

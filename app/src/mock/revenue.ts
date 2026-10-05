@@ -27,7 +27,7 @@ const MONTH_H = 730, MONTH_MIN = 43200;
 const STEPS = [0, 0.5, 2];                // SLA shortfall (points below target) at which the credit steps up
 const tier = (short: number) => (short <= 1e-9 ? 0 : short < 0.5 ? 0.10 : short < 2 ? 0.25 : 0.50);
 const SEV_W: Record<Severity, number> = { critical: 0, major: 1, minor: 2, warning: 3 };
-const INC_DOMAIN: Record<Incident['type'], RevDomain> = { Network: 'Network', Power: 'Power', Cooling: 'Cooling', Rack: 'Capacity', Capacity: 'Capacity', Security: 'Network' };
+const INC_DOMAIN: Record<Incident['type'], RevDomain> = { Network: 'Network', Power: 'Power', Cooling: 'Cooling', Rack: 'Capacity', Capacity: 'Capacity', Security: 'Network', GPU: 'GPU' };
 
 const KIND_W: Record<ImpactCause['kind'], number> = { link: 0, interface: 0, rack: 1, site: 1, device: 2, utilisation: 3 };
 const REDUNDANCY_ONLY = /Power Supply Fault/;

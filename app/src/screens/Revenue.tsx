@@ -67,7 +67,7 @@ export function Revenue() {
           <Split other={inr} parts={v.byDomain.filter(d => d.mrrExposed > 0).sort((a, b) => b.mrrExposed - a.mrrExposed).map(d => ({ key: d.domain, label: d.domain, n: d.mrrExposed, tone: 'info' as Tone, display: inr(d.mrrExposed) }))} />
           <Facts items={[{ n: perHr(t.potentialRate), label: 'if they fail' }]} />
         </StatTile>
-        <StatTile label={`${W.credits} owed`} value={inr(t.credits + v.sla.creditsLocked)} sub="this month" onClick={() => go('customers', { cview: 'owed' })} active={tab === 'customers'}>
+        <StatTile label={`${W.credits} owed`} value={inr(t.credits + v.sla.creditsLocked)} onClick={() => go('customers', { cview: 'owed' })} active={tab === 'customers'}>
           <Split parts={[{ key: 'open', label: 'Open issues', n: t.credits, tone: 'orange', display: inr(t.credits) }, { key: 'locked', label: 'Locked in · 30 d', n: v.sla.creditsLocked, tone: 'info', display: inr(v.sla.creditsLocked) }]} />
           <Facts items={[v.sla.nextCliff ? { n: inr(v.sla.nextCliff.amount), label: `more in ${fmtDur(v.sla.nextCliff.inMin)}`, tone: v.sla.nextCliff.inMin <= 60 ? 'bad' : 'warn' } : { n: 'None', label: 'pending' }]} />
         </StatTile>

@@ -12,6 +12,7 @@ import { ServiceDetail } from './screens/ServiceDetail';
 import { CustomerDetail } from './screens/CustomerDetail';
 import { Facilities } from './screens/Facilities';
 import { Revenue } from './screens/Revenue';
+import { GpuPage } from './screens/Gpu';
 import { NotFound } from './screens/NotFound';
 
 /* Estate → Datacenter → Infrastructure → Connectivity → Services → Customers
@@ -49,6 +50,8 @@ export default function App() {
           {/* Capacity planning is parked for Plan & Build; current pressure lives in Facilities */}
           <Route path="capacity" element={<Navigate to="/facilities" replace />} />
           <Route path="facilities" element={<Facilities />} />
+          {/* AI & GPU operations (user, 05-Oct-2026) */}
+          <Route path="gpu" element={<GpuPage />} />
           {/* Money view of operations: what each open issue costs (user, 05-Oct-2026) */}
           <Route path="revenue" element={<Revenue />} />
           <Route path="*" element={<NotFound />} />

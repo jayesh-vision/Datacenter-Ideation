@@ -205,3 +205,4 @@
 /* the descriptive text column (title / name with a subline) keeps a readable width in auto layout */
 .page .dt-table td:has(> .cell-2 > .strong:not(.mono)) { min-width: 220px; }
 @media (max-width: 1280px) { .page .dt-table td:has(> .cell-2 > .strong:not(.mono)) { min-width: 180px; } }
+.type-ico.t-gpu { background: var(--vw-color-purple-50); color: var(--vw-color-purple-700); }

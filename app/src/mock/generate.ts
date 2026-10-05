@@ -8,7 +8,8 @@ import type {
 } from '../api/types';
 import { NE_CATEGORY } from '../api/types';
 import { ACCOUNT_MANAGERS, BLOCKERS, CIRCLES, CITIES, CUSTOMERS, DAY, DCS, HOUR, MIN, NOW, PEOPLE, POP_STATUS, REGIONS, SITE_STATUS } from './seed';
-import { buildIncidents } from './incidents';
+import { buildIncidents, impactOf, RESOLVE_SLA, RESPONSE_SLA } from './incidents';
+import { addGpuChange, addGpuServices, buildGpuFleet, buildGpuIncidents, injectGpuFaults, type GpuState } from './gpu';
 import { PERSONA_BY_ID } from './personas';
 
 /* a host (compute / storage / GPU) or an opaque block of tenant equipment */
@@ -22,6 +23,8 @@ export interface Db {
   links: Link[]; services: Service[]; customers: Customer[]; alerts: Alert[]; incidents: Incident[]; changes: Change[];
   recon: ReconTask[]; audit: AuditEntry[]; plans: CapacityPlan[];
   seq: { alm: number; inc: number; chg: number; rec: number; aud: number; plan: number };
+  /* AI & GPU layer (cloud / enterprise GPU fleets, colocation AI cages); empty for telco */
+  gpu?: GpuState;
 }
 
 const shuffle = <T,>(r: Rnd, xs: T[]) => { const a = [...xs]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -618,15 +621,20 @@ export function generate(persona: Persona = 'network'): Db {
   dc13.readiness = [{ step: 'Site created & planned inventory loaded', done: true }, { step: 'Collectors assigned', done: false, note: 'Awaiting rack & power handover' }, { step: 'Assets discovered', done: false }, { step: 'Inventory reconciled', done: false },
     { step: 'Power, racks & ports validated', done: false }, { step: 'Connectivity mapped', done: false }, { step: 'Services commissioned', done: false }, { step: 'Move to on-air', done: false }];
 
+  const gpu = buildGpuFleet(persona, datacenters, nes, customers);
   if (persona !== 'network') buildPersonaServices(persona, datacenters, nes, links, customers, services, () => svcSeq++);
+  addGpuServices(persona, gpu, services, customers, () => svcSeq++);
 
-  const db: Db = { now: NOW, regions, circles, locations, datacenters, nes, neById, ifaces, links, services, customers, alerts: [], incidents: [], changes: [], recon: [], audit: [], plans: [], seq: { alm: 1000, inc: 0, chg: 2000, rec: 0, aud: 0, plan: 0 } };
+  const db: Db = { now: NOW, regions, circles, locations, datacenters, nes, neById, ifaces, links, services, customers, alerts: [], incidents: [], changes: [], recon: [], audit: [], plans: [], seq: { alm: 1000, inc: 0, chg: 2000, rec: 0, aud: 0, plan: 0 }, gpu };
 
   buildAlerts(db);
   buildDownstream(db);
   if (persona !== 'network') buildScenario(db, persona);
+  injectGpuFaults(db, persona, a => addAlert(db, a as NewAlert));
   buildChanges(db, persona);
+  addGpuChange(db, persona);
   buildIncidents(db, def.incidentTitles, persona);
+  buildGpuIncidents(db, persona, { impactOf: sc => impactOf(db, sc), responseSla: RESPONSE_SLA, resolveSla: RESOLVE_SLA });
   buildRecon(db);
   buildPlans(db);
   finaliseHealth(db);
@@ -696,8 +704,10 @@ function buildPersonaServices(persona: Persona, datacenters: Datacenter[], nes: 
       const hosts = live.filter(isHost);
       const forRole = (role: NetworkElement['role']) => def.serviceTypes.filter(t => (t.host as string[]).includes(role));
       if (persona === 'cloud') {
+        /* GPU nodes are sold per job (see mock/gpu.ts addGpuServices), not per host */
         hosts.forEach((h, i) => {
-          const every = h.role === 'GPU' ? 1 : h.role === 'Storage' ? 2 : 4;
+          if (h.role === 'GPU') return;
+          const every = h.role === 'Storage' ? 2 : 4;
           if (i % every !== 0) return;
           const n = h.role === 'Server' && chance(rr, 0.3) ? 2 : 1;
           for (let k = 0; k < n; k++) { const ts = forRole(h.role); if (!ts.length) return; const t = pick(rr, ts); push(rr, t, pick(rr, customers), dc.id, h, pick(rr, t.qty), r1(between(rr, 18, 92)), linksOf(h.id)); }
@@ -820,12 +830,12 @@ function buildAlerts(db: Db) {
     if (isHost(n)) {
       if (n.modules.some(m => /^DISK/.test(m.slot) && m.state === 'Fault')) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'minor', title: 'Disk Failure Predicted', description: `${n.modules.find(m => /^DISK/.test(m.slot) && m.state === 'Fault')!.slot} SMART reallocated-sector count rising; replace within 7 days`, source: 'Environment', type: 'Hardware', start: now - intBetween(rr, 60, 4000) * MIN, state: 'active' });
       if (n.modules.some(m => /^CTRL/.test(m.slot) && m.state === 'Fault')) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'major', title: 'Storage Controller Failover', description: 'Controller B faulted; array running on controller A without redundancy', source: 'Environment', type: 'Hardware', start: now - intBetween(rr, 30, 900) * MIN, state: 'active' });
-      if (n.role === 'GPU' && n.modules.some(m => /^GPU/.test(m.slot) && m.tempC > 75)) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'major', title: 'GPU Thermal Throttling', description: `${n.modules.filter(m => /^GPU/.test(m.slot) && m.tempC > 75).length} GPU(s) above 75°C; clocks reduced`, source: 'Environment', type: 'Thermal', start: now - intBetween(rr, 20, 600) * MIN, state: 'active' });
+      /* GPU health (thermal, ECC, Xid, NVLink) comes from the GPU layer — mock/gpu.ts */
       if (chance(rr, 0.006)) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'minor', title: 'Memory ECC Errors', description: 'Correctable ECC errors above threshold on DIMM A3', source: 'Environment', type: 'Hardware', start: now - intBetween(rr, 60, 3000) * MIN, state: 'active' });
     }
     if (chance(rr, 0.012)) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'minor', title: 'High Memory Utilization', description: `Memory at ${n.mem + 18}% for 30 minutes`, source: 'CPU', type: 'Memory', start: now - intBetween(rr, 20, 2000) * MIN, state: chance(rr, 0.4) ? 'acknowledged' : 'active' });
     if (chance(rr, 0.008)) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'warning', title: 'NTP Offset Drift', description: 'Clock offset above 50 ms against primary', source: 'Protocol', type: 'NTP', start: now - intBetween(rr, 20, 2000) * MIN, state: 'active' });
-    if (n.modules.some(m => m.state === 'Fault')) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'major', title: 'Power Supply Fault', description: 'PSU2 reports output failure; running on single PSU', source: 'Power', type: 'Hardware', start: now - intBetween(rr, 60, 3000) * MIN, state: 'active' });
+    if (n.modules.some(m => /^(PSU|PEM)/.test(m.slot) && m.state === 'Fault')) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'major', title: 'Power Supply Fault', description: 'PSU2 reports output failure; running on single PSU', source: 'Power', type: 'Hardware', start: now - intBetween(rr, 60, 3000) * MIN, state: 'active' });
     if (n.discovery === 'drifted' && chance(rr, 0.35)) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'warning', title: 'Configuration Drift', description: `${n.drift![0].attr} differs from inventory record`, source: 'Discovery', type: 'Drift', start: now - intBetween(rr, 600, 9000) * MIN, state: 'active' });
   }
   for (const dc of db.datacenters) {

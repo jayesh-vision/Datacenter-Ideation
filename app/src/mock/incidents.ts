@@ -11,9 +11,10 @@ import { DAY, HOUR, MIN, PEOPLE } from './seed';
 export const RESPONSE_SLA = { 1: 15, 2: 30, 3: 60, 4: 240 } as const;
 export const RESOLVE_SLA = { 1: 240, 2: 480, 3: 1440, 4: 4320 } as const;
 
-export function impactOf(db: Db, scope: { neIds?: string[]; linkIds?: string[]; dcIds?: string[] }) {
-  const ne = new Set(scope.neIds ?? []), ln = new Set(scope.linkIds ?? []), dcs = new Set(scope.dcIds ?? []);
-  const svcs: Service[] = db.services.filter(s => s.status !== 'Disabled' && (ne.has(s.neId) || s.linkIds.some(l => ln.has(l)) || dcs.has(s.dcId)));
+/* `pathIds`: devices anywhere on a service's path (a GPU job's service rides every node of the job) */
+export function impactOf(db: Db, scope: { neIds?: string[]; linkIds?: string[]; dcIds?: string[]; pathIds?: string[] }) {
+  const ne = new Set(scope.neIds ?? []), ln = new Set(scope.linkIds ?? []), dcs = new Set(scope.dcIds ?? []), pa = new Set(scope.pathIds ?? []);
+  const svcs: Service[] = db.services.filter(s => s.status !== 'Disabled' && (ne.has(s.neId) || s.linkIds.some(l => ln.has(l)) || dcs.has(s.dcId) || (pa.size > 0 && s.path.some(p => pa.has(p)))));
   const custIds = [...new Set(svcs.map(s => s.customerId))];
   const custs = custIds.map(id => db.customers.find(c => c.id === id)!);
   const premium = custs.filter(c => c.premium);
@@ -26,7 +27,8 @@ const step = (id: number, s: Omit<ActionStep, 'id' | 'status'> & { status?: Acti
 const DEFAULT_TITLES: Record<Incident['type'], string[]> = {
   Network: ['Interface flapping on backhaul', 'BGP session reset storm', 'OSPF adjacency loss on AGG pair', 'Optical degradation on uplink', 'Access router unreachable'],
   Power: ['Rectifier module alarm', 'UPS on bypass', 'PDU breaker trip'], Cooling: ['CRAH filter blocked — high return temperature', 'Chiller pump fault'], Capacity: ['Backhaul exhaustion warning', 'Port fill above 90% on leaf'],
-  Rack: ['Rack over power budget'], Security: ['RADIUS authentication failures spike']
+  Rack: ['Rack over power budget'], Security: ['RADIUS authentication failures spike'],
+  GPU: ['GPU fell off the bus — training job stalled', 'NVLink errors slowing a training job', 'Uncorrectable ECC — GPU reset needed']
 };
 
 export function buildIncidents(db: Db, TITLES: Record<Incident['type'], string[]> = DEFAULT_TITLES, persona: 'network' | 'colocation' | 'cloud' | 'enterprise' = 'network') {

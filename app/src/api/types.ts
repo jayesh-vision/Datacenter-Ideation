@@ -35,6 +35,8 @@ export interface Rack {
   id: string; name: string; dcId: string; floor: string; room: string; role: string; heightU: number; usedU: number; drawKw: number; budgetKw: number; ports: number; portsUsed: number; tempC: number;
   /* colocation: a cabinet leased to a tenant; the operator sees power and environment only */
   owner?: 'operator' | 'tenant'; tenantId?: string; contractedKw?: number;
+  /* high-density AI rack (GPU nodes or a tenant AI cage) and how it is cooled */
+  density?: 'ai'; liquid?: boolean;
 }
 export interface PortClass { cls: string; total: number; used: number }
 export interface UpsUnit { id: string; name: string; capacityKw: number; loadPct: number; redundancy: 'N' | 'N+1' | '2N'; batteryMin: number; state: 'Online' | 'On battery' | 'Bypass' | 'Fault' }
@@ -91,7 +93,8 @@ export type ServiceType =
   | 'IRV' | 'Leased Line' | 'L2VPN' | 'L3VPN' | 'Other'                                   // network / telco
   | 'Cabinet lease' | 'Power circuit' | 'Cross-connect' | 'Remote hands'                   // colocation
   | 'VM' | 'Storage volume' | 'Managed DB' | 'GPU cluster' | 'Kubernetes'                  // cloud
-  | 'Core application' | 'Database' | 'Collaboration' | 'Analytics' | 'Backup & DR';       // enterprise
+  | 'Core application' | 'Database' | 'Collaboration' | 'Analytics' | 'Backup & DR'        // enterprise
+  | 'AI platform';                                                                          // enterprise GPU jobs (charged back per GPU)
 export type ServiceUnit = 'Mbps' | 'kW' | 'vCPU' | 'TB' | 'GPU' | 'users' | 'cabinets' | 'hours';
 export type ServiceStatus = 'Active' | 'Degraded' | 'Down' | 'Disabled';
 export interface Service {
@@ -141,7 +144,7 @@ export type IncidentStatus = 'Open' | 'Investigating' | 'Mitigated' | 'Resolved'
 export interface Hypothesis { cause: string; confidence: number; evidence: { label: string; ref?: string; at?: number }[]; rejected?: boolean }
 export interface ActionStep { id: string; step: string; owner: string; expected: string; rollback: string; verify: string; disruptive: boolean; status: 'pending' | 'awaiting-approval' | 'approved' | 'running' | 'done' | 'rejected' }
 export interface Incident {
-  id: string; title: string; type: 'Network' | 'Power' | 'Cooling' | 'Rack' | 'Capacity' | 'Security'; sev: 1 | 2 | 3 | 4; pri: 1 | 2 | 3 | 4; status: IncidentStatus;
+  id: string; title: string; type: 'Network' | 'Power' | 'Cooling' | 'Rack' | 'Capacity' | 'Security' | 'GPU'; sev: 1 | 2 | 3 | 4; pri: 1 | 2 | 3 | 4; status: IncidentStatus;
   owner: string; reportedBy: string; dcId: string; detected: number; acknowledged?: number; resolved?: number; responseSlaMin: number; resolveSlaMin: number;
   alertIds: string[]; affected: { kind: 'NE' | 'Link' | 'Rack' | 'Service' | 'Customer' | 'Facility'; id: string; label: string }[];
   rca: Hypothesis[]; actions: ActionStep[]; changeIds: string[]; worklog: { at: number; who: string; text: string; kind: 'system' | 'human' | 'ai' }[];
@@ -179,8 +182,8 @@ export interface ImpactCause {
      lost    — service revenue lost so far (pro-rata for the time each service has been impacted)
      credits — SLA credits the fault has triggered so far (10 / 25 / 50% of the monthly charge by SLA shortfall)
    Exposed revenue costs nothing yet; `potentialRate` / `potentialCredits` say what it costs if the fault worsens. */
-export type RevDomain = 'Power' | 'Cooling' | 'Network' | 'Device' | 'Capacity';
-export const REV_DOMAINS: RevDomain[] = ['Power', 'Cooling', 'Network', 'Device', 'Capacity'];
+export type RevDomain = 'Power' | 'Cooling' | 'Network' | 'GPU' | 'Device' | 'Capacity';
+export const REV_DOMAINS: RevDomain[] = ['Power', 'Cooling', 'Network', 'GPU', 'Device', 'Capacity'];
 export interface RevMoney { mrrDown: number; mrrDegraded: number; mrrExposed: number; rate: number; lost: number; credits: number }
 export interface RevCliff { inMin: number; amount: number; services: number }
 export interface RevIssue extends RevMoney {
@@ -245,3 +248,35 @@ export interface DcSummary {
   /* revenue hosted at the site, what is down or degraded, what rides a critical fault, the hourly loss and the impact so far */
   mrr: number; revAtRisk: number; revExposed: number; revRate: number; revImpact: number;
 }
+
+/* ---- AI & GPU infrastructure (05-Oct-2026)
+   GPU nodes are NetworkElements with role 'GPU'; this layer adds what an AI operations team watches:
+   per-GPU telemetry (DCGM-style), clusters (pods) on a rail-optimised InfiniBand fabric, the jobs running
+   on them, liquid cooling, and — for colocation — tenant AI cages the operator sees only as power and cooling. */
+export type GpuModel = 'H100 SXM 80 GB' | 'H200 SXM 141 GB';
+export type GpuHealth = 'healthy' | 'degraded' | 'failed';
+export type GpuThrottle = 'none' | 'thermal' | 'power-cap' | 'hw-slowdown';
+export interface GpuXid { code: number; at: number; text: string }
+export interface Gpu {
+  idx: number; serial: string; util: number; memUsedGb: number; memGb: number; tempC: number; hbmC: number; powerW: number; tdpW: number; clockMhz: number;
+  throttle: GpuThrottle; sbe: number; dbe: number; remapPending: boolean; nvlinkErr: number; xid: GpuXid | null; health: GpuHealth;
+}
+/* in-job: allocated to a running job · idle: healthy spare · drained: cordoned for maintenance · failed: awaiting RMA · burn-in: new or repaired, under test */
+export type GpuNodeState = 'in-job' | 'idle' | 'drained' | 'failed' | 'burn-in';
+export interface GpuNode {
+  neId: string; dcId: string; rackId: string; clusterId: string; model: GpuModel; gpus: Gpu[]; state: GpuNodeState; jobId?: string;
+  cooling: 'air' | 'liquid'; driver: string; firmware: string; powerKw: number; health: GpuHealth;
+  ib: { rail: number; state: 'up' | 'down' | 'flapping'; errors: number }[]; note?: string; rma?: string;
+}
+export interface GpuCluster { id: string; name: string; dcId: string; room: string; scheduler: 'Kubernetes' | 'Slurm'; fabric: string; model: GpuModel; cooling: 'air' | 'liquid'; nodes: string[] }
+/* running · slowed (a straggler or throttling drags every step) · stalled (a node failed; waiting to restart from checkpoint) · at-risk (a node will need a reset) */
+export type GpuJobState = 'running' | 'slowed' | 'stalled' | 'at-risk' | 'idle';
+export interface GpuJob {
+  id: string; name: string; kind: 'training' | 'fine-tuning' | 'inference'; clusterId: string; dcId: string; customerId: string; nodes: string[]; gpus: number;
+  state: GpuJobState; started: number; lastCheckpoint: number; checkpointMin: number; stepMs: number; baselineMs: number; mfu: number;
+  since?: number; cause?: string; causeNeId?: string; incidentId?: string; serviceId?: string;
+}
+/* liquid-cooling loop (coolant distribution unit) feeding a GPU row or tenant AI cages */
+export interface Cdu { id: string; dcId: string; name: string; room: string; racks: string[]; capacityKw: number; loadKw: number; supplyC: number; returnC: number; flowLpm: number; flowNominal: number; pump: 'A' | 'B'; state: 'ok' | 'warn' | 'bad'; note?: string }
+/* colocation: a tenant's high-density AI cabinet — tenant-owned GPUs, operator-owned power and cooling */
+export interface AiCage { rackId: string; dcId: string; name: string; room: string; tenantId: string; contractedKw: number; drawKw: number; cduId: string; inletC: number; state: 'ok' | 'warn' | 'bad'; note?: string }

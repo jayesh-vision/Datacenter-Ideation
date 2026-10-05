@@ -48,7 +48,7 @@ An alarm counts against a datacenter only when it is in scope (`Alert.scope`, co
 - **downstream**: remote PoPs and sites that depend ON the datacenter. They are never counted. When the datacenter is the cause,
   they appear as `symptomOf` impact under the incident, not as separate issues.
 Edge redundancy (`DcSummary.edge`): redundant / redundancy-lost / isolated. Guarded by `npx tsx .qa/scope-check.ts`.
-Scope decisions 02-Oct-2026: the menu is Command center · Revenue impact (added 05-Oct-2026) · Datacenters · Facilities · Alerts · Incidents · Changes & maintenance.
+Scope decisions 02-Oct-2026: the menu is Command center · Revenue impact (added 05-Oct-2026) · Datacenters · Facilities · AI & GPU (05-Oct-2026, GPU estates only) · Alerts · Incidents · Changes & maintenance.
 Topology left the menu 05-Oct-2026 (user): it lives only as the datacenter page's Topology tab; `/topology?dc=X` redirects to that tab.
 Network services, Customers and Capacity & forecast are parked (code kept, routes redirect); services and customers appear only as
 impact on incidents, devices and sites. Revenue was hidden until 05-Oct-2026; the user then asked for it — see "Revenue impact" below. Site tabs: Overview (3D) · Attention · Topology (`TopologyView` from screens/Topology.tsx, same view as the /topology page) · Metrics (aggregated thermal/power/backup/fault KPIs)
@@ -138,8 +138,33 @@ Don't reintroduce rows of boxed KPI tiles on the landing page.
 Small change → verify only the affected screen (screenshot/measure at 1440 and 1280). Full suite `app/.qa/regress.sh` ONLY when the
 user explicitly asks — not even before push/deploy. Digital twin is final: don't edit `src/screens/site/twin/*`, don't run `twin.mjs` / `twin-full.mjs`.
 
+## AI & GPU (05-Oct-2026) — the most demanding hardware in the building
+Menu item **AI & GPU** (`/gpu`, `screens/Gpu.tsx`) and a datacenter tab, both shown only when the estate has GPU infrastructure
+(`hasGpuNow()`); telco has none (its data stays byte-identical — `npx tsx .qa/fingerprint.ts network` before/after).
+- Data: `mock/gpu.ts`, phases called from generate(): A `buildGpuFleet` (per-GPU DCGM-style telemetry, pods of ≤32 nodes, jobs:
+  one big training run + fine-tunes + inference, ~10% spares; liquid cooling + H200 at TN-DC-022 / KA-DC-020 / TS-DC-023 with CDU
+  loops added to `dc.cooling.units`; colocation: 3 tenant racks per site → liquid AI cages 40–60 kW) · A2 `addGpuServices` (each job is
+  a service on every node of the job: cloud 'GPU cluster' ₹1,75,000/GPU/mo, enterprise 'AI platform' charge-back ₹85,000) ·
+  B `injectGpuFaults` (Xid 79 stalls the biggest KA-DC-020 training job; Xid 48 row-remap at MH-DC-003; NVLink straggler TS-DC-023;
+  CDU flow low → hardware slowdown TN-DC-022; InfiniBand rail flapping UP-DC-005 (no incident, on purpose); power-capped rack
+  DL-DC-009; 6 h idle inference WB-DC-016) · C `addGpuChange` (driver rollout) + `buildGpuIncidents` (INC-0061… type 'GPU').
+- Every entity is seeded on its own id (`rngOf`), never on a shared stream, so adding GPU data never reshuffles the rest.
+- Read model `mock/gpu-view.ts`: GPU time lost = stalled job all GPUs × rate, slowed job × step-time share lost, idle allocation × all;
+  work to redo = GPUs × time since the last checkpoint. Revenue counts what customers are billed; this counts productive GPU time.
+- Revenue: new cause `RevDomain` 'GPU' (Xid / ECC / NVLink); GPU heat counts as Cooling. `impactOf` takes `pathIds` so a job's service
+  is hit by a fault on any of its nodes.
+- Checks: `node .qa/gpu.mjs <persona>` (menu visibility, tiles, cards, drawers, tabs, site tab), plus `.qa/revenue-check.ts`.
+
 ## Demo playbook (05-Oct-2026)
-`docs/dco-demo-playbook.html` = the customer demo script ("The 13:20 call", 10 acts, same story per persona, persona switch,
+`docs/dco-demo-playbook.html` = the customer demo script ("The 13:20 call", 11 acts incl. "AI cluster", same story per persona, persona switch,
 "Open in tool" deep links carrying `?persona=` which the mock server honours on load). A copy is served at `/demo-playbook.html`
 (`app/public/demo-playbook.html`) — edit the docs file, then copy it over. Its figures are taken from the mock at the fixed clock;
 if the seed, incidents or revenue model change, re-check them.
+
+## Embedding & routes (05-Oct-2026)
+`?shell=false` hides the left menu and the top header (iframe use in the user's platform); `?shell=true` shows them; no parameter =
+shown unless this tab/iframe already chose (sessionStorage `dco.shell`, plus a memory copy for iframes with blocked storage) — see
+`shell/embed.ts`. `.shell.is-embed` sets `--rail-w` / `--top-h` to 0 so sticky list headers and full-screen map / 3D pin to the frame.
+`?persona=` picks the persona (mock/server.ts). Route catalogue with every screen's URL parameters: `docs/dco-embed-guide.html`
+(served at `/embed-guide.html`; copy it to `app/public/` after editing). Check: `node .qa/embed.mjs <host page with an iframe>`.
+When a screen gains a URL parameter or a new route is added, add it to the guide.

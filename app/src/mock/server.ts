@@ -12,6 +12,7 @@ import { mulberry32 } from '../lib/rng';
 import { impactOf, isOpen, RESOLVE_SLA, RESPONSE_SLA } from './incidents';
 import { DAY, HOUR, MIN } from './seed';
 import { buildRevenue, customerHits, revenueView, type RevModel } from './revenue';
+import { gpuView, type GpuView } from './gpu-view';
 import { monthsTo, dateAfterMonths, WARN, CRIT } from '../lib/forecast';
 
 /* Persona: which business model the estate is generated as. Switching it rebuilds
@@ -58,6 +59,25 @@ export function revenue(q: { dcId?: string } = {}): RevenueView {
   if (!v) { v = revenueView(db, revenueModel(), q.dcId, id => edgeStatus(id).state); revViews.set(k, v); }
   return v;
 }
+/* AI & GPU read model (estate or one datacenter) and one node's detail */
+const gpuViews = new Map<string, GpuView>();
+export function gpu(q: { dcId?: string } = {}): GpuView {
+  const k = `${version}|${q.dcId ?? '*'}`;
+  let v = gpuViews.get(k);
+  if (!v) { if (gpuViews.size > 40) gpuViews.clear(); v = gpuView(db, persona, q.dcId); gpuViews.set(k, v); }
+  return v;
+}
+export function gpuNode(neId: string) {
+  const n = db.gpu?.nodes.get(neId); if (!n) return null;
+  const row = gpu({ dcId: n.dcId }).nodes.find(x => x.neId === neId)!;
+  const job = n.jobId ? gpu({ dcId: n.dcId }).jobs.find(j => j.id === n.jobId) : undefined;
+  const alerts = db.alerts.filter(a => a.neId === neId && a.state !== 'cleared');
+  const spare = job ? [...db.gpu!.nodes.values()].find(x => x.clusterId === n.clusterId && x.state === 'idle' && x.health === 'healthy')?.neId : undefined;
+  return { node: row, job, alerts, spare, ne: db.neById.get(neId)! };
+}
+/* does this estate (or site) have GPU infrastructure the operator runs or hosts? */
+export const hasGpu = (dcId?: string) => !!db.gpu && ([...db.gpu.nodes.values()].some(n => !dcId || n.dcId === dcId) || db.gpu.cages.some(c => !dcId || c.dcId === dcId));
+
 /* the revenue issue behind an incident (null when the incident touches no revenue) */
 export const revenueOfIncident = (id: string): RevIssue | null => revenue().issues.find(i => i.id === id) ?? null;
 /* Datacenter operations scope. Downstream alarms (remote PoPs / sites that
@@ -255,6 +275,8 @@ const SEV_W: Record<Severity, number> = { critical: 0, major: 1, minor: 2, warni
 export function domainOf(a: Alert): RevDomain {
   const t = a.title;
   if (/Utilisation|Over Power Budget|Capacity|Exhaust/i.test(t)) return 'Capacity';
+  /* GPU hardware faults (Xid, ECC, NVLink) are their own kind of issue; GPU heat is a cooling problem */
+  if (/Xid|NVLink|GPU (Fallen|Uncorrectable)/.test(t)) return 'GPU';
   if (a.linkId || a.ifName || a.source === 'Link' || a.source === 'Protocol' || /Link|Optical|Cross-connect|BGP|OSPF|Flap/i.test(t)) return 'Network';
   if (a.source === 'Cooling' || /Temperature|Thermal|Cooling|CRAH|CRAC|Chiller/i.test(t)) return 'Cooling';
   if (a.source === 'Power' || /UPS|PDU|PSU|Power|Breaker|Rectifier|Battery/i.test(t)) return 'Power';
@@ -366,7 +388,8 @@ export function incident(id: string) {
   const i = db.incidents.find(x => x.id === id); if (!i) return null;
   const al = i.alertIds.map(a => db.alerts.find(x => x.id === a)!).filter(Boolean);
   const neIds = i.affected.filter(a => a.kind === 'NE').map(a => a.id), linkIds = i.affected.filter(a => a.kind === 'Link').map(a => a.id);
-  const im = impactOf(db, { neIds: i.type === 'Network' && linkIds.length ? [] : neIds, linkIds, dcIds: i.type === 'Power' && i.sev === 1 ? [i.dcId] : [] });
+  const gpuInc = i.reportedBy.startsWith('DCGM');
+  const im = impactOf(db, { neIds: i.type === 'Network' && linkIds.length ? [] : gpuInc ? [] : neIds, linkIds, dcIds: i.type === 'Power' && i.sev === 1 ? [i.dcId] : [], pathIds: gpuInc ? neIds : [] });
   const recentChanges = db.changes.filter(c => c.dcId === i.dcId && c.windowEnd <= i.detected && c.windowEnd > i.detected - 3 * DAY);
   const changes = [...new Map([...i.changeIds.map(c => db.changes.find(x => x.id === c)!), ...recentChanges].filter(Boolean).map(c => [c.id, c])).values()];
   const codes = new Set(al.map(a => a.code));

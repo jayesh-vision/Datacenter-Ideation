@@ -87,7 +87,7 @@ h3 { margin: 0 0 8px; font-size: 15px; font-weight: 500; color: var(--ink-900); 
 
 /* act navigation */
 .section-h { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin: 34px 0 12px; flex-wrap: wrap; }
-.timeline { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 6px; margin-bottom: 18px; }
+.timeline { display: grid; grid-template-columns: repeat(11, minmax(0, 1fr)); gap: 6px; margin-bottom: 18px; }
 .timeline a { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink-700); text-decoration: none; font-size: 12px; min-width: 0; }
 .timeline a:hover { border-color: var(--brand); }
 .timeline a.is-cur { border-color: var(--brand); background: var(--brand-50); }
@@ -199,8 +199,8 @@ body.presenter .act-body { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr
       <p class="lead">It is Thursday, 13:20. A utility feed has tripped at the Delhi datacenter, a backhaul is flapping in Pune and a cooling unit is down in Nagpur. The CEO's office calls with one question: <b>"Are our customers OK, and what is this costing us?"</b></p>
       <p class="muted" style="margin:0 0 14px">Walk the customer through how the team answers that call, screen by screen. The story, the sites and the faults are the same for every persona. What changes is who the customer is, what they buy and what an outage costs. Pick the persona that matches your audience at the top.</p>
       <div class="grid3" style="margin-top:6px">
-        <div class="tile"><span class="t-l">Length</span><span class="t-v">20–25 minutes · 10 acts</span></div>
-        <div class="tile"><span class="t-l">The thread</span><span class="t-v">Estate → Building → Cause → Customer → Money → Action</span></div>
+        <div class="tile"><span class="t-l">Length</span><span class="t-v">25–30 minutes · 11 acts</span></div>
+        <div class="tile"><span class="t-l">The thread</span><span class="t-v">Estate → Building → Cause → Customer → Money → AI cluster → Action</span></div>
         <div class="tile"><span class="t-l">The promise</span><span class="t-v">From alarm to "who is hurt and what it costs" in one click</span></div>
       </div>
     </div>
@@ -239,7 +239,7 @@ body.presenter .act-body { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr
     </div>
   </section>
 
-  <div class="section-h"><div><div class="kicker">Demonstration script</div><h2 id="scriptTitle">Ten acts</h2></div><span class="muted small" id="scriptNote"></span></div>
+  <div class="section-h"><div><div class="kicker">Demonstration script</div><h2 id="scriptTitle">Eleven acts</h2></div><span class="muted small" id="scriptNote"></span></div>
   <nav class="timeline" id="timeline" aria-label="Acts"></nav>
   <div id="acts"></div>
 
@@ -283,16 +283,17 @@ const P = {
     am: 'Tenant success manager', amSub: 'Calls anchor tenants before they call you.',
     sell: 'cabinets, power circuits, cross-connects, remote hands',
     cc: { health: 94, band: 'Watch', sev1: 1, sev2: 2, open: 10, breaching: 2, dcs: 23, svcs: '553', cust: 24 },
-    rev: { base: '₹7.73 Cr', rate: '₹174/h', sofar: '₹21,234', stake: '₹81.57 L', within: '90.6%', next: '₹6,000 in 2 h 32 min' },
+    rev: { base: '₹8.04 Cr', rate: '₹174/h', sofar: '₹21,234', stake: '₹81.57 L', within: '90.9%', next: '₹6,000 in 2 h 32 min' },
     top: { id: 'PDU-A breaker trip', title: 'Cabinet PDU-A breaker trip in RACK-C', site: 'MH-DC-001 Pune', rate: '₹120/h', sofar: '₹17,176', f24: '₹63,696', hit: '2 degraded contracts · Logistics Partners', next: 'next credit step in 6 h 20 min', change: '', route: '/datacenters/MH-DC-001?tab=revenue' },
     stakeIssue: { title: 'UPS-2 on battery at DL-DC-009 New Delhi', amt: '₹51.44 L a month', rate: '₹7,047/h', credits: '₹12.47 L' },
     ups: { site: 'DL-DC-009 New Delhi', battery: '16 min', load: '71%', exposed: '39 contracts · 8 tenants', stake: '₹51.44 L a month', ifFail: '₹7,047/h' },
     tall: { id: 'KA-DC-020', floors: 6 },
     risk: { route: '/datacenters/MH-DC-001?tab=customers&cview=risk', who: 'Logistics Partners, Cloud Exchange, Gaming Studio, Payments Gateway, Smart City Mission', why: 'PDU-A breaker trip on RACK-C, a cross-connect losing signal at the meet-me room, a hot cabinet in RACK-F — and two tenants simply near their own cabinet limit', story: 'Five tenants, four different reasons. The tool separates "we broke it" (breaker trip, cross-connect, inlet temperature) from "they are outgrowing their space" — which is a sales conversation, not an incident.' },
     hero2: { id: 'INC-0002', route: '/incidents/INC-0002', title: 'the UPS on battery in Delhi', why: 'yesterday\'s feeder switchover (CHG-2005) left the generator controller in MANUAL, so it never started', fix: 'start the generator by hand, transfer load, then put the controller back to AUTO', money: 'nothing is lost yet, but ₹51.44 L a month of tenant contracts depends on the next 16 minutes' },
-    domains: 'Network faults (cross-connects) cost the most over 30 days: ₹4.40 L of ₹8.72 L.',
+    domains: 'Network faults (cross-connects) cost the most over 30 days: ₹4.44 L of ₹8.78 L.',
+    cages: { n: 12, kw: '536 kW', tenants: 4, cdu: 'CDU-1 in Chennai (TN-DC-022)', flow: '71%', supply: '31.8°C', inlet: '28.4°C', hot: 'RACK-E in Bengaluru (Hyperscale Cloud East) at 96% of its 60 kW contract', revenue: '₹48.24 L a month' },
     ask: ['Which issue is costing the most revenue?', 'What is INC-0002 costing us?', 'What changed before INC-0002?', 'Which issue costs the most in MH-DC-001?'],
-    value: [['16 min', 'of battery — seen before a single tenant noticed'], ['₹51.44 L/mo', 'of tenant contracts riding on one generator start'], ['4 reasons', 'separated: our faults vs. tenants outgrowing space'], ['1 click', 'from a breaker trip to the tenant who pays for it']]
+    value: [['16 min', 'of battery — seen before a single tenant noticed'], ['₹51.44 L/mo', 'of tenant contracts riding on one generator start'], ['96%', 'of a 60 kW AI cage contract drawn — one job from the breaker'], ['1 click', 'from a breaker trip to the tenant who pays for it']]
   },
   cloud: {
     label: 'Cloud DC', short: 'Cloud', tag: 'Compute and storage at scale — thousands of hosts; accounts run workloads.',
@@ -300,17 +301,18 @@ const P = {
     words: { customer: 'Account', customers: 'accounts', service: 'Workload', services: 'workloads', premium: 'Enterprise-tier', unit: 'vCPU allocated', money: 'Revenue impact', credits: 'Service credits', lost: 'Revenue lost' },
     am: 'Customer success manager', amSub: 'Owns enterprise-tier accounts and their credits.',
     sell: 'VMs, storage volumes, managed databases, GPU clusters, Kubernetes',
-    cc: { health: 88, band: 'Watch', sev1: 1, sev2: 6, open: 22, breaching: 10, dcs: 23, svcs: '2,329', cust: 24 },
-    rev: { base: '₹102.09 Cr', rate: '₹11,804/h', sofar: '₹17.12 L', stake: '₹14.20 Cr', within: '88.2%', next: '₹17,280 in 9 min' },
-    top: { id: 'INC-0017', title: 'UP-DC-005-GPU-019 unreachable', site: 'UP-DC-005 Gorakhpur', rate: '₹1,841/h', sofar: '₹1.35 L', f24: '₹7.17 L', hit: '1 GPU workload down', next: '₹2.02 L credit step in 3 h 18 min', change: '', route: '/incidents/INC-0017', under: true },
-    stakeIssue: { title: 'UPS-2 on battery at DL-DC-009 New Delhi', amt: '₹6.54 Cr a month', rate: '₹89,530/h', credits: '₹1.55 Cr' },
-    ups: { site: 'DL-DC-009 New Delhi', battery: '13 min', load: '71%', exposed: '163 workloads · 24 accounts', stake: '₹6.54 Cr a month', ifFail: '₹89,530/h' },
+    cc: { health: 89, band: 'Watch', sev1: 1, sev2: 8, open: 26, breaching: 11, dcs: 23, svcs: '1,830', cust: 24 },
+    rev: { base: '₹97.91 Cr', rate: '₹58,460/h', sofar: '₹58.70 L', stake: '₹12.75 Cr', within: '77.9%', next: '₹17,280 in 9 min' },
+    top: { id: 'INC-0062', title: 'CDU-1 flow low — GPU nodes in thermal slowdown', site: 'TN-DC-022 Chennai', rate: '₹10,356/h', sofar: '₹25.34 L', f24: '₹65.62 L', hit: 'a 144-GPU training job for Finance Group, 24% slower', next: '₹37.80 L credit step in 10 h 55 min', change: '', route: '/incidents/INC-0062', why: 'a cooling problem that looks like a GPU problem — the liquid loop lost flow, so the GPUs cut their own clocks' },
+    stakeIssue: { title: 'UPS-2 on battery at DL-DC-009 New Delhi', amt: '₹7.19 Cr a month', rate: '₹98,429/h', credits: '₹1.63 Cr' },
+    ups: { site: 'DL-DC-009 New Delhi', battery: '13 min', load: '71%', exposed: '130 workloads · 24 accounts', stake: '₹7.19 Cr a month', ifFail: '₹98,429/h' },
     tall: { id: 'TN-DC-022', floors: 6 },
     risk: { route: '/datacenters/MH-DC-001?tab=customers&cview=risk', who: 'PayNow Fintech, Media Corporation, Newspaper Group, TravelNest Bookings, University Consortium', why: 'one shelf midplane fault under two sleds, a host that lost power, a power-supply fault, a link down', story: 'The rack has ten servers; three are faulty. Only the accounts on those three are flagged — and the shelf fault shows once, even though two servers report it.' },
-    hero2: { id: 'INC-0002', route: '/incidents/INC-0002', title: 'the UPS on battery in Delhi', why: 'the generator controller was left in MANUAL after yesterday\'s feeder switchover (CHG-2005)', fix: 'start the generator by hand, transfer load, put the controller back to AUTO', money: '₹1,088/h is already being lost; ₹6.54 Cr a month of workloads is at stake if the battery runs out' },
-    domains: 'Network issues cost the most over 30 days (₹55.46 L), then cooling (₹36.60 L) — GPU thermal throttling is a revenue problem here.',
-    ask: ['Which issue is costing the most revenue?', 'What is INC-0017 costing us?', 'What is INC-0002 costing us?', 'Which issue costs the most in MH-DC-001?'],
-    value: [['₹11,804/h', 'being lost across 28 issues, ranked'], ['SEV3', 'incident ranked #3 by money — flagged for review'], ['3 of 10', 'servers faulty in a rack → only those accounts flagged'], ['₹6.54 Cr/mo', 'riding on one generator start']]
+    hero2: { id: 'INC-0002', route: '/incidents/INC-0002', title: 'the UPS on battery in Delhi', why: 'the generator controller was left in MANUAL after yesterday\'s feeder switchover (CHG-2005)', fix: 'start the generator by hand, transfer load, put the controller back to AUTO', money: '₹535/h is already being lost; ₹7.19 Cr a month of workloads is at stake if the battery runs out' },
+    domains: 'Cooling issues cost the most over 30 days (₹73.33 L of ₹2.23 Cr) — on a GPU estate, heat is a revenue problem. Then network (₹62.51 L) and GPU hardware (₹22.90 L).',
+    ask: ['Which GPU job is losing the most?', 'What is INC-0061 costing us?', 'What is INC-0002 costing us?', 'Which issue is costing the most revenue?'],
+    gpu: { gpus: '4,880', nodes: 610, alloc: '89%', lost: '₹49,188/h', job: 'insurance-diffusion-train', owner: 'Insurance Services', jobGpus: 128, site: 'KA-DC-020 Bengaluru', inc: 'INC-0061', stalledRate: '₹30,685/h', redo: '₹26,594', redoMin: 52, slowJob: 'a 144-GPU job for Finance Group', slowPct: '24%', idle: '16 GPUs held idle for 6 hours by an embedding service (₹3,836/h)', rate: '₹240 per GPU-hour' },
+    value: [['₹58,460/h', 'being lost across 27 issues, ranked'], ['1 GPU → 128', 'one failed GPU stopped a 128-GPU training run'], ['3 of 10', 'servers faulty in a rack → only those accounts flagged'], ['₹7.19 Cr/mo', 'riding on one generator start']]
   },
   enterprise: {
     label: 'Enterprise / Private DC', short: 'Enterprise', tag: 'Runs the firm\'s own applications — business units are the customers.',
@@ -318,19 +320,46 @@ const P = {
     words: { customer: 'Business unit', customers: 'business units', service: 'Application', services: 'applications', premium: 'Tier-1', unit: 'Users served', money: 'Business impact', credits: 'OLA rebates', lost: 'Cost of downtime' },
     am: 'Business relationship manager', amSub: 'Speaks for Retail Banking, Treasury, HR…',
     sell: 'core applications, databases, collaboration, analytics, backup & DR',
-    cc: { health: 88, band: 'Watch', sev1: 1, sev2: 4, open: 22, breaching: 10, dcs: 23, svcs: '394', cust: 14 },
-    rev: { base: '₹9.79 Cr', rate: '₹2,529/h', sofar: '₹1.44 L', stake: '₹1.34 Cr', within: '89.5%', next: '₹23,040 in 11 min' },
-    top: { id: 'INC-0014', title: 'KA-DC-020-GPU-013 unreachable', site: 'KA-DC-020 Bengaluru', rate: '₹631/h', sofar: '₹47,027', f24: '₹2.46 L', hit: '1 application down, 1 exposed · 2 Tier-1 business units', next: '₹69,120 rebate step in 2 h 19 min', change: '', route: '/incidents/INC-0014', under: true },
-    stakeIssue: { title: 'UPS-2 on battery at DL-DC-009 New Delhi', amt: '₹81.30 L a month', rate: '₹11,137/h', credits: '₹13.32 L' },
-    ups: { site: 'DL-DC-009 New Delhi', battery: '12 min', load: '71%', exposed: '29 applications · 14 business units', stake: '₹81.30 L a month', ifFail: '₹11,137/h' },
+    cc: { health: 89, band: 'Watch', sev1: 1, sev2: 6, open: 26, breaching: 11, dcs: 23, svcs: '442', cust: 14 },
+    rev: { base: '₹18.63 Cr', rate: '₹13,879/h', sofar: '₹9.05 L', stake: '₹2.52 Cr', within: '81.3%', next: '₹23,040 in 11 min' },
+    top: { id: 'IB flapping', title: 'InfiniBand link flapping on the AI fabric', site: 'UP-DC-005 Gorakhpur', rate: '₹2,055/h', sofar: '₹4.10 L', f24: '₹13.02 L', hit: '3 degraded applications · 3 business units', next: '₹46,080 rebate step in 61 min', change: '', route: '/datacenters/UP-DC-005?tab=revenue', untracked: true },
+    stakeIssue: { title: 'UPS-2 on battery at DL-DC-009 New Delhi', amt: '₹1.56 Cr a month', rate: '₹21,384/h', credits: '₹24.88 L' },
+    ups: { site: 'DL-DC-009 New Delhi', battery: '12 min', load: '71%', exposed: '32 applications · 14 business units', stake: '₹1.56 Cr a month', ifFail: '₹21,384/h' },
     tall: { id: 'HR-DC-011', floors: 6 },
-    risk: { route: '/datacenters/MH-DC-001?tab=customers&cview=risk', who: 'Digital Channels, Human Resources, Operations', why: 'a shelf midplane fault under two ESX hosts, a host that lost power, a power-supply fault — all in RACK-C', story: 'Three business units, one rack. The tool tells the HR director it is a host power loss, and Digital Channels that it is the shelf — different conversations, different fixes.' },
-    hero2: { id: 'INC-0002', route: '/incidents/INC-0002', title: 'the UPS on battery in Delhi', why: 'the generator controller stayed in MANUAL after yesterday\'s feeder switchover (CHG-2005)', fix: 'start the generator by hand, transfer load, put the controller back to AUTO', money: 'no application is down yet, but ₹81.30 L a month of business value runs on the next 12 minutes' },
-    domains: 'Network issues cost the most over 30 days: ₹4.59 L of ₹13.21 L, then power (₹3.94 L).',
-    ask: ['Which issue is costing the most revenue?', 'What is INC-0014 costing us?', 'What is INC-0002 costing us?', 'Which issue costs the most in MH-DC-001?'],
-    value: [['12 min', 'of battery under 29 business applications'], ['SEV3 → #1', 'the costliest issue was triaged as minor'], ['₹2,529/h', 'cost of downtime, in money the CFO understands'], ['3 BUs', 'told exactly which fault hits their application']]
+    risk: { route: '/datacenters/MH-DC-001?tab=customers&cview=risk', who: 'Digital Channels, Human Resources', why: 'a shelf midplane fault under two ESX hosts, and a host that lost power — both in RACK-C', story: 'Two business units, one rack, two different faults. The tool tells the HR director it is a host power loss, and Digital Channels that it is the shelf — different conversations, different fixes. The other servers in the rack are healthy, so nobody else is flagged.' },
+    hero2: { id: 'INC-0002', route: '/incidents/INC-0002', title: 'the UPS on battery in Delhi', why: 'the generator controller stayed in MANUAL after yesterday\'s feeder switchover (CHG-2005)', fix: 'start the generator by hand, transfer load, put the controller back to AUTO', money: 'no application is down yet, but ₹1.56 Cr a month of business value runs on the next 12 minutes' },
+    domains: 'Capacity issues cost the most over 30 days (₹13.20 L of ₹39.70 L), then network (₹10.62 L) and power (₹5.64 L).',
+    ask: ['Which GPU job is losing the most?', 'What is INC-0061 costing us?', 'What is INC-0002 costing us?', 'Which issue is costing the most revenue?'],
+    gpu: { gpus: '1,312', nodes: 164, alloc: '86%', lost: '₹10,213/h', job: 'it-demand-forecast-train', owner: 'IT & Security', jobGpus: 48, site: 'KA-DC-020 Bengaluru', inc: 'INC-0061', stalledRate: '₹5,589/h', redo: '₹4,844', redoMin: 52, slowJob: 'a 48-GPU credit-risk model for Cards & Payments', slowPct: '24%', idle: '16 GPUs held idle for 6 hours by the AML scoring service (₹1,863/h)', rate: '₹116 per GPU-hour (charge-back)' },
+    value: [['12 min', 'of battery under 32 business applications'], ['No incident', 'on the costliest issue — found by money, not by alarms'], ['₹13,879/h', 'cost of downtime, in money the CFO understands'], ['1 GPU → 48', 'one failed GPU stopped a 48-GPU model training run']]
   }
 };
+
+
+/* the AI cluster: GPU fleets in cloud and enterprise, tenant AI cages in colocation; a telco
+   audience is shown the same screens on the Cloud estate (telcos increasingly host GPU clouds) */
+const AI_ACT = { n: 9, min: 3, short: 'AI cluster', q: p => p.cages ? '"And the AI tenants?"' : '"What about the AI cluster?"',
+  route: p => (p.gpu || p.cages ? '/gpu' : { to: '/gpu', persona: 'cloud' }), btn: p => (p.gpu || p.cages ? 'AI & GPU' : 'AI & GPU on the Cloud estate'),
+  say: p => p.gpu ? [
+      `"GPUs are now the most expensive and most fragile thing in the building. And they fail differently: a training job is ${p.gpu.jobGpus} GPUs that must all work at once."`,
+      `"Here, one GPU — GPU3 on a node in ${p.gpu.site}, Xid 79, 'fell off the bus' — has stopped ${p.gpu.owner}'s <b>${p.gpu.jobGpus}-GPU training run</b>. Every other GPU in the job is waiting: <b>${p.gpu.stalledRate}</b> of GPU time, plus ${p.gpu.redoMin} minutes of training since the last checkpoint to redo (${p.gpu.redo})."`,
+      `"The heat map shows all ${p.gpu.gpus} GPUs at once. In Chennai the liquid-cooling loop has lost flow, and ${p.gpu.slowJob} runs ${p.gpu.slowPct} slower — a cooling fault that looks like a GPU fault. And ${p.gpu.idle}: waste, not a fault, so no alarm would ever tell you."`]
+    : p.cages ? [
+      `"Your AI tenants are your fastest-growing ${p.words.customers}. Their cages draw 40 to 60 kW each — a normal cabinet draws 6 to 8 — on direct-to-chip liquid cooling."`,
+      `"You don't see their GPUs; they're the tenant's. You run what keeps them alive: ${p.cages.n} cages, ${p.cages.kw} contracted, ${p.cages.revenue} of power revenue."`,
+      `"Right now ${p.cages.cdu} has lost a pump: flow is at ${p.cages.flow}, coolant supply ${p.cages.supply}, and three tenant cages are warming to ${p.cages.inlet}. And ${p.cages.hot} — one more job and the breaker trips."`]
+    : [`"Telco datacenters are increasingly hosting GPU clouds — sovereign AI, GPU-as-a-service. Let me switch the same tool to a GPU estate."`,
+      `"One failed GPU has stopped a 128-GPU training run: ₹30,685/h of GPU time waiting on one part. The heat map shows 4,880 GPUs; the jobs tab ranks them by GPU time lost."`,
+      `"Same tool, same screens — the estate just gains a GPU fleet."`],
+  steps: p => p.cages ? ['Read the info line: tenant GPUs, operator power and cooling.', 'Point at the CDU card in amber: flow, supply temperature, the pump note.', 'Sort the cage table by Power: the 96% cage on top.', 'Click a cage to open the tenant.']
+    : ['Read the tiles: GPUs, allocation, AI jobs, <b>GPU time lost</b>, heat & power, Xid errors.', 'Point at <b>Biggest blast radius</b>: the job grid, one red GPU, everything else grey and waiting. Click <b>Recovery plan</b>.', 'In <b>Clusters</b>, click the red-outlined node: per-GPU table, Xid 79, recommended action.', 'Open the <b>Cooling & power</b> tab: the CDU in red, GPU racks near their breakers.'],
+  see: p => p.gpu ? [['GPUs', p.gpu.gpus], ['Allocated to jobs', p.gpu.alloc], ['GPU time lost now', p.gpu.lost, 'bad'], ['One GPU stopped', `${p.gpu.jobGpus} GPUs`, 'bad']]
+    : p.cages ? [['AI cages', p.cages.n], ['Contracted', p.cages.kw], ['CDU flow', p.cages.flow, 'warn'], ['Hottest inlet', p.cages.inlet, 'bad']]
+    : [['GPUs (Cloud estate)', '4,880'], ['GPU time lost now', '₹49,188/h', 'bad'], ['One GPU stopped', '128 GPUs', 'bad'], ['Same tool', 'persona switch']],
+  aha: p => p.cages ? 'You can\'t see the tenant\'s GPUs — but you see the coolant and the contract, and call before they throttle.' : 'The tool counts the job, not the GPU: one failed part, the whole run waiting, priced per hour.',
+  qa: p => [['Where does GPU telemetry come from?', 'NVIDIA DCGM (or the vendor equivalent) on every node: utilisation, memory, temperature, power, clocks, throttle reasons, ECC, NVLink and Xid errors, plus the scheduler (Slurm or Kubernetes) for jobs and checkpoints, and the InfiniBand fabric manager.'],
+    ['How is GPU time priced?', p.gpu ? `At ${p.gpu.rate}. A stalled job loses all its GPUs; a slowed job the share of each step it loses; an idle allocation everything it holds.` : 'Per GPU-hour: list price for a cloud, charge-back for an enterprise.'],
+    ['Can it act on its own?', 'It recommends — cordon, restart from checkpoint on a spare node, drain at the next checkpoint, RMA — and disruptive steps go through approval on the incident.']] };
 
 /* the story — identical for every persona; {tokens} pull in the persona's words and numbers */
 const ACTS = [
@@ -397,16 +426,17 @@ const ACTS = [
     aha: p => `"${p.risk.why}" — the ${p.am.toLowerCase()} can make the call before the ${p.words.customer.toLowerCase()} does.`,
     qa: p => [['How do you know which services ride a device?', 'From the service path: hand-off port, links and devices. A fault only counts against services on its own path — healthy neighbours are not flagged.'], [`Can ${p.words.customers} see this?`, 'The same model can drive a customer portal or proactive notifications; premium tiers are flagged for proactive contact.']] },
 
-  { n: 8, min: 2, short: 'Fix first', q: '"What do we fix first?"', route: p => p.top.route, btn: p => p.top.id.startsWith('INC') ? p.top.id : 'Pune · Revenue tab',
+  { n: 8, min: 2, short: 'Fix first', q: '"What do we fix first?"', route: p => p.top.route, btn: p => p.top.id.startsWith('INC') ? p.top.id : `${p.top.site.split(' ')[0]} · Revenue tab`,
     say: p => [`"With limited engineers, fix order matters. The costliest issue is <b>${p.top.title}</b> at ${p.top.site}: ${p.top.hit}."`,
       `"It is losing ${p.top.rate}; ${p.top.sofar} so far; <b>${p.top.f24}</b> if it runs another day. ${p.top.next ? p.top.next[0].toUpperCase() + p.top.next.slice(1) + '.' : ''}"`,
-      p.top.under ? `"It was logged as SEV3 — routine. By money it is near the top. That is the conversation this tool starts: severity says how broken, ${p.words.money.toLowerCase()} says how much it matters."` : `"Restoring it now is worth more than anything else on the board."`],
-    steps: p => [p.top.route.includes('tab=revenue') ? 'Show the site Revenue tab: the issue table, revenue by rack, affected tenants.' : `Scroll to the ${p.words.money} panel on the incident.`, 'Hover the cost-of-delay curve: impact so far, then the dashed next 24 hours.', 'Point at "Next credit step" — the deadline that changes the bill.'],
+      p.top.untracked ? `"And look at the last column: <b>nobody has opened an incident for it</b>. It never raised a critical alarm — it just quietly degrades the AI fabric. Ranking by ${p.words.money.toLowerCase()} is how you find it."` : p.top.under ? `"It was logged as SEV3 — routine. By money it is near the top. That is the conversation this tool starts: severity says how broken, ${p.words.money.toLowerCase()} says how much it matters."` : p.top.why ? `"It is ${p.top.why}. Restoring the coolant flow is worth more than anything else on the board."` : `"Restoring it now is worth more than anything else on the board."`],
+    steps: p => [p.top.route.includes('tab=revenue') ? `Show the site Revenue tab: the issue table, where the money sits, affected ${p.words.customers}.` : `Scroll to the ${p.words.money} panel on the incident.`, 'Hover the cost-of-delay curve: impact so far, then the dashed next 24 hours.', 'Point at "Next credit step" — the deadline that changes the bill.'],
     see: p => [['Losing now', p.top.rate, 'bad'], ['So far', p.top.sofar], ['If it runs 24 h', p.top.f24, 'warn'], ['Next step', p.top.next || '—']],
     aha: p => 'Fix order by money and SLA deadline, not by who shouts loudest.',
     qa: p => [['Do you replace severity?', 'No — severity stays. The revenue rank sits next to it and flags mismatches for review.']] },
 
-  { n: 9, min: 2, short: 'Change', q: '"Don\'t break it again"', route: '/changes?id=CHG-2002', btn: 'Changes · CHG-2002',
+  AI_ACT,
+  { n: 10, min: 2, short: 'Change', q: '"Don\'t break it again"', route: '/changes?id=CHG-2002', btn: 'Changes · CHG-2002',
     say: p => [`"Today's story started with changes — CHG-2001 in Pune, CHG-2005 in Delhi. The next one is already waiting: a software upgrade on the Pune edge router pair, rated <b>High risk</b>."`,
       `"Before approving it, the team sees the impact preview: which devices, ${p.words.services} and ${p.words.customers} sit on its scope, and whether an open incident already touches them."`,
       `"${p.domains}"`],
@@ -415,7 +445,7 @@ const ACTS = [
     aha: p => 'The approver sees who would be hurt before saying yes.',
     qa: p => [['Does it integrate with our ITSM?', 'Changes and incidents map to ServiceNow / Jira-style records; the prototype keeps them in the tool.']] },
 
-  { n: 10, min: 2, short: 'Opstral AI', q: '"Ask it anything"', route: '/', btn: 'Command center',
+  { n: 11, min: 2, short: 'Opstral AI', q: '"Ask it anything"', route: '/', btn: 'Command center',
     say: p => [`"Finally, the shortcut. Anyone — the NOC lead or the CFO — can ask in plain words. Every answer is built from the same live data and links to the evidence."`,
       `"Try: <b>'${p.ask[0]}'</b>."`],
     steps: p => ['Click <span class="opstral">Ask Opstral AI</span> in the top bar of the tool.', 'Type or paste one of the questions below — use the copy buttons.', 'Click an evidence link in the answer to land on the screen.'],
@@ -433,7 +463,7 @@ const val = (x, p) => (typeof x === 'function' ? x(p) : x);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const ARROW = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg>';
 /* every tool link carries the persona, so the tool window switches to it */
-const link = route => { const u = new URL(route, env); u.searchParams.set('persona', persona); return u.toString(); };
+const link = route => { const r = typeof route === 'string' ? { to: route } : route; const u = new URL(r.to, env); u.searchParams.set('persona', r.persona ?? persona); return u.toString(); };
 
 function renderPersona() {
   const p = P[persona];
@@ -455,7 +485,7 @@ function renderPersona() {
   document.getElementById('castAm').textContent = p.am;
   document.getElementById('castAmSub').textContent = p.amSub;
   document.getElementById('prepWords').innerHTML = `<b>${esc(w.customers)}</b> buy <b>${esc(w.services)}</b>, the top tier is <b>${esc(w.premium)}</b>, money is <b>${esc(w.money)}</b>`;
-  document.getElementById('scriptTitle').textContent = `Ten acts · ${p.label}`;
+  document.getElementById('scriptTitle').textContent = `${ACTS.length} acts · ${p.label}`;
   document.getElementById('scriptNote').textContent = `About ${ACTS.reduce((a, x) => a + x.min, 0)} minutes · Open in tool switches the tool to ${p.short}`;
 
   document.getElementById('timeline').innerHTML = ACTS.map(a => `<a href="#act-${a.n}" data-n="${a.n}"><span class="n">${String(a.n).padStart(2, '0')}</span><span class="q">${esc(val(a.short, p))}</span></a>`).join('');
@@ -490,7 +520,7 @@ function renderPersona() {
   const rows = [
     ['Who the customer is', x => x.words.customer], ['What they buy', x => x.sell], ['Money view', x => `${x.words.money} · ${x.words.credits}`],
     ['Losing now', x => x.rev.rate], ['At stake', x => x.rev.stake], ['Costliest issue', x => `${x.top.title} (${x.top.site})`],
-    ['UPS on battery hits', x => x.ups.exposed], ['Building in 3D', x => `${x.tall.id} · ${x.tall.floors} floors`], ['Why at risk at Pune', x => x.risk.why]
+    ['UPS on battery hits', x => x.ups.exposed], ['AI & GPU', x => x.gpu ? `${x.gpu.gpus} GPUs · one failed GPU stops ${x.gpu.jobGpus}` : x.cages ? `${x.cages.n} tenant AI cages · ${x.cages.kw}` : 'No GPU fleet — demo on the Cloud estate'], ['Building in 3D', x => `${x.tall.id} · ${x.tall.floors} floors`], ['Why at risk at Pune', x => x.risk.why]
   ];
   document.getElementById('cmp').innerHTML = `<thead><tr><th></th>${Object.entries(P).map(([k, x]) => `<th>${esc(x.label)}</th>`).join('')}</tr></thead><tbody>${rows.map(([l, f]) => `<tr><td>${esc(l)}</td>${Object.entries(P).map(([k, x]) => `<td class="${k === persona ? 'on' : ''}">${esc(f(x))}</td>`).join('')}</tr>`).join('')}</tbody>`;
   watchActs();

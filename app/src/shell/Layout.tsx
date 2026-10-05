@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { OpstralBtn } from '../ui/OpstralMark';
-import { clockNow, getAlerts, getCommandCenter, resetDemo, useQuery, CURRENT_USER, PERSONAS, setPersona, usePersona } from '../api';
+import { clockNow, getAlerts, getCommandCenter, hasGpuNow, resetDemo, useQuery, CURRENT_USER, PERSONAS, setPersona, usePersona } from '../api';
 import type { Persona } from '../api/types';
 import { fmtAgo, fmtDow, fmtShortDate, fmtTime } from '../lib/format';
 import { Drawer } from '../ui/kit';
@@ -10,13 +10,15 @@ import { SevDot } from '../ui/status';
 import { PageCtx, type PageMeta } from './page';
 import { Palette } from './Palette';
 import { Sentinel } from './Sentinel';
+import { shellVisible } from './embed';
 
 type Badge = 'incidents' | 'alerts' | 'changes';
 const NAV: { group: string; items: { to: string; label: string; icon: I.LucideIcon; badge?: Badge; match?: RegExp }[] }[] = [
   { group: 'Overview', items: [{ to: '/', label: 'Command center', icon: I.LayoutDashboard }, { to: '/revenue', label: 'Revenue impact', icon: I.IndianRupee }] },
   { group: 'Infrastructure', items: [
     { to: '/datacenters', label: 'Datacenters', icon: I.Building2, match: /^\/(datacenters|ne\/)/ },
-    { to: '/facilities', label: 'Facilities', icon: I.Zap }
+    { to: '/facilities', label: 'Facilities', icon: I.Zap },
+    { to: '/gpu', label: 'AI & GPU', icon: I.Cpu }
   ] },
   { group: 'Operate', items: [
     { to: '/alerts', label: 'Alerts', icon: I.BellRing, badge: 'alerts' },
@@ -83,9 +85,13 @@ export function Layout() {
   const loc = useLocation();
   const nav = useNavigate();
   const [meta, setMeta] = useState<PageMeta>({ crumbs: [], ctx: {} });
+  /* ?shell=false (iframe embedding) hides the menu and the header — see shell/embed.ts */
+  const shell = shellVisible();
   const { vocab } = usePersona();
   /* the money page is "Revenue impact" for an operator and "Business impact" for an enterprise IT estate */
   const navLabel = (it: { to: string; label: string }) => (it.to === '/revenue' ? vocab.money.impact : it.label);
+  /* AI & GPU appears only when the estate runs GPUs or hosts AI cages (not the telco model) */
+  const showItem = (it: { to: string }) => it.to !== '/gpu' || hasGpuNow();
   const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem('dco.rail') === '1'; } catch { return false; } });
   const [palette, setPalette] = useState(false);
   const [bell, setBell] = useState(false);
@@ -112,8 +118,8 @@ export function Layout() {
 
   return (
     <PageCtx.Provider value={ctxValue}>
-      <div className={`shell${collapsed ? ' is-collapsed' : ''}`}>
-        <aside className="rail">
+      <div className={`shell${collapsed ? ' is-collapsed' : ''}${shell ? '' : ' is-embed'}`}>
+        {shell && <aside className="rail">
           <Link to="/" className="rail-brand">
             <span className="rail-logo"><I.Server size={18} /></span>
             <span className="rail-brand-text"><b>Data Center Ops</b><span>NetSingularity · DCO</span></span>
@@ -122,7 +128,7 @@ export function Layout() {
             {NAV.map(g => (
               <div className="rail-group" key={g.group}>
                 <div className="rail-group-label">{g.group}</div>
-                {g.items.map(it => {
+                {g.items.filter(showItem).map(it => {
                   const b = it.badge ? badge[it.badge] : null;
                   const active = it.match ? it.match.test(loc.pathname) : it.to === '/' ? loc.pathname === '/' : loc.pathname.startsWith(it.to);
                   return (
@@ -141,10 +147,10 @@ export function Layout() {
               {collapsed ? <I.PanelLeftOpen size={18} /> : <I.PanelLeftClose size={18} />}<span>Collapse</span>
             </button>
           </div>
-        </aside>
+        </aside>}
 
         <div className="main">
-          <header className="topbar">
+          {shell && <header className="topbar">
             <nav className="topbar-crumbs" aria-label="Breadcrumb">
               {meta.crumbs.map((c, i) => (
                 <span key={i} className="row" style={{ gap: 6 }}>
@@ -160,7 +166,7 @@ export function Layout() {
             <span className="topbar-clock" title="Mock operations clock — data is a deterministic snapshot"><span className="live-dot" />{fmtDow(now)} {fmtShortDate(now)} · {fmtTime(now)}</span>
             <button type="button" className="nst-icon-btn topbar-icon" title="Critical & major alarms" onClick={() => setBell(true)}><I.Bell size={17} />{crit.length > 0 && <span className="count">{crit.length > 9 ? '9+' : crit.length}</span>}</button>
             <span className="avatar-me" title={`${CURRENT_USER} · Global operations`}>JV</span>
-          </header>
+          </header>}
           <Outlet />
         </div>
 

@@ -126,7 +126,7 @@ export function CustomerDetail() {
         <StatTile label={W.noun} value={inr(c.revenueMonthly)} sub="a month">
           <Split other={inr} parts={byType.map(([k, n]) => ({ key: k, label: k, n, tone: 'info' as Tone, display: inr(n) }))} />
         </StatTile>
-        <StatTile label={W.impact} value={losing ? perHr(rv!.rate) : exposed ? inr(rv!.mrrExposed) : '₹0'} sub={losing ? 'being lost' : exposed ? 'at stake' : 'no impact'} subTone={losing ? 'bad' : exposed ? 'warn' : undefined}>
+        <StatTile label={W.impact} value={losing ? perHr(rv!.rate) : exposed ? inr(rv!.mrrExposed) : '₹0'} sub={losing ? 'now' : exposed ? 'at stake' : 'no impact'} subTone={losing ? 'bad' : exposed ? 'warn' : undefined}>
           <Split parts={[{ key: 'lost', label: W.lost, n: rv?.lost ?? 0, tone: 'error', display: inr(rv?.lost ?? 0) }, { key: 'cr', label: W.credits, n: rv?.credits ?? 0, tone: 'orange', display: inr(rv?.credits ?? 0) }]} />
           <Facts items={[rv && rv.nextCliffMin !== null ? { n: fmtDur(rv.nextCliffMin), label: 'to the next credit', tone: rv.nextCliffMin <= 60 ? 'bad' : 'warn' } : { n: inr(rv ? impactOf(rv) : 0), label: 'so far' }]} />
         </StatTile>

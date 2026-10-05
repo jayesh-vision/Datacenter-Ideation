@@ -194,7 +194,7 @@ function RevenueBand({ d }: { d: CC }) {
       <span className="rev-band-item"><span className="vw-label">Impact so far</span><b className="num">{fmtINR(r.total.lost + r.total.credits)}</b></span>
       <span className="rev-band-item"><span className="vw-label">At stake</span><b className="num">{fmtINR(r.total.mrrExposed)}/mo</b></span>
       <span className="rev-band-item"><span className="vw-label">Next credit step</span><b className="num">{cliff ? `${fmtINR(cliff.amount)} in ${fmtDur(cliff.inMin)}` : 'none pending'}</b></span>
-      <span className="rev-band-item rev-band-top" title={r.top?.title ?? r.stake?.title}><span className="vw-label">{r.top ? 'Costing the most' : r.stake ? 'Most at stake' : 'Open issues'}</span><b>{r.top ? `${r.top.incident ? `${r.top.id} · ` : ''}${r.top.dcId}` : r.stake ? `${r.stake.incident ? `${r.stake.id} · ` : ''}${r.stake.dcId}` : 'none'}</b></span>
+      <span className="rev-band-item rev-band-top" title={r.top?.title ?? r.stake?.title}><span className="vw-label">{r.top ? 'Costing the most' : r.stake ? 'Most at stake' : 'Open issues'}</span><b>{r.top ? (r.top.incident ? r.top.id : r.top.dcId) : r.stake ? (r.stake.incident ? r.stake.id : r.stake.dcId) : 'none'}</b></span>
       <span className="rev-band-go">Open<I.ArrowRight size={14} /></span>
     </Link>
   );

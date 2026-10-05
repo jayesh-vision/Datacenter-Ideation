@@ -2,7 +2,7 @@
    answered from the live mock estate, so every statement carries evidence the
    operator can open. A real LLM/RAG service would return the same shape. */
 
-import { raw, isOpen, impactOf, linksOf, summarize, slaState, changes as listChanges, revenue, getPersona } from './server';
+import { raw, isOpen, impactOf, linksOf, summarize, slaState, changes as listChanges, revenue, getPersona, gpu } from './server';
 import { PERSONA_BY_ID } from './personas';
 import { fmtINR, fmtDur } from '../lib/format';
 import { HOUR, DAY } from './seed';
@@ -21,6 +21,7 @@ export function suggestions(ctx: Ctx): string[] {
   if (ctx.linkId) s.push(`What services depend on ${ctx.linkId}?`, `When will ${ctx.linkId} cross 85%?`);
   if (dc) s.push(`What is at risk in ${dc.city}?`, `Summarise ${dc.id}`);
   if (ctx.incidentId) s.push(`What is ${ctx.incidentId} costing us?`);
+  if (db.gpu && (db.gpu.nodes.size || db.gpu.cages.length)) s.push(db.gpu.nodes.size ? 'Which GPU job is losing the most?' : 'Which AI cages are at risk?');
   s.push(dc ? `Which issue costs the most in ${dc.id}?` : 'Which issue is costing the most revenue?');
   s.push('What is at risk in Pune?', 'Which links will exhaust first?', 'What changed in the last 24 hours?');
   return [...new Set(s)].slice(0, 5);
@@ -34,6 +35,32 @@ export function ask(q: string, ctx: Ctx): Answer {
   const lnk = q.match(/LNK-\d{5}/i)?.[0]?.toUpperCase() ?? ctx.linkId;
   const dcByText = db.datacenters.filter(d => t.includes(d.id.toLowerCase()) || t.includes(d.city.toLowerCase()) || t.includes(d.state.toLowerCase()));
 
+  /* AI & GPU: which job is losing GPU time, fleet health, AI cages */
+  if (/\bgpu|\bjob\b|\bjobs\b|\bcage|xid|nvlink|cdu|infiniband|\bai\b/.test(t) && !incId) {
+    const scopeDc = dcByText[0]?.id ?? ctx.dcId;
+    const v = gpu(scopeDc ? { dcId: scopeDc } : {});
+    if (v.kind === 'cages') {
+      const warn = v.cages.filter(c => c.state !== 'ok'), bad = v.cdus.filter(c => c.state !== 'ok');
+      return { title: scopeDc ? `AI cages in ${scopeDc}` : 'Tenant AI cages', confidence: 90,
+        lines: [`${v.cageTotals.cages} AI cages for ${v.cageTotals.tenants} tenants: ${v.cageTotals.contractedKw} kW contracted, ${v.cageTotals.drawKw} kW drawn now.`,
+          ...bad.map(c => `${c.dcId} ${c.name}: flow ${Math.round((c.flowLpm / c.flowNominal) * 100)}% of design, supply ${c.supplyC}°C — ${c.note ?? 'reduced flow'}. Cages on it: ${v.cages.filter(x => x.cduId === c.id).map(x => `${x.name} (${x.tenant})`).join(', ')}.`),
+          ...warn.filter(c => c.pct >= 90).map(c => `${c.dcId} ${c.name} (${c.tenant}) is drawing ${c.pct}% of its ${c.contractedKw} kW contract — one more job and the breaker trips.`),
+          'The GPUs are tenant-owned: you watch power, coolant and inlet, and call the tenant before their GPUs throttle.'],
+        evidence: [...bad.map(c => ({ label: `${c.dcId} ${c.name}`, to: `/facilities?dc=${c.dcId}&tab=cooling` })), ...warn.slice(0, 3).map(c => ({ label: `${c.dcId} ${c.name}`, to: `/customers/${c.tenantId}` }))], actions: [{ label: 'Open AI & GPU', to: scopeDc ? `/datacenters/${scopeDc}?tab=gpu` : '/gpu' }], followups: ['Which issue is costing the most revenue?'] };
+    }
+    if (v.kind === 'fleet') {
+      const f = v.fleet, top = v.jobs.filter(j => j.wasteRate > 0 || j.atStake > 0).slice(0, 4);
+      return { title: scopeDc ? `GPU fleet in ${scopeDc}` : 'Where GPU time is being lost', confidence: 89,
+        lines: [`${f.gpus.toLocaleString('en-IN')} GPUs on ${f.nodes} nodes: ${f.allocatedPct}% allocated to jobs, ${f.utilInJobs}% busy on average. ${f.gpuHealth.failed} failed and ${f.gpuHealth.degraded} degraded GPUs.`,
+          `GPU time being lost right now: ${fmtINR(v.waste.rate)}/h (${fmtINR(v.waste.soFar)} so far, including work to redo).`,
+          ...top.map(j => `${j.name} (${j.gpus} GPUs, ${j.owner}, ${j.dcId}) — ${j.state}${j.wasteRate ? `, losing ${fmtINR(j.wasteRate)}/h` : `, ${fmtINR(j.atStake)} at stake`}: ${j.cause}${j.incidentId ? ` (${j.incidentId})` : ' — no incident open'}.`),
+          ...(f.throttle.hw ? [`${f.throttle.hw} GPUs are in hardware slowdown because a liquid-cooling loop lost flow; fix the cooling, not the GPUs.`] : []),
+          ...(f.driftNodes ? [`${f.driftNodes} nodes still run an older driver than ${f.driverStd}; a rollout change is pending approval.`] : [])],
+        evidence: top.map(j => ({ label: j.incidentId ?? j.name, to: j.incidentId ? `/incidents/${j.incidentId}` : `/gpu?gtab=jobs&q=${j.name}` })), actions: [{ label: 'Open AI & GPU', to: scopeDc ? `/datacenters/${scopeDc}?tab=gpu` : '/gpu' }],
+        followups: top[0]?.incidentId ? [`What is ${top[0].incidentId} costing us?`, `What changed before ${top[0].incidentId}?`] : ['Which issue is costing the most revenue?'] };
+    }
+    if (/\bgpu/.test(t)) return { title: scopeDc ? `No GPU infrastructure at ${scopeDc}` : 'No GPU fleet in this estate', confidence: 95, lines: [scopeDc ? `${scopeDc} runs no GPU nodes or AI cages.` : 'This estate is modelled as a telco datacenter estate: routers, switches and DWDM, no GPU servers. Switch the persona to Cloud or Enterprise for a GPU fleet, or Colocation for tenant AI cages.'], evidence: [], actions: [], followups: ['Which issue is costing the most revenue?'] };
+  }
   /* revenue impact: what an issue costs, which issue costs the most, what is at stake */
   if (/revenue|cost|costing|money|credit|penalt|losing|loss|rupee|₹|business value|business impact/.test(t)) {
     const W0 = PERSONA_BY_ID[getPersona()].vocab.money;
@@ -48,7 +75,7 @@ export function ask(q: string, ctx: Ctx): Answer {
     if (one) {
       const lines = one.rate + one.lost + one.credits > 0
         ? [`${one.title} is costing ${rate(one.rate)}: ${fmtINR(one.lost)} of ${W.lostL} and ${fmtINR(one.credits)} of ${W.creditsL} so far.`,
-          `${one.down} down and ${one.degraded} degraded ${svcL} across ${one.customers} ${custL} (${one.premium} ${PV.premium.toLowerCase()}).`,
+          `${one.down} down and ${one.degraded} degraded ${svcL} across ${one.customers} ${one.customers === 1 ? PV.customer.toLowerCase() : custL} (${one.premium} ${PV.premium.toLowerCase()}).`,
           one.nextCliff ? `Next credit step: ${fmtINR(one.nextCliff.amount)} in ${fmtDur(one.nextCliff.inMin)}.` : 'No further credit step is pending.',
           `Left unresolved for another 24 h it reaches ${fmtINR(one.forecast24)} — restoring now avoids ${fmtINR(Math.max(0, one.forecast24 - one.lost - one.credits))}.`]
         : [`Nothing is lost yet. ${one.exposed} ${svcL} worth ${fmtINR(one.mrrExposed)} a month are still running on this fault.`, `If it takes them down it costs ${rate(one.potentialRate)}, plus ${fmtINR(one.potentialCredits)} of ${W.creditsL} after a ${r.method.outageHours} h outage.`];

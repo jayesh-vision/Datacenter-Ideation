@@ -26,7 +26,7 @@ export const impactOf = (i: { lost: number; credits: number }) => i.lost + i.cre
 
 /* calm palette: one blue-grey ramp for the kinds of issue; red and amber stay reserved for loss */
 export const DOMAIN: Record<RevDomain, { icon: I.LucideIcon; color: string }> = {
-  Power: { icon: I.Zap, color: 'var(--primaryColor500)' }, Cooling: { icon: I.Snowflake, color: 'var(--vw-color-blue-300)' }, Network: { icon: I.Network, color: 'var(--vw-color-slate-600)' },
+  Power: { icon: I.Zap, color: 'var(--primaryColor500)' }, Cooling: { icon: I.Snowflake, color: 'var(--vw-color-blue-300)' }, Network: { icon: I.Network, color: 'var(--vw-color-slate-600)' }, GPU: { icon: I.Cpu, color: 'var(--primaryColor700)' },
   Device: { icon: I.Server, color: 'var(--vw-color-slate-400)' }, Capacity: { icon: I.Gauge, color: 'var(--vw-color-slate-300)' }
 };
 export const LOSS = 'var(--vw-color-red-400)', CREDIT = 'var(--vw-color-amber-400)', STAKE = 'var(--vw-color-slate-400)';

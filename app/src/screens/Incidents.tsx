@@ -14,7 +14,7 @@ import '../styles/revenue.css';
 
 type Row = Incident & { sla: { breaching: boolean; resolveLeft: number; responseBreached: boolean; responseMin: number }; revenue: { rank: number; rate: number; impact: number; atRisk: number; exposed: number; potentialRate: number; cliffMin: number | null; underPrioritised: boolean } | null };
 type View = 'open' | 'sev1' | 'breaching' | 'all';
-export const TYPE_ICON: Record<Incident['type'], I.LucideIcon> = { Network: I.Network, Power: I.Zap, Cooling: I.Snowflake, Rack: I.Server, Capacity: I.Gauge, Security: I.ShieldAlert };
+export const TYPE_ICON: Record<Incident['type'], I.LucideIcon> = { Network: I.Network, Power: I.Zap, Cooling: I.Snowflake, Rack: I.Server, Capacity: I.Gauge, Security: I.ShieldAlert, GPU: I.Cpu };
 const isOpen = (i: Incident) => i.status === 'Open' || i.status === 'Investigating' || i.status === 'Mitigated';
 
 /* Incident list (DC-OPS-001/002): KPI roll-up, views and SLA clocks. */
@@ -79,13 +79,13 @@ export function Incidents() {
 }
 
 /* analytics strip: how much is open, how it stands against SLA, what kind, how fast we close, who is hit */
-const TYPE_TONE: Record<string, Tone> = { Network: 'info', Power: 'purple', Cooling: 'cyan', Rack: 'orange', Capacity: 'warning', Security: 'neutral' };
+const TYPE_TONE: Record<string, Tone> = { Network: 'info', Power: 'purple', Cooling: 'cyan', Rack: 'orange', Capacity: 'warning', Security: 'neutral', GPU: 'info' };
 function IncidentAnalytics({ open, res30, mttr, met, slaPct, view, onView }: { open: Row[]; res30: Row[]; mttr: number; met: number; slaPct: number; view: string; onView: (v: string) => void }) {
   const V = vocabNow();
   const breached = open.filter(i => i.sla.breaching);
   const atRisk = open.filter(i => !i.sla.breaching && i.sla.resolveLeft < i.resolveSlaMin * 0.25);
   const unack = open.filter(i => !i.acknowledged).length;
-  const types = ['Network', 'Power', 'Cooling', 'Rack', 'Capacity', 'Security'];
+  const types = ['Network', 'GPU', 'Power', 'Cooling', 'Rack', 'Capacity', 'Security'];
   const svc = open.reduce((a, i) => a + i.impact.services, 0), cust = open.reduce((a, i) => a + i.impact.customers, 0), prem = open.reduce((a, i) => a + i.impact.premium, 0);
   return (
     <StatGrid>

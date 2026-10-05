@@ -37,7 +37,8 @@ const NETWORK: PersonaDef = {
   incidentTitles: {
     Network: ['Interface flapping on backhaul', 'BGP session reset storm', 'OSPF adjacency loss on AGG pair', 'Optical degradation on uplink', 'Access router unreachable'],
     Power: ['Rectifier module alarm', 'UPS on bypass', 'PDU breaker trip'], Cooling: ['CRAH filter blocked — high return temperature', 'Chiller pump fault'], Capacity: ['Backhaul exhaustion warning', 'Port fill above 90% on leaf'],
-    Rack: ['Rack over power budget'], Security: ['RADIUS authentication failures spike']
+    Rack: ['Rack over power budget'], Security: ['RADIUS authentication failures spike'],
+    GPU: ['GPU fell off the bus — training job stalled', 'NVLink errors slowing a training job', 'Uncorrectable ECC — GPU reset needed']
   }
 };
 
@@ -83,7 +84,8 @@ const COLOCATION: PersonaDef = {
   incidentTitles: {
     Network: ['Cross-connect loss of signal in MMR', 'MMR switch uplink flapping', 'Carrier backhaul optical degradation', 'Tenant VLAN hand-off down'],
     Power: ['Tenant cabinet PDU breaker trip', 'UPS on bypass', 'Rectifier module alarm', 'Tenant draw over contracted kW'], Cooling: ['CRAH filter blocked — hot aisle above 27°C', 'Chiller pump fault'],
-    Capacity: ['Hall A contracted power near sold-out', 'Cross-connect panel ports exhausted'], Rack: ['Tenant cabinet over contracted power'], Security: ['Cage access alarm — badge mismatch']
+    Capacity: ['Hall A contracted power near sold-out', 'Cross-connect panel ports exhausted'], Rack: ['Tenant cabinet over contracted power'], Security: ['Cage access alarm — badge mismatch'],
+    GPU: ['GPU fell off the bus — training job stalled', 'NVLink errors slowing a training job', 'Uncorrectable ECC — GPU reset needed']
   }
 };
 
@@ -130,7 +132,8 @@ const CLOUD: PersonaDef = {
   incidentTitles: {
     Network: ['ToR uplink flapping', 'Spine switch reload', 'Host NIC errors on leaf pair', 'Border router BGP reset'],
     Power: ['PDU breaker trip on compute row', 'UPS on bypass', 'Rectifier module alarm'], Cooling: ['GPU hall above 27°C — CRAH filter blocked', 'Chiller pump fault', 'CDU flow alarm on GPU row'],
-    Capacity: ['vCPU pool above 90% in hall', 'GPU cluster capacity exhausted', 'Storage pool above 85%'], Rack: ['GPU rack over power budget'], Security: ['Hypervisor management login failures spike']
+    Capacity: ['vCPU pool above 90% in hall', 'GPU cluster capacity exhausted', 'Storage pool above 85%'], Rack: ['GPU rack over power budget'], Security: ['Hypervisor management login failures spike'],
+    GPU: ['GPU fell off the bus — training job stalled', 'NVLink errors slowing a training job', 'Uncorrectable ECC — GPU reset needed']
   }
 };
 
@@ -167,7 +170,8 @@ const ENTERPRISE: PersonaDef = {
   incidentTitles: {
     Network: ['Core switch pair failover', 'Hypervisor host unreachable', 'SAN fabric path loss', 'Firewall HA split-brain'],
     Power: ['PDU breaker trip on server row', 'UPS on bypass', 'Rectifier module alarm'], Cooling: ['CRAH filter blocked — high return temperature', 'Chiller pump fault'],
-    Capacity: ['Storage pool above 85%', 'Hypervisor cluster memory above 90%', 'Backup window overrun'], Rack: ['Rack over power budget'], Security: ['Privileged login failures spike']
+    Capacity: ['Storage pool above 85%', 'Hypervisor cluster memory above 90%', 'Backup window overrun'], Rack: ['Rack over power budget'], Security: ['Privileged login failures spike'],
+    GPU: ['GPU fell off the bus — training job stalled', 'NVLink errors slowing a training job', 'Uncorrectable ECC — GPU reset needed']
   }
 };
 

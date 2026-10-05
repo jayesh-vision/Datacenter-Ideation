@@ -425,3 +425,7 @@ select.input { appearance: none; padding-right: 32px; background-image: url("dat
   .topbar-search { width: 200px; }
 }
 .who-text b .vw-chip { display: inline-flex; margin-left: 6px; vertical-align: 1px; }
+
+/* iframe embedding (?shell=false): no menu, no header — the screen fills the frame; sticky list headers and
+   full-screen map / 3D views use the variables, so they pin to the top-left of the frame */
+.shell.is-embed { --rail-w: 0px; --top-h: 0px; grid-template-columns: minmax(0, 1fr); background: var(--page); }
