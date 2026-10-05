@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DCO Demo Playbook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f7f9; --surface: #ffffff; --line: #e5e7eb; --line-soft: #f1f3f6;
+  --ink-900: #111827; --ink-700: #374151; --ink-600: #4b5563; --ink-500: #6b7280; --ink-400: #9ca3af;
+  --brand: #1c81ef; --brand-50: #eaf3fe; --brand-700: #1565c0;
+  --bad: #b21313; --bad-50: #fdecec; --warn: #926e00; --warn-50: #fff7e0; --good: #047857; --good-50: #e8f7f1;
+  --opstral: #262626; --opstral-lime: #acd719;
+  --shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 4px 16px rgba(15, 23, 42, .04);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1115; --surface: #171a21; --line: #2a2f3a; --line-soft: #20242d;
+    --ink-900: #f3f4f6; --ink-700: #d1d5db; --ink-600: #b6bcc6; --ink-500: #9aa1ad; --ink-400: #6b7280;
+    --brand: #4c9cf5; --brand-50: #16263b; --brand-700: #8cc0fa;
+    --bad: #f28b8b; --bad-50: #3a1717; --warn: #e8c35a; --warn-50: #352a0c; --good: #5fd3a5; --good-50: #10291f;
+    --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1115; --surface: #171a21; --line: #2a2f3a; --line-soft: #20242d;
+  --ink-900: #f3f4f6; --ink-700: #d1d5db; --ink-600: #b6bcc6; --ink-500: #9aa1ad; --ink-400: #6b7280;
+  --brand: #4c9cf5; --brand-50: #16263b; --brand-700: #8cc0fa;
+  --bad: #f28b8b; --bad-50: #3a1717; --warn: #e8c35a; --warn-50: #352a0c; --good: #5fd3a5; --good-50: #10291f;
+  --shadow: none;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--ink-700); font-family: Poppins, system-ui, sans-serif; font-size: 14.5px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+a { color: var(--brand); }
+b, strong { font-weight: 500; color: var(--ink-900); }
+.num { font-family: Inter, system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+
+/* top bar */
+.top { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+.top-in { max-width: 1180px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; margin-right: auto; min-width: 0; }
+.brand-ic { width: 32px; height: 32px; border-radius: 9px; background: var(--brand); color: #fff; display: grid; place-items: center; font-weight: 600; font-size: 13px; flex-shrink: 0; }
+.brand b { display: block; font-size: 14px; line-height: 1.2; }
+.brand span { font-size: 12px; color: var(--ink-500); }
+.seg { display: inline-flex; padding: 3px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); gap: 2px; flex-wrap: wrap; }
+.seg button { border: 0; background: transparent; padding: 6px 12px; border-radius: 7px; font: inherit; font-size: 13px; color: var(--ink-600); cursor: pointer; white-space: nowrap; }
+.seg button:hover { color: var(--ink-900); }
+.seg button[aria-pressed="true"] { background: var(--ink-900); color: var(--surface); }
+.tool { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); font: inherit; font-size: 13px; color: var(--ink-700); cursor: pointer; }
+.tool:hover { border-color: var(--ink-400); }
+.tool.is-on { border-color: var(--brand); color: var(--brand); }
+select.tool { padding-right: 8px; }
+
+.wrap { max-width: 1180px; margin: 0 auto; padding: 24px 16px 80px; }
+.hero { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 20px; align-items: stretch; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 20px 22px; min-width: 0; }
+h1 { margin: 0 0 6px; font-size: 28px; font-weight: 500; color: var(--ink-900); letter-spacing: -.01em; line-height: 1.25; }
+h2 { margin: 0; font-size: 20px; font-weight: 500; color: var(--ink-900); letter-spacing: -.005em; }
+h3 { margin: 0 0 8px; font-size: 15px; font-weight: 500; color: var(--ink-900); }
+.lead { font-size: 15.5px; color: var(--ink-600); margin: 0 0 14px; }
+.kicker { font-size: 12px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--brand); margin-bottom: 6px; }
+.muted { color: var(--ink-500); }
+.small { font-size: 12.5px; }
+
+.persona-card { display: flex; flex-direction: column; gap: 10px; }
+.persona-card .pc-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pc-name { font-size: 18px; font-weight: 500; color: var(--ink-900); }
+.pc-tag { font-size: 13px; color: var(--ink-500); }
+.words { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 14px; margin: 4px 0 0; }
+.words div { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; min-width: 0; }
+.words dt { color: var(--ink-500); white-space: nowrap; }
+.words dd { margin: 0; color: var(--ink-900); font-weight: 500; text-align: right; min-width: 0; overflow-wrap: anywhere; }
+
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 20px; }
+.tile { display: flex; flex-direction: column; gap: 4px; }
+.tile .t-l { font-size: 12.5px; color: var(--ink-500); }
+.tile .t-v { font-size: 15px; font-weight: 500; color: var(--ink-900); }
+.cast { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.cast li { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; }
+.cast .av { width: 28px; height: 28px; border-radius: 50%; background: var(--brand-50); color: var(--brand-700); display: grid; place-items: center; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+.checklist { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; }
+.checklist label { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; }
+.checklist input { margin-top: 4px; accent-color: var(--brand); }
+
+/* act navigation */
+.section-h { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin: 34px 0 12px; flex-wrap: wrap; }
+.timeline { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 6px; margin-bottom: 18px; }
+.timeline a { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink-700); text-decoration: none; font-size: 12px; min-width: 0; }
+.timeline a:hover { border-color: var(--brand); }
+.timeline a.is-cur { border-color: var(--brand); background: var(--brand-50); }
+.timeline a.is-done { opacity: .6; }
+.timeline .n { font-family: Inter, sans-serif; font-weight: 600; color: var(--brand); font-size: 12px; }
+.timeline .q { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* acts */
+.act { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 0 18px; margin-bottom: 16px; scroll-margin-top: 80px; }
+.act-n { display: flex; flex-direction: column; align-items: center; gap: 6px; padding-top: 4px; }
+.act-n span { width: 44px; height: 44px; border-radius: 12px; background: var(--ink-900); color: var(--surface); display: grid; place-items: center; font-family: Inter, sans-serif; font-weight: 600; font-size: 16px; }
+.act-n small { font-size: 11.5px; color: var(--ink-500); white-space: nowrap; }
+.act-n i { flex: 1; width: 2px; background: var(--line); min-height: 20px; }
+.act .card { padding: 0; overflow: hidden; }
+.act-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 18px 22px 14px; border-bottom: 1px solid var(--line-soft); flex-wrap: wrap; }
+.act-q { font-size: 13px; color: var(--ink-500); margin-top: 2px; }
+.act-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.open { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; border-radius: 9px; background: var(--brand); color: #fff; text-decoration: none; font-size: 13px; font-weight: 500; white-space: nowrap; }
+.open:hover { filter: brightness(1.06); }
+.open.ghost { background: transparent; color: var(--brand); border: 1px solid var(--line); }
+.open svg { width: 14px; height: 14px; }
+.act-body { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
+.say, .show { padding: 16px 22px 18px; min-width: 0; }
+.show { border-left: 1px solid var(--line-soft); background: color-mix(in srgb, var(--bg) 55%, var(--surface)); }
+.lbl { display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-500); margin-bottom: 8px; }
+.lbl .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--brand); }
+.say p { margin: 0 0 10px; font-size: 15px; color: var(--ink-900); line-height: 1.65; }
+.say p.quote { padding-left: 12px; border-left: 3px solid var(--brand); }
+.steps { margin: 0; padding-left: 20px; font-size: 13.5px; display: flex; flex-direction: column; gap: 6px; }
+.steps li::marker { color: var(--ink-400); font-family: Inter, sans-serif; }
+.see { margin: 12px 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.see div { padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); min-width: 0; }
+.see dt { font-size: 11.5px; color: var(--ink-500); }
+.see dd { margin: 0; font-family: Inter, sans-serif; font-weight: 500; color: var(--ink-900); font-size: 14px; overflow-wrap: anywhere; }
+.see dd.bad { color: var(--bad); } .see dd.warn { color: var(--warn); }
+.aha { display: flex; gap: 10px; margin: 0 22px 18px; padding: 10px 14px; border-radius: 10px; background: var(--brand-50); color: var(--ink-900); font-size: 14px; }
+.aha b { color: var(--brand-700); white-space: nowrap; }
+.qa { margin: 0 22px 18px; border-top: 1px dashed var(--line); padding-top: 12px; }
+.qa summary { cursor: pointer; font-size: 13px; color: var(--ink-600); list-style: none; display: flex; align-items: center; gap: 6px; }
+.qa summary::-webkit-details-marker { display: none; }
+.qa summary::before { content: '+'; font-family: Inter, sans-serif; width: 16px; color: var(--brand); }
+.qa[open] summary::before { content: '–'; }
+.qa dl { margin: 10px 0 0; display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; }
+.qa dt { font-weight: 500; color: var(--ink-900); }
+.qa dd { margin: 0; color: var(--ink-600); }
+.chip { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 11px; font-size: 11.5px; font-weight: 500; background: var(--line-soft); color: var(--ink-600); white-space: nowrap; }
+.chip.bad { background: var(--bad-50); color: var(--bad); } .chip.warn { background: var(--warn-50); color: var(--warn); } .chip.good { background: var(--good-50); color: var(--good); }
+.opstral { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 8px; background: var(--opstral); color: var(--opstral-lime); font-size: 12.5px; font-weight: 500; }
+.ask { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.ask li { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); font-size: 13.5px; color: var(--ink-900); }
+.ask button { margin-left: auto; border: 0; background: transparent; color: var(--brand); font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }
+
+/* value and compare */
+.value { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.value .card { padding: 16px; }
+.value .v-n { font-family: Inter, sans-serif; font-size: 22px; font-weight: 500; color: var(--ink-900); }
+table.cmp { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.cmp th, table.cmp td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+table.cmp th { font-weight: 500; color: var(--ink-500); background: var(--bg); font-size: 12.5px; }
+table.cmp td:first-child { color: var(--ink-500); white-space: nowrap; }
+table.cmp td.on { background: var(--brand-50); color: var(--ink-900); }
+.scroll-x { overflow-x: auto; }
+.foot { margin-top: 30px; font-size: 12.5px; color: var(--ink-500); }
+
+/* presenter mode: hide the scaffolding, keep the words big */
+body.presenter .hero, body.presenter .prep, body.presenter .qa, body.presenter .show .steps, body.presenter #compare { display: none; }
+body.presenter .say p { font-size: 18px; }
+body.presenter .act-body { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); }
+
+@media (max-width: 980px) {
+  .hero, .act-body, .grid3 { grid-template-columns: minmax(0, 1fr); }
+  .show { border-left: 0; border-top: 1px solid var(--line-soft); }
+  .timeline { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .value { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 620px) {
+  .act { grid-template-columns: minmax(0, 1fr); }
+  .act-n { display: none; }
+  .timeline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .words, .see, .value { grid-template-columns: minmax(0, 1fr); }
+  h1 { font-size: 23px; }
+}
+@media print {
+  .top, .timeline, .act-actions, .open { display: none !important; }
+  body { background: #fff; }
+  .act { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <div class="brand"><span class="brand-ic">DC</span><div><b>Data Center Ops · Demo playbook</b><span>One story, four business models</span></div></div>
+    <div class="seg" role="group" aria-label="Persona" id="personaSeg"></div>
+    <select class="tool" id="envSel" aria-label="Which copy of the tool to open">
+      <option value="https://datacenter-ideation.vercel.app">Live site</option>
+      <option value="http://localhost:5181">Local (5181)</option>
+    </select>
+    <button class="tool" id="presBtn" type="button" aria-pressed="false" title="Hide prep notes and enlarge the talk track">Presenter mode</button>
+    <button class="tool" id="themeBtn" type="button" title="Switch light or dark">Theme</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <div class="card">
+      <div class="kicker">The story</div>
+      <h1>"The 13:20 call" — one afternoon in a datacenter operations team</h1>
+      <p class="lead">It is Thursday, 13:20. A utility feed has tripped at the Delhi datacenter, a backhaul is flapping in Pune and a cooling unit is down in Nagpur. The CEO's office calls with one question: <b>"Are our customers OK, and what is this costing us?"</b></p>
+      <p class="muted" style="margin:0 0 14px">Walk the customer through how the team answers that call, screen by screen. The story, the sites and the faults are the same for every persona. What changes is who the customer is, what they buy and what an outage costs. Pick the persona that matches your audience at the top.</p>
+      <div class="grid3" style="margin-top:6px">
+        <div class="tile"><span class="t-l">Length</span><span class="t-v">20–25 minutes · 10 acts</span></div>
+        <div class="tile"><span class="t-l">The thread</span><span class="t-v">Estate → Building → Cause → Customer → Money → Action</span></div>
+        <div class="tile"><span class="t-l">The promise</span><span class="t-v">From alarm to "who is hurt and what it costs" in one click</span></div>
+      </div>
+    </div>
+    <div class="card persona-card" id="personaCard"></div>
+  </section>
+
+  <section class="grid3 prep">
+    <div class="card">
+      <h3>The cast in the story</h3>
+      <ul class="cast">
+        <li><span class="av">NL</span><div><b>NOC lead</b><br><span class="muted small">Owns the incident queue and the SLA clock.</span></div></li>
+        <li><span class="av">FE</span><div><b>Facilities engineer</b><br><span class="muted small">Power, cooling, generator, the building itself.</span></div></li>
+        <li><span class="av">AM</span><div><b id="castAm">Account manager</b><br><span class="muted small" id="castAmSub">Has to call the customers who are hurt.</span></div></li>
+        <li><span class="av">CF</span><div><b>Finance / leadership</b><br><span class="muted small">Asks what it is costing and what to fix first.</span></div></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Before the meeting</h3>
+      <ul class="checklist" id="prepList">
+        <li><label><input type="checkbox">Open the tool in a second window or screen, side by side with this page.</label></li>
+        <li><label><input type="checkbox">Click any <b>Open in tool</b> button once: it switches the tool to this persona.</label></li>
+        <li><label><input type="checkbox">Browser at 1440 px or wider; collapse the left menu if the screen is small.</label></li>
+        <li><label><input type="checkbox">Reload the tool before you start. The demo data resets on every reload, so earlier clicks are undone.</label></li>
+        <li><label><input type="checkbox">Know your audience's words: <span id="prepWords"></span>.</label></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>How to use this page</h3>
+      <ul class="checklist">
+        <li>Each act has <b>what to say</b> on the left and <b>what to click and point at</b> on the right.</li>
+        <li><b>Open in tool</b> loads that exact screen in the tool window, already on this persona.</li>
+        <li>The blue line is the "aha" — pause after it.</li>
+        <li><b>Presenter mode</b> hides prep notes and enlarges the talk track.</li>
+        <li>Keys <span class="chip">J</span> / <span class="chip">K</span> move to the next or previous act.</li>
+      </ul>
+    </div>
+  </section>
+
+  <div class="section-h"><div><div class="kicker">Demonstration script</div><h2 id="scriptTitle">Ten acts</h2></div><span class="muted small" id="scriptNote"></span></div>
+  <nav class="timeline" id="timeline" aria-label="Acts"></nav>
+  <div id="acts"></div>
+
+  <div class="section-h"><div><div class="kicker">Close</div><h2>What they just saw</h2></div></div>
+  <div class="value" id="value"></div>
+
+  <section id="compare">
+    <div class="section-h"><div><div class="kicker">Same story, four businesses</div><h2>How each persona reads the same afternoon</h2></div></div>
+    <div class="card scroll-x" style="padding:0"><table class="cmp" id="cmp"></table></div>
+  </section>
+
+  <p class="foot">Figures are from the demo data at the tool's fixed clock (Thu 01 Oct 2026, 13:20) and match the screens after a fresh reload. Anything you click in the tool — acknowledging an alarm, approving a step — changes what later screens show until you reload.</p>
+</main>
+
+<script>
+/* ------------------------------------------------------------------ data
+   Persona facts are read from the tool's mock data (same seed, same clock). */
+const P = {
+  network: {
+    label: 'Network / Telco DC', short: 'Telco', tag: 'Connectivity services — routers, switches and DWDM; customers buy circuits.',
+    audience: 'Telecom operators, ISPs, carrier-neutral network teams',
+    words: { customer: 'Customer', customers: 'customers', service: 'Service', services: 'services', premium: 'Premium', unit: 'Bandwidth (Mbps)', money: 'Revenue impact', credits: 'SLA credits', lost: 'Revenue lost' },
+    am: 'Account manager', amSub: 'Calls enterprise customers whose circuits are hit.',
+    sell: 'circuits: L3VPN, L2VPN, leased lines, internet',
+    cc: { health: 86, band: 'Watch', sev1: 2, sev2: 4, open: 22, breaching: 11, dcs: 23, svcs: '1,136', cust: 36 },
+    rev: { base: '₹87.91 Cr', rate: '₹5,993/h', sofar: '₹3.66 L', stake: '₹8.49 Cr', within: '87.6%', next: '₹4.68 L in 9 min' },
+    top: { id: 'INC-0001', title: 'Optical degradation on PE-T4-01 xe-0/0/3 — backhaul flapping', site: 'MH-DC-001 Pune', rate: '₹2,970/h', sofar: '₹1.67 L', f24: '₹17.90 L', hit: '9 degraded services · 9 customers · 6 premium', next: '₹20,160 more credits in 19 min', change: 'CHG-2001', route: '/incidents/INC-0001' },
+    stakeIssue: { title: 'CRAH-11 failed at MH-DC-003 Nagpur', amt: '₹4.61 Cr a month', rate: '₹63,144/h', credits: '₹73.67 L' },
+    ups: { site: 'DL-DC-009 New Delhi', battery: '13 min', load: '71%', exposed: '46 services · 24 customers', stake: '₹3.88 Cr a month', ifFail: '₹53,089/h' },
+    tall: { id: 'DL-DC-009', floors: 7 },
+    risk: { route: '/datacenters/MH-DC-001?tab=customers&cview=risk', who: 'Enterprise Corp, Finance Group, Logistics Partners, Retail Chain, Cooperative Bank, Stock Broking House', why: 'Interface flapping on PE-T4-01 xe-0/0/3 — the backhaul they all ride', story: 'Six premium customers, one port. Every row says the same thing: their traffic rides the flapping backhaul. Nobody else at the site is implicated.' },
+    hero2: { id: 'INC-0001', route: '/incidents/INC-0001', title: 'the flapping backhaul in Pune', why: 'a re-patch of the ODF 15 hours earlier (CHG-2001) put a degraded optic from lot 22B on the span', fix: 'move the premium L3VPN and leased-line traffic to xe-0/0/1, then swap the optic', money: '₹2,970/h stops the moment traffic moves; ₹17.90 L if it runs another day' },
+    domains: 'Network issues cost the most over 30 days: ₹49.91 L of ₹1.16 Cr. 46% of today\'s impact began after a change.',
+    ask: ['Which issue is costing the most revenue?', 'What is INC-0001 costing us?', 'What changed before INC-0001?', 'Who is impacted by INC-0001?'],
+    value: [['₹5,993/h', 'being lost right now, found in one screen'], ['9 → 6', 'services hit → premium customers to call first'], ['92%', 'confidence that the optic, not BGP, is the cause'], ['46%', 'of today\'s loss started after a change']]
+  },
+  colocation: {
+    label: 'Colocation DC', short: 'Colo', tag: 'Space, power and interconnection — tenants own the gear in the cabinets.',
+    audience: 'Colocation and wholesale datacenter providers',
+    words: { customer: 'Tenant', customers: 'tenants', service: 'Contract', services: 'contracts', premium: 'Anchor', unit: 'Contracted power (kW)', money: 'Revenue impact', credits: 'SLA credits', lost: 'Revenue lost' },
+    am: 'Tenant success manager', amSub: 'Calls anchor tenants before they call you.',
+    sell: 'cabinets, power circuits, cross-connects, remote hands',
+    cc: { health: 94, band: 'Watch', sev1: 1, sev2: 2, open: 10, breaching: 2, dcs: 23, svcs: '553', cust: 24 },
+    rev: { base: '₹7.73 Cr', rate: '₹174/h', sofar: '₹21,234', stake: '₹81.57 L', within: '90.6%', next: '₹6,000 in 2 h 32 min' },
+    top: { id: 'PDU-A breaker trip', title: 'Cabinet PDU-A breaker trip in RACK-C', site: 'MH-DC-001 Pune', rate: '₹120/h', sofar: '₹17,176', f24: '₹63,696', hit: '2 degraded contracts · Logistics Partners', next: 'next credit step in 6 h 20 min', change: '', route: '/datacenters/MH-DC-001?tab=revenue' },
+    stakeIssue: { title: 'UPS-2 on battery at DL-DC-009 New Delhi', amt: '₹51.44 L a month', rate: '₹7,047/h', credits: '₹12.47 L' },
+    ups: { site: 'DL-DC-009 New Delhi', battery: '16 min', load: '71%', exposed: '39 contracts · 8 tenants', stake: '₹51.44 L a month', ifFail: '₹7,047/h' },
+    tall: { id: 'KA-DC-020', floors: 6 },
+    risk: { route: '/datacenters/MH-DC-001?tab=customers&cview=risk', who: 'Logistics Partners, Cloud Exchange, Gaming Studio, Payments Gateway, Smart City Mission', why: 'PDU-A breaker trip on RACK-C, a cross-connect losing signal at the meet-me room, a hot cabinet in RACK-F — and two tenants simply near their own cabinet limit', story: 'Five tenants, four different reasons. The tool separates "we broke it" (breaker trip, cross-connect, inlet temperature) from "they are outgrowing their space" — which is a sales conversation, not an incident.' },
+    hero2: { id: 'INC-0002', route: '/incidents/INC-0002', title: 'the UPS on battery in Delhi', why: 'yesterday\'s feeder switchover (CHG-2005) left the generator controller in MANUAL, so it never started', fix: 'start the generator by hand, transfer load, then put the controller back to AUTO', money: 'nothing is lost yet, but ₹51.44 L a month of tenant contracts depends on the next 16 minutes' },
+    domains: 'Network faults (cross-connects) cost the most over 30 days: ₹4.40 L of ₹8.72 L.',
+    ask: ['Which issue is costing the most revenue?', 'What is INC-0002 costing us?', 'What changed before INC-0002?', 'Which issue costs the most in MH-DC-001?'],
+    value: [['16 min', 'of battery — seen before a single tenant noticed'], ['₹51.44 L/mo', 'of tenant contracts riding on one generator start'], ['4 reasons', 'separated: our faults vs. tenants outgrowing space'], ['1 click', 'from a breaker trip to the tenant who pays for it']]
+  },
+  cloud: {
+    label: 'Cloud DC', short: 'Cloud', tag: 'Compute and storage at scale — thousands of hosts; accounts run workloads.',
+    audience: 'Cloud and GPU providers, hosting companies, platform teams',
+    words: { customer: 'Account', customers: 'accounts', service: 'Workload', services: 'workloads', premium: 'Enterprise-tier', unit: 'vCPU allocated', money: 'Revenue impact', credits: 'Service credits', lost: 'Revenue lost' },
+    am: 'Customer success manager', amSub: 'Owns enterprise-tier accounts and their credits.',
+    sell: 'VMs, storage volumes, managed databases, GPU clusters, Kubernetes',
+    cc: { health: 88, band: 'Watch', sev1: 1, sev2: 6, open: 22, breaching: 10, dcs: 23, svcs: '2,329', cust: 24 },
+    rev: { base: '₹102.09 Cr', rate: '₹11,804/h', sofar: '₹17.12 L', stake: '₹14.20 Cr', within: '88.2%', next: '₹17,280 in 9 min' },
+    top: { id: 'INC-0017', title: 'UP-DC-005-GPU-019 unreachable', site: 'UP-DC-005 Gorakhpur', rate: '₹1,841/h', sofar: '₹1.35 L', f24: '₹7.17 L', hit: '1 GPU workload down', next: '₹2.02 L credit step in 3 h 18 min', change: '', route: '/incidents/INC-0017', under: true },
+    stakeIssue: { title: 'UPS-2 on battery at DL-DC-009 New Delhi', amt: '₹6.54 Cr a month', rate: '₹89,530/h', credits: '₹1.55 Cr' },
+    ups: { site: 'DL-DC-009 New Delhi', battery: '13 min', load: '71%', exposed: '163 workloads · 24 accounts', stake: '₹6.54 Cr a month', ifFail: '₹89,530/h' },
+    tall: { id: 'TN-DC-022', floors: 6 },
+    risk: { route: '/datacenters/MH-DC-001?tab=customers&cview=risk', who: 'PayNow Fintech, Media Corporation, Newspaper Group, TravelNest Bookings, University Consortium', why: 'one shelf midplane fault under two sleds, a host that lost power, a power-supply fault, a link down', story: 'The rack has ten servers; three are faulty. Only the accounts on those three are flagged — and the shelf fault shows once, even though two servers report it.' },
+    hero2: { id: 'INC-0002', route: '/incidents/INC-0002', title: 'the UPS on battery in Delhi', why: 'the generator controller was left in MANUAL after yesterday\'s feeder switchover (CHG-2005)', fix: 'start the generator by hand, transfer load, put the controller back to AUTO', money: '₹1,088/h is already being lost; ₹6.54 Cr a month of workloads is at stake if the battery runs out' },
+    domains: 'Network issues cost the most over 30 days (₹55.46 L), then cooling (₹36.60 L) — GPU thermal throttling is a revenue problem here.',
+    ask: ['Which issue is costing the most revenue?', 'What is INC-0017 costing us?', 'What is INC-0002 costing us?', 'Which issue costs the most in MH-DC-001?'],
+    value: [['₹11,804/h', 'being lost across 28 issues, ranked'], ['SEV3', 'incident ranked #3 by money — flagged for review'], ['3 of 10', 'servers faulty in a rack → only those accounts flagged'], ['₹6.54 Cr/mo', 'riding on one generator start']]
+  },
+  enterprise: {
+    label: 'Enterprise / Private DC', short: 'Enterprise', tag: 'Runs the firm\'s own applications — business units are the customers.',
+    audience: 'Banks, insurers, governments, large enterprises with their own datacenters',
+    words: { customer: 'Business unit', customers: 'business units', service: 'Application', services: 'applications', premium: 'Tier-1', unit: 'Users served', money: 'Business impact', credits: 'OLA rebates', lost: 'Cost of downtime' },
+    am: 'Business relationship manager', amSub: 'Speaks for Retail Banking, Treasury, HR…',
+    sell: 'core applications, databases, collaboration, analytics, backup & DR',
+    cc: { health: 88, band: 'Watch', sev1: 1, sev2: 4, open: 22, breaching: 10, dcs: 23, svcs: '394', cust: 14 },
+    rev: { base: '₹9.79 Cr', rate: '₹2,529/h', sofar: '₹1.44 L', stake: '₹1.34 Cr', within: '89.5%', next: '₹23,040 in 11 min' },
+    top: { id: 'INC-0014', title: 'KA-DC-020-GPU-013 unreachable', site: 'KA-DC-020 Bengaluru', rate: '₹631/h', sofar: '₹47,027', f24: '₹2.46 L', hit: '1 application down, 1 exposed · 2 Tier-1 business units', next: '₹69,120 rebate step in 2 h 19 min', change: '', route: '/incidents/INC-0014', under: true },
+    stakeIssue: { title: 'UPS-2 on battery at DL-DC-009 New Delhi', amt: '₹81.30 L a month', rate: '₹11,137/h', credits: '₹13.32 L' },
+    ups: { site: 'DL-DC-009 New Delhi', battery: '12 min', load: '71%', exposed: '29 applications · 14 business units', stake: '₹81.30 L a month', ifFail: '₹11,137/h' },
+    tall: { id: 'HR-DC-011', floors: 6 },
+    risk: { route: '/datacenters/MH-DC-001?tab=customers&cview=risk', who: 'Digital Channels, Human Resources, Operations', why: 'a shelf midplane fault under two ESX hosts, a host that lost power, a power-supply fault — all in RACK-C', story: 'Three business units, one rack. The tool tells the HR director it is a host power loss, and Digital Channels that it is the shelf — different conversations, different fixes.' },
+    hero2: { id: 'INC-0002', route: '/incidents/INC-0002', title: 'the UPS on battery in Delhi', why: 'the generator controller stayed in MANUAL after yesterday\'s feeder switchover (CHG-2005)', fix: 'start the generator by hand, transfer load, put the controller back to AUTO', money: 'no application is down yet, but ₹81.30 L a month of business value runs on the next 12 minutes' },
+    domains: 'Network issues cost the most over 30 days: ₹4.59 L of ₹13.21 L, then power (₹3.94 L).',
+    ask: ['Which issue is costing the most revenue?', 'What is INC-0014 costing us?', 'What is INC-0002 costing us?', 'Which issue costs the most in MH-DC-001?'],
+    value: [['12 min', 'of battery under 29 business applications'], ['SEV3 → #1', 'the costliest issue was triaged as minor'], ['₹2,529/h', 'cost of downtime, in money the CFO understands'], ['3 BUs', 'told exactly which fault hits their application']]
+  }
+};
+
+/* the story — identical for every persona; {tokens} pull in the persona's words and numbers */
+const ACTS = [
+  { n: 1, min: 2, short: 'The call', q: 'Set the scene', route: null,
+    say: p => [`"It's Thursday afternoon. Your operations team runs ${p.cc.dcs} datacenters for ${p.cc.cust} ${p.words.customers} who buy ${p.sell}."`,
+      `"Three things are going wrong at once: a utility feed has tripped in Delhi, a backhaul is flapping in Pune, a cooling unit has failed in Nagpur. Leadership calls with two questions: <b>are our ${p.words.customers} OK, and what is this costing us?</b>"`,
+      `"Today most teams answer that from five consoles and a spreadsheet. Let me show you how this team answers it in a few clicks."`],
+    steps: p => ['No screen yet — keep the tool on its loading view or on the Command center.', `Name the audience's world: ${p.audience}.`],
+    see: p => [['Datacenters', p.cc.dcs], [p.words.customers[0].toUpperCase() + p.words.customers.slice(1), p.cc.cust], [p.words.service + 's', p.cc.svcs], ['Monthly revenue', p.rev.base]],
+    aha: p => `Every number on the next screens comes from one model: site → device → ${p.words.service.toLowerCase()} → ${p.words.customer.toLowerCase()} → money.`,
+    qa: p => [['Is this your data or ours?', 'Demo data, generated to behave like a real estate. In production the same screens read your inventory, monitoring and billing feeds.']] },
+
+  { n: 2, min: 2, short: 'Estate', q: '"How are we doing right now?"', route: '/', btn: 'Command center',
+    say: p => [`"This is the first screen the NOC lead sees. Operations health is ${p.cc.health} out of 100 — <b>${p.cc.band}</b>. There ${p.cc.sev1 === 1 ? 'is 1 SEV1' : `are ${p.cc.sev1} SEV1s`} and ${p.cc.sev2} SEV2s; ${p.cc.breaching} incidents are already past their SLA."`,
+      `"The map pulses where it hurts. Red rings are SEV1/SEV2 sites; dashed lines are backhaul that is down."`,
+      `"Notice the <b>${p.words.money}</b> line under the vitals — the same afternoon, in money. We'll come back to it."`],
+    steps: p => ['Point at the health ring and the four areas next to it (Response, Network, Power, Cooling).', 'Click a red pin on the map to show the docked site card; close it.', 'Scroll to <b>Critical now</b>: one card per site, worst incident first.', `Point at the ${p.words.money} band: losing ${p.rev.rate}, ${p.rev.stake} at stake.`],
+    see: p => [['Operations health', `${p.cc.health} · ${p.cc.band}`], ['SEV1 / SEV2 open', `${p.cc.sev1} / ${p.cc.sev2}`, 'bad'], ['Past SLA', p.cc.breaching, 'warn'], ['Losing now', p.rev.rate, 'bad']],
+    aha: p => 'One screen answers "where is it bad" before anyone opens a ticket.',
+    qa: p => [['Why is health only 86 when most sites are fine?', 'It averages four areas — response, network, power, cooling — and counts edge links and dependencies, not downstream sites.'], ['Can it show only my region?', 'Yes — the Datacenters list filters by region, and every card links straight to the site.']] },
+
+  { n: 3, min: 3, short: 'Money', q: '"What is this costing us?"', route: '/revenue', btn: p => p.words.money,
+    say: p => [`"Leadership's real question. The team is losing <b>${p.rev.rate}</b> right now, ${p.rev.sofar} so far on open issues. More worrying: <b>${p.rev.stake}</b> a month is still running but sits on a critical fault."`,
+      `"The tool gives two answers to 'which issue costs the most'. On the left, what is costing the most right now: <b>${p.top.title}</b> at ${p.top.site}, ${p.top.rate}. On the right, what has the most riding on it: <b>${p.stakeIssue.title}</b> — ${p.stakeIssue.amt}, ${p.stakeIssue.rate} if it fails."`,
+      p.top.under ? `"And look at the badge: the costliest incident is only a <b>SEV3</b>. The tool flags it for a priority review — severity alone would have put it at the back of the queue."` : `"Next credit step: ${p.rev.next}. That is the clock finance cares about."`],
+    steps: p => ['Read the six tiles left to right: losing now, impact so far, at stake, credits owed, costliest cause, within SLA.', 'Point at the two answer cards and their cost-of-delay curves (solid = so far, dashed = next 24 h).', 'Click the first row in the Issues table to open the cost breakdown drawer; show "Who it hits".', 'Open <b>How it is calculated</b> if finance is in the room.'],
+    see: p => [['Losing now', p.rev.rate, 'bad'], ['At stake', p.rev.stake, 'warn'], [`${p.words.money[0]}${p.words.money.slice(1)} — #1`, p.top.rate, 'bad'], ['Within SLA · 30 d', p.rev.within]],
+    aha: p => `Not "how many alarms" — "${p.rev.rate} is leaving the business, and here is the issue to fix first."`,
+    qa: p => [['How do you get revenue per service?', 'From the service catalogue or billing: the monthly charge of each service. Lost revenue is pro-rata for the hours down; degraded counts at 30%.'], ['Are SLA credits real numbers?', `They follow your contract tiers: 10 / 25 / 50% of the monthly charge by SLA shortfall. The drawer shows the rule; it is configurable.`], ['Does an exposed service cost anything?', 'Not yet — that is why it is "at stake", priced as "if it fails" rather than added to losses.']] },
+
+  { n: 4, min: 3, short: 'Building', q: '"Show me the building"', route: p => `/datacenters/${p.tall.id}`, btn: p => `${p.tall.id} 3D view`,
+    say: p => [`"This is ${p.tall.id}, a ${p.tall.floors}-floor building. The digital twin opens on the whole building and points at trouble straight away: beacons on racks with critical issues, red floor edges, issue counts on each floor."`,
+      `"The engineer doesn't need to know which floor to look at — the 'Needs attention' card lists it and drills straight to the rack."`],
+    steps: p => ['Let the 3D view load ("Loading Data center view").', 'Point at the beacons and the floor labels with counts.', 'Click an item in <b>Needs attention</b> to fly to the rack; show the side panel.', 'Use the quick filters (routers, switches, alerts) and <b>Reset view</b>.'],
+    see: p => [['Floors', p.tall.floors], ['Default view', 'Attention highlighted'], ['Drill', 'Floor → room → rack → device'], ['Filters', 'Equipment type · alerts']],
+    aha: p => 'The building tells you where to walk — you don\'t search for the problem.',
+    qa: p => [['Is the 3D model built by hand?', 'No — floors, rooms, racks and devices come from inventory; the layout is generated.'], ['Does it work for a single-floor site?', 'Yes; tall buildings are where it saves the most time.']] },
+
+  { n: 5, min: 3, short: 'Power', q: '"Will the lights stay on?"', route: '/facilities?dc=DL-DC-009', btn: 'Facilities · DL-DC-009',
+    say: p => [`"Back to Delhi. Utility feed A has tripped; UPS-2 is carrying the load <b>on battery — about ${p.ups.battery} left</b> at ${p.ups.load} load."`,
+      `"The single-line diagram traces the power path from the grid to the racks. Hover any block to see what sits upstream and downstream."`,
+      `"'If utility power fails' answers the facilities question in one card: battery minutes, generator capacity, fuel hours — and whether the generator is ready to start."`],
+    steps: p => ['Point at the red feed and the UPS-2 block in the power path; hover it to trace downstream.', 'Show the 24 h load chart against capacity.', 'Read the ride-through card: UPS minutes → generator kW → fuel hours → readiness checks.', 'Switch to the Cooling tab briefly if the audience runs facilities.'],
+    see: p => [['UPS-2', `On battery · ${p.ups.battery}`, 'bad'], ['Load', p.ups.load], ['Running on it', p.ups.exposed, 'warn'], ['At stake', p.ups.stake, 'warn']],
+    aha: p => `${p.ups.exposed} — and the clock is visible in minutes, not discovered after the outage.`,
+    qa: p => [['Where does this data come from?', 'BMS / DCIM feeds: UPS, PDUs, generator controller, cooling units and sensors.'], ['Can it alert before the battery runs out?', 'Yes — the incident and its action plan already include "shed non-critical racks if battery < 8 min".']] },
+
+  { n: 6, min: 3, short: 'Cause', q: '"Why did it happen?"', route: p => p.hero2.route, btn: p => p.hero2.id,
+    say: p => [`"The incident for ${p.hero2.title}. Opstral AI ranks the causes with evidence: <b>${p.hero2.why}</b>."`,
+      `"Change awareness shows the change that ran just before — the most common cause of outages, and usually the hardest to spot at 13:20."`,
+      `"The action plan is ready: ${p.hero2.fix}. Disruptive steps need approval; every step has a rollback and a check."`,
+      `"And the ${p.words.money} panel: ${p.hero2.money}."`],
+    steps: p => ['Read the top hypothesis and its confidence; click one evidence link.', 'Point at <b>Change awareness</b> — the change ID is linked.', 'Show the action plan: Request approval → Approve → Run (optional).', `Point at the ${p.words.money} panel and its cost-of-delay curve.`],
+    see: p => [['Root cause', p.hero2.id === 'INC-0001' ? 'Optic, 92% confidence' : 'Generator in MANUAL, 84%'], ['Triggered by', p.hero2.id === 'INC-0001' ? 'CHG-2001' : 'CHG-2005'], ['Next step', p.hero2.id === 'INC-0001' ? 'Reroute premium traffic' : 'Start generator, transfer load'], ['Money', p.hero2.id === 'INC-0001' ? p.top.rate : p.ups.stake, p.hero2.id === 'INC-0001' ? 'bad' : 'warn']],
+    aha: p => 'Cause, change and next action on one page — the bridge call starts with an answer.',
+    qa: p => [['Is the AI a black box?', 'Every hypothesis lists the alarms, changes and telemetry behind it, and engineers confirm or reject it — which trains future ranking.'], ['Can it act on its own?', 'No: disruptive steps require approval; the tool records who approved what.']] },
+
+  { n: 7, min: 3, short: p => p.words.customers, q: p => `"Which ${p.words.customers} are hurt — and why?"`, route: p => p.risk.route, btn: p => `MH-DC-001 · ${p.words.customers}`,
+    say: p => [`"This is where most tools stop: they tell you a device is down. This one tells the ${p.am.toLowerCase()} <b>which ${p.words.customers} are at risk and why</b>."`,
+      `"At Pune today: ${p.risk.who}."`,
+      `"${p.risk.story}"`],
+    steps: p => ['Point at the <b>Why at risk</b> column — the reason is on each row.', 'Use the <b>Cause</b> quick filter to show only one fault\'s victims.', `Open one ${p.words.customer.toLowerCase()} to show their page: state, verdict, issues hitting them and what it costs.`],
+    see: p => [[`${p.words.customers[0].toUpperCase() + p.words.customers.slice(1)} at risk`, p.risk.who.split(',').length, 'warn'], ['Reason shown', 'Per row'], ['Filter by', 'Cause · segment'], ['Drill to', `${p.words.customer} page`]],
+    aha: p => `"${p.risk.why}" — the ${p.am.toLowerCase()} can make the call before the ${p.words.customer.toLowerCase()} does.`,
+    qa: p => [['How do you know which services ride a device?', 'From the service path: hand-off port, links and devices. A fault only counts against services on its own path — healthy neighbours are not flagged.'], [`Can ${p.words.customers} see this?`, 'The same model can drive a customer portal or proactive notifications; premium tiers are flagged for proactive contact.']] },
+
+  { n: 8, min: 2, short: 'Fix first', q: '"What do we fix first?"', route: p => p.top.route, btn: p => p.top.id.startsWith('INC') ? p.top.id : 'Pune · Revenue tab',
+    say: p => [`"With limited engineers, fix order matters. The costliest issue is <b>${p.top.title}</b> at ${p.top.site}: ${p.top.hit}."`,
+      `"It is losing ${p.top.rate}; ${p.top.sofar} so far; <b>${p.top.f24}</b> if it runs another day. ${p.top.next ? p.top.next[0].toUpperCase() + p.top.next.slice(1) + '.' : ''}"`,
+      p.top.under ? `"It was logged as SEV3 — routine. By money it is near the top. That is the conversation this tool starts: severity says how broken, ${p.words.money.toLowerCase()} says how much it matters."` : `"Restoring it now is worth more than anything else on the board."`],
+    steps: p => [p.top.route.includes('tab=revenue') ? 'Show the site Revenue tab: the issue table, revenue by rack, affected tenants.' : `Scroll to the ${p.words.money} panel on the incident.`, 'Hover the cost-of-delay curve: impact so far, then the dashed next 24 hours.', 'Point at "Next credit step" — the deadline that changes the bill.'],
+    see: p => [['Losing now', p.top.rate, 'bad'], ['So far', p.top.sofar], ['If it runs 24 h', p.top.f24, 'warn'], ['Next step', p.top.next || '—']],
+    aha: p => 'Fix order by money and SLA deadline, not by who shouts loudest.',
+    qa: p => [['Do you replace severity?', 'No — severity stays. The revenue rank sits next to it and flags mismatches for review.']] },
+
+  { n: 9, min: 2, short: 'Change', q: '"Don\'t break it again"', route: '/changes?id=CHG-2002', btn: 'Changes · CHG-2002',
+    say: p => [`"Today's story started with changes — CHG-2001 in Pune, CHG-2005 in Delhi. The next one is already waiting: a software upgrade on the Pune edge router pair, rated <b>High risk</b>."`,
+      `"Before approving it, the team sees the impact preview: which devices, ${p.words.services} and ${p.words.customers} sit on its scope, and whether an open incident already touches them."`,
+      `"${p.domains}"`],
+    steps: p => ['Open CHG-2002 and point at risk, window and rollback.', `Show the impact preview: ${p.words.services} and ${p.words.customers} on the scope.`, 'Mention the 7-day calendar of changes and maintenance.'],
+    see: p => [['Change', 'CHG-2002 · Pending approval'], ['Risk', 'High', 'warn'], ['Scope', 'Pune edge router pair'], ['Preview', `${p.words.services} · ${p.words.customers}`]],
+    aha: p => 'The approver sees who would be hurt before saying yes.',
+    qa: p => [['Does it integrate with our ITSM?', 'Changes and incidents map to ServiceNow / Jira-style records; the prototype keeps them in the tool.']] },
+
+  { n: 10, min: 2, short: 'Opstral AI', q: '"Ask it anything"', route: '/', btn: 'Command center',
+    say: p => [`"Finally, the shortcut. Anyone — the NOC lead or the CFO — can ask in plain words. Every answer is built from the same live data and links to the evidence."`,
+      `"Try: <b>'${p.ask[0]}'</b>."`],
+    steps: p => ['Click <span class="opstral">Ask Opstral AI</span> in the top bar of the tool.', 'Type or paste one of the questions below — use the copy buttons.', 'Click an evidence link in the answer to land on the screen.'],
+    see: null,
+    ask: true,
+    aha: p => 'Answers with evidence, in the words of whoever asks.',
+    qa: p => [['Is this a real LLM?', 'In the prototype the answers are deterministic and grounded in the demo data; in production the same answer shape comes from the AI service over your data.']] }
+];
+
+/* ------------------------------------------------------------------ state */
+const store = { get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch { /* storage blocked */ } } };
+let persona = store.get('dco.playbook.persona', 'network'); if (!P[persona]) persona = 'network';
+let env = store.get('dco.playbook.env', 'https://datacenter-ideation.vercel.app');
+const val = (x, p) => (typeof x === 'function' ? x(p) : x);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const ARROW = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg>';
+/* every tool link carries the persona, so the tool window switches to it */
+const link = route => { const u = new URL(route, env); u.searchParams.set('persona', persona); return u.toString(); };
+
+function renderPersona() {
+  const p = P[persona];
+  document.getElementById('personaSeg').innerHTML = Object.entries(P).map(([k, x]) => `<button type="button" data-p="${k}" aria-pressed="${k === persona}">${esc(x.short)}</button>`).join('');
+  const w = p.words;
+  document.getElementById('personaCard').innerHTML = `
+    <div class="kicker">Persona</div>
+    <div class="pc-h"><span class="pc-name">${esc(p.label)}</span><a class="open ghost" href="${link('/')}" target="dco-tool">Open in tool ${ARROW}</a></div>
+    <span class="pc-tag">${esc(p.tag)}</span>
+    <span class="small muted">Best for: ${esc(p.audience)}</span>
+    <dl class="words">
+      <div><dt>Customer is a</dt><dd>${esc(w.customer)}</dd></div>
+      <div><dt>They buy a</dt><dd>${esc(w.service)}</dd></div>
+      <div><dt>Top tier</dt><dd>${esc(w.premium)}</dd></div>
+      <div><dt>Sized in</dt><dd>${esc(w.unit)}</dd></div>
+      <div><dt>Money view</dt><dd>${esc(w.money)}</dd></div>
+      <div><dt>Penalty</dt><dd>${esc(w.credits)}</dd></div>
+    </dl>`;
+  document.getElementById('castAm').textContent = p.am;
+  document.getElementById('castAmSub').textContent = p.amSub;
+  document.getElementById('prepWords').innerHTML = `<b>${esc(w.customers)}</b> buy <b>${esc(w.services)}</b>, the top tier is <b>${esc(w.premium)}</b>, money is <b>${esc(w.money)}</b>`;
+  document.getElementById('scriptTitle').textContent = `Ten acts · ${p.label}`;
+  document.getElementById('scriptNote').textContent = `About ${ACTS.reduce((a, x) => a + x.min, 0)} minutes · Open in tool switches the tool to ${p.short}`;
+
+  document.getElementById('timeline').innerHTML = ACTS.map(a => `<a href="#act-${a.n}" data-n="${a.n}"><span class="n">${String(a.n).padStart(2, '0')}</span><span class="q">${esc(val(a.short, p))}</span></a>`).join('');
+
+  document.getElementById('acts').innerHTML = ACTS.map(a => {
+    const route = val(a.route, p), btn = val(a.btn, p);
+    const see = a.see ? a.see(p) : null;
+    return `
+    <article class="act" id="act-${a.n}">
+      <div class="act-n"><span>${a.n}</span><small>${a.min} min</small><i></i></div>
+      <div class="card">
+        <div class="act-h">
+          <div><h2>${esc(val(a.q, p))}</h2><div class="act-q">Act ${a.n} of ${ACTS.length}</div></div>
+          <div class="act-actions">${route ? `<a class="open" href="${link(route)}" target="dco-tool">${esc(btn)} ${ARROW}</a>` : ''}</div>
+        </div>
+        <div class="act-body">
+          <div class="say"><div class="lbl"><span class="dot"></span>What to say</div>${a.say(p).map((t, i) => `<p class="${i === 0 ? 'quote' : ''}">${t}</p>`).join('')}</div>
+          <div class="show"><div class="lbl">What to click and point at</div>
+            <ol class="steps">${a.steps(p).map(t => `<li>${t}</li>`).join('')}</ol>
+            ${see ? `<dl class="see">${see.map(([k, v, t]) => `<div><dt>${esc(k)}</dt><dd class="${t ?? ''}">${esc(v)}</dd></div>`).join('')}</dl>` : ''}
+            ${a.ask ? `<ul class="ask" style="margin-top:12px">${p.ask.map(q => `<li>${esc(q)}<button type="button" data-copy="${esc(q)}">Copy</button></li>`).join('')}</ul>` : ''}
+          </div>
+        </div>
+        <div class="aha"><b>Aha</b><span>${a.aha(p)}</span></div>
+        ${a.qa ? `<details class="qa"><summary>Likely questions</summary><dl>${a.qa(p).map(([q, r]) => `<div><dt>${esc(q)}</dt><dd>${esc(r)}</dd></div>`).join('')}</dl></details>` : ''}
+      </div>
+    </article>`;
+  }).join('');
+
+  document.getElementById('value').innerHTML = p.value.map(([n, l]) => `<div class="card"><div class="v-n">${esc(n)}</div><div class="small muted">${esc(l)}</div></div>`).join('');
+
+  const rows = [
+    ['Who the customer is', x => x.words.customer], ['What they buy', x => x.sell], ['Money view', x => `${x.words.money} · ${x.words.credits}`],
+    ['Losing now', x => x.rev.rate], ['At stake', x => x.rev.stake], ['Costliest issue', x => `${x.top.title} (${x.top.site})`],
+    ['UPS on battery hits', x => x.ups.exposed], ['Building in 3D', x => `${x.tall.id} · ${x.tall.floors} floors`], ['Why at risk at Pune', x => x.risk.why]
+  ];
+  document.getElementById('cmp').innerHTML = `<thead><tr><th></th>${Object.entries(P).map(([k, x]) => `<th>${esc(x.label)}</th>`).join('')}</tr></thead><tbody>${rows.map(([l, f]) => `<tr><td>${esc(l)}</td>${Object.entries(P).map(([k, x]) => `<td class="${k === persona ? 'on' : ''}">${esc(f(x))}</td>`).join('')}</tr>`).join('')}</tbody>`;
+  watchActs();
+}
+
+/* ------------------------------------------------------------------ interactions */
+document.getElementById('personaSeg').addEventListener('click', e => { const b = e.target.closest('button[data-p]'); if (!b) return; persona = b.dataset.p; store.set('dco.playbook.persona', persona); renderPersona(); });
+const envSel = document.getElementById('envSel'); envSel.value = env;
+envSel.addEventListener('change', () => { env = envSel.value; store.set('dco.playbook.env', env); renderPersona(); });
+document.addEventListener('click', e => {
+  const c = e.target.closest('button[data-copy]'); if (!c) return;
+  const done = () => { c.textContent = 'Copied'; setTimeout(() => { c.textContent = 'Copy'; }, 1200); };
+  try { navigator.clipboard.writeText(c.dataset.copy).then(done, done); } catch { done(); }
+});
+const presBtn = document.getElementById('presBtn');
+const setPres = on => { document.body.classList.toggle('presenter', on); presBtn.classList.toggle('is-on', on); presBtn.setAttribute('aria-pressed', String(on)); store.set('dco.playbook.presenter', on ? '1' : '0'); };
+presBtn.addEventListener('click', () => setPres(!document.body.classList.contains('presenter')));
+setPres(store.get('dco.playbook.presenter', '0') === '1');
+const themeBtn = document.getElementById('themeBtn');
+const applyTheme = t => { if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme'); };
+applyTheme(store.get('dco.playbook.theme', ''));
+themeBtn.addEventListener('click', () => { const dark = document.documentElement.getAttribute('data-theme') === 'dark' || (!document.documentElement.getAttribute('data-theme') && matchMedia('(prefers-color-scheme: dark)').matches); const t = dark ? 'light' : 'dark'; applyTheme(t); store.set('dco.playbook.theme', t); });
+document.querySelectorAll('#prepList input').forEach((cb, i) => { cb.checked = store.get(`dco.playbook.prep.${i}`, '0') === '1'; cb.addEventListener('change', () => store.set(`dco.playbook.prep.${i}`, cb.checked ? '1' : '0')); });
+
+/* current act: highlight in the timeline; J / K to move */
+let cur = 1, io;
+function watchActs() {
+  io?.disconnect();
+  io = new IntersectionObserver(es => { es.forEach(e => { if (e.isIntersecting) { cur = Number(e.target.id.split('-')[1]); mark(); } }); }, { rootMargin: '-40% 0px -55% 0px' });
+  document.querySelectorAll('.act').forEach(a => io.observe(a));
+  mark();
+}
+function mark() { document.querySelectorAll('#timeline a').forEach(a => { const n = Number(a.dataset.n); a.classList.toggle('is-cur', n === cur); a.classList.toggle('is-done', n < cur); }); }
+document.addEventListener('keydown', e => {
+  if (e.target.closest('input, select, textarea')) return;
+  const k = e.key.toLowerCase();
+  if (k === 'j' || k === 'k') { const n = Math.max(1, Math.min(ACTS.length, cur + (k === 'j' ? 1 : -1))); document.getElementById(`act-${n}`).scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+});
+
+renderPersona();
+</script>
+</body>
+</html>

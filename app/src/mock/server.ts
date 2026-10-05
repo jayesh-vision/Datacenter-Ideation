@@ -17,7 +17,14 @@ import { monthsTo, dateAfterMonths, WARN, CRIT } from '../lib/forecast';
 /* Persona: which business model the estate is generated as. Switching it rebuilds
    the whole mock estate (same sites, different racks, customers and services) and
    notifies every subscriber, so each screen refetches. Remembered per browser. */
-const loadPersona = (): Persona => { try { const v = localStorage.getItem('dco.persona'); return isPersona(v) ? v : 'network'; } catch { return 'network'; } };
+/* a link may carry ?persona=… (demo playbook deep links): it wins and is remembered */
+const loadPersona = (): Persona => {
+  try {
+    const q = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('persona') : null;
+    if (isPersona(q)) { try { localStorage.setItem('dco.persona', q); } catch { /* storage blocked */ } return q; }
+    const v = localStorage.getItem('dco.persona'); return isPersona(v) ? v : 'network';
+  } catch { return 'network'; }
+};
 let persona: Persona = loadPersona();
 let db: Db = generate(persona);
 let version = 0;

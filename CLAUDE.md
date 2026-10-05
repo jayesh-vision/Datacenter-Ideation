@@ -137,3 +137,9 @@ Don't reintroduce rows of boxed KPI tiles on the landing page.
 ## Testing cadence (user, 02-Oct-2026)
 Small change → verify only the affected screen (screenshot/measure at 1440 and 1280). Full suite `app/.qa/regress.sh` ONLY when the
 user explicitly asks — not even before push/deploy. Digital twin is final: don't edit `src/screens/site/twin/*`, don't run `twin.mjs` / `twin-full.mjs`.
+
+## Demo playbook (05-Oct-2026)
+`docs/dco-demo-playbook.html` = the customer demo script ("The 13:20 call", 10 acts, same story per persona, persona switch,
+"Open in tool" deep links carrying `?persona=` which the mock server honours on load). A copy is served at `/demo-playbook.html`
+(`app/public/demo-playbook.html`) — edit the docs file, then copy it over. Its figures are taken from the mock at the fixed clock;
+if the seed, incidents or revenue model change, re-check them.
