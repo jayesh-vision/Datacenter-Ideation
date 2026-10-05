@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { getAlerts, getDatacenters, getIncidents, useQuery, vocabNow } from '../api';
+import { clockNow, getAlerts, getDatacenters, getIncidents, useQuery, vocabNow } from '../api';
 import type { DcSummary, Severity } from '../api/types';
 import { usePage, Loading, useSentinel } from '../shell/page';
 import { DataTable, type Col } from '../ui/DataTable';
@@ -11,6 +11,7 @@ import { ROLLOUT, SEVERITY } from '../lib/vocab';
 import { fmtNum } from '../lib/format';
 import '../styles/datacenters.css';
 import { OpstralBtn } from '../ui/OpstralMark';
+import { DcCard } from './ops/DcCard';
 import { Facts, SOFT, SoftMeter, Split, StatGrid, StatTile, type Tone } from '../ui/Analytics';
 
 const REGIONS = [{ id: 'north', name: 'North' }, { id: 'east', name: 'East' }, { id: 'west', name: 'West' }, { id: 'south', name: 'South' }];
@@ -30,6 +31,9 @@ export function Datacenters() {
   usePage([{ label: 'Datacenters' }]);
   const { data, reload } = useQuery(getDatacenters, []);
   /* region cards fold away (collapsed by default, remembered per browser) */
+  const [layout, setLayout] = useState<'list' | 'tiles'>(() => { try { return localStorage.getItem('dco.dcl.layout') === 'tiles' ? 'tiles' : 'list'; } catch { return 'list'; } });
+  const setLayoutPersist = (v: 'list' | 'tiles') => { setLayout(v); try { localStorage.setItem('dco.dcl.layout', v); } catch { /* storage blocked */ } };
+  const now = clockNow();
   const [regOpen, setRegOpen] = useState(() => { try { return localStorage.getItem('dco.dcl.regions') === 'open'; } catch { return false; } });
   const { data: alarms } = useQuery(() => getAlerts({ state: 'open', scope: 'dc' }), []);
   const { data: incs } = useQuery(() => getIncidents({ status: 'open' }), []);
@@ -99,9 +103,9 @@ export function Datacenters() {
         </>}
       </section>
       <section className="vw-card-section dcl-table">
-        <DataTable rows={rows} cols={cols} onRow={d => nav(`/datacenters/${d.id}`)} defaultSort={{ key: 'inc', dir: 'desc' }} pageSize={30}
-          toolbar={
-            <ListToolbar onApply={applyParams} shown={rows.length} total={live.length} onRefresh={reload}
+        {(() => {
+          const toolbar = (
+            <ListToolbar layout={{ value: layout, onChange: setLayoutPersist }} onApply={applyParams} shown={rows.length} total={live.length} onRefresh={reload}
               search={{ value: q, onChange: v => set('q', v), placeholder: 'Datacenter, city, state' }}
               filters={[
                 { id: 'view', label: 'Condition', quick: true, value: view, defaultValue: 'all', onChange: v => set('view', v), options: [
@@ -110,7 +114,28 @@ export function Datacenters() {
                   { id: 'clear', label: 'Clear', count: live.filter(d => !d.openIncidents && !d.facilityIssues.length && d.edge.state === 'redundant').length }] },
                 { id: 'region', label: 'Region', quick: true, value: region, anyLabel: 'Any region', onChange: v => set('region', v), options: [...new Set(live.map(d => d.regionId))].map(r => ({ id: r, label: r[0].toUpperCase() + r.slice(1), count: live.filter(d => d.regionId === r).length })) }
               ]} />
-          } />
+          );
+          if (layout === 'list') return <DataTable rows={rows} cols={cols} onRow={d => nav(`/datacenters/${d.id}`)} defaultSort={{ key: 'inc', dir: 'desc' }} pageSize={30} toolbar={toolbar} />;
+          const rank = (d: DcSummary) => (d.worstSev ? 10 - d.worstSev : 0) * 100 + d.openIncidents + (stateOf(d) !== 'normal' ? 0.5 : 0);
+          return (
+            <div className="dt">
+              <div className="dt-toolbar">{toolbar}</div>
+              <div className="dcl-tiles">
+                {[...rows].sort((a, b) => rank(b) - rank(a) || a.name.localeCompare(b.name)).map(d => {
+                  const worst = incs.filter(i => i.dcId === d.id).sort((a, b) => a.sev - b.sev || Number(b.sla.breaching) - Number(a.sla.breaching) || a.sla.resolveLeft - b.sla.resolveLeft)[0];
+                  const site = { id: d.id, city: d.city, state: d.state, tier: d.tier, siteOpen: d.openIncidents };
+                  if (worst) return <DcCard key={d.id} now={now} site={site} inc={{ ...worst, cause: worst.rca[0]?.cause ?? 'Under investigation', confidence: worst.rca[0]?.confidence ?? 0, nextAction: worst.actions.find(a => a.status !== 'done' && a.status !== 'rejected')?.step ?? null, awaitingApproval: worst.actions.filter(a => a.disruptive && (a.status === 'pending' || a.status === 'awaiting-approval')).length }} />;
+                  const net = [d.linksDown ? `${d.linksDown} link${d.linksDown === 1 ? '' : 's'} down` : '', d.unreachable ? `${d.unreachable} device${d.unreachable === 1 ? '' : 's'} unreachable` : ''].filter(Boolean).join(' · ');
+                  const fac = d.facilityIssues[0];
+                  return <DcCard key={d.id} now={now} site={site} quiet={{ state: stateOf(d) === 'normal' ? 'normal' : 'attention', alarms: d.activeAlerts, critAlarms: d.critAlerts, services: d.services, degraded: d.servicesDegraded, customers: d.customers,
+                    powerPct: d.powerCapKw ? Math.round((d.powerKw / d.powerCapKw) * 100) : 0, coolPct: d.coolPct, noteLabel: fac ? 'Facility' : 'Network & edge',
+                    note: fac ? d.facilityIssues.join(' · ') : `${net || 'All links up'} · edge ${d.edge.up}/${d.edge.total} up${d.edge.state === 'redundant' ? '' : d.edge.state === 'isolated' ? ' — isolated' : ' — redundancy lost'}` }} />;
+                })}
+                {!rows.length && <div className="dcl-tiles-empty">No datacenter matches these filters.</div>}
+              </div>
+            </div>
+          );
+        })()}
       </section>
     </div>
   );

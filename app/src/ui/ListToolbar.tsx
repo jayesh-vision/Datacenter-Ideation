@@ -27,13 +27,15 @@ export interface ListFilter {
   quick?: boolean;
 }
 
-export function ListToolbar({ shown, total, noun, search, filters = [], onRefresh, actions = [], onApply, children }: {
+export function ListToolbar({ shown, total, noun, search, filters = [], onRefresh, actions = [], onApply, layout, children }: {
   shown: number; total: number; noun?: string;
   search?: { value: string; onChange: (v: string) => void; placeholder: string };
   filters?: ListFilter[]; onRefresh?: () => void;
   actions?: { label: string; icon?: I.LucideIcon; onClick: () => void }[];
   /** URL-backed filters: receives every changed filter at once (filter id = URL param, default value = removed) */
   onApply?: (patch: Record<string, string>) => void;
+  /** list ⇄ tiles switch, shown next to the filter icon on lists that have a tile view */
+  layout?: { value: 'list' | 'tiles'; onChange: (v: 'list' | 'tiles') => void };
   /** extra inline content after the quick filters (e.g. an active cause chip) */
   children?: ReactNode;
 }) {
@@ -68,6 +70,12 @@ export function ListToolbar({ shown, total, noun, search, filters = [], onRefres
         <button type="button" className={`nst-icon-btn lt-icon${panel || active ? ' is-on' : ''}`} title="Filters" aria-label="Filters" aria-expanded={panel} onClick={() => setPanel(p => !p)}>
           <I.Filter size={16} />{active > 0 && <span className="lt-badge">{active}</span>}
         </button>
+      )}
+      {layout && (
+        <div className="lt-view" role="group" aria-label="View">
+          <button type="button" className={layout.value === 'list' ? 'is-on' : ''} aria-pressed={layout.value === 'list'} title="List view" aria-label="List view" onClick={() => layout.onChange('list')}><I.List size={16} /></button>
+          <button type="button" className={layout.value === 'tiles' ? 'is-on' : ''} aria-pressed={layout.value === 'tiles'} title="Tile view" aria-label="Tile view" onClick={() => layout.onChange('tiles')}><I.LayoutGrid size={16} /></button>
+        </div>
       )}
       {actions.length > 0 && (
         <div className="lt-menu-wrap" ref={menuRef}>

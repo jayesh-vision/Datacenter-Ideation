@@ -60,7 +60,6 @@
 .dcpin-halo { position: absolute; inset: -6px; border-radius: 50%; border: 2px solid var(--vw-color-red-500); animation: halo 1.6s ease-out infinite; }
 @keyframes halo { 0% { transform: scale(.7); opacity: .9; } 100% { transform: scale(1.7); opacity: 0; } }
 .dcpin-badge { position: absolute; top: -6px; right: -6px; min-width: 17px; height: 17px; border-radius: 9px; background: var(--vw-color-red-500); color: #fff; font-family: var(--num); font-size: 10.5px; font-weight: 600; display: grid; place-items: center; padding: 0 4px; border: 2px solid #fff; }
-.dcpin:not(.is-pulse):not(:hover) .dcpin-label { display: none; }
 .dcpin-label { position: absolute; top: calc(100% + 3px); left: 50%; transform: translateX(-50%); font-family: var(--num); font-size: 10px; font-weight: 500; color: var(--ink-700); white-space: nowrap; background: rgba(255, 255, 255, .8); padding: 0 4px; border-radius: 4px; }
 .leaflet-container { font-family: 'Poppins', system-ui, sans-serif; }
 .map-tip { font-size: 12px; line-height: 1.4; }
@@ -397,3 +396,73 @@
 .hero-line { font-size: var(--vw-font-heading-lg) !important; }
 /* keep the map's overlay z-indexes inside the map so drawers and popups sit above them */
 .hero-map { isolation: isolate; }
+
+/* ---- interactive estate map (overview/DcMap.tsx) ---------------------- */
+.dcpin { cursor: pointer; }
+.dcpin-ring { border: 3px solid var(--pc) !important; transition: transform .15s ease, box-shadow .15s ease; box-shadow: 0 0 0 2px rgba(255, 255, 255, .85), 0 2px 8px rgba(15, 23, 42, .25) !important; }
+.dcpin.is-ok { --pc: var(--primaryColor500); } .dcpin.is-warn { --pc: var(--vw-color-amber-500); } .dcpin.is-crit { --pc: var(--vw-color-red-500); }
+.dcpin:hover .dcpin-ring { transform: scale(1.18); }
+.dcpin.is-crit .dcpin-ring { background: radial-gradient(circle, #fff 38%, #fee2e2 100%); }
+.dcpin-halo { border-color: var(--pc) !important; }
+.dcpin.is-crit .dcpin-halo { animation: halo 1.5s ease-out infinite; }
+.dcpin.is-crit .dcpin-halo.is-2 { animation-delay: .75s; }
+.dcpin.is-warn .dcpin-halo { animation: halo 2.8s ease-out infinite; border-width: 1.5px; }
+.dcpin.is-crit .dcpin-badge { background: var(--vw-color-red-500); } .dcpin.is-warn .dcpin-badge { background: var(--vw-color-gray-800); }
+.dcpin .dcpin-label { display: none; }
+.dcpin.is-crit .dcpin-label, .dcpin:hover .dcpin-label { display: block; }
+.dcpin-label { background: rgba(255, 255, 255, .92) !important; box-shadow: 0 1px 3px rgba(15, 23, 42, .15); padding: 1px 5px !important; }
+.dcpin.is-enter { animation: dcpin-in .45s cubic-bezier(.2, .9, .3, 1.3) both; animation-delay: var(--d); }
+@keyframes dcpin-in { from { transform: scale(.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.dclink { fill: none; stroke-linecap: round; }
+.dclink.is-down { stroke-dasharray: 7 9; animation: dclink-dash 1s linear infinite; }
+.dclink.is-fan:not(.is-down) { stroke-dasharray: 2 7; animation: dclink-dash 1.6s linear infinite; }
+@keyframes dclink-dash { to { stroke-dashoffset: -16; } }
+@media (prefers-reduced-motion: reduce) { .dcpin-halo, .dclink, .dcpin.is-enter { animation: none !important; } }
+/* tools */
+.dcmap-tools { position: absolute; top: 12px; right: 12px; z-index: 500; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+.dcmap-btn { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--vw-color-slate-200); border-radius: 10px; background: rgba(255, 255, 255, .96); color: var(--vw-color-gray-700); cursor: pointer; box-shadow: 0 1px 3px rgba(15, 23, 42, .12); }
+.dcmap-btn:hover:not(:disabled) { border-color: var(--primaryColor500); color: var(--primaryColor700); }
+.dcmap-btn.is-on { border-color: var(--primaryColor500); background: var(--primaryColor50); color: var(--primaryColor700); }
+.dcmap-btn:disabled { opacity: .5; cursor: default; }
+.dcmap-base { position: relative; }
+.dcmap-basemenu { position: absolute; right: 42px; top: 0; display: grid; grid-template-columns: repeat(2, auto); gap: 4px; padding: 6px; border: 1px solid var(--vw-color-slate-200); border-radius: 12px; background: #fff; box-shadow: 0 12px 28px rgba(15, 23, 42, .16); }
+.dcmap-basemenu button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 3px 3px 4px; border: 2px solid transparent; border-radius: 9px; background: transparent; font: inherit; font-size: 11px; color: var(--vw-color-gray-700); cursor: pointer; }
+.dcmap-basemenu button:hover { border-color: var(--vw-color-slate-200); }
+.dcmap-basemenu button.is-on { border-color: var(--primaryColor500); color: var(--primaryColor700); }
+.dcmap-basemenu img { width: 58px; height: 46px; object-fit: cover; border-radius: 6px; display: block; background: var(--vw-color-slate-100); }
+/* legend = toggles */
+.dcmap-legend { gap: 4px !important; padding: 5px 6px !important; }
+.dcmap-legend button { display: inline-flex; align-items: center; gap: 0; padding: 3px 8px; border: 0; border-radius: 7px; background: transparent; font: inherit; font-size: 11.5px; color: var(--vw-color-gray-700); cursor: pointer; white-space: nowrap; }
+.dcmap-legend button:hover { background: var(--vw-color-slate-100); }
+.dcmap-legend button b { margin-left: 5px; font-weight: 500; color: var(--vw-color-gray-900); font-family: var(--num); }
+.dcmap-legend button.is-ok i { --c: var(--primaryColor500); } .dcmap-legend button.is-warn i { --c: var(--vw-color-amber-500); } .dcmap-legend button.is-crit i { --c: var(--vw-color-red-500); }
+.dcmap-legend button.is-off { opacity: .45; text-decoration: line-through; }
+.dcmap-leg-link { display: inline-flex; align-items: center; gap: 6px; padding: 0 8px 0 10px; border-left: 1px solid var(--vw-color-slate-200); white-space: nowrap; }
+.dcmap-leg-link i { width: 18px !important; height: 0 !important; border: 0 !important; border-top: 2px dashed var(--vw-color-red-500) !important; border-radius: 0 !important; margin: 0 !important; background: none !important; }
+.dcmap-hint { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 600; padding: 8px 14px; border-radius: 10px; background: rgba(15, 23, 42, .78); color: #fff; font-size: 12.5px; pointer-events: none; white-space: nowrap; }
+.dcmap .leaflet-control-scale-line { border-color: var(--vw-color-gray-500); color: var(--vw-color-gray-700); background: rgba(255, 255, 255, .7); font-size: 10px; }
+/* site popup */
+.dcpop-wrap .leaflet-popup-content-wrapper { border-radius: 12px !important; padding: 0; }
+.dcpop-wrap .leaflet-popup-content { margin: 12px 14px 12px !important; width: auto !important; }
+.dcpop { display: flex; flex-direction: column; gap: 8px; min-width: 232px; font-family: 'Poppins', sans-serif; }
+.dcpop-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-right: 14px; }
+.dcpop-h b { font-size: 15px; font-weight: 600; color: var(--vw-color-gray-900); }
+.dcpop-chip { padding: 1px 8px; font-size: 11px; line-height: 17px; gap: 4px; }
+.dcpop-chip .chip-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; display: inline-block; }
+.dcpop-s { margin-top: -6px; font-size: 12px; color: var(--vw-color-gray-500); }
+.dcpop-g { display: grid; grid-template-columns: repeat(4, auto); justify-content: space-between; gap: 6px 10px; padding: 8px 0; border-top: 1px solid var(--vw-color-slate-100); border-bottom: 1px solid var(--vw-color-slate-100); }
+.dcpop-g > div { display: flex; flex-direction: column; line-height: 1.3; }
+.dcpop-g span { font-size: 10.5px; color: var(--vw-color-gray-500); }
+.dcpop-g b { font-size: 16px; font-weight: 400; color: var(--vw-color-gray-900); font-variant-numeric: tabular-nums; }
+.dcpop-g small { font-size: 10.5px; color: var(--vw-color-gray-500); white-space: nowrap; } .dcpop-g small.bad { color: #b21313; }
+.dcpop-a { display: flex; gap: 6px; flex-wrap: wrap; }
+.dcpop-a .nst-btn { text-decoration: none; }
+.dcpop-a .nst-btn--filled { color: #fff !important; }
+.dcpop-a .nst-btn:not(.nst-btn--filled) { color: var(--vw-color-gray-800) !important; }
+
+.dcpin-label.is-fixed { display: block; top: var(--o); left: 0; transform: translateX(-50%); }
+.dcpin-label.is-fixed.is-enter { animation: dcpin-fade .5s ease .5s both; }
+@keyframes dcpin-fade { from { opacity: 0; } to { opacity: 1; } }
+.dcpop { min-width: 264px; }
+.dcpop-a { flex-wrap: nowrap; }
+.dcmap-legend { max-width: calc(100% - 76px); flex-wrap: wrap; }

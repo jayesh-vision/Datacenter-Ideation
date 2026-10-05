@@ -511,6 +511,17 @@ export function commandCenter() {
   db.datacenters.filter(d => d.status !== 'planned').forEach(d => { const due = d.power.dg.lastTest + 30 * DAY; if (due >= db.now - 6 * HOUR && due <= horizon) upcoming.push({ at: due, kind: 'test', label: `${d.id} DG monthly test due`, sub: `${d.power.dg.kva} kVA · last ${fmtWhenShort(d.power.dg.lastTest)} · ${d.power.dg.result}`, to: `/facilities?dc=${d.id}`, tone: 'neutral' }); });
   upcoming.sort((a, b) => a.at - b.at);
   const dcMap = db.datacenters.filter(d => d.status !== 'planned').map(d => { const sm = summarize(d); const inc = open.filter(i => i.dcId === d.id); return { id: d.id, city: d.city, lat: d.lat, lng: d.lng, status: d.status, health: sm.healthScore, ne: sm.ne, coveragePct: sm.coveragePct, incidents: inc.length, worstSev: inc.length ? Math.min(...inc.map(i => i.sev)) : 0, breaching: inc.filter(i => i.sla.breaching).length, alerts: sm.activeAlerts, critAlerts: sm.critAlerts, powerPct: sm.powerCapKw ? Math.round((sm.powerKw / sm.powerCapKw) * 100) : 0, coolPct: Math.round((d.cooling.loadKw / d.cooling.capacityKw) * 100), facilityIssue: d.power.ups.some(u => u.state !== 'Online') || d.cooling.units.some(u => u.status === 'Failed'), services: sm.services, regionId: d.regionId, tier: d.tier, pue: sm.pue, load24h: d.power.load24h }; });
+  /* inter-datacenter backhaul, one row per site pair (for the estate map) */
+  const pairMap = new Map<string, { a: string; z: string; n: number; down: number }>();
+  for (const l of lldp) {
+    const da = db.neById.get(l.aNe)!.dcId, dz = db.neById.get(l.zNe)!.dcId;
+    if (da === dz) continue;
+    const [x, y] = da < dz ? [da, dz] : [dz, da];
+    const e = pairMap.get(`${x}|${y}`) ?? { a: x, z: y, n: 0, down: 0 };
+    e.n++; if (l.state === 'down') e.down++;
+    pairMap.set(`${x}|${y}`, e);
+  }
+  const dcLinks = [...pairMap.values()];
   const regions = db.regions.map(r => { const ds = dcMap.filter(d => d.regionId === r.id); return { id: r.id, name: r.name, dcs: ds.length, onAir: ds.length, alerts: ds.reduce((a, d) => a + d.alerts, 0), incidents: ds.reduce((a, d) => a + d.incidents, 0), health: ds.length ? Math.round(ds.filter(d => d.status !== 'planned').reduce((a, d) => a + d.health, 0) / Math.max(1, ds.filter(d => d.status !== 'planned').length)) : 0, worstSev: ds.reduce((a, d) => (d.worstSev && (!a || d.worstSev < a) ? d.worstSev : a), 0) }; });
   const critical = open.filter(i => i.sev <= 2).sort((a, b) => a.sev - b.sev || Number(b.sla.breaching) - Number(a.sla.breaching) || a.sla.resolveLeft - b.sla.resolveLeft)
     .map(i => ({ id: i.id, title: i.title, sev: i.sev, status: i.status, type: i.type, dcId: i.dcId, city: dcOf(i.dcId)!.city, state: dcOf(i.dcId)!.state, tier: dcOf(i.dcId)!.tier, siteOpen: open.filter(x => x.dcId === i.dcId).length, siteHealth: summarize(dcOf(i.dcId)!).healthScore, owner: i.owner, detected: i.detected, acknowledged: i.acknowledged,
@@ -541,7 +552,7 @@ export function commandCenter() {
       };
     })(),
     situation: { n1: open.filter(i => i.sev === 1).length, n2: open.filter(i => i.sev === 2).length, critSites: new Set(open.filter(i => i.sev <= 2).map(i => i.dcId)).size, exposedServices: exposedSvc.length, headline, band: shi >= 85 && breaching.length === 0 ? 'Healthy' : shi >= 60 ? 'Watch' : 'Degraded', weakest, revenueAtRisk, exposedPremium: exposedCustomers.filter(c => c.premium).length, services: db.services.length, customers: db.customers.length, lldp: lldp.length },
-    topIncidents, critical, svcStatus, exposedCustomers: exposedCustomers.slice(0, 6), causes, changeImplicated, recommendations, upcoming, dcMap, regions,
+    topIncidents, critical, svcStatus, exposedCustomers: exposedCustomers.slice(0, 6), causes, changeImplicated, recommendations, upcoming, dcMap, dcLinks, regions,
     pulse: { facilityAlarms, activeChanges: activeChanges.length, unreachable: unreachable.length, health, open: open.length, breaching: breaching.length, critMajor: al.filter(a => a.severity === 'critical' || a.severity === 'major').length, powerHeadroom: pw.headroom, linksDown: linksDown.length, servicesDegraded: degraded.length,
       pue: Math.round((s.filter(x => x.status !== 'planned').reduce((a, x) => a + x.pue, 0) / s.filter(x => x.status !== 'planned').length) * 100) / 100,
       availability: Math.round((live.reduce((a, n) => a + n.icmp.availability, 0) / live.length) * 100) / 100, mttrMin: Math.round(mttr), slaPct: resolved30.length ? Math.round((slaMet / resolved30.length) * 100) : 100,

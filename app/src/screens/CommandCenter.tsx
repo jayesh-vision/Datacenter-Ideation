@@ -11,6 +11,7 @@ import { ROLLOUT } from '../lib/vocab';
 import { fmtAgo, fmtDow, fmtDur, fmtNum, fmtShortDate, fmtTime } from '../lib/format';
 import { DAY } from '../mock/seed';
 import '../styles/command.css';
+import { DcCard } from './ops/DcCard';
 import { OpstralBadge, OpstralBtn } from '../ui/OpstralMark';
 
 /* One restrained palette (NST): neutral structure, brand blue as the only
@@ -77,9 +78,9 @@ function Situation({ d }: { d: CC }) {
   const n1 = d.critical.filter(i => i.sev === 1).length, n2 = d.critical.length - n1;
   const scroll = (dir: number) => lane.current?.scrollBy({ left: dir * 340, behavior: 'smooth' });
   const pins = useMemo<DcPin[]>(() => d.dcMap.map(x => ({
-    id: x.id, lat: x.lat, lng: x.lng, label: x.id, sub: `${x.city} · health ${x.health} · ${x.incidents} open incident${x.incidents === 1 ? '' : 's'} · ${x.alerts} alarms`,
-    color: x.worstSev && x.worstSev <= 2 ? C.bad : x.incidents || x.critAlerts ? C.warn : C.accent,
-    size: 12 + Math.round(Math.sqrt(x.ne) * 0.9), pulse: x.worstSev > 0 && x.worstSev <= 2, dim: false, badge: x.incidents || undefined
+    id: x.id, lat: x.lat, lng: x.lng, city: x.city, tier: x.tier, kind: x.worstSev && x.worstSev <= 2 ? 'crit' : x.incidents || x.critAlerts || x.facilityIssue ? 'warn' : 'ok',
+    size: 12 + Math.round(Math.sqrt(x.ne) * 0.9), incidents: x.incidents, worstSev: x.worstSev, breaching: x.breaching, alerts: x.alerts, critAlerts: x.critAlerts,
+    powerPct: x.powerPct, coolPct: x.coolPct, services: x.services, facilityIssue: x.facilityIssue
   })), [d.dcMap]);
   return (
     <>
@@ -126,15 +127,10 @@ function Situation({ d }: { d: CC }) {
           </div>
         </div>
         <div className="hero-map">
-          <DcMap pins={pins} onPick={id => nav(`/datacenters/${id}`)} height={430} />
+          <DcMap pins={pins} links={d.dcLinks} onNav={nav} height={430} />
           <div className="hero-map-head">
             <span className="vw-card-activity-label">Live estate</span>
-            <span className="vw-label">{d.dcMap.length} datacenters · {d.dcMap.filter(x => x.worstSev && x.worstSev <= 2).length} with SEV1/2</span>
-          </div>
-          <div className="map-legend">
-            <span><i style={{ '--c': C.accent } as React.CSSProperties} />Healthy</span>
-            <span><i style={{ '--c': C.warn } as React.CSSProperties} />Incidents</span>
-            <span><i style={{ '--c': C.bad } as React.CSSProperties} />SEV1/2 running</span>
+            <span className="vw-label">{d.dcMap.length} datacenters · {d.dcMap.filter(x => x.worstSev && x.worstSev <= 2).length} with SEV1/2 · {d.dcLinks.filter(l => l.down).length} backhaul down</span>
           </div>
         </div>
       </section>
@@ -176,53 +172,7 @@ function Situation({ d }: { d: CC }) {
         </div>
         {crit.length > 0 && (
           <div className="cmd-lane" ref={lane}>
-            {crit.map(i => {
-              const left = i.sla.resolveLeft, used = Math.max(0, Math.min(100, ((i.resolveSlaMin - left) / i.resolveSlaMin) * 100));
-              const late = left < 0;
-              return (
-                <div key={i.id} className="vw-card-section vw-card--accent cmd-inc">
-                  <div className="vw-card-accent" style={{ background: i.sev === 1 ? C.bad : C.warn }} />
-                  {/* fixed slots: every card has the same rows at the same heights */}
-                  <Link to={`/datacenters/${i.dcId}`} className="ci-dc" title={`Open datacenter ${i.dcId}`}>
-                    <span className="vw-card-icon-sm ci-dc-ic"><I.Building2 size={16} /></span>
-                    <div className="ci-dc-id">
-                      <span className="ci-dc-name">{i.dcId}</span>
-                      <span className="vw-label">{i.city}, {i.state} · {i.tier}</span>
-                    </div>
-                    <span className="ci-dc-ctx" title="Open incidents at this datacenter">{i.siteOpen} open<small>in DC</small></span>
-                  </Link>
-                  <Link to={`/incidents/${i.id}`} className="ci-body" title={`Open incident ${i.id}`}>
-                  <div className="ci-head">
-                    <span className={`vw-chip ${i.sev === 1 ? 'vw-chip--error' : 'vw-chip--warning'} is-strong cmd-chip`}>SEV{i.sev}</span>
-                    <span className="vw-card-activity-label">{i.id}</span>
-                    <span className="vw-chip vw-chip--neutral cmd-chip">{i.type}</span>
-                    <span className="vw-footer-meta ci-age">{fmtAgo(i.detected, now)}</span>
-                  </div>
-                  <div className="vw-card-title-sm ci-title" title={i.title}>{i.title.replace(new RegExp(`\\s+(in|at|—)\\s+${i.dcId}$`), '')}</div>
-                  <div className="ci-cause" title={`${i.cause} (${i.confidence}% confidence)`}>
-                    <span className="vw-label">Likely cause · {i.confidence}%</span>
-                    <span className="vw-value ci-clamp1">{i.cause}</span>
-                  </div>
-                  <div className="ci-impact">
-                    <div><span className="vw-card-metric-sm">{i.impact.services}</span><span className="vw-label">{vocabNow().services.toLowerCase()}</span></div>
-                    <div><span className="vw-card-metric-sm">{i.impact.premium}</span><span className="vw-label">{vocabNow().premium.toLowerCase()}</span></div>
-                    <div><span className="vw-card-metric-sm">{i.impact.customers}</span><span className="vw-label">{vocabNow().customers.toLowerCase()}</span></div>
-                  </div>
-                  <div className="ci-sla">
-                    <div className="ci-sla-row">
-                      <span className={`vw-card-variance ${late ? 'is-negative' : 'is-neutral'}`}>{late ? `Overdue ${fmtDur(-left)}` : `${fmtDur(left)} to SLA`}</span>
-                      <span className="vw-footer-meta ci-owner" title={`${i.status} · ${i.owner}`}>{i.status} · {i.owner}</span>
-                    </div>
-                    <div className="bar" style={{ height: 4 }}><i style={{ width: `${late ? 100 : used}%`, background: late ? C.bad : C.accent }} /></div>
-                  </div>
-                  <div className="vw-card-child-shaded ci-next" title={i.nextAction ?? undefined}>
-                    <span className="vw-label">{!i.nextAction ? 'Next action' : i.awaitingApproval > 0 ? `${i.awaitingApproval} step${i.awaitingApproval > 1 ? 's need' : ' needs'} approval` : 'Next action'}</span>
-                    <span className="vw-value ci-clamp2">{i.nextAction ?? 'All actions complete — run closure checks'}</span>
-                  </div>
-                </Link>
-                  </div>
-              );
-            })}
+            {crit.map(i => <DcCard key={i.id} now={now} site={{ id: i.dcId, city: i.city, state: i.state, tier: i.tier, siteOpen: i.siteOpen }} inc={i} />)}
           </div>
         )}
       </section>

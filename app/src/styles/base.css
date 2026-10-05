@@ -381,3 +381,10 @@ td .cell-2 small { font-size: 11.5px; color: var(--ink-500); }
 .dco-tile > .dco-detail > .dco-rank { margin-top: 4px; gap: 4px; }
 .dco-tile > .dco-detail > .dco-rank > span { height: 16px; }
 .dco-tile > .dco-detail > .dco-meter + .dco-facts, .dco-tile > .dco-detail > .dco-split + .dco-facts, .dco-tile > .dco-detail > .dco-meter + .dco-rank { margin-top: 4px; }
+
+/* list ⇄ tiles switch in the list toolbar */
+.lt-view { display: inline-flex; height: 38px; border: 1px solid var(--vw-color-slate-200); border-radius: 10px; overflow: hidden; flex-shrink: 0; background: var(--vw-color-white); }
+.lt-view button { width: 38px; display: grid; place-items: center; border: 0; background: transparent; color: var(--vw-color-gray-500); cursor: pointer; }
+.lt-view button + button { border-left: 1px solid var(--vw-color-slate-200); }
+.lt-view button:hover { color: var(--vw-color-gray-900); }
+.lt-view button.is-on { background: var(--primaryColor50); color: var(--primaryColor600, var(--primaryColor500)); }
