@@ -91,7 +91,7 @@ Customer lists show "Why at risk" from `servicesOf().causes` (server.ts `causeIn
 - Datacenters list has a list ⇄ tiles switch (ListToolbar `layout` prop); tiles reuse `screens/ops/DcCard.tsx`, the same card as the
   Command center's Critical-now lane (worst open incident per site, or a quiet variant). Check: `node .qa/dc-tiles.mjs`.
 - Estate map (`overview/DcMap.tsx`, 04-Oct-2026): Esri basemaps Light/Streets/Satellite/Terrain (remembered), rippling pins for
-  SEV1/2 and incident sites, animated dashes on backhaul that is down, click → summary popup + that site's backhaul fan-out,
+  SEV1/2 and incident sites, animated dashes on backhaul that is down, click → summary popup + that site's backhaul fan-out, expand button fills the content area (Esc closes),
   legend items toggle states, Focus-issues / Reset buttons, wheel-zoom only after clicking the map. Check: `node .qa/map.mjs`.
 - Lists keep their toolbar and column header pinned under the top bar while rows scroll (sticky; wrappers use `overflow: clip`,
   never `hidden`, around a `.dt`). Check: `node .qa/sticky.mjs`.
@@ -102,7 +102,7 @@ Customer lists show "Why at risk" from `servicesOf().causes` (server.ts `causeIn
 
 ## Command center layout (02-Oct-2026, after the user rejected the 17-box version)
 Hero card = health ring + verdict + 4 areas as rows (left) and the live DcMap (right); one `.vitals` strip of 6 metrics with
-24 h sparklines (`commandCenter().trends`); then Critical now cards; then ImpactBoard | Recommendations, Exposure | Causes, 7-day board.
+24 h sparklines (`commandCenter().trends`); then Critical now cards; then ImpactBoard | Recommendations, Exposure | Causes (the 7-day "What happens next" board was removed 05-Oct-2026).
 Don't reintroduce rows of boxed KPI tiles on the landing page.
 
 ## Testing cadence (user, 02-Oct-2026)

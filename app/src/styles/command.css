@@ -466,3 +466,10 @@
 .dcpop { min-width: 264px; }
 .dcpop-a { flex-wrap: nowrap; }
 .dcmap-legend { max-width: calc(100% - 76px); flex-wrap: wrap; }
+
+/* expanded map: fills the content area under the top bar, beside the left menu */
+.dcmap.is-full, .hero-map .dcmap.is-full { position: fixed !important; inset: auto !important; top: var(--top-h) !important; left: var(--rail-w) !important; width: calc(100vw - var(--rail-w)) !important; height: calc(100vh - var(--top-h)) !important; z-index: 60; border-radius: 0; box-shadow: 0 0 0 1px var(--vw-color-slate-200); }
+.hero-map:has(.dcmap.is-full) { z-index: 60; }
+.dcmap-fulltitle { position: absolute; top: 12px; left: 12px; z-index: 500; display: flex; flex-direction: column; gap: 1px; padding: 8px 12px; border: 1px solid var(--vw-color-slate-200); border-radius: var(--vw-radius-sm); background: rgba(255, 255, 255, .96); font-size: 12px; color: var(--vw-color-gray-500); }
+.dcmap-fulltitle b { font-size: 14px; font-weight: 500; color: var(--vw-color-gray-900); }
+.hero-map:has(.dcmap.is-full) > .hero-map-head { display: none; }

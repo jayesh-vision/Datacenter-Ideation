@@ -9,7 +9,6 @@ import { Sparkline } from '../charts/Sparkline';
 import { DcMap, type DcPin } from './overview/DcMap';
 import { ROLLOUT } from '../lib/vocab';
 import { fmtAgo, fmtDow, fmtDur, fmtNum, fmtShortDate, fmtTime } from '../lib/format';
-import { DAY } from '../mock/seed';
 import '../styles/command.css';
 import { DcCard } from './ops/DcCard';
 import { OpstralBadge, OpstralBtn } from '../ui/OpstralMark';
@@ -37,7 +36,6 @@ export function CommandCenter() {
         <Exposure d={data} />
         <Causes d={data} />
       </div>
-      <NextSevenDays d={data} />
     </div>
   );
 }
@@ -305,51 +303,6 @@ function Recommendations({ d }: { d: CC }) {
 }
 
 /* --------------------------------------------------------- next 7 days / runway */
-
-function NextSevenDays({ d }: { d: CC }) {
-  const now = clockNow();
-  const [expanded, setExpanded] = useState<Set<number>>(new Set());
-  const t0 = new Date(now); t0.setHours(0, 0, 0, 0);
-  const start = t0.getTime();
-  const cols = useMemo(() => {
-    const byDay: Record<number, CC['upcoming']> = { [-1]: [] };
-    for (let i = 0; i < 7; i++) byDay[i] = [];
-    d.upcoming.forEach(e => { const k = e.overdue ? -1 : Math.floor((e.at - start) / DAY); if (byDay[k]) byDay[k].push(e); });
-    return byDay;
-  }, [d.upcoming, start]);
-  const KIND: Record<string, I.LucideIcon> = { deadline: I.AlarmClock, maintenance: I.Wrench, change: I.ArrowLeftRight, test: I.BatteryCharging, plan: I.TrendingUp, forecast: I.Activity };
-  const total = d.upcoming.length;
-  return (
-    <Panel title="What happens next" sub="Resolution deadlines, change and maintenance windows, DG tests and forecast threshold crossings" icon={I.CalendarRange} count={total}
-      actions={<Link to="/changes" className="panel-link">Change calendar<I.ChevronRight size={14} /></Link>}>
-      <div className="wk">
-        {[-1, 0, 1, 2, 3, 4, 5, 6].map(k => {
-          const evs = cols[k] ?? [];
-          const open = expanded.has(k);
-          const shown = open ? evs : evs.slice(0, 4);
-          const day = start + k * DAY;
-          return (
-            <div key={k} className={`wk-day${k === 0 ? ' is-today' : ''}${k === -1 ? ' is-overdue' : ''}`}>
-              <div className="h">{k === -1 ? 'Overdue' : k === 0 ? 'Today' : k === 1 ? 'Tomorrow' : fmtDow(day)}<small>{k === -1 ? evs.length : fmtShortDate(day)}</small></div>
-              {shown.map((e, i) => { const Ic = KIND[e.kind] ?? I.Dot; return (
-                <Link key={i} to={e.to} className={`wk-ev tone-${e.tone}`} title={`${e.label} — ${e.sub}`}>
-                  <span className="k"><Ic size={10} style={{ verticalAlign: -1, marginRight: 4 }} />{k === -1 ? 'overdue' : fmtTime(e.at)} · {e.kind === 'deadline' ? 'SLA due' : e.kind === 'forecast' ? '85% crossing' : e.kind === 'test' ? 'DG test' : e.kind}</span>
-                  <b>{e.label.replace(' resolution due', '').replace(' · maintenance window', '').replace(' · change window', '').replace(' DG monthly test due', '').replace(' target date', '').replace(' crosses 85%', '')}</b>
-                  <span>{e.sub}</span>
-                </Link>
-              ); })}
-              {evs.length > 4 && <button type="button" className="wk-more" onClick={() => setExpanded(s => { const n = new Set(s); open ? n.delete(k) : n.add(k); return n; })}>{open ? 'Show less' : `+${evs.length - 4} more`}</button>}
-              {!evs.length && <div className="wk-empty">—</div>}
-            </div>
-          );
-        })}
-      </div>
-    </Panel>
-  );
-}
-
-
-/* ------------------------------------------------------------ estate wall */
 
 function EstateWall({ d, open, onClose }: { d: CC; open: boolean; onClose: () => void }) {
   const [sort, setSort] = useState<'risk' | 'name'>('risk');

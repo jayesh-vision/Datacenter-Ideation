@@ -40,12 +40,26 @@ export function DcMap({ pins, links = [], onNav, height = 520 }: { pins: DcPin[]
   const [show, setShow] = useState<Record<PinKind, boolean>>({ crit: true, warn: true, ok: true });
   const [sel, setSel] = useState<string | null>(null);
   const [hint, setHint] = useState(false);
+  /* expanded: fills the app's content area (top bar and left menu stay visible); Esc closes */
+  const [full, setFull] = useState(false);
+  useEffect(() => {
+    if (!full) return;
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') setFull(false); };
+    window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k);
+  }, [full]);
+  useEffect(() => {
+    const m = map.current; if (!m) return;
+    if (full) m.scrollWheelZoom.enable(); else m.scrollWheelZoom.disable();
+    /* refit after the container has resized and the resize observer has run */
+    const t = window.setTimeout(() => { m.invalidateSize({ animate: false, pan: false }); m.fitBounds(INDIA, { animate: false, padding: [12, 12] }); }, 160);
+    return () => window.clearTimeout(t);
+  }, [full]);
   const byId = useMemo(() => new Map(pins.map(p => [p.id, p])), [pins]);
 
   /* map + interaction model */
   useEffect(() => {
     if (!el.current || map.current) return;
-    const m = L.map(el.current, { zoomSnap: 0.25, zoomDelta: 0.5, minZoom: 3.5, maxZoom: 16, scrollWheelZoom: false, zoomControl: false, attributionControl: true, maxBounds: [[-5, 45], [45, 115]], maxBoundsViscosity: 0.6 }).fitBounds(INDIA);
+    const m = L.map(el.current, { zoomSnap: 0.25, zoomDelta: 0.5, minZoom: 3.5, maxZoom: 16, scrollWheelZoom: false, zoomControl: false, attributionControl: true }).fitBounds(INDIA);
     L.control.zoom({ position: 'bottomright' }).addTo(m);
     L.control.scale({ position: 'bottomright', imperial: false, maxWidth: 90 }).addTo(m);
     /* site labels sit in their own pane above every pin, so a neighbouring pin never covers a label */
@@ -64,7 +78,7 @@ export function DcMap({ pins, links = [], onNav, height = 520 }: { pins: DcPin[]
     node.addEventListener('click', onClick);
     m.on('popupclose', () => setSel(null));
     let fitted = false;
-    const ro = new ResizeObserver(() => { if (!node.isConnected) return; m.invalidateSize({ animate: false }); if (!fitted && node.clientHeight > 100) { fitted = true; m.fitBounds(INDIA, { animate: false, padding: [4, 4] }); } });
+    const ro = new ResizeObserver(() => { if (!node.isConnected) return; m.invalidateSize({ animate: false, pan: false }); if (!fitted && node.clientHeight > 100) { fitted = true; m.fitBounds(INDIA, { animate: false, padding: [12, 12] }); } });
     ro.observe(node);
     return () => { ro.disconnect(); window.clearTimeout(hintT); node.removeEventListener('wheel', onWheel); node.removeEventListener('mousedown', arm); node.removeEventListener('mouseleave', disarm); node.removeEventListener('click', onClick); m.remove(); map.current = null; };
   }, []);
@@ -117,7 +131,7 @@ export function DcMap({ pins, links = [], onNav, height = 520 }: { pins: DcPin[]
   const reset = () => { const m = map.current; if (!m) return; m.closePopup(); m.flyToBounds(INDIA, { duration: 0.7, padding: [4, 4] }); };
 
   return (
-    <div className={`map dcmap is-${base}`} style={{ height }}>
+    <div className={`map dcmap is-${base}${full ? ' is-full' : ''}`} style={full ? undefined : { height }}>
       <div ref={el} style={{ position: 'absolute', inset: 0 }} />
       <div className="dcmap-tools">
         <div className="dcmap-base">
@@ -132,6 +146,7 @@ export function DcMap({ pins, links = [], onNav, height = 520 }: { pins: DcPin[]
             </div>
           )}
         </div>
+        <button type="button" className={`dcmap-btn${full ? ' is-on' : ''}`} title={full ? 'Exit expanded view (Esc)' : 'Expand map'} aria-label={full ? 'Exit expanded view' : 'Expand map'} aria-pressed={full} onClick={() => setFull(f => !f)}>{full ? <I.Minimize2 size={16} /> : <I.Maximize2 size={16} />}</button>
         <button type="button" className="dcmap-btn" title="Focus on sites with issues" aria-label="Focus on sites with issues" onClick={fitIssues} disabled={!issues.length}><I.Crosshair size={16} /></button>
         <button type="button" className="dcmap-btn" title="Reset view" aria-label="Reset view" onClick={reset}><I.Home size={16} /></button>
       </div>
@@ -143,6 +158,7 @@ export function DcMap({ pins, links = [], onNav, height = 520 }: { pins: DcPin[]
         ))}
         <span className="dcmap-leg-link" title="Backhaul between datacenters that is down"><i />Link down</span>
       </div>
+      {full && <div className="dcmap-fulltitle"><b>Live estate</b><span>{pins.length} datacenters · {counts.crit} with SEV1/2 · {links.filter(l => l.down).length} backhaul down</span></div>}
       {hint && <div className="dcmap-hint">Click the map, then scroll to zoom</div>}
     </div>
   );
