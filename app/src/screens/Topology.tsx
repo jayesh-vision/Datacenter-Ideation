@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { clockNow, getDatacenters, getNetworkElement, getTopology, useQuery } from '../api';
+import { clockNow, getDatacenters, getNetworkElement, getTopology, useQuery, defaultDcId } from '../api';
 import { usePage, PageHead, Loading } from '../shell/page';
 import { useSize } from '../charts/core';
 import { Btn, Chip, Drawer, Empty, KV, Seg, Toggle } from '../ui/kit';
@@ -18,7 +18,7 @@ const G = 'var(--vw-color-emerald-500)', A = 'var(--vw-color-orange-500)', R = '
 /* Layered, dependency-aware topology for one site (DC-NET-010). */
 export function Topology() {
   const [sp, setSp] = useSearchParams();
-  const dc = sp.get('dc') ?? 'MH-DC-001';
+  const dc = sp.get('dc') ?? defaultDcId();
   const set = (k: string, v: string) => { const n = new URLSearchParams(sp); v ? n.set(k, v) : n.delete(k); setSp(n, { replace: true }); };
   usePage([{ label: 'Operate' }, { label: 'Topology' }, { label: dc }], { dcId: dc });
   const { data: dcs } = useQuery(getDatacenters, []);

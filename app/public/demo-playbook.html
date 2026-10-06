@@ -251,7 +251,7 @@ body.presenter .act-body { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr
     <div class="card scroll-x" style="padding:0"><table class="cmp" id="cmp"></table></div>
   </section>
 
-  <p class="foot">Figures are from the demo data at the tool's fixed clock (Thu 01 Oct 2026, 13:20) and match the screens after a fresh reload. Anything you click in the tool — acknowledging an alarm, approving a step — changes what later screens show until you reload.</p>
+  <p class="foot">Figures are from the India estate (the tool's links pin <code>geo=in</code>; the same story runs in the USA with <code>geo=us</code> — Ashburn instead of Pune, Chicago instead of Delhi, dollars instead of rupees) at the tool's fixed clock (Thu 01 Oct 2026, 13:20) and match the screens after a fresh reload. Anything you click in the tool — acknowledging an alarm, approving a step — changes what later screens show until you reload.</p>
 </main>
 
 <script>
@@ -463,7 +463,8 @@ const val = (x, p) => (typeof x === 'function' ? x(p) : x);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const ARROW = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg>';
 /* every tool link carries the persona, so the tool window switches to it */
-const link = route => { const r = typeof route === 'string' ? { to: route } : route; const u = new URL(r.to, env); u.searchParams.set('persona', r.persona ?? persona); return u.toString(); };
+/* the script's figures are the India estate's, so every link also pins geo=in (the tool can also run as the USA: ?geo=us) */
+const link = route => { const r = typeof route === 'string' ? { to: route } : route; const u = new URL(r.to, env); u.searchParams.set('persona', r.persona ?? persona); u.searchParams.set('geo', 'in'); return u.toString(); };
 
 function renderPersona() {
   const p = P[persona];

@@ -7,7 +7,7 @@ import { usePage, PageHead, Loading } from '../shell/page';
 import { DataTable, type Col } from '../ui/DataTable';
 import { Btn, Chip, Kpi, Modal, Panel, Seg, Tabs, Field, Empty } from '../ui/kit';
 import { DcLink, Meter, NeLink, LinkStateChip, Legend } from '../ui/status';
-import { fmtDate, fmtINR, fmtKw, fmtMonth, fmtNum } from '../lib/format';
+import { fmtDate, fmtMoney, fmtKw, fmtMonth, fmtNum, currencySymbol } from '../lib/format';
 import { dateAfterMonths, monthsTo, WARN } from '../lib/forecast';
 import { Gauge, ForecastChart } from './plan/charts';
 import '../styles/plan.css';
@@ -99,7 +99,7 @@ function Overview({ cap, go }: { cap: Cap; go: (t: TabId) => void }) {
         <Kpi label="Cooling headroom" value={fmtNum(Math.round(cool.headroom))} unit="kW" icon={I.Snowflake} tone="cyan" basis={`${cool.pct}% of ${fmtNum(cool.cap)} kW`} onClick={() => go('power')} />
         <Kpi label="Rack space free" value={fmtNum(Math.round(sp.headroom))} unit="U" icon={I.Server} tone="purple" basis={`${cap.racks.length} racks · ${sp.pct}% used`} onClick={() => go('space')} />
         <Kpi label="Bandwidth headroom" value={fmtNum(Math.round(bw.headroom))} unit="Gbps" icon={I.Cable} tone="success" basis={`${cap.hotLinks.length} links ≥ 75% utilised`} onClick={() => go('network')} />
-        <Kpi label="Reserved (backlog)" value={backlog.length} icon={I.ClipboardList} tone="warning" basis={`${plans.length} plans · ${fmtINR(backlog.reduce((a, p) => a + p.capex, 0))} awaiting approval`} />
+        <Kpi label="Reserved (backlog)" value={backlog.length} icon={I.ClipboardList} tone="warning" basis={`${plans.length} plans · ${fmtMoney(backlog.reduce((a, p) => a + p.capex, 0))} awaiting approval`} />
       </div>
       <div className="gauges">
         {cap.dims.map(x => {
@@ -328,32 +328,32 @@ function FinancialTab({ cap, dc, onDc }: { cap: Cap; dc: string; onDc: (id: stri
   const tot = rows.reduce((a, r) => ({ ap: a.ap + r.approved, co: a.co + r.committed, op: a.op + r.opex }), { ap: 0, co: 0, op: 0 });
   const cols: Col<R>[] = [
     { key: 'id', header: 'Datacenter', render: r => <DcLink id={r.id} tab="capex" />, sort: r => r.id },
-    { key: 'ap', header: 'CapEx approved', align: 'right', render: r => <span className="num">{fmtINR(r.approved)}</span>, sort: r => r.approved },
-    { key: 'co', header: 'Committed', render: r => <Meter pct={r.approved ? (r.committed / r.approved) * 100 : 0} width={60} warnAt={95} label={fmtINR(r.committed)} />, sort: r => r.committed / (r.approved || 1) },
-    { key: 'rem', header: 'Remaining', align: 'right', render: r => <span className="num">{fmtINR(r.approved - r.committed)}</span>, sort: r => r.approved - r.committed },
-    { key: 'op', header: 'OpEx / mo', align: 'right', render: r => <span className="num">{fmtINR(r.opex)}</span>, sort: r => r.opex },
-    { key: 'opy', header: 'OpEx / yr', align: 'right', render: r => <span className="num">{fmtINR(r.opex * 12)}</span>, sort: r => r.opex },
-    { key: 'kw', header: '₹ / kW', align: 'right', render: r => <span className="num">{fmtINR(r.committed / (r.kw || 1))}</span>, sort: r => r.committed / (r.kw || 1) },
-    { key: 'rk', header: '₹ / rack', align: 'right', render: r => <span className="num">{r.racks ? fmtINR(r.committed / r.racks) : '—'}</span>, sort: r => r.committed / (r.racks || 1) },
-    { key: 'gb', header: '₹ / Gbps', align: 'right', render: r => <span className="num">{r.gbps ? fmtINR(r.committed / r.gbps) : '—'}</span>, sort: r => r.committed / (r.gbps || 1) }
+    { key: 'ap', header: 'CapEx approved', align: 'right', render: r => <span className="num">{fmtMoney(r.approved)}</span>, sort: r => r.approved },
+    { key: 'co', header: 'Committed', render: r => <Meter pct={r.approved ? (r.committed / r.approved) * 100 : 0} width={60} warnAt={95} label={fmtMoney(r.committed)} />, sort: r => r.committed / (r.approved || 1) },
+    { key: 'rem', header: 'Remaining', align: 'right', render: r => <span className="num">{fmtMoney(r.approved - r.committed)}</span>, sort: r => r.approved - r.committed },
+    { key: 'op', header: 'OpEx / mo', align: 'right', render: r => <span className="num">{fmtMoney(r.opex)}</span>, sort: r => r.opex },
+    { key: 'opy', header: 'OpEx / yr', align: 'right', render: r => <span className="num">{fmtMoney(r.opex * 12)}</span>, sort: r => r.opex },
+    { key: 'kw', header: `${currencySymbol()} / kW`, align: 'right', render: r => <span className="num">{fmtMoney(r.committed / (r.kw || 1))}</span>, sort: r => r.committed / (r.kw || 1) },
+    { key: 'rk', header: `${currencySymbol()} / rack`, align: 'right', render: r => <span className="num">{r.racks ? fmtMoney(r.committed / r.racks) : '—'}</span>, sort: r => r.committed / (r.racks || 1) },
+    { key: 'gb', header: `${currencySymbol()} / Gbps`, align: 'right', render: r => <span className="num">{r.gbps ? fmtMoney(r.committed / r.gbps) : '—'}</span>, sort: r => r.committed / (r.gbps || 1) }
   ];
   return (
     <>
       <div className="kpis">
-        <Kpi label="CapEx approved" value={fmtINR(tot.ap)} icon={I.BadgeCheck} tone="info" basis={`${rows.length} datacenters`} />
-        <Kpi label="CapEx committed" value={fmtINR(tot.co)} icon={I.FileSignature} tone="purple" basis={`${tot.ap ? Math.round((tot.co / tot.ap) * 100) : 0}% of approved · ${fmtINR(tot.ap - tot.co)} remaining`} />
-        <Kpi label="OpEx run rate" value={fmtINR(tot.op)} unit="/ mo" icon={I.Repeat} tone="warning" basis={`${fmtINR(tot.op * 12)} annualised`} />
-        <Kpi label="Plans awaiting funds" value={fmtINR(cap.plans.filter(p => p.status === 'Submitted').reduce((a, p) => a + p.capex, 0))} icon={I.ClipboardList} tone="neutral" basis={`${cap.plans.filter(p => p.status === 'Submitted').length} submitted capacity plans`} />
+        <Kpi label="CapEx approved" value={fmtMoney(tot.ap)} icon={I.BadgeCheck} tone="info" basis={`${rows.length} datacenters`} />
+        <Kpi label="CapEx committed" value={fmtMoney(tot.co)} icon={I.FileSignature} tone="purple" basis={`${tot.ap ? Math.round((tot.co / tot.ap) * 100) : 0}% of approved · ${fmtMoney(tot.ap - tot.co)} remaining`} />
+        <Kpi label="OpEx run rate" value={fmtMoney(tot.op)} unit="/ mo" icon={I.Repeat} tone="warning" basis={`${fmtMoney(tot.op * 12)} annualised`} />
+        <Kpi label="Plans awaiting funds" value={fmtMoney(cap.plans.filter(p => p.status === 'Submitted').reduce((a, p) => a + p.capex, 0))} icon={I.ClipboardList} tone="neutral" basis={`${cap.plans.filter(p => p.status === 'Submitted').length} submitted capacity plans`} />
       </div>
       {one && (
         <div className="grid g-2">
           <Panel title={`CapEx lines — ${one.dc.id}`} icon={I.BadgeCheck} flush>
             <table className="nst-table dt-table"><thead><tr><th>Line</th><th className="is-right">Approved</th><th>Committed</th></tr></thead>
-              <tbody>{one.dc.capex.lines.map(l => <tr key={l.item}><td>{l.item}</td><td className="is-right num">{fmtINR(l.approved)}</td><td><Meter pct={l.approved ? (l.committed / l.approved) * 100 : 0} width={70} warnAt={95} label={fmtINR(l.committed)} /></td></tr>)}</tbody></table>
+              <tbody>{one.dc.capex.lines.map(l => <tr key={l.item}><td>{l.item}</td><td className="is-right num">{fmtMoney(l.approved)}</td><td><Meter pct={l.approved ? (l.committed / l.approved) * 100 : 0} width={70} warnAt={95} label={fmtMoney(l.committed)} /></td></tr>)}</tbody></table>
           </Panel>
-          <Panel title={`OpEx drivers — ${one.dc.id}`} sub={`${fmtINR(one.dc.opex.monthly)} / mo`} icon={I.Repeat} flush>
+          <Panel title={`OpEx drivers — ${one.dc.id}`} sub={`${fmtMoney(one.dc.opex.monthly)} / mo`} icon={I.Repeat} flush>
             <table className="nst-table dt-table"><thead><tr><th>Driver</th><th className="is-right">Monthly</th><th>Share</th></tr></thead>
-              <tbody>{one.dc.opex.drivers.map(l => <tr key={l.item}><td>{l.item}</td><td className="is-right num">{fmtINR(l.monthly)}</td><td><Meter pct={one.dc.opex.monthly ? (l.monthly / one.dc.opex.monthly) * 100 : 0} width={80} color="var(--primaryColor500)" /></td></tr>)}</tbody></table>
+              <tbody>{one.dc.opex.drivers.map(l => <tr key={l.item}><td>{l.item}</td><td className="is-right num">{fmtMoney(l.monthly)}</td><td><Meter pct={one.dc.opex.monthly ? (l.monthly / one.dc.opex.monthly) * 100 : 0} width={80} color="var(--primaryColor500)" /></td></tr>)}</tbody></table>
           </Panel>
         </div>
       )}
@@ -405,8 +405,8 @@ function PlanModal({ open, onClose, dcs, initialDc }: { open: boolean; onClose: 
               <div><span className="k">After plan</span><span className="v" style={{ color: 'var(--vw-color-emerald-600)' }}>{after}%</span><small>{fmtU(d, d.use)} of {fmtU(d, d.cap + amount)}</small><small>{exh(mA)}</small></div>
             </div>
             <div className="row wrap" style={{ gap: 8 }}>
-              <Chip tone="purple">CapEx estimate {fmtINR(capex)}</Chip>
-              <Chip tone="neutral">{fmtINR(RATE[dim])} per {unit}</Chip>
+              <Chip tone="purple">CapEx estimate {fmtMoney(capex)}</Chip>
+              <Chip tone="neutral">{fmtMoney(RATE[dim])} per {unit}</Chip>
               <Chip tone="info">growth +{d.growth}%/mo</Chip>
               {Number.isFinite(mA) && Number.isFinite(mB) && <Chip tone="success">+{Math.max(0, Math.round(mA - mB))} months of runway</Chip>}
             </div>

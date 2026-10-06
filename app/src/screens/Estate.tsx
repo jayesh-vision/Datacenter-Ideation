@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { getEstate, useQuery } from '../api';
+import { getEstate, useQuery, geoNow } from '../api';
 import { usePage, PageHead, Loading } from '../shell/page';
 import { Panel, PanelLink, Seg } from '../ui/kit';
 import { Legend, Meter, StackBar } from '../ui/status';
@@ -138,10 +138,10 @@ export function Estate() {
           </div>
           <div className="geo-side">
             <select className="select" value={sel} onChange={e => setSel(e.target.value)} aria-label="Circle">
-              <option value="">All India — every circle</option>
+              <option value="">All {geoNow().label} — every circle</option>
               {est.circles.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
-            <div className="row between"><b className="strong">{selC ? selC.name : 'All India'}</b><span className="muted" style={{ fontSize: 12.5 }}>{selC ? `${selC.dc} DC · ${selC.pop} PoP · ${selC.sites} sites` : `${est.circles.length} circles`}</span></div>
+            <div className="row between"><b className="strong">{selC ? selC.name : `All ${geoNow().label}`}</b><span className="muted" style={{ fontSize: 12.5 }}>{selC ? `${selC.dc} DC · ${selC.pop} PoP · ${selC.sites} sites` : `${est.circles.length} circles`}</span></div>
             <div><span className="num strong" style={{ fontSize: 24 }}>{fmtNum(scopeTotal)}</span> <span className="muted">locations · {Math.round((scope['on-air'] / scopeTotal) * 100)}% on-air</span></div>
             <StackBar height={12} parts={ROLLOUT_ORDER.map(s => ({ value: scope[s], color: ROLLOUT[s].color, label: ROLLOUT[s].label }))} />
             <div className="geo-stat">

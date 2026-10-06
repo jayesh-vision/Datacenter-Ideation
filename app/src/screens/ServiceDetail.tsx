@@ -1,10 +1,11 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import * as I from 'lucide-react';
+import { moneyIcon } from '../ui/Money';
 import { clockNow, getService, useQuery } from '../api';
 import { usePage, PageHead, Loading, useSentinel } from '../shell/page';
 import { Btn, Chip, Kpi, Panel, Empty } from '../ui/kit';
 import { CustLink, DcLink, IncLink, IncidentChip, LinkStateChip, Meter, NeLink, ServiceChip, SevChip, SeverityChip, Fresh } from '../ui/status';
-import { fmtAgo, fmtBw, fmtINR, fmtMonth, fmtQty } from '../lib/format';
+import { fmtAgo, fmtBw, fmtMoney, fmtMonth, fmtQty } from '../lib/format';
 import { monthsTo, dateAfterMonths, project } from '../lib/forecast';
 import { ForecastChart } from './plan/charts';
 import { TYPE_TONE } from './Services';
@@ -57,7 +58,7 @@ export function ServiceDetail() {
         <Kpi label={s.unit === 'Mbps' ? 'Bandwidth' : 'Size'} value={fmtQty(s.qty, s.unit)} icon={I.Gauge} tone="info" basis={s.ifName ? `handoff ${s.ifName}` : s.type} />
         <Kpi label="Utilisation" value={s.utilPct} unit="%" icon={I.Activity} tone={s.utilPct >= SVC_LIMIT ? 'error' : s.utilPct >= 75 ? 'warning' : 'success'} basis={`threshold ${SVC_LIMIT}%`} />
         <Kpi label="30-day uptime" value={s.uptime30d} unit="%" icon={I.ShieldCheck} tone={slaGap < 0 ? 'error' : 'success'} basis={<>SLA target {s.slaTarget}% · <span className={slaGap < 0 ? 'bad' : 'good'}>{slaGap >= 0 ? '+' : ''}{slaGap} pts</span></>} />
-        <Kpi label="Revenue / month" value={fmtINR(s.revenueMonthly)} icon={I.IndianRupee} tone="purple" basis={`${fmtINR(s.revenueMonthly * 12)} a year`} />
+        <Kpi label="Revenue / month" value={fmtMoney(s.revenueMonthly)} icon={moneyIcon()} tone="purple" basis={`${fmtMoney(s.revenueMonthly * 12)} a year`} />
         <Kpi label="Growth" value={`+${s.growthPct}`} unit="%/mo" icon={I.TrendingUp} tone="cyan" basis={Number.isFinite(m90) ? (m90 === 0 ? `already above ${SVC_LIMIT}%` : `${SVC_LIMIT}% around ${fmtMonth(dateAfterMonths(now, m90))}`) : 'flat'} />
       </div>
 

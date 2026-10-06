@@ -10,7 +10,7 @@ import { Btn, Chip, Panel, Empty } from '../ui/kit';
 import { DcLink, IncLink, IncidentChip, Meter, NeLink, ServiceChip, SevChip } from '../ui/status';
 import { Facts, SoftMeter, Split, StatGrid, StatTile, type Tone } from '../ui/Analytics';
 import { BarList } from '../charts/BarList';
-import { fmtAgo, fmtDur, fmtINR, fmtQty } from '../lib/format';
+import { fmtAgo, fmtDur, fmtMoney, fmtQty } from '../lib/format';
 import { TYPE_TONE } from './Services';
 import { NotFound } from './NotFound';
 import { CREDIT, DomainTag, LOSS, impactOf, inr, lc, perHr, perMo, stateText } from './revenue/parts';
@@ -126,7 +126,7 @@ export function CustomerDetail() {
         <StatTile label={W.noun} value={inr(c.revenueMonthly)} sub="a month">
           <Split other={inr} parts={byType.map(([k, n]) => ({ key: k, label: k, n, tone: 'info' as Tone, display: inr(n) }))} />
         </StatTile>
-        <StatTile label={W.impact} value={losing ? perHr(rv!.rate) : exposed ? inr(rv!.mrrExposed) : '₹0'} sub={losing ? 'now' : exposed ? 'at stake' : 'no impact'} subTone={losing ? 'bad' : exposed ? 'warn' : undefined}>
+        <StatTile label={W.impact} value={losing ? perHr(rv!.rate) : exposed ? inr(rv!.mrrExposed) : inr(0)} sub={losing ? 'now' : exposed ? 'at stake' : 'no impact'} subTone={losing ? 'bad' : exposed ? 'warn' : undefined}>
           <Split parts={[{ key: 'lost', label: W.lost, n: rv?.lost ?? 0, tone: 'error', display: inr(rv?.lost ?? 0) }, { key: 'cr', label: W.credits, n: rv?.credits ?? 0, tone: 'orange', display: inr(rv?.credits ?? 0) }]} />
           <Facts items={[rv && rv.nextCliffMin !== null ? { n: fmtDur(rv.nextCliffMin), label: 'to the next credit', tone: rv.nextCliffMin <= 60 ? 'bad' : 'warn' } : { n: inr(rv ? impactOf(rv) : 0), label: 'so far' }]} />
         </StatTile>
@@ -157,7 +157,7 @@ export function CustomerDetail() {
           ) : <Empty icon={I.CheckCircle2} title="Nothing is impacting them">No open incident or active fault sits on this {V.customer.toLowerCase()}'s {V.services.toLowerCase()}.</Empty>}
         </Panel>
         <Panel title="Where they are served" icon={I.Building2} sub={`Monthly ${lc(W.noun)} by datacenter · impacted sites first`}>
-          <BarList limit={6} items={footprint.map(f => ({ key: f.id, label: f.id, sublabel: `${f.n} ${(f.n === 1 ? V.service : V.services).toLowerCase()}`, value: f.mrr, display: fmtINR(f.mrr), secondary: f.hit ? 'impacted' : undefined, color: f.hit ? (losing ? LOSS : CREDIT) : 'var(--vw-color-slate-400)', onClick: () => nav(`/datacenters/${f.id}?tab=customers`) }))} />
+          <BarList limit={6} items={footprint.map(f => ({ key: f.id, label: f.id, sublabel: `${f.n} ${(f.n === 1 ? V.service : V.services).toLowerCase()}`, value: f.mrr, display: fmtMoney(f.mrr), secondary: f.hit ? 'impacted' : undefined, color: f.hit ? (losing ? LOSS : CREDIT) : 'var(--vw-color-slate-400)', onClick: () => nav(`/datacenters/${f.id}?tab=customers`) }))} />
           {footprint.length > 6 && <span className="vw-label cd-more">+{footprint.length - 6} more datacenters · filter the list below</span>}
         </Panel>
       </div>

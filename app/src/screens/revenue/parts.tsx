@@ -10,16 +10,16 @@ import { DataTable, type Col } from '../../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
 import { IncLink, IncidentChip, SevChip, SeverityChip } from '../../ui/status';
 import { AXIS_TEXT, AXIS_TEXT_CURRENT, INK, Tooltip, niceTicks, useWidth, type TipState } from '../../charts/core';
-import { fmtAgo, fmtDur, fmtINR, fmtTime, fmtDayLabel } from '../../lib/format';
+import { fmtAgo, fmtDur, fmtMoney, fmtTime, fmtDayLabel } from '../../lib/format';
 import { OpstralBtn } from '../../ui/OpstralMark';
 import { downloadCsv, slaText } from '../ops/shared';
 import '../../styles/revenue.css';
 
 /* ------------------------------------------------------------- vocabulary */
 
-export const inr = (n: number) => fmtINR(n);
-export const perHr = (n: number) => `${fmtINR(n)}/h`;
-export const perMo = (n: number) => `${fmtINR(n)}/mo`;
+export const inr = (n: number) => fmtMoney(n);
+export const perHr = (n: number) => `${fmtMoney(n)}/h`;
+export const perMo = (n: number) => `${fmtMoney(n)}/mo`;
 /* lower-case a vocabulary word for mid-sentence use, keeping acronyms (SLA credits, OLA rebates) */
 export const lc = (s: string) => (/^(SLA|OLA) /.test(s) ? s.slice(0, 4) + s.slice(4).toLowerCase() : s.toLowerCase());
 export const impactOf = (i: { lost: number; credits: number }) => i.lost + i.credits;
@@ -203,7 +203,7 @@ export function IssueDrawer({ issue: i, view: v, onClose }: { issue: RevIssue | 
             <Fig label="At stake" value={perMo(i.mrrExposed)} sub={`${i.exposed} ${V.services.toLowerCase()} still running`} tone="warn" />
             <Fig label="If it fails" value={perHr(i.potentialRate)} sub="lost for every hour down" />
             <Fig label={`Credits after ${v.method.outageHours} h`} value={inr(i.potentialCredits)} sub="if the outage lasts that long" />
-            <Fig label="Lost so far" value="₹0" sub="nothing is down yet" />
+            <Fig label="Lost so far" value={inr(0)} sub="nothing is down yet" />
           </>}
         </div>
 

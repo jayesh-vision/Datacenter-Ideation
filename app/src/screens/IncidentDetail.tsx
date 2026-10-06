@@ -13,6 +13,7 @@ import { NotFound } from './NotFound';
 import { TYPE_ICON } from './Incidents';
 import { fmtHm, refTo, slaText, useToast, OpsKpi } from './ops/shared';
 import { OpstralBadge, OpstralBtn } from '../ui/OpstralMark';
+import { MoneyIcon } from '../ui/Money';
 
 const FLOW: IncidentStatus[] = ['Open', 'Investigating', 'Mitigated', 'Resolved', 'Closed'];
 
@@ -229,7 +230,7 @@ function RevenuePanel({ rev: r, now, onAsk }: { rev: RevIssue; now: number; onAs
   const losing = r.rate + r.lost + r.credits > 0;
   const avoid = Math.max(0, r.forecast24 - r.lost - r.credits);
   return (
-    <Panel title={W.impact} icon={I.IndianRupee} sub={losing ? `What this incident has cost and what another day costs · ranked #${r.rank} of the open issues` : `Nothing is lost yet · ${r.exposed} ${V.services.toLowerCase()} are still running on this fault`}
+    <Panel title={W.impact} icon={MoneyIcon} sub={losing ? `What this incident has cost and what another day costs · ranked #${r.rank} of the open issues` : `Nothing is lost yet · ${r.exposed} ${V.services.toLowerCase()} are still running on this fault`}
       actions={<><DomainTag d={r.domain} />{r.underPrioritised && <Chip tone="warning" size="xs">Review priority</Chip>}</>}>
       <div className="rev-inc">
         <div className="rev-figs">
@@ -242,7 +243,7 @@ function RevenuePanel({ rev: r, now, onAsk }: { rev: RevIssue; now: number; onAs
             <Fig label="At stake" value={perMo(r.mrrExposed)} sub={`${r.customers} ${V.customers.toLowerCase()}`} tone="warn" />
             <Fig label="If it fails" value={perHr(r.potentialRate)} sub="for every hour down" />
             <Fig label="Credits after 4 h" value={inr(r.potentialCredits)} sub="if the outage lasts that long" />
-            <Fig label="Lost so far" value="₹0" sub="nothing is down yet" />
+            <Fig label="Lost so far" value={inr(0)} sub="nothing is down yet" />
           </>}
         </div>
         <CostCurve curve={r.curve} now={now} height={150} />

@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { clockNow, createChange, getChanges, getDatacenters, getNetworkElements, previewChangeImpact, setChangeStatus, useQuery } from '../api';
+import { clockNow, createChange, getChanges, getDatacenters, getNetworkElements, previewChangeImpact, setChangeStatus, useQuery, defaultDcId } from '../api';
 import type { Change, ChangeStatus } from '../api/types';
 import { usePage, PageHead, Loading } from '../shell/page';
 import { DataTable, type Col } from '../ui/DataTable';
 import { Btn, Chip, Drawer, Field, KV, SearchBox, CheckBox } from '../ui/kit';
 import { ListToolbar, useParamPatch } from '../ui/ListToolbar';
 import { ChangeChip, DcLink, IncLink, NeLink } from '../ui/status';
-import { fmtDateTime, fmtINR } from '../lib/format';
+import { fmtDateTime, fmtMoney } from '../lib/format';
 import { fmtHm } from './ops/shared';
 import { Facts, MiniBars, SoftMeter, Split, StatGrid, StatTile, type Tone } from '../ui/Analytics';
 import { fmtDur } from '../lib/format';
@@ -102,7 +102,7 @@ function ImpactPreview({ im: raw, self }: { im?: Impact; self?: string }) {
       <div className="bar" style={{ height: 6 }}><i style={{ width: `${im.score}%`, background: im.risk === 'High' ? 'var(--vw-color-red-500)' : im.risk === 'Medium' ? 'var(--vw-color-amber-500)' : 'var(--vw-color-emerald-500)' }} /></div>
       <div className="grid g-3 impact-stats">
         <div><span>Network elements</span><b className="num">{im.nes}</b></div><div><span>Physical links</span><b className="num">{im.links}</b></div><div><span>Services</span><b className="num">{im.services}</b></div>
-        <div><span>Customers</span><b className="num">{im.customers}</b></div><div><span>Premium customers</span><b className={`num ${im.premium ? 'bad' : ''}`}>{im.premium}</b></div><div><span>Revenue on scope / mo</span><b className="num">{fmtINR(im.revenue)}</b></div>
+        <div><span>Customers</span><b className="num">{im.customers}</b></div><div><span>Premium customers</span><b className={`num ${im.premium ? 'bad' : ''}`}>{im.premium}</b></div><div><span>Revenue on scope / mo</span><b className="num">{fmtMoney(im.revenue)}</b></div>
       </div>
       {im.conflicts.length > 0 && <div className="note note--warn"><I.CalendarX size={14} /><span>Overlaps {im.conflicts.map(x => x.id).join(', ')} on the same devices.</span></div>}
       {im.openInc.length > 0 && <div className="note note--bad"><I.Siren size={14} /><span>Open incident on scope: {im.openInc.map(x => <IncLink key={x.id} id={x.id} />)} — coordinate with the incident owner.</span></div>}
@@ -116,7 +116,7 @@ const toLocal = (t: number) => { const d = new Date(t); const p = (n: number) =>
 function NewChange({ kind, onDone }: { kind: 'change' | 'maintenance'; onDone: (id: string) => void }) {
   const now = clockNow();
   const start0 = new Date(now + 2 * 86400000); start0.setHours(22, 0, 0, 0);
-  const [dcId, setDc] = useState('MH-DC-001');
+  const [dcId, setDc] = useState(defaultDcId());
   const [title, setTitle] = useState('');
   const [scope, setScope] = useState<string[]>([]);
   const [q, setQ] = useState('');

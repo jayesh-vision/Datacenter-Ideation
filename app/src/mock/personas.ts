@@ -23,7 +23,7 @@ export interface PersonaDef {
   sla: { premium: number; standard: number };
   rooms: { big: { name: string; rooms: string[] }[]; small: { name: string; rooms: string[] }[] };
   /* one multi-storey site per persona: same equipment, spread over 6–7 floors */
-  tall: { dcId: string; floors: { name: string; rooms: string[] }[] };
+  tall: { dcIndex: number; floors: { name: string; rooms: string[] }[] };
   incidentTitles: Record<Incident['type'], string[]>;
 }
 
@@ -33,7 +33,7 @@ const NETWORK: PersonaDef = {
   scale: 1,
   customers: [], serviceTypes: [], sla: { premium: 99.9, standard: 99.5 },
   rooms: { big: [{ name: 'Ground', rooms: ['MDF', 'Hall A'] }, { name: '1st floor', rooms: ['Equipment room', 'Hall B'] }], small: [{ name: 'Ground', rooms: ['MDF'] }, { name: '1st floor', rooms: ['Equipment room'] }] },
-  tall: { dcId: 'DL-DC-009', floors: [{ name: 'Ground', rooms: ['MDF'] }, { name: '1st floor', rooms: ['Transmission room'] }, { name: '2nd floor', rooms: ['Equipment room A'] }, { name: '3rd floor', rooms: ['Equipment room B'] }, { name: '4th floor', rooms: ['Core room'] }, { name: '5th floor', rooms: ['Hall C'] }, { name: '6th floor', rooms: ['Hall D'] }] },
+  tall: { dcIndex: 9, floors: [{ name: 'Ground', rooms: ['MDF'] }, { name: '1st floor', rooms: ['Transmission room'] }, { name: '2nd floor', rooms: ['Equipment room A'] }, { name: '3rd floor', rooms: ['Equipment room B'] }, { name: '4th floor', rooms: ['Core room'] }, { name: '5th floor', rooms: ['Hall C'] }, { name: '6th floor', rooms: ['Hall D'] }] },
   incidentTitles: {
     Network: ['Interface flapping on backhaul', 'BGP session reset storm', 'OSPF adjacency loss on AGG pair', 'Optical degradation on uplink', 'Access router unreachable'],
     Power: ['Rectifier module alarm', 'UPS on bypass', 'PDU breaker trip'], Cooling: ['CRAH filter blocked — high return temperature', 'Chiller pump fault'], Capacity: ['Backhaul exhaustion warning', 'Port fill above 90% on leaf'],
@@ -80,7 +80,7 @@ const COLOCATION: PersonaDef = {
   ],
   sla: { premium: 99.999, standard: 99.99 },
   rooms: { big: [{ name: 'Ground', rooms: ['Meet-me room', 'Hall A'] }, { name: '1st floor', rooms: ['Hall B', 'Hall C'] }], small: [{ name: 'Ground', rooms: ['Meet-me room'] }, { name: '1st floor', rooms: ['Hall A'] }] },
-  tall: { dcId: 'KA-DC-020', floors: [{ name: 'Ground', rooms: ['Meet-me room'] }, { name: '1st floor', rooms: ['Hall A'] }, { name: '2nd floor', rooms: ['Hall B'] }, { name: '3rd floor', rooms: ['Hall C'] }, { name: '4th floor', rooms: ['Hall D'] }, { name: '5th floor', rooms: ['Hall E'] }] },
+  tall: { dcIndex: 20, floors: [{ name: 'Ground', rooms: ['Meet-me room'] }, { name: '1st floor', rooms: ['Hall A'] }, { name: '2nd floor', rooms: ['Hall B'] }, { name: '3rd floor', rooms: ['Hall C'] }, { name: '4th floor', rooms: ['Hall D'] }, { name: '5th floor', rooms: ['Hall E'] }] },
   incidentTitles: {
     Network: ['Cross-connect loss of signal in MMR', 'MMR switch uplink flapping', 'Carrier backhaul optical degradation', 'Tenant VLAN hand-off down'],
     Power: ['Tenant cabinet PDU breaker trip', 'UPS on bypass', 'Rectifier module alarm', 'Tenant draw over contracted kW'], Cooling: ['CRAH filter blocked — hot aisle above 27°C', 'Chiller pump fault'],
@@ -128,7 +128,7 @@ const CLOUD: PersonaDef = {
   ],
   sla: { premium: 99.99, standard: 99.95 },
   rooms: { big: [{ name: 'Ground', rooms: ['Data hall 1', 'Data hall 2'] }, { name: '1st floor', rooms: ['Data hall 3', 'GPU hall'] }], small: [{ name: 'Ground', rooms: ['Data hall 1'] }, { name: '1st floor', rooms: ['Data hall 2'] }] },
-  tall: { dcId: 'TN-DC-022', floors: [{ name: 'Ground', rooms: ['Network core'] }, { name: '1st floor', rooms: ['Data hall 1'] }, { name: '2nd floor', rooms: ['Data hall 2'] }, { name: '3rd floor', rooms: ['Data hall 3'] }, { name: '4th floor', rooms: ['Data hall 4'] }, { name: '5th floor', rooms: ['GPU hall'] }] },
+  tall: { dcIndex: 22, floors: [{ name: 'Ground', rooms: ['Network core'] }, { name: '1st floor', rooms: ['Data hall 1'] }, { name: '2nd floor', rooms: ['Data hall 2'] }, { name: '3rd floor', rooms: ['Data hall 3'] }, { name: '4th floor', rooms: ['Data hall 4'] }, { name: '5th floor', rooms: ['GPU hall'] }] },
   incidentTitles: {
     Network: ['ToR uplink flapping', 'Spine switch reload', 'Host NIC errors on leaf pair', 'Border router BGP reset'],
     Power: ['PDU breaker trip on compute row', 'UPS on bypass', 'Rectifier module alarm'], Cooling: ['GPU hall above 27°C — CRAH filter blocked', 'Chiller pump fault', 'CDU flow alarm on GPU row'],
@@ -166,7 +166,7 @@ const ENTERPRISE: PersonaDef = {
   ],
   sla: { premium: 99.9, standard: 99.5 },
   rooms: { big: [{ name: 'Ground', rooms: ['Server hall A', 'Server hall B'] }, { name: '1st floor', rooms: ['Storage hall', 'DR hall'] }], small: [{ name: 'Ground', rooms: ['Server hall A'] }, { name: '1st floor', rooms: ['Storage hall'] }] },
-  tall: { dcId: 'HR-DC-011', floors: [{ name: 'Ground', rooms: ['Core network'] }, { name: '1st floor', rooms: ['Server hall A'] }, { name: '2nd floor', rooms: ['Server hall B'] }, { name: '3rd floor', rooms: ['Storage hall'] }, { name: '4th floor', rooms: ['Server hall C'] }, { name: '5th floor', rooms: ['DR hall'] }] },
+  tall: { dcIndex: 11, floors: [{ name: 'Ground', rooms: ['Core network'] }, { name: '1st floor', rooms: ['Server hall A'] }, { name: '2nd floor', rooms: ['Server hall B'] }, { name: '3rd floor', rooms: ['Storage hall'] }, { name: '4th floor', rooms: ['Server hall C'] }, { name: '5th floor', rooms: ['DR hall'] }] },
   incidentTitles: {
     Network: ['Core switch pair failover', 'Hypervisor host unreachable', 'SAN fabric path loss', 'Firewall HA split-brain'],
     Power: ['PDU breaker trip on server row', 'UPS on bypass', 'Rectifier module alarm'], Cooling: ['CRAH filter blocked — high return temperature', 'Chiller pump fault'],

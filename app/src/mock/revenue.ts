@@ -108,7 +108,7 @@ export function buildRevenue(db: Db, why: (s: Service) => ImpactCause[]): RevMod
     }
     /* the soonest credit step, with everything that steps within the following half hour */
     let nextCliff: RevCliff | null = null;
-    if (cliffs.length) { const first = Math.min(...cliffs.map(c => c.inMin)); const grp = cliffs.filter(c => c.inMin <= first + 30); nextCliff = { inMin: Math.round(first), amount: Math.round(grp.reduce((a, c) => a + c.amount, 0)), services: grp.length }; }
+    if (cliffs.length) { const first = Math.min(...cliffs.map(c => c.inMin)); const grp = cliffs.filter(c => c.inMin <= first + 30); nextCliff = { inMin: Math.max(1, Math.round(first)), amount: Math.round(grp.reduce((a, c) => a + c.amount, 0)), services: grp.length }; }
     /* cumulative impact: from the start of the fault to 24 h ahead; an exposed-only issue shows "if it fails now" */
     const losing = rs.filter(r => r.state !== 'exposed');
     const potential = !losing.length;
@@ -204,7 +204,7 @@ export function revenueView(db: Db, model: RevModel, dcId: string | undefined, e
     if (!inScope(r.s.dcId)) { cu.mrr += r.s.revenueMonthly; cu.services++; }
     add(cu, r, c); cu[r.state]++;
     const cl = cliffOf(r, h);
-    if (cl) { allCliffs.push({ ...cl, key: r.key }); cu.nextCliffMin = cu.nextCliffMin === null ? Math.round(cl.inMin) : Math.min(cu.nextCliffMin, Math.round(cl.inMin)); }
+    if (cl) { allCliffs.push({ ...cl, key: r.key }); cu.nextCliffMin = cu.nextCliffMin === null ? Math.max(1, Math.round(cl.inMin)) : Math.min(cu.nextCliffMin, Math.max(1, Math.round(cl.inMin))); }
     const w = (r.state === 'down' ? 3e12 : r.state === 'degraded' ? 2e12 : 1e12) + r.s.revenueMonthly;
     const cur = worstOf.get(cu.id); if (!cur || w > cur.w) { worstOf.set(cu.id, { key: r.key, w }); cu.cause = iss.title; cu.issueId = iss.id; }
   }
@@ -289,7 +289,7 @@ export function revenueView(db: Db, model: RevModel, dcId: string | undefined, e
     dcId, now, base: { mrr: Math.round(baseMrr), services: svcs.length, customers: new Set(svcs.map(s => s.customerId)).size },
     total: { ...round(total), forecast24: Math.round(total.forecast24), potentialRate: Math.round(total.potentialRate), potentialCredits: Math.round(total.potentialCredits) },
     sla: { withinPct: baseMrr ? Math.round((within / baseMrr) * 1000) / 10 : 100, below: below.length, creditsLocked: Math.round(creditsLocked),
-      nextCliff: first ? { inMin: Math.round(first.inMin), amount: Math.round(firstGrp.reduce((a, c) => a + c.amount, 0)), services: firstGrp.length, issueId: first.key, title: model.issues.get(first.key)!.title } : null,
+      nextCliff: first ? { inMin: Math.max(1, Math.round(first.inMin)), amount: Math.round(firstGrp.reduce((a, c) => a + c.amount, 0)), services: firstGrp.length, issueId: first.key, title: model.issues.get(first.key)!.title } : null,
       cliff60: { services: in60.length, amount: Math.round(in60.reduce((a, c) => a + c.amount, 0)) } },
     issues, byDomain: [...dom.values()].map(d => ({ ...round(d), hist30: Math.round(d.hist30) })),
     byDc: [...dcs.values()].map(e => ({ ...round(e), mrr: Math.round(e.mrr), hist30: Math.round(e.hist30) })).sort((a, b) => b.lost + b.credits - (a.lost + a.credits) || b.mrrExposed - a.mrrExposed || b.mrr - a.mrr),

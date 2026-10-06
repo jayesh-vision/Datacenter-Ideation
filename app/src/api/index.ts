@@ -8,6 +8,7 @@ import * as S from '../mock/server';
 import { ask, suggestions, type Answer, type Ctx } from '../mock/sentinel';
 import type { ActionStep, CapacityPlan, Change, ChangeStatus, Persona, ReconTask } from './types';
 import { PERSONAS, PERSONA_BY_ID, type PersonaDef, type PersonaVocab } from '../mock/personas';
+import { GEOS, GEO_BY_ID, type Geo, type GeoDef } from '../mock/geo';
 
 const LATENCY = 90;
 const wait = <T,>(f: () => T): Promise<T> => new Promise(res => setTimeout(() => res(structuredClone(f())), LATENCY));
@@ -29,6 +30,20 @@ export function usePersona(): { persona: Persona; def: PersonaDef; vocab: Person
   useEffect(() => onDataChange(() => setP(S.getPersona())), []);
   return { persona: p, def: PERSONA_BY_ID[p], vocab: PERSONA_BY_ID[p].vocab };
 }
+
+/* ---- geography (India / USA): places, customers, people, currency — one setting for the whole estate */
+export const getGeo = (): Geo => S.getGeo();                                                        // GET /settings/geography
+export const setGeo = (g: Geo) => mutate(() => S.setGeo(g));                                         // PUT /settings/geography
+export { GEOS, GEO_BY_ID };
+export type { Geo, GeoDef };
+export const geoNow = (): GeoDef => S.geoDef();
+export function useGeo(): { geo: Geo; def: GeoDef } {
+  const [g, setG] = useState<Geo>(S.getGeo());
+  useEffect(() => onDataChange(() => setG(S.getGeo())), []);
+  return { geo: g, def: GEO_BY_ID[g] };
+}
+/* the first site of the active geography — the default where a screen needs a datacenter */
+export const defaultDcId = () => S.heroDcId();
 
 /* ---- estate & inventory */
 export const getEstate = () => wait(S.estate);                                                     // GET /estate

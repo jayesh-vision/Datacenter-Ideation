@@ -7,7 +7,8 @@ import type {
   NetworkElement, NeRole, Persona, Protocol, Rack, ReconTask, Region, RolloutStatus, Service, ServiceType, Severity, UpsUnit, CableCore
 } from '../api/types';
 import { NE_CATEGORY } from '../api/types';
-import { ACCOUNT_MANAGERS, BLOCKERS, CIRCLES, CITIES, CUSTOMERS, DAY, DCS, HOUR, MIN, NOW, PEOPLE, POP_STATUS, REGIONS, SITE_STATUS } from './seed';
+import { BLOCKERS, DAY, HOUR, MIN, NOW, POP_STATUS, SITE_STATUS } from './seed';
+import { activeGeo, dcAt, money, placeCustomer, type DcRow } from './geo';
 import { buildIncidents, impactOf, RESOLVE_SLA, RESPONSE_SLA } from './incidents';
 import { addGpuChange, addGpuServices, buildGpuFleet, buildGpuIncidents, injectGpuFaults, type GpuState } from './gpu';
 import { PERSONA_BY_ID } from './personas';
@@ -36,8 +37,9 @@ const hours = (r: Rnd, okP: number) => Array.from({ length: 24 }, () => !chance(
 /* ------------------------------------------------------------------ estate */
 
 function buildEstate(r: Rnd) {
-  const regions = REGIONS;
-  const circles: Circle[] = CIRCLES.map(([id, name, regionId, lat, lng]) => ({ id, name, state: name, regionId, lat, lng }));
+  const G = activeGeo();
+  const regions = G.regions;
+  const circles: Circle[] = G.circles.map(([id, name, regionId, lat, lng]) => ({ id, name, state: name, regionId, lat, lng }));
   const locations: Location[] = [];
   const passive = (k: Location['kind'], rr: Rnd): Location['passive'] => k === 'datacenter'
     ? { fiberSpans: intBetween(rr, 8, 20), odf: intBetween(rr, 4, 9), racks: 0, powerPlant: intBetween(rr, 4, 8), splices: intBetween(rr, 4, 10), patchCords: intBetween(rr, 40, 90), ducts: intBetween(rr, 2, 6) }
@@ -45,7 +47,7 @@ function buildEstate(r: Rnd) {
       ? { fiberSpans: intBetween(rr, 2, 5), odf: intBetween(rr, 1, 2), racks: intBetween(rr, 1, 3), powerPlant: 1, splices: intBetween(rr, 1, 3), patchCords: intBetween(rr, 6, 14), ducts: intBetween(rr, 0, 2) }
       : { fiberSpans: chance(rr, 0.55) ? 1 : 0, odf: chance(rr, 0.2) ? 1 : 0, racks: chance(rr, 0.45) ? 1 : 0, powerPlant: chance(rr, 0.15) ? 1 : 0, splices: chance(rr, 0.2) ? 1 : 0, patchCords: intBetween(rr, 0, 1), ducts: chance(rr, 0.1) ? 1 : 0 };
 
-  for (const d of DCS) {
+  for (const d of G.dcs) {
     const [id, city, , circleId, status, ne, disc, , lat, lng, category] = d;
     const c = circles.find(x => x.id === circleId)!;
     const rr = mulberry32(seedOf(id));
@@ -54,9 +56,9 @@ function buildEstate(r: Rnd) {
   const statusBag = (counts: Record<RolloutStatus, number>) => shuffle(r, (Object.entries(counts) as [RolloutStatus, number][]).flatMap(([s, n]) => Array(n).fill(s) as RolloutStatus[]));
   const popBag = statusBag(POP_STATUS), siteBag = statusBag(SITE_STATUS);
   let pi = 0, si = 0;
-  for (const [cid, , regionId, clat, clng, pops, sites] of CIRCLES) {
+  for (const [cid, , regionId, clat, clng, pops, sites] of G.circles) {
     const c = circles.find(x => x.id === cid)!;
-    const cities = CITIES[cid];
+    const cities = G.cities[cid];
     for (let i = 0; i < pops; i++) {
       const status = popBag[pi++];
       const roles: Record<string, number> = { Router: intBetween(r, 2, 3), Switch: intBetween(r, 1, 2) };
@@ -108,7 +110,7 @@ function ifName(vendor: string, kind: 'ge' | 'xe' | 'et', i: number): string {
 
 interface NeDraft { ne: NetworkElement; uSize: number; drawKw: number; plan: { kind: 'ge' | 'xe' | 'et'; n: number }[] }
 
-function buildNes(dcRow: typeof DCS[number], r: Rnd, persona: Persona) {
+function buildNes(dcRow: DcRow, r: Rnd, persona: Persona) {
   const [dcId, , , , dcStatus, total0, discovered0, drifted0] = dcRow;
   /* the seed rows are sized for the telco estate; other personas scale them */
   const sc = PERSONA_BY_ID[persona].scale;
@@ -177,7 +179,7 @@ function buildNes(dcRow: typeof DCS[number], r: Rnd, persona: Persona) {
   const notDisc = total - discovered;
   const candidates = drafts.filter(d => d.ne.layer === 'access').reverse().concat(drafts.filter(d => d.ne.layer !== 'access' && !d.ne.isPe).reverse(), drafts.filter(d => d.ne.isPe));
   const nd = candidates.slice(0, notDisc);
-  const reasonBag = dcId === 'MH-DC-001' && persona === 'network'
+  const reasonBag = dcId === dcAt(1) && persona === 'network'
     ? [...Array(48).fill('planned'), ...Array(22).fill('no-collector'), ...Array(4).fill('collector-unavailable'), ...Array(2).fill('not-applicable')]
     : dcStatus === 'planned' ? Array(notDisc).fill('planned') : nd.map(() => pick(r, ['planned', 'planned', 'no-collector', 'collector-unavailable']));
   nd.forEach((d, i) => { d.ne.discovery = 'not-discovered'; d.ne.ndReason = reasonBag[i] as NetworkElement['ndReason']; d.ne.lifecycle = d.ne.ndReason === 'planned' ? 'Planned' : 'Ready'; });
@@ -206,7 +208,7 @@ function buildNes(dcRow: typeof DCS[number], r: Rnd, persona: Persona) {
 function placeInRacks(dcId: string, drafts: NeDraft[], r: Rnd, persona: Persona, customers: Customer[]) {
   const def = PERSONA_BY_ID[persona];
   const totalU = drafts.reduce((a, d) => a + d.uSize, 0) + 0;
-  const tall = def.tall.dcId === dcId;
+  const tall = dcAt(def.tall.dcIndex) === dcId;
   /* a multi-storey site spreads the same equipment over more rooms: at least 3 racks per room */
   const nRacks = Math.max(4, Math.ceil(totalU / 26), tall ? def.tall.floors.reduce((a, f) => a + f.rooms.length, 0) * 3 : 0);
   const big = nRacks > 8;
@@ -270,7 +272,7 @@ export function generate(persona: Persona = 'network'): Db {
 
   /* ---- per-DC hardware */
   const draftsByDc = new Map<string, NeDraft[]>();
-  for (const row of DCS) {
+  for (const row of activeGeo().dcs) {
     const rr = mulberry32(seedOf(row[0]) ^ 0x5eed);
     const drafts = buildNes(row, rr, persona);
     draftsByDc.set(row[0], drafts);
@@ -318,7 +320,7 @@ export function generate(persona: Persona = 'network'): Db {
     for (const p of protos) mkLink(p, ia, ib, role, a.dcId, rr, lldp);
   };
 
-  for (const row of DCS) {
+  for (const row of activeGeo().dcs) {
     const dcId = row[0];
     const rr = mulberry32(seedOf(dcId) ^ 0x11);
     const live = draftsByDc.get(dcId)!.map(d => d.ne).filter(n => n.discovery !== 'not-discovered');
@@ -346,7 +348,7 @@ export function generate(persona: Persona = 'network'): Db {
   const bh = shuffle(r, stubs);
   const used = new Set<string>();
   /* the hero PE's ports pair first so its forecast cards are stable */
-  bh.sort((a, b) => (a.neId === 'MH-DC-001-PE-T4-01' ? -1 : 0) - (b.neId === 'MH-DC-001-PE-T4-01' ? -1 : 0));
+  bh.sort((a, b) => (a.neId === `${dcAt(1)}-PE-T4-01` ? -1 : 0) - (b.neId === `${dcAt(1)}-PE-T4-01` ? -1 : 0));
   for (let i = 0; i < bh.length; i++) {
     const a = bh[i]; if (used.has(a.id)) continue;
     const dcA = neById.get(a.neId)!.dcId;
@@ -363,7 +365,7 @@ export function generate(persona: Persona = 'network'): Db {
   }
 
   /* hero PE: link forecast cards and protocol counts from the reference screens */
-  const HERO = 'MH-DC-001-PE-T4-01';
+  const HERO = `${dcAt(1)}-PE-T4-01`;
   const heroIf = (l: Link) => (l.aNe === HERO ? l.aIf : l.zIf);
   const FORCE: Record<string, { util: number; growth: number; sessions: number; role?: Link['role'] }> = {
     'xe-0/0/1': { util: 53, growth: 7.3, sessions: 8895 }, 'xe-0/0/2': { util: 70, growth: 2.6, sessions: 5426 }, 'xe-0/0/3': { util: 87, growth: 5.2, sessions: 7357, role: 'Backhaul' },
@@ -426,8 +428,9 @@ export function generate(persona: Persona = 'network'): Db {
   heroX3.flaps24h = 8; heroX3.crcErrors = 1284; heroX3.inErrors = 3117; heroX3.optics = { model: 'SFP-10G-LR', rxDbm: -11.8, txDbm: -1.9, tempC: 58 };
 
   /* -------- customers + services */
-  const customers: Customer[] = (persona === 'network' ? CUSTOMERS : def.customers).map(([name, segment, city, state, plan, premium], i) => ({
-    id: `CUST-${String(1202 + ((i * 7919) % 8800)).padStart(4, '0')}`, name, segment, city, state, plan, premium, revenueMonthly: 0, accountManager: ACCOUNT_MANAGERS[i % ACCOUNT_MANAGERS.length]
+  const AM = activeGeo().accountManagers;
+  const customers: Customer[] = (persona === 'network' ? activeGeo().customers : def.customers.map(placeCustomer)).map(([name, segment, city, state, plan, premium], i) => ({
+    id: `CUST-${String(1202 + ((i * 7919) % 8800)).padStart(4, '0')}`, name, segment, city, state, plan, premium, revenueMonthly: 0, accountManager: AM[i % AM.length]
   }));
   const services: Service[] = [];
   let svcSeq = 1100;
@@ -444,10 +447,11 @@ export function generate(persona: Persona = 'network'): Db {
     services.push({
       id, type, customerId: cust.id, dcId: pe.dcId, neId: pe.id, ifName: handoff.name, path: remote ? [pe.id, remote] : [pe.id], linkIds: link ? [link.id] : [],
       bandwidthMbps: bw, utilPct: util, status: 'Active', slaTarget: sla, uptime30d: r2(Math.min(99.999, chance(rr, 0.12) ? sla - between(rr, 0.04, 0.4) : sla + between(rr, 0.005, (100 - sla) * 0.9))), growthPct: r1(between(rr, 0.5, 4.2)),
-      revenueMonthly: Math.round((bw >= 1000 ? 1.8 : 3.2) * bw * (type === 'L3VPN' ? 260 : type === 'IRV' ? 140 : 210) / 10) * 10, critical: cust.premium, qty: bw, unit: 'Mbps'
+      revenueMonthly: money(Math.round((bw >= 1000 ? 1.8 : 3.2) * bw * (type === 'L3VPN' ? 260 : type === 'IRV' ? 140 : 210) / 10) * 10), critical: cust.premium, qty: bw, unit: 'Mbps'
     });
   };
-  const byName = (n: string) => customers.find(c => c.name === n)!;
+  /* the hero table names India's customers; another geography may have renamed them */
+  const byName = (n: string) => customers.find(c => c.name === n || c.name === activeGeo().renameCustomer[n])!;
   for (const pe of nes.filter(n => n.isPe && n.discovery !== 'not-discovered' && persona === 'network')) {
     const rr = mulberry32(seedOf(pe.id) ^ 0x5c);
     const bhLinks = links.filter(l => l.protocol === 'LLDP' && (l.aNe === pe.id || l.zNe === pe.id) && (l.role === 'Backhaul' || l.role === 'Uplink') && neById.get(l.aNe)!.dcId !== neById.get(l.zNe)!.dcId);
@@ -509,7 +513,7 @@ export function generate(persona: Persona = 'network'): Db {
   hero.modules[1].tempC = 58;
 
   /* -------- datacenter records */
-  for (const row of DCS) {
+  for (const row of activeGeo().dcs) {
     const [id, city, address, circleId, status, , , , lat, lng, category, tier] = row;
     const rr = mulberry32(seedOf(id) ^ 0xdc);
     const c = circles.find(x => x.id === circleId)!;
@@ -523,7 +527,7 @@ export function generate(persona: Persona = 'network'): Db {
       rk.ports = ifs.length; rk.portsUsed = ifs.filter(i => i.state !== 'admin-down').length;
     }
     const itKw = r1(racks.reduce((a, rk) => a + rk.drawKw, 0));
-    const pue = id === 'MH-DC-001' ? 1.52 : r2(between(rr, 1.38, 1.68));
+    const pue = id === dcAt(1) ? 1.52 : r2(between(rr, 1.38, 1.68));
     const totalKw = r1(itKw * pue);
     const capacityKw = Math.ceil((totalKw / between(rr, 0.42, 0.66)) / 10) * 10;
     const acKw = r1(totalKw * 0.7), dcKw = r1(totalKw - acKw);
@@ -564,12 +568,12 @@ export function generate(persona: Persona = 'network'): Db {
     for (let i = 10; i < Math.min(cores, 10 + Math.round(cores * 0.25)); i++) if (i !== 8) ledger[i] = { port: i + 1, state: 'connected', neId: ledgerPool[(i * 5) % ledgerPool.length].id, inIf: ifaces.get(ledgerPool[(i * 5) % ledgerPool.length].id)![0].name, outPort: i + 1, outIf: ifaces.get(ledgerPool[(i * 5) % ledgerPool.length].id)![1]?.name ?? '', strand: STRANDS[i % STRANDS.length] };
 
     const nScale = dcNes.length / 179;
-    const capexApproved = id === 'MH-DC-001' ? 9.56e7 : Math.round(9.56e7 * nScale * between(rr, 0.8, 1.2) / 1e5) * 1e5;
-    const capexCommitted = id === 'MH-DC-001' ? 8.77e7 : status === 'planned' ? Math.round(capexApproved * 0.22) : Math.round(capexApproved * between(rr, 0.86, 0.99) / 1e5) * 1e5;
-    const opexMonthly = id === 'MH-DC-001' ? 98.88e5 : status === 'planned' ? 0 : Math.round(98.88e5 * nScale * between(rr, 0.8, 1.15) / 1e3) * 1e3;
-    const collectors: Datacenter['collectors'] = status === 'planned' ? [] : [{ id: `COL-${id}-1`, name: `Collector ${city} A`, state: 'up', lastSeen: NOW - 2 * MIN }, { id: `COL-${id}-2`, name: `Collector ${city} B`, state: id === 'MH-DC-001' ? 'stale' : 'up', lastSeen: id === 'MH-DC-001' ? NOW - 3 * HOUR - 12 * MIN : NOW - 3 * MIN }];
+    const capexApproved = money(id === dcAt(1) ? 9.56e7 : Math.round(9.56e7 * nScale * between(rr, 0.8, 1.2) / 1e5) * 1e5);
+    const capexCommitted = id === dcAt(1) ? money(8.77e7) : status === 'planned' ? Math.round(capexApproved * 0.22) : Math.round(capexApproved * between(rr, 0.86, 0.99) / 1e5) * 1e5;
+    const opexMonthly = money(id === dcAt(1) ? 98.88e5 : status === 'planned' ? 0 : Math.round(98.88e5 * nScale * between(rr, 0.8, 1.15) / 1e3) * 1e3);
+    const collectors: Datacenter['collectors'] = status === 'planned' ? [] : [{ id: `COL-${id}-1`, name: `Collector ${city} A`, state: 'up', lastSeen: NOW - 2 * MIN }, { id: `COL-${id}-2`, name: `Collector ${city} B`, state: id === dcAt(1) ? 'stale' : 'up', lastSeen: id === dcAt(1) ? NOW - 3 * HOUR - 12 * MIN : NOW - 3 * MIN }];
     const dc: Datacenter = {
-      id, locationId: id, name: id, status, category, siteType: 'Datacenter', regionId: c.regionId, circleId, zone: REGIONS.find(x => x.id === c.regionId)!.name, city, state: c.state, address, lat, lng, tier,
+      id, locationId: id, name: id, status, category, siteType: 'Datacenter', regionId: c.regionId, circleId, zone: activeGeo().regions.find(x => x.id === c.regionId)!.name, city, state: c.state, address, lat, lng, tier,
       commissionedOn: status === 'on-air' ? NOW - intBetween(rr, 200, 1400) * DAY : undefined, collectors,
       capex: { approved: capexApproved, committed: capexCommitted, spent: Math.round(capexCommitted * between(rr, 0.7, 0.92)), lines: [
         { item: 'Network equipment', approved: Math.round(capexApproved * 0.52), committed: Math.round(capexCommitted * 0.55) },
@@ -604,20 +608,20 @@ export function generate(persona: Persona = 'network'): Db {
   }
 
   /* hand-set facility conditions that incidents reference */
-  const dc3 = datacenters.find(d => d.id === 'MH-DC-003')!; dc3.cooling.units[0].status = 'Failed'; dc3.cooling.units[1].status = 'Maintenance'; dc3.cooling.sensors[0].tempC = 29.4; dc3.racks.filter(rk => rk.room === dc3.cooling.units[0].zone.split(' · ')[1]).forEach(rk => { rk.tempC = r1(rk.tempC + 5.2); });
-  const dc9 = datacenters.find(d => d.id === 'DL-DC-009')!; dc9.power.ups[1].state = 'On battery'; dc9.power.ups[1].loadPct = 71; dc9.power.feeds.filter(f => f.type === 'AC').forEach(f => { f.status = 'Alarm'; f.loadKw = 0; });
-  const dc20 = datacenters.find(d => d.id === 'KA-DC-020')!; dc20.racks.slice(2, 5).forEach((rk, i) => { rk.drawKw = r1(rk.budgetKw * (0.91 + i * 0.03)); });
-  const dc1 = datacenters.find(d => d.id === 'MH-DC-001')!;
+  const dc3 = datacenters.find(d => d.id === dcAt(3))!; dc3.cooling.units[0].status = 'Failed'; dc3.cooling.units[1].status = 'Maintenance'; dc3.cooling.sensors[0].tempC = 29.4; dc3.racks.filter(rk => rk.room === dc3.cooling.units[0].zone.split(' · ')[1]).forEach(rk => { rk.tempC = r1(rk.tempC + 5.2); });
+  const dc9 = datacenters.find(d => d.id === dcAt(9))!; dc9.power.ups[1].state = 'On battery'; dc9.power.ups[1].loadPct = 71; dc9.power.feeds.filter(f => f.type === 'AC').forEach(f => { f.status = 'Alarm'; f.loadKw = 0; });
+  const dc20 = datacenters.find(d => d.id === dcAt(20))!; dc20.racks.slice(2, 5).forEach((rk, i) => { rk.drawKw = r1(rk.budgetKw * (0.91 + i * 0.03)); });
+  const dc1 = datacenters.find(d => d.id === dcAt(1))!;
   dc1.readiness = [
     { step: 'Site created & planned inventory loaded', done: true }, { step: 'Collectors assigned', done: true, note: 'Collector Pune B stale since 10:08' },
     { step: 'Assets discovered', done: false, note: '103 of 179 NE discovered (58%)' }, { step: 'Inventory reconciled', done: false, note: '21 drifted records open' },
     { step: 'Power, racks & ports validated', done: true }, { step: 'Connectivity mapped', done: true, note: 'Cable ledger 6 of 24 cores patched' },
     { step: 'Services commissioned', done: false, note: 'Enterprise Corp L3VPN pending acceptance' }, { step: 'Move to on-air', done: false }
   ];
-  const dc24 = datacenters.find(d => d.id === 'KL-DC-024')!;
+  const dc24 = datacenters.find(d => d.id === dcAt(24))!;
   dc24.readiness = [{ step: 'Site created & planned inventory loaded', done: true }, { step: 'Collectors assigned', done: true }, { step: 'Assets discovered', done: false, note: '40 of 72 NE discovered' }, { step: 'Inventory reconciled', done: false },
     { step: 'Power, racks & ports validated', done: false, note: 'DG load-bank test scheduled 06-Oct' }, { step: 'Connectivity mapped', done: false }, { step: 'Services commissioned', done: false }, { step: 'Move to on-air', done: false }];
-  const dc13 = datacenters.find(d => d.id === 'GJ-DC-013')!;
+  const dc13 = datacenters.find(d => d.id === dcAt(13))!;
   dc13.readiness = [{ step: 'Site created & planned inventory loaded', done: true }, { step: 'Collectors assigned', done: false, note: 'Awaiting rack & power handover' }, { step: 'Assets discovered', done: false }, { step: 'Inventory reconciled', done: false },
     { step: 'Power, racks & ports validated', done: false }, { step: 'Connectivity mapped', done: false }, { step: 'Services commissioned', done: false }, { step: 'Move to on-air', done: false }];
 
@@ -639,6 +643,7 @@ export function generate(persona: Persona = 'network'): Db {
   buildPlans(db);
   finaliseHealth(db);
   buildRisks(db);
+  localizeNames(db);
   return db;
 }
 
@@ -675,7 +680,7 @@ function buildPersonaServices(persona: Persona, datacenters: Datacenter[], nes: 
       id: `SVC-${t.code}-${nextSeq()}`, type: t.type, customerId: cust.id, dcId, neId: host.id, ifName: extra.ifName ?? (isHost(host) ? 'eth0' : ''), path: extra.path ?? [host.id, ...lk.map(l => (l.aNe === host.id ? l.zNe : l.aNe)).slice(0, 2)], linkIds: lk.map(l => l.id),
       bandwidthMbps: t.unit === 'Mbps' ? qty : 10000, utilPct: util, status: hostDown ? 'Down' : downLink || util >= 90 ? 'Degraded' : 'Active', slaTarget: sla,
       uptime30d: r2(Math.min(99.999, chance(rr, 0.1) ? sla - between(rr, 0.02, 0.3) : sla + between(rr, 0.001, (100 - sla) * 0.9))), growthPct: r1(between(rr, 0.3, 3.5)),
-      revenueMonthly: Math.round(qty * (t.unit === 'kW' ? 9000 : t.unit === 'vCPU' ? 1800 : t.unit === 'TB' ? 1100 : t.unit === 'GPU' ? 42000 : t.unit === 'users' ? 60 : t.unit === 'cabinets' ? 120000 : t.unit === 'hours' ? 1500 : 4) / 100) * 100,
+      revenueMonthly: money(Math.round(qty * (t.unit === 'kW' ? 9000 : t.unit === 'vCPU' ? 1800 : t.unit === 'TB' ? 1100 : t.unit === 'GPU' ? 42000 : t.unit === 'users' ? 60 : t.unit === 'cabinets' ? 120000 : t.unit === 'hours' ? 1500 : 4) / 100) * 100),
       critical: cust.premium, qty, unit: t.unit, ...extra
     };
     services.push(s);
@@ -794,24 +799,24 @@ function buildDownstream(db: Db) {
     }
   }
   /* an edge link to a PoP (leaves the site) IS a datacenter issue */
-  const agg = db.nes.filter(n => n.dcId === 'MH-DC-001' && n.layer === 'spine' && n.discovery !== 'not-discovered')[4] ?? db.nes.find(n => n.dcId === 'MH-DC-001' && n.layer === 'spine');
+  const agg = db.nes.filter(n => n.dcId === dcAt(1) && n.layer === 'spine' && n.discovery !== 'not-discovered')[4] ?? db.nes.find(n => n.dcId === dcAt(1) && n.layer === 'spine');
   const pop = db.locations.find(l => l.kind === 'pop' && l.circleId === 'MH' && l.status === 'on-air');
-  if (agg && pop) addAlert(db, { neId: agg.id, dcId: 'MH-DC-001', ifName: 'xe-0/0/15', node: `${pop.id}-AGG-01`, nodeLocation: `${pop.city} PoP`, severity: 'major', title: 'Link Down', description: `Uplink to ${pop.id}-AGG-01 lost carrier; PoP still reachable over its second uplink`, source: 'Link', type: 'Link', category: 'Network', scope: 'edge', start: db.now - 95 * MIN, state: 'active' });
+  if (agg && pop) addAlert(db, { neId: agg.id, dcId: dcAt(1), ifName: 'xe-0/0/15', node: `${pop.id}-AGG-01`, nodeLocation: `${pop.city} PoP`, severity: 'major', title: 'Link Down', description: `Uplink to ${pop.id}-AGG-01 lost carrier; PoP still reachable over its second uplink`, source: 'Link', type: 'Link', category: 'Network', scope: 'edge', start: db.now - 95 * MIN, state: 'active' });
   /* a shared service the site depends on */
-  addAlert(db, { dcId: 'MH-DC-001', node: 'AAA-SRV-02 (10.25.25.6)', nodeLocation: 'Shared services', severity: 'minor', title: 'Secondary RADIUS Server Unreachable', description: 'Device logins fall back to primary only; no redundancy for AAA', source: 'Security', type: 'AAA', category: 'Network', scope: 'dependency', start: db.now - 3 * HOUR, state: 'active' });
+  addAlert(db, { dcId: dcAt(1), node: 'AAA-SRV-02 (10.25.25.6)', nodeLocation: 'Shared services', severity: 'minor', title: 'Secondary RADIUS Server Unreachable', description: 'Device logins fall back to primary only; no redundancy for AAA', source: 'Security', type: 'AAA', category: 'Network', scope: 'dependency', start: db.now - 3 * HOUR, state: 'active' });
 }
 
 function buildAlerts(db: Db) {
-  const HERO = 'MH-DC-001-PE-T4-01';
+  const HERO = `${dcAt(1)}-PE-T4-01`;
   const T = (d: number, h: number, m: number, s = 58) => new Date(2026, 8 + (d === 30 ? 0 : 1), d, h, m, s).getTime();
   const fixed: Parameters<typeof addAlert>[1][] = [
-    { code: 'ALM-1930', neId: HERO, dcId: 'MH-DC-001', ifName: 'xe-0/0/3', severity: 'critical', title: 'Interface Flapping Detected', description: 'Interface state changed 8 times in 20 minutes', source: 'Interface', type: 'Interface', start: T(1, 12, 37), state: 'active' },
-    { code: 'ALM-1831', neId: HERO, dcId: 'MH-DC-001', severity: 'major', title: 'High CPU Utilization', description: 'CPU sustained above 77% for 45 minutes', source: 'CPU', type: 'CPU', start: T(1, 12, 22), state: 'active' },
-    { code: 'ALM-1774', neId: HERO, dcId: 'MH-DC-001', ifName: 'xe-0/0/3', severity: 'major', title: 'Link Degradation', description: 'Latency increased to 12.4 ms, packet loss detected', source: 'Link', type: 'Link', start: T(1, 10, 22), state: 'active' },
-    { code: 'ALM-1702', neId: HERO, dcId: 'MH-DC-001', ifName: 'xe-0/0/3', severity: 'minor', title: 'Optical Rx Power Low', description: 'Rx power −11.8 dBm, below −10.0 dBm warning threshold', source: 'Interface', type: 'Optics', start: T(1, 9, 48), state: 'active' },
-    { code: 'ALM-1655', neId: HERO, dcId: 'MH-DC-001', severity: 'minor', title: 'BGP Peer Idle', description: 'Two eBGP sessions in Idle after hold-timer expiry', source: 'Protocol', type: 'BGP', start: T(1, 8, 15), state: 'active' },
-    { code: 'ALM-1610', neId: HERO, dcId: 'MH-DC-001', severity: 'minor', title: 'Temperature Warning', description: 'Temperature elevated to 58°C in slot 3', source: 'Environment', type: 'Thermal', start: T(30, 11, 2), state: 'active' },
-    { code: 'ALM-1598', neId: HERO, dcId: 'MH-DC-001', severity: 'minor', title: 'OSPF Neighbour in INIT', description: 'Adjacency stuck in INIT — hello received, no 2-way', source: 'Protocol', type: 'OSPF', start: T(30, 22, 41), state: 'active' }
+    { code: 'ALM-1930', neId: HERO, dcId: dcAt(1), ifName: 'xe-0/0/3', severity: 'critical', title: 'Interface Flapping Detected', description: 'Interface state changed 8 times in 20 minutes', source: 'Interface', type: 'Interface', start: T(1, 12, 37), state: 'active' },
+    { code: 'ALM-1831', neId: HERO, dcId: dcAt(1), severity: 'major', title: 'High CPU Utilization', description: 'CPU sustained above 77% for 45 minutes', source: 'CPU', type: 'CPU', start: T(1, 12, 22), state: 'active' },
+    { code: 'ALM-1774', neId: HERO, dcId: dcAt(1), ifName: 'xe-0/0/3', severity: 'major', title: 'Link Degradation', description: 'Latency increased to 12.4 ms, packet loss detected', source: 'Link', type: 'Link', start: T(1, 10, 22), state: 'active' },
+    { code: 'ALM-1702', neId: HERO, dcId: dcAt(1), ifName: 'xe-0/0/3', severity: 'minor', title: 'Optical Rx Power Low', description: 'Rx power −11.8 dBm, below −10.0 dBm warning threshold', source: 'Interface', type: 'Optics', start: T(1, 9, 48), state: 'active' },
+    { code: 'ALM-1655', neId: HERO, dcId: dcAt(1), severity: 'minor', title: 'BGP Peer Idle', description: 'Two eBGP sessions in Idle after hold-timer expiry', source: 'Protocol', type: 'BGP', start: T(1, 8, 15), state: 'active' },
+    { code: 'ALM-1610', neId: HERO, dcId: dcAt(1), severity: 'minor', title: 'Temperature Warning', description: 'Temperature elevated to 58°C in slot 3', source: 'Environment', type: 'Thermal', start: T(30, 11, 2), state: 'active' },
+    { code: 'ALM-1598', neId: HERO, dcId: dcAt(1), severity: 'minor', title: 'OSPF Neighbour in INIT', description: 'Adjacency stuck in INIT — hello received, no 2-way', source: 'Protocol', type: 'OSPF', start: T(30, 22, 41), state: 'active' }
   ];
   fixed.forEach(a => addAlert(db, a));
   const now = db.now;
@@ -857,7 +862,7 @@ function buildAlerts(db: Db) {
    colocation: one tenant cabinet's PDU-A breaker tripped, one tenant's cross-connect
      lost signal in the meet-me room, one cabinet runs hot. */
 function buildScenario(db: Db, persona: Persona) {
-  const DC = 'MH-DC-001';
+  const DC = dcAt(1);
   const dc = db.datacenters.find(d => d.id === DC);
   if (!dc) return;
   const def = PERSONA_BY_ID[persona];
@@ -878,7 +883,7 @@ function buildScenario(db: Db, persona: Persona) {
     pickSet.forEach((n, i) => {
       if (svcOn(n.id).length) return;
       const cust = db.customers[(i * 7 + 3) % db.customers.length];
-      db.services.push({ id: `SVC-${t.code}-${9100 + i}`, type: t.type, customerId: cust.id, dcId: DC, neId: n.id, ifName: 'eth0', path: [n.id], linkIds: [], bandwidthMbps: 10000, utilPct: 48, status: 'Active', slaTarget: cust.premium ? def.sla.premium : def.sla.standard, uptime30d: cust.premium ? def.sla.premium + 0.005 : def.sla.standard + 0.01, growthPct: 1.2, revenueMonthly: 58000, critical: cust.premium, qty: t.qty[2] ?? t.qty[0], unit: t.unit });
+      db.services.push({ id: `SVC-${t.code}-${9100 + i}`, type: t.type, customerId: cust.id, dcId: DC, neId: n.id, ifName: 'eth0', path: [n.id], linkIds: [], bandwidthMbps: 10000, utilPct: 48, status: 'Active', slaTarget: cust.premium ? def.sla.premium : def.sla.standard, uptime30d: cust.premium ? def.sla.premium + 0.005 : def.sla.standard + 0.01, growthPct: 1.2, revenueMonthly: money(58000), critical: cust.premium, qty: t.qty[2] ?? t.qty[0], unit: t.unit });
     });
     const [s1, s2, s3] = pickSet;
     const shelf = 3;
@@ -916,19 +921,19 @@ function buildScenario(db: Db, persona: Persona) {
 function buildChanges(db: Db, persona: Persona = 'network') {
   const n = db.now;
   const C = (c: Omit<Change, 'id' | 'created'> & { created?: number }) => { db.changes.push({ ...c, id: `CHG-${++db.seq.chg}`, created: c.created ?? c.windowStart - 4 * DAY }); };
-  C({ kind: 'Change', title: 'Re-patch ODF RACK-D core 7 to PE-T4-01 xe-0/0/3 (new backhaul span)', dcId: 'MH-DC-001', scope: ['MH-DC-001-PE-T4-01'], risk: 'Medium', status: 'Completed', windowStart: n - 15 * HOUR - 20 * MIN, windowEnd: n - 14 * HOUR - 20 * MIN, requester: 'Rahul Deshpande', approver: 'Priya Nair', rollback: 'Restore previous patch at ODF-2/P7' });
-  C({ kind: 'Change', title: 'Junos upgrade 21.4R3-S5.5 → 22.2R3-S2 on MH-DC-001 PE pair', dcId: 'MH-DC-001', scope: ['MH-DC-001-PE-T4-01', 'MH-DC-001-PE-T4-02'], risk: 'High', status: 'Pending approval', windowStart: n + 2 * DAY + 10 * HOUR, windowEnd: n + 2 * DAY + 14 * HOUR, requester: 'Arjun Mehta', rollback: 'Boot from alternate partition (snapshot taken)' });
-  C({ kind: 'Maintenance', title: 'DG load-bank test — 125 kVA set', dcId: 'MH-DC-001', scope: [], risk: 'Low', status: 'Approved', windowStart: n + 4 * DAY + 6 * HOUR, windowEnd: n + 4 * DAY + 8 * HOUR, requester: 'Anil Kulkarni', approver: 'Kavita Rao', rollback: 'Return to utility; abort test' });
-  C({ kind: 'Maintenance', title: 'CRAH-11 compressor replacement', dcId: 'MH-DC-003', scope: [], risk: 'Medium', status: 'In progress', windowStart: n - 2 * HOUR, windowEnd: n + 4 * HOUR, requester: 'Anil Kulkarni', approver: 'Kavita Rao', rollback: 'Keep CRAH-12 in service; portable cooling on standby' });
-  C({ kind: 'Change', title: 'Utility feed A switchover to feeder 2', dcId: 'DL-DC-009', scope: [], risk: 'High', status: 'Completed', windowStart: n - 26 * HOUR, windowEnd: n - 24 * HOUR, requester: 'Vikram Singh', approver: 'Kavita Rao', rollback: 'Revert ATS to feeder 1' });
-  C({ kind: 'Maintenance', title: 'UPS battery string replacement — UPS-2', dcId: 'KA-DC-020', scope: [], risk: 'Medium', status: 'Approved', windowStart: n + 6 * DAY, windowEnd: n + 6 * DAY + 5 * HOUR, requester: 'Meera Iyer', approver: 'Kavita Rao', rollback: 'Keep UPS-2 in bypass on N+1' });
-  C({ kind: 'Change', title: 'Add 100G backhaul KA-DC-020 ↔ TN-DC-022', dcId: 'KA-DC-020', scope: ['KA-DC-020-PE-T4-01', 'TN-DC-022-PE-T4-01'], risk: 'Medium', status: 'Pending approval', windowStart: n + 9 * DAY, windowEnd: n + 9 * DAY + 4 * HOUR, requester: 'Priya Nair', rollback: 'Shut new interfaces; traffic stays on existing span' });
-  C({ kind: 'Change', title: 'Enable BFD on PE–AGG uplinks', dcId: 'UP-DC-005', scope: ['UP-DC-005-PE-T4-01', 'UP-DC-005-PE-T4-02'], risk: 'Low', status: 'Completed', windowStart: n - 5 * DAY, windowEnd: n - 5 * DAY + 2 * HOUR, requester: 'Sarah Chen', approver: 'Priya Nair', rollback: 'Remove BFD stanza' });
-  C({ kind: 'Maintenance', title: 'Quarterly fire-suppression inspection', dcId: 'WB-DC-016', scope: [], risk: 'Low', status: 'Approved', windowStart: n + 3 * DAY, windowEnd: n + 3 * DAY + 3 * HOUR, requester: 'Sneha Patil', approver: 'Kavita Rao', rollback: 'n/a — inspection only' });
+  C({ kind: 'Change', title: 'Re-patch ODF RACK-D core 7 to PE-T4-01 xe-0/0/3 (new backhaul span)', dcId: dcAt(1), scope: [`${dcAt(1)}-PE-T4-01`], risk: 'Medium', status: 'Completed', windowStart: n - 15 * HOUR - 20 * MIN, windowEnd: n - 14 * HOUR - 20 * MIN, requester: 'Rahul Deshpande', approver: 'Priya Nair', rollback: 'Restore previous patch at ODF-2/P7' });
+  C({ kind: 'Change', title: `Junos upgrade 21.4R3-S5.5 → 22.2R3-S2 on ${dcAt(1)} PE pair`, dcId: dcAt(1), scope: [`${dcAt(1)}-PE-T4-01`, `${dcAt(1)}-PE-T4-02`], risk: 'High', status: 'Pending approval', windowStart: n + 2 * DAY + 10 * HOUR, windowEnd: n + 2 * DAY + 14 * HOUR, requester: 'Arjun Mehta', rollback: 'Boot from alternate partition (snapshot taken)' });
+  C({ kind: 'Maintenance', title: 'DG load-bank test — 125 kVA set', dcId: dcAt(1), scope: [], risk: 'Low', status: 'Approved', windowStart: n + 4 * DAY + 6 * HOUR, windowEnd: n + 4 * DAY + 8 * HOUR, requester: 'Anil Kulkarni', approver: 'Kavita Rao', rollback: 'Return to utility; abort test' });
+  C({ kind: 'Maintenance', title: 'CRAH-11 compressor replacement', dcId: dcAt(3), scope: [], risk: 'Medium', status: 'In progress', windowStart: n - 2 * HOUR, windowEnd: n + 4 * HOUR, requester: 'Anil Kulkarni', approver: 'Kavita Rao', rollback: 'Keep CRAH-12 in service; portable cooling on standby' });
+  C({ kind: 'Change', title: 'Utility feed A switchover to feeder 2', dcId: dcAt(9), scope: [], risk: 'High', status: 'Completed', windowStart: n - 26 * HOUR, windowEnd: n - 24 * HOUR, requester: 'Vikram Singh', approver: 'Kavita Rao', rollback: 'Revert ATS to feeder 1' });
+  C({ kind: 'Maintenance', title: 'UPS battery string replacement — UPS-2', dcId: dcAt(20), scope: [], risk: 'Medium', status: 'Approved', windowStart: n + 6 * DAY, windowEnd: n + 6 * DAY + 5 * HOUR, requester: 'Meera Iyer', approver: 'Kavita Rao', rollback: 'Keep UPS-2 in bypass on N+1' });
+  C({ kind: 'Change', title: `Add 100G backhaul ${dcAt(20)} ↔ ${dcAt(22)}`, dcId: dcAt(20), scope: [`${dcAt(20)}-PE-T4-01`, `${dcAt(22)}-PE-T4-01`], risk: 'Medium', status: 'Pending approval', windowStart: n + 9 * DAY, windowEnd: n + 9 * DAY + 4 * HOUR, requester: 'Priya Nair', rollback: 'Shut new interfaces; traffic stays on existing span' });
+  C({ kind: 'Change', title: 'Enable BFD on PE–AGG uplinks', dcId: dcAt(5), scope: [`${dcAt(5)}-PE-T4-01`, `${dcAt(5)}-PE-T4-02`], risk: 'Low', status: 'Completed', windowStart: n - 5 * DAY, windowEnd: n - 5 * DAY + 2 * HOUR, requester: 'Sarah Chen', approver: 'Priya Nair', rollback: 'Remove BFD stanza' });
+  C({ kind: 'Maintenance', title: 'Quarterly fire-suppression inspection', dcId: dcAt(16), scope: [], risk: 'Low', status: 'Approved', windowStart: n + 3 * DAY, windowEnd: n + 3 * DAY + 3 * HOUR, requester: 'Sneha Patil', approver: 'Kavita Rao', rollback: 'n/a — inspection only' });
   const evpn = persona === 'cloud' ? ['Upgrade TOR pair 007/008 to EOS 4.32 (EVPN fabric)', 'Roll back to EOS 4.31 image'] : persona === 'colocation' ? ['Re-terminate tenant cross-connects on MMR-SW-01/02', 'Restore original patching at MMR panels'] : persona === 'enterprise' ? ['Migrate server VLANs to EVPN on TOR pair 007/008', 'Restore VLAN trunk config from backup'] : ['Migrate L2VPN services to EVPN on TOR pair 007/008', 'Restore VPLS config from backup'];
-  C({ kind: 'Change', title: evpn[0], dcId: 'TN-DC-022', scope: persona === 'colocation' ? ['TN-DC-022-MMR-SW-01', 'TN-DC-022-MMR-SW-02'] : ['TN-DC-022-TOR-007', 'TN-DC-022-TOR-008'], risk: 'High', status: 'Rolled back', windowStart: n - 3 * DAY, windowEnd: n - 3 * DAY + 3 * HOUR, requester: 'David Kim', approver: 'Priya Nair', rollback: evpn[1] });
-  C({ kind: 'Change', title: 'RADIUS server certificate renewal', dcId: 'HR-DC-011', scope: [], risk: 'Low', status: 'Draft', windowStart: n + 12 * DAY, windowEnd: n + 12 * DAY + HOUR, requester: 'James Wilson', rollback: 'Re-import previous certificate' });
-  C({ kind: 'Maintenance', title: 'ODF re-labelling & cable audit', dcId: 'KL-DC-024', scope: [], risk: 'Low', status: 'Approved', windowStart: n + 5 * DAY, windowEnd: n + 5 * DAY + 6 * HOUR, requester: 'Meera Iyer', approver: 'Kavita Rao', rollback: 'n/a' });
+  C({ kind: 'Change', title: evpn[0], dcId: dcAt(22), scope: persona === 'colocation' ? [`${dcAt(22)}-MMR-SW-01`, `${dcAt(22)}-MMR-SW-02`] : [`${dcAt(22)}-TOR-007`, `${dcAt(22)}-TOR-008`], risk: 'High', status: 'Rolled back', windowStart: n - 3 * DAY, windowEnd: n - 3 * DAY + 3 * HOUR, requester: 'David Kim', approver: 'Priya Nair', rollback: evpn[1] });
+  C({ kind: 'Change', title: 'RADIUS server certificate renewal', dcId: dcAt(11), scope: [], risk: 'Low', status: 'Draft', windowStart: n + 12 * DAY, windowEnd: n + 12 * DAY + HOUR, requester: 'James Wilson', rollback: 'Re-import previous certificate' });
+  C({ kind: 'Maintenance', title: 'ODF re-labelling & cable audit', dcId: dcAt(24), scope: [], risk: 'Low', status: 'Approved', windowStart: n + 5 * DAY, windowEnd: n + 5 * DAY + 6 * HOUR, requester: 'Meera Iyer', approver: 'Kavita Rao', rollback: 'n/a' });
 }
 
 /* ----------------------------------------------------------- recon / plans */
@@ -939,22 +944,22 @@ function buildRecon(db: Db) {
     const rr = mulberry32(seedOf(n.id) ^ 0x4ec);
     const kind = n.discovery === 'not-discovered' ? 'not-discovered' : n.duplicateSerialOf ? 'duplicate-serial' : 'drift';
     const ip = chance(rr, 0.12);
-    db.recon.push({ id: `REC-${String(++db.seq.rec).padStart(4, '0')}`, dcId: n.dcId, neId: n.id, kind, status: ip ? 'In progress' : 'Open', assignee: ip ? pick(rr, PEOPLE) : undefined, created: db.now - intBetween(rr, 1, 30) * DAY });
+    db.recon.push({ id: `REC-${String(++db.seq.rec).padStart(4, '0')}`, dcId: n.dcId, neId: n.id, kind, status: ip ? 'In progress' : 'Open', assignee: ip ? pick(rr, activeGeo().people) : undefined, created: db.now - intBetween(rr, 1, 30) * DAY });
   }
   const A = (at: number, actor: string, object: string, field: string, prev: string, next: string, source: string, note?: string) => db.audit.push({ id: `AUD-${++db.seq.aud}`, at, actor, object, field, prev, next, source, note });
-  A(db.now - 2 * DAY, 'Discovery (COL-MH-DC-001-1)', 'MH-DC-001-CSR-014', 'OS version', '21.4R3-S5.5', '22.2R3-S2', 'SNMP sysDescr', 'Accepted observed value');
-  A(db.now - 3 * DAY, 'Priya Nair', 'MH-DC-001-AGG-R03', 'Rack position', 'U18', 'U22', 'Field audit', 'Record updated after site walk');
-  A(db.now - 5 * DAY, 'Discovery (COL-UP-DC-005-2)', 'UP-DC-005-TOR-021', 'Management IP', '10.40.3.44', '10.40.12.144', 'LLDP / ARP', 'Kept record — device re-addressed in error');
-  A(db.now - 9 * DAY, 'Arjun Mehta', 'KA-DC-020-CSR-031', 'Lifecycle', 'Planned', 'Ready', 'Commissioning', 'Moved after acceptance test');
+  A(db.now - 2 * DAY, `Discovery (COL-${dcAt(1)}-1)`, `${dcAt(1)}-CSR-014`, 'OS version', '21.4R3-S5.5', '22.2R3-S2', 'SNMP sysDescr', 'Accepted observed value');
+  A(db.now - 3 * DAY, 'Priya Nair', `${dcAt(1)}-AGG-R03`, 'Rack position', 'U18', 'U22', 'Field audit', 'Record updated after site walk');
+  A(db.now - 5 * DAY, `Discovery (COL-${dcAt(5)}-2)`, `${dcAt(5)}-TOR-021`, 'Management IP', '10.40.3.44', '10.40.12.144', 'LLDP / ARP', 'Kept record — device re-addressed in error');
+  A(db.now - 9 * DAY, 'Arjun Mehta', `${dcAt(20)}-CSR-031`, 'Lifecycle', 'Planned', 'Ready', 'Commissioning', 'Moved after acceptance test');
 }
 
 function buildPlans(db: Db) {
   const P = (p: Omit<CapacityPlan, 'id'>) => db.plans.push({ ...p, id: `CAP-${String(++db.seq.plan).padStart(3, '0')}` });
-  P({ dcId: 'MH-DC-001', dimension: 'Bandwidth', title: 'Upgrade PE-T4-01 xe-0/0/3 backhaul to 100G', amount: 90, unit: 'Gbps', target: db.now + 45 * DAY, status: 'Submitted', capex: 38_00_000 });
-  P({ dcId: 'KA-DC-020', dimension: 'Power', title: 'Add 2 × 200 kVA UPS modules, Hall A', amount: 320, unit: 'kW', target: db.now + 70 * DAY, status: 'Approved', capex: 1_45_00_000 });
-  P({ dcId: 'DL-DC-009', dimension: 'Cooling', title: 'Add CRAH-19/20 for Hall B densification', amount: 180, unit: 'kW', target: db.now + 90 * DAY, status: 'Executing', capex: 92_00_000 });
-  P({ dcId: 'MH-DC-003', dimension: 'Space', title: 'Open 8 racks in 1st-floor equipment room', amount: 336, unit: 'U', target: db.now + 60 * DAY, status: 'Submitted', capex: 41_00_000 });
-  P({ dcId: 'TN-DC-022', dimension: 'Ports', title: 'Add 2 leaf switches (96 × 25G)', amount: 96, unit: 'ports', target: db.now + 35 * DAY, status: 'Approved', capex: 28_00_000 });
+  P({ dcId: dcAt(1), dimension: 'Bandwidth', title: 'Upgrade PE-T4-01 xe-0/0/3 backhaul to 100G', amount: 90, unit: 'Gbps', target: db.now + 45 * DAY, status: 'Submitted', capex: money(38_00_000) });
+  P({ dcId: dcAt(20), dimension: 'Power', title: 'Add 2 × 200 kVA UPS modules, Hall A', amount: 320, unit: 'kW', target: db.now + 70 * DAY, status: 'Approved', capex: money(1_45_00_000) });
+  P({ dcId: dcAt(9), dimension: 'Cooling', title: 'Add CRAH-19/20 for Hall B densification', amount: 180, unit: 'kW', target: db.now + 90 * DAY, status: 'Executing', capex: money(92_00_000) });
+  P({ dcId: dcAt(3), dimension: 'Space', title: 'Open 8 racks in 1st-floor equipment room', amount: 336, unit: 'U', target: db.now + 60 * DAY, status: 'Submitted', capex: money(41_00_000) });
+  P({ dcId: dcAt(22), dimension: 'Ports', title: 'Add 2 leaf switches (96 × 25G)', amount: 96, unit: 'ports', target: db.now + 35 * DAY, status: 'Approved', capex: money(28_00_000) });
 }
 
 /* --------------------------------------------------------- health / risks */
@@ -987,10 +992,23 @@ function buildRisks(db: Db) {
     for (const u of dc.power.ups) if (u.state !== 'Online') R('Facility', `${u.name} ${u.state.toLowerCase()}`, 'Feed A lost — DG start pending', 'critical', 'Facility ops', db.now - HOUR);
     const hot = db.links.filter(l => l.protocol === 'LLDP' && l.dcId === dc.id && l.utilPct >= 85 && l.role !== 'Access');
     if (hot.length) R('Network', `${hot.length} backhaul link${hot.length > 1 ? 's' : ''} ≥85% utilised`, 'Forecast to cross 95% critical inside the planning window', 'major', 'Capacity planning', db.now - 9 * DAY);
-    if (dc.id === 'MH-DC-001') { R('Supplier', 'Optics batch SFP-10G-LR lot 22B', '4 nodes in the estate show the same Rx-power decay signature', 'minor', 'Vendor management', db.now - 2 * DAY); R('Commissioning', 'Enterprise Corp L3VPN acceptance pending', 'Customer acceptance test booked 03-Oct', 'minor', 'Service delivery', db.now - 4 * DAY); }
-    if (dc.id === 'KL-DC-024') R('Commissioning', 'DG load-bank test outstanding', 'Required before on-air sign-off', 'major', 'Facility ops', db.now - 8 * DAY);
-    if (dc.id === 'GJ-DC-013') R('Supplier', 'Rack & PDU delivery delayed', 'Vendor ETA moved to 24-Oct', 'major', 'Procurement', db.now - 15 * DAY);
+    if (dc.id === dcAt(1)) { R('Supplier', 'Optics batch SFP-10G-LR lot 22B', '4 nodes in the estate show the same Rx-power decay signature', 'minor', 'Vendor management', db.now - 2 * DAY); R('Commissioning', 'Enterprise Corp L3VPN acceptance pending', 'Customer acceptance test booked 03-Oct', 'minor', 'Service delivery', db.now - 4 * DAY); }
+    if (dc.id === dcAt(24)) R('Commissioning', 'DG load-bank test outstanding', 'Required before on-air sign-off', 'major', 'Facility ops', db.now - 8 * DAY);
+    if (dc.id === dcAt(13)) R('Supplier', 'Rack & PDU delivery delayed', 'Vendor ETA moved to 24-Oct', 'major', 'Procurement', db.now - 15 * DAY);
   }
 }
 
 export { HOUR, DAY, MIN };
+
+/* the scenario is written with India's people; in another geography every name becomes that geography's */
+function localizeNames(db: Db) {
+  const map = activeGeo().renamePeople;
+  const keys = Object.keys(map);
+  if (!keys.length) return;
+  const fix = (t: string) => keys.reduce((a, k) => (a.includes(k) ? a.split(k).join(map[k]) : a), t);
+  for (const i of db.incidents) { i.owner = fix(i.owner); i.worklog.forEach(w => { w.who = fix(w.who); w.text = fix(w.text); }); i.actions.forEach(a => { a.owner = fix(a.owner); }); }
+  for (const c of db.changes) { c.requester = fix(c.requester); if (c.approver) c.approver = fix(c.approver); }
+  for (const a of db.audit) a.actor = fix(a.actor);
+  for (const t of db.recon) if (t.assignee) t.assignee = fix(t.assignee);
+  for (const d of db.datacenters) d.risks.forEach(r => { r.owner = fix(r.owner); });
+}

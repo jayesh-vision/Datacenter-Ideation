@@ -7,7 +7,7 @@ import { usePage, PageHead, Loading } from '../shell/page';
 import { DataTable, type Col } from '../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../ui/ListToolbar';
 import { Fresh, IncidentChip, PriChip, SevChip } from '../ui/status';
-import { fmtDate, fmtDateTime, fmtINR, fmtTime } from '../lib/format';
+import { fmtDate, fmtDateTime, fmtMoney, fmtTime } from '../lib/format';
 import { downloadCsv, fmtHm, slaText } from './ops/shared';
 import { Facts, SoftMeter, Split, StatGrid, StatTile, type Tone } from '../ui/Analytics';
 import '../styles/revenue.css';
@@ -48,8 +48,8 @@ export function Incidents() {
     { key: 'sla', header: 'SLA', width: 128, render: i => (isOpen(i) ? <span className={`num nowrap ${i.sla.resolveLeft < 0 ? 'bad strong' : i.sla.breaching ? 'warn' : ''}`}>{slaText(i.sla.resolveLeft)}{i.sla.resolveLeft >= 0 && i.sla.responseBreached && <small className="bad" style={{ display: 'block', fontSize: 11 }}>response breached</small>}</span> : <span className="muted num">{i.resolved ? `MTTR ${fmtHm((i.resolved - i.detected) / 60000)}` : '—'}</span>), sort: i => (isOpen(i) ? i.sla.resolveLeft : 1e9) },
     /* what the incident is costing: the hourly loss and the total so far, or what is riding on it */
     { key: 'rev', header: vocabNow().money.noun, sort: i => (i.revenue ? i.revenue.impact + i.revenue.rate * 1e3 + i.revenue.exposed / 1e4 : -1), render: i => { const r = isOpen(i) ? i.revenue : null; return !r ? <span className="faint">—</span>
-      : r.rate + r.impact > 0 ? <span className="cell-2"><span className="num nowrap rev-amt rev-bad">{fmtINR(r.rate)}/h</span><small className="nowrap" title={r.underPrioritised ? `Ranks #${r.rank} by impact — review its priority` : undefined}>{fmtINR(r.impact)} so far</small></span>
-      : <span className="cell-2"><span className="num nowrap">{fmtINR(r.exposed)}/mo</span><small className="nowrap">at stake</small></span>; } },
+      : r.rate + r.impact > 0 ? <span className="cell-2"><span className="num nowrap rev-amt rev-bad">{fmtMoney(r.rate)}/h</span><small className="nowrap" title={r.underPrioritised ? `Ranks #${r.rank} by impact — review its priority` : undefined}>{fmtMoney(r.impact)} so far</small></span>
+      : <span className="cell-2"><span className="num nowrap">{fmtMoney(r.exposed)}/mo</span><small className="nowrap">at stake</small></span>; } },
     { key: 'owner', header: 'Owner', width: 118, wrap: true, render: i => <span className="strong" style={{ fontWeight: 400 }}>{i.owner}</span>, sort: i => i.owner },
     { key: 'det', header: 'Detected', width: '15%', hideBelow: 1340, render: i => <span className="cell-2"><span className="num">{fmtDate(i.detected)}</span><small className="num">{fmtTime(i.detected)}</small></span>, sort: i => i.detected }
   ];

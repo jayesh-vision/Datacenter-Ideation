@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { createPortal } from 'react-dom';
-import { search } from '../api';
+import { search, defaultDcId, geoNow } from '../api';
 
 type Row = { kind: string; label: string; sub: string; to: string };
 const ICON: Record<string, I.LucideIcon> = { Datacenter: I.Building2, 'Network element': I.Router, Device: I.Server, Service: I.Waypoints, Customer: I.Users, Incident: I.Siren, Alert: I.BellRing, Change: I.ArrowLeftRight, Go: I.Zap };
-const QUICK: Row[] = [
-  { kind: 'Go', label: 'MH-DC-001 · Pune Data Park', sub: 'In-progress datacenter with open reconciliation', to: '/datacenters/MH-DC-001' },
-  { kind: 'Go', label: 'MH-DC-001-PE-T4-01 · Alerts & diagnostics', sub: 'Flapping backhaul with AI root-cause', to: '/ne/MH-DC-001-PE-T4-01?tab=alerts' },
+const QUICK = (): Row[] => [
+  { kind: 'Go', label: `${defaultDcId()} · ${geoNow().dcs[0][2]}`, sub: 'In-progress datacenter with open reconciliation', to: `/datacenters/${defaultDcId()}` },
+  { kind: 'Go', label: `${defaultDcId()}-PE-T4-01 · Alerts & diagnostics`, sub: 'Flapping backhaul with AI root-cause', to: `/ne/${defaultDcId()}-PE-T4-01?tab=alerts` },
   { kind: 'Go', label: 'INC-0001 · RCA workspace', sub: 'Optical degradation incident', to: '/incidents/INC-0001' },
   { kind: 'Go', label: 'Facilities', sub: 'Power chain, UPS, DG, cooling and environment', to: '/facilities' },
   { kind: 'Go', label: 'Datacenters', sub: 'Operational state of every live datacenter', to: '/datacenters' }
@@ -17,10 +17,10 @@ const QUICK: Row[] = [
 export function Palette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [q, setQ] = useState('');
   const [idx, setIdx] = useState(0);
-  const [res, setRes] = useState<Row[]>(QUICK);
+  const [res, setRes] = useState<Row[]>(QUICK());
   const nav = useNavigate();
   useEffect(() => {
-    if (q.trim().length < 2) { setRes(QUICK); return; }
+    if (q.trim().length < 2) { setRes(QUICK()); return; }
     let live = true;
     search(q).then(r => { if (live) { setRes(r); setIdx(0); } });
     return () => { live = false; };

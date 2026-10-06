@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as I from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
+import { fmtNum } from '../lib/format';
 
 /* lists whose filters live in the URL: apply several changes in ONE navigation
    (sequential setSearchParams calls in one tick would overwrite each other) */
@@ -54,7 +55,7 @@ export function ListToolbar({ shown, total, noun, search, filters = [], onRefres
 
   return (
     <div className="lt">
-      <span className="lt-count">Showing {shown.toLocaleString('en-IN')} of {total.toLocaleString('en-IN')}{noun ? ` ${noun}` : ''}</span>
+      <span className="lt-count">Showing {fmtNum(shown)} of {fmtNum(total)}{noun ? ` ${noun}` : ''}</span>
       {search && (
         <label className="lt-search">
           <I.Search size={16} />

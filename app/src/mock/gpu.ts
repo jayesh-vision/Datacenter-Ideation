@@ -21,6 +21,8 @@ import type { AiCage, Cdu, CoolingUnit, Customer, Datacenter, Gpu, GpuCluster, G
 import { mulberry32, seedOf, pick, intBetween, between, chance, type Rnd } from '../lib/rng';
 import { PERSONA_BY_ID } from './personas';
 import { DAY, HOUR, MIN, NOW } from './seed';
+import { dcAt, money } from './geo';
+import { fmtMoney } from '../lib/format';
 
 export interface GpuState { nodes: Map<string, GpuNode>; clusters: GpuCluster[]; jobs: GpuJob[]; cdus: Cdu[]; cages: AiCage[]; ratePerGpuHour: number; driverStd: string }
 /* the parts of Db this module touches (kept structural to avoid an import cycle with generate.ts) */
@@ -32,8 +34,8 @@ interface DbLike {
 }
 
 export const GPU_RATE = { cloud: 175000, enterprise: 85000 } as const;             // ₹ per GPU per month (cloud list price · enterprise chargeback: capex over 3 years + power)
-const LIQUID_SITES = ['TN-DC-022', 'KA-DC-020', 'TS-DC-023'];                       // newest halls: H200, direct-to-chip liquid cooling
-const DRIFT_SITES = ['AP-DC-010', 'HR-DC-011', 'KA-DC-021'];                         // still on the previous driver branch
+const LIQUID_SITES = () => [dcAt(22), dcAt(20), dcAt(23)];                       // newest halls: H200, direct-to-chip liquid cooling
+const DRIFT_SITES = () => [dcAt(10), dcAt(11), dcAt(21)];                         // still on the previous driver branch
 const DRIVER_STD = '550.127.05', DRIVER_OLD = '535.183.01';
 const r0 = (n: number) => Math.round(n), r1 = (n: number) => Math.round(n * 10) / 10;
 const rngOf = (id: string, salt: number): Rnd => mulberry32(seedOf(id) ^ salt);
@@ -42,7 +44,7 @@ const short = (id: string) => id.replace(/^[A-Z]{2}-DC-\d{3}-/, '');
 /* ------------------------------------------------------------------ phase A */
 
 export function buildGpuFleet(persona: Persona, datacenters: Datacenter[], nes: NetworkElement[], customers: Customer[]): GpuState {
-  const state: GpuState = { nodes: new Map(), clusters: [], jobs: [], cdus: [], cages: [], ratePerGpuHour: persona === 'enterprise' ? GPU_RATE.enterprise / 730 : GPU_RATE.cloud / 730, driverStd: DRIVER_STD };
+  const state: GpuState = { nodes: new Map(), clusters: [], jobs: [], cdus: [], cages: [], ratePerGpuHour: money(persona === 'enterprise' ? GPU_RATE.enterprise : GPU_RATE.cloud) / 730, driverStd: DRIVER_STD };
   if (persona === 'colocation') { buildCages(state, datacenters, customers); return state; }
   if (persona !== 'cloud' && persona !== 'enterprise') return state;
 
@@ -51,7 +53,7 @@ export function buildGpuFleet(persona: Persona, datacenters: Datacenter[], nes: 
     if (dc.status === 'planned') continue;
     const gpuNes = nes.filter(n => n.dcId === dc.id && n.role === 'GPU' && n.discovery !== 'not-discovered').sort((a, b) => a.id.localeCompare(b.id));
     if (!gpuNes.length) continue;
-    const liquid = LIQUID_SITES.includes(dc.id);
+    const liquid = LIQUID_SITES().includes(dc.id);
     const model: GpuModel = liquid ? 'H200 SXM 141 GB' : 'H100 SXM 80 GB';
     /* GPU racks in liquid halls are high-density, direct-to-chip cooled */
     const gpuRacks = [...new Set(gpuNes.map(n => n.rackId))];
@@ -69,7 +71,7 @@ export function buildGpuFleet(persona: Persona, datacenters: Datacenter[], nes: 
       const avail: NetworkElement[] = [];
       for (const n of members) {
         const rr = rngOf(n.id, 0x6a1);
-        const node: GpuNode = { neId: n.id, dcId: dc.id, rackId: n.rackId, clusterId: cl.id, model, gpus: [], state: 'idle', cooling: liquid ? 'liquid' : 'air', driver: DRIFT_SITES.includes(dc.id) && chance(rr, 0.7) ? DRIVER_OLD : DRIVER_STD,
+        const node: GpuNode = { neId: n.id, dcId: dc.id, rackId: n.rackId, clusterId: cl.id, model, gpus: [], state: 'idle', cooling: liquid ? 'liquid' : 'air', driver: DRIFT_SITES().includes(dc.id) && chance(rr, 0.7) ? DRIVER_OLD : DRIVER_STD,
           firmware: liquid ? 'VBIOS 96.00.A5.00.01' : 'VBIOS 96.00.89.00.01', powerKw: 0, health: 'healthy', ib: Array.from({ length: 8 }, (_, i) => ({ rail: i, state: 'up' as const, errors: intBetween(rr, 0, 12) })) };
         const roll = rr();
         if (n.icmp.state === 'critical') { node.state = 'failed'; node.health = 'failed'; node.note = 'Host not responding — out of the scheduler'; }
@@ -178,7 +180,7 @@ function addCdu(state: GpuState, dc: Datacenter, name: string, room: string, rac
 /* colocation: a few cabinets of AI-heavy tenants become liquid-cooled AI cages */
 function buildCages(state: GpuState, datacenters: Datacenter[], customers: Customer[]) {
   const aiTenant = (id?: string) => { const c = customers.find(x => x.id === id); return !!c && /Hyperscaler|SaaS|Media|Enterprise/.test(c.segment); };
-  for (const dcId of ['KA-DC-020', 'TN-DC-022', 'TS-DC-023', 'MH-DC-002']) {
+  for (const dcId of [dcAt(20), dcAt(22), dcAt(23), dcAt(2)]) {
     const dc = datacenters.find(d => d.id === dcId); if (!dc) continue;
     const rr = rngOf(dcId, 0xa1c);
     const tenantRacks = dc.racks.filter(r => r.owner === 'tenant' && r.tenantId);
@@ -187,7 +189,7 @@ function buildCages(state: GpuState, datacenters: Datacenter[], customers: Custo
     picks.forEach((rk, i) => {
       const kw = pick(rr, [40, 48, 60] as const);
       rk.role = 'AI cage'; rk.density = 'ai'; rk.liquid = true; rk.budgetKw = kw; rk.contractedKw = kw;
-      rk.drawKw = r1(kw * (dcId === 'KA-DC-020' && i === 0 ? 0.96 : between(rr, 0.62, 0.86)));
+      rk.drawKw = r1(kw * (dcId === dcAt(20) && i === 0 ? 0.96 : between(rr, 0.62, 0.86)));
       rk.tempC = r1(between(rr, 22, 25));
     });
     const room = `${picks[0].floor} · ${picks[0].room}`;
@@ -228,7 +230,7 @@ export function addGpuServices(persona: Persona, state: GpuState, services: Serv
       id: `SVC-${cloud ? 'GP' : 'AI'}-${nextSeq()}`, type: cloud ? 'GPU cluster' : 'AI platform', customerId: cust.id, dcId: job.dcId, neId: job.nodes[0], ifName: `${job.nodes.length}-node ${job.kind} job`, path: [...job.nodes], linkIds: [],
       bandwidthMbps: 400000, utilPct: r1(between(rr, 70, 89)), status: 'Active', slaTarget: sla,
       uptime30d: Math.round(Math.min(99.999, chance(rr, 0.1) ? sla - between(rr, 0.02, 0.3) : sla + between(rr, 0.001, (100 - sla) * 0.9)) * 100) / 100, growthPct: r1(between(rr, 2, 9)),
-      revenueMonthly: job.gpus * GPU_RATE[cloud ? 'cloud' : 'enterprise'], critical: cust.premium, qty: job.gpus, unit: 'GPU'
+      revenueMonthly: job.gpus * money(GPU_RATE[cloud ? 'cloud' : 'enterprise']), critical: cust.premium, qty: job.gpus, unit: 'GPU'
     };
     services.push(s); job.serviceId = s.id;
   }
@@ -248,7 +250,7 @@ export function injectGpuFaults(db: DbLike, persona: Persona, addAlert: AddAlert
 
   if (persona === 'colocation') {
     /* the cage loop in Chennai has lost flow — tenant inlets are warming */
-    const cdu = st.cdus.find(c => c.dcId === 'TN-DC-022');
+    const cdu = st.cdus.find(c => c.dcId === dcAt(22));
     if (cdu) {
       cdu.flowLpm = r0(cdu.flowNominal * 0.71); cdu.supplyC = 31.8; cdu.returnC = 41.6; cdu.state = 'warn'; cdu.pump = 'B'; cdu.note = 'Pump A tripped; standby pump B running at reduced flow';
       const u = db.datacenters.find(d => d.id === cdu.dcId)!.cooling.units.find(x => x.id === cdu.id)!; u.supplyC = cdu.supplyC; u.returnC = cdu.returnC; u.status = 'Maintenance';
@@ -260,7 +262,7 @@ export function injectGpuFaults(db: DbLike, persona: Persona, addAlert: AddAlert
   if (persona !== 'cloud' && persona !== 'enterprise') return;
 
   /* F1 — a GPU fell off the bus in the biggest training job in Bengaluru: every GPU in the job waits */
-  const j1 = job('KA-DC-020');
+  const j1 = job(dcAt(20));
   if (j1) {
     const n = j1.nodes[Math.min(2, j1.nodes.length - 1)], node = st.nodes.get(n)!, g = node.gpus[3];
     const since = now - 38 * MIN;
@@ -274,7 +276,7 @@ export function injectGpuFaults(db: DbLike, persona: Persona, addAlert: AddAlert
     svcOf(j1).forEach(s => { s.status = 'Down'; });
   }
   /* F2 — uncorrectable ECC: the job still runs, but the GPU needs a reset (row remap pending) */
-  const j2 = ['MH-DC-003', 'KA-DC-008', 'MH-DC-002'].map(d => job(d)).find(Boolean);
+  const j2 = [dcAt(3), dcAt(8), dcAt(2)].map(d => job(d)).find(Boolean);
   if (j2) {
     const n = j2.nodes[Math.min(1, j2.nodes.length - 1)], g = st.nodes.get(n)!.gpus[5];
     const since = now - 125 * MIN;
@@ -284,7 +286,7 @@ export function injectGpuFaults(db: DbLike, persona: Persona, addAlert: AddAlert
     addAlert({ neId: n, dcId: j2.dcId, severity: 'major', title: 'GPU Uncorrectable ECC (Xid 48)', description: `GPU5 on ${short(n)}: double-bit ECC error, row remap pending — GPU reset needed; drain at the next checkpoint`, source: 'Environment', type: 'GPU', start: since, state: 'active' });
   }
   /* F3 — NVLink errors in Hyderabad make one node a straggler: the whole job runs at its pace */
-  const j3 = job('TS-DC-023');
+  const j3 = job(dcAt(23));
   if (j3) {
     const n = j3.nodes[0], g = st.nodes.get(n)!.gpus[1];
     const since = now - 190 * MIN;
@@ -295,8 +297,8 @@ export function injectGpuFaults(db: DbLike, persona: Persona, addAlert: AddAlert
     svcOf(j3).forEach(s => { if (s.status === 'Active') s.status = 'Degraded'; });
   }
   /* F4 — CDU flow low in the Chennai GPU hall: liquid-cooled GPUs hit hardware slowdown */
-  const j4 = job('TN-DC-022');
-  const cdu4 = j4 && st.cdus.find(c => c.dcId === 'TN-DC-022' && j4.nodes.some(n => c.racks.includes(st.nodes.get(n)!.rackId)));
+  const j4 = job(dcAt(22));
+  const cdu4 = j4 && st.cdus.find(c => c.dcId === dcAt(22) && j4.nodes.some(n => c.racks.includes(st.nodes.get(n)!.rackId)));
   if (j4 && cdu4) {
     const since = now - 85 * MIN;
     Object.assign(cdu4, { flowLpm: r0(cdu4.flowNominal * 0.62), supplyC: 33.4, returnC: 44.9, state: 'bad', pump: 'B', note: 'Pump A seized; standby pump B alone cannot hold design flow' });
@@ -313,7 +315,7 @@ export function injectGpuFaults(db: DbLike, persona: Persona, addAlert: AddAlert
     svcOf(j4).forEach(s => { if (s.status === 'Active') s.status = 'Degraded'; });
   }
   /* F5 — an InfiniBand rail flapping in Gorakhpur slows collectives */
-  const j5 = job('UP-DC-005', 'fine-tuning') ?? job('UP-DC-005');
+  const j5 = job(dcAt(5), 'fine-tuning') ?? job(dcAt(5));
   if (j5) {
     const n = j5.nodes[0], node = st.nodes.get(n)!;
     const since = now - 54 * MIN;
@@ -323,7 +325,7 @@ export function injectGpuFaults(db: DbLike, persona: Persona, addAlert: AddAlert
     svcOf(j5).forEach(s => { if (s.status === 'Active') s.status = 'Degraded'; });
   }
   /* F6 — Delhi GPU rack near its breaker: nodes power-capped (the site is also on UPS battery) */
-  const dc9 = db.datacenters.find(d => d.id === 'DL-DC-009');
+  const dc9 = db.datacenters.find(d => d.id === dcAt(9));
   const rk9 = dc9?.racks.find(r => r.density === 'ai' && [...st.nodes.values()].some(n => n.rackId === r.id && n.state === 'in-job'));
   if (dc9 && rk9) {
     rk9.drawKw = r1(rk9.budgetKw * 0.94);
@@ -331,7 +333,7 @@ export function injectGpuFaults(db: DbLike, persona: Persona, addAlert: AddAlert
     addAlert({ dcId: dc9.id, rackId: rk9.id, severity: 'warning', title: 'GPU Rack Power Capped', description: `${rk9.name} drawing ${rk9.drawKw} of ${rk9.budgetKw} kW — GPUs capped at 550 W to stay under the breaker`, source: 'Power', type: 'Rack', start: now - 6 * HOUR, state: 'active' });
   }
   /* F7 — an inference service in Kolkata has held its GPUs idle for 6 hours (no alarm: it is waste, not a fault) */
-  const j7 = job('WB-DC-016', 'inference');
+  const j7 = job(dcAt(16), 'inference');
   if (j7) {
     j7.nodes.forEach(id => { st.nodes.get(id)!.gpus.forEach(g => { g.util = intBetween(rngOf(`${id}#${g.idx}`, 0x7f), 1, 4); g.powerW = intBetween(rngOf(`${id}#${g.idx}`, 0x80), 90, 120); }); resync(id); });
     Object.assign(j7, { state: 'idle', since: now - 6 * HOUR - 10 * MIN, cause: 'Allocated but under 5% utilisation for 6 hours — no traffic since the 07:10 deploy' });
@@ -354,7 +356,7 @@ export function addGpuChange(db: DbLike & { changes: unknown[] }, persona: Perso
   const st = db.gpu; if (!st || (persona !== 'cloud' && persona !== 'enterprise')) return;
   const old = [...st.nodes.values()].filter(n => n.driver !== st.driverStd);
   if (!old.length) return;
-  const dc = DRIFT_SITES.find(d => old.some(n => n.dcId === d))!;
+  const dc = DRIFT_SITES().find(d => old.some(n => n.dcId === d))!;
   const scope = old.filter(n => n.dcId === dc).map(n => n.neId);
   (db.changes as Record<string, unknown>[]).push({ id: `CHG-${++db.seq.chg}`, kind: 'Change', title: `Roll out GPU driver ${st.driverStd} to ${dc} AI pod (${scope.length} nodes on ${DRIVER_OLD})`, dcId: dc, scope, risk: 'Medium', status: 'Pending approval',
     windowStart: db.now + 3 * DAY + 2 * HOUR, windowEnd: db.now + 3 * DAY + 6 * HOUR, requester: 'Sarah Chen', rollback: `Reinstall ${DRIVER_OLD} from the node image; uncordon`, created: db.now - DAY });
@@ -384,7 +386,7 @@ export function buildGpuIncidents(db: DbLike, persona: Persona, fx: IncFns) {
   };
   const spareOf = (j: GpuJob) => [...st.nodes.values()].find(n => n.clusterId === j.clusterId && n.state === 'idle' && n.health === 'healthy');
   const ownerName = (j: GpuJob) => db.customers.find(c => c.id === j.customerId)?.name ?? j.customerId;
-  const rateH = (j: GpuJob) => Math.round(j.gpus * st.ratePerGpuHour).toLocaleString('en-IN');
+  const rateH = (j: GpuJob) => fmtMoney(Math.round(j.gpus * st.ratePerGpuHour));
 
   const j1 = st.jobs.find(j => j.state === 'stalled');
   if (j1) {
@@ -397,7 +399,7 @@ export function buildGpuIncidents(db: DbLike, persona: Persona, fx: IncFns) {
         { step: `Restart ${j1.name} from its last checkpoint on spare node ${spare ? short(spare.neId) : '(none free — shrink to N-1 nodes)'}`, owner: `${ownerName(j1)} · ML platform`, expected: `Training resumes; ${Math.round((j1.since! - j1.lastCheckpoint) / MIN)} min of steps re-run`, rollback: 'Keep job paused', verify: 'Step time within 5% of baseline', disruptive: true },
         { step: `Run DCGM diagnostics (level 3) on ${short(n)}`, owner: 'GPU ops', expected: 'Confirms GPU3 hardware fault', rollback: 'n/a', verify: 'Diagnostic report attached', disruptive: false },
         { step: 'Open RMA for GPU3 if diagnostics fail; reseat the riser first', owner: 'Vendor management', expected: 'Replacement GPU in 3 days', rollback: 'n/a', verify: 'RMA reference recorded', disruptive: false }],
-      summary: `${j1.gpus} GPUs of ${ownerName(j1)}'s ${j1.kind} job are idle behind one failed GPU — about ₹${rateH(j1)} of GPU time every hour, plus ${Math.round((j1.since! - j1.lastCheckpoint) / MIN)} minutes of training since the last checkpoint to redo.` });
+      summary: `${j1.gpus} GPUs of ${ownerName(j1)}'s ${j1.kind} job are idle behind one failed GPU — about ${rateH(j1)} of GPU time every hour, plus ${Math.round((j1.since! - j1.lastCheckpoint) / MIN)} minutes of training since the last checkpoint to redo.` });
   }
   const j4 = st.jobs.find(j => j.state === 'slowed' && /CDU/.test(j.cause ?? ''));
   if (j4) {

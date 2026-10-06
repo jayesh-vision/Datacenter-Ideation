@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ArrowDown, ChevronLeft, ChevronRight, Inbox } from 'lucide-react';
 import { CheckBox, Empty } from './kit';
+import { fmtNum } from '../lib/format';
 
 export interface Col<T> {
   key: string; header: ReactNode; render: (row: T) => ReactNode;
@@ -75,7 +76,7 @@ export function DataTable<T extends { id: string }>({
       </div>
       {rows.length > pageSize && (
         <div className="dt-pager">
-          <span>{p * pageSize + 1}–{Math.min(sorted.length, (p + 1) * pageSize)} of {sorted.length.toLocaleString('en-IN')}</span>
+          <span>{p * pageSize + 1}–{Math.min(sorted.length, (p + 1) * pageSize)} of {fmtNum(sorted.length)}</span>
           <div className="row">
             <button type="button" className="nst-icon-btn" disabled={p === 0} onClick={() => setPage(p - 1)} aria-label="Previous page"><ChevronLeft size={16} /></button>
             <span>Page {p + 1} / {pages}</span>

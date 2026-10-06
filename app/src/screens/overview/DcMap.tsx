@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
+import { geoNow } from '../../api';
 import * as I from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
@@ -11,7 +12,8 @@ export interface DcPin {
 export interface DcLinkPair { a: string; z: string; n: number; down: number }
 
 const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services';
-const INDIA: L.LatLngBoundsExpression = [[7.5, 68.5], [34.0, 93.0]];
+/* the geography's bounds: India or the USA */
+const INDIA = (): L.LatLngBoundsExpression => geoNow().map.bounds;
 type BaseId = 'light' | 'streets' | 'satellite' | 'terrain';
 const BASEMAPS: { id: BaseId; label: string; base: string; ref?: string; attr: string }[] = [
   { id: 'light', label: 'Light', base: 'Canvas/World_Light_Gray_Base', ref: 'Canvas/World_Light_Gray_Reference', attr: '© Esri, HERE, Garmin' },
@@ -20,7 +22,7 @@ const BASEMAPS: { id: BaseId; label: string; base: string; ref?: string; attr: s
   { id: 'terrain', label: 'Terrain', base: 'World_Topo_Map', attr: '© Esri, HERE, Garmin, FAO, USGS' }
 ];
 const tile = (svc: string) => `${ESRI}/${svc}/MapServer/tile/{z}/{y}/{x}`;
-const thumb = (svc: string) => `${ESRI}/${svc}/MapServer/tile/5/14/22`;   // a tile over western India
+const thumb = (svc: string) => `${ESRI}/${svc}/MapServer/tile/${geoNow().map.thumbTile}`;   // one tile over the geography, as a basemap preview
 const KIND: Record<PinKind, { label: string }> = { crit: { label: 'SEV1/2' }, warn: { label: 'Incidents' }, ok: { label: 'Healthy' } };
 const loadBase = (): BaseId => { try { const v = localStorage.getItem('dco.map.base'); return BASEMAPS.some(b => b.id === v) ? (v as BaseId) : 'light'; } catch { return 'light'; } };
 
@@ -51,7 +53,7 @@ export function DcMap({ pins, links = [], onNav, height = 520 }: { pins: DcPin[]
     const m = map.current; if (!m) return;
     if (full) m.scrollWheelZoom.enable(); else m.scrollWheelZoom.disable();
     /* refit after the container has resized and the resize observer has run */
-    const t = window.setTimeout(() => { m.invalidateSize({ animate: false, pan: false }); m.fitBounds(INDIA, { animate: false, padding: [12, 12] }); }, 160);
+    const t = window.setTimeout(() => { m.invalidateSize({ animate: false, pan: false }); m.fitBounds(INDIA(), { animate: false, padding: [12, 12] }); }, 160);
     return () => window.clearTimeout(t);
   }, [full]);
   const byId = useMemo(() => new Map(pins.map(p => [p.id, p])), [pins]);
@@ -59,7 +61,7 @@ export function DcMap({ pins, links = [], onNav, height = 520 }: { pins: DcPin[]
   /* map + interaction model */
   useEffect(() => {
     if (!el.current || map.current) return;
-    const m = L.map(el.current, { zoomSnap: 0.25, zoomDelta: 0.5, minZoom: 3.5, maxZoom: 16, scrollWheelZoom: false, zoomControl: false, attributionControl: true }).fitBounds(INDIA);
+    const m = L.map(el.current, { zoomSnap: 0.25, zoomDelta: 0.5, minZoom: 3.5, maxZoom: 16, scrollWheelZoom: false, zoomControl: false, attributionControl: true }).fitBounds(INDIA());
     L.control.zoom({ position: 'bottomright' }).addTo(m);
     L.control.scale({ position: 'bottomright', imperial: false, maxWidth: 90 }).addTo(m);
     /* site labels sit in their own pane above every pin, so a neighbouring pin never covers a label */
@@ -78,7 +80,7 @@ export function DcMap({ pins, links = [], onNav, height = 520 }: { pins: DcPin[]
     node.addEventListener('click', onClick);
     m.on('click', () => setSel(null));   // a click on empty map closes the site card
     let fitted = false;
-    const ro = new ResizeObserver(() => { if (!node.isConnected) return; m.invalidateSize({ animate: false, pan: false }); if (!fitted && node.clientHeight > 100) { fitted = true; m.fitBounds(INDIA, { animate: false, padding: [12, 12] }); } });
+    const ro = new ResizeObserver(() => { if (!node.isConnected) return; m.invalidateSize({ animate: false, pan: false }); if (!fitted && node.clientHeight > 100) { fitted = true; m.fitBounds(INDIA(), { animate: false, padding: [12, 12] }); } });
     ro.observe(node);
     return () => { ro.disconnect(); window.clearTimeout(hintT); node.removeEventListener('wheel', onWheel); node.removeEventListener('mousedown', arm); node.removeEventListener('mouseleave', disarm); node.removeEventListener('click', onClick); m.remove(); map.current = null; };
   }, []);
@@ -127,7 +129,7 @@ export function DcMap({ pins, links = [], onNav, height = 520 }: { pins: DcPin[]
   const counts = { crit: pins.filter(p => p.kind === 'crit').length, warn: pins.filter(p => p.kind === 'warn').length, ok: pins.filter(p => p.kind === 'ok').length };
   const issues = pins.filter(p => p.kind !== 'ok');
   const fitIssues = () => { const m = map.current; if (!m || !issues.length) return; setSel(null); m.flyToBounds(L.latLngBounds(issues.map(p => [p.lat, p.lng] as [number, number])).pad(0.25), { duration: 0.7, maxZoom: 7 }); };
-  const reset = () => { const m = map.current; if (!m) return; setSel(null); m.flyToBounds(INDIA, { duration: 0.7, padding: [4, 4] }); };
+  const reset = () => { const m = map.current; if (!m) return; setSel(null); m.flyToBounds(INDIA(), { duration: 0.7, padding: [4, 4] }); };
 
   return (
     <div className={`map dcmap is-${base}${full ? ' is-full' : ''}`} style={full ? undefined : { height }}>

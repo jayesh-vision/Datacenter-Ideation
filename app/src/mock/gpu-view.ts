@@ -131,7 +131,7 @@ export function gpuView(db: Db, persona: Persona, dcId?: string): GpuView {
   const sites = [...new Set([...st.nodes.values()].map(n => n.dcId))].sort().map(id => ({ id, nodes: [...st.nodes.values()].filter(n => n.dcId === id).length, cages: 0 }));
   const sum = (f: (j: GpuJobRow) => number, pred: (j: GpuJobRow) => boolean = () => true) => jobs.filter(pred).reduce((a, j) => a + f(j), 0);
   return {
-    kind: 'fleet', dcId, now, rate: Math.round(rate), rateLabel: persona === 'enterprise' ? 'charge-back' : 'list price', sites,
+    kind: 'fleet', dcId, now, rate: Math.round(rate * 100) / 100, rateLabel: persona === 'enterprise' ? 'charge-back' : 'list price', sites,
     fleet: {
       nodes: nodesAll.length, gpus: gpus.length, nodeState, gpuHealth: { healthy: gpus.filter(g => g.health === 'healthy').length, degraded: gpus.filter(g => g.health === 'degraded').length, failed: gpus.filter(g => g.health === 'failed').length },
       inJobGpus: nodeState['in-job'] * 8, spareGpus: nodeState.idle * 8, outGpus: (nodeState.drained + nodeState.failed + nodeState['burn-in']) * 8, allocatedPct: inService ? Math.round((nodeState['in-job'] * 8 / inService) * 100) : 0,

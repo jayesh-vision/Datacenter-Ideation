@@ -2,9 +2,9 @@
    answered from the live mock estate, so every statement carries evidence the
    operator can open. A real LLM/RAG service would return the same shape. */
 
-import { raw, isOpen, impactOf, linksOf, summarize, slaState, changes as listChanges, revenue, getPersona, gpu } from './server';
+import { raw, isOpen, impactOf, linksOf, summarize, slaState, changes as listChanges, revenue, getPersona, gpu, geoDef, heroDcId } from './server';
 import { PERSONA_BY_ID } from './personas';
-import { fmtINR, fmtDur } from '../lib/format';
+import { fmtMoney, fmtDur, fmtNum } from '../lib/format';
 import { HOUR, DAY } from './seed';
 import { fmtDateTime, fmtDate } from '../lib/format';
 
@@ -23,7 +23,7 @@ export function suggestions(ctx: Ctx): string[] {
   if (ctx.incidentId) s.push(`What is ${ctx.incidentId} costing us?`);
   if (db.gpu && (db.gpu.nodes.size || db.gpu.cages.length)) s.push(db.gpu.nodes.size ? 'Which GPU job is losing the most?' : 'Which AI cages are at risk?');
   s.push(dc ? `Which issue costs the most in ${dc.id}?` : 'Which issue is costing the most revenue?');
-  s.push('What is at risk in Pune?', 'Which links will exhaust first?', 'What changed in the last 24 hours?');
+  s.push(`What is at risk in ${geoDef().heroCity}?`, 'Which links will exhaust first?', 'What changed in the last 24 hours?');
   return [...new Set(s)].slice(0, 5);
 }
 
@@ -51,9 +51,9 @@ export function ask(q: string, ctx: Ctx): Answer {
     if (v.kind === 'fleet') {
       const f = v.fleet, top = v.jobs.filter(j => j.wasteRate > 0 || j.atStake > 0).slice(0, 4);
       return { title: scopeDc ? `GPU fleet in ${scopeDc}` : 'Where GPU time is being lost', confidence: 89,
-        lines: [`${f.gpus.toLocaleString('en-IN')} GPUs on ${f.nodes} nodes: ${f.allocatedPct}% allocated to jobs, ${f.utilInJobs}% busy on average. ${f.gpuHealth.failed} failed and ${f.gpuHealth.degraded} degraded GPUs.`,
-          `GPU time being lost right now: ${fmtINR(v.waste.rate)}/h (${fmtINR(v.waste.soFar)} so far, including work to redo).`,
-          ...top.map(j => `${j.name} (${j.gpus} GPUs, ${j.owner}, ${j.dcId}) — ${j.state}${j.wasteRate ? `, losing ${fmtINR(j.wasteRate)}/h` : `, ${fmtINR(j.atStake)} at stake`}: ${j.cause}${j.incidentId ? ` (${j.incidentId})` : ' — no incident open'}.`),
+        lines: [`${fmtNum(f.gpus)} GPUs on ${f.nodes} nodes: ${f.allocatedPct}% allocated to jobs, ${f.utilInJobs}% busy on average. ${f.gpuHealth.failed} failed and ${f.gpuHealth.degraded} degraded GPUs.`,
+          `GPU time being lost right now: ${fmtMoney(v.waste.rate)}/h (${fmtMoney(v.waste.soFar)} so far, including work to redo).`,
+          ...top.map(j => `${j.name} (${j.gpus} GPUs, ${j.owner}, ${j.dcId}) — ${j.state}${j.wasteRate ? `, losing ${fmtMoney(j.wasteRate)}/h` : `, ${fmtMoney(j.atStake)} at stake`}: ${j.cause}${j.incidentId ? ` (${j.incidentId})` : ' — no incident open'}.`),
           ...(f.throttle.hw ? [`${f.throttle.hw} GPUs are in hardware slowdown because a liquid-cooling loop lost flow; fix the cooling, not the GPUs.`] : []),
           ...(f.driftNodes ? [`${f.driftNodes} nodes still run an older driver than ${f.driverStd}; a rollout change is pending approval.`] : [])],
         evidence: top.map(j => ({ label: j.incidentId ?? j.name, to: j.incidentId ? `/incidents/${j.incidentId}` : `/gpu?gtab=jobs&q=${j.name}` })), actions: [{ label: 'Open AI & GPU', to: scopeDc ? `/datacenters/${scopeDc}?tab=gpu` : '/gpu' }],
@@ -70,15 +70,15 @@ export function ask(q: string, ctx: Ctx): Answer {
     const scopeDc = dcByText[0]?.id ?? (incId ? undefined : ctx.dcId);
     const r = revenue(scopeDc ? { dcId: scopeDc } : {});
     const one = incId ? r.issues.find(i => i.id === incId) ?? revenue().issues.find(i => i.id === incId) : undefined;
-    const rate = (n: number) => `${fmtINR(n)}/h`;
+    const rate = (n: number) => `${fmtMoney(n)}/h`;
     if (incId && !one) return { title: `${incId} — no ${W.nounL} impact`, confidence: 92, lines: [`No ${PV.service.toLowerCase()} is down, degraded or exposed because of ${incId}. It is an operational risk only.`], evidence: [{ label: incId, to: `/incidents/${incId}` }], actions: [{ label: W.impact, to: '/revenue' }], followups: ['Which issue is costing the most revenue?'] };
     if (one) {
       const lines = one.rate + one.lost + one.credits > 0
-        ? [`${one.title} is costing ${rate(one.rate)}: ${fmtINR(one.lost)} of ${W.lostL} and ${fmtINR(one.credits)} of ${W.creditsL} so far.`,
+        ? [`${one.title} is costing ${rate(one.rate)}: ${fmtMoney(one.lost)} of ${W.lostL} and ${fmtMoney(one.credits)} of ${W.creditsL} so far.`,
           `${one.down} down and ${one.degraded} degraded ${svcL} across ${one.customers} ${one.customers === 1 ? PV.customer.toLowerCase() : custL} (${one.premium} ${PV.premium.toLowerCase()}).`,
-          one.nextCliff ? `Next credit step: ${fmtINR(one.nextCliff.amount)} in ${fmtDur(one.nextCliff.inMin)}.` : 'No further credit step is pending.',
-          `Left unresolved for another 24 h it reaches ${fmtINR(one.forecast24)} — restoring now avoids ${fmtINR(Math.max(0, one.forecast24 - one.lost - one.credits))}.`]
-        : [`Nothing is lost yet. ${one.exposed} ${svcL} worth ${fmtINR(one.mrrExposed)} a month are still running on this fault.`, `If it takes them down it costs ${rate(one.potentialRate)}, plus ${fmtINR(one.potentialCredits)} of ${W.creditsL} after a ${r.method.outageHours} h outage.`];
+          one.nextCliff ? `Next credit step: ${fmtMoney(one.nextCliff.amount)} in ${fmtDur(one.nextCliff.inMin)}.` : 'No further credit step is pending.',
+          `Left unresolved for another 24 h it reaches ${fmtMoney(one.forecast24)} — restoring now avoids ${fmtMoney(Math.max(0, one.forecast24 - one.lost - one.credits))}.`]
+        : [`Nothing is lost yet. ${one.exposed} ${svcL} worth ${fmtMoney(one.mrrExposed)} a month are still running on this fault.`, `If it takes them down it costs ${rate(one.potentialRate)}, plus ${fmtMoney(one.potentialCredits)} of ${W.creditsL} after a ${r.method.outageHours} h outage.`];
       if (one.changeId) lines.push(`It followed change ${one.changeId} at the same site.`);
       if (one.underPrioritised) lines.push(`It ranks #${one.rank} by ${W.nounL} impact but is only SEV${one.incident!.sev} — review its priority.`);
       return { title: `What ${one.id} is costing`, confidence: 90, lines, evidence: [{ label: one.id, to: one.to }, ...one.top.slice(0, 4).map(c => ({ label: c.name, to: `/customers/${c.id}` }))], actions: [{ label: `Open ${W.impactL}`, to: '/revenue' }], followups: ['Which issue is costing the most revenue?', `What changed before ${one.id}?`] };
@@ -87,10 +87,10 @@ export function ask(q: string, ctx: Ctx): Answer {
     const worstDomain = [...r.byDomain].sort((a, b) => b.hist30 - a.hist30)[0];
     return { title: scopeDc ? `${W.impact} in ${scopeDc}` : `What is costing the most ${W.nounL}`, confidence: 88,
       lines: [
-        `${fmtINR(r.total.lost + r.total.credits)} lost so far across ${losing.length} issue${losing.length === 1 ? '' : 's'}, growing at ${rate(r.total.rate)}. ${fmtINR(r.total.mrrExposed)} a month is still running but exposed to a critical fault.`,
-        ...losing.slice(0, 3).map(i => `#${i.rank} ${i.id.startsWith('INC') ? i.id : i.dcId} — ${i.title}: ${fmtINR(i.lost + i.credits)} so far, ${rate(i.rate)}${i.nextCliff ? `, next credit ${fmtINR(i.nextCliff.amount)} in ${fmtDur(i.nextCliff.inMin)}` : ''}.`),
-        ...(stake[0] ? [`Most at stake: ${stake[0].title} (${stake[0].dcId}) — ${fmtINR(stake[0].mrrExposed)} a month riding on it; ${rate(stake[0].potentialRate)} if it fails.`] : []),
-        ...(worstDomain && worstDomain.hist30 ? [`Over 30 days ${worstDomain.domain.toLowerCase()} issues cost the most: ${fmtINR(worstDomain.hist30)} of ${fmtINR(r.trend.total)}.`] : [])
+        `${fmtMoney(r.total.lost + r.total.credits)} lost so far across ${losing.length} issue${losing.length === 1 ? '' : 's'}, growing at ${rate(r.total.rate)}. ${fmtMoney(r.total.mrrExposed)} a month is still running but exposed to a critical fault.`,
+        ...losing.slice(0, 3).map(i => `#${i.rank} ${i.id.startsWith('INC') ? i.id : i.dcId} — ${i.title}: ${fmtMoney(i.lost + i.credits)} so far, ${rate(i.rate)}${i.nextCliff ? `, next credit ${fmtMoney(i.nextCliff.amount)} in ${fmtDur(i.nextCliff.inMin)}` : ''}.`),
+        ...(stake[0] ? [`Most at stake: ${stake[0].title} (${stake[0].dcId}) — ${fmtMoney(stake[0].mrrExposed)} a month riding on it; ${rate(stake[0].potentialRate)} if it fails.`] : []),
+        ...(worstDomain && worstDomain.hist30 ? [`Over 30 days ${worstDomain.domain.toLowerCase()} issues cost the most: ${fmtMoney(worstDomain.hist30)} of ${fmtMoney(r.trend.total)}.`] : [])
       ],
       evidence: [...losing.slice(0, 3), ...stake.slice(0, 1)].map(i => ({ label: i.id.startsWith('INC') ? i.id : `${i.dcId} · ${i.title}`, to: i.to })), actions: [{ label: `Open ${W.impactL}`, to: scopeDc ? `/datacenters/${scopeDc}?tab=revenue` : '/revenue' }], followups: losing[0]?.incident ? [`What is ${losing[0].id} costing us?`, `What changed before ${losing[0].id}?`] : ['What is at risk in Pune?'] };
   }
@@ -110,7 +110,7 @@ export function ask(q: string, ctx: Ctx): Answer {
     if (i) {
       const im = impactOf(db, { linkIds: i.affected.filter(a => a.kind === 'Link').map(a => a.id), neIds: i.affected.filter(a => a.kind === 'NE').map(a => a.id) });
       return { title: `Impact of ${i.id}`, confidence: 90,
-        lines: [`${im.services.length} services and ${im.customers.length} customers sit on the affected scope (${im.premium.length} premium).`, ...im.premium.slice(0, 4).map(c => `${c.name} — ${im.services.filter(s => s.customerId === c.id).map(s => `${s.id} (${s.type}, SLA ${s.slaTarget}%)`).join(', ')}`), `Monthly revenue on the path: ₹${(im.revenue / 1e5).toFixed(2)} L.`],
+        lines: [`${im.services.length} services and ${im.customers.length} customers sit on the affected scope (${im.premium.length} premium).`, ...im.premium.slice(0, 4).map(c => `${c.name} — ${im.services.filter(s => s.customerId === c.id).map(s => `${s.id} (${s.type}, SLA ${s.slaTarget}%)`).join(', ')}`), `Monthly revenue on the path: ${fmtMoney(im.revenue)}.`],
         evidence: [...im.services.slice(0, 6).map(s => ({ label: s.id, to: `/services/${s.id}` })), { label: i.id, to: `/incidents/${i.id}` }], actions: [{ label: 'Open incident', to: `/incidents/${i.id}` }], followups: [`What changed before ${i.id}?`] };
     }
   }
@@ -138,7 +138,7 @@ export function ask(q: string, ctx: Ctx): Answer {
     const ls = linksOf({ protocol: 'LLDP' }).filter(l => (l.role === 'Backhaul' || l.role === 'Uplink') && (!lnk || l.id === lnk)).sort((a, b) => a.forecastMonths - b.forecastMonths).slice(0, lnk ? 1 : 5);
     return { title: lnk ? `When ${lnk} crosses 85%` : 'Links that exhaust first', confidence: 82,
       lines: ls.map(l => `${l.aNe} ${l.aIf} → ${l.zNe}: ${l.utilPct}% today, +${l.growthPct}%/mo (6-month trend ${l.history[0]}% → ${l.utilPct}%). ${l.forecastMonths === 0 ? 'Already above the 85% warning line.' : `Crosses 85% around ${fmtDate(l.forecastDate!)}; 95% in ~${Math.max(1, Math.round(l.critMonths))} months.`}`).concat(['Forecast = compound growth of the last six monthly peaks; approved capacity plans are not yet netted in.']),
-      evidence: ls.map(l => ({ label: `${l.aNe} ${l.aIf}`, to: `/ne/${l.aNe}?tab=links&if=${encodeURIComponent(l.aIf)}` })), actions: [{ label: 'Capacity · network', to: '/alerts?q=Utilisation' }], followups: ['What is at risk in Pune?'] };
+      evidence: ls.map(l => ({ label: `${l.aNe} ${l.aIf}`, to: `/ne/${l.aNe}?tab=links&if=${encodeURIComponent(l.aIf)}` })), actions: [{ label: 'Capacity · network', to: '/alerts?q=Utilisation' }], followups: [`What is at risk in ${geoDef().heroCity}?`] };
   }
   /* last 24 h */
   if (/last 24|today|recent/.test(t)) {
@@ -164,5 +164,5 @@ export function ask(q: string, ctx: Ctx): Answer {
     }
     return { title: dcs.length > 1 ? `Risk across ${dcs.map(d => d.id).join(', ')}` : `What is at risk in ${dcs[0].id}`, confidence: 88, lines, evidence: ev, actions: [{ label: 'Open site attention', to: `/datacenters/${dcs[0].id}?tab=attention` }], followups: ['Which links will exhaust first?'] };
   }
-  return { title: 'I can answer from the live estate', confidence: 0, lines: ['Ask about a place ("what is at risk in Pune?"), an element ("what services depend on MH-DC-001-PE-T4-01?"), an incident ("what changed before INC-0001?") or capacity ("which links will exhaust first?").'], evidence: [], actions: [], followups: suggestions(ctx) };
+  return { title: 'I can answer from the live estate', confidence: 0, lines: [`Ask about a place ("what is at risk in ${geoDef().heroCity}?"), an element ("what services depend on ${heroDcId()}-PE-T4-01?"), an incident ("what changed before INC-0001?") or capacity ("which links will exhaust first?").`], evidence: [], actions: [], followups: suggestions(ctx) };
 }

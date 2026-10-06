@@ -10,7 +10,7 @@ import { DataTable, type Col } from '../ui/DataTable';
 import { ListToolbar } from '../ui/ListToolbar';
 import { IncLink, SevChip, Fresh } from '../ui/status';
 import { Facts, SoftMeter, Split, StatGrid, StatTile, type Tone } from '../ui/Analytics';
-import { fmtAgo, fmtDur, fmtINR, fmtNum } from '../lib/format';
+import { fmtAgo, fmtDur, fmtMoney, fmtNum } from '../lib/format';
 import { OpstralBtn } from '../ui/OpstralMark';
 import { downloadCsv } from './ops/shared';
 import '../styles/revenue.css';
@@ -24,7 +24,7 @@ import '../styles/gpu.css';
 type TabId = 'clusters' | 'jobs' | 'nodes' | 'cooling' | 'fabric';
 type NodeR = GpuNodeRow & { id: string };
 const short = (id: string) => id.replace(/^[A-Z]{2}-DC-\d{3}-/, '');
-const perH = (n: number) => `${fmtINR(n)}/h`;
+const perH = (n: number) => `${fmtMoney(n)}/h`;
 const STATE_LABEL: Record<string, string> = { running: 'Running', slowed: 'Slowed', stalled: 'Stalled', 'at-risk': 'At risk', idle: 'Idle', 'in-job': 'In a job', drained: 'Drained', failed: 'Failed', 'burn-in': 'Burn-in' };
 const STATE_CHIP: Record<string, string> = { running: 'vw-chip--success', slowed: 'vw-chip--warning', stalled: 'vw-chip--error', 'at-risk': 'vw-chip--warning', idle: 'vw-chip--neutral', 'in-job': 'vw-chip--info', drained: 'vw-chip--neutral', failed: 'vw-chip--error', 'burn-in': 'vw-chip--neutral' };
 export const StateChip = ({ s }: { s: string }) => <span className={`vw-chip ${STATE_CHIP[s] ?? 'vw-chip--neutral'} cmd-chip`}>{STATE_LABEL[s] ?? s}</span>;
@@ -104,7 +104,7 @@ function Fleet({ v, embedded }: { v: GpuView; embedded?: boolean }) {
         </StatTile>
         <StatTile label="GPU time lost" value={perH(w.rate)} sub="now" subTone={w.rate ? 'bad' : undefined} onClick={() => go('jobs')}>
           <Split other={perH} parts={[{ key: 's', label: 'Stalled', n: w.stalled, tone: 'error', display: perH(w.stalled) }, { key: 'w', label: 'Slowed', n: w.slowed, tone: 'orange', display: perH(w.slowed) }, { key: 'i', label: 'Idle allocated', n: w.idle, tone: 'warning', display: perH(w.idle) }]} />
-          <Facts items={[{ n: fmtINR(w.soFar), label: 'lost so far' }]} />
+          <Facts items={[{ n: fmtMoney(w.soFar), label: 'lost so far' }]} />
         </StatTile>
         <StatTile label="Heat & power" value={f.throttle.thermal + f.throttle.hw + f.throttle.power} sub="GPUs throttled" subTone={f.throttle.hw ? 'bad' : f.throttle.thermal + f.throttle.power ? 'warn' : undefined} onClick={() => go('cooling')} active={tab === 'cooling'}>
           <Split parts={[{ key: 'hw', label: 'Hardware slowdown', n: f.throttle.hw, tone: 'error' }, { key: 'th', label: 'Thermal', n: f.throttle.thermal, tone: 'orange' }, { key: 'pc', label: 'Power-capped', n: f.throttle.power, tone: 'warning' }]} />
@@ -138,7 +138,7 @@ function Fleet({ v, embedded }: { v: GpuView; embedded?: boolean }) {
 
       <NodeDrawer id={node} onClose={() => setNode(null)} onJob={id => { setNode(null); setJobId(id); }} />
       <JobDrawer j={job} v={v} onClose={() => setJobId(null)} onNode={id => { setJobId(null); setNode(id); }} />
-      <span className="vw-label gpu-foot">GPU time is priced at {fmtINR(v.rate)} per GPU-hour ({v.rateLabel}). A stalled job loses all its GPUs, a slowed job the share of each step it loses, an idle allocation everything it holds. {V.money.impact} counts what {V.customers.toLowerCase()} are billed; this counts productive GPU time.</span>
+      <span className="vw-label gpu-foot">GPU time is priced at {fmtMoney(v.rate)} per GPU-hour ({v.rateLabel}). A stalled job loses all its GPUs, a slowed job the share of each step it loses, an idle allocation everything it holds. {V.money.impact} counts what {V.customers.toLowerCase()} are billed; this counts productive GPU time.</span>
     </div>
   );
 }
@@ -160,7 +160,7 @@ function BlastCard({ j, v, onOpen }: { j?: GpuJobRow; v: GpuView; onOpen: (id: s
         <JobGrid j={j} v={v} />
         <div className="gpu-hero-figs">
           <div><span className="vw-label">Lost now</span><b className="num gpu-bad">{perH(j.wasteRate)}</b></div>
-          <div><span className="vw-label">Work to redo</span><b className="num">{fmtINR(j.redo)}</b></div>
+          <div><span className="vw-label">Work to redo</span><b className="num">{fmtMoney(j.redo)}</b></div>
           <div><span className="vw-label">Since the checkpoint</span><b className="num">{fmtDur(redoMin)}</b></div>
         </div>
       </div>
@@ -185,12 +185,12 @@ function WasteCard({ j, v, onOpen }: { j?: GpuJobRow; v: GpuView; onOpen: (id: s
         <JobGrid j={j} v={v} />
         <div className="gpu-hero-figs">
           {j.state === 'at-risk' ? <>
-            <div><span className="vw-label">At stake</span><b className="num gpu-warn">{fmtINR(j.atStake)}</b></div>
+            <div><span className="vw-label">At stake</span><b className="num gpu-warn">{fmtMoney(j.atStake)}</b></div>
             <div><span className="vw-label">Checkpoint every</span><b className="num">{j.checkpointMin} min</b></div>
             <div><span className="vw-label">Last checkpoint</span><b className="num">{fmtAgo(j.lastCheckpoint, v.now)}</b></div>
           </> : <>
             <div><span className="vw-label">Lost now</span><b className="num gpu-warn">{perH(j.wasteRate)}</b></div>
-            <div><span className="vw-label">Lost so far</span><b className="num">{fmtINR(j.wasteSoFar)}</b></div>
+            <div><span className="vw-label">Lost so far</span><b className="num">{fmtMoney(j.wasteSoFar)}</b></div>
             <div><span className="vw-label">{j.state === 'idle' ? 'Utilisation' : 'Step time'}</span><b className="num">{j.state === 'idle' ? 'under 5%' : `${(j.stepMs / 1000).toFixed(2)} s vs ${(j.baselineMs / 1000).toFixed(2)} s`}</b></div>
           </>}
         </div>
@@ -276,8 +276,8 @@ function Jobs({ v, onJob, hideDc }: { v: GpuView; onJob: (id: string) => void; h
     { key: 'state', header: 'State', sort: j => ['stalled', 'at-risk', 'slowed', 'idle', 'running'].indexOf(j.state), render: j => <StateChip s={j.state} /> },
     { key: 'speed', header: 'Speed', sort: j => j.slowdownPct, render: j => (j.kind === 'inference' ? <span className="faint">serving</span> : <span className="cell-2"><span className={`num nowrap${j.slowdownPct ? ' gpu-warn' : ''}`}>{j.state === 'stalled' ? 'stopped' : j.slowdownPct ? `${j.slowdownPct}% slower` : 'baseline'}</span><small className="nowrap">MFU {j.mfu}%</small></span>) },
     { key: 'cp', header: 'Checkpoint', sort: j => j.lastCheckpoint, render: j => (j.checkpointMin ? <span className="cell-2"><span className="nowrap">{fmtAgo(j.lastCheckpoint, v.now)}</span><small className="nowrap">every {j.checkpointMin} min</small></span> : <span className="faint">—</span>) },
-    { key: 'waste', header: 'GPU time lost', sort: j => j.wasteRate * 1e3 + j.atStake, render: j => (j.wasteRate ? <span className="cell-2 gpu-amt"><span className="num gpu-strong nowrap gpu-bad">{perH(j.wasteRate)}</span><span className="rev-bar"><i style={{ width: `${(j.wasteRate / max) * 100}%`, background: j.state === 'stalled' ? 'var(--vw-color-red-400)' : 'var(--vw-color-amber-400)' }} /></span><small className="nowrap">{fmtINR(j.wasteSoFar + j.redo)} so far</small></span>
-      : j.atStake ? <span className="cell-2"><span className="num nowrap gpu-warn">{fmtINR(j.atStake)}</span><small className="nowrap">at stake</small></span> : <span className="faint">—</span>) },
+    { key: 'waste', header: 'GPU time lost', sort: j => j.wasteRate * 1e3 + j.atStake, render: j => (j.wasteRate ? <span className="cell-2 gpu-amt"><span className="num gpu-strong nowrap gpu-bad">{perH(j.wasteRate)}</span><span className="rev-bar"><i style={{ width: `${(j.wasteRate / max) * 100}%`, background: j.state === 'stalled' ? 'var(--vw-color-red-400)' : 'var(--vw-color-amber-400)' }} /></span><small className="nowrap">{fmtMoney(j.wasteSoFar + j.redo)} so far</small></span>
+      : j.atStake ? <span className="cell-2"><span className="num nowrap gpu-warn">{fmtMoney(j.atStake)}</span><small className="nowrap">at stake</small></span> : <span className="faint">—</span>) },
     { key: 'inc', header: 'Incident', sort: j => j.incidentSev ?? 9, render: j => (j.incidentId ? <span className="row nowrap" style={{ gap: 6 }}><IncLink id={j.incidentId} />{j.incidentSev && <SevChip n={j.incidentSev} size="xs" />}</span> : j.state !== 'running' ? <span className="vw-chip vw-chip--warning cmd-chip">None</span> : <span className="faint">—</span>) }
   ];
   return (
@@ -487,9 +487,9 @@ function JobDrawer({ j, v, onClose, onNode }: { j: GpuJobRow | null; v: GpuView;
         <div className="row wrap" style={{ gap: 8 }}><StateChip s={j.state} /><span className="vw-label">{j.gpus} GPUs on {j.nodes.length} nodes · started {fmtAgo(j.started, v.now)}</span></div>
         {j.cause && <div className={`note ${j.state === 'stalled' ? 'note--bad' : 'note--warn'}`}><I.TriangleAlert size={15} /><span>{j.cause}</span></div>}
         <div className="rev-figs">
-          <div className="rev-fig is-bad"><span className="vw-label">GPU time lost now</span><b className="num">{perH(j.wasteRate)}</b><small>{fmtNum(j.gpus)} GPUs × {fmtINR(v.rate)}/h</small></div>
-          <div className="rev-fig"><span className="vw-label">Lost so far</span><b className="num">{fmtINR(j.wasteSoFar)}</b><small>{j.since ? `since ${fmtAgo(j.since, v.now)}` : '—'}</small></div>
-          <div className="rev-fig"><span className="vw-label">{j.state === 'at-risk' ? 'At stake' : 'Work to redo'}</span><b className="num">{fmtINR(j.state === 'at-risk' ? j.atStake : j.redo)}</b><small>{j.checkpointMin ? `checkpoint every ${j.checkpointMin} min` : 'no checkpoints (serving)'}</small></div>
+          <div className="rev-fig is-bad"><span className="vw-label">GPU time lost now</span><b className="num">{perH(j.wasteRate)}</b><small>{fmtNum(j.gpus)} GPUs × {fmtMoney(v.rate)}/h</small></div>
+          <div className="rev-fig"><span className="vw-label">Lost so far</span><b className="num">{fmtMoney(j.wasteSoFar)}</b><small>{j.since ? `since ${fmtAgo(j.since, v.now)}` : '—'}</small></div>
+          <div className="rev-fig"><span className="vw-label">{j.state === 'at-risk' ? 'At stake' : 'Work to redo'}</span><b className="num">{fmtMoney(j.state === 'at-risk' ? j.atStake : j.redo)}</b><small>{j.checkpointMin ? `checkpoint every ${j.checkpointMin} min` : 'no checkpoints (serving)'}</small></div>
           <div className="rev-fig"><span className="vw-label">{j.kind === 'inference' ? 'Serving' : 'Step time'}</span><b className="num">{j.kind === 'inference' ? (j.state === 'idle' ? 'idle' : 'normal') : `${(j.stepMs / 1000).toFixed(2)} s`}</b><small>{j.kind === 'inference' ? '' : `baseline ${(j.baselineMs / 1000).toFixed(2)} s · MFU ${j.mfu}%`}</small></div>
         </div>
         <div className="rev-sec">
@@ -524,7 +524,7 @@ function Cages({ v, embedded }: { v: GpuView; embedded?: boolean }) {
     { key: 'kw', header: 'Power', sort: c => c.pct, render: c => <span className="gpu-meter"><SoftMeter pct={c.pct} tone={c.pct >= 90 ? 'error' : c.pct >= 80 ? 'warning' : 'info'} /><span className="num nowrap">{c.drawKw} / {c.contractedKw} kW</span></span> },
     { key: 'cdu', header: 'Coolant loop', sort: c => c.cduId, render: c => { const cdu = v.cdus.find(x => x.id === c.cduId); return <span className="cell-2"><span className="nowrap">{cdu?.name ?? '—'}</span><small className={`nowrap${cdu && cdu.state !== 'ok' ? ' gpu-warn' : ''}`}>{cdu ? `${Math.round((cdu.flowLpm / cdu.flowNominal) * 100)}% flow · ${cdu.supplyC}°C` : ''}</small></span>; } },
     { key: 'inlet', header: 'Inlet', sort: c => c.inletC, render: c => <span className={`num${c.inletC > 27 ? ' gpu-bad' : ''}`}>{c.inletC}°C</span> },
-    { key: 'rev', header: 'Power revenue', sort: c => c.revenue, render: c => <span className="num nowrap">{fmtINR(c.revenue)}/mo</span> },
+    { key: 'rev', header: 'Power revenue', sort: c => c.revenue, render: c => <span className="num nowrap">{fmtMoney(c.revenue)}/mo</span> },
     { key: 'state', header: 'Condition', wrap: true, sort: c => (c.state === 'ok' ? 1 : 0), render: c => (c.state === 'ok' ? <span className="faint">Normal</span> : <span className="cell-2"><span className="gpu-warn">Watch</span><small>{c.note}</small></span>) }
   ];
   return (
@@ -549,8 +549,8 @@ function Cages({ v, embedded }: { v: GpuView; embedded?: boolean }) {
           <SoftMeter pct={Math.min(100, (Math.max(...v.cages.map(c => c.inletC), 0) / 32) * 100)} tone={v.cages.some(c => c.inletC > 27) ? 'error' : 'info'} />
           <Facts items={[{ n: v.cages.filter(c => c.inletC > 27).length, label: 'cages above 27°C', tone: v.cages.some(c => c.inletC > 27) ? 'bad' : undefined }]} />
         </StatTile>
-        <StatTile label="AI power revenue" value={fmtINR(t.revenue)} sub="a month">
-          <Facts items={[{ n: fmtINR(Math.round(t.revenue / Math.max(1, t.contractedKw))), label: 'per contracted kW' }]} />
+        <StatTile label="AI power revenue" value={fmtMoney(t.revenue)} sub="a month">
+          <Facts items={[{ n: fmtMoney(Math.round(t.revenue / Math.max(1, t.contractedKw))), label: 'per contracted kW' }]} />
         </StatTile>
       </StatGrid>
       {v.cdus.length > 0 && <Panel title="Liquid-cooling loops" icon={I.Droplets} sub="One CDU per AI row"><div className="gpu-cdus">{v.cdus.map(c => <CduCard key={c.id} c={c} onOpen={() => nav(`/facilities?dc=${c.dcId}&tab=cooling`)} />)}</div></Panel>}

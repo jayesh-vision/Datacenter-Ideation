@@ -7,7 +7,7 @@ import { usePage, PageHead, Loading } from '../shell/page';
 import { DataTable, type Col } from '../ui/DataTable';
 import { Chip, Kpi, SearchBox } from '../ui/kit';
 import { CustLink, DcLink, Meter, NeLink, ServiceChip } from '../ui/status';
-import { fmtBw, fmtINR, fmtNum } from '../lib/format';
+import { fmtBw, fmtMoney, fmtNum } from '../lib/format';
 import '../styles/plan.css';
 
 type Row = Service & { customer: Customer };
@@ -44,7 +44,7 @@ export function Services() {
     { key: 'status', header: 'Status', render: s => <ServiceChip s={s.status} size="xs" />, sort: s => STATUSES.indexOf(s.status) },
     { key: 'util', header: 'Utilisation', render: s => <span className="cell-2"><Meter pct={s.utilPct} width={44} /><small>of {fmtBw(s.bandwidthMbps)}</small></span>, sort: s => s.utilPct },
     { key: 'up', header: 'SLA / 30-d uptime', align: 'right', render: s => <span className="cell-2 num" style={{ alignItems: 'flex-end' }}><span className={s.uptime30d < s.slaTarget ? 'bad' : ''}>{s.uptime30d}%</span><small>target {s.slaTarget}%</small></span>, sort: s => s.uptime30d - s.slaTarget },
-    { key: 'rev', header: 'Rev / mo', align: 'right', render: s => <span className="num">{fmtINR(s.revenueMonthly)}</span>, sort: s => s.revenueMonthly }
+    { key: 'rev', header: 'Rev / mo', align: 'right', render: s => <span className="num">{fmtMoney(s.revenueMonthly)}</span>, sort: s => s.revenueMonthly }
   ];
 
   return (
@@ -85,7 +85,7 @@ export function Services() {
               <label className="row" style={{ gap: 6, fontSize: 13, cursor: 'pointer' }}><input type="checkbox" checked={!!prem} onChange={e => set('premium', e.target.checked ? '1' : '')} />Premium only</label>
               {(type || status || dc || prem || q || risk) && <button type="button" className="panel-link" onClick={() => setSp(new URLSearchParams(), { replace: true })}><I.X size={13} />Clear filters</button>}
               <span className="grow" />
-              <span className="faint" style={{ fontSize: 12 }}>{fmtINR(scope.reduce((a, s) => a + s.revenueMonthly, 0))} / mo in view</span>
+              <span className="faint" style={{ fontSize: 12 }}>{fmtMoney(scope.reduce((a, s) => a + s.revenueMonthly, 0))} / mo in view</span>
             </div>
           } />
       </section>

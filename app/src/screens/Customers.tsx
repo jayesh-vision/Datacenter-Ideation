@@ -1,13 +1,14 @@
 import { useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
+import { moneyIcon } from '../ui/Money';
 import { getCustomers, useQuery } from '../api';
 import type { Customer } from '../api/types';
 import { usePage, PageHead, Loading } from '../shell/page';
 import { DataTable, type Col } from '../ui/DataTable';
 import { Chip, Kpi, SearchBox } from '../ui/kit';
 import { Meter } from '../ui/status';
-import { fmtINR } from '../lib/format';
+import { fmtMoney } from '../lib/format';
 import '../styles/plan.css';
 
 type Row = Customer & { services: number; dcs: number; avgUtil: number; minUptime: number; exposed: number };
@@ -33,7 +34,7 @@ export function Customers() {
     { key: 'util', header: 'Avg util', render: c => <Meter pct={c.avgUtil} width={56} />, sort: c => c.avgUtil },
     { key: 'up', header: 'Min uptime', align: 'right', render: c => <span className={`num ${c.minUptime < 99.5 ? 'warn' : ''}`}>{c.services ? `${c.minUptime}%` : '—'}</span>, sort: c => c.minUptime },
     { key: 'exp', header: 'Exposed', align: 'right', render: c => c.exposed ? <Chip tone="error" size="xs">{c.exposed} service{c.exposed > 1 ? 's' : ''}</Chip> : <span className="faint">—</span>, sort: c => c.exposed },
-    { key: 'rev', header: 'Revenue/mo', align: 'right', render: c => <span className="num">{fmtINR(c.revenueMonthly)}</span>, sort: c => c.revenueMonthly },
+    { key: 'rev', header: 'Revenue/mo', align: 'right', render: c => <span className="num">{fmtMoney(c.revenueMonthly)}</span>, sort: c => c.revenueMonthly },
   ];
 
   return (
@@ -42,8 +43,8 @@ export function Customers() {
       <div className="kpis">
         <Kpi label="Customers" value={all.length} icon={I.Users} tone="info" basis={`${all.filter(c => c.premium).length} premium · ${SEGMENTS.length} segments`} onClick={() => setSp(new URLSearchParams(), { replace: true })} />
         <Kpi label="Exposed now" value={exposed.length} icon={I.ShieldAlert} tone="error" basis={`${exposed.filter(c => c.premium).length} premium · ${exposed.reduce((a, c) => a + c.exposed, 0)} services`} onClick={() => set('exposed', exp ? '' : '1')} active={!!exp} />
-        <Kpi label="Recurring revenue" value={fmtINR(rev)} unit="/ mo" icon={I.IndianRupee} tone="purple" basis={`${fmtINR(rev * 12)} annualised`} />
-        <Kpi label="Revenue exposed" value={fmtINR(exposed.reduce((a, c) => a + c.revenueMonthly, 0))} unit="/ mo" icon={I.TriangleAlert} tone="warning" basis="monthly revenue of exposed customers" />
+        <Kpi label="Recurring revenue" value={fmtMoney(rev)} unit="/ mo" icon={moneyIcon()} tone="purple" basis={`${fmtMoney(rev * 12)} annualised`} />
+        <Kpi label="Revenue exposed" value={fmtMoney(exposed.reduce((a, c) => a + c.revenueMonthly, 0))} unit="/ mo" icon={I.TriangleAlert} tone="warning" basis="monthly revenue of exposed customers" />
       </div>
       <section className="card">
         <DataTable rows={rows} cols={cols} onRow={c => nav(`/customers/${c.id}`)} defaultSort={{ key: 'rev', dir: 'desc' }} pageSize={40}

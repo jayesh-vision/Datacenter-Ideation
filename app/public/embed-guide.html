@@ -54,7 +54,7 @@ th { font-weight: 500; color: var(--ink-500); font-size: 12.5px; background: var
 .btn:hover { border-color: var(--brand); color: var(--brand); }
 .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
 .grp td { background: var(--bg); font-weight: 500; color: var(--ink-900); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
-.dcs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px 14px; font-size: 13px; }
+.dcs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 14px; font-size: 13px; }
 .dcs span { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--line-soft); padding: 4px 0; }
 .dcs em { font-style: normal; color: var(--ink-500); }
 .note { padding: 10px 14px; border-radius: 10px; background: var(--brand-50); color: var(--ink-900); font-size: 13.5px; margin-top: 12px; }
@@ -67,12 +67,13 @@ th { font-weight: 500; color: var(--ink-500); font-size: 12.5px; background: var
   <div class="brand"><span class="brand-ic">DC</span><div><b>Data Center Ops · Embed guide</b><span>Every screen by URL · iframe-ready</span></div></div>
   <label class="ctl">Site <select id="base"><option value="https://datacenter-ideation.vercel.app">Live</option><option value="http://localhost:5181">Local 5181</option></select></label>
   <label class="ctl">Persona <select id="persona"><option value="">(keep current)</option><option value="network">Telco</option><option value="colocation">Colocation</option><option value="cloud">Cloud</option><option value="enterprise">Enterprise</option></select></label>
+  <label class="ctl">Geography <select id="geo"><option value="">(keep current)</option><option value="in">India · ₹</option><option value="us">USA · $</option></select></label>
   <button type="button" class="tgl" id="shell" aria-pressed="false"><i></i>Menu &amp; header</button>
 </div></header>
 
 <main class="wrap">
   <h1>Open any screen directly — with or without the app's menu</h1>
-  <p class="lead">Every screen of the tool has its own URL. Add <code>shell=false</code> to show the screen alone, without the left menu and the top header, ready for an iframe in your platform. The controls above rewrite every link and snippet on this page.</p>
+  <p class="lead">Every screen of the tool has its own URL. Add <code>shell=false</code> to show the screen alone, without the left menu and the top header, ready for an iframe in your platform. Pick the persona and the geography in the URL too. The controls above rewrite every link and snippet on this page.</p>
 
   <div class="grid2">
     <div class="card">
@@ -81,6 +82,7 @@ th { font-weight: 500; color: var(--ink-500); font-size: 12.5px; background: var
         <tr><th>Parameter</th><th>Values</th><th>Effect</th></tr>
         <tr><td><code>shell</code></td><td><code>true</code> · <code>false</code></td><td><b>false</b> hides the left menu and the top header. <b>true</b> shows them. Without it the app shows them, unless the same browser tab or iframe already chose — the choice sticks while the user clicks around inside the frame.</td></tr>
         <tr><td><code>persona</code></td><td><code>network</code> · <code>colocation</code> · <code>cloud</code> · <code>enterprise</code></td><td>Which business model the whole estate is shown as. Remembered by the browser. The persona switch lives in the header, so when <code>shell=false</code> set it here.</td></tr>
+        <tr><td><code>geo</code></td><td><code>in</code> · <code>us</code></td><td>Where the estate is: <b>India</b> (24 sites across 20 circles, ₹ with Cr/L, dates 21-Sep-2026) or the <b>USA</b> (24 sites across 20 states, $ with K/M, dates Sep 21, 2026). Same equipment, alarms and story; different sites, customers, people and currency. Remembered by the browser.</td></tr>
       </table>
       <div class="note">Combine with any screen's own parameters, in any order: <code>/incidents?view=sev1&amp;shell=false&amp;persona=cloud</code>.</div>
     </div>
@@ -92,13 +94,21 @@ th { font-weight: 500; color: var(--ink-500); font-size: 12.5px; background: var
     </div>
   </div>
 
+  <h2>One link per persona and geography</h2>
+  <p class="lead">The Command center for every combination, with the menu hidden — the usual starting point for an iframe. Change the screen with any path from the table below; <code>persona</code> and <code>geo</code> stay in the URL.</p>
+  <div class="card table"><table id="matrix"><thead><tr><th>Persona</th><th>India · ₹</th><th>USA · $</th></tr></thead><tbody></tbody></table></div>
+
   <h2>All screens</h2>
   <div class="card table"><table id="routes"><thead><tr><th style="width:30%">Screen</th><th>Parameters</th><th style="width:34%">URL</th></tr></thead><tbody></tbody></table></div>
 
   <h2>Datacenter IDs</h2>
-  <div class="card"><div class="dcs" id="dcs"></div>
-    <div class="note">The same 24 sites exist in every persona. GJ-DC-013 is planned (no live data); MH-DC-001 and KL-DC-024 are being brought into service. GPU fleets exist in the Cloud and Enterprise personas; Colocation has tenant AI cages at KA-DC-020, TN-DC-022, TS-DC-023 and MH-DC-002; Telco has no GPU screens.</div>
+  <div class="grid2">
+    <div class="card"><h3>India (<code>geo=in</code>)</h3><div class="dcs" id="dcs"></div>
+      <div class="note">GJ-DC-013 is planned (no live data); MH-DC-001 and KL-DC-024 are being brought into service. Tenant AI cages (Colocation) at KA-DC-020, TN-DC-022, TS-DC-023 and MH-DC-002.</div></div>
+    <div class="card"><h3>USA (<code>geo=us</code>)</h3><div class="dcs" id="dcsUs"></div>
+      <div class="note">The same 24 sites by position: VA-DC-001 Ashburn is the hero site (India's MH-DC-001), IL-DC-009 Chicago has the UPS on battery (DL-DC-009), CA-DC-020 Los Angeles the GPU fault (KA-DC-020). WA-DC-013 is planned; VA-DC-001 and WA-DC-024 are being brought into service.</div></div>
   </div>
+  <div class="note" style="margin-top:12px">The same 24 sites exist in every persona. GPU fleets exist in the Cloud and Enterprise personas; Telco has no GPU screens.</div>
 
   <h2>Entity IDs used in the examples</h2>
   <div class="card"><table>
@@ -117,7 +127,7 @@ const R = [
   ['/', 'Command center', 'Estate health, live map, critical incidents, revenue band', [], ''],
   ['/revenue', 'Revenue impact', 'What each open issue costs; who is hit; trend', [['tab', 'issues · customers · datacenters · trends · exposure', 'which tab'], ['rview', 'all · losing · stake · untracked', 'issue filter'], ['dom', 'Power · Cooling · Network · GPU · Device · Capacity', 'cause'], ['rdc', 'datacenter ID', 'issue filter'], ['cview', 'impacted · owed · premium · all', 'customers tab filter'], ['q', 'text', 'search']], '?tab=issues&rview=losing'],
   ['Infrastructure'],
-  ['/datacenters', 'Datacenters', 'Every site with incidents, alarms, network, power, revenue', [['view', 'all · incidents · facility · edge · clear', 'condition'], ['region', 'north · east · west · south', 'region'], ['q', 'text', 'search']], '?view=incidents'],
+  ['/datacenters', 'Datacenters', 'Every site with incidents, alarms, network, power, revenue', [['view', 'all · incidents · facility · edge · clear', 'condition'], ['region', 'India: north · east · west · south — USA: northeast · southeast · central · west', 'region'], ['q', 'text', 'search']], '?view=incidents'],
   ['/datacenters/{id}', 'Datacenter', 'One site: header, 3D view and tabs', [['tab', 'overview · attention · topology · metrics · customers · revenue · gpu · assets · elements · details · timeline', 'gpu only where the site has GPUs; elements = Equipment, details = Power & space, timeline = Ops log'], ['cview', 'all · risk · premium', 'customers tab'], ['cause', 'fault code', 'customers tab'], ['rview', 'all · losing · stake', 'revenue tab'], ['gtab', 'clusters · jobs · nodes · cooling · fabric', 'AI & GPU tab']], '', 'MH-DC-001?tab=customers&cview=risk'],
   ['/facilities', 'Facilities', 'Power path, ride-through, cooling, environment', [['dc', 'datacenter ID', 'default MH-DC-001'], ['tab', 'power · cooling · environment · maintenance', 'tab']], '?dc=DL-DC-009&tab=power'],
   ['/gpu', 'AI & GPU', 'GPU fleet, jobs, heat map, cooling, fabric — or tenant AI cages (Colocation). Not in Telco.', [['dc', 'datacenter ID', 'one site'], ['gtab', 'clusters · jobs · nodes · cooling · fabric', 'tab'], ['gstate', 'jobs: stalled · slowed · at-risk · idle · running — nodes: degraded · failed · in-job · idle · drained · burn-in', 'filter'], ['q', 'text', 'search']], '?gtab=jobs&gstate=stalled', '', 'cloud'],
@@ -135,11 +145,12 @@ const R = [
   ['/demo-playbook.html', 'Demo playbook', 'The customer demo script ("The 13:20 call")', [], '', '', '', false, true],
   ['/embed-guide.html', 'This guide', 'Routes and embedding', [], '', '', '', false, true]
 ];
+const DCS_US = [["VA-DC-001","Ashburn"],["VA-DC-002","Ashburn"],["VA-DC-003","Richmond"],["VA-DC-004","Sterling"],["TX-DC-005","Dallas"],["TX-DC-006","San Antonio"],["TX-DC-007","Austin"],["CA-DC-008","Santa Clara"],["IL-DC-009","Chicago"],["AZ-DC-010","Phoenix"],["GA-DC-011","Atlanta"],["NJ-DC-012","Secaucus"],["WA-DC-013","Quincy"],["OR-DC-014","Hillsboro"],["CO-DC-015","Denver"],["OH-DC-016","Columbus"],["OH-DC-017","Columbus"],["FL-DC-018","Miami"],["UT-DC-019","Salt Lake City"],["CA-DC-020","Los Angeles"],["CA-DC-021","San Jose"],["TX-DC-022","Houston"],["NC-DC-023","Charlotte"],["WA-DC-024","Seattle"]];
 const DCS = [["MH-DC-001","Pune"],["MH-DC-002","Pune"],["MH-DC-003","Nagpur"],["MH-DC-004","Pune"],["UP-DC-005","Gorakhpur"],["UP-DC-006","Prayagraj"],["UP-DC-007","Prayagraj"],["KA-DC-008","Mangaluru"],["DL-DC-009","New Delhi"],["AP-DC-010","Visakhapatnam"],["HR-DC-011","Gurugram"],["PB-DC-012","Mohali"],["GJ-DC-013","Ahmedabad"],["MP-DC-014","Indore"],["RJ-DC-015","Jaipur"],["WB-DC-016","Kolkata"],["WB-DC-017","Kolkata"],["OD-DC-018","Bhubaneswar"],["BR-DC-019","Patna"],["KA-DC-020","Bengaluru"],["KA-DC-021","Bengaluru"],["TN-DC-022","Chennai"],["TS-DC-023","Hyderabad"],["KL-DC-024","Kochi"]];
 
 const store = { get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch { /* blocked */ } } };
-const base = document.getElementById('base'), per = document.getElementById('persona'), shellBtn = document.getElementById('shell');
-base.value = store.get('dco.embed.base', base.value); per.value = store.get('dco.embed.persona', '');
+const base = document.getElementById('base'), per = document.getElementById('persona'), geoSel = document.getElementById('geo'), shellBtn = document.getElementById('shell');
+base.value = store.get('dco.embed.base', base.value); per.value = store.get('dco.embed.persona', ''); geoSel.value = store.get('dco.embed.geo', '');
 let shell = store.get('dco.embed.shell', 'false') === 'true';
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -147,7 +158,9 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 function build(path, query, sample, examplePersona, isDoc) {
   const u = new URL(path.replace('{id}', sample || ''), base.value);
   if (query) new URLSearchParams(query.replace(/^\?/, '')).forEach((v, k) => u.searchParams.set(k, v));
-  if (!isDoc) { u.searchParams.set('shell', String(shell)); const ps = per.value || examplePersona; if (ps) u.searchParams.set('persona', ps); }
+  if (!isDoc) { u.searchParams.set('shell', String(shell)); const ps = per.value || examplePersona; if (ps) u.searchParams.set('persona', ps); if (geoSel.value) u.searchParams.set('geo', geoSel.value); }
+  /* example site IDs are India's; the USA uses the same sites by position */
+  if (geoSel.value === 'us') { const k = sample ? DCS.findIndex(d => sample.startsWith(d[0])) : -1; if (k >= 0) u.pathname = u.pathname.replace(DCS[k][0], DCS_US[k][0]); const q = u.searchParams.get('dc'); if (q) { const j = DCS.findIndex(d => d[0] === q); if (j >= 0) u.searchParams.set('dc', DCS_US[j][0]); } }
   return u.toString();
 }
 function render() {
@@ -164,10 +177,15 @@ function render() {
   document.querySelector('#routes tbody').innerHTML = rows.join('');
   document.getElementById('snippet').textContent = iframe(build('/incidents', '?view=open', '', ''));
   document.getElementById('dcs').innerHTML = DCS.map(([id, c]) => `<span><code>${id}</code><em>${c}</em></span>`).join('');
+  document.getElementById('dcsUs').innerHTML = DCS_US.map(([id, c]) => `<span><code>${id}</code><em>${c}</em></span>`).join('');
+  const PZ = [['network', 'Telco'], ['colocation', 'Colocation'], ['cloud', 'Cloud'], ['enterprise', 'Enterprise']];
+  const cell = (pz, g) => { const u = new URL('/', base.value); u.searchParams.set('shell', String(shell)); u.searchParams.set('persona', pz); u.searchParams.set('geo', g); const url = u.toString(); return `<td><div class="url mono">${esc(url)}</div><div class="acts" style="margin-top:6px"><a class="btn primary" href="${esc(url)}" target="_blank" rel="noopener">Open</a><button type="button" class="btn" data-copy="${esc(url)}">Copy URL</button><button type="button" class="btn" data-copy="${esc(iframe(url))}">Copy iframe</button></div></td>`; };
+  document.querySelector('#matrix tbody').innerHTML = PZ.map(([pz, name]) => `<tr><td><div class="route"><b>${name}</b><span class="mono path">persona=${pz}</span></div></td>${cell(pz, 'in')}${cell(pz, 'us')}</tr>`).join('');
 }
 const iframe = url => `<iframe\n  src="${url}"\n  title="Data Center Ops"\n  style="width:100%;height:100%;min-height:720px;border:0"\n  allow="clipboard-write; fullscreen">\n</iframe>`;
 base.addEventListener('change', () => { store.set('dco.embed.base', base.value); render(); });
 per.addEventListener('change', () => { store.set('dco.embed.persona', per.value); render(); });
+geoSel.addEventListener('change', () => { store.set('dco.embed.geo', geoSel.value); render(); });
 shellBtn.addEventListener('click', () => { shell = !shell; store.set('dco.embed.shell', String(shell)); render(); });
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-copy], [data-copy-from]'); if (!b) return;

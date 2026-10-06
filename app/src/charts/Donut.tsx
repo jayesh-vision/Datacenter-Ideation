@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { DONUT_LABEL, DONUT_VALUE } from './core';
+import { fmtNum } from '../lib/format';
 
 export interface Slice { key: string; label: string; value: number; color: string }
 
-export function Donut({ slices, centerValue, centerLabel, size = 168, format = (v: number) => v.toLocaleString('en-IN') }: {
+export function Donut({ slices, centerValue, centerLabel, size = 168, format = (v: number) => fmtNum(v) }: {
   slices: Slice[]; centerValue?: string; centerLabel?: string; size?: number; format?: (v: number) => string;
 }) {
   const [hover, setHover] = useState<string | null>(null);

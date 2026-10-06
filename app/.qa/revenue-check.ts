@@ -2,6 +2,8 @@
    estate = sum of sites, and the incident list / datacenter list show the figures of the model.
    usage: npx tsx .qa/revenue-check.ts */
 import * as S from '../src/mock/server';
+/* GEO=us runs the same reconciliation on the USA estate */
+if (process.env.GEO === 'us') S.setGeo('us');
 let fail = 0;
 const near = (a: number, b: number, tol: number) => Math.abs(a - b) <= tol;
 const ok = (name: string, cond: boolean, detail = '') => { if (!cond) { fail++; console.log('  FAIL', name, detail); } };
@@ -33,7 +35,8 @@ for (const p of ['network', 'colocation', 'cloud', 'enterprise'] as const) {
   ok(`${p} command center`, cc.total.rate === v.total.rate && cc.base === v.base.mrr);
   console.log(`${p}: base ${v.base.mrr} · losing ${v.total.rate}/h · so far ${v.total.lost + v.total.credits} · at stake ${v.total.mrrExposed}/mo · ${v.issues.length} issues · 30 d ${v.trend.total}`);
 }
-/* the persona switch must not have moved the telco anchors */
+/* the persona switch must not have moved the telco anchors (India only) */
+S.setGeo('in');
 S.setPersona('network');
 const mh = S.datacenters().find(d => d.id === 'MH-DC-001')!;
 ok('MH-DC-001 anchors', mh.ne === 179 && mh.discovered === 103 && mh.drifted === 21 && mh.notDiscovered === 76, `${mh.ne}/${mh.discovered}/${mh.drifted}/${mh.notDiscovered}`);

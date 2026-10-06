@@ -8,6 +8,8 @@ import type {
 import { NE_CATEGORY } from '../api/types';
 import { generate, finaliseHealth, type Db } from './generate';
 import { isPersona } from './personas';
+import { GEO_BY_ID, dcAt, isGeo, setActiveGeo, type Geo } from './geo';
+import { fmtNum, setMoneyLocale } from '../lib/format';
 import { mulberry32 } from '../lib/rng';
 import { impactOf, isOpen, RESOLVE_SLA, RESPONSE_SLA } from './incidents';
 import { DAY, HOUR, MIN } from './seed';
@@ -18,6 +20,30 @@ import { monthsTo, dateAfterMonths, WARN, CRIT } from '../lib/forecast';
 /* Persona: which business model the estate is generated as. Switching it rebuilds
    the whole mock estate (same sites, different racks, customers and services) and
    notifies every subscriber, so each screen refetches. Remembered per browser. */
+/* Geography (06-Oct-2026): India or the USA — places, customers, people, currency and locale.
+   ?geo=in|us in a link wins and is remembered; the estate is regenerated on change. */
+const loadGeo = (): Geo => {
+  try {
+    const q = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('geo') : null;
+    if (isGeo(q)) { try { localStorage.setItem('dco.geo', q); } catch { /* storage blocked */ } return q; }
+    const v = localStorage.getItem('dco.geo'); return isGeo(v) ? v : 'in';
+  } catch { return 'in'; }
+};
+let geo: Geo = loadGeo();
+const applyGeo = () => { setActiveGeo(geo); const g = GEO_BY_ID[geo]; setMoneyLocale({ currency: g.currency.code, locale: g.currency.locale, dateStyle: g.dateStyle }); };
+applyGeo();
+export const getGeo = () => geo;
+export const geoDef = () => GEO_BY_ID[geo];
+export function setGeo(g: Geo) {
+  if (g === geo) return;
+  geo = g;
+  try { localStorage.setItem('dco.geo', g); } catch { /* storage blocked */ }
+  applyGeo();
+  rebuild();
+}
+/* the hero site of the active geography (the first row): the default for Facilities, Topology and new changes */
+export const heroDcId = () => dcAt(1);
+
 /* a link may carry ?persona=… (demo playbook deep links): it wins and is remembered */
 const loadPersona = (): Persona => {
   try {
@@ -529,7 +555,7 @@ export function commandCenter() {
     `Operations health ${shi}/100 — weakest area is ${weakest.label} at ${weakest.value}%.`,
     `${stale.length} site${stale.length === 1 ? ' has' : 's have'} a stale discovery collector; ${reconOpen.length} inventory records await reconciliation.`,
     exhaust[0] ? `${exhaust[0].aNe} ${exhaust[0].aIf} is forecast to cross 85% in ${Math.max(1, Math.round(exhaust[0].forecastMonths))} month${Math.max(1, Math.round(exhaust[0].forecastMonths)) === 1 ? '' : 's'} at ${exhaust[0].growthPct}%/mo growth.` : 'No backhaul link crosses 85% inside six months.',
-    `Estate power at ${powerPct}% of capacity with ${Math.round(pw.headroom).toLocaleString('en-IN')} kW headroom; ${pw.pipeline} kW committed in approved plans.`
+    `Estate power at ${powerPct}% of capacity with ${fmtNum(Math.round(pw.headroom))} kW headroom; ${pw.pipeline} kW committed in approved plans.`
   ];
   /* ---- situation-room payload */
   const sevRankI = (i: Incident) => i.sev;

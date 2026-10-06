@@ -429,3 +429,16 @@ select.input { appearance: none; padding-right: 32px; background-image: url("dat
 /* iframe embedding (?shell=false): no menu, no header — the screen fills the frame; sticky list headers and
    full-screen map / 3D views use the variables, so they pin to the top-left of the frame */
 .shell.is-embed { --rail-w: 0px; --top-h: 0px; grid-template-columns: minmax(0, 1fr); background: var(--page); }
+
+/* two switches (persona + geography) in the top bar: at laptop width the search box and the clock make room */
+@media (max-width: 1340px) {
+  .topbar-search { width: 150px; }
+  .topbar-clock { display: none; }
+  /* only the current page's name; the parent crumb is the left menu anyway */
+  .topbar-crumbs { min-width: 0; flex: 0 0 auto; max-width: 220px; }
+  .topbar-crumbs > span:not(:last-child) { display: none; }
+  .topbar-crumbs > span:last-child svg { display: none; }
+  .topbar-crumbs > span:last-child, .topbar-crumbs > span:last-child b { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar-search { width: 132px; }
+  .topbar-spacer { flex: 0 0 4px; }
+}

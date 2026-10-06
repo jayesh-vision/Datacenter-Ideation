@@ -161,10 +161,25 @@ Menu item **AI & GPU** (`/gpu`, `screens/Gpu.tsx`) and a datacenter tab, both sh
 (`app/public/demo-playbook.html`) — edit the docs file, then copy it over. Its figures are taken from the mock at the fixed clock;
 if the seed, incidents or revenue model change, re-check them.
 
+## Geography (06-Oct-2026) — India or the USA
+`mock/geo.ts`: a geography = places (regions, states/circles, cities, the 24 site rows), customer locations, people, currency,
+number locale and date style. India = the original seed; the USA = the same 24 sites BY POSITION (status, device counts, tier
+identical) in US markets with `XX-DC-NNN` ids (VA-DC-001 Ashburn is the hero, IL-DC-009 Chicago the UPS site, CA-DC-020 the GPU
+fault), US customers/people, `fx` 0.02 on the generator's rupee constants, $ with K/M, en-US numbers, "Sep 21, 2026" dates.
+- The scenario never names a site literally: `dcAt(n)` (1-based position) everywhere in generate.ts / incidents.ts / gpu.ts;
+  personas carry `tall.dcIndex`; people are India's names mapped through `person()` / `localizeNames()`; persona customer rows are
+  placed with `placeCustomer()`. India telco data stays byte-identical (`npx tsx .qa/fingerprint.ts network`).
+- Money: write constants in rupees and wrap with `money()`; format with `fmtMoney()` (never `fmtINR`, never a literal ₹) and
+  `fmtNum()` (never `toLocaleString('en-IN')`); `MoneyIcon` / `moneyIcon()` for the currency icon; `currencySymbol()` for headers.
+- State: `?geo=in|us` wins and is remembered (`dco.geo`), top-bar GeoSwitch next to the persona switch; API `getGeo/setGeo/useGeo/
+  geoNow/defaultDcId` (no hard-coded `MH-DC-001` in screens — use `defaultDcId()`). Regions and map bounds come from `geoNow()`.
+- Checks: `node .qa/geo.mjs` (USA relabels every screen, switch, memory, URL precedence), `GEO=us npx tsx .qa/revenue-check.ts`.
+  The demo playbook is India-only (its links pin `geo=in`); the embed guide carries a geography control and a persona × geography matrix.
+
 ## Embedding & routes (05-Oct-2026)
 `?shell=false` hides the left menu and the top header (iframe use in the user's platform); `?shell=true` shows them; no parameter =
 shown unless this tab/iframe already chose (sessionStorage `dco.shell`, plus a memory copy for iframes with blocked storage) — see
 `shell/embed.ts`. `.shell.is-embed` sets `--rail-w` / `--top-h` to 0 so sticky list headers and full-screen map / 3D pin to the frame.
-`?persona=` picks the persona (mock/server.ts). Route catalogue with every screen's URL parameters: `docs/dco-embed-guide.html`
+`?persona=` picks the persona, `?geo=` the geography (mock/server.ts). Route catalogue with every screen's URL parameters: `docs/dco-embed-guide.html`
 (served at `/embed-guide.html`; copy it to `app/public/` after editing). Check: `node .qa/embed.mjs <host page with an iframe>`.
 When a screen gains a URL parameter or a new route is added, add it to the guide.

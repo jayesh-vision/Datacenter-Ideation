@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { OpstralBtn } from '../ui/OpstralMark';
-import { clockNow, getAlerts, getCommandCenter, hasGpuNow, resetDemo, useQuery, CURRENT_USER, PERSONAS, setPersona, usePersona } from '../api';
+import { clockNow, getAlerts, getCommandCenter, hasGpuNow, resetDemo, useQuery, CURRENT_USER, PERSONAS, GEOS, setPersona, setGeo, usePersona, useGeo, vocabNow } from '../api';
+import { MoneyIcon } from '../ui/Money';
 import type { Persona } from '../api/types';
+import type { Geo } from '../api';
 import { fmtAgo, fmtDow, fmtShortDate, fmtTime } from '../lib/format';
 import { Drawer } from '../ui/kit';
 import { SevDot } from '../ui/status';
@@ -14,7 +16,7 @@ import { shellVisible } from './embed';
 
 type Badge = 'incidents' | 'alerts' | 'changes';
 const NAV: { group: string; items: { to: string; label: string; icon: I.LucideIcon; badge?: Badge; match?: RegExp }[] }[] = [
-  { group: 'Overview', items: [{ to: '/', label: 'Command center', icon: I.LayoutDashboard }, { to: '/revenue', label: 'Revenue impact', icon: I.IndianRupee }] },
+  { group: 'Overview', items: [{ to: '/', label: 'Command center', icon: I.LayoutDashboard }, { to: '/revenue', label: 'Revenue impact', icon: I.Coins }] },
   { group: 'Infrastructure', items: [
     { to: '/datacenters', label: 'Datacenters', icon: I.Building2, match: /^\/(datacenters|ne\/)/ },
     { to: '/facilities', label: 'Facilities', icon: I.Zap },
@@ -81,6 +83,54 @@ function PersonaSwitch() {
   );
 }
 
+/* Top-bar geography switch: India or the USA. Changing it regenerates the estate with that
+   geography's sites, customers, people and currency; site IDs change, so entity pages are left. */
+function GeoSwitch() {
+  const { geo, def } = useGeo();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const nav = useNavigate();
+  const loc = useLocation();
+  useEffect(() => {
+    if (!open) return;
+    const f = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', f); window.addEventListener('keydown', k);
+    return () => { document.removeEventListener('mousedown', f); window.removeEventListener('keydown', k); };
+  }, [open]);
+  const pick = async (g: Geo) => {
+    setOpen(false);
+    if (g === geo) return;
+    setBusy(true);
+    await setGeo(g);
+    setBusy(false);
+    if (/^\/(datacenters|ne|services|customers|incidents)\/./.test(loc.pathname) || /[?&]dc=/.test(loc.search)) nav('/datacenters');
+  };
+  return (
+    <div ref={ref} className="persona geo" data-geo={geo}>
+      <button type="button" className={`persona-btn${open ? ' is-open' : ''}`} onClick={() => setOpen(o => !o)} aria-haspopup="listbox" aria-expanded={open} title="Geography — where the estate is, and its currency" disabled={busy}>
+        <span className="persona-ic">{busy ? <span className="spinner" /> : <I.Globe size={15} />}</span>
+        <span className="persona-txt"><small>Geography</small><b>{def.label}</b></span>
+        <I.ChevronDown size={14} className="persona-chev" />
+      </button>
+      {open && (
+        <div className="persona-menu" role="listbox" aria-label="Geography">
+          <div className="persona-menu-h">Model the estate in</div>
+          {GEOS.map(g => (
+            <button key={g.id} type="button" role="option" aria-selected={g.id === geo} className={`persona-opt${g.id === geo ? ' is-on' : ''}`} onClick={() => pick(g.id)}>
+              <span className="persona-ic"><I.MapPin size={16} /></span>
+              <span className="persona-opt-txt"><b>{g.label}</b><span>{g.tagline}</span></span>
+              {g.id === geo && <I.Check size={15} className="persona-check" />}
+            </button>
+          ))}
+          <div className="persona-menu-f">Same equipment, alarms and story · different sites, {vocabNow().customers.toLowerCase()}, people and currency</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Layout() {
   const loc = useLocation();
   const nav = useNavigate();
@@ -133,7 +183,7 @@ export function Layout() {
                   const active = it.match ? it.match.test(loc.pathname) : it.to === '/' ? loc.pathname === '/' : loc.pathname.startsWith(it.to);
                   return (
                     <NavLink key={it.to} to={it.to} end className={() => `rail-link${active ? ' is-active' : ''}`} title={collapsed ? navLabel(it) : undefined}>
-                      <it.icon size={18} /><span>{navLabel(it)}</span>
+                      {it.to === '/revenue' ? <MoneyIcon size={18} /> : <it.icon size={18} />}<span>{navLabel(it)}</span>
                       {b && b.n > 0 && <em className={`rail-badge ${b.c}`} style={{ fontStyle: 'normal' }}>{b.n}</em>}
                       {b && b.n > 0 && <i className="rail-dot" />}
                     </NavLink>
@@ -161,6 +211,7 @@ export function Layout() {
             </nav>
             <div className="topbar-spacer" />
             <PersonaSwitch />
+            <GeoSwitch />
             <button type="button" className="topbar-search" onClick={() => setPalette(true)}><I.Search size={15} /><span className="ellipsis">Search estate…</span><kbd>⌘K</kbd></button>
             <OpstralBtn onClick={() => openSentinel()} />
             <span className="topbar-clock" title="Mock operations clock — data is a deterministic snapshot"><span className="live-dot" />{fmtDow(now)} {fmtShortDate(now)} · {fmtTime(now)}</span>

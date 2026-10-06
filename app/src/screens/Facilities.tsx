@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { clockNow, getAlerts, getChanges, getDatacenter, getDatacenters, useQuery } from '../api';
+import { clockNow, defaultDcId, getAlerts, getChanges, getDatacenter, getDatacenters, useQuery } from '../api';
 import type { Datacenter, Rack, Severity } from '../api/types';
 import { usePage, PageHead, Loading, useSentinel } from '../shell/page';
 import { Chip, Panel, Tabs, Empty } from '../ui/kit';
@@ -29,7 +29,7 @@ const p2 = (n: number) => String(n).padStart(2, '0');
 export function Facilities() {
   const [sp, setSp] = useSearchParams();
   const ask = useSentinel();
-  const dcId = sp.get('dc') || 'MH-DC-001';
+  const dcId = sp.get('dc') || defaultDcId();
   const tab = (sp.get('tab') as TabId) || 'power';
   const set = (k: string, v: string) => { const n = new URLSearchParams(sp); v ? n.set(k, v) : n.delete(k); setSp(n, { replace: true }); };
   const { data: dcs } = useQuery(getDatacenters, []);

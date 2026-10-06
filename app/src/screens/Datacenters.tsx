@@ -1,20 +1,20 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { clockNow, getAlerts, getDatacenters, getIncidents, useQuery, vocabNow } from '../api';
+import { clockNow, geoNow, getAlerts, getDatacenters, getIncidents, useQuery, vocabNow } from '../api';
 import type { DcSummary, Severity } from '../api/types';
 import { usePage, Loading, useSentinel } from '../shell/page';
 import { DataTable, type Col } from '../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../ui/ListToolbar';
 import { Meter } from '../ui/status';
 import { ROLLOUT, SEVERITY } from '../lib/vocab';
-import { fmtINR, fmtNum } from '../lib/format';
+import { fmtMoney, fmtNum } from '../lib/format';
 import '../styles/datacenters.css';
 import { OpstralBtn } from '../ui/OpstralMark';
 import { DcCard } from './ops/DcCard';
 import { Facts, SOFT, SoftMeter, Split, StatGrid, StatTile, type Tone } from '../ui/Analytics';
 
-const REGIONS = [{ id: 'north', name: 'North' }, { id: 'east', name: 'East' }, { id: 'west', name: 'West' }, { id: 'south', name: 'South' }];
+const REGIONS = () => geoNow().regions;
 const ACCENT = 'var(--primaryColor500)', BAD = 'var(--vw-color-red-500)';
 type View = 'all' | 'incidents' | 'facility' | 'edge' | 'clear';
 
@@ -71,8 +71,8 @@ export function Datacenters() {
     /* money view of the same site: what it hosts, what it is losing per hour, or what rides on a critical fault */
     { key: 'rev', header: vocabNow().money.noun, sort: d => d.revRate * 1e6 + d.revExposed / 1e3 + d.mrr / 1e9, render: d => (d.mrr
       ? <Link to={`/datacenters/${d.id}?tab=revenue`} className="cell-2 dcl-rev" onClick={e => e.stopPropagation()} title={`Open ${d.id} · ${vocabNow().money.impact}`}>
-        <span className="dcl-num nowrap">{fmtINR(d.mrr)}<span className="vw-label"> /mo</span></span>
-        <small className="nowrap" style={{ color: d.revRate ? BAD : d.revExposed ? '#926e00' : undefined }}>{d.revRate ? `losing ${fmtINR(d.revRate)}/h` : d.revExposed ? `${fmtINR(d.revExposed)} at stake` : 'no impact'}</small>
+        <span className="dcl-num nowrap">{fmtMoney(d.mrr)}<span className="vw-label"> /mo</span></span>
+        <small className="nowrap" style={{ color: d.revRate ? BAD : d.revExposed ? '#926e00' : undefined }}>{d.revRate ? `losing ${fmtMoney(d.revRate)}/h` : d.revExposed ? `${fmtMoney(d.revExposed)} at stake` : 'no impact'}</small>
       </Link>
       : <span className="vw-label">—</span>) }
   ];
@@ -98,12 +98,12 @@ export function Datacenters() {
         <button type="button" className="dcl-regsec-h" onClick={toggleReg} aria-expanded={regOpen}>
           <I.ChevronDown size={16} className="dcl-fold" />
           <span className="dcl-regsec-t">Regions</span>
-          <span className="dcl-regsec-sum">{REGIONS.map(r => { const ss = live.filter(d => d.regionId === r.id).map(stateOf); const w: SiteState = ss.includes('critical') ? 'critical' : ss.includes('attention') ? 'attention' : 'normal'; return <span key={r.id} className={`vw-chip vw-chip--${STATE_META[w].tone} dco-pill`}><i className="chip-dot" />{r.name} · {ss.length} sites</span>; })}</span>
+          <span className="dcl-regsec-sum">{REGIONS().map(r => { const ss = live.filter(d => d.regionId === r.id).map(stateOf); const w: SiteState = ss.includes('critical') ? 'critical' : ss.includes('attention') ? 'attention' : 'normal'; return <span key={r.id} className={`vw-chip vw-chip--${STATE_META[w].tone} dco-pill`}><i className="chip-dot" />{r.name} · {ss.length} sites</span>; })}</span>
           <span className="dcl-regsec-hint">{regOpen ? 'Collapse' : 'Expand'}</span>
         </button>
         {regOpen && <>
       <div className="dcl-regions">
-        {REGIONS.map(r => <RegionCard key={r.id} name={r.name} sites={live.filter(d => d.regionId === r.id)} incs={incs} on={region === r.id} onClick={() => set('region', region === r.id ? '' : r.id)} onSite={id => nav(`/datacenters/${id}`)} />)}
+        {REGIONS().map(r => <RegionCard key={r.id} name={r.name} sites={live.filter(d => d.regionId === r.id)} incs={incs} on={region === r.id} onClick={() => set('region', region === r.id ? '' : r.id)} onSite={id => nav(`/datacenters/${id}`)} />)}
       </div>
 
       <p className="vw-footer-meta dcl-scope-note"><I.Info size={13} />Counts cover each site, its edge links (backhaul and uplinks) and what it depends on. Alarms from downstream PoPs and sites ({fmtNum(live.reduce((a, d) => a + d.downstreamExcluded, 0))} now) are not counted against a datacenter. <a href="/alerts?scope=downstream" onClick={e => { e.preventDefault(); nav('/alerts?scope=downstream'); }}>View them</a></p>
