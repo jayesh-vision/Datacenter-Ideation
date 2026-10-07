@@ -1,0 +1,627 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Datacenter Ops Field Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a reference desk. Sticky search bar, four modes as tabs, glossary as a card grid grouped by area;
+   explainers are clickable chains (building → GPU, power path, three networks). Look follows the DCO tool (NST). */
+:root {
+  --bg: #f8fafc; --surface: #ffffff; --line: #e2e8f0; --line-2: #cbd5e1;
+  --fg: #0f172a; --fg-2: #334155; --muted: #64748b;
+  --accent: #1c81ef; --accent-ink: #1d4ed8; --accent-soft: #dbeafe;
+  --good: #059669; --good-soft: #d1fae5; --warn: #b45309; --warn-soft: #fef3c7; --bad: #dc2626; --bad-soft: #fee2e2;
+  --code-bg: #f1f5f9;
+  --f-display: "Poppins", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Inter", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0b1220; --surface: #111a2e; --line: #1f2b44; --line-2: #2c3b5a;
+  --fg: #e6edf7; --fg-2: #c3cfe0; --muted: #8a9ab3;
+  --accent: #5aa6ff; --accent-ink: #8cc2ff; --accent-soft: #15284a;
+  --good: #34d399; --good-soft: #0f2e25; --warn: #fbbf24; --warn-soft: #33270b; --bad: #f87171; --bad-soft: #3a1414;
+  --code-bg: #0d1628; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0b1220; --surface: #111a2e; --line: #1f2b44; --line-2: #2c3b5a;
+  --fg: #e6edf7; --fg-2: #c3cfe0; --muted: #8a9ab3;
+  --accent: #5aa6ff; --accent-ink: #8cc2ff; --accent-soft: #15284a;
+  --good: #34d399; --good-soft: #0f2e25; --warn: #fbbf24; --warn-soft: #33270b; --bad: #f87171; --bad-soft: #3a1414;
+  --code-bg: #0d1628; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 14.5px; line-height: 1.55; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-inline: 20px; padding-block: 0 48px; }
+h1, h2, h3 { font-family: var(--f-display); font-weight: 500; text-wrap: balance; margin: 0; color: var(--fg); }
+p { margin: 0; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code, .mono { font-family: var(--f-mono); font-size: 0.86em; }
+code { background: var(--code-bg); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; overflow-wrap: anywhere; }
+
+/* header */
+.top { padding-block: 28px 18px; display: grid; gap: 14px; }
+.eyebrow { font-family: var(--f-display); font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent-ink); font-weight: 500; }
+.top h1 { font-size: clamp(24px, 3.2vw, 32px); }
+.lede { color: var(--fg-2); max-width: 70ch; }
+.stats { display: flex; flex-wrap: wrap; gap: 8px 18px; color: var(--muted); font-size: 13px; }
+.stats b { color: var(--fg); font-family: var(--f-display); font-weight: 500; font-variant-numeric: tabular-nums; }
+.progress { display: flex; align-items: center; gap: 10px; }
+.bar { width: 160px; height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--good); width: 0; transition: width .3s; }
+
+/* sticky controls */
+.controls { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 10px; border-bottom: 1px solid var(--line); display: grid; gap: 10px; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.tab { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 7px 14px; font-family: var(--f-display); font-size: 13px; color: var(--fg-2); }
+.tab[aria-selected="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.search { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.search input { flex: 1 1 260px; min-width: 0; border: 1px solid var(--line-2); background: var(--surface); color: var(--fg); border-radius: 8px; padding: 9px 12px; font: inherit; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 11px; font-size: 12.5px; color: var(--fg-2); display: inline-flex; gap: 6px; align-items: center; }
+.chip .n { color: var(--muted); font-variant-numeric: tabular-nums; }
+.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); }
+.toggle { font-size: 12.5px; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; white-space: nowrap; }
+
+/* glossary */
+.group { margin-top: 26px; display: grid; gap: 12px; }
+.group-h { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.group-h h2 { font-size: 18px; }
+.group-h p { color: var(--muted); font-size: 13px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.card.learned { border-color: color-mix(in srgb, var(--good) 45%, var(--line)); }
+.card-h > div { min-width: 0; }
+.card-h { display: flex; justify-content: space-between; gap: 10px; align-items: start; }
+.term { font-family: var(--f-display); font-weight: 500; font-size: 15.5px; overflow-wrap: anywhere; }
+.full { color: var(--muted); font-size: 12.5px; margin-top: 1px; overflow-wrap: anywhere; }
+.what, .tool, .say { overflow-wrap: anywhere; }
+.what { color: var(--fg-2); }
+.more { display: grid; gap: 8px; border-top: 1px dashed var(--line); padding-top: 8px; }
+.row-l { font-family: var(--f-display); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.say { background: var(--accent-soft); color: var(--fg); border-radius: 8px; padding: 8px 10px; font-size: 13.5px; }
+.tool { font-size: 13px; color: var(--fg-2); }
+.related { display: flex; flex-wrap: wrap; gap: 5px; }
+.rel { border: 1px solid var(--line); background: transparent; border-radius: 6px; padding: 1px 7px; font-size: 12px; color: var(--accent-ink); }
+.card-f { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.linkbtn { background: none; border: 0; padding: 0; color: var(--accent-ink); font-size: 12.5px; }
+.learn { border: 1px solid var(--line); background: transparent; border-radius: 6px; padding: 3px 9px; font-size: 12px; color: var(--muted); }
+.learn[aria-pressed="true"] { background: var(--good-soft); color: var(--good); border-color: var(--good); }
+.tagcat { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; white-space: nowrap; }
+.empty { margin-top: 30px; color: var(--muted); }
+.flash { animation: flash 1.2s ease-out; }
+@keyframes flash { from { box-shadow: 0 0 0 4px var(--accent); } to { box-shadow: 0 0 0 0 transparent; } }
+
+/* explainers */
+.ex { margin-top: 22px; display: grid; gap: 22px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; display: grid; gap: 14px; min-width: 0; }
+.panel h2 { font-size: 18px; }
+.panel .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.chain { display: flex; flex-wrap: wrap; gap: 6px; align-items: stretch; }
+.step { border: 1px solid var(--line-2); background: var(--bg); border-radius: 8px; padding: 8px 12px; text-align: left; display: grid; gap: 1px; min-width: 0; }
+.step b { font-family: var(--f-display); font-weight: 500; font-size: 13.5px; }
+.step small { color: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.step[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.arrow { align-self: center; color: var(--muted); font-size: 13px; }
+.detail { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; border-top: 1px solid var(--line); padding-top: 14px; }
+.detail h3 { font-size: 16px; }
+.detail .body { display: grid; gap: 8px; color: var(--fg-2); align-content: start; }
+.fact { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 6px; align-content: start; }
+.fact dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 13px; }
+.fact dt { color: var(--muted); }
+.fact dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
+.terms { display: flex; flex-wrap: wrap; gap: 5px; align-items: flex-start; }
+/* GPU node picture */
+.nodepic { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; max-width: 180px; }
+.nodepic i { aspect-ratio: 1; border-radius: 3px; background: var(--accent); max-width: 100%; }
+.nodepic i.d { background: var(--warn); } .nodepic i.f { background: var(--bad); } .nodepic i.s { background: var(--line-2); }
+.legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+.legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+/* three networks */
+.nets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.net { border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: grid; gap: 6px; align-content: start; background: var(--bg); }
+.net h3 { font-size: 14.5px; display: flex; justify-content: space-between; gap: 8px; }
+.net .spd { font-family: var(--f-mono); font-size: 12px; color: var(--accent-ink); }
+.net ul { margin: 0; padding-left: 18px; color: var(--fg-2); font-size: 13px; display: grid; gap: 3px; }
+/* severity scales */
+.scales { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.scale { display: grid; gap: 6px; }
+.lvl { display: grid; grid-template-columns: 92px 1fr; gap: 10px; align-items: start; font-size: 13px; }
+.pill { border-radius: 999px; padding: 2px 10px; font-size: 12px; text-align: center; font-family: var(--f-display); }
+.p-crit { background: var(--bad-soft); color: var(--bad); } .p-high { background: var(--warn-soft); color: var(--warn); }
+.p-med { background: var(--accent-soft); color: var(--accent-ink); } .p-low { background: var(--code-bg); color: var(--muted); }
+.calc { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.calc label { display: grid; gap: 4px; font-size: 12.5px; color: var(--muted); }
+.calc input { border: 1px solid var(--line-2); background: var(--surface); color: var(--fg); border-radius: 8px; padding: 8px 10px; font: inherit; font-variant-numeric: tabular-nums; min-width: 0; }
+.out { font-family: var(--f-display); font-size: 20px; font-variant-numeric: tabular-nums; }
+.out small { font-family: var(--f-body); font-size: 12.5px; color: var(--muted); display: block; }
+
+/* questions */
+.qa { margin-top: 22px; display: grid; gap: 10px; }
+details.q { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 16px; }
+details.q summary { cursor: pointer; font-family: var(--f-display); font-weight: 500; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+details.q summary::-webkit-details-marker { display: none; }
+details.q summary::after { content: "+"; color: var(--muted); font-weight: 400; }
+details.q[open] summary::after { content: "–"; }
+details.q .a { margin-top: 10px; display: grid; gap: 8px; color: var(--fg-2); max-width: 78ch; }
+.show { font-size: 13px; color: var(--muted); }
+.show b { color: var(--fg-2); font-weight: 500; }
+
+/* flashcards */
+.fc { margin-top: 22px; display: grid; gap: 14px; justify-items: center; }
+.fc-card { width: min(560px, 100%); min-height: 240px; background: var(--surface); border: 1px solid var(--line-2); border-radius: 14px; padding: 26px; display: grid; align-content: center; gap: 10px; text-align: center; cursor: pointer; }
+.fc-card .big { font-family: var(--f-display); font-size: clamp(26px, 4vw, 36px); font-weight: 500; overflow-wrap: anywhere; }
+.fc-card .hint { color: var(--muted); font-size: 13px; }
+.fc-card .ans { color: var(--fg-2); text-align: left; display: grid; gap: 8px; }
+.fc-bar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; }
+.btn { border: 1px solid var(--line-2); background: var(--surface); border-radius: 8px; padding: 8px 14px; font-size: 13px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.good { background: var(--good-soft); border-color: var(--good); color: var(--good); }
+.fc-count { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 760px) {
+  .detail, .nets, .scales { grid-template-columns: 1fr; }
+  .grid { grid-template-columns: 1fr; }
+  .arrow { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .flash { animation: none; } .bar i { transition: none; } }
+</style>
+<style>body{margin:0}</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header class="top">
+    <span class="eyebrow">Datacenter Operations · learning companion</span>
+    <h1>Datacenter Ops Field Guide</h1>
+    <p class="lede">Every word, abbreviation and number you meet in the tool, explained in plain language. Each term says where you see it in the tool and gives one sentence you can say to a customer. The examples use the tool's own demo estate, such as TX-DC-022 with 132 GPU nodes.</p>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <div class="controls">
+    <div class="tabs" role="tablist" aria-label="Guide sections">
+      <button class="tab" role="tab" id="t-glossary" data-mode="glossary" aria-selected="true">Glossary</button>
+      <button class="tab" role="tab" id="t-explain" data-mode="explain" aria-selected="false">How it fits together</button>
+      <button class="tab" role="tab" id="t-questions" data-mode="questions" aria-selected="false">Customer questions</button>
+      <button class="tab" role="tab" id="t-cards" data-mode="cards" aria-selected="false">Flashcards</button>
+    </div>
+    <div id="glossaryControls" class="search">
+      <input id="q" type="search" placeholder="Search a term, e.g. PUE, Xid, leaf, UPS, credit" aria-label="Search the glossary" autocomplete="off">
+      <label class="toggle"><input id="hideLearned" type="checkbox"> Hide terms I know</label>
+    </div>
+    <div id="catChips" class="chips" aria-label="Filter by area"></div>
+  </div>
+
+  <main id="view"></main>
+</div>
+
+<script>
+/* ------------------------------------------------------------------ content
+   [term, full name, area, plain meaning, where in the tool, say to a customer, related terms] */
+const AREAS = [
+  ['site', 'The building', 'Space, tiers and the parts of a datacenter'],
+  ['power', 'Power', 'How electricity reaches each device and what keeps it on'],
+  ['cool', 'Cooling and environment', 'How heat leaves the building'],
+  ['net', 'Network and fabric', 'The cables, switches and routers inside and between sites'],
+  ['gpu', 'GPUs and AI', 'GPU servers, pods, jobs and how a GPU cloud sells them'],
+  ['dcgm', 'GPU telemetry (DCGM)', 'The per-GPU health counters NVIDIA DCGM exports'],
+  ['ops', 'Operations', 'Alarms, incidents, changes and how a NOC works'],
+  ['money', 'SLA and revenue', 'Service levels, credits and what an issue costs'],
+  ['biz', 'Business models', 'The five personas in the tool'],
+  ['tool', 'The tool itself', 'Screens and features of this product']
+];
+const T = [
+/* the building */
+['Datacenter (DC)', 'Data center', 'site', 'A secure building that houses servers, storage and network equipment, with the power, cooling and connectivity to keep them running all the time.', 'Datacenters list; each site has an ID such as MH-DC-001 (state code, DC, number).', 'A datacenter is a factory for computing: power and cooling go in, digital services come out.', ['Tier', 'Hall', 'Rack']],
+['Tier', 'Uptime Institute Tier I–IV', 'site', 'A rating of how much redundancy a site has. Tier III can be maintained without shutting down (about 99.982% design availability). Tier IV keeps running through a single fault (about 99.995%).', 'Datacenter header and list, e.g. "Tier III", "Tier IV".', 'Tier IV means one failure anywhere in power or cooling should not take your service down.', ['N+1', '2N', 'Redundancy']],
+['Floor / Hall', 'Data hall, white space', 'site', 'A large room where racks stand in rows. A GPU cloud names them by use, such as "GPU hall A" or "Storage hall".', 'Assets tab "Space by room"; 3D twin floors.', 'We can show you exactly which hall and rack your equipment sits in.', ['Rack', 'Row']],
+['Rack', 'Cabinet', 'site', 'A standard steel frame that holds equipment stacked vertically. Typical racks are 42U or 45U tall.', 'Equipment tab (Rack · U column), Assets tab, Power & space, 3D twin.', 'Each rack has two power feeds and its own temperature and power measurements.', ['U (rack unit)', 'Rack PDU', 'Power budget']],
+['U (rack unit)', 'Rack unit', 'site', 'The height unit inside a rack: 1U is 1.75 inches (44.45 mm). A small switch is 1U; a GPU server such as a DGX is about 8U.', '"Rack A · U22" means rack A, starting at position 22. Assets tab shows U used and free.', 'Your eight-GPU server takes about eight rack units.', ['Rack']],
+['Cage', 'Colocation cage', 'site', 'A fenced, locked area inside a hall for one tenant\'s racks.', 'Colocation persona: tenant cabinets and AI cages.', 'Your cage is locked and only your staff and escorted engineers can enter.', ['Colocation', 'Tenant']],
+['MMR', 'Meet-me room', 'site', 'The room where carriers and customers connect to each other with cross-connects.', 'Colocation persona: MMR switches and cross-connect services.', 'All carrier connections land in the meet-me room, so you can buy a link to any of them.', ['Cross-connect', 'ODF']],
+['Cross-connect', '', 'site', 'A physical cable the operator installs between two customers, or a customer and a carrier, inside the datacenter.', 'Colocation services; cross-connect revenue.', 'We can connect you to your carrier with a cross-connect, usually within days.', ['MMR']],
+['ODF', 'Optical distribution frame', 'site', 'A panel where incoming fibre cables are terminated and patched to equipment.', 'Cabling ledger, link incidents ("check light levels at ODF").', 'Every fibre is labelled on the ODF, so a technician can find it quickly.', ['Patch cord', 'Optic']],
+['Patch cord', '', 'site', 'A short cable that connects two ports, for example from an ODF to a switch.', 'Incident action plans for cable faults.', '', ['ODF']],
+['Digital twin', '3D model of the site', 'site', 'A 3D model of the building, floors, rooms and racks, coloured by live state.', 'Datacenter page, Overview tab.', 'You can walk through the building on screen and see which rack has a problem.', ['Rack']],
+['Redundancy', '', 'site', 'Having spare capacity so that one failure does not stop the service.', 'Power, cooling and edge redundancy across the tool.', 'Everything critical is doubled, so a single failure does not affect you.', ['N+1', '2N', 'Edge redundancy']],
+['N+1', '', 'site', 'Enough units for the load (N) plus one spare. With 4 cooling units needed, N+1 means 5 installed.', 'Cooling and UPS cards ("N+1 cooling"). "At N redundancy" means the spare is already used.', 'We always keep one spare unit running, so a failure is covered.', ['2N', 'Redundancy']],
+['2N', '', 'site', 'Two complete, independent systems, each able to carry the whole load.', 'Tier IV sites, A+B power.', 'Two completely separate power paths serve every rack.', ['N+1', 'A+B feed']],
+
+/* power */
+['kW', 'Kilowatt', 'power', 'A unit of power: how much electricity a device or rack uses right now. An H100 GPU uses about 0.7 kW; a full GPU server about 10 kW.', 'Power & space, Facilities, rack loads, GPU pods ("207.3 kW").', 'A GPU rack draws about as much power as 30 homes.', ['kWh', 'MW', 'Power budget']],
+['kWh / MWh', 'Kilowatt-hour, megawatt-hour', 'power', 'Energy used over time: 1 kW for 1 hour is 1 kWh.', 'Telemetry tab "Energy · 24 h".', '', ['kW']],
+['kVA', 'Kilovolt-ampere', 'power', 'The rating of generators and UPS units. It is close to kW but includes the power factor.', 'Facility assets: DG sets "4675 kVA".', '', ['DG', 'UPS']],
+['MW', 'Megawatt', 'power', '1,000 kW. Large datacenters are sized in MW of IT load.', 'Site capacity.', 'This site can deliver up to 5 MW to customer equipment.', ['kW']],
+['PUE', 'Power Usage Effectiveness', 'power', 'Total facility power divided by IT power. PUE 1.5 means for every 1 kW to servers, 0.5 kW goes to cooling, lighting and losses. Lower is better; 1.0 is perfect.', 'Command center pulse, Metrics tab.', 'Our PUE of 1.4 means only 40% overhead on top of your IT power.', ['kW', 'Cooling']],
+['Utility feed', 'Mains power', 'power', 'Electricity from the grid. Tier III and IV sites take two separate feeds (A and B).', 'Facilities, Power: "Utility feed A". The UPS incident starts with "utility feed A loss".', 'We have two independent grid connections.', ['UPS', 'DG', 'ATS']],
+['UPS', 'Uninterruptible power supply', 'power', 'Batteries and electronics that carry the load instantly when grid power fails, until the generators start.', 'Facilities power path; INC-0002 "UPS-2 on battery".', 'If the grid fails, batteries take over within milliseconds and generators start within a minute.', ['On battery', 'Runtime', 'DG']],
+['On battery', '', 'power', 'The UPS is running from its batteries because grid power is lost. It is a countdown: when the battery runs out, the load drops.', 'Critical incident at the UPS site; "13 min" battery left.', 'We see the battery clock in minutes and act before it runs out.', ['UPS', 'Runtime']],
+['Runtime', 'Battery runtime', 'power', 'How long the UPS batteries can carry the current load.', 'Facilities ride-through card.', '', ['UPS']],
+['DG', 'Diesel generator', 'power', 'Engine-driven generators that take over long outages. They run as long as there is fuel.', 'Facility assets "DG sets"; ride-through "fuel hours". INC-0002 cause: controller left in MANUAL.', 'Our generators hold fuel for more than 12 hours at full load.', ['ATS', 'UPS', 'Load-bank test']],
+['ATS', 'Automatic transfer switch', 'power', 'Switches the load from the grid to the generator automatically. If its controller is left in MANUAL, the generator does not take over by itself.', 'Root cause of the UPS incident (generator controller in MANUAL).', '', ['DG']],
+['Load-bank test', '', 'power', 'A test that runs generators against an artificial load to prove they work.', 'Changes & maintenance: "DG load-bank test".', 'We test generators under real load every month.', ['DG']],
+['PDU', 'Power distribution unit', 'power', 'Distributes power from the UPS to rows and racks. A rack PDU is the power strip inside the rack.', 'Power path; rack PDUs "A + B per rack".', '', ['A+B feed', 'Rack']],
+['A+B feed', 'Dual power feed', 'power', 'Every rack gets two power strips from two separate paths, so one path can fail.', 'Rack PDUs, power circuits in colocation.', 'Plug each power supply into a different strip and you survive a path failure.', ['PSU', '2N']],
+['PSU', 'Power supply unit', 'power', 'The power supply inside a device. Servers usually have two, one on each feed.', 'Alarm "Power Supply Fault"; incident "running on single PSU".', 'When one power supply fails we see it and replace it before the second one matters.', ['A+B feed']],
+['Rectifier', '', 'power', 'Converts AC to −48 V DC, the traditional power for telecom equipment.', 'Facility assets "Rectifier plants" (telco persona).', '', ['UPS']],
+['Power budget', 'Contracted kW', 'power', 'The maximum power a rack or tenant may draw. Going over risks tripping a breaker.', 'Alarm "Rack Over Power Budget"; colocation contracted kW.', 'Your contract includes 40 kW per rack; we alert you before you reach it.', ['kW', 'Power cap']],
+['Power cap', '', 'power', 'A limit set on a GPU or rack so it uses less power. It protects the circuit but makes jobs slower.', 'GPU "power-capped"; action "Cap GPUs on the CDU loop at 550 W".', '', ['Throttling']],
+['Ride-through', '', 'power', 'How the site survives a grid failure: UPS minutes, then generator hours.', 'Facilities → Power: "If utility power fails".', '', ['UPS', 'DG']],
+
+/* cooling */
+['CRAH', 'Computer room air handler', 'cool', 'A large fan unit that cools hall air using chilled water from the chillers.', 'Cooling tab; INC-0003 "CRAH-11 failed".', '', ['CRAC', 'Chiller', 'N+1']],
+['CRAC', 'Computer room air conditioner', 'cool', 'Like a CRAH but with its own compressor, the way a home air conditioner works.', 'Cooling unit cards.', '', ['CRAH']],
+['Chiller', '', 'cool', 'The plant that makes the chilled water used by CRAHs and CDUs.', 'Cooling incidents ("Chiller pump fault").', '', ['CRAH', 'CDU']],
+['CDU', 'Coolant distribution unit', 'cool', 'Pumps liquid coolant through pipes to cold plates on GPUs. Low flow means GPUs overheat and slow down.', 'AI & GPU → Cooling & power; INC-0062 "CDU-9 flow low".', 'Our H200 halls are liquid-cooled, which removes heat far better than air.', ['Liquid cooling', 'Thermal slowdown']],
+['Liquid cooling', 'Direct-to-chip cooling', 'cool', 'Coolant flows through plates touching the GPUs. It is needed for racks above about 40 kW.', 'Pod cards "liquid-cooled"; H200 sites TN-DC-022, KA-DC-020, TS-DC-023.', 'Air cannot cool modern GPU racks, so we pipe liquid to the chips.', ['CDU', 'Air-cooled']],
+['Air-cooled', '', 'cool', 'Equipment cooled by fans blowing cold air through it.', 'Pod cards "air-cooled".', '', ['Liquid cooling', 'Hot / cold aisle']],
+['Hot / cold aisle', 'Aisle containment', 'cool', 'Racks face each other so cold air comes in at the front aisle and hot air leaves into the back aisle.', 'Background knowledge for cooling questions.', 'We contain hot and cold air so they never mix, which saves energy.', ['Inlet temperature']],
+['Inlet temperature', '', 'cool', 'Air temperature entering equipment. ASHRAE recommends 18–27 °C.', 'Environment tab zone cards; "1 zone >27°C".', 'We keep your inlet air between 18 and 27 degrees, the industry recommendation.', ['Zone']],
+['Zone', 'Environmental zone', 'cool', 'An area with its own temperature, humidity, smoke and leak sensors.', 'Environment tab; sensors per room.', '', ['Inlet temperature', 'RH']],
+['RH', 'Relative humidity', 'cool', 'Moisture in the air, kept roughly in the 40–60% range to avoid static and condensation.', 'Zone cards.', '', ['Zone']],
+['Heat balance', '', 'cool', 'Cooling capacity compared with the heat the IT equipment produces.', 'Facilities → Cooling.', '', ['CRAH']],
+
+/* network */
+['Link', 'Physical link, cable', 'net', 'A cable between two ports on two devices. "Links down" are cables that stopped passing traffic.', 'Command center Network / Fabric row, Links tab, link incidents.', 'We see each individual cable, not just whole devices.', ['Port', 'LLDP', 'Flapping']],
+['Port / interface', '', 'net', 'A socket on a device where a cable plugs in. Names follow the vendor: xe-0/0/3 (Juniper), Ethernet4/1 (Arista), swp35 (NVIDIA), eth0 or ib0 on servers.', 'Hardware & interfaces tab.', '', ['Link', 'Optic']],
+['1G / 10G / 100G / 400G', 'Gigabits per second', 'net', 'Port speed. 1G is a management port, 100G a server uplink, 400G an InfiniBand GPU rail.', 'Port classes in Assets; Fabric connections cards.', '', ['NDR', 'Optic']],
+['Optic / transceiver', 'SFP+, QSFP28, OSFP', 'net', 'The plug-in module that turns electrical signals into light for fibre. SFP+ is 10G, QSFP28 100G, OSFP 400G.', 'Hardware tab optics, cable incident actions.', 'Most cable faults are a dirty or failing optic; we can pinpoint which one.', ['DOM', 'Rx power']],
+['DOM / Rx power', 'Digital optical monitoring; received power in dBm', 'net', 'Optics report how much light they receive. Below about −10 dBm the link degrades; below −14 dBm it usually fails.', 'Alarm "Optical Rx Power Low"; INC-0001 Rx −11.8 dBm.', '', ['Optic']],
+['CRC errors', 'Cyclic redundancy check errors', 'net', 'Damaged packets detected on a link, usually from a bad cable or optic.', 'Interface details; INC-0001 evidence "1,284 CRC errors".', '', ['Flapping']],
+['Flapping', '', 'net', 'A link going up and down repeatedly. Worse than a clean failure because traffic keeps rerouting.', 'Alarm "Interface Flapping Detected"; "InfiniBand Link Flapping".', '', ['Link']],
+['LLDP', 'Link Layer Discovery Protocol', 'net', 'Devices tell their neighbours who they are. That is how the tool knows which port is cabled to which.', 'Links tab in the telco persona.', '', ['Link']],
+['Leaf / spine', 'Leaf–spine fabric', 'net', 'The standard datacenter network shape. Servers connect to leaf switches; every leaf connects to every spine. Any two servers are at most two hops apart.', 'Topology tab layers; device names LEAF, SPINE, IB-LEAF, ETH-SPINE.', 'Every server is two hops from every other server, so there are no bottlenecks.', ['ToR', 'Fabric']],
+['ToR', 'Top-of-rack switch', 'net', 'A switch at the top of each rack that the servers in that rack plug into.', 'Cloud and enterprise device names TOR-007.', '', ['Leaf / spine']],
+['Fabric', '', 'net', 'The whole set of switches and cables that connect servers inside a site.', 'NeoCloud command center row "Fabric"; Links tab "Fabric connections".', '', ['InfiniBand', 'Ethernet front-end']],
+['InfiniBand (IB)', '', 'net', 'A very fast, very low-latency network used between GPU servers so they can train one model together. Made by NVIDIA (Quantum switches).', 'NeoCloud IB-LEAF / IB-SPINE devices; GPU node ports ib0–ib7; "InfiniBand rail flapping".', 'GPUs talk to each other over InfiniBand at 400 Gb/s per GPU, so a 144-GPU job behaves like one machine.', ['NDR', 'Rail', 'NVLink']],
+['NDR', 'Next Data Rate (InfiniBand)', 'net', 'The current InfiniBand generation: 400 Gb/s per port.', 'Pod fabric "InfiniBand NDR 400G · 8 rails".', '', ['InfiniBand (IB)']],
+['Rail', 'Rail-optimised fabric', 'net', 'Each of the 8 GPUs in a server has its own network port, and GPU 0 in every server connects to the same "rail" of switches, and so on. This keeps GPU-to-GPU traffic on short paths.', 'IB ports per node; "rail 3 flapping".', '', ['InfiniBand (IB)']],
+['Ethernet front-end', '', 'net', 'The normal 100G Ethernet network that carries storage, user access and internet traffic, separate from InfiniBand.', 'NeoCloud ETH-LEAF / ETH-SPINE; Fabric connections card.', '', ['Fabric', 'OOB']],
+['OOB', 'Out-of-band management', 'net', 'A separate 1G network to manage servers even when their main network or OS is down.', 'NeoCloud OOB switches; node port mgmt0.', 'Even if a server hangs, we can still reach its management port and restart it.', ['BMC']],
+['BMC', 'Baseboard management controller', 'net', 'A small computer inside every server for remote power, console and hardware health.', 'mgmt0 ports; "Remote power-cycle" actions.', '', ['OOB']],
+['Router', '', 'net', 'Moves traffic between networks and sites. In a telco DC there are many; in a GPU cloud mainly the border routers.', 'Telco persona PE routers; NeoCloud BDR-01/02.', '', ['PE router', 'Border router']],
+['PE router', 'Provider edge router', 'net', 'A telco router at the edge of the carrier network that hands services to customers. Named PE-T4-01 in the tool.', 'Telco hero device MH-DC-001-PE-T4-01; INC-0001.', '', ['Backhaul', 'LSP']],
+['Border router (BDR)', '', 'net', 'The router where a GPU cloud site connects to the internet and other sites.', 'NeoCloud BDR-01/02 (Juniper MX304).', '', ['DCI', 'Edge redundancy']],
+['Backhaul', '', 'net', 'The long-distance links connecting a datacenter to other sites and the carrier core.', 'Map dashed lines; "backhaul flapping"; capacity incidents.', '', ['Edge redundancy', 'DCI']],
+['DCI', 'Data center interconnect', 'net', 'Links between datacenters, the GPU cloud name for backhaul.', 'NeoCloud opex "DCI & internet transit".', '', ['Backhaul']],
+['Edge redundancy', '', 'net', 'Whether a site still has at least two working links to the outside. Redundant, redundancy lost, or isolated.', 'Datacenters list Network column; Datacenters tile "Edge redundancy".', 'Every site has at least two independent routes out.', ['Backhaul']],
+['BGP', 'Border Gateway Protocol', 'net', 'The routing protocol between networks and, in modern fabrics, between leaf and spine switches.', 'Links tab BGP card; alarm "BGP Peer Idle".', '', ['OSPF', 'IS-IS']],
+['OSPF / IS-IS', '', 'net', 'Routing protocols inside a carrier network. Mostly telco vocabulary.', 'Telco Links tab.', '', ['BGP']],
+['MPLS / LSP', 'Label-switched path', 'net', 'A pre-planned path through a carrier network for VPN traffic. Telco vocabulary.', 'Telco Links tab; "re-balance LSPs".', '', ['PE router']],
+['EVPN', 'Ethernet VPN', 'net', 'A modern way to stretch networks across a leaf–spine fabric.', 'Change "Upgrade TOR pair to EOS 4.32 (EVPN fabric)".', '', ['Leaf / spine']],
+['BFD', 'Bidirectional forwarding detection', 'net', 'A fast heartbeat between routers that detects a dead link in milliseconds.', 'Change "Enable BFD on border–spine uplinks".', '', ['BGP']],
+['DWDM', 'Dense wavelength division multiplexing', 'net', 'Optical equipment that carries many signals on one fibre over long distances. Telco persona only.', 'Telco equipment (OLA devices).', '', ['Backhaul']],
+['Firewall', '', 'net', 'Filters traffic in and out of the site.', 'FW-01/02 in every persona.', '', ['Border router (BDR)']],
+['ICMP / unreachable', 'Ping', 'net', 'The tool pings every device each minute. A device that stops answering is "unreachable".', 'Device Overview "ICMP reachability"; incidents "X unreachable".', '', ['NTP']],
+['NTP', 'Network Time Protocol', 'net', 'Keeps device clocks in sync so logs and alarms line up.', 'Device Overview "NTP sync".', '', ['ICMP / unreachable']],
+['RADIUS / AAA', 'Authentication, authorisation, accounting', 'net', 'The servers that check who may log in to network devices.', 'Device Overview "RADIUS auth"; dependency alarm.', '', []],
+
+/* GPU */
+['GPU', 'Graphics processing unit', 'gpu', 'A chip with thousands of small cores, built for the maths behind AI. The unit a GPU cloud rents out.', 'AI & GPU page; GPU counts everywhere.', 'One GPU is the unit you rent; you pay per GPU-hour.', ['Node', 'H100 / H200', 'GPU-hour']],
+['Node', 'GPU server', 'gpu', 'One server holding 8 GPUs, CPUs, memory and network cards, for example a DGX H200. 132 nodes × 8 = 1,056 GPUs.', 'Nodes tab; Equipment tab GPU rows; each tile of 8 squares in a pod card.', 'Each server has eight GPUs joined by NVLink so they act as one.', ['GPU', 'Pod', 'DGX / HGX']],
+['Pod', 'GPU cluster unit', 'gpu', 'Up to 32 nodes (256 GPUs) on one InfiniBand fabric. A large training job runs inside one pod.', 'Clusters tab: "TX-DC-022 · AI-POD-1 · 256 GPUs".', 'Your reserved cluster lives in one pod, so every GPU is one hop away.', ['Node', 'InfiniBand (IB)']],
+['H100 / H200', 'NVIDIA Hopper GPUs', 'gpu', 'NVIDIA datacenter GPUs. H100 has 80 GB of memory; H200 has 141 GB of faster HBM3e. Both draw about 700 W.', 'Pod and node model: "H200 SXM 141 GB".', 'H200 holds bigger models in memory, so training needs fewer GPUs.', ['HBM', 'SXM']],
+['SXM', '', 'gpu', 'The GPU form factor that plugs into the server board for full power and NVLink, as opposed to a PCIe card.', 'Model names "H100 SXM 80 GB".', '', ['NVLink']],
+['HBM', 'High-bandwidth memory', 'gpu', 'Very fast memory stacked next to the GPU chip. Its temperature is watched separately.', 'Node detail "HBM 67°C"; per-GPU memory column.', '', ['H100 / H200']],
+['NVLink / NVSwitch', '', 'gpu', 'NVIDIA\'s direct GPU-to-GPU connection inside one server, about 900 GB/s per GPU on H100.', 'DCGM NVLink counters; INC-0063 "NVLink errors".', '', ['Xid 74', 'Straggler']],
+['DGX / HGX', '', 'gpu', 'DGX is NVIDIA\'s own 8-GPU server. HGX is the 8-GPU board that Dell, Supermicro and others build servers around.', 'Equipment models: DGX H100, SYS-821GE-TNHR, XE9680.', '', ['Node']],
+['Job', 'Workload', 'gpu', 'A customer workload running on a set of GPUs: training, fine-tuning or inference.', 'Jobs tab; pod card footer "5 jobs running normally".', '', ['Training', 'Inference', 'Stalled']],
+['Training', 'Pre-training', 'gpu', 'Teaching a model from scratch on huge data. Runs for days or weeks on hundreds of GPUs.', 'Job names "national-llm-pretrain-70b".', '', ['Checkpoint', 'Stalled']],
+['Fine-tuning', '', 'gpu', 'Adapting an existing model to a task with smaller data. Hours to days on a few nodes.', 'Job names "-ft", "vit-finetune".', '', ['Training']],
+['Inference', 'Serving', 'gpu', 'Running a trained model to answer requests. Steady, smaller GPU use.', 'Job names "-serve".', '', ['Idle allocation']],
+['Checkpoint', '', 'gpu', 'A saved copy of the training state. If a job fails, it restarts from the last checkpoint and the work since then is lost.', 'Blast-radius card "Since the checkpoint 52 m"; "Work to redo".', 'Jobs save every hour, so a GPU failure costs at most an hour of work.', ['Work to redo']],
+['Stalled job', '', 'gpu', 'A job stopped because one GPU or node failed. All its GPUs wait, so the whole job is lost time.', 'GPU page "One failed GPU has stopped 144 GPUs"; INC-0061.', 'One bad GPU can stop a 144-GPU job, which is why we detect it in seconds.', ['Xid 79', 'Checkpoint']],
+['Slowed job / straggler', '', 'gpu', 'A job running slower because one node is slow; every step waits for the slowest GPU.', '"Slowest job · 152 GPUs running 24% slower".', '', ['Step time', 'Thermal slowdown']],
+['Step time', '', 'gpu', 'How long one training step takes. A rise against the baseline means the job slowed.', '"2.56 s vs 1.96 s".', '', ['MFU']],
+['MFU', 'Model FLOPs utilisation', 'gpu', 'How much of the GPUs\' theoretical maths capacity a training job really uses. 40–55% is good.', 'Job details.', '', ['Step time']],
+['Idle allocation', '', 'gpu', 'GPUs reserved to a job but doing almost nothing. Waste, not a fault.', '"16 GPUs held idle for 6 hours".', '', ['GPU time lost']],
+['Scheduler', 'Kubernetes, Slurm', 'gpu', 'Software that decides which job runs on which GPUs. Kubernetes for cloud, Slurm for HPC and enterprise.', 'Pod card "· Kubernetes".', '', ['Cordon / drain']],
+['Cordon / drain', '', 'gpu', 'Tell the scheduler to stop placing work on a node (cordon), then move existing work off it (drain).', 'Action plans "Cordon GPU-035 in the scheduler".', '', ['Spare node']],
+['Spare node', '', 'gpu', 'An idle node kept free to replace a failed one quickly.', 'Pod card "24 spare" (3 nodes × 8 GPUs).', 'We keep spare servers in every pod, so a failed one is swapped in minutes.', ['Cordon / drain']],
+['Burn-in', '', 'gpu', 'Stress-testing a new or repaired node before customers use it.', 'Node state "burn-in".', '', ['RMA']],
+['RMA', 'Return merchandise authorisation', 'gpu', 'Sending a failed part back to the vendor for replacement.', 'Node "RMA-…", "22 RMA".', '', ['Burn-in']],
+['Driver', 'NVIDIA driver', 'gpu', 'Software that lets the OS use the GPU. Nodes on an older driver are "drift".', 'Node driver "550.127.05"; "183 old driver"; driver rollout change.', '', []],
+['Throttling', 'Clock throttling', 'gpu', 'The GPU lowers its speed to protect itself from heat or power limits.', 'GPU page "64 GPUs throttled"; yellow squares.', '', ['Thermal slowdown', 'Power cap']],
+['Thermal slowdown', '', 'gpu', 'Throttling because the GPU is too hot, for example when coolant flow drops.', 'INC-0062 "4 GPU nodes in thermal slowdown".', '', ['CDU', 'Throttling']],
+
+/* DCGM */
+['DCGM', 'NVIDIA Data Center GPU Manager', 'dcgm', 'NVIDIA\'s tool that reads health and performance counters from every GPU.', 'AI & GPU "Live · DCGM telemetry every 30 s"; device tab "GPUs · DCGM".', 'We read NVIDIA\'s own counters from every GPU every 30 seconds.', ['DCGM exporter', 'Xid']],
+['DCGM exporter', '', 'dcgm', 'Publishes DCGM counters in Prometheus format so monitoring tools can collect them. Field names start with DCGM_FI_.', 'Telemetry tab field list.', '', ['DCGM']],
+['GPU utilisation', 'DCGM_FI_DEV_GPU_UTIL', 'dcgm', 'Share of time the GPU was busy. A rough measure; SM active is more precise.', 'Heat-map colours, "Util" column.', '', ['SM active']],
+['SM / SM active', 'Streaming multiprocessor · DCGM_FI_PROF_SM_ACTIVE', 'dcgm', 'SMs are the GPU\'s processing blocks. SM active is the share of them doing work.', 'Node detail "SM active 83%".', '', ['Tensor active']],
+['Tensor active', 'DCGM_FI_PROF_PIPE_TENSOR_ACTIVE', 'dcgm', 'Share of time the tensor cores (the AI maths units) are busy. High during training.', 'Profiling & traffic view.', '', ['SM / SM active']],
+['FB used', 'Framebuffer · DCGM_FI_DEV_FB_USED', 'dcgm', 'GPU memory in use, e.g. "121/141 GB".', 'Per-GPU Memory column.', '', ['HBM']],
+['GPU / HBM temperature', 'DCGM_FI_DEV_GPU_TEMP · MEMORY_TEMP', 'dcgm', 'Chip and memory temperatures. Above about 85 °C the GPU starts to throttle.', '"Temp · HBM 54° · 60°".', '', ['Thermal slowdown']],
+['Power / energy', 'DCGM_FI_DEV_POWER_USAGE · TOTAL_ENERGY_CONSUMPTION', 'dcgm', 'Watts drawn now and energy used.', '"99/700 W".', '', ['kW']],
+['Clock / P-state', 'DCGM_FI_DEV_SM_CLOCK; P0, P2, P8', 'dcgm', 'Clock speed and performance state. P0 is full speed, P8 idle.', '"345 MHz · P0"; Energy tile P0/P8.', '', ['Throttling']],
+['Throttle reasons', 'DCGM_FI_DEV_CLOCK_THROTTLE_REASONS', 'dcgm', 'Why a GPU slowed down: thermal, power cap or hardware slowdown.', 'Throttle column; "Heat & power" tile.', '', ['Throttling']],
+['ECC', 'Error-correcting code memory', 'dcgm', 'Memory that detects and fixes bit errors.', 'ECC column; "Hardware errors" tile.', '', ['SBE', 'DBE']],
+['SBE', 'Single-bit error', 'dcgm', 'A memory error ECC corrected automatically. Normal in small numbers; a rising count is a warning.', '"4 SBE" on a GPU.', '', ['DBE']],
+['DBE', 'Double-bit error (uncorrectable)', 'dcgm', 'A memory error ECC could not fix. The GPU must be reset; jobs on it may crash.', 'INC-0064 "Uncorrectable ECC".', '', ['Xid 48', 'Row remap']],
+['Retired pages / row remap', '', 'dcgm', 'The GPU stops using a bad memory area. A pending remap needs a GPU reset to take effect.', '"remap pending" on a node; action "reset the GPU to apply the row remap".', '', ['DBE']],
+['Xid', 'NVIDIA Xid error code', 'dcgm', 'Error codes the NVIDIA driver logs. Each number names a failure type.', 'Hardware errors tile "Xid events"; node detail "Last Xid".', 'Every GPU fault comes with an NVIDIA error code, so diagnosis is precise.', ['Xid 79', 'Xid 48', 'Xid 74']],
+['Xid 79', 'GPU has fallen off the bus', 'dcgm', 'The server lost contact with a GPU. The GPU is gone until the node is reset; often hardware.', 'INC-0061 "GPU fell off the bus".', '', ['Stalled job', 'PCIe replay']],
+['Xid 48', 'Double-bit ECC error', 'dcgm', 'An uncorrectable memory error on the GPU.', 'INC-0064.', '', ['DBE']],
+['Xid 74', 'NVLink error', 'dcgm', 'Errors on the GPU-to-GPU links inside a server; the job slows to the faulty GPU\'s pace.', 'INC-0063 "NVLink errors on GPU-033".', '', ['NVLink / NVSwitch']],
+['PCIe replay', 'DCGM_FI_DEV_PCIE_REPLAY_COUNTER', 'dcgm', 'Retransmissions on the link between GPU and server board. A jump often comes before an Xid 79.', 'Telemetry leaders "Most PCIe replays".', '', ['Xid 79']],
+
+/* operations */
+['Alarm / alert', '', 'ops', 'A signal from a device or sensor that something is wrong. Many alarms can belong to one incident.', 'Alerts page; Alarms column.', '', ['Alarm severity', 'Incident', 'Correlation']],
+['Alarm severity', 'Critical · Major · Minor · Warning', 'ops', 'How bad the device fault is, as reported by the equipment (industry standard X.733 scale).', 'Alerts page filters and chips.', '', ['Incident severity']],
+['Incident', 'INC-0001…', 'ops', 'A problem a person owns and fixes, grouping related alarms, with an owner, SLA clock, root cause and action plan.', 'Incidents page and incident workspace.', '', ['Incident severity', 'RCA']],
+['Incident severity', 'Critical · High · Medium · Low', 'ops', 'How much the business is hurt. Critical: outage or site at risk. High: service degraded or big job stalled. Medium: limited impact. Low: no customer impact.', 'Severity chips on incidents, command center headline.', '', ['Alarm severity', 'Priority']],
+['Priority (P1–P4)', '', 'ops', 'How urgently to work an incident. Usually equals severity; shown only when it differs.', 'Incident page Severity card.', '', ['Incident severity']],
+['Acknowledge', 'Ack', 'ops', 'An engineer confirms they have seen an alarm or incident and taken it.', 'Acknowledge buttons; "6 not acknowledged".', '', ['Response SLA']],
+['Response / resolution SLA', '', 'ops', 'Time targets: respond (acknowledge) within X minutes, resolve within Y hours, set by severity.', 'Incident page "Response SLA · Breached", "Overdue 6h 41m".', '', ['MTTR']],
+['MTTR', 'Mean time to resolve', 'ops', 'Average time from detection to fix.', 'Incidents analytics "Resolution · 30 days".', 'Our mean time to resolve is under a day, and critical issues much faster.', ['Response / resolution SLA']],
+['Scope', 'Site · edge · dependency · downstream', 'ops', 'Where an alarm sits relative to a datacenter: inside it, on a link leaving it, on something it relies on, or at a remote site that relies on it.', 'Alarm chips "Site", "Edge"; incident "Downstream symptoms".', '', ['Correlation']],
+['Correlation', '', 'ops', 'Grouping alarms that share one cause into one incident, so engineers see one problem instead of fifty alarms.', 'Incident "Correlated alerts".', 'Fifty alarms become one incident with one owner.', ['RCA']],
+['RCA', 'Root-cause analysis', 'ops', 'Finding the real cause. The tool ranks hypotheses with a confidence score and evidence.', 'Incident "AI diagnostics · root-cause hypotheses".', 'The tool proposes the likely cause with evidence, and engineers confirm it.', ['Opstral AI']],
+['Action plan', 'Runbook steps', 'ops', 'Ordered fix steps with owner, expected result, rollback and check. Disruptive steps need approval.', 'Incident "Action plan"; command center "What to do next".', '', ['Change']],
+['Change / maintenance', 'CHG-2001…', 'ops', 'Planned work on equipment, with a time window, risk level, approver and rollback plan.', 'Changes & maintenance page; "after CHG-2005" on incidents.', '', ['Rollback', 'Emergency change']],
+['Rollback', '', 'ops', 'Undoing a change that went wrong.', 'Change status "Rolled back".', '', ['Change / maintenance']],
+['Emergency change', '', 'ops', 'An unplanned change raised to fix a live incident, approved fast.', 'Incident button "Raise emergency change".', '', ['Change / maintenance']],
+['Closure verification', '', 'ops', 'Checks that must pass before an incident is resolved: alarms cleared, health green 15 minutes, services back in SLA.', 'Incident "Closure verification".', '', []],
+['NOC', 'Network operations center', 'ops', 'The team watching the estate 24×7.', 'Owners "NOC"; command center is the NOC view.', '', ['Field ops']],
+['Field ops', 'Field operations', 'ops', 'Engineers who go on site to replace parts and cables.', 'Action plan owners.', '', ['NOC']],
+['Collector', 'Telemetry collector', 'ops', 'The software that polls devices for telemetry. "Stale" means it stopped reporting.', '"polled via COL-TX-DC-022-1"; incident "collector stale".', '', []],
+
+/* money */
+['SLA', 'Service-level agreement', 'money', 'The promised availability of a service, such as 99.9% a month. Missing it triggers service credits.', 'Customer and service pages "SLA · 30 d", "target 99.9%".', '99.9% allows about 43 minutes of downtime a month; 99.99% about 4 minutes.', ['Service credit', 'Uptime']],
+['Uptime / availability', '', 'money', 'Share of time a service worked over the period, e.g. 99.92% over 30 days.', '"Uptime 30 d" columns.', '', ['SLA']],
+['Service credit', 'SLA credit', 'money', 'A refund owed when availability falls below the SLA. In the tool: 10%, 25% or 50% of the monthly charge by how far it fell.', 'Revenue impact "Service credits owed"; "Next credit step".', '', ['SLA', 'Next credit step']],
+['Losing now', 'Revenue rate', 'money', 'Revenue being lost per hour by services that are down or degraded. Monthly charge ÷ 730 hours; degraded counts 30%.', 'Revenue impact tile "Losing now ₹51,137/h".', '', ['Impact so far']],
+['Impact so far', '', 'money', 'Revenue already lost plus credits already triggered since each issue began.', 'Revenue impact tile.', '', ['Losing now']],
+['At stake', 'Exposed revenue', 'money', 'Monthly revenue of services still running but one failure away from going down, such as on a UPS on battery.', 'Revenue impact "At stake /mo"; "Most at stake" card.', '', ['Exposed']],
+['Next credit step', '', 'money', 'When the next service-credit tier will be reached if the issue continues, and how much it adds.', '"₹22.80 L in 7 m".', 'The tool tells us how many minutes we have before the next penalty starts.', ['Service credit']],
+['Committed / premium customer', '', 'money', 'A customer on a long contract or higher SLA. NeoCloud calls them Committed; telco calls them Premium.', 'Chips "Committed", "Premium".', '', ['SLA']],
+['Reservation', '', 'money', 'What a NeoCloud customer buys: a reserved GPU cluster, on-demand GPUs, storage or CPU instances.', 'Customers tab "Reservations"; services.', '', ['GPU-hour']],
+['GPU-hour', '', 'money', 'One GPU used for one hour, the billing unit of a GPU cloud. List price in the tool: ₹205 or $4.11.', 'GPU page footer; GPU time lost.', '', ['GPU time lost']],
+['GPU time lost', '', 'money', 'Productive GPU time wasted: stalled jobs lose all their GPUs, slowed jobs the share of time lost, idle allocations everything held.', 'GPU page "GPU time lost ₹46,301/h".', '', ['Work to redo']],
+['Work to redo', '', 'money', 'GPU time since the last checkpoint that must be repeated after a crash.', 'Blast-radius card "Work to redo ₹25,644".', '', ['Checkpoint']],
+['OLA / charge-back', 'Operational-level agreement', 'money', 'Enterprise versions of SLA and billing: internal service targets and internal charging to business units.', 'Enterprise persona money words.', '', ['SLA']],
+['MRR', 'Monthly recurring revenue', 'money', 'What customers pay every month. The base for all revenue maths.', 'Revenue "of ₹220.52 Cr".', '', []],
+
+/* business models */
+['Telco DC', 'Network persona', 'biz', 'A telecom operator\'s datacenter full of routers, switches and DWDM, selling circuits (L3VPN, leased lines).', 'Persona switch "Network / Telco DC".', '', ['PE router', 'DWDM']],
+['Colocation', '', 'biz', 'Rents space, power and cooling. Tenants bring their own equipment, which the operator does not see inside.', 'Persona "Colocation"; tenant cabinets.', 'You bring your servers; we guarantee the building, power, cooling and connectivity.', ['Tenant', 'Cage', 'Power budget']],
+['Tenant', '', 'biz', 'A colocation customer.', 'Colocation persona vocabulary.', '', ['Colocation']],
+['Cloud', '', 'biz', 'Sells virtual machines, storage, databases and GPU clusters from its own servers.', 'Persona "Cloud".', '', []],
+['Enterprise / private DC', '', 'biz', 'A company running its own datacenter for its own business units.', 'Persona "Enterprise".', '', ['OLA / charge-back']],
+['NeoCloud', 'GPU cloud', 'biz', 'A provider whose business is renting GPUs to AI teams: reserved clusters and on-demand GPUs. Examples: CoreWeave, Lambda, Yotta.', 'Persona "NeoCloud / GPU cloud".', 'We rent you GPUs by the hour or reserve a whole cluster for months.', ['GPU-hour', 'Reservation']],
+
+/* tool */
+['Command center', '', 'tool', 'The landing page: operations health, live map, six vitals, critical incidents, impact, recommendations and causes.', 'Left menu, first item.', '', ['Operations health']],
+['Operations health', '', 'tool', 'A 0–100 score with four areas: incident response, network or fabric, power, cooling. Watch, Attention or Critical.', 'Command center health ring.', '', []],
+['Opstral AI', '', 'tool', 'The built-in assistant: answers questions about the estate, ranks fixes and explains root causes.', '"Ask Opstral AI" buttons.', 'You can ask the tool in plain language what is costing the most right now.', ['RCA']],
+['Persona switch', '', 'tool', 'Top-bar dropdown that shows the same estate as one of five business models.', 'Top bar "Persona"; URL ?persona=neocloud.', '', ['NeoCloud']],
+['Geography switch', '', 'tool', 'Shows the estate in India (₹) or the USA ($).', 'Top bar "Geography"; URL ?geo=us.', '', []],
+['Analytics strip', '', 'tool', 'The row of six summary tiles at the top of list pages. Tiles and pills are clickable filters.', 'Datacenters, Alerts, Incidents, Changes, Revenue, AI & GPU.', '', []]
+];
+
+const QA = [
+  ['What does Tier III or Tier IV mean for my service?', 'Tier is the Uptime Institute rating of a site\'s redundancy. Tier III can be maintained without shutting anything down, about 99.982% design availability. Tier IV keeps running through any single fault in power or cooling, about 99.995%.', 'Datacenters list and the datacenter header show each site\'s tier.'],
+  ['What happens if the grid power fails?', 'The UPS batteries carry the load instantly. The generators start and take over within about a minute and run for hours on fuel. The tool shows the battery clock in minutes and the generator fuel hours, so the team acts before anything runs out.', 'Facilities → Power: "If utility power fails". The UPS incident INC-0002 is a live example.'],
+  ['What does PUE 1.4 mean?', 'For every 1 kW delivered to your equipment, the site uses 0.4 kW more for cooling, lighting and losses. Lower is better, and 1.0 would be perfect.', 'Command center pulse and the Metrics tab.'],
+  ['How do you know a GPU is about to fail?', 'We read NVIDIA DCGM counters from every GPU every 30 seconds: temperature, memory errors (ECC), PCIe replays, NVLink errors and Xid error codes. A rising count of corrected memory errors or PCIe replays usually comes before a hard failure, so the node can be drained at the next checkpoint.', 'AI & GPU → Telemetry tab leader panels; device page "GPUs · DCGM".'],
+  ['One GPU failed. Why did my whole training job stop?', 'A training job runs on all its GPUs in lockstep, so every step waits for every GPU. If one GPU drops out, all of them wait. The job restarts from its last checkpoint on a spare node; only the work since that checkpoint is repeated.', 'GPU page "Biggest blast radius": one failed GPU stopped 144 GPUs, 52 minutes since the checkpoint.'],
+  ['Why do you need InfiniBand and not just Ethernet?', 'GPUs training one model exchange huge amounts of data every step. InfiniBand gives 400 Gb/s per GPU with very low latency, so hundreds of GPUs act as one machine. Ethernet carries storage, user access and internet traffic on a separate network.', 'Device Links tab "Fabric connections": InfiniBand, Ethernet front-end, Management.'],
+  ['Why are your GPU halls liquid-cooled?', 'A rack of H200 servers can draw over 40 kW. Air cannot remove that much heat, so coolant is piped to plates on each GPU through a CDU. If coolant flow drops, the GPUs slow down to protect themselves, and the tool raises it as a cooling incident.', 'INC-0062 "CDU flow low · 4 GPU nodes in thermal slowdown".'],
+  ['What does a 99.9% SLA allow?', 'About 43 minutes of downtime in a 30-day month. 99.95% allows about 22 minutes and 99.99% about 4 minutes. Below the target, a service credit is paid.', 'Customer page and service page "SLA · 30 d".'],
+  ['Can you show what an outage costs us?', 'Yes. Each open issue shows revenue lost per hour, the total so far, service credits triggered, and when the next credit step starts. Issues are ranked by money, not only by severity.', 'Revenue impact page; the Revenue impact panel on each incident.'],
+  ['How quickly do you react to a problem?', 'Alarms arrive in real time and are grouped into incidents. Each incident has response and resolution targets by severity, an owner and a ranked action plan. Average resolution time is shown on the Incidents page.', 'Incidents analytics "Resolution · 30 days" (MTTR).'],
+  ['Is my equipment separated from other customers?', 'In colocation each tenant has locked cabinets or a cage with its own contracted power. In a GPU cloud your reserved cluster runs on its own nodes within a pod, with separate networks for compute, storage and management.', 'Colocation tenant cabinets; NeoCloud pod and reservation pages.'],
+  ['What is the difference between an alarm and an incident?', 'An alarm is a signal from one device, such as "link down". An incident is the problem a person owns, grouping all the alarms with the same cause. Alarms use Critical, Major, Minor and Warning; incidents use Critical, High, Medium and Low by business impact.', 'Alerts page and Incidents page.']
+];
+
+/* ------------------------------------------------------------------ explainers */
+const LADDER = [
+  { k: 'site', name: 'Datacenter', n: 'TX-DC-022 · Houston', what: 'The whole building with its power plant, cooling plant, security and network connections to other sites.', facts: [['Tier', 'Tier III'], ['Floors', '2'], ['GPU nodes', '132'], ['GPUs', '1,056']], terms: ['Datacenter (DC)', 'Tier', 'Edge redundancy'] },
+  { k: 'hall', name: 'Floor and hall', n: 'GPU hall A', what: 'Rooms full of racks in rows, with their own cooling units and temperature sensors.', facts: [['Rooms', '4'], ['Racks per room', '≈ 13'], ['Cooling', 'Liquid + CRAH']], terms: ['Floor / Hall', 'CRAH', 'Zone'] },
+  { k: 'rack', name: 'Rack', n: 'RACK-J1', what: 'A 45U frame holding a few GPU servers, with two power strips (A and B) and a liquid-cooling manifold.', facts: [['Height', '45U'], ['GPU servers', '4–5'], ['Power', '≈ 40 kW']], terms: ['Rack', 'U (rack unit)', 'A+B feed', 'Power budget'] },
+  { k: 'pod', name: 'Pod', n: 'AI-POD-1', what: 'Up to 32 GPU servers wired to the same InfiniBand switches. A big training job stays inside one pod.', facts: [['Nodes', '32'], ['GPUs', '256'], ['Spare', '3 nodes'], ['Power', '207 kW']], terms: ['Pod', 'InfiniBand (IB)', 'Spare node'] },
+  { k: 'node', name: 'Node (GPU server)', n: 'TX-DC-022-GPU-014', what: 'One server such as a DGX H200: 8 GPUs joined by NVLink, CPUs, memory, eight 400G InfiniBand ports, Ethernet and a management port.', facts: [['GPUs', '8'], ['Height', '≈ 8U'], ['Power', '≈ 10 kW'], ['Ports', '8 × 400G IB']], terms: ['Node', 'DGX / HGX', 'NVLink / NVSwitch', 'BMC'], pic: true },
+  { k: 'gpu', name: 'GPU', n: 'GPU3 · H200', what: 'One accelerator chip with 141 GB of HBM memory. This is what customers rent by the hour, and what DCGM measures.', facts: [['Memory', '141 GB HBM3e'], ['Power', 'up to 700 W'], ['Price', '₹205 / $4.11 per hour']], terms: ['GPU', 'H100 / H200', 'DCGM', 'Xid'] }
+];
+const POWER = [
+  { name: 'Utility feeds A and B', n: 'grid', what: 'Two separate grid connections. Losing one is an alarm; the other or the UPS carries on.', terms: ['Utility feed'] },
+  { name: 'ATS', n: 'switch', what: 'Switches to the generator automatically when the grid fails. Left in MANUAL, it does nothing by itself, which is the root cause of the UPS incident in the demo.', terms: ['ATS', 'DG'] },
+  { name: 'UPS', n: 'battery', what: 'Holds the load for minutes on battery while generators start. "On battery" is a countdown.', terms: ['UPS', 'On battery', 'Runtime'] },
+  { name: 'Generator (DG)', n: 'diesel', what: 'Takes over long outages and runs for hours on fuel. Tested with load-bank tests.', terms: ['DG', 'Load-bank test'] },
+  { name: 'PDU', n: 'distribution', what: 'Splits power out to rows and racks, on two independent paths A and B.', terms: ['PDU', '2N'] },
+  { name: 'Rack PDU A + B', n: 'in the rack', what: 'Two power strips per rack. Each server plugs one power supply into each strip.', terms: ['A+B feed', 'Power budget'] },
+  { name: 'Server PSUs', n: 'in the device', what: 'Two power supplies per server. "Running on single PSU" means one has failed and there is no backup left.', terms: ['PSU'] }
+];
+const NETS = [
+  ['InfiniBand compute fabric', '400G NDR', ['GPU to GPU across servers for training', '8 ports per GPU server, one per GPU (rails)', 'IB-LEAF and IB-SPINE switches (NVIDIA Quantum-2)', 'Fault example: "InfiniBand rail flapping" slows a job']],
+  ['Ethernet front-end', '100G', ['Storage, user access, internet', 'Storage and CPU servers connect here', 'ETH-LEAF and ETH-SPINE switches, BGP between them', 'Fault example: "CPU-0011 lost both front-end uplinks"']],
+  ['Management (OOB)', '1G', ['Remote power, console and hardware health', 'Every server\'s BMC port (mgmt0)', 'OOB switches', 'Works even when the server or main network is down']]
+];
+
+/* ------------------------------------------------------------------ state */
+const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+const learned = new Set(store.get('dcfg.learned', []));
+let mode = 'glossary', area = 'all', query = '', ladderSel = 'node', powerSel = 2, deck = [], deckIdx = 0, flipped = false;
+const byName = new Map(T.map(t => [t[0], t]));
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const findTerm = name => byName.get(name) || T.find(t => t[0].toLowerCase().startsWith(name.toLowerCase()));
+
+function renderStats() {
+  const pct = Math.round(learned.size / T.length * 100);
+  document.getElementById('stats').innerHTML = `<span><b>${T.length}</b> terms</span><span><b>${AREAS.length}</b> areas</span><span><b>${QA.length}</b> customer questions</span>
+    <span class="progress"><span>You know <b>${learned.size}</b> of ${T.length}</span><span class="bar" aria-hidden="true"><i style="width:${pct}%"></i></span></span>`;
+}
+function renderChips() {
+  const el = document.getElementById('catChips');
+  el.hidden = mode !== 'glossary' && mode !== 'cards';
+  const counts = Object.fromEntries(AREAS.map(([k]) => [k, T.filter(t => t[2] === k).length]));
+  el.innerHTML = [['all', 'All areas', T.length], ...AREAS.map(([k, n]) => [k, n, counts[k]])]
+    .map(([k, n, c]) => `<button class="chip" data-area="${k}" aria-pressed="${area === k}">${esc(n)} <span class="n">${c}</span></button>`).join('');
+}
+
+function card(t) {
+  const [name, full, ar, what, tool, say, rel] = t, id = 't-' + slug(name), on = learned.has(name);
+  const areaName = AREAS.find(a => a[0] === ar)[1];
+  return `<article class="card${on ? ' learned' : ''}" id="${id}">
+    <div class="card-h"><div><div class="term">${esc(name)}</div>${full ? `<div class="full">${esc(full)}</div>` : ''}</div><span class="tagcat">${esc(areaName)}</span></div>
+    <p class="what">${esc(what)}</p>
+    <div class="more" hidden>
+      <div><div class="row-l">Where you see it</div><p class="tool">${esc(tool)}</p></div>
+      ${say ? `<div><div class="row-l">Say it to a customer</div><p class="say">${esc(say)}</p></div>` : ''}
+      ${rel && rel.length ? `<div><div class="row-l">Related</div><div class="related">${rel.filter(r => findTerm(r)).map(r => `<button class="rel" data-go="${esc(findTerm(r)[0])}">${esc(r)}</button>`).join('')}</div></div>` : ''}
+    </div>
+    <div class="card-f"><button class="linkbtn" data-more>Where it appears and what to say</button><button class="learn" data-learn="${esc(name)}" aria-pressed="${on}">${on ? 'I know this ✓' : 'Mark as known'}</button></div>
+  </article>`;
+}
+function renderGlossary() {
+  const hide = document.getElementById('hideLearned').checked;
+  const q = query.trim().toLowerCase();
+  const match = t => (area === 'all' || t[2] === area) && (!hide || !learned.has(t[0])) && (!q || t.slice(0, 6).join(' ').toLowerCase().includes(q));
+  const groups = AREAS.map(([k, n, d]) => [k, n, d, T.filter(t => t[2] === k && match(t))]).filter(g => g[3].length);
+  document.getElementById('view').innerHTML = groups.length ? groups.map(([k, n, d, ts]) => `<section class="group" aria-labelledby="g-${k}">
+      <div class="group-h"><h2 id="g-${k}">${esc(n)}</h2><p>${esc(d)} · ${ts.length}</p></div>
+      <div class="grid">${ts.map(card).join('')}</div></section>`).join('')
+    : `<p class="empty">No term matches "${esc(query)}". Try a shorter word, or clear "Hide terms I know".</p>`;
+}
+
+function termBtns(list) { return `<div class="terms">${list.filter(findTerm).map(r => `<button class="rel" data-go="${esc(findTerm(r)[0])}">${esc(r)}</button>`).join('')}</div>`; }
+function renderExplain() {
+  const L = LADDER.find(x => x.k === ladderSel), P = POWER[powerSel];
+  const pic = L.pic ? `<div class="fact"><div class="row-l">One node as the tool draws it</div><div class="nodepic" aria-label="8 GPUs: 6 busy, 1 degraded, 1 idle">${'<i></i>'.repeat(6)}<i class="d"></i><i class="s"></i></div>
+     <div class="legend"><span><i style="background:var(--accent)"></i>busy</span><span><i style="background:var(--warn)"></i>degraded</span><span><i style="background:var(--bad)"></i>failed</span><span><i style="background:var(--line-2)"></i>idle / spare</span></div></div>` : '';
+  document.getElementById('view').innerHTML = `<div class="ex">
+    <section class="panel" aria-labelledby="ex1">
+      <div><h2 id="ex1">From the building down to one GPU</h2><p class="sub">Click a level. The numbers are TX-DC-022 in the NeoCloud demo: 5 pods, 132 nodes, 1,056 GPUs.</p></div>
+      <div class="chain">${LADDER.map((x, i) => `${i ? '<span class="arrow" aria-hidden="true">›</span>' : ''}<button class="step" data-ladder="${x.k}" aria-pressed="${x.k === ladderSel}"><b>${esc(x.name)}</b><small>${esc(x.n)}</small></button>`).join('')}</div>
+      <div class="detail"><div class="body"><h3>${esc(L.name)}</h3><p>${esc(L.what)}</p>${termBtns(L.terms)}</div>
+        <div style="display:grid;gap:10px;align-content:start"><div class="fact"><div class="row-l">${esc(L.n)}</div><dl>${L.facts.map(([a, b]) => `<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join('')}</dl></div>${pic}</div></div>
+    </section>
+
+    <section class="panel" aria-labelledby="ex2">
+      <div><h2 id="ex2">The power path</h2><p class="sub">How electricity reaches a server, and what takes over when something fails. Click a step.</p></div>
+      <div class="chain">${POWER.map((x, i) => `${i ? '<span class="arrow" aria-hidden="true">›</span>' : ''}<button class="step" data-power="${i}" aria-pressed="${i === powerSel}"><b>${esc(x.name)}</b><small>${esc(x.n)}</small></button>`).join('')}</div>
+      <div class="detail"><div class="body"><h3>${esc(P.name)}</h3><p>${esc(P.what)}</p>${termBtns(P.terms)}</div>
+        <div class="fact"><div class="row-l">If the grid fails</div><dl><dt>0 s</dt><dd>UPS on battery</dd><dt>≈ 10–60 s</dt><dd>Generators start, ATS transfers</dd><dt>minutes</dt><dd>UPS recharges</dd><dt>hours</dt><dd>Generators run on fuel</dd></dl></div></div>
+    </section>
+
+    <section class="panel" aria-labelledby="ex3">
+      <div><h2 id="ex3">The three networks in a GPU cloud</h2><p class="sub">Every cable belongs to one of these. The device Links tab groups cables the same way.</p></div>
+      <div class="nets">${NETS.map(([h, s, li]) => `<div class="net"><h3>${esc(h)} <span class="spd">${esc(s)}</span></h3><ul>${li.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`).join('')}</div>
+    </section>
+
+    <section class="panel" aria-labelledby="ex4">
+      <div><h2 id="ex4">Two severity scales</h2><p class="sub">Alarms say how bad a device fault is. Incidents say how much the business is hurt.</p></div>
+      <div class="scales">
+        <div class="scale"><div class="row-l">Alarm (from the device)</div>
+          <div class="lvl"><span class="pill p-crit">Critical</span><span>Device or service down now</span></div>
+          <div class="lvl"><span class="pill p-high">Major</span><span>Serious fault, service at risk</span></div>
+          <div class="lvl"><span class="pill p-med">Minor</span><span>Fault with little effect yet</span></div>
+          <div class="lvl"><span class="pill p-low">Warning</span><span>Something to watch</span></div></div>
+        <div class="scale"><div class="row-l">Incident (business impact)</div>
+          <div class="lvl"><span class="pill p-crit">Critical</span><span>Outage or a whole site at risk, e.g. UPS on battery</span></div>
+          <div class="lvl"><span class="pill p-high">High</span><span>Service degraded or a large job stalled</span></div>
+          <div class="lvl"><span class="pill p-med">Medium</span><span>Limited impact, one node or cable</span></div>
+          <div class="lvl"><span class="pill p-low">Low</span><span>No customer impact</span></div></div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="ex5">
+      <div><h2 id="ex5">SLA and money calculator</h2><p class="sub">The same arithmetic the Revenue impact page uses. Change the numbers.</p></div>
+      <div class="calc">
+        <label for="c-sla">SLA target (%)<input id="c-sla" type="number" step="0.01" min="90" max="99.999" value="99.9"></label>
+        <label for="c-mrr">Monthly charge (₹)<input id="c-mrr" type="number" step="1000" min="0" value="2160000"></label>
+        <label for="c-down">Downtime this month (minutes)<input id="c-down" type="number" step="1" min="0" value="60"></label>
+        <label for="c-gpu">GPUs in a stalled job<input id="c-gpu" type="number" step="8" min="0" value="144"></label>
+      </div>
+      <div class="calc" id="calcOut" aria-live="polite"></div>
+    </section>
+  </div>`;
+  calc();
+}
+function calc() {
+  const v = id => Number(document.getElementById(id)?.value || 0);
+  const sla = v('c-sla'), mrr = v('c-mrr'), down = v('c-down'), gpus = v('c-gpu');
+  const mins = 30 * 24 * 60, allowed = mins * (1 - sla / 100), up = 100 * (1 - down / mins), short = sla - up;
+  const tier = short <= 0 ? 0 : short >= 2 ? 50 : short >= 0.5 ? 25 : 10;
+  const inr = n => '₹' + Math.round(n).toLocaleString('en-IN');
+  const out = document.getElementById('calcOut'); if (!out) return;
+  out.innerHTML = `<div class="out">${allowed.toFixed(1)} min<small>downtime allowed in 30 days</small></div>
+    <div class="out">${up.toFixed(3)}%<small>availability this month</small></div>
+    <div class="out">${inr(mrr / 730)}/h<small>revenue rate (monthly ÷ 730 h)</small></div>
+    <div class="out">${tier ? `${tier}% · ${inr(mrr * tier / 100)}` : 'none'}<small>service credit (10 / 25 / 50% tiers)</small></div>
+    <div class="out">${inr(gpus * 205)}/h<small>GPU time lost at ₹205 per GPU-hour</small></div>`;
+}
+
+function renderQuestions() {
+  document.getElementById('view').innerHTML = `<div class="qa">${QA.map(([q, a, s], i) => `<details class="q" ${i === 0 ? 'open' : ''}><summary>${esc(q)}</summary>
+    <div class="a"><p>${esc(a)}</p><p class="show"><b>Show it in the tool:</b> ${esc(s)}</p></div></details>`).join('')}</div>`;
+}
+
+function buildDeck() { deck = T.filter(t => (area === 'all' || t[2] === area) && !learned.has(t[0])); if (!deck.length) deck = T.filter(t => area === 'all' || t[2] === area); deckIdx = 0; flipped = false; }
+function renderCards() {
+  if (!deck.length) buildDeck();
+  const t = deck[deckIdx % deck.length];
+  document.getElementById('view').innerHTML = `<div class="fc">
+    <p class="fc-count">${area === 'all' ? 'All areas' : esc(AREAS.find(a => a[0] === area)[1])} · card ${deckIdx % deck.length + 1} of ${deck.length} · terms you know are skipped</p>
+    <div class="fc-card" id="fcCard" role="button" tabindex="0" aria-label="Flip card">
+      ${flipped ? `<div class="big" style="font-size:20px">${esc(t[0])}</div><div class="ans"><p>${esc(t[3])}</p>${t[5] ? `<p class="say">${esc(t[5])}</p>` : ''}<p class="tool"><b>In the tool:</b> ${esc(t[4])}</p></div>`
+        : `<div class="big">${esc(t[0])}</div>${t[1] ? `<div class="hint">${esc(t[1])}</div>` : ''}<div class="hint">What does it mean? Click to flip.</div>`}
+    </div>
+    <div class="fc-bar"><button class="btn" data-fc="prev">Previous</button><button class="btn primary" data-fc="flip">${flipped ? 'Hide answer' : 'Show answer'}</button>
+      <button class="btn good" data-fc="know">I knew it</button><button class="btn" data-fc="next">Next</button><button class="btn" data-fc="shuffle">Shuffle</button></div>
+  </div>`;
+}
+
+function render() {
+  document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.mode === mode)));
+  document.getElementById('glossaryControls').hidden = mode !== 'glossary';
+  renderChips(); renderStats();
+  ({ glossary: renderGlossary, explain: renderExplain, questions: renderQuestions, cards: renderCards })[mode]();
+}
+function goTerm(name) {
+  mode = 'glossary'; area = 'all'; query = ''; document.getElementById('q').value = ''; document.getElementById('hideLearned').checked = false; render();
+  const el = document.getElementById('t-' + slug(name)); if (!el) return;
+  el.querySelector('.more').hidden = false; el.querySelector('[data-more]').textContent = 'Hide details';
+  el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+  el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+}
+
+/* ------------------------------------------------------------------ events */
+document.addEventListener('click', e => {
+  const b = e.target.closest('button, .fc-card'); if (!b) return;
+  if (b.dataset.mode) { mode = b.dataset.mode; if (mode === 'cards') buildDeck(); store.set('dcfg.mode', mode); try { history.replaceState(null, '', '#' + mode); } catch {} render(); window.scrollTo({ top: 0 }); return; }
+  if (b.dataset.area) { area = b.dataset.area; if (mode === 'cards') buildDeck(); render(); return; }
+  if (b.dataset.go) { goTerm(b.dataset.go); return; }
+  if (b.hasAttribute('data-more')) { const m = b.closest('.card').querySelector('.more'); m.hidden = !m.hidden; b.textContent = m.hidden ? 'Where it appears and what to say' : 'Hide details'; return; }
+  if (b.dataset.learn) { const n = b.dataset.learn; learned.has(n) ? learned.delete(n) : learned.add(n); store.set('dcfg.learned', [...learned]);
+    b.setAttribute('aria-pressed', String(learned.has(n))); b.textContent = learned.has(n) ? 'I know this ✓' : 'Mark as known'; b.closest('.card').classList.toggle('learned', learned.has(n)); renderStats(); return; }
+  if (b.dataset.ladder) { ladderSel = b.dataset.ladder; renderExplain(); return; }
+  if (b.dataset.power) { powerSel = Number(b.dataset.power); renderExplain(); return; }
+  if (b.id === 'fcCard' || b.dataset.fc === 'flip') { flipped = !flipped; renderCards(); return; }
+  if (b.dataset.fc === 'next') { deckIdx = (deckIdx + 1) % deck.length; flipped = false; renderCards(); return; }
+  if (b.dataset.fc === 'prev') { deckIdx = (deckIdx - 1 + deck.length) % deck.length; flipped = false; renderCards(); return; }
+  if (b.dataset.fc === 'shuffle') { for (let i = deck.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [deck[i], deck[j]] = [deck[j], deck[i]]; } deckIdx = 0; flipped = false; renderCards(); return; }
+  if (b.dataset.fc === 'know') { const t = deck[deckIdx % deck.length]; learned.add(t[0]); store.set('dcfg.learned', [...learned]); deck.splice(deckIdx % deck.length, 1); if (!deck.length) buildDeck(); deckIdx = deckIdx % deck.length; flipped = false; renderStats(); renderCards(); return; }
+});
+document.addEventListener('keydown', e => { if (e.target.id === 'fcCard' && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); flipped = !flipped; renderCards(); } });
+document.addEventListener('input', e => { if (e.target.id === 'q') { query = e.target.value; renderGlossary(); } else if (e.target.closest('.calc')) calc(); });
+document.getElementById('hideLearned').addEventListener('change', renderGlossary);
+
+const h = (location.hash || '').slice(1);
+mode = ['glossary', 'explain', 'questions', 'cards'].includes(h) ? h : store.get('dcfg.mode', 'glossary');
+if (!['glossary', 'explain', 'questions', 'cards'].includes(mode)) mode = 'glossary';
+if (mode === 'cards') buildDeck();
+render();
+</script>
+
+</body>
+</html>
