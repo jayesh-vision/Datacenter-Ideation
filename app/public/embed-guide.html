@@ -59,6 +59,10 @@ th { font-weight: 500; color: var(--ink-500); font-size: 12.5px; background: var
 .dcs em { font-style: normal; color: var(--ink-500); }
 .note { padding: 10px 14px; border-radius: 10px; background: var(--brand-50); color: var(--ink-900); font-size: 13.5px; margin-top: 12px; }
 .card.table { padding: 0; overflow-x: auto; }
+.cmp td:first-child { color: var(--ink-500); white-space: nowrap; }
+#reference h3 { margin: 22px 0 8px; font-size: 15px; font-weight: 500; color: var(--ink-900); }
+#reference td.num { font-family: Inter, sans-serif; white-space: nowrap; }
+.small-note { margin: 8px 0 0; font-size: 12.5px; color: var(--ink-500); }
 @media (max-width: 860px) { .grid2 { grid-template-columns: minmax(0, 1fr); } .dcs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>
 </head>
@@ -66,7 +70,7 @@ th { font-weight: 500; color: var(--ink-500); font-size: 12.5px; background: var
 <header class="top"><div class="top-in">
   <div class="brand"><span class="brand-ic">DC</span><div><b>Data Center Ops · Embed guide</b><span>Every screen by URL · iframe-ready</span></div></div>
   <label class="ctl">Site <select id="base"><option value="https://datacenter-ideation.vercel.app">Live</option><option value="http://localhost:5181">Local 5181</option></select></label>
-  <label class="ctl">Persona <select id="persona"><option value="">(keep current)</option><option value="network">Telco</option><option value="colocation">Colocation</option><option value="cloud">Cloud</option><option value="enterprise">Enterprise</option></select></label>
+  <label class="ctl">Persona <select id="persona"><option value="">(keep current)</option><option value="network">Telco</option><option value="colocation">Colocation</option><option value="cloud">Cloud</option><option value="enterprise">Enterprise</option><option value="neocloud">NeoCloud</option></select></label>
   <label class="ctl">Geography <select id="geo"><option value="">(keep current)</option><option value="in">India · ₹</option><option value="us">USA · $</option></select></label>
   <button type="button" class="tgl" id="shell" aria-pressed="false"><i></i>Menu &amp; header</button>
 </div></header>
@@ -81,10 +85,20 @@ th { font-weight: 500; color: var(--ink-500); font-size: 12.5px; background: var
       <table class="params">
         <tr><th>Parameter</th><th>Values</th><th>Effect</th></tr>
         <tr><td><code>shell</code></td><td><code>true</code> · <code>false</code></td><td><b>false</b> hides the left menu and the top header. <b>true</b> shows them. Without it the app shows them, unless the same browser tab or iframe already chose — the choice sticks while the user clicks around inside the frame.</td></tr>
-        <tr><td><code>persona</code></td><td><code>network</code> · <code>colocation</code> · <code>cloud</code> · <code>enterprise</code></td><td>Which business model the whole estate is shown as. Remembered by the browser. The persona switch lives in the header, so when <code>shell=false</code> set it here.</td></tr>
+        <tr><td><code>persona</code></td><td><code>network</code> · <code>colocation</code> · <code>cloud</code> · <code>enterprise</code> · <code>neocloud</code></td><td>Which business model the whole estate is shown as. Remembered by the browser. The persona switch lives in the header, so when <code>shell=false</code> set it here.</td></tr>
         <tr><td><code>geo</code></td><td><code>in</code> · <code>us</code></td><td>Where the estate is: <b>India</b> (24 sites across 20 circles, ₹ with Cr/L, dates 21-Sep-2026) or the <b>USA</b> (24 sites across 20 states, $ with K/M, dates Sep 21, 2026). Same equipment, alarms and story; different sites, customers, people and currency. Remembered by the browser.</td></tr>
       </table>
       <div class="note">Combine with any screen's own parameters, in any order: <code>/incidents?view=sev1&amp;shell=false&amp;persona=cloud</code>.</div>
+      <h3 style="margin-top:16px">Override from Vercel</h3>
+      <p style="margin:0;font-size:13px">When a link you don't control asks for one model, the deployment can change it. Set these in Vercel → Project → Settings → Environment Variables, then redeploy. They win over the URL and the user's saved choice.</p>
+      <table class="params" style="margin-top:8px">
+        <tr><th>Variable</th><th>Rule</th><th>Effect</th></tr>
+        <tr><td><code>VITE_PERSONA_OVERRIDE</code></td><td><code>us:network=colocation</code></td><td>USA + Network requests open as Colocation; everything else unchanged.</td></tr>
+        <tr><td></td><td><code>network=colocation</code></td><td>Network becomes Colocation in both geographies.</td></tr>
+        <tr><td></td><td><code>colocation</code></td><td>Always Colocation, whatever is asked.</td></tr>
+        <tr><td><code>VITE_GEO_OVERRIDE</code></td><td><code>us</code> · <code>in=us</code></td><td>Always the USA · India requests become the USA.</td></tr>
+      </table>
+      <div class="note">Several rules: separate with commas, the first match wins. Delete the variable and redeploy to remove the override.</div>
     </div>
     <div class="card">
       <h3>Embed in your platform</h3>
@@ -98,6 +112,58 @@ th { font-weight: 500; color: var(--ink-500); font-size: 12.5px; background: var
   <p class="lead">The Command center for every combination, with the menu hidden — the usual starting point for an iframe. Change the screen with any path from the table below; <code>persona</code> and <code>geo</code> stay in the URL.</p>
   <div class="card table"><table id="matrix"><thead><tr><th>Persona</th><th>India · ₹</th><th>USA · $</th></tr></thead><tbody></tbody></table></div>
 
+<section id="reference">
+    <h2>Personas and geographies at a glance</h2>
+    <p class="lead">Figures from the tool's data at its fixed clock, Thu 01 Oct 13:20.</p>
+
+    <h3 style="margin:14px 0 8px">1 · Personas — the business model</h3>
+    <div class="card table"><table class="cmp">
+      <thead><tr><th></th><th>Network / Telco</th><th>Colocation</th><th>Cloud</th><th>Enterprise / Private</th><th>NeoCloud / GPU cloud</th></tr></thead>
+      <tbody>
+        <tr><td>URL value</td><td><code>persona=network</code></td><td><code>persona=colocation</code></td><td><code>persona=cloud</code></td><td><code>persona=enterprise</code></td><td><code>persona=neocloud</code></td></tr>
+        <tr><td>Audience</td><td>Telecom operators, ISPs</td><td>Colo and wholesale DC providers</td><td>Cloud and GPU providers, hosters</td><td>Banks, insurers, government, large enterprises</td><td>GPU clouds and AI infrastructure providers; telcos building sovereign GPU clouds</td></tr>
+        <tr><td>Customer is a</td><td>Customer</td><td>Tenant</td><td>Account</td><td>Business unit</td><td>Customer (AI lab, startup, government mission)</td></tr>
+        <tr><td>They buy</td><td>Circuits: L3VPN, L2VPN, leased line, internet</td><td>Cabinets, power circuits, cross-connects, remote hands</td><td>VMs, storage, managed DB, GPU clusters, Kubernetes</td><td>Core apps, databases, collaboration, analytics, AI platform</td><td>Reserved GPU clusters, on-demand GPUs, storage, CPU instances</td></tr>
+        <tr><td>Sized in</td><td>Mbps</td><td>Contracted kW</td><td>vCPU (GPU clusters per GPU)</td><td>Users served</td><td>GPUs reserved</td></tr>
+        <tr><td>Top tier</td><td>Premium</td><td>Anchor</td><td>Enterprise-tier</td><td>Tier-1</td><td>Committed</td></tr>
+        <tr><td>SLA (top / standard)</td><td>99.9% / 99.5%</td><td>99.999% / 99.99%</td><td>99.99% / 99.95%</td><td>99.9% / 99.5%</td><td>99.9% / 99.5%</td></tr>
+        <tr><td>What's in the racks</td><td>Routers, switches, DWDM</td><td>Tenant-owned gear, meet-me room</td><td>Leaf-spine fabric, servers, storage, GPU nodes</td><td>Fabric, ESX hosts, SAN, GPU nodes</td><td>GPU nodes (70% of hosts), storage, leaf-spine and InfiniBand fabric</td></tr>
+        <tr><td>Money words</td><td>Revenue impact · SLA credits</td><td>Revenue impact · SLA credits</td><td>Revenue impact · Service credits</td><td>Business impact · Cost of downtime · OLA rebates</td><td>Revenue impact · Service credits</td></tr>
+        <tr><td>AI &amp; GPU screen</td><td>Hidden (no GPU fleet)</td><td>Tenant AI cages: power, coolant, inlet</td><td>Full GPU fleet, jobs, heat map, fabric</td><td>Full GPU fleet, charged back to business units</td><td>Full GPU fleet — the core of the business, with DCGM telemetry</td></tr>
+        <tr><td>Multi-storey demo building (India / USA)</td><td>DL-DC-009 / IL-DC-009</td><td>KA-DC-020 / CA-DC-020</td><td>TN-DC-022 / TX-DC-022</td><td>HR-DC-011 / GA-DC-011</td><td>TS-DC-023 / NC-DC-023</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 style="margin:22px 0 8px">2 · Geographies — where the estate is</h3>
+    <div class="card table"><table class="cmp">
+      <thead><tr><th></th><th>India</th><th>USA</th></tr></thead>
+      <tbody>
+        <tr><td>URL value</td><td><code>geo=in</code></td><td><code>geo=us</code></td></tr>
+        <tr><td>Estate</td><td>24 datacenters across 20 circles</td><td>24 datacenters across 20 states</td></tr>
+        <tr><td>Regions</td><td>North, East, West, South</td><td>Northeast, Southeast, Central, West</td></tr>
+        <tr><td>Site IDs</td><td>State code + number, e.g. MH-DC-001</td><td>State code + number, e.g. VA-DC-001</td></tr>
+        <tr><td>Hero site (flapping backhaul, INC-0001)</td><td>MH-DC-001 Pune</td><td>VA-DC-001 Ashburn</td></tr>
+        <tr><td>UPS on battery (INC-0002)</td><td>DL-DC-009 New Delhi</td><td>IL-DC-009 Chicago</td></tr>
+        <tr><td>Cooling unit failed (INC-0003)</td><td>MH-DC-003 Nagpur</td><td>VA-DC-003 Richmond</td></tr>
+        <tr><td>Stalled GPU job (INC-0061)</td><td>KA-DC-020 Bengaluru</td><td>CA-DC-020 Los Angeles</td></tr>
+        <tr><td>Liquid-cooled GPU halls</td><td>TN-DC-022, KA-DC-020, TS-DC-023</td><td>TX-DC-022, CA-DC-020, NC-DC-023</td></tr>
+        <tr><td>Planned / in-progress sites</td><td>GJ-DC-013 · MH-DC-001, KL-DC-024</td><td>WA-DC-013 · VA-DC-001, WA-DC-024</td></tr>
+        <tr><td>Customers and people</td><td>Indian cities and names</td><td>US cities and names</td></tr>
+        <tr><td>Currency and units</td><td>₹ with Cr and L</td><td>$ with K and M</td></tr>
+        <tr><td>Numbers · dates</td><td>1,23,456 · 21-Sep-2026</td><td>123,456 · Sep 21, 2026</td></tr>
+        <tr><td>GPU-hour price (cloud / enterprise / neocloud)</td><td>₹240 / ₹116 / ₹205</td><td>$4.79 / $2.33 / $4.11</td></tr>
+      </tbody>
+    </table></div>
+    <p class="small-note" style="margin:8px 0 0">The same 24 sites exist in both geographies by position, so every incident, building and story is the same. Only the names, places, people and money change. USA money is the India figure converted at ₹50 to the dollar.</p>
+
+    <h3 style="margin:22px 0 8px">3 · Key figures per persona and geography</h3>
+    <div class="card table"><table class="cmp">
+      <thead><tr><th>Persona</th><th>Geo</th><th>Monthly revenue</th><th>Losing now</th><th>At stake on critical faults</th><th>Customers</th><th>Services</th><th>GPUs</th><th>Open in tool</th></tr></thead>
+      <tbody id="figRows"></tbody>
+    </table></div>
+    <p class="small-note" style="margin:8px 0 0">Open any combination: <code>https://datacenter-ideation.vercel.app/?shell=false&amp;persona=&lt;persona&gt;&amp;geo=&lt;geo&gt;</code> — add any screen path from the embed guide in place of <code>/</code>.</p>
+  </section>
+
   <h2>All screens</h2>
   <div class="card table"><table id="routes"><thead><tr><th style="width:30%">Screen</th><th>Parameters</th><th style="width:34%">URL</th></tr></thead><tbody></tbody></table></div>
 
@@ -108,7 +174,7 @@ th { font-weight: 500; color: var(--ink-500); font-size: 12.5px; background: var
     <div class="card"><h3>USA (<code>geo=us</code>)</h3><div class="dcs" id="dcsUs"></div>
       <div class="note">The same 24 sites by position: VA-DC-001 Ashburn is the hero site (India's MH-DC-001), IL-DC-009 Chicago has the UPS on battery (DL-DC-009), CA-DC-020 Los Angeles the GPU fault (KA-DC-020). WA-DC-013 is planned; VA-DC-001 and WA-DC-024 are being brought into service.</div></div>
   </div>
-  <div class="note" style="margin-top:12px">The same 24 sites exist in every persona. GPU fleets exist in the Cloud and Enterprise personas; Telco has no GPU screens.</div>
+  <div class="note" style="margin-top:12px">The same 24 sites exist in every persona. GPU fleets exist in the Cloud, Enterprise and NeoCloud personas; Telco has no GPU screens.</div>
 
   <h2>Entity IDs used in the examples</h2>
   <div class="card"><table>
@@ -130,8 +196,8 @@ const R = [
   ['/datacenters', 'Datacenters', 'Every site with incidents, alarms, network, power, revenue', [['view', 'all · incidents · facility · edge · clear', 'condition'], ['region', 'India: north · east · west · south — USA: northeast · southeast · central · west', 'region'], ['q', 'text', 'search']], '?view=incidents'],
   ['/datacenters/{id}', 'Datacenter', 'One site: header, 3D view and tabs', [['tab', 'overview · attention · topology · metrics · customers · revenue · gpu · assets · elements · details · timeline', 'gpu only where the site has GPUs; elements = Equipment, details = Power & space, timeline = Ops log'], ['cview', 'all · risk · premium', 'customers tab'], ['cause', 'fault code', 'customers tab'], ['rview', 'all · losing · stake', 'revenue tab'], ['gtab', 'clusters · jobs · nodes · cooling · fabric', 'AI & GPU tab']], '', 'MH-DC-001?tab=customers&cview=risk'],
   ['/facilities', 'Facilities', 'Power path, ride-through, cooling, environment', [['dc', 'datacenter ID', 'default MH-DC-001'], ['tab', 'power · cooling · environment · maintenance', 'tab']], '?dc=DL-DC-009&tab=power'],
-  ['/gpu', 'AI & GPU', 'GPU fleet, jobs, heat map, cooling, fabric — or tenant AI cages (Colocation). Not in Telco.', [['dc', 'datacenter ID', 'one site'], ['gtab', 'clusters · jobs · nodes · cooling · fabric', 'tab'], ['gstate', 'jobs: stalled · slowed · at-risk · idle · running — nodes: degraded · failed · in-job · idle · drained · burn-in', 'filter'], ['q', 'text', 'search']], '?gtab=jobs&gstate=stalled', '', 'cloud'],
-  ['/ne/{id}', 'Device', 'One device: health, hardware, links, impact, alarms', [['tab', 'overview · hardware · links · impact · alerts', 'tab'], ['if', 'interface name', 'links tab: highlight one port']], '?tab=alerts', 'MH-DC-001-PE-T4-01', 'network'],
+  ['/gpu', 'AI & GPU', 'GPU fleet, jobs, heat map, DCGM telemetry, cooling, fabric — or tenant AI cages (Colocation). Not in Telco.', [['dc', 'datacenter ID', 'one site'], ['gtab', 'clusters · jobs · nodes · telemetry · cooling · fabric', 'tab'], ['gstate', 'jobs: stalled · slowed · at-risk · idle · running — nodes: degraded · failed · in-job · idle · drained · burn-in', 'filter'], ['q', 'text', 'search']], '?gtab=jobs&gstate=stalled', '', 'cloud'],
+  ['/ne/{id}', 'Device', 'One device: health, hardware, links, impact, alarms — a GPU node adds a GPUs · DCGM tab', [['tab', 'overview · hardware · gpus · links · impact · alerts', 'tab'], ['if', 'interface name', 'links tab: highlight one port']], '?tab=alerts', 'MH-DC-001-PE-T4-01', 'network'],
   ['/topology?dc={id}', 'Topology', 'Redirects to the datacenter\'s Topology tab', [['dc', 'datacenter ID', 'required']], '', 'KA-DC-020', '', true],
   ['Operate'],
   ['/alerts', 'Alerts', 'Alarm console', [['sev', 'critical · major · minor · warning', 'severity'], ['state', 'open · acknowledged · cleared', 'default open'], ['dc', 'datacenter ID', 'site'], ['source', 'Interface · Link · Power · Cooling · Environment · CPU · Protocol · Security · Discovery', 'source'], ['scope', 'dc · downstream · all', 'datacenter scope (default dc)'], ['q', 'text', 'search']], '?sev=critical'],
@@ -164,6 +230,7 @@ function build(path, query, sample, examplePersona, isDoc) {
   return u.toString();
 }
 function render() {
+  if (typeof renderFigures === 'function') renderFigures();
   shellBtn.setAttribute('aria-pressed', String(shell));
   shellBtn.lastChild.textContent = shell ? 'Menu & header shown' : 'Menu & header hidden';
   const rows = R.map(r => {
@@ -178,7 +245,7 @@ function render() {
   document.getElementById('snippet').textContent = iframe(build('/incidents', '?view=open', '', ''));
   document.getElementById('dcs').innerHTML = DCS.map(([id, c]) => `<span><code>${id}</code><em>${c}</em></span>`).join('');
   document.getElementById('dcsUs').innerHTML = DCS_US.map(([id, c]) => `<span><code>${id}</code><em>${c}</em></span>`).join('');
-  const PZ = [['network', 'Telco'], ['colocation', 'Colocation'], ['cloud', 'Cloud'], ['enterprise', 'Enterprise']];
+  const PZ = [['network', 'Telco'], ['colocation', 'Colocation'], ['cloud', 'Cloud'], ['enterprise', 'Enterprise'], ['neocloud', 'NeoCloud']];
   const cell = (pz, g) => { const u = new URL('/', base.value); u.searchParams.set('shell', String(shell)); u.searchParams.set('persona', pz); u.searchParams.set('geo', g); const url = u.toString(); return `<td><div class="url mono">${esc(url)}</div><div class="acts" style="margin-top:6px"><a class="btn primary" href="${esc(url)}" target="_blank" rel="noopener">Open</a><button type="button" class="btn" data-copy="${esc(url)}">Copy URL</button><button type="button" class="btn" data-copy="${esc(iframe(url))}">Copy iframe</button></div></td>`; };
   document.querySelector('#matrix tbody').innerHTML = PZ.map(([pz, name]) => `<tr><td><div class="route"><b>${name}</b><span class="mono path">persona=${pz}</span></div></td>${cell(pz, 'in')}${cell(pz, 'us')}</tr>`).join('');
 }
@@ -193,6 +260,21 @@ document.addEventListener('click', e => {
   const label = b.textContent, done = () => { b.textContent = 'Copied'; setTimeout(() => { b.textContent = label; }, 1100); };
   try { navigator.clipboard.writeText(text).then(done, done); } catch { done(); }
 });
+
+/* reference: key figures per persona × geography, opening that combination with the controls above */
+const FIG = [
+  ['Telco', 'network', 'in', '₹87.91 Cr', '₹5,993/h', '₹8.49 Cr', 36, '1,136', 'none'], ['Telco', 'network', 'us', '$18.66M', '$118/h', '$1.28M', 36, '1,136', 'none'],
+  ['Colocation', 'colocation', 'in', '₹8.04 Cr', '₹174/h', '₹81.57 L', 24, 553, '12 AI cages · 536 kW'], ['Colocation', 'colocation', 'us', '$1.63M', '$3/h', '$209.6K', 24, 553, '12 AI cages · 536 kW'],
+  ['Cloud', 'cloud', 'in', '₹97.91 Cr', '₹58,460/h', '₹12.75 Cr', 24, '1,830', '4,880 on 610 nodes'], ['Cloud', 'cloud', 'us', '$19.91M', '$1,249/h', '$2.83M', 24, '1,830', '4,880 on 610 nodes'],
+  ['Enterprise', 'enterprise', 'in', '₹18.63 Cr', '₹13,879/h', '₹2.52 Cr', 14, 442, '1,312 on 164 nodes'], ['Enterprise', 'enterprise', 'us', '$3.78M', '$246/h', '$528.9K', 14, 442, '1,312 on 164 nodes'],
+  ['NeoCloud', 'neocloud', 'in', '₹225.64 Cr', '₹53,486/h', '₹28.19 Cr', 12, 757, '17,008 on 2,126 nodes'], ['NeoCloud', 'neocloud', 'us', '$45.31M', '$1,035/h', '$5.78M', 12, 780, '17,008 on 2,126 nodes']
+];
+function renderFigures() {
+  document.getElementById('figRows').innerHTML = FIG.map(([name, pz, gg, rev, rate, stake, cust, svc, gpu]) => {
+    const u = new URL('/', base.value); u.searchParams.set('shell', String(shell)); u.searchParams.set('persona', pz); u.searchParams.set('geo', gg);
+    return `<tr><td>${name}</td><td>${gg === 'in' ? 'India' : 'USA'}</td><td class="num">${rev}</td><td class="num">${rate}</td><td class="num">${stake}</td><td class="num">${cust}</td><td class="num">${svc}</td><td>${gpu}</td><td><a class="btn primary" href="${esc(u.toString())}" target="_blank" rel="noopener">Open</a></td></tr>`;
+  }).join('');
+}
 render();
 </script>
 </body>

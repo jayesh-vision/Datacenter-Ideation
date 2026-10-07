@@ -148,12 +148,15 @@ table.cmp { width: 100%; border-collapse: collapse; font-size: 13px; }
 table.cmp th, table.cmp td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
 table.cmp th { font-weight: 500; color: var(--ink-500); background: var(--bg); font-size: 12.5px; }
 table.cmp td:first-child { color: var(--ink-500); white-space: nowrap; }
+#reference h3 { font-size: 15px; font-weight: 500; color: var(--ink-900); }
+#reference table.cmp td.num { font-family: Inter, sans-serif; white-space: nowrap; }
+#reference .open.ghost { height: 28px; padding: 0 10px; font-size: 12px; }
 table.cmp td.on { background: var(--brand-50); color: var(--ink-900); }
 .scroll-x { overflow-x: auto; }
 .foot { margin-top: 30px; font-size: 12.5px; color: var(--ink-500); }
 
 /* presenter mode: hide the scaffolding, keep the words big */
-body.presenter .hero, body.presenter .prep, body.presenter .qa, body.presenter .show .steps, body.presenter #compare { display: none; }
+body.presenter .hero, body.presenter .prep, body.presenter .qa, body.presenter .show .steps, body.presenter #compare, body.presenter #reference { display: none; }
 body.presenter .say p { font-size: 18px; }
 body.presenter .act-body { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); }
 
@@ -180,7 +183,7 @@ body.presenter .act-body { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr
 <body>
 <header class="top">
   <div class="top-in">
-    <div class="brand"><span class="brand-ic">DC</span><div><b>Data Center Ops · Demo playbook</b><span>One story, four business models</span></div></div>
+    <div class="brand"><span class="brand-ic">DC</span><div><b>Data Center Ops · Demo playbook</b><span>One story, five business models</span></div></div>
     <div class="seg" role="group" aria-label="Persona" id="personaSeg"></div>
     <select class="tool" id="envSel" aria-label="Which copy of the tool to open">
       <option value="https://datacenter-ideation.vercel.app">Live site</option>
@@ -247,8 +250,59 @@ body.presenter .act-body { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr
   <div class="value" id="value"></div>
 
   <section id="compare">
-    <div class="section-h"><div><div class="kicker">Same story, four businesses</div><h2>How each persona reads the same afternoon</h2></div></div>
+    <div class="section-h"><div><div class="kicker">Same story, five businesses</div><h2>How each persona reads the same afternoon</h2></div></div>
     <div class="card scroll-x" style="padding:0"><table class="cmp" id="cmp"></table></div>
+  </section>
+
+  <section id="reference">
+    <div class="section-h"><div><div class="kicker">Reference</div><h2>Personas and geographies at a glance</h2></div><span class="muted small">Figures from the tool's data at its fixed clock, Thu 01 Oct 13:20</span></div>
+
+    <h3 style="margin:14px 0 8px">1 · Personas — the business model</h3>
+    <div class="card scroll-x" style="padding:0"><table class="cmp">
+      <thead><tr><th></th><th>Network / Telco</th><th>Colocation</th><th>Cloud</th><th>Enterprise / Private</th><th>NeoCloud / GPU cloud</th></tr></thead>
+      <tbody>
+        <tr><td>URL value</td><td><code>persona=network</code></td><td><code>persona=colocation</code></td><td><code>persona=cloud</code></td><td><code>persona=enterprise</code></td><td><code>persona=neocloud</code></td></tr>
+        <tr><td>Audience</td><td>Telecom operators, ISPs</td><td>Colo and wholesale DC providers</td><td>Cloud and GPU providers, hosters</td><td>Banks, insurers, government, large enterprises</td><td>GPU clouds and AI infrastructure providers; telcos building sovereign GPU clouds</td></tr>
+        <tr><td>Customer is a</td><td>Customer</td><td>Tenant</td><td>Account</td><td>Business unit</td><td>Customer (AI lab, startup, government mission)</td></tr>
+        <tr><td>They buy</td><td>Circuits: L3VPN, L2VPN, leased line, internet</td><td>Cabinets, power circuits, cross-connects, remote hands</td><td>VMs, storage, managed DB, GPU clusters, Kubernetes</td><td>Core apps, databases, collaboration, analytics, AI platform</td><td>Reserved GPU clusters, on-demand GPUs, storage, CPU instances</td></tr>
+        <tr><td>Sized in</td><td>Mbps</td><td>Contracted kW</td><td>vCPU (GPU clusters per GPU)</td><td>Users served</td><td>GPUs reserved</td></tr>
+        <tr><td>Top tier</td><td>Premium</td><td>Anchor</td><td>Enterprise-tier</td><td>Tier-1</td><td>Committed</td></tr>
+        <tr><td>SLA (top / standard)</td><td>99.9% / 99.5%</td><td>99.999% / 99.99%</td><td>99.99% / 99.95%</td><td>99.9% / 99.5%</td><td>99.9% / 99.5%</td></tr>
+        <tr><td>What's in the racks</td><td>Routers, switches, DWDM</td><td>Tenant-owned gear, meet-me room</td><td>Leaf-spine fabric, servers, storage, GPU nodes</td><td>Fabric, ESX hosts, SAN, GPU nodes</td><td>GPU nodes (70% of hosts), storage, leaf-spine and InfiniBand fabric</td></tr>
+        <tr><td>Money words</td><td>Revenue impact · SLA credits</td><td>Revenue impact · SLA credits</td><td>Revenue impact · Service credits</td><td>Business impact · Cost of downtime · OLA rebates</td><td>Revenue impact · Service credits</td></tr>
+        <tr><td>AI &amp; GPU screen</td><td>Hidden (no GPU fleet)</td><td>Tenant AI cages: power, coolant, inlet</td><td>Full GPU fleet, jobs, heat map, fabric</td><td>Full GPU fleet, charged back to business units</td><td>Full GPU fleet — the core of the business, with DCGM telemetry</td></tr>
+        <tr><td>Multi-storey demo building (India / USA)</td><td>DL-DC-009 / IL-DC-009</td><td>KA-DC-020 / CA-DC-020</td><td>TN-DC-022 / TX-DC-022</td><td>HR-DC-011 / GA-DC-011</td><td>TS-DC-023 / NC-DC-023</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 style="margin:22px 0 8px">2 · Geographies — where the estate is</h3>
+    <div class="card scroll-x" style="padding:0"><table class="cmp">
+      <thead><tr><th></th><th>India</th><th>USA</th></tr></thead>
+      <tbody>
+        <tr><td>URL value</td><td><code>geo=in</code></td><td><code>geo=us</code></td></tr>
+        <tr><td>Estate</td><td>24 datacenters across 20 circles</td><td>24 datacenters across 20 states</td></tr>
+        <tr><td>Regions</td><td>North, East, West, South</td><td>Northeast, Southeast, Central, West</td></tr>
+        <tr><td>Site IDs</td><td>State code + number, e.g. MH-DC-001</td><td>State code + number, e.g. VA-DC-001</td></tr>
+        <tr><td>Hero site (flapping backhaul, INC-0001)</td><td>MH-DC-001 Pune</td><td>VA-DC-001 Ashburn</td></tr>
+        <tr><td>UPS on battery (INC-0002)</td><td>DL-DC-009 New Delhi</td><td>IL-DC-009 Chicago</td></tr>
+        <tr><td>Cooling unit failed (INC-0003)</td><td>MH-DC-003 Nagpur</td><td>VA-DC-003 Richmond</td></tr>
+        <tr><td>Stalled GPU job (INC-0061)</td><td>KA-DC-020 Bengaluru</td><td>CA-DC-020 Los Angeles</td></tr>
+        <tr><td>Liquid-cooled GPU halls</td><td>TN-DC-022, KA-DC-020, TS-DC-023</td><td>TX-DC-022, CA-DC-020, NC-DC-023</td></tr>
+        <tr><td>Planned / in-progress sites</td><td>GJ-DC-013 · MH-DC-001, KL-DC-024</td><td>WA-DC-013 · VA-DC-001, WA-DC-024</td></tr>
+        <tr><td>Customers and people</td><td>Indian cities and names</td><td>US cities and names</td></tr>
+        <tr><td>Currency and units</td><td>₹ with Cr and L</td><td>$ with K and M</td></tr>
+        <tr><td>Numbers · dates</td><td>1,23,456 · 21-Sep-2026</td><td>123,456 · Sep 21, 2026</td></tr>
+        <tr><td>GPU-hour price (cloud / enterprise / neocloud)</td><td>₹240 / ₹116 / ₹205</td><td>$4.79 / $2.33 / $4.11</td></tr>
+      </tbody>
+    </table></div>
+    <p class="muted small" style="margin:8px 0 0">The same 24 sites exist in both geographies by position, so every incident, building and story is the same. Only the names, places, people and money change. USA money is the India figure converted at ₹50 to the dollar.</p>
+
+    <h3 style="margin:22px 0 8px">3 · Key figures per persona and geography</h3>
+    <div class="card scroll-x" style="padding:0"><table class="cmp">
+      <thead><tr><th>Persona</th><th>Geo</th><th>Monthly revenue</th><th>Losing now</th><th>At stake on critical faults</th><th>Customers</th><th>Services</th><th>GPUs</th><th>Open in tool</th></tr></thead>
+      <tbody id="figRows"></tbody>
+    </table></div>
+    <p class="muted small" style="margin:8px 0 0">Open any combination: <code>https://datacenter-ideation.vercel.app/?shell=false&amp;persona=&lt;persona&gt;&amp;geo=&lt;geo&gt;</code> — add any screen path from the embed guide in place of <code>/</code>.</p>
   </section>
 
   <p class="foot">Figures are from the India estate (the tool's links pin <code>geo=in</code>; the same story runs in the USA with <code>geo=us</code> — Ashburn instead of Pune, Chicago instead of Delhi, dollars instead of rupees) at the tool's fixed clock (Thu 01 Oct 2026, 13:20) and match the screens after a fresh reload. Anything you click in the tool — acknowledging an alarm, approving a step — changes what later screens show until you reload.</p>
@@ -332,6 +386,25 @@ const P = {
     ask: ['Which GPU job is losing the most?', 'What is INC-0061 costing us?', 'What is INC-0002 costing us?', 'Which issue is costing the most revenue?'],
     gpu: { gpus: '1,312', nodes: 164, alloc: '86%', lost: '₹10,213/h', job: 'it-demand-forecast-train', owner: 'IT & Security', jobGpus: 48, site: 'KA-DC-020 Bengaluru', inc: 'INC-0061', stalledRate: '₹5,589/h', redo: '₹4,844', redoMin: 52, slowJob: 'a 48-GPU credit-risk model for Cards & Payments', slowPct: '24%', idle: '16 GPUs held idle for 6 hours by the AML scoring service (₹1,863/h)', rate: '₹116 per GPU-hour (charge-back)' },
     value: [['12 min', 'of battery under 32 business applications'], ['No incident', 'on the costliest issue — found by money, not by alarms'], ['₹13,879/h', 'cost of downtime, in money the CFO understands'], ['1 GPU → 48', 'one failed GPU stopped a 48-GPU model training run']]
+  },
+  neocloud: {
+    label: 'NeoCloud / GPU cloud', short: 'NeoCloud', tag: 'Rents GPU capacity — reserved clusters and on-demand GPUs for AI teams.',
+    audience: 'GPU clouds and AI infrastructure providers (CoreWeave-style), telcos building sovereign GPU clouds',
+    words: { customer: 'Customer', customers: 'customers', service: 'Reservation', services: 'reservations', premium: 'Committed', unit: 'GPUs reserved', money: 'Revenue impact', credits: 'Service credits', lost: 'Revenue lost' },
+    am: 'Customer success manager', amSub: 'Owns the committed-contract AI labs.',
+    sell: 'reserved GPU clusters, on-demand GPUs, storage, CPU instances',
+    cc: { health: 89, band: 'Watch', sev1: 1, sev2: 6, open: 26, breaching: 11, dcs: 23, svcs: '757', cust: 12 },
+    rev: { base: '₹225.64 Cr', rate: '₹53,486/h', sofar: '₹69.68 L', stake: '₹28.19 Cr', within: '88.3%', next: '₹4.80 L in 4 min' },
+    top: { id: 'INC-0061', title: 'GPU fell off the bus — national-llm-pretrain-34b stalled (152 GPUs)', site: 'KA-DC-020 Bengaluru', rate: '₹31,233/h', sofar: '₹23.00 L', f24: '₹1.22 Cr', hit: 'a 152-GPU reserved cluster for National AI Mission', next: '₹34.20 L credit step in 3 h 33 min', change: '', route: '/incidents/INC-0061' },
+    stakeIssue: { title: 'UPS-2 on battery at DL-DC-009 New Delhi', amt: '₹16.75 Cr a month', rate: '₹2.29 L/h', credits: '₹2.52 Cr' },
+    ups: { site: 'DL-DC-009 New Delhi', battery: '13 min', load: '71%', exposed: '51 reservations · 12 customers', stake: '₹16.75 Cr a month', ifFail: '₹2.29 L/h' },
+    tall: { id: 'TS-DC-023', floors: 6 },
+    risk: { route: '/datacenters/MH-DC-001?tab=customers&cview=risk', who: 'Mapwise Geo, HealthCloud Analytics, National AI Mission, QuantLedger AI, VoiceLoop, Lumen AI Labs', why: 'a shelf midplane fault under two sleds, a storage controller failover, a link down, a single power supply', story: 'Six customers, five different faults, one site. The tool names the fault behind each customer, so the success manager calls with the reason, not a guess.' },
+    hero2: { id: 'INC-0002', route: '/incidents/INC-0002', title: 'the UPS on battery in Delhi', why: 'the generator controller stayed in MANUAL after yesterday\'s feeder switchover (CHG-2005)', fix: 'start the generator by hand, transfer load, put the controller back to AUTO', money: '₹16.75 Cr a month of GPU reservations is running on the next 13 minutes of battery' },
+    domains: 'Capacity and network cost the most over 30 days (₹87.60 L and ₹64.62 L of ₹2.99 Cr); GPU hardware faults add ₹44.88 L.',
+    ask: ['Which GPU job is losing the most?', 'What is INC-0061 costing us?', 'What is INC-0002 costing us?', 'Which issue is costing the most revenue?'],
+    gpu: { gpus: '17,008', nodes: 2126, alloc: '90%', lost: '₹47,945/h', job: 'national-llm-pretrain-34b', owner: 'National AI Mission', jobGpus: 152, site: 'KA-DC-020 Bengaluru', inc: 'INC-0061', stalledRate: '₹31,233/h', redo: '₹27,068', redoMin: 52, slowJob: 'a 152-GPU job for Vectra Models', slowPct: '24%', idle: '16 GPUs held idle for 6 hours by an embedding service (₹3,288/h)', rate: '₹205 per GPU-hour' },
+    value: [['17,008 GPUs', 'one fleet, one page: health, heat, jobs, fabric'], ['1 GPU → 152', 'one failed GPU stopped a 152-GPU reserved cluster'], ['₹53,486/h', 'of GPU revenue at risk, ranked by issue'], ['DCGM', 'every GPU down to ECC, NVLink and PCIe counters']]
   }
 };
 
@@ -561,7 +634,22 @@ document.addEventListener('keydown', e => {
   if (k === 'j' || k === 'k') { const n = Math.max(1, Math.min(ACTS.length, cur + (k === 'j' ? 1 : -1))); document.getElementById(`act-${n}`).scrollIntoView({ behavior: 'smooth', block: 'start' }); }
 });
 
-renderPersona();
+/* reference: key figures per persona × geography, with a link that opens that combination */
+const FIG = [
+  ['Telco', 'network', 'in', '₹87.91 Cr', '₹5,993/h', '₹8.49 Cr', 36, '1,136', 'none'], ['Telco', 'network', 'us', '$18.66M', '$118/h', '$1.28M', 36, '1,136', 'none'],
+  ['Colocation', 'colocation', 'in', '₹8.04 Cr', '₹174/h', '₹81.57 L', 24, 553, '12 AI cages · 536 kW'], ['Colocation', 'colocation', 'us', '$1.63M', '$3/h', '$209.6K', 24, 553, '12 AI cages · 536 kW'],
+  ['Cloud', 'cloud', 'in', '₹97.91 Cr', '₹58,460/h', '₹12.75 Cr', 24, '1,830', '4,880 on 610 nodes'], ['Cloud', 'cloud', 'us', '$19.91M', '$1,249/h', '$2.83M', 24, '1,830', '4,880 on 610 nodes'],
+  ['Enterprise', 'enterprise', 'in', '₹18.63 Cr', '₹13,879/h', '₹2.52 Cr', 14, 442, '1,312 on 164 nodes'], ['Enterprise', 'enterprise', 'us', '$3.78M', '$246/h', '$528.9K', 14, 442, '1,312 on 164 nodes'],
+  ['NeoCloud', 'neocloud', 'in', '₹225.64 Cr', '₹53,486/h', '₹28.19 Cr', 12, 757, '17,008 on 2,126 nodes'], ['NeoCloud', 'neocloud', 'us', '$45.31M', '$1,035/h', '$5.78M', 12, 780, '17,008 on 2,126 nodes']
+];
+function renderFigures() {
+  document.getElementById('figRows').innerHTML = FIG.map(([name, pz, g, rev, rate, stake, cust, svc, gpu]) => {
+    const u = new URL('/', env); u.searchParams.set('persona', pz); u.searchParams.set('geo', g);
+    return `<tr><td>${name}</td><td>${g === 'in' ? 'India' : 'USA'}</td><td class="num">${rev}</td><td class="num">${rate}</td><td class="num">${stake}</td><td class="num">${cust}</td><td class="num">${svc}</td><td>${gpu}</td><td><a class="open ghost" href="${esc(u.toString())}" target="dco-tool">Open ${ARROW}</a></td></tr>`;
+  }).join('');
+}
+renderPersona(); renderFigures();
+envSel.addEventListener('change', renderFigures);
 </script>
 </body>
 </html>

@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getNetworkElements, useQuery } from '../../api';
 import { DataTable, type Col } from '../../ui/DataTable';
+import { cellColor } from '../Gpu';
+import '../../styles/gpu.css';
 import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
 import { NeLink } from '../../ui/status';
 import { scoreColor } from '../../lib/vocab';
@@ -37,7 +39,7 @@ export function Elements({ dcId }: { dcId: string }) {
       ? <span className="cell-2"><span className="vw-chip vw-chip--warning cmd-chip" style={{ alignSelf: 'flex-start' }}>Not monitored</span><small>no telemetry</small></span>
       : <span className="cell-2"><span className="vw-chip vw-chip--neutral cmd-chip" style={{ alignSelf: 'flex-start' }}>In service</span><small className="mono">{n.ip}</small></span>, sort: n => n.opsState },
     { key: 'health', header: 'Health', align: 'right', render: n => n.opsState !== 'in-service' ? <span className="faint">—</span> : <span className="num strong" style={{ color: n.healthScore < 80 ? scoreColor(n.healthScore) : undefined }}>{Math.round(n.healthScore)}</span>, sort: n => n.healthScore },
-    { key: 'load', header: 'CPU · mem · temp', render: n => n.opsState !== 'in-service' ? <span className="faint">—</span> : <span className="num nowrap">{n.cpu}% · {n.mem}% · {n.tempC}°C</span>, sort: n => n.cpu },
+    { key: 'load', header: 'CPU · mem · temp', render: n => n.opsState !== 'in-service' ? <span className="faint">—</span> : n.gpu ? <span className="cell-2"><span className="gpu-strip" title={`${n.gpu.util}% · ${n.gpu.maxTemp}°C · ${n.gpu.powerKw} kW`}>{n.gpu.cells.map((g, i) => <i key={i} style={{ background: cellColor(g.h, g.u, g.th, n.gpu!.state) }} />)}</span><small className="nowrap">GPUs {n.gpu.util}% · {n.gpu.maxTemp}°C · {n.gpu.job ?? n.gpu.state}</small></span> : <span className="num nowrap">{n.cpu}% · {n.mem}% · {n.tempC}°C</span>, sort: n => n.gpu ? n.gpu.util : n.cpu },
     { key: 'alarms', header: 'Alarms', align: 'right', render: n => <span className={`num ${n.alarms ? 'bad' : 'faint'}`}>{n.alarms}</span>, sort: n => n.alarms }
   ];
 

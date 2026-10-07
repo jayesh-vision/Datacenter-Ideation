@@ -2,7 +2,7 @@
    the estate, so impact, evidence and "what changed before" all point at real
    records. RCA and action plans are deterministic templates (mock AI). */
 
-import type { ActionStep, Alert, Hypothesis, Incident, Service } from '../api/types';
+import type { ActionStep, Alert, Hypothesis, Incident, Persona, Service } from '../api/types';
 import { mulberry32, pick, intBetween, lognormal } from '../lib/rng';
 import type { Db } from './generate';
 import { addAlert } from './generate';
@@ -32,7 +32,7 @@ const DEFAULT_TITLES: Record<Incident['type'], string[]> = {
   GPU: ['GPU fell off the bus — training job stalled', 'NVLink errors slowing a training job', 'Uncorrectable ECC — GPU reset needed']
 };
 
-export function buildIncidents(db: Db, TITLES: Record<Incident['type'], string[]> = DEFAULT_TITLES, persona: 'network' | 'colocation' | 'cloud' | 'enterprise' = 'network') {
+export function buildIncidents(db: Db, TITLES: Record<Incident['type'], string[]> = DEFAULT_TITLES, persona: Persona = 'network') {
   const now = db.now;
   const telco = persona === 'network';
   const r = mulberry32(777);

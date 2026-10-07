@@ -7,7 +7,7 @@ export type RolloutStatus = 'on-air' | 'in-progress' | 'planned' | 'failed';
 /* Datacenter persona — the business model the whole estate is modelled as.
    The physical layer (power, cooling, racks, alarms, incidents) is shared;
    what sits in the racks, who the customer is and what a service is change. */
-export type Persona = 'network' | 'colocation' | 'cloud' | 'enterprise';
+export type Persona = 'network' | 'colocation' | 'cloud' | 'enterprise' | 'neocloud';
 export type Blocker = 'power' | 'fiber' | 'commissioning' | 'supply' | 'lease' | 'civil' | 'regulatory';
 
 export interface Region { id: string; name: string }
@@ -94,7 +94,8 @@ export type ServiceType =
   | 'Cabinet lease' | 'Power circuit' | 'Cross-connect' | 'Remote hands'                   // colocation
   | 'VM' | 'Storage volume' | 'Managed DB' | 'GPU cluster' | 'Kubernetes'                  // cloud
   | 'Core application' | 'Database' | 'Collaboration' | 'Analytics' | 'Backup & DR'        // enterprise
-  | 'AI platform';                                                                          // enterprise GPU jobs (charged back per GPU)
+  | 'AI platform'                                                                           // enterprise GPU jobs (charged back per GPU)
+  | 'Reserved cluster' | 'On-demand GPUs' | 'CPU instances';                               // neocloud (GPU-as-a-service)
 export type ServiceUnit = 'Mbps' | 'kW' | 'vCPU' | 'TB' | 'GPU' | 'users' | 'cabinets' | 'hours';
 export type ServiceStatus = 'Active' | 'Degraded' | 'Down' | 'Disabled';
 export interface Service {
@@ -257,9 +258,27 @@ export type GpuModel = 'H100 SXM 80 GB' | 'H200 SXM 141 GB';
 export type GpuHealth = 'healthy' | 'degraded' | 'failed';
 export type GpuThrottle = 'none' | 'thermal' | 'power-cap' | 'hw-slowdown';
 export interface GpuXid { code: number; at: number; text: string }
+/* One GPU as the NVIDIA DCGM exporter reports it (field names in comments), plus the health we derive from it. */
 export interface Gpu {
-  idx: number; serial: string; util: number; memUsedGb: number; memGb: number; tempC: number; hbmC: number; powerW: number; tdpW: number; clockMhz: number;
-  throttle: GpuThrottle; sbe: number; dbe: number; remapPending: boolean; nvlinkErr: number; xid: GpuXid | null; health: GpuHealth;
+  idx: number; serial: string;
+  util: number;                                   // DCGM_FI_DEV_GPU_UTIL (%)
+  smActive: number; smOccupancy: number;          // DCGM_FI_PROF_SM_ACTIVE / SM_OCCUPANCY (%)
+  tensorActive: number;                           // DCGM_FI_PROF_PIPE_TENSOR_ACTIVE (%)
+  memCopyUtil: number; dramActive: number;        // DCGM_FI_DEV_MEM_COPY_UTIL / DCGM_FI_PROF_DRAM_ACTIVE (%)
+  memUsedGb: number; memGb: number;               // DCGM_FI_DEV_FB_USED / FB_TOTAL (GB)
+  tempC: number; hbmC: number;                    // DCGM_FI_DEV_GPU_TEMP / MEMORY_TEMP (°C)
+  powerW: number; tdpW: number;                   // DCGM_FI_DEV_POWER_USAGE / POWER_MGMT_LIMIT (W)
+  energyKwh24: number;                            // DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION, last 24 h (kWh)
+  clockMhz: number; memClockMhz: number;          // DCGM_FI_DEV_SM_CLOCK / MEM_CLOCK (MHz)
+  pstate: 'P0' | 'P2' | 'P8';                     // DCGM_FI_DEV_PSTATE
+  fanPct: number;                                 // DCGM_FI_DEV_FAN_SPEED (%; 0 on liquid-cooled nodes)
+  throttle: GpuThrottle;                          // DCGM_FI_DEV_CLOCK_THROTTLE_REASONS
+  sbe: number; dbe: number;                       // DCGM_FI_DEV_ECC_SBE_VOL_TOTAL / ECC_DBE_VOL_TOTAL
+  retiredPages: number; remapPending: boolean;    // DCGM_FI_DEV_RETIRED_* / ROW_REMAP_PENDING
+  pcieReplay: number; pcieRxGbs: number; pcieTxGbs: number;   // DCGM_FI_DEV_PCIE_REPLAY_COUNTER / DCGM_FI_PROF_PCIE_RX_BYTES / TX (GB/s)
+  nvlinkErr: number; nvlinkRxGbs: number; nvlinkTxGbs: number; // DCGM_FI_DEV_NVLINK_*_ERROR_COUNT_TOTAL / DCGM_FI_PROF_NVLINK_RX_BYTES / TX (GB/s)
+  xid: GpuXid | null;                             // DCGM_FI_DEV_XID_ERRORS
+  health: GpuHealth;
 }
 /* in-job: allocated to a running job · idle: healthy spare · drained: cordoned for maintenance · failed: awaiting RMA · burn-in: new or repaired, under test */
 export type GpuNodeState = 'in-job' | 'idle' | 'drained' | 'failed' | 'burn-in';
@@ -267,6 +286,8 @@ export interface GpuNode {
   neId: string; dcId: string; rackId: string; clusterId: string; model: GpuModel; gpus: Gpu[]; state: GpuNodeState; jobId?: string;
   cooling: 'air' | 'liquid'; driver: string; firmware: string; powerKw: number; health: GpuHealth;
   ib: { rail: number; state: 'up' | 'down' | 'flapping'; errors: number }[]; note?: string; rma?: string;
+  /* the last 24 hours, one sample per hour, across the node's 8 GPUs: mean utilisation, hottest GPU, node power */
+  series: { util: number[]; tempC: number[]; powerKw: number[] };
 }
 export interface GpuCluster { id: string; name: string; dcId: string; room: string; scheduler: 'Kubernetes' | 'Slurm'; fabric: string; model: GpuModel; cooling: 'air' | 'liquid'; nodes: string[] }
 /* running · slowed (a straggler or throttling drags every step) · stalled (a node failed; waiting to restart from checkpoint) · at-risk (a node will need a reset) */

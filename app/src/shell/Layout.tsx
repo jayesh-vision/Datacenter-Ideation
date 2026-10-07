@@ -31,7 +31,7 @@ const NAV: { group: string; items: { to: string; label: string; icon: I.LucideIc
 /* Services and customers appear only as impact (incident, device, site pages);
    capacity planning lives in the separate Plan & Build section. */
 
-const PERSONA_ICON: Record<Persona, I.LucideIcon> = { network: I.Network, colocation: I.Building2, cloud: I.Cloud, enterprise: I.Landmark };
+const PERSONA_ICON: Record<Persona, I.LucideIcon> = { network: I.Network, colocation: I.Building2, cloud: I.Cloud, enterprise: I.Landmark, neocloud: I.Cpu };
 
 /* Top-bar persona switch: the business model the whole estate is modelled as.
    Changing it regenerates the mock estate and every screen refetches. */

@@ -10,7 +10,7 @@ import { NE_CATEGORY } from '../api/types';
 import { BLOCKERS, DAY, HOUR, MIN, NOW, POP_STATUS, SITE_STATUS } from './seed';
 import { activeGeo, dcAt, money, placeCustomer, type DcRow } from './geo';
 import { buildIncidents, impactOf, RESOLVE_SLA, RESPONSE_SLA } from './incidents';
-import { addGpuChange, addGpuServices, buildGpuFleet, buildGpuIncidents, injectGpuFaults, type GpuState } from './gpu';
+import { addGpuChange, addGpuServices, buildGpuFleet, buildGpuHistory, buildGpuIncidents, injectGpuFaults, type GpuState } from './gpu';
 import { PERSONA_BY_ID } from './personas';
 
 /* a host (compute / storage / GPU) or an opaque block of tenant equipment */
@@ -157,8 +157,8 @@ function buildNes(dcRow: DcRow, r: Rnd, persona: Persona) {
     const tenantN = total - drafts.length;
     for (let i = 1; i <= tenantN; i++) { const u = pick(r, [2, 4, 4, 6, 8, 10] as const); add('Tenant gear', 'access', `${dcId}-TN-${String(i).padStart(3, '0')}`, pick(r, TENANT_MODELS), u, r1(u * between(r, 0.25, 0.45)), []); }
   } else {
-    /* cloud / enterprise: a leaf–spine fabric and rows of hosts (compute, storage, GPU) */
-    const cloud = persona === 'cloud';
+    /* cloud / neocloud / enterprise: a leaf–spine fabric and rows of hosts (compute, storage, GPU); a neocloud is mostly GPU nodes */
+    const cloud = persona === 'cloud' || persona === 'neocloud', neo = persona === 'neocloud';
     const fwH = cloud ? (total >= 300 ? 2 : 1) : 2, dwH = total >= 150 ? 2 : 1;
     const hostEst = Math.round(total * (cloud ? 0.8 : 0.72));
     const torH = Math.max(2, Math.ceil(hostEst / 20)), leafH = Math.max(4, Math.ceil(torH / 6)), spH = cloud ? Math.max(4, Math.min(8, Math.round(leafH / 2))) : 2;
@@ -168,7 +168,7 @@ function buildNes(dcRow: DcRow, r: Rnd, persona: Persona) {
     for (let i = 1; i <= leafH; i++) add('Switch', 'leaf', `${dcId}-${cloud ? 'LEAF' : 'DIST-SW'}-${String(i).padStart(2, '0')}`, pick(r, SWITCH_MODELS), 2, 0.6, [{ kind: 'xe', n: 32 }, { kind: 'et', n: 8 }]);
     for (let i = 1; i <= torH; i++) add('Switch', 'access', `${dcId}-TOR-${String(i).padStart(3, '0')}`, pick(r, SWITCH_MODELS), 1, 0.3, [{ kind: 'xe', n: 48 }, { kind: 'et', n: 16 }]);
     const hosts = total - drafts.length;
-    const sto = Math.round(hosts * (cloud ? 0.18 : 0.26)), gpu = Math.round(hosts * (cloud ? 0.12 : 0.06)), cmp = hosts - sto - gpu;
+    const sto = Math.round(hosts * (neo ? 0.12 : cloud ? 0.18 : 0.26)), gpu = Math.round(hosts * (neo ? 0.7 : cloud ? 0.12 : 0.06)), cmp = hosts - sto - gpu;
     for (let i = 1; i <= cmp; i++) add('Server', 'access', `${dcId}-${cloud ? 'CMP' : 'ESX'}-${String(i).padStart(4, '0')}`, pick(r, SERVER_MODELS), i % 3 === 0 ? 2 : 1, 0.5, [{ kind: 'xe', n: 2 }]);
     for (let i = 1; i <= sto; i++) add('Storage', 'access', `${dcId}-${cloud ? 'STO' : 'SAN'}-${String(i).padStart(3, '0')}`, pick(r, STORAGE_MODELS), 4, 1.4, [{ kind: 'xe', n: 4 }]);
     for (let i = 1; i <= gpu; i++) add('GPU', 'access', `${dcId}-GPU-${String(i).padStart(3, '0')}`, pick(r, GPU_MODELS), 8, 10.2, [{ kind: 'et', n: 8 }]);
@@ -635,6 +635,7 @@ export function generate(persona: Persona = 'network'): Db {
   buildDownstream(db);
   if (persona !== 'network') buildScenario(db, persona);
   injectGpuFaults(db, persona, a => addAlert(db, a as NewAlert));
+  buildGpuHistory(db);
   buildChanges(db, persona);
   addGpuChange(db, persona);
   buildIncidents(db, def.incidentTitles, persona);
@@ -708,8 +709,8 @@ function buildPersonaServices(persona: Persona, datacenters: Datacenter[], nes: 
     } else {
       const hosts = live.filter(isHost);
       const forRole = (role: NetworkElement['role']) => def.serviceTypes.filter(t => (t.host as string[]).includes(role));
-      if (persona === 'cloud') {
-        /* GPU nodes are sold per job (see mock/gpu.ts addGpuServices), not per host */
+      if (persona === 'cloud' || persona === 'neocloud') {
+        /* GPU nodes are sold per job / reservation (see mock/gpu.ts addGpuServices), not per host */
         hosts.forEach((h, i) => {
           if (h.role === 'GPU') return;
           const every = h.role === 'Storage' ? 2 : 4;
@@ -869,7 +870,7 @@ function buildScenario(db: Db, persona: Persona) {
   const now = db.now;
   const svcOn = (id: string) => db.services.filter(s => s.status !== 'Disabled' && (s.neId === id || s.path.includes(id)));
   const short = (id: string) => id.replace(`${DC}-`, '');
-  if (persona === 'cloud' || persona === 'enterprise') {
+  if (persona === 'cloud' || persona === 'enterprise' || persona === 'neocloud') {
     const live = db.nes.filter(n => n.dcId === DC && n.role === 'Server' && n.discovery !== 'not-discovered' && n.icmp.state !== 'critical');
     const byRack = new Map<string, NetworkElement[]>();
     live.forEach(n => byRack.set(n.rackId, [...(byRack.get(n.rackId) ?? []), n]));
@@ -930,7 +931,7 @@ function buildChanges(db: Db, persona: Persona = 'network') {
   C({ kind: 'Change', title: `Add 100G backhaul ${dcAt(20)} ↔ ${dcAt(22)}`, dcId: dcAt(20), scope: [`${dcAt(20)}-PE-T4-01`, `${dcAt(22)}-PE-T4-01`], risk: 'Medium', status: 'Pending approval', windowStart: n + 9 * DAY, windowEnd: n + 9 * DAY + 4 * HOUR, requester: 'Priya Nair', rollback: 'Shut new interfaces; traffic stays on existing span' });
   C({ kind: 'Change', title: 'Enable BFD on PE–AGG uplinks', dcId: dcAt(5), scope: [`${dcAt(5)}-PE-T4-01`, `${dcAt(5)}-PE-T4-02`], risk: 'Low', status: 'Completed', windowStart: n - 5 * DAY, windowEnd: n - 5 * DAY + 2 * HOUR, requester: 'Sarah Chen', approver: 'Priya Nair', rollback: 'Remove BFD stanza' });
   C({ kind: 'Maintenance', title: 'Quarterly fire-suppression inspection', dcId: dcAt(16), scope: [], risk: 'Low', status: 'Approved', windowStart: n + 3 * DAY, windowEnd: n + 3 * DAY + 3 * HOUR, requester: 'Sneha Patil', approver: 'Kavita Rao', rollback: 'n/a — inspection only' });
-  const evpn = persona === 'cloud' ? ['Upgrade TOR pair 007/008 to EOS 4.32 (EVPN fabric)', 'Roll back to EOS 4.31 image'] : persona === 'colocation' ? ['Re-terminate tenant cross-connects on MMR-SW-01/02', 'Restore original patching at MMR panels'] : persona === 'enterprise' ? ['Migrate server VLANs to EVPN on TOR pair 007/008', 'Restore VLAN trunk config from backup'] : ['Migrate L2VPN services to EVPN on TOR pair 007/008', 'Restore VPLS config from backup'];
+  const evpn = persona === 'cloud' || persona === 'neocloud' ? ['Upgrade TOR pair 007/008 to EOS 4.32 (EVPN fabric)', 'Roll back to EOS 4.31 image'] : persona === 'colocation' ? ['Re-terminate tenant cross-connects on MMR-SW-01/02', 'Restore original patching at MMR panels'] : persona === 'enterprise' ? ['Migrate server VLANs to EVPN on TOR pair 007/008', 'Restore VLAN trunk config from backup'] : ['Migrate L2VPN services to EVPN on TOR pair 007/008', 'Restore VPLS config from backup'];
   C({ kind: 'Change', title: evpn[0], dcId: dcAt(22), scope: persona === 'colocation' ? [`${dcAt(22)}-MMR-SW-01`, `${dcAt(22)}-MMR-SW-02`] : [`${dcAt(22)}-TOR-007`, `${dcAt(22)}-TOR-008`], risk: 'High', status: 'Rolled back', windowStart: n - 3 * DAY, windowEnd: n - 3 * DAY + 3 * HOUR, requester: 'David Kim', approver: 'Priya Nair', rollback: evpn[1] });
   C({ kind: 'Change', title: 'RADIUS server certificate renewal', dcId: dcAt(11), scope: [], risk: 'Low', status: 'Draft', windowStart: n + 12 * DAY, windowEnd: n + 12 * DAY + HOUR, requester: 'James Wilson', rollback: 'Re-import previous certificate' });
   C({ kind: 'Maintenance', title: 'ODF re-labelling & cable audit', dcId: dcAt(24), scope: [], risk: 'Low', status: 'Approved', windowStart: n + 5 * DAY, windowEnd: n + 5 * DAY + 6 * HOUR, requester: 'Meera Iyer', approver: 'Kavita Rao', rollback: 'n/a' });

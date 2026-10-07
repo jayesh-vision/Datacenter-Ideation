@@ -83,7 +83,7 @@ button.gpu-node:hover { border-color: var(--primaryColor500); }
 /* drawers */
 .gpu-drawer { display: flex; flex-direction: column; gap: 16px; }
 .gpu-gpus { width: 100%; font-size: 12.5px; }
-.gpu-gpus td, .gpu-gpus th { padding: 8px 8px !important; }
+.gpu-gpus td, .gpu-gpus th { padding: 8px 5px !important; }
 .gpu-gpus tr.is-failed td { background: var(--vw-color-red-50); } .gpu-gpus tr.is-degraded td { background: var(--vw-color-amber-50); }
 .gpu-ports { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; }
 .gpu-port { display: flex; flex-direction: column; align-items: center; padding: 6px 4px; border-radius: 8px; background: var(--vw-color-slate-50); font-size: 11.5px; color: var(--vw-color-gray-500); }
@@ -103,3 +103,24 @@ button.gpu-node:hover { border-color: var(--primaryColor500); }
 
 @media (max-width: 1180px) { .gpu-heroes { grid-template-columns: minmax(0, 1fr); } }
 .gpu-gpus td.mono, .gpu-gpus td:nth-child(2) { white-space: nowrap; }
+
+/* telemetry tab and DCGM node detail */
+.gpu-hist { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.gpu-hist > div { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border: 1px solid var(--vw-color-slate-200); border-radius: 10px; min-width: 0; }
+.gpu-hist small { color: var(--vw-color-gray-500); font-size: 11.5px; }
+.gpu-hists { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.gpu-hists > div { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.gpu-hbar { display: grid; grid-template-columns: 64px minmax(0, 1fr) 48px; align-items: center; gap: 8px; font-size: 12px; }
+.gpu-hbar em { font-style: normal; color: var(--vw-color-gray-500); white-space: nowrap; }
+.gpu-hbar i { display: block; height: 10px; border-radius: 3px; min-width: 2px; }
+.gpu-hbar b { font-weight: 500; color: var(--vw-color-gray-900); text-align: right; }
+.gpu-lead { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.gpu-lead li { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; }
+.gpu-lead button { all: unset; cursor: pointer; display: flex; flex-direction: column; min-width: 0; }
+.gpu-lead button:hover .mono { color: var(--primaryColor700); }
+.gpu-lead small { color: var(--vw-color-gray-500); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gpu-lead b { font-weight: 500; color: var(--vw-color-gray-900); white-space: nowrap; }
+.gpu-fields { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12px; max-height: 260px; overflow-y: auto; }
+.gpu-fields li { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 8px; }
+.gpu-fields code { font-size: 11px; color: var(--vw-color-gray-700); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gpu-fields span { color: var(--vw-color-gray-500); }

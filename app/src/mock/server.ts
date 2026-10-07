@@ -9,6 +9,7 @@ import { NE_CATEGORY } from '../api/types';
 import { generate, finaliseHealth, type Db } from './generate';
 import { isPersona } from './personas';
 import { GEO_BY_ID, dcAt, isGeo, setActiveGeo, type Geo } from './geo';
+import { overrideGeo, overridePersona } from './override';
 import { fmtNum, setMoneyLocale } from '../lib/format';
 import { mulberry32 } from '../lib/rng';
 import { impactOf, isOpen, RESOLVE_SLA, RESPONSE_SLA } from './incidents';
@@ -22,13 +23,15 @@ import { monthsTo, dateAfterMonths, WARN, CRIT } from '../lib/forecast';
    notifies every subscriber, so each screen refetches. Remembered per browser. */
 /* Geography (06-Oct-2026): India or the USA — places, customers, people, currency and locale.
    ?geo=in|us in a link wins and is remembered; the estate is regenerated on change. */
-const loadGeo = (): Geo => {
+const requestedGeo = (): Geo => {
   try {
     const q = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('geo') : null;
     if (isGeo(q)) { try { localStorage.setItem('dco.geo', q); } catch { /* storage blocked */ } return q; }
     const v = localStorage.getItem('dco.geo'); return isGeo(v) ? v : 'in';
   } catch { return 'in'; }
 };
+/* a deployment override (VITE_GEO_OVERRIDE, mock/override.ts) wins over the URL and the saved choice */
+const loadGeo = (): Geo => { const r = requestedGeo(); const o = overrideGeo(r); return isGeo(o) ? o : r; };
 let geo: Geo = loadGeo();
 const applyGeo = () => { setActiveGeo(geo); const g = GEO_BY_ID[geo]; setMoneyLocale({ currency: g.currency.code, locale: g.currency.locale, dateStyle: g.dateStyle }); };
 applyGeo();
@@ -45,13 +48,15 @@ export function setGeo(g: Geo) {
 export const heroDcId = () => dcAt(1);
 
 /* a link may carry ?persona=… (demo playbook deep links): it wins and is remembered */
-const loadPersona = (): Persona => {
+const requestedPersona = (): Persona => {
   try {
     const q = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('persona') : null;
     if (isPersona(q)) { try { localStorage.setItem('dco.persona', q); } catch { /* storage blocked */ } return q; }
     const v = localStorage.getItem('dco.persona'); return isPersona(v) ? v : 'network';
   } catch { return 'network'; }
 };
+/* a deployment override (VITE_PERSONA_OVERRIDE, mock/override.ts) wins over the URL and the saved choice */
+const loadPersona = (): Persona => { const r = requestedPersona(); const o = overridePersona(r, geo); return isPersona(o) ? o : r; };
 let persona: Persona = loadPersona();
 let db: Db = generate(persona);
 let version = 0;
@@ -246,10 +251,18 @@ export function locations(q: { kind?: string; status?: string; circle?: string; 
 
 /* ------------------------------------------------------- network elements */
 
+/* one-line GPU summary of a node (equipment list, device page) */
+export function gpuSummary(neId: string) {
+  const n = db.gpu?.nodes.get(neId); if (!n) return undefined;
+  const job = n.jobId ? db.gpu!.jobs.find(j => j.id === n.jobId) : undefined;
+  return { state: n.state, health: n.health, util: Math.round(n.gpus.reduce((a, g) => a + g.util, 0) / 8), maxTemp: Math.max(...n.gpus.map(g => g.tempC)), powerKw: n.powerKw, cooling: n.cooling, model: n.model, job: job?.name, jobState: job?.state, cells: n.gpus.map(g => ({ h: g.health, u: g.util, t: g.tempC, th: g.throttle })) };
+}
 export function networkElements(q: { dcId?: string; discovery?: string; role?: string }) {
   const al = liveAlerts();
   return db.nes.filter(n => (!q.dcId || n.dcId === q.dcId) && (!q.discovery || n.discovery === q.discovery) && (!q.role || n.role === q.role)).map(n => ({
-    ...n, alarms: al.filter(a => a.neId === n.id).length, rack: n.rackId.split('-').slice(-1)[0], opsState: opsStateOf(n), category: NE_CATEGORY[n.role], tenant: n.tenantId ? db.customers.find(c => c.id === n.tenantId)?.name : undefined
+    ...n, alarms: al.filter(a => a.neId === n.id).length, rack: n.rackId.split('-').slice(-1)[0], opsState: opsStateOf(n), category: NE_CATEGORY[n.role], tenant: n.tenantId ? db.customers.find(c => c.id === n.tenantId)?.name : undefined,
+    /* GPU nodes: what the 8 GPUs are doing, for the equipment list */
+    gpu: gpuSummary(n.id)
   }));
 }
 

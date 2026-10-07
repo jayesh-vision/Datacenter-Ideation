@@ -92,7 +92,12 @@ h1, h2, h3, h4 { margin: 0; color: var(--ink-900); font-weight: 600; }
 
 .main { min-width: 0; display: flex; flex-direction: column; }
 .topbar { position: sticky; top: 0; z-index: 30; height: var(--top-h); background: rgba(255, 255, 255, .88); backdrop-filter: saturate(1.6) blur(10px); border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 14px; padding: 0 20px 0 12px; }
-.topbar-crumbs { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-500); min-width: 0; }
+.topbar-crumbs { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-500); min-width: 0; flex: 0 1 auto; max-width: 360px; overflow: hidden; }
+/* a crumb that does not fit ellipsizes instead of running into its neighbour */
+.topbar-crumbs > span { min-width: 0; flex: 0 1 auto; overflow: hidden; }
+.topbar-crumbs > span:last-child { flex-shrink: 0.5; }
+.topbar-crumbs a, .topbar-crumbs b { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topbar-crumbs svg { flex-shrink: 0; }
 .topbar-crumbs b { color: var(--ink-900); font-weight: 600; font-size: 14px; }
 .topbar-crumbs a { color: var(--ink-500); }
 .topbar-crumbs a:hover { color: var(--primary); }

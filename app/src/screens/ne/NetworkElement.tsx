@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { getNetworkElement, useQuery } from '../../api';
+import { getNetworkElement, useQuery, getGpuNode } from '../../api';
 import type { NetworkElement as Ne } from '../../api/types';
 import { usePage, Loading } from '../../shell/page';
 import { Btn, Chip, Drawer, Tabs } from '../../ui/kit';
@@ -9,6 +9,7 @@ import { Meter } from '../../ui/status';
 import { ND_REASON } from '../../lib/vocab';
 import { fmtDateTime, fmtUptime } from '../../lib/format';
 import { NotFound } from '../NotFound';
+import { GpuNodeDetail } from '../Gpu';
 import { Overview } from './Overview';
 import { Hardware } from './Hardware';
 import { Links } from './Links';
@@ -17,8 +18,8 @@ import { NeAlerts } from './NeAlerts';
 import '../../styles/ne.css';
 
 export type NeData = NonNullable<Awaited<ReturnType<typeof getNetworkElement>>>;
-type Tab = 'overview' | 'hardware' | 'links' | 'impact' | 'alerts';
-const TABS: Tab[] = ['overview', 'hardware', 'links', 'impact', 'alerts'];
+type Tab = 'overview' | 'hardware' | 'gpus' | 'links' | 'impact' | 'alerts';
+const TABS: Tab[] = ['overview', 'hardware', 'gpus', 'links', 'impact', 'alerts'];
 const ROLE_ICON: Record<string, I.LucideIcon> = { Router: I.Router, Switch: I.Network, DWDM: I.Waves, Firewall: I.ShieldCheck, Access: I.RadioTower };
 
 /* Operational state of a device (same rule as the site Equipment tab) */
@@ -106,6 +107,7 @@ export function NetworkElement() {
       <Tabs<Tab> value={tab} onChange={setTab} tabs={[
         { id: 'overview', label: 'Overview' },
         { id: 'hardware', label: 'Hardware & interfaces', count: data.interfaces.length },
+        ...(ne.role === 'GPU' ? [{ id: 'gpus' as Tab, label: 'GPUs · DCGM', count: 8 }] : []),
         { id: 'links', label: 'Links', count: data.links.length },
         { id: 'impact', label: 'Impact', count: data.services.length },
         { id: 'alerts', label: 'Alerts & diagnostics', count: active.length }
@@ -113,6 +115,7 @@ export function NetworkElement() {
 
       {tab === 'overview' && <Overview d={data} />}
       {tab === 'hardware' && <Hardware d={data} />}
+      {tab === 'gpus' && ne.role === 'GPU' && <GpuTab id={ne.id} />}
       {tab === 'links' && <Links d={data} />}
       {tab === 'impact' && <Impact d={data} />}
       {tab === 'alerts' && <NeAlerts d={data} />}
@@ -132,4 +135,11 @@ export function NetworkElement() {
       </Drawer>
     </div>
   );
+}
+
+/* a GPU node's DCGM telemetry on its device page — the same detail as the AI & GPU drawer */
+function GpuTab({ id }: { id: string }) {
+  const { data } = useQuery(() => getGpuNode(id), [id]);
+  if (!data) return <Loading label="Loading GPU telemetry" />;
+  return <section className="card" style={{ padding: 18 }}><GpuNodeDetail d={data} /></section>;
 }

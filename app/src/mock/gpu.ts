@@ -33,7 +33,7 @@ interface DbLike {
   gpu?: GpuState;
 }
 
-export const GPU_RATE = { cloud: 175000, enterprise: 85000 } as const;             // ₹ per GPU per month (cloud list price · enterprise chargeback: capex over 3 years + power)
+export const GPU_RATE = { cloud: 175000, enterprise: 85000, neocloud: 150000 } as const;  // ₹ per GPU per month (cloud list price · enterprise chargeback · neocloud reserved rate)
 const LIQUID_SITES = () => [dcAt(22), dcAt(20), dcAt(23)];                       // newest halls: H200, direct-to-chip liquid cooling
 const DRIFT_SITES = () => [dcAt(10), dcAt(11), dcAt(21)];                         // still on the previous driver branch
 const DRIVER_STD = '550.127.05', DRIVER_OLD = '535.183.01';
@@ -44,9 +44,9 @@ const short = (id: string) => id.replace(/^[A-Z]{2}-DC-\d{3}-/, '');
 /* ------------------------------------------------------------------ phase A */
 
 export function buildGpuFleet(persona: Persona, datacenters: Datacenter[], nes: NetworkElement[], customers: Customer[]): GpuState {
-  const state: GpuState = { nodes: new Map(), clusters: [], jobs: [], cdus: [], cages: [], ratePerGpuHour: money(persona === 'enterprise' ? GPU_RATE.enterprise : GPU_RATE.cloud) / 730, driverStd: DRIVER_STD };
+  const state: GpuState = { nodes: new Map(), clusters: [], jobs: [], cdus: [], cages: [], ratePerGpuHour: money(persona === 'enterprise' ? GPU_RATE.enterprise : persona === 'neocloud' ? GPU_RATE.neocloud : GPU_RATE.cloud) / 730, driverStd: DRIVER_STD };
   if (persona === 'colocation') { buildCages(state, datacenters, customers); return state; }
-  if (persona !== 'cloud' && persona !== 'enterprise') return state;
+  if (persona !== 'cloud' && persona !== 'enterprise' && persona !== 'neocloud') return state;
 
   let jobSeq = 4100;
   for (const dc of datacenters) {
@@ -65,6 +65,7 @@ export function buildGpuFleet(persona: Persona, datacenters: Datacenter[], nes: 
       const firstRack = dc.racks.find(r => r.id === members[0].rackId);
       const cl: GpuCluster = { id: `${dc.id}-POD-${k + 1}`, name: `AI-POD-${k + 1}`, dcId: dc.id, room: firstRack ? `${firstRack.floor} · ${firstRack.room}` : '', scheduler: persona === 'cloud' ? 'Kubernetes' : 'Slurm',
         fabric: `InfiniBand NDR 400G · 8 rails · ${members.length} nodes`, model, cooling: liquid ? 'liquid' : 'air', nodes: members.map(n => n.id) };
+      if (persona === 'neocloud') cl.scheduler = 'Kubernetes';
       state.clusters.push(cl);
 
       /* node availability: unreachable hosts have failed; a few are drained, in RMA or in burn-in */
@@ -72,7 +73,7 @@ export function buildGpuFleet(persona: Persona, datacenters: Datacenter[], nes: 
       for (const n of members) {
         const rr = rngOf(n.id, 0x6a1);
         const node: GpuNode = { neId: n.id, dcId: dc.id, rackId: n.rackId, clusterId: cl.id, model, gpus: [], state: 'idle', cooling: liquid ? 'liquid' : 'air', driver: DRIFT_SITES().includes(dc.id) && chance(rr, 0.7) ? DRIVER_OLD : DRIVER_STD,
-          firmware: liquid ? 'VBIOS 96.00.A5.00.01' : 'VBIOS 96.00.89.00.01', powerKw: 0, health: 'healthy', ib: Array.from({ length: 8 }, (_, i) => ({ rail: i, state: 'up' as const, errors: intBetween(rr, 0, 12) })) };
+          firmware: liquid ? 'VBIOS 96.00.A5.00.01' : 'VBIOS 96.00.89.00.01', powerKw: 0, health: 'healthy', ib: Array.from({ length: 8 }, (_, i) => ({ rail: i, state: 'up' as const, errors: intBetween(rr, 0, 12) })), series: { util: [], tempC: [], powerKw: [] } };
         const roll = rr();
         if (n.icmp.state === 'critical') { node.state = 'failed'; node.health = 'failed'; node.note = 'Host not responding — out of the scheduler'; }
         else if (roll < 0.012) { node.state = 'failed'; node.health = 'failed'; node.rma = `RMA-${String(seedOf(n.id) % 9000 + 1000)}`; node.note = `GPU${intBetween(rr, 0, 7)} replaced under ${node.rma}; awaiting part`; }
@@ -145,11 +146,30 @@ function gpuTelemetry(node: GpuNode, i: number, job: GpuJob | undefined, ne: Net
   const util = !busy ? intBetween(rr, 0, 2) : job?.kind === 'inference' ? intBetween(rr, 48, 82) : node.state === 'burn-in' ? 100 : intBetween(rr, 88, 99);
   const air = node.cooling === 'air';
   const tempC = busy ? (air ? intBetween(rr, 62, 76) : intBetween(rr, 46, 61)) : (air ? intBetween(rr, 33, 40) : intBetween(rr, 28, 34));
-  return {
+  const g: Gpu = {
     idx: i, serial: `${ne.serial}-G${i}`, util, memGb, memUsedGb: busy ? r0(memGb * between(rr, job?.kind === 'inference' ? 0.55 : 0.8, 0.96)) : 0,
     tempC, hbmC: tempC + intBetween(rr, 4, 9), powerW: busy ? r0(tdp * (0.25 + 0.72 * util / 100) * between(rr, 0.96, 1.0)) : intBetween(rr, 68, 82), tdpW: tdp,
-    clockMhz: busy ? intBetween(rr, 1755, 1980) : 345, throttle: 'none', sbe: chance(rr, 0.12) ? intBetween(rr, 1, 24) : 0, dbe: 0, remapPending: false, nvlinkErr: chance(rr, 0.05) ? intBetween(rr, 1, 9) : 0, xid: null, health: 'healthy'
+    clockMhz: busy ? intBetween(rr, 1755, 1980) : 345, throttle: 'none', sbe: chance(rr, 0.12) ? intBetween(rr, 1, 24) : 0, dbe: 0, remapPending: false, nvlinkErr: chance(rr, 0.05) ? intBetween(rr, 1, 9) : 0, xid: null, health: 'healthy',
+    smActive: 0, smOccupancy: 0, tensorActive: 0, memCopyUtil: 0, dramActive: 0, energyKwh24: 0, memClockMhz: 0, pstate: 'P8', fanPct: 0, retiredPages: 0, pcieReplay: 0, pcieRxGbs: 0, pcieTxGbs: 0, nvlinkRxGbs: 0, nvlinkTxGbs: 0
   };
+  /* the profiling counters DCGM adds on top: how much of the busy time is real work */
+  const training = job?.kind !== 'inference';
+  g.smActive = busy ? r0(util * between(rr, 0.82, 0.97)) : 0;
+  g.smOccupancy = busy ? r0(g.smActive * between(rr, 0.55, 0.8)) : 0;
+  g.tensorActive = busy ? r0(g.smActive * (training ? between(rr, 0.55, 0.75) : between(rr, 0.25, 0.45))) : 0;
+  g.memCopyUtil = busy ? intBetween(rr, training ? 35 : 15, training ? 70 : 40) : 0;
+  g.dramActive = busy ? intBetween(rr, 30, 65) : 0;
+  g.memClockMhz = busy ? (h200 ? 2619 : 2619) : 1593;
+  g.pstate = busy ? 'P0' : 'P8';
+  g.fanPct = node.cooling === 'air' ? (busy ? intBetween(rr, 48, 82) : intBetween(rr, 28, 36)) : 0;
+  g.retiredPages = chance(rr, 0.04) ? intBetween(rr, 1, 3) : 0;
+  g.pcieReplay = chance(rr, 0.03) ? intBetween(rr, 1, 40) : 0;
+  g.pcieRxGbs = busy ? r1(between(rr, training ? 4 : 8, training ? 12 : 22)) : r1(between(rr, 0, 0.3));
+  g.pcieTxGbs = busy ? r1(between(rr, 1, training ? 6 : 12)) : r1(between(rr, 0, 0.2));
+  g.nvlinkRxGbs = busy && training ? r0(between(rr, 140, 260)) : busy ? r0(between(rr, 5, 40)) : 0;
+  g.nvlinkTxGbs = busy && training ? r0(g.nvlinkRxGbs * between(rr, 0.85, 1.1)) : busy ? r0(between(rr, 5, 40)) : 0;
+  g.energyKwh24 = r1((g.powerW * 24) / 1000 * between(rr, 0.9, 1.0));
+  return g;
 }
 
 /* keep the host record (modules, temperature, health) consistent with the GPU layer */
@@ -219,18 +239,18 @@ function jobName(persona: Persona, kind: GpuJob['kind'], owner: Customer, rr: Rn
 /* each job is a service riding every node of the job, sized in GPUs:
    cloud — a 'GPU cluster' an account buys at list price; enterprise — an 'AI platform' charge-back to the business unit */
 export function addGpuServices(persona: Persona, state: GpuState, services: Service[], customers: Customer[], nextSeq: () => number) {
-  if (persona !== 'cloud' && persona !== 'enterprise') return;
-  const cloud = persona === 'cloud';
+  if (persona !== 'cloud' && persona !== 'enterprise' && persona !== 'neocloud') return;
+  const cloud = persona === 'cloud', neo = persona === 'neocloud';
   const def = PERSONA_BY_ID[persona];
   for (const job of state.jobs) {
     const cust = customers.find(c => c.id === job.customerId)!;
     const rr = rngOf(job.id, 0x5e);
     const sla = cust.premium ? def.sla.premium : def.sla.standard;
     const s: Service = {
-      id: `SVC-${cloud ? 'GP' : 'AI'}-${nextSeq()}`, type: cloud ? 'GPU cluster' : 'AI platform', customerId: cust.id, dcId: job.dcId, neId: job.nodes[0], ifName: `${job.nodes.length}-node ${job.kind} job`, path: [...job.nodes], linkIds: [],
+      id: `SVC-${neo ? (job.kind === 'training' ? 'RC' : 'OD') : cloud ? 'GP' : 'AI'}-${nextSeq()}`, type: neo ? (job.kind === 'training' ? 'Reserved cluster' : 'On-demand GPUs') : cloud ? 'GPU cluster' : 'AI platform', customerId: cust.id, dcId: job.dcId, neId: job.nodes[0], ifName: `${job.nodes.length}-node ${job.kind} job`, path: [...job.nodes], linkIds: [],
       bandwidthMbps: 400000, utilPct: r1(between(rr, 70, 89)), status: 'Active', slaTarget: sla,
       uptime30d: Math.round(Math.min(99.999, chance(rr, 0.1) ? sla - between(rr, 0.02, 0.3) : sla + between(rr, 0.001, (100 - sla) * 0.9)) * 100) / 100, growthPct: r1(between(rr, 2, 9)),
-      revenueMonthly: job.gpus * money(GPU_RATE[cloud ? 'cloud' : 'enterprise']), critical: cust.premium, qty: job.gpus, unit: 'GPU'
+      revenueMonthly: job.gpus * money(GPU_RATE[neo ? 'neocloud' : cloud ? 'cloud' : 'enterprise']), critical: cust.premium, qty: job.gpus, unit: 'GPU'
     };
     services.push(s); job.serviceId = s.id;
   }
@@ -259,14 +279,14 @@ export function injectGpuFaults(db: DbLike, persona: Persona, addAlert: AddAlert
     }
     return;
   }
-  if (persona !== 'cloud' && persona !== 'enterprise') return;
+  if (persona !== 'cloud' && persona !== 'enterprise' && persona !== 'neocloud') return;
 
   /* F1 — a GPU fell off the bus in the biggest training job in Bengaluru: every GPU in the job waits */
   const j1 = job(dcAt(20));
   if (j1) {
     const n = j1.nodes[Math.min(2, j1.nodes.length - 1)], node = st.nodes.get(n)!, g = node.gpus[3];
     const since = now - 38 * MIN;
-    g.health = 'failed'; g.util = 0; g.powerW = 0; g.memUsedGb = 0; g.xid = { code: 79, at: since, text: 'GPU has fallen off the bus' };
+    g.health = 'failed'; g.util = 0; g.powerW = 0; g.memUsedGb = 0; g.xid = { code: 79, at: since, text: 'GPU has fallen off the bus' }; g.pcieReplay = 1260; g.pstate = 'P8'; g.smActive = 0; g.tensorActive = 0; g.nvlinkRxGbs = 0; g.nvlinkTxGbs = 0;
     j1.nodes.forEach(id => { if (id !== n) st.nodes.get(id)!.gpus.forEach(x => { x.util = intBetween(rngOf(`${id}#${x.idx}`, 0x77), 0, 3); x.powerW = intBetween(rngOf(`${id}#${x.idx}`, 0x78), 95, 130); x.clockMhz = 345; }); resync(id); });
     node.gpus.forEach(x => { if (x !== g) { x.util = 0; x.powerW = 88; x.clockMhz = 345; } });
     g.clockMhz = 0;
@@ -280,7 +300,7 @@ export function injectGpuFaults(db: DbLike, persona: Persona, addAlert: AddAlert
   if (j2) {
     const n = j2.nodes[Math.min(1, j2.nodes.length - 1)], g = st.nodes.get(n)!.gpus[5];
     const since = now - 125 * MIN;
-    Object.assign(g, { dbe: 1, remapPending: true, health: 'degraded', sbe: g.sbe + 212, xid: { code: 48, at: since, text: 'Double-bit (uncorrectable) ECC error' } });
+    Object.assign(g, { dbe: 1, remapPending: true, health: 'degraded', sbe: g.sbe + 212, retiredPages: g.retiredPages + 2, xid: { code: 48, at: since, text: 'Double-bit (uncorrectable) ECC error' } });
     Object.assign(j2, { state: 'at-risk', since, cause: `GPU5 on ${short(n)}: uncorrectable ECC, row remap pending — next fault crashes the job`, causeNeId: n });
     resync(n);
     addAlert({ neId: n, dcId: j2.dcId, severity: 'major', title: 'GPU Uncorrectable ECC (Xid 48)', description: `GPU5 on ${short(n)}: double-bit ECC error, row remap pending — GPU reset needed; drain at the next checkpoint`, source: 'Environment', type: 'GPU', start: since, state: 'active' });
@@ -290,7 +310,7 @@ export function injectGpuFaults(db: DbLike, persona: Persona, addAlert: AddAlert
   if (j3) {
     const n = j3.nodes[0], g = st.nodes.get(n)!.gpus[1];
     const since = now - 190 * MIN;
-    Object.assign(g, { nvlinkErr: 1840, health: 'degraded', xid: { code: 74, at: since, text: 'NVLink error — link 4 CRC/replay errors' } });
+    Object.assign(g, { nvlinkErr: 1840, health: 'degraded', xid: { code: 74, at: since, text: 'NVLink error — link 4 CRC/replay errors' }, nvlinkRxGbs: 96, nvlinkTxGbs: 88 });
     Object.assign(j3, { state: 'slowed', since, stepMs: r0(j3.baselineMs * 1.22), mfu: r1(j3.mfu / 1.22), cause: `NVLink errors on ${short(n)} GPU1 — the job steps at the straggler's pace`, causeNeId: n });
     resync(n);
     addAlert({ neId: n, dcId: j3.dcId, severity: 'major', title: 'NVLink Errors (Xid 74)', description: `GPU1 on ${short(n)}: NVLink 4 replay errors 1,840 in 3 h; all-reduce on ${j3.name} 22% slower`, source: 'Environment', type: 'GPU', start: since, state: 'active' });
@@ -353,7 +373,7 @@ export function injectGpuFaults(db: DbLike, persona: Persona, addAlert: AddAlert
 /* ------------------------------------------------------------------ phase C */
 
 export function addGpuChange(db: DbLike & { changes: unknown[] }, persona: Persona) {
-  const st = db.gpu; if (!st || (persona !== 'cloud' && persona !== 'enterprise')) return;
+  const st = db.gpu; if (!st || (persona !== 'cloud' && persona !== 'enterprise' && persona !== 'neocloud')) return;
   const old = [...st.nodes.values()].filter(n => n.driver !== st.driverStd);
   if (!old.length) return;
   const dc = DRIFT_SITES().find(d => old.some(n => n.dcId === d))!;
@@ -364,7 +384,7 @@ export function addGpuChange(db: DbLike & { changes: unknown[] }, persona: Perso
 
 type IncFns = { impactOf: (scope: { neIds?: string[]; dcIds?: string[]; pathIds?: string[] }) => { services: Service[]; customers: Customer[]; premium: Customer[]; revenue: number }; responseSla: Record<number, number>; resolveSla: Record<number, number> };
 export function buildGpuIncidents(db: DbLike, persona: Persona, fx: IncFns) {
-  const st = db.gpu; if (!st || (persona !== 'cloud' && persona !== 'enterprise')) return;
+  const st = db.gpu; if (!st || (persona !== 'cloud' && persona !== 'enterprise' && persona !== 'neocloud')) return;
   const V = PERSONA_BY_ID[persona].vocab;
   let k = 0;
   const mk = (p: { title: string; type: Incident['type']; sev: 1 | 2 | 3 | 4; status: Incident['status']; owner: string; dcId: string; detected: number; ack?: number; alertTitles: string[]; affected: Incident['affected']; rca: Incident['rca']; actions: Omit<Incident['actions'][number], 'id' | 'status'>[]; neIds: string[]; summary: string; job?: GpuJob }) => {
@@ -439,4 +459,32 @@ export function buildGpuIncidents(db: DbLike, persona: Persona, fx: IncFns) {
 
 /* ------------------------------------------------------------------ queries */
 
-export const isGpuPersona = (p: Persona) => p === 'cloud' || p === 'enterprise' || p === 'colocation';
+export const isGpuPersona = (p: Persona) => p === 'cloud' || p === 'enterprise' || p === 'colocation' || p === 'neocloud';
+
+/* ---------------------------------------------------------- 24 h history */
+
+/* One sample per hour for the last 24 h per node, consistent with where the node is now: a job that
+   stalled an hour ago was at full tilt before; an idle allocation has been idle since 07:10. Called after
+   the faults are injected so the history ends on the current reading. */
+export function buildGpuHistory(db: DbLike) {
+  const st = db.gpu; if (!st) return;
+  const now = db.now;
+  for (const node of st.nodes.values()) {
+    const rr = rngOf(node.neId, 0x5e1);
+    const job = node.jobId ? st.jobs.find(j => j.id === node.jobId) : undefined;
+    const cur = { util: Math.round(node.gpus.reduce((a, g) => a + g.util, 0) / 8), tempC: Math.max(...node.gpus.map(g => g.tempC)), powerKw: node.powerKw };
+    const before = node.state === 'in-job' ? { util: job?.kind === 'inference' ? 64 : 93, tempC: node.cooling === 'air' ? 72 : 57, powerKw: 2.1 + 8 * 0.55 } : node.state === 'burn-in' ? { util: 100, tempC: node.cooling === 'air' ? 76 : 60, powerKw: 2.1 + 8 * 0.68 } : { util: 1, tempC: node.cooling === 'air' ? 36 : 31, powerKw: 2.1 + 8 * 0.075 };
+    const since = job?.since ?? (node.rma ? now - 60 * HOUR : undefined);
+    const util: number[] = [], tempC: number[] = [], powerKw: number[] = [];
+    for (let h = 0; h < 24; h++) {
+      const at = now - (23 - h) * HOUR;
+      const after = since !== undefined && at >= since;
+      const base = after || h === 23 ? cur : before;
+      util.push(Math.max(0, Math.min(100, r0(base.util + (base.util > 5 ? between(rr, -4, 4) : between(rr, 0, 1.5))))));
+      tempC.push(r0(base.tempC + between(rr, -2, 2)));
+      powerKw.push(r1(base.powerKw * between(rr, 0.96, 1.03)));
+    }
+    util[23] = cur.util; tempC[23] = cur.tempC; powerKw[23] = cur.powerKw;
+    node.series = { util, tempC, powerKw };
+  }
+}

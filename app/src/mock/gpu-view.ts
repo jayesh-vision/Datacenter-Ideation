@@ -16,6 +16,19 @@ export interface GpuJobRow extends GpuJob {
 export interface GpuNodeRow extends GpuNode { cluster: string; job?: string; jobState?: string; owner?: string; util: number; maxTemp: number; throttled: number; xid?: Gpu['xid']; worst: Worst; alerts: number; rackName: string; room: string; drift: boolean }
 export interface GpuClusterRow extends GpuCluster { gpus: number; inJob: number; spare: number; out: number; healthy: number; degraded: number; failed: number; jobs: number; util: number; powerKw: number; worst: Worst; cells: { neId: string; state: GpuNode['state']; worst: Worst; jobId?: string; g: { h: Gpu['health']; u: number; t: number; th: Gpu['throttle'] }[] }[] }
 export interface GpuRackRow { id: string; name: string; dcId: string; room: string; drawKw: number; budgetKw: number; liquid: boolean; nodes: number; maxTemp: number; cdu?: string; state: Worst }
+/* DCGM-level view of the whole fleet (or one site): distributions, 24 h history, error leaders */
+export interface GpuTelemetry {
+  utilHist: { label: string; n: number }[]; tempHist: { label: string; n: number }[];
+  series: { util: number[]; power: number[]; hottest: number[] };       // 24 h: fleet mean utilisation %, total node power kW, hottest GPU °C
+  energyMwh24: number; powerKwNow: number; avgPowerW: number; avgTdpPct: number;
+  pstate: { P0: number; P8: number; other: number }; fanAvg: number;
+  tensorAvg: number; smAvg: number;                                      // in jobs
+  xid24: number[];                                                        // Xid events per hour, last 24 h
+  ecc: { sbe: number; dbe: number; retired: number; remap: number };
+  leaders: { hottest: Leader[]; pcie: Leader[]; nvlink: Leader[]; sbe: Leader[]; idle: Leader[] };
+  fields: { field: string; what: string }[];
+}
+export interface Leader { neId: string; dcId: string; gpu: number; value: number; unit: string; job?: string }
 export interface GpuView {
   kind: 'fleet' | 'cages' | 'none'; dcId?: string; now: number; rate: number; rateLabel: string; sites: { id: string; nodes: number; cages: number }[];
   fleet: {
@@ -30,6 +43,7 @@ export interface GpuView {
   rails: { clusterId: string; cluster: string; dcId: string; rails: { rail: number; up: number; flapping: number; down: number; errors: number }[] }[];
   cages: (AiCage & { tenant: string; premium: boolean; pct: number; revenue: number })[];
   cageTotals: { cages: number; contractedKw: number; drawKw: number; tenants: number; revenue: number; liquid: number };
+  telemetry: GpuTelemetry | null;
 }
 
 const xidText: Record<number, string> = { 79: 'Fell off the bus', 74: 'NVLink error', 48: 'Uncorrectable ECC', 63: 'Row remap', 94: 'Contained ECC', 95: 'Uncontained ECC' };
@@ -43,7 +57,7 @@ export function gpuView(db: Db, persona: Persona, dcId?: string): GpuView {
     kind: 'none', dcId, now, rate, rateLabel: '', sites: [],
     fleet: { nodes: 0, gpus: 0, nodeState: { 'in-job': 0, idle: 0, drained: 0, failed: 0, 'burn-in': 0 }, gpuHealth: { healthy: 0, degraded: 0, failed: 0 }, inJobGpus: 0, spareGpus: 0, outGpus: 0, allocatedPct: 0, utilInJobs: 0, throttle: { thermal: 0, hw: 0, power: 0 }, hottest: 0, xid: [], sbe: 0, dbe: 0, remapPending: 0, driftNodes: 0, driverStd: st?.driverStd ?? '', rmaOpen: 0, burnIn: 0, liquidNodes: 0, powerKw: 0, models: [] },
     jobsSummary: { running: 0, slowed: 0, stalled: 0, atRisk: 0, idle: 0, total: 0, gpus: 0 }, waste: { rate: 0, stalled: 0, slowed: 0, idle: 0, soFar: 0, redo: 0, atStake: 0 },
-    jobs: [], clusters: [], nodes: [], cdus: [], racks: [], rails: [], cages: [], cageTotals: { cages: 0, contractedKw: 0, drawKw: 0, tenants: 0, revenue: 0, liquid: 0 }
+    jobs: [], clusters: [], nodes: [], cdus: [], racks: [], rails: [], cages: [], cageTotals: { cages: 0, contractedKw: 0, drawKw: 0, tenants: 0, revenue: 0, liquid: 0 }, telemetry: null
   };
   if (!st) return empty;
   const dcById = new Map(db.datacenters.map(d => [d.id, d]));
@@ -144,6 +158,49 @@ export function gpuView(db: Db, persona: Persona, dcId?: string): GpuView {
     },
     jobsSummary: { running: jobs.filter(j => j.state === 'running').length, slowed: jobs.filter(j => j.state === 'slowed').length, stalled: jobs.filter(j => j.state === 'stalled').length, atRisk: jobs.filter(j => j.state === 'at-risk').length, idle: jobs.filter(j => j.state === 'idle').length, total: jobs.length, gpus: sum(j => j.gpus) },
     waste: { rate: sum(j => j.wasteRate), stalled: sum(j => j.wasteRate, j => j.state === 'stalled'), slowed: sum(j => j.wasteRate, j => j.state === 'slowed'), idle: sum(j => j.wasteRate, j => j.state === 'idle'), soFar: sum(j => j.wasteSoFar + j.redo), redo: sum(j => j.redo), atStake: sum(j => j.atStake) },
-    jobs, clusters, nodes, cdus, racks, rails, cages: [], cageTotals: empty.cageTotals
+    jobs, clusters, nodes, cdus, racks, rails, cages: [], cageTotals: empty.cageTotals, telemetry: buildTelemetry(nodesAll, jobById, now)
+  };
+}
+
+export const DCGM_FIELDS: { field: string; what: string }[] = [
+  { field: 'DCGM_FI_DEV_GPU_UTIL', what: 'GPU utilisation %' }, { field: 'DCGM_FI_PROF_SM_ACTIVE', what: 'Streaming-multiprocessor active %' }, { field: 'DCGM_FI_PROF_SM_OCCUPANCY', what: 'Warps resident per SM %' },
+  { field: 'DCGM_FI_PROF_PIPE_TENSOR_ACTIVE', what: 'Tensor-core pipe active %' }, { field: 'DCGM_FI_DEV_MEM_COPY_UTIL', what: 'Memory copy engine %' }, { field: 'DCGM_FI_PROF_DRAM_ACTIVE', what: 'HBM bandwidth active %' },
+  { field: 'DCGM_FI_DEV_FB_USED / FB_TOTAL', what: 'Framebuffer memory used / total' }, { field: 'DCGM_FI_DEV_GPU_TEMP / MEMORY_TEMP', what: 'GPU and HBM temperature °C' }, { field: 'DCGM_FI_DEV_POWER_USAGE', what: 'Board power W' },
+  { field: 'DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION', what: 'Energy since boot (shown per 24 h)' }, { field: 'DCGM_FI_DEV_SM_CLOCK / MEM_CLOCK', what: 'SM and memory clock MHz' }, { field: 'DCGM_FI_DEV_PSTATE', what: 'Performance state (P0 busy … P8 idle)' },
+  { field: 'DCGM_FI_DEV_FAN_SPEED', what: 'Fan %' }, { field: 'DCGM_FI_DEV_CLOCK_THROTTLE_REASONS', what: 'Why clocks are reduced (thermal, power cap, HW slowdown)' }, { field: 'DCGM_FI_DEV_ECC_SBE_VOL_TOTAL / DBE', what: 'Correctable / uncorrectable ECC errors' },
+  { field: 'DCGM_FI_DEV_RETIRED_PAGES · ROW_REMAP_PENDING', what: 'Memory pages retired, remap waiting for a reset' }, { field: 'DCGM_FI_DEV_PCIE_REPLAY_COUNTER', what: 'PCIe link retries' }, { field: 'DCGM_FI_PROF_PCIE_RX_BYTES / TX_BYTES', what: 'PCIe traffic GB/s' },
+  { field: 'DCGM_FI_DEV_NVLINK_*_ERROR_COUNT_TOTAL', what: 'NVLink CRC / replay errors' }, { field: 'DCGM_FI_PROF_NVLINK_RX_BYTES / TX_BYTES', what: 'NVLink traffic GB/s' }, { field: 'DCGM_FI_DEV_XID_ERRORS', what: 'Last Xid (driver error code)' }
+];
+
+function buildTelemetry(nodes: GpuNode[], jobById: Map<string, GpuJob>, now: number): GpuTelemetry {
+  const gpus = nodes.flatMap(n => n.gpus.map(g => ({ g, n })));
+  const bucket = (v: number, edges: number[]) => edges.findIndex((e, i) => v < e || i === edges.length - 1);
+  const uEdges = [10, 30, 50, 70, 90, 101], uLabels = ['0–10%', '10–30%', '30–50%', '50–70%', '70–90%', '90–100%'];
+  const tEdges = [40, 60, 70, 80, 85, 200], tLabels = ['< 40°C', '40–60°C', '60–70°C', '70–80°C', '80–85°C', '≥ 85°C'];
+  const utilHist = uLabels.map(label => ({ label, n: 0 })), tempHist = tLabels.map(label => ({ label, n: 0 }));
+  gpus.forEach(({ g }) => { utilHist[bucket(g.util, uEdges)].n++; tempHist[bucket(g.tempC, tEdges)].n++; });
+  const h24 = Array.from({ length: 24 }, (_, h) => h);
+  const series = {
+    util: h24.map(h => nodes.length ? Math.round(nodes.reduce((a, n) => a + (n.series.util[h] ?? 0), 0) / nodes.length) : 0),
+    power: h24.map(h => Math.round(nodes.reduce((a, n) => a + (n.series.powerKw[h] ?? 0), 0))),
+    hottest: h24.map(h => nodes.length ? Math.max(...nodes.map(n => n.series.tempC[h] ?? 0)) : 0)
+  };
+  const inJob = gpus.filter(x => x.n.state === 'in-job');
+  const xid24 = h24.map(() => 0);
+  gpus.forEach(({ g }) => { if (g.xid && g.xid.at > now - 24 * 3600000) xid24[Math.min(23, Math.max(0, 23 - Math.floor((now - g.xid.at) / 3600000)))]++; });
+  const lead = (f: (g: Gpu) => number, unit: string, pred: (g: Gpu) => boolean = g => f(g) > 0, asc = false): Leader[] =>
+    gpus.filter(x => pred(x.g)).sort((a, b) => (asc ? f(a.g) - f(b.g) : f(b.g) - f(a.g))).slice(0, 5).map(({ g, n }) => ({ neId: n.neId, dcId: n.dcId, gpu: g.idx, value: f(g), unit, job: n.jobId ? jobById.get(n.jobId)?.name : undefined }));
+  const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
+  return {
+    utilHist, tempHist, series,
+    energyMwh24: Math.round(gpus.reduce((a, x) => a + x.g.energyKwh24, 0) / 100) / 10, powerKwNow: Math.round(nodes.reduce((a, n) => a + n.powerKw, 0)),
+    avgPowerW: Math.round(avg(gpus.map(x => x.g.powerW))), avgTdpPct: Math.round(avg(gpus.map(x => (x.g.powerW / x.g.tdpW) * 100))),
+    pstate: { P0: gpus.filter(x => x.g.pstate === 'P0').length, P8: gpus.filter(x => x.g.pstate === 'P8').length, other: gpus.filter(x => x.g.pstate === 'P2').length },
+    fanAvg: Math.round(avg(gpus.filter(x => x.n.cooling === 'air').map(x => x.g.fanPct))),
+    tensorAvg: Math.round(avg(inJob.map(x => x.g.tensorActive))), smAvg: Math.round(avg(inJob.map(x => x.g.smActive))),
+    xid24,
+    ecc: { sbe: gpus.reduce((a, x) => a + x.g.sbe, 0), dbe: gpus.reduce((a, x) => a + x.g.dbe, 0), retired: gpus.reduce((a, x) => a + x.g.retiredPages, 0), remap: gpus.filter(x => x.g.remapPending).length },
+    leaders: { hottest: lead(g => g.tempC, '°C'), pcie: lead(g => g.pcieReplay, 'replays'), nvlink: lead(g => g.nvlinkErr, 'errors'), sbe: lead(g => g.sbe, 'SBE'), idle: gpus.filter(x => x.n.state === 'in-job' && x.g.util < 5).slice(0, 5).map(({ g, n }) => ({ neId: n.neId, dcId: n.dcId, gpu: g.idx, value: g.util, unit: '%', job: n.jobId ? jobById.get(n.jobId)?.name : undefined })) },
+    fields: DCGM_FIELDS
   };
 }

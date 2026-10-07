@@ -175,6 +175,42 @@ const ENTERPRISE: PersonaDef = {
   }
 };
 
-export const PERSONAS: PersonaDef[] = [NETWORK, COLOCATION, CLOUD, ENTERPRISE];
-export const PERSONA_BY_ID: Record<Persona, PersonaDef> = { network: NETWORK, colocation: COLOCATION, cloud: CLOUD, enterprise: ENTERPRISE };
+const NEOCLOUD: PersonaDef = {
+  id: 'neocloud', label: 'NeoCloud / GPU cloud', short: 'NeoCloud', tagline: 'Rents GPU capacity — reserved clusters and on-demand GPUs for AI teams',
+  vocab: { customer: 'Customer', customers: 'Customers', service: 'Reservation', services: 'Reservations', equipment: 'GPU nodes & fabric', premium: 'Committed', capacityLabel: 'GPUs reserved', primaryUnit: 'GPU', handoff: 'Node · rail', searchHint: 'Customer, ID, segment',
+    money: { noun: 'Revenue', impact: 'Revenue impact', lost: 'Revenue lost', credits: 'Service credits', base: 'Monthly GPU revenue', billing: 'GPUs are billed per GPU-hour: reserved clusters at a committed monthly rate, on-demand capacity by the hour. Hours a GPU is down or a job is stalled are not billed, and an availability miss adds a service credit.' } },
+  scale: 1.5,
+  customers: [
+    ['Lumen AI Labs', 'AI lab', 'Bengaluru', 'Karnataka', 'Reserved · 3-year', true],
+    ['Vectra Models', 'AI lab', 'Mumbai', 'Maharashtra', 'Reserved · 1-year', true],
+    ['QuantLedger AI', 'Fintech', 'Mumbai', 'Maharashtra', 'Reserved · 1-year', true],
+    ['HealthCloud Analytics', 'Healthcare', 'Hyderabad', 'Telangana', 'On-demand', false],
+    ['Autonomy Drive', 'Automotive', 'Pune', 'Maharashtra', 'Reserved · 3-year', true],
+    ['Pixelforge Studio', 'Media', 'Mumbai', 'Maharashtra', 'On-demand', false],
+    ['National AI Mission', 'Government', 'New Delhi', 'Delhi NCR', 'Reserved · 3-year', true],
+    ['VoiceLoop', 'SaaS', 'Chennai', 'Tamil Nadu', 'On-demand', false],
+    ['DeepRetail', 'Retail', 'Bengaluru', 'Karnataka', 'On-demand', false],
+    ['University Consortium', 'Education', 'Prayagraj', 'Uttar Pradesh', 'Reserved · 1-year', false],
+    ['Synthex Biotech', 'Pharma', 'Hyderabad', 'Telangana', 'Reserved · 1-year', true],
+    ['Mapwise Geo', 'SaaS', 'Pune', 'Maharashtra', 'On-demand', false]
+  ],
+  serviceTypes: [
+    { type: 'Reserved cluster', code: 'RC', unit: 'GPU', qty: [64, 128, 256], host: ['GPU'] },
+    { type: 'On-demand GPUs', code: 'OD', unit: 'GPU', qty: [8, 16, 32], host: ['GPU'] },
+    { type: 'Storage volume', code: 'SV', unit: 'TB', qty: [50, 100, 250, 500], host: ['Storage'] },
+    { type: 'CPU instances', code: 'CI', unit: 'vCPU', qty: [32, 64, 128], host: ['Server'] }
+  ],
+  sla: { premium: 99.9, standard: 99.5 },
+  rooms: { big: [{ name: 'Ground', rooms: ['GPU hall A', 'GPU hall B'] }, { name: '1st floor', rooms: ['GPU hall C', 'Storage hall'] }], small: [{ name: 'Ground', rooms: ['GPU hall A'] }, { name: '1st floor', rooms: ['GPU hall B'] }] },
+  tall: { dcIndex: 23, floors: [{ name: 'Ground', rooms: ['Network core'] }, { name: '1st floor', rooms: ['GPU hall A'] }, { name: '2nd floor', rooms: ['GPU hall B'] }, { name: '3rd floor', rooms: ['GPU hall C'] }, { name: '4th floor', rooms: ['Storage hall'] }, { name: '5th floor', rooms: ['GPU hall D'] }] },
+  incidentTitles: {
+    Network: ['InfiniBand rail flapping on a pod', 'Spine switch reload', 'ToR uplink flapping', 'Border router BGP reset'],
+    Power: ['PDU breaker trip on a GPU row', 'UPS on bypass', 'Rectifier module alarm'], Cooling: ['CDU flow alarm on a GPU row', 'GPU hall above 27°C — CRAH filter blocked', 'Chiller pump fault'],
+    Capacity: ['Reserved pool sold out in hall', 'On-demand GPU queue above 2 h', 'Storage pool above 85%'], Rack: ['GPU rack over power budget'], Security: ['Scheduler API login failures spike'],
+    GPU: ['GPU fell off the bus — training job stalled', 'NVLink errors slowing a training job', 'Uncorrectable ECC — GPU reset needed']
+  }
+};
+
+export const PERSONAS: PersonaDef[] = [NETWORK, COLOCATION, CLOUD, ENTERPRISE, NEOCLOUD];
+export const PERSONA_BY_ID: Record<Persona, PersonaDef> = { network: NETWORK, colocation: COLOCATION, cloud: CLOUD, enterprise: ENTERPRISE, neocloud: NEOCLOUD };
 export const isPersona = (x: unknown): x is Persona => typeof x === 'string' && x in PERSONA_BY_ID;

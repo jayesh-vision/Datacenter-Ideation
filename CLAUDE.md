@@ -56,7 +56,7 @@ impact on incidents, devices and sites. Revenue was hidden until 05-Oct-2026; th
 (installed devices only; planned devices = reserved rack space) · Power & space · Ops log. Cabling tab hidden (02-Oct-2026; `site/Equipment.tsx` kept). No discovery/drift/reconciliation UI.
 
 ## Personas (02-Oct-2026) — one estate, four business models
-Top-bar dropdown (`shell/Layout.tsx` PersonaSwitch) sets `Persona` = network | colocation | cloud | enterprise (localStorage `dco.persona`).
+Top-bar dropdown (`shell/Layout.tsx` PersonaSwitch) sets `Persona` = network | colocation | cloud | enterprise | neocloud (localStorage `dco.persona`).
 `mock/server.ts` regenerates the whole mock (`generate(persona)`) and notifies subscribers, so every screen refetches. Sites, power,
 cooling, alarms and incidents are shared; `mock/personas.ts` holds per-persona vocabulary (customer/service/premium words, capacity
 unit), customers, service types (`Service.qty` + `unit`), room names and incident titles. Rack contents: telco = routers/switches/DWDM
@@ -161,6 +161,20 @@ Menu item **AI & GPU** (`/gpu`, `screens/Gpu.tsx`) and a datacenter tab, both sh
 (`app/public/demo-playbook.html`) — edit the docs file, then copy it over. Its figures are taken from the mock at the fixed clock;
 if the seed, incidents or revenue model change, re-check them.
 
+## NeoCloud persona and DCGM telemetry (07-Oct-2026)
+Fifth persona `neocloud` (GPU-as-a-service: customers rent reserved clusters and on-demand GPUs; 70% of hosts are GPU nodes,
+scale 1.5, GPU_RATE.neocloud ₹1,50,000/GPU/mo, SLA 99.9/99.5, tall site index 23). Same cloud-style fabric and the same GPU layer;
+every `persona === 'cloud'` branch that means "a GPU cloud" must include `neocloud`. The persona switch, PERSONA_ICON, the playbook
+and the embed guide list five personas.
+GPU telemetry follows the NVIDIA DCGM exporter: `Gpu` carries the DCGM fields (comments name them: util / SM active / tensor /
+mem copy / DRAM, FB used, GPU + HBM temp, power + energy, SM + mem clock, P-state, fan, throttle reasons, ECC SBE/DBE, retired
+pages + row remap, PCIe replay + traffic, NVLink errors + traffic, last Xid); `GpuNode.series` = 24 h hourly history built AFTER the
+faults (`buildGpuHistory`) so it ends on the current reading. `gpu-view.ts` adds `telemetry` (fleet histograms, 24 h series, energy,
+P-states, Xid timeline, ECC totals, per-counter leaders, the DCGM field list). Screens: AI & GPU → Telemetry tab; node drawer and the
+device page's "GPUs · DCGM" tab share `GpuNodeDetail` (health view + profiling view + 24 h sparklines); the datacenter Equipment tab
+shows the 8-GPU strip for GPU nodes. New per-GPU random draws go AFTER the existing ones (same stream) so cloud/enterprise data
+does not move. Check: `node .qa/gpu.mjs neocloud` (and cloud).
+
 ## Geography (06-Oct-2026) — India or the USA
 `mock/geo.ts`: a geography = places (regions, states/circles, cities, the 24 site rows), customer locations, people, currency,
 number locale and date style. India = the original seed; the USA = the same 24 sites BY POSITION (status, device counts, tier
@@ -183,3 +197,6 @@ shown unless this tab/iframe already chose (sessionStorage `dco.shell`, plus a m
 `?persona=` picks the persona, `?geo=` the geography (mock/server.ts). Route catalogue with every screen's URL parameters: `docs/dco-embed-guide.html`
 (served at `/embed-guide.html`; copy it to `app/public/` after editing). Check: `node .qa/embed.mjs <host page with an iframe>`.
 When a screen gains a URL parameter or a new route is added, add it to the guide.
+Deployment overrides (`mock/override.ts`): Vercel env vars `VITE_PERSONA_OVERRIDE` / `VITE_GEO_OVERRIDE` with rules
+`[geo:]from=to` or `to` (comma-separated, first match wins) — applied AFTER the URL and the saved choice, so they win over links in
+other people's code. Build-time (Vite), so changing them needs a redeploy. Unset = no override.
