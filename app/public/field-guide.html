@@ -124,6 +124,12 @@ code { background: var(--code-bg); border: 1px solid var(--line); border-radius:
 .legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--muted); }
 .legend span { display: inline-flex; align-items: center; gap: 5px; }
 .legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+.srctab { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 13px; }
+.srctab th { text-align: left; font-family: var(--f-display); font-weight: 500; font-size: 12px; color: var(--muted); background: var(--bg); padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.srctab td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; color: var(--fg-2); }
+.srctab tr:last-child td { border-bottom: 0; }
+.srctab td.w { color: var(--fg); font-weight: 500; }
 /* three networks */
 .nets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .net { border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: grid; gap: 6px; align-content: start; background: var(--bg); }
@@ -211,9 +217,11 @@ const AREAS = [
   ['power', 'Power', 'How electricity reaches each device and what keeps it on'],
   ['cool', 'Cooling and environment', 'How heat leaves the building'],
   ['net', 'Network and fabric', 'The cables, switches and routers inside and between sites'],
+  ['hw', 'Servers and hardware', 'The devices in the racks and the parts inside them'],
   ['gpu', 'GPUs and AI', 'GPU servers, pods, jobs and how a GPU cloud sells them'],
   ['dcgm', 'GPU telemetry (DCGM)', 'The per-GPU health counters NVIDIA DCGM exports'],
   ['ops', 'Operations', 'Alarms, incidents, changes and how a NOC works'],
+  ['src', 'Data sources and integrations', 'Where the live data comes from, and the protocols that carry it'],
   ['money', 'SLA and revenue', 'Service levels, credits and what an issue costs'],
   ['biz', 'Business models', 'The five personas in the tool'],
   ['tool', 'The tool itself', 'Screens and features of this product']
@@ -286,7 +294,6 @@ const T = [
 ['Rail', 'Rail-optimised fabric', 'net', 'Each of the 8 GPUs in a server has its own network port, and GPU 0 in every server connects to the same "rail" of switches, and so on. This keeps GPU-to-GPU traffic on short paths.', 'IB ports per node; "rail 3 flapping".', '', ['InfiniBand (IB)']],
 ['Ethernet front-end', '', 'net', 'The normal 100G Ethernet network that carries storage, user access and internet traffic, separate from InfiniBand.', 'NeoCloud ETH-LEAF / ETH-SPINE; Fabric connections card.', '', ['Fabric', 'OOB']],
 ['OOB', 'Out-of-band management', 'net', 'A separate 1G network to manage servers even when their main network or OS is down.', 'NeoCloud OOB switches; node port mgmt0.', 'Even if a server hangs, we can still reach its management port and restart it.', ['BMC']],
-['BMC', 'Baseboard management controller', 'net', 'A small computer inside every server for remote power, console and hardware health.', 'mgmt0 ports; "Remote power-cycle" actions.', '', ['OOB']],
 ['Router', '', 'net', 'Moves traffic between networks and sites. In a telco DC there are many; in a GPU cloud mainly the border routers.', 'Telco persona PE routers; NeoCloud BDR-01/02.', '', ['PE router', 'Border router']],
 ['PE router', 'Provider edge router', 'net', 'A telco router at the edge of the carrier network that hands services to customers. Named PE-T4-01 in the tool.', 'Telco hero device MH-DC-001-PE-T4-01; INC-0001.', '', ['Backhaul', 'LSP']],
 ['Border router (BDR)', '', 'net', 'The router where a GPU cloud site connects to the internet and other sites.', 'NeoCloud BDR-01/02 (Juniper MX304).', '', ['DCI', 'Edge redundancy']],
@@ -372,7 +379,6 @@ const T = [
 ['Closure verification', '', 'ops', 'Checks that must pass before an incident is resolved: alarms cleared, health green 15 minutes, services back in SLA.', 'Incident "Closure verification".', '', []],
 ['NOC', 'Network operations center', 'ops', 'The team watching the estate 24×7.', 'Owners "NOC"; command center is the NOC view.', '', ['Field ops']],
 ['Field ops', 'Field operations', 'ops', 'Engineers who go on site to replace parts and cables.', 'Action plan owners.', '', ['NOC']],
-['Collector', 'Telemetry collector', 'ops', 'The software that polls devices for telemetry. "Stale" means it stopped reporting.', '"polled via COL-TX-DC-022-1"; incident "collector stale".', '', []],
 
 /* money */
 ['SLA', 'Service-level agreement', 'money', 'The promised availability of a service, such as 99.9% a month. Missing it triggers service credits.', 'Customer and service pages "SLA · 30 d", "target 99.9%".', '99.9% allows about 43 minutes of downtime a month; 99.99% about 4 minutes.', ['Service credit', 'Uptime']],
@@ -404,10 +410,47 @@ const T = [
 ['Opstral AI', '', 'tool', 'The built-in assistant: answers questions about the estate, ranks fixes and explains root causes.', '"Ask Opstral AI" buttons.', 'You can ask the tool in plain language what is costing the most right now.', ['RCA']],
 ['Persona switch', '', 'tool', 'Top-bar dropdown that shows the same estate as one of five business models.', 'Top bar "Persona"; URL ?persona=neocloud.', '', ['NeoCloud']],
 ['Geography switch', '', 'tool', 'Shows the estate in India (₹) or the USA ($).', 'Top bar "Geography"; URL ?geo=us.', '', []],
-['Analytics strip', '', 'tool', 'The row of six summary tiles at the top of list pages. Tiles and pills are clickable filters.', 'Datacenters, Alerts, Incidents, Changes, Revenue, AI & GPU.', '', []]
+['Analytics strip', '', 'tool', 'The row of six summary tiles at the top of list pages. Tiles and pills are clickable filters.', 'Datacenters, Alerts, Incidents, Changes, Revenue, AI & GPU.', '', []],
+
+/* servers and hardware */
+['Server / host', '', 'hw', 'A general-purpose computer in a rack that runs applications, virtual machines or containers.', 'Equipment tab role "Server"; CPU instances in the NeoCloud persona.', '', ['BMC', 'CPU / memory utilisation']],
+['BMC', 'Baseboard management controller', 'hw', 'A small separate computer on every server\'s motherboard, with its own network port. It reports temperatures, fans, power supplies and hardware faults, and lets engineers power the server on or off or open its console remotely, even when the server is off or hung.', 'Server and GPU node port mgmt0; power-supply and fan alarms; "Remote power-cycle via smart PDU or BMC" actions.', 'Even if a server hangs, we can still reach its management controller and restart it remotely.', ['Redfish', 'IPMI', 'OOB', 'PSU']],
+['CPU / memory utilisation', '', 'hw', 'Share of processor time and memory in use on a device. Sustained high values slow the device down.', 'Equipment column "CPU · mem · temp"; alarms "High CPU Utilization", "High Memory Utilization".', '', ['Health score']],
+['Health score', '', 'hw', 'A 0–100 score per device that combines reachability, open alarms, CPU, memory and temperature. Below 60 is shown red.', 'Device page "Device health 96 / 100"; Health column in Equipment.', '', ['ICMP / unreachable']],
+['Firmware', 'BIOS, BMC, VBIOS', 'hw', 'Software built into hardware: server BIOS, BMC firmware, network card and GPU VBIOS. Mismatched versions cause odd faults.', 'GPU node "VBIOS 96.00…"; driver and firmware rollout changes.', '', ['Driver']],
+['Module / line card', 'FRU, field-replaceable unit', 'hw', 'Replaceable parts inside a device: routing engines, line cards, power supplies, fan trays.', 'Device Hardware & interfaces tab; alarm "Fan Tray Failure".', '', ['PSU']],
+['Serial number', '', 'hw', 'The manufacturer\'s unique ID for a device, used for warranty, support cases and RMA.', 'Device header SERIAL NUMBER.', '', ['RMA']],
+['Management IP / MAC', '', 'hw', 'The network address engineers and the collectors use to reach a device, and its hardware address.', 'Device header "172.16.40.20", MAC ADDRESS.', '', ['OOB', 'Collector']],
+['Lifecycle', 'Planned · Ready · In service', 'hw', 'Where a device is in its life: planned (rack space reserved), installed and ready, in service, or retired.', 'Device header LIFECYCLE; "+51 planned" devices in Assets.', '', ['DCIM']],
+['Storage array', 'SAN, NAS, parallel file system', 'hw', 'Shared disk systems. Clouds and enterprises use arrays such as NetApp or Pure; GPU clouds use fast parallel file systems such as VAST, WEKA or DDN to feed training data.', 'Equipment role "Storage"; alarms "Storage Controller Failover", "Disk Failure Predicted".', '', ['Ethernet front-end']],
+['OS / hypervisor', 'Ubuntu, RHEL, ESXi', 'hw', 'The operating system on a server, or the hypervisor that runs virtual machines on it.', 'Device header OS VERSION.', '', ['Server / host']],
+
+/* data sources and integrations */
+['Telemetry', '', 'src', 'Measurements devices and sensors report continuously: power, temperature, port counters, GPU counters. The platform turns telemetry into health, alarms and trends.', 'Everywhere; freshness shown as "2 m ago" on each site.', 'We read live telemetry from every device and sensor, not just alarms.', ['Polling vs streaming', 'Collector']],
+['Collector', 'Telemetry collector', 'src', 'The platform\'s software in or near each site that polls devices, receives their pushed messages and forwards everything to the platform. Two per site for redundancy.', 'Device page "polled via COL-TX-DC-022-1"; incident "Discovery collector stale".', 'Each site has two collectors, so losing one does not blind us.', ['Telemetry freshness', 'SNMP']],
+['Telemetry freshness', '', 'src', 'How old the latest data from a site is. The platform expects data within 15 minutes; older is "stale".', 'Datacenter bar "2 m ago"; "collector stale" chip and note.', '', ['Collector']],
+['Polling vs streaming', 'Pull vs push', 'src', 'Polling: the collector asks each device for its counters every few seconds or minutes. Streaming or push: the device sends data or an event the moment it happens. Most estates use both.', 'Background for every telemetry source.', '', ['SNMP', 'Streaming telemetry (gNMI)', 'Syslog']],
+['DCIM', 'Data center infrastructure management', 'src', 'The system of record for sites, rooms, racks, rack positions, power circuits and what is installed where.', 'Feeds Assets, Equipment rack positions and the digital twin layout.', 'We take rack and asset records from your DCIM, so nobody retypes them.', ['CMDB', 'Rack']],
+['CMDB', 'Configuration management database', 'src', 'Records of devices, their configuration and how they relate, usually kept inside the ITSM tool.', 'Device identity, owner and relationships.', '', ['ITSM', 'DCIM']],
+['BMS', 'Building management system', 'src', 'The system that monitors and controls the building plant: UPS, generators, switchgear, chillers, CRAH units, leak and smoke sensors.', 'Source for Facilities, the power path, cooling and environment.', 'Power and cooling come straight from your building management system.', ['EPMS', 'Modbus', 'BACnet']],
+['EPMS', 'Electrical power monitoring system', 'src', 'Meters on switchgear, UPS outputs and PDUs that measure power, energy and power quality.', 'Power path loads, PUE, 24-hour load chart.', '', ['BMS', 'PUE']],
+['Modbus', 'Modbus TCP', 'src', 'An industrial protocol most UPS, generator, meter and CDU controllers speak. The collector reads their registers every few seconds.', 'UPS state, battery runtime, generator status, CDU flow.', '', ['BMS', 'UPS']],
+['BACnet', '', 'src', 'The building-automation protocol for heating and cooling equipment: CRAH and CRAC units, chillers, temperature and humidity sensors.', 'Cooling units and environment zones.', '', ['BMS', 'CRAH']],
+['SNMP', 'Simple Network Management Protocol', 'src', 'The classic way to read counters from network devices, PDUs and UPS cards by polling. SNMP traps are alarms the device pushes.', 'Ports, links, optics, CPU, PSU and PDU readings; many alarms.', '', ['Streaming telemetry (gNMI)', 'Polling vs streaming']],
+['Streaming telemetry (gNMI)', 'gRPC network management interface', 'src', 'Modern switches and routers push their counters every few seconds over gNMI, finer and lighter than SNMP polling.', 'Interface utilisation, errors and optics on modern fabrics.', '', ['SNMP']],
+['Syslog', '', 'src', 'Text messages devices send when something happens, such as "link down" or "BGP neighbour reset".', 'Event alarms such as flapping and protocol resets.', '', ['Alarm / alert']],
+['Redfish', 'DMTF Redfish API', 'src', 'The modern web (REST) interface to a server\'s BMC: health, temperatures, fans, power supplies, firmware and remote power control.', 'Server and GPU node hardware health, PSU and fan alarms.', 'We read server hardware health through Redfish, the industry-standard interface.', ['BMC', 'IPMI']],
+['IPMI', 'Intelligent Platform Management Interface', 'src', 'The older protocol for talking to a BMC. Still used on many servers; Redfish is replacing it.', 'Same data as Redfish on older servers.', '', ['BMC', 'Redfish']],
+['Prometheus', '', 'src', 'An open-source monitoring system that scrapes metrics from exporters every few seconds. The DCGM exporter on GPU nodes publishes to it.', 'GPU telemetry path; job metrics such as step time.', '', ['DCGM exporter']],
+['NVIDIA UFM', 'Unified Fabric Manager', 'src', 'NVIDIA\'s manager for InfiniBand fabrics: port states, errors and congestion for every IB cable.', 'InfiniBand rails, "InfiniBand Link Flapping" alarms.', '', ['InfiniBand (IB)']],
+['Scheduler API', 'Kubernetes, Slurm', 'src', 'The interface of the job scheduler: which job runs on which GPUs, for which customer, since when.', 'Jobs tab, job state, idle allocations.', '', ['Scheduler', 'Job']],
+['ITSM', 'IT service management (e.g. ServiceNow, Jira Service Management)', 'src', 'The ticketing tool where incidents, changes and maintenance are recorded and approved. The platform syncs incidents and changes both ways.', 'Incidents and Changes & maintenance pages.', 'Incidents and changes stay in step with your ticketing tool.', ['CMDB', 'Change / maintenance']],
+['CRM and billing', '', 'src', 'Systems that hold customers, contracts, SLAs and monthly charges. They give the platform the prices and promises behind every service.', 'Customers, services, revenue impact, SLA targets.', '', ['SLA', 'MRR']],
+['API / webhook', '', 'src', 'An API lets systems ask each other for data; a webhook lets one system notify another the moment something changes.', 'How ITSM, DCIM and billing connect to the platform.', '', ['ITSM']],
 ];
 
 const QA = [
+  ['Where does the data in the platform come from?', 'From the systems already running the site. Power and cooling come from the building management system over Modbus and BACnet. Network devices report over SNMP, streaming telemetry and syslog. Servers report through their BMC over Redfish or IPMI. GPUs report through the NVIDIA DCGM exporter. Racks and assets come from DCIM; customers and contracts from CRM and billing; tickets and changes sync with the ITSM tool. Collectors at each site gather it all, and every screen shows how fresh the data is.', 'How it fits together → "Where the data comes from"; the freshness indicator on each datacenter.'],
   ['What does Tier III or Tier IV mean for my service?', 'Tier is the Uptime Institute rating of a site\'s redundancy. Tier III can be maintained without shutting anything down, about 99.982% design availability. Tier IV keeps running through any single fault in power or cooling, about 99.995%.', 'Datacenters list and the datacenter header show each site\'s tier.'],
   ['What happens if the grid power fails?', 'The UPS batteries carry the load instantly. The generators start and take over within about a minute and run for hours on fuel. The tool shows the battery clock in minutes and the generator fuel hours, so the team acts before anything runs out.', 'Facilities → Power: "If utility power fails". The UPS incident INC-0002 is a live example.'],
   ['What does PUE 1.4 mean?', 'For every 1 kW delivered to your equipment, the site uses 0.4 kW more for cooling, lighting and losses. Lower is better, and 1.0 would be perfect.', 'Command center pulse and the Metrics tab.'],
@@ -421,6 +464,36 @@ const QA = [
   ['Is my equipment separated from other customers?', 'In colocation each tenant has locked cabinets or a cage with its own contracted power. In a GPU cloud your reserved cluster runs on its own nodes within a pod, with separate networks for compute, storage and management.', 'Colocation tenant cabinets; NeoCloud pod and reservation pages.'],
   ['What is the difference between an alarm and an incident?', 'An alarm is a signal from one device, such as "link down". An incident is the problem a person owns, grouping all the alarms with the same cause. Alarms use Critical, Major, Minor and Warning; incidents use Critical, High, Medium and Low by business impact.', 'Alerts page and Incidents page.']
 ];
+
+/* where each measured term's real data comes from in production (the prototype generates it) */
+const DCGM_SRC = 'NVIDIA DCGM exporter on each GPU node, scraped about every 30 s (Prometheus)';
+const SRC = {
+  'BMC': 'Read over its own management port with Redfish or IPMI', 'Server / host': 'BMC (Redfish / IPMI) for hardware; node agent or hypervisor API for load', 'OOB': 'OOB switches via SNMP', 'Leaf / spine': 'Switches via SNMP or gNMI', 'ToR': 'Switches via SNMP or gNMI', 'Ethernet front-end': 'Switches via SNMP or gNMI',
+  'Rack': 'DCIM records (layout, rack positions); live draw and temperature from rack PDUs (SNMP) and sensors', 'U (rack unit)': 'DCIM records', 'Floor / Hall': 'DCIM records', 'Cage': 'DCIM records and colocation contracts (CRM)',
+  'Cross-connect': 'DCIM cabling records and colocation orders (CRM)', 'ODF': 'DCIM cabling records', 'Patch cord': 'DCIM cabling records', 'Digital twin': 'DCIM layout combined with live telemetry and alarms', 'Tier': 'Site certification records',
+  'kW': 'Rack PDUs (SNMP), UPS and meters (Modbus) via the BMS or EPMS', 'kWh / MWh': 'Energy meters (EPMS); DCGM energy counters for GPUs', 'kVA': 'Equipment ratings in DCIM', 'MW': 'Site capacity records (DCIM)',
+  'PUE': 'Calculated: total facility power (EPMS meters) ÷ IT power (UPS or PDU output)', 'Utility feed': 'Switchgear meters and ATS status via the EPMS / BMS (Modbus)', 'UPS': 'UPS controller via Modbus TCP or its SNMP card', 'On battery': 'UPS controller via Modbus TCP or SNMP (state + remaining runtime)',
+  'Runtime': 'UPS controller (estimated runtime register)', 'DG': 'Generator controller via Modbus; fuel-level sensors', 'ATS': 'ATS controller via Modbus / BMS (position, AUTO or MANUAL mode)', 'Load-bank test': 'Maintenance records in the ITSM tool',
+  'PDU': 'PDU meters via SNMP or Modbus', 'A+B feed': 'Rack PDUs via SNMP (per-feed load)', 'PSU': 'Servers: BMC via Redfish or IPMI · network devices: SNMP entity sensors', 'Rectifier': 'Rectifier controller via SNMP or Modbus',
+  'Power budget': 'Limit from the contract (CRM) or DCIM · draw from rack PDUs (SNMP)', 'Power cap': 'GPU power limit via DCGM; server limit via BMC (Redfish)', 'Ride-through': 'Calculated from UPS runtime and generator fuel (BMS)',
+  'CRAH': 'BMS via BACnet or Modbus', 'CRAC': 'BMS via BACnet or Modbus', 'Chiller': 'BMS via BACnet or Modbus', 'CDU': 'CDU controller via Modbus or BACnet (flow, supply and return temperature)',
+  'Inlet temperature': 'Rack and zone sensors via the BMS (BACnet) or SNMP sensor probes', 'Zone': 'Environment sensors via the BMS (BACnet) or SNMP probes', 'RH': 'Humidity sensors via the BMS', 'Heat balance': 'Calculated from IT power and cooling-unit capacity (BMS)',
+  'Link': 'LLDP neighbour tables and interface state via SNMP or gNMI', 'Port / interface': 'Interface counters via SNMP (IF-MIB) or gNMI', 'Optic / transceiver': 'Transceiver inventory via SNMP (ENTITY-MIB) or gNMI', 'DOM / Rx power': 'Optic DOM readings via SNMP or gNMI',
+  'CRC errors': 'Interface error counters via SNMP or gNMI', 'Flapping': 'Interface state changes from SNMP traps, gNMI and syslog', 'LLDP': 'LLDP tables via SNMP or gNMI', 'BGP': 'Session state via SNMP, gNMI and syslog', 'OSPF / IS-IS': 'Adjacency state via SNMP, gNMI and syslog',
+  'MPLS / LSP': 'LSP state via SNMP or gNMI', 'BFD': 'Session state via gNMI and syslog', 'ICMP / unreachable': 'The platform\'s own ping probes, from each site\'s collectors', 'NTP': 'Device NTP status via SNMP or gNMI', 'RADIUS / AAA': 'Device authentication counters and AAA server logs',
+  'InfiniBand (IB)': 'NVIDIA UFM and IB switch counters', 'Rail': 'NVIDIA UFM (port and rail state)', 'Backhaul': 'Interface counters via SNMP or gNMI on the border or PE routers', 'Edge redundancy': 'Calculated from backhaul link states', 'Firewall': 'SNMP and syslog from the firewall',
+  'Node': 'Placement from DCIM; health from the BMC (Redfish) and DCGM', 'Pod': 'Cluster definition in the scheduler and DCIM', 'Job': 'Scheduler API (Kubernetes or Slurm), joined with DCGM per GPU', 'Stalled job': 'Scheduler API + DCGM (the failed GPU\'s Xid)',
+  'Slowed job / straggler': 'Job step-time metrics (Prometheus) + DCGM on the slow node', 'Step time': 'Training framework metrics exported by the job (Prometheus)', 'MFU': 'Training framework metrics exported by the job (Prometheus)', 'Checkpoint': 'Training job metadata (scheduler or storage)',
+  'Idle allocation': 'Scheduler API (allocation) + DCGM (utilisation)', 'Scheduler': 'Scheduler API', 'Cordon / drain': 'Scheduler API (node state)', 'Spare node': 'Scheduler API (node state)', 'Burn-in': 'Scheduler API or provisioning tool', 'RMA': 'ITSM or vendor support portal',
+  'Driver': 'DCGM / node agent', 'Throttling': 'DCGM throttle reasons', 'Thermal slowdown': 'DCGM throttle reasons + CDU readings (BMS)', 'GPU': 'DCGM for health; DCIM for placement', 'H100 / H200': 'DCGM device attributes',
+  'CPU / memory utilisation': 'SNMP (network devices) or node agent / BMC (servers)', 'Health score': 'Calculated by the platform from probes, alarms and device metrics', 'Firmware': 'BMC (Redfish) inventory; DCGM for GPU VBIOS', 'Module / line card': 'SNMP ENTITY-MIB or gNMI; BMC (Redfish) for servers',
+  'Serial number': 'Device inventory via SNMP / Redfish, cross-checked with DCIM', 'Management IP / MAC': 'DCIM / CMDB records, confirmed by discovery', 'Lifecycle': 'DCIM / CMDB records', 'Storage array': 'Array management API or SNMP', 'OS / hypervisor': 'Node agent or hypervisor API',
+  'Alarm / alert': 'All sources: SNMP traps, syslog, BMS alarms, BMC events (Redfish), DCGM, UFM', 'Incident': 'Created by the platform from correlated alarms; synced to the ITSM tool', 'Change / maintenance': 'Change records in the ITSM tool', 'Acknowledge': 'Platform or ITSM tool',
+  'SLA': 'Customer contracts (CRM / billing)', 'Uptime / availability': 'Calculated from service state history', 'Service credit': 'Contract terms (CRM) applied by the platform', 'Losing now': 'Calculated: service state × monthly charge from billing',
+  'Impact so far': 'Calculated by the platform', 'At stake': 'Calculated by the platform', 'Next credit step': 'Calculated from contract terms and downtime', 'Committed / premium customer': 'CRM', 'Reservation': 'Billing / order system',
+  'GPU-hour': 'Price list (billing)', 'GPU time lost': 'Calculated: scheduler + DCGM × GPU-hour price', 'Work to redo': 'Calculated from the last checkpoint time', 'MRR': 'Billing system', 'OLA / charge-back': 'Internal finance or charge-back system'
+};
+const srcOf = t => SRC[t[0]] || (t[2] === 'dcgm' ? DCGM_SRC : '');
 
 /* ------------------------------------------------------------------ explainers */
 const LADDER = [
@@ -439,6 +512,19 @@ const POWER = [
   { name: 'PDU', n: 'distribution', what: 'Splits power out to rows and racks, on two independent paths A and B.', terms: ['PDU', '2N'] },
   { name: 'Rack PDU A + B', n: 'in the rack', what: 'Two power strips per rack. Each server plugs one power supply into each strip.', terms: ['A+B feed', 'Power budget'] },
   { name: 'Server PSUs', n: 'in the device', what: 'Two power supplies per server. "Running on single PSU" means one has failed and there is no backup left.', terms: ['PSU'] }
+];
+const FEEDS = [
+  ['Power: utility, UPS, generators, PDUs', 'BMS / EPMS, UPS and generator controllers, smart PDUs', 'Modbus TCP, BACnet, SNMP', '10–60 s', 'Facilities, power path, UPS incidents, PUE'],
+  ['Cooling and environment', 'BMS, CRAH / CRAC, chillers, CDUs, sensors', 'BACnet, Modbus, SNMP probes', '30–60 s', 'Cooling, Environment, CDU alarms'],
+  ['Network devices and links', 'Routers, switches, firewalls', 'SNMP polling and traps, gNMI streaming, syslog, LLDP', '10 s–5 min; events at once', 'Links, topology, edge redundancy, alarms'],
+  ['InfiniBand fabric', 'NVIDIA UFM, IB switches', 'UFM API', '≈ 30 s', 'Rails, IB link alarms'],
+  ['Servers and storage hardware', 'BMC on each server, storage arrays', 'Redfish (REST), IPMI, SNMP, array APIs', '1–5 min', 'Device health, PSU, fan and temperature alarms'],
+  ['GPUs', 'NVIDIA DCGM exporter on every GPU node', 'Prometheus scrape', '≈ 30 s', 'AI & GPU, device "GPUs · DCGM" tab'],
+  ['AI jobs', 'Kubernetes or Slurm scheduler', 'Scheduler API', '≈ 1 min', 'Jobs, stalled and idle allocations'],
+  ['Reachability and time', 'The platform\'s own probes', 'ICMP ping, NTP and RADIUS checks', 'every minute', 'Device overview, unreachable alarms'],
+  ['Sites, racks and assets', 'DCIM / CMDB', 'API or scheduled import', 'on change', 'Assets, Equipment, digital twin layout'],
+  ['Customers, services, contracts', 'CRM, billing, service catalogue', 'API', 'daily or on change', 'Customers, revenue impact, SLA targets'],
+  ['Incidents and changes', 'ITSM tool (e.g. ServiceNow)', 'API and webhooks, both ways', 'on change', 'Incidents, Changes & maintenance']
 ];
 const NETS = [
   ['InfiniBand compute fabric', '400G NDR', ['GPU to GPU across servers for training', '8 ports per GPU server, one per GPU (rails)', 'IB-LEAF and IB-SPINE switches (NVIDIA Quantum-2)', 'Fault example: "InfiniBand rail flapping" slows a job']],
@@ -476,16 +562,17 @@ function card(t) {
     <p class="what">${esc(what)}</p>
     <div class="more" hidden>
       <div><div class="row-l">Where you see it</div><p class="tool">${esc(tool)}</p></div>
+      ${srcOf(t) ? `<div><div class="row-l">Where the data comes from</div><p class="tool">${esc(srcOf(t))}</p></div>` : ''}
       ${say ? `<div><div class="row-l">Say it to a customer</div><p class="say">${esc(say)}</p></div>` : ''}
       ${rel && rel.length ? `<div><div class="row-l">Related</div><div class="related">${rel.filter(r => findTerm(r)).map(r => `<button class="rel" data-go="${esc(findTerm(r)[0])}">${esc(r)}</button>`).join('')}</div></div>` : ''}
     </div>
-    <div class="card-f"><button class="linkbtn" data-more>Where it appears and what to say</button><button class="learn" data-learn="${esc(name)}" aria-pressed="${on}">${on ? 'I know this ✓' : 'Mark as known'}</button></div>
+    <div class="card-f"><button class="linkbtn" data-more>Where it appears, data source, what to say</button><button class="learn" data-learn="${esc(name)}" aria-pressed="${on}">${on ? 'I know this ✓' : 'Mark as known'}</button></div>
   </article>`;
 }
 function renderGlossary() {
   const hide = document.getElementById('hideLearned').checked;
   const q = query.trim().toLowerCase();
-  const match = t => (area === 'all' || t[2] === area) && (!hide || !learned.has(t[0])) && (!q || t.slice(0, 6).join(' ').toLowerCase().includes(q));
+  const match = t => (area === 'all' || t[2] === area) && (!hide || !learned.has(t[0])) && (!q || (t.slice(0, 6).join(' ') + ' ' + srcOf(t)).toLowerCase().includes(q));
   const groups = AREAS.map(([k, n, d]) => [k, n, d, T.filter(t => t[2] === k && match(t))]).filter(g => g[3].length);
   document.getElementById('view').innerHTML = groups.length ? groups.map(([k, n, d, ts]) => `<section class="group" aria-labelledby="g-${k}">
       <div class="group-h"><h2 id="g-${k}">${esc(n)}</h2><p>${esc(d)} · ${ts.length}</p></div>
@@ -511,6 +598,13 @@ function renderExplain() {
       <div class="chain">${POWER.map((x, i) => `${i ? '<span class="arrow" aria-hidden="true">›</span>' : ''}<button class="step" data-power="${i}" aria-pressed="${i === powerSel}"><b>${esc(x.name)}</b><small>${esc(x.n)}</small></button>`).join('')}</div>
       <div class="detail"><div class="body"><h3>${esc(P.name)}</h3><p>${esc(P.what)}</p>${termBtns(P.terms)}</div>
         <div class="fact"><div class="row-l">If the grid fails</div><dl><dt>0 s</dt><dd>UPS on battery</dd><dt>≈ 10–60 s</dt><dd>Generators start, ATS transfers</dd><dt>minutes</dt><dd>UPS recharges</dd><dt>hours</dt><dd>Generators run on fuel</dd></dl></div></div>
+    </section>
+
+    <section class="panel" aria-labelledby="ex0">
+      <div><h2 id="ex0">Where the data comes from</h2><p class="sub">The production sources behind every screen. Collectors at each site gather the data; times are typical update rates. The prototype generates this data so every demo is the same.</p></div>
+      <div class="tablewrap"><table class="srctab"><thead><tr><th>What</th><th>Source system</th><th>How it arrives</th><th>How often</th><th>Shown in</th></tr></thead>
+        <tbody>${FEEDS.map(r => `<tr>${r.map((c, i) => `<td${i === 0 ? ' class="w"' : ''}>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+      ${termBtns(['DCIM', 'BMS', 'Modbus', 'BACnet', 'SNMP', 'Streaming telemetry (gNMI)', 'Syslog', 'Redfish', 'IPMI', 'DCGM exporter', 'Prometheus', 'NVIDIA UFM', 'Scheduler API', 'ITSM', 'CRM and billing', 'Collector'])}
     </section>
 
     <section class="panel" aria-labelledby="ex3">
@@ -573,7 +667,7 @@ function renderCards() {
   document.getElementById('view').innerHTML = `<div class="fc">
     <p class="fc-count">${area === 'all' ? 'All areas' : esc(AREAS.find(a => a[0] === area)[1])} · card ${deckIdx % deck.length + 1} of ${deck.length} · terms you know are skipped</p>
     <div class="fc-card" id="fcCard" role="button" tabindex="0" aria-label="Flip card">
-      ${flipped ? `<div class="big" style="font-size:20px">${esc(t[0])}</div><div class="ans"><p>${esc(t[3])}</p>${t[5] ? `<p class="say">${esc(t[5])}</p>` : ''}<p class="tool"><b>In the tool:</b> ${esc(t[4])}</p></div>`
+      ${flipped ? `<div class="big" style="font-size:20px">${esc(t[0])}</div><div class="ans"><p>${esc(t[3])}</p>${t[5] ? `<p class="say">${esc(t[5])}</p>` : ''}<p class="tool"><b>In the tool:</b> ${esc(t[4])}</p>${srcOf(t) ? `<p class="tool"><b>Data from:</b> ${esc(srcOf(t))}</p>` : ''}</div>`
         : `<div class="big">${esc(t[0])}</div>${t[1] ? `<div class="hint">${esc(t[1])}</div>` : ''}<div class="hint">What does it mean? Click to flip.</div>`}
     </div>
     <div class="fc-bar"><button class="btn" data-fc="prev">Previous</button><button class="btn primary" data-fc="flip">${flipped ? 'Hide answer' : 'Show answer'}</button>
@@ -601,7 +695,7 @@ document.addEventListener('click', e => {
   if (b.dataset.mode) { mode = b.dataset.mode; if (mode === 'cards') buildDeck(); store.set('dcfg.mode', mode); try { history.replaceState(null, '', '#' + mode); } catch {} render(); window.scrollTo({ top: 0 }); return; }
   if (b.dataset.area) { area = b.dataset.area; if (mode === 'cards') buildDeck(); render(); return; }
   if (b.dataset.go) { goTerm(b.dataset.go); return; }
-  if (b.hasAttribute('data-more')) { const m = b.closest('.card').querySelector('.more'); m.hidden = !m.hidden; b.textContent = m.hidden ? 'Where it appears and what to say' : 'Hide details'; return; }
+  if (b.hasAttribute('data-more')) { const m = b.closest('.card').querySelector('.more'); m.hidden = !m.hidden; b.textContent = m.hidden ? 'Where it appears, data source, what to say' : 'Hide details'; return; }
   if (b.dataset.learn) { const n = b.dataset.learn; learned.has(n) ? learned.delete(n) : learned.add(n); store.set('dcfg.learned', [...learned]);
     b.setAttribute('aria-pressed', String(learned.has(n))); b.textContent = learned.has(n) ? 'I know this ✓' : 'Mark as known'; b.closest('.card').classList.toggle('learned', learned.has(n)); renderStats(); return; }
   if (b.dataset.ladder) { ladderSel = b.dataset.ladder; renderExplain(); return; }
