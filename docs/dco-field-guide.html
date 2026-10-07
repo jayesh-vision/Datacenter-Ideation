@@ -130,6 +130,29 @@ code { background: var(--code-bg); border: 1px solid var(--line); border-radius:
 .srctab td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; color: var(--fg-2); }
 .srctab tr:last-child td { border-bottom: 0; }
 .srctab td.w { color: var(--fg); font-weight: 500; }
+/* metrics tab */
+.mx { margin-top: 22px; display: grid; gap: 12px; }
+.mx-h { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: end; }
+.mx-h > div { min-width: 0; flex: 1 1 360px; }
+.mx-h h2 { font-size: 18px; }
+.mx-h .sub { color: var(--muted); font-size: 13px; margin-top: 2px; max-width: 80ch; }
+.mx-h input { flex: 0 1 300px; min-width: 0; border: 1px solid var(--line-2); background: var(--surface); color: var(--fg); border-radius: 8px; padding: 9px 12px; font: inherit; }
+.mx-count { color: var(--muted); font-size: 13px; }
+.mx-count b { color: var(--fg); font-variant-numeric: tabular-nums; }
+.wrap.wide { max-width: 1480px; }
+.mxtab { min-width: 1240px; table-layout: auto; }
+.mxtab th:nth-child(1) { min-width: 150px; } .mxtab th:nth-child(2) { min-width: 120px; } .mxtab th:nth-child(3) { min-width: 120px; }
+.mxtab th:nth-child(4) { min-width: 260px; } .mxtab th:nth-child(5) { min-width: 200px; } .mxtab th:nth-child(6) { min-width: 140px; }
+.mxtab th:nth-child(7) { min-width: 96px; } .mxtab th:nth-child(8) { min-width: 200px; }
+.mxtab thead th { position: sticky; top: 0; z-index: 1; padding: 0; }
+.mx-sort { all: unset; display: block; width: 100%; box-sizing: border-box; padding: 8px 10px; cursor: pointer; font-family: var(--f-display); font-weight: 500; font-size: 12px; color: var(--muted); }
+.mx-sort:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.mx-go { all: unset; cursor: pointer; color: var(--accent-ink); font-weight: 500; }
+.mx-go:hover { text-decoration: underline; }
+.mx-go:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mxtab td.nowrap { white-space: nowrap; }
+.mxtab .tagcat { white-space: nowrap; }
+.empty-row { color: var(--muted); text-align: center; padding: 20px; }
 /* three networks */
 .nets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .net { border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: grid; gap: 6px; align-content: start; background: var(--bg); }
@@ -197,6 +220,7 @@ details.q .a { margin-top: 10px; display: grid; gap: 8px; color: var(--fg-2); ma
       <button class="tab" role="tab" id="t-glossary" data-mode="glossary" aria-selected="true">Glossary</button>
       <button class="tab" role="tab" id="t-explain" data-mode="explain" aria-selected="false">How it fits together</button>
       <button class="tab" role="tab" id="t-questions" data-mode="questions" aria-selected="false">Customer questions</button>
+      <button class="tab" role="tab" id="t-metrics" data-mode="metrics" aria-selected="false">Metrics &amp; sources</button>
       <button class="tab" role="tab" id="t-cards" data-mode="cards" aria-selected="false">Flashcards</button>
     </div>
     <div id="glossaryControls" class="search">
@@ -495,6 +519,126 @@ const SRC = {
 };
 const srcOf = t => SRC[t[0]] || (t[2] === 'dcgm' ? DCGM_SRC : '');
 
+/* ------------------------------------------------------------------ metrics catalogue
+   [metric / monitored item, area, unit or values, what it means, source system, how it arrives, typical update, shown in the tool, glossary term] */
+const METRICS = [
+['Utility feed status', 'power', 'Normal / Alarm', 'Whether each grid supply (A, B) is present and within voltage.', 'EPMS / switchgear meters', 'Modbus TCP', '10 s', 'Facilities power path; "utility feed lost" incidents', 'Utility feed'],
+['Utility feed load', 'power', 'kW', 'Power drawn from each grid feed against its rating.', 'EPMS / switchgear meters', 'Modbus TCP', '10–60 s', 'Facilities power path', 'Utility feed'],
+['ATS position and mode', 'power', 'Mains / Generator · AUTO / MANUAL', 'Which source the transfer switch is on, and whether it will switch by itself.', 'ATS controller via BMS', 'Modbus TCP', '10 s', 'UPS incident root cause', 'ATS'],
+['UPS state', 'power', 'Online / On battery / Bypass / Fault', 'Whether the UPS is running normally, carrying load on battery, bypassed or failed.', 'UPS controller', 'Modbus TCP or SNMP card', '10 s', 'Facilities; INC-0002 "UPS-2 on battery"', 'UPS'],
+['UPS load', 'power', '% of rating', 'How much of the UPS capacity is in use.', 'UPS controller', 'Modbus TCP or SNMP', '10–60 s', 'Facilities ride-through card', 'UPS'],
+['UPS battery runtime', 'power', 'minutes', 'How long the batteries can carry the present load if the grid fails.', 'UPS controller', 'Modbus TCP or SNMP', '10–60 s', '"If utility power fails" card; UPS incident', 'Runtime'],
+['Battery bank health', 'power', 'V, Ah, test result', 'Voltage, capacity and last discharge test of the battery strings.', 'Battery monitoring system / UPS', 'Modbus TCP', '1–5 min', 'Facility assets "Battery banks"', 'UPS'],
+['DG state', 'power', 'Standby / Running / Fault', 'Whether the diesel generator is ready, running or failed.', 'Generator controller', 'Modbus TCP', '10 s', 'Facilities power path', 'DG'],
+['DG fuel level', 'power', '% and hours at load', 'Fuel left and how many hours it lasts at the present load.', 'Fuel-level sensors via BMS', 'Modbus TCP', '1 min', 'Ride-through "fuel hours"', 'DG'],
+['DG last test', 'power', 'date, Pass / Fail', 'When the generator was last load-tested and the result.', 'Maintenance records', 'ITSM API', 'on change', 'Facility assets; changes "DG load-bank test"', 'Load-bank test'],
+['PDU load', 'power', 'kW, A per phase', 'Power through each distribution unit and phase balance.', 'PDU meters', 'SNMP or Modbus', '30 s', 'Facilities power path', 'PDU'],
+['Rack power draw', 'power', 'kW', 'Power used by each rack, from its A and B strips.', 'Rack PDUs', 'SNMP', '30–60 s', 'Power & space; Assets "Draw"; alarm "Rack Over Power Budget"', 'Rack'],
+['Rack power budget', 'power', 'kW', 'The most a rack or tenant may draw.', 'Contract (CRM) or DCIM', 'API', 'on change', 'Power & space; colocation contracted kW', 'Power budget'],
+['Rectifier load', 'power', 'kW at −48 V DC', 'Load on the DC plant that feeds telecom equipment.', 'Rectifier controller', 'SNMP or Modbus', '1 min', 'Facility assets (telco)', 'Rectifier'],
+['IT load', 'power', 'kW', 'Power delivered to the equipment in the racks.', 'UPS or PDU output meters', 'Modbus / SNMP, summed', '1 min', 'Facilities 24-hour load; command center vitals', 'kW'],
+['Total facility power', 'power', 'kW', 'Everything the site draws: IT, cooling, lighting and losses.', 'EPMS main meters', 'Modbus TCP', '1 min', 'Facilities; power split', 'kW'],
+['PUE', 'power', 'ratio, e.g. 1.5', 'Total facility power ÷ IT power. Lower is more efficient.', 'Calculated from EPMS and UPS / PDU meters', 'Platform calculation', '15 min', 'Command center pulse; Metrics tab', 'PUE'],
+['Power headroom', 'power', 'kW', 'Capacity left before the site reaches its power limit.', 'Calculated: capacity − peak load', 'Platform calculation', '15 min', 'Command center pulse', 'kW'],
+['Energy used', 'power', 'kWh / MWh', 'Energy consumed over a period.', 'Energy meters (EPMS); DCGM for GPUs', 'Modbus TCP; Prometheus', '15 min', 'AI & GPU Telemetry "Energy · 24 h"', 'kWh / MWh'],
+
+['CRAC / CRAH state', 'cool', 'Running / Failed / Maintenance', 'Whether each air-cooling unit is working.', 'BMS', 'BACnet or Modbus', '30–60 s', 'Cooling tab; INC-0003 "CRAH-11 failed"', 'CRAH'],
+['CRAC / CRAH load', 'cool', '% of capacity', 'How hard each cooling unit is working.', 'BMS', 'BACnet or Modbus', '30–60 s', 'Cooling unit cards', 'CRAH'],
+['Supply / return air temperature', 'cool', '°C', 'Air temperature leaving and coming back to each cooling unit.', 'BMS', 'BACnet or Modbus', '30–60 s', 'Cooling unit cards', 'CRAH'],
+['Chiller state', 'cool', 'Running / Fault', 'Whether the chilled-water plant is working.', 'BMS', 'BACnet or Modbus', '1 min', 'Cooling incidents', 'Chiller'],
+['CDU coolant flow', 'cool', '% of nominal, L/min', 'Coolant flowing to liquid-cooled GPU racks. Low flow overheats GPUs.', 'CDU controller', 'Modbus TCP or BACnet', '10–30 s', 'AI & GPU Cooling & power; INC-0062 "CDU flow low"', 'CDU'],
+['CDU supply / return temperature', 'cool', '°C', 'Coolant temperature into and out of the GPU racks.', 'CDU controller', 'Modbus TCP or BACnet', '10–30 s', 'AI & GPU Cooling & power', 'CDU'],
+['Cooling capacity vs heat load', 'cool', 'kW', 'Heat the cooling plant can remove against the heat IT produces.', 'Calculated from BMS and IT power', 'Platform calculation', '15 min', 'Facilities Cooling "heat balance"', 'Heat balance'],
+['Zone / inlet temperature', 'cool', '°C', 'Air temperature entering equipment in each zone; aim 18–27 °C.', 'Environment sensors', 'BACnet or SNMP probes', '1 min', 'Environment tab; alarm "Zone Temperature High"', 'Inlet temperature'],
+['Humidity', 'cool', '% RH', 'Moisture in the air in each zone.', 'Environment sensors', 'BACnet or SNMP probes', '1 min', 'Environment zone cards', 'RH'],
+['Leak detection', 'cool', 'Yes / No', 'Water detected under floors or around liquid cooling.', 'Leak sensors via BMS', 'BACnet or Modbus', 'event', 'Environment zone cards', 'Zone'],
+['Smoke detection', 'cool', 'Yes / No', 'Smoke detected in a zone.', 'Fire panel via BMS', 'BACnet or dry contact', 'event', 'Environment zone cards', 'Zone'],
+
+['Link state', 'net', 'Up / Down', 'Whether each cable between two ports is passing traffic.', 'Network devices', 'SNMP, gNMI, syslog, LLDP', '10 s–1 min; events at once', 'Links tab; command center "links down"', 'Link'],
+['Interface utilisation', 'net', '% of capacity', 'How full each port or link is.', 'Network devices', 'SNMP counters or gNMI', '1–5 min', 'Links tab; capacity alarms', 'Port / interface'],
+['Interface errors / CRC', 'net', 'count', 'Damaged or dropped packets on a port.', 'Network devices', 'SNMP or gNMI', '1–5 min', 'Hardware & interfaces; INC-0001 evidence', 'CRC errors'],
+['Flaps in 24 h', 'net', 'count', 'How many times a link went down and up.', 'Network devices', 'SNMP traps, syslog, gNMI', 'event', 'Alarm "Interface Flapping Detected"', 'Flapping'],
+['Optical Rx / Tx power', 'net', 'dBm', 'Light received and sent by each optic; low Rx means a dirty or failing optic.', 'Network devices (optic DOM)', 'SNMP or gNMI', '1–5 min', 'Hardware & interfaces; alarm "Optical Rx Power Low"', 'DOM / Rx power'],
+['Optic temperature', 'net', '°C', 'Temperature reported by each transceiver.', 'Network devices (optic DOM)', 'SNMP or gNMI', '1–5 min', 'Hardware & interfaces', 'Optic / transceiver'],
+['Routing session state', 'net', 'BGP, OSPF, IS-IS: Up / Idle / Init', 'Whether routing neighbours are talking to each other.', 'Routers and switches', 'SNMP, gNMI, syslog', '1 min; events at once', 'Links tab protocol cards; alarm "BGP Peer Idle"', 'BGP'],
+['LSP state', 'net', 'Active / Standby / Down', 'State of pre-planned carrier paths (telco).', 'Routers', 'SNMP or gNMI', '1 min', 'Links tab (telco)', 'MPLS / LSP'],
+['Packet loss / latency / jitter', 'net', '%, ms', 'Reachability quality from the platform\'s probes.', 'Platform probes from each collector', 'ICMP ping', '1 min', 'Device Overview "ICMP reachability"', 'ICMP / unreachable'],
+['Device availability 24 h', 'net', '%', 'Share of probes the device answered in the last day.', 'Platform probes', 'ICMP ping', '1 min', 'Device Overview; 24-hour probe history', 'ICMP / unreachable'],
+['NTP offset', 'net', 'ms', 'How far the device clock is from the time servers.', 'Network devices', 'SNMP or gNMI', '5 min', 'Device Overview "NTP sync"', 'NTP'],
+['RADIUS success rate', 'net', '%', 'Share of engineer logins the AAA servers accepted.', 'Devices and AAA servers', 'SNMP, AAA logs', '5 min', 'Device Overview "RADIUS auth"', 'RADIUS / AAA'],
+['Edge redundancy', 'net', 'Redundant / Lost / Isolated', 'Whether a site still has two working paths to the outside.', 'Calculated from backhaul link states', 'Platform calculation', '1 min', 'Datacenters list Network column', 'Edge redundancy'],
+['Link forecast', 'net', 'month it crosses 85%', 'When a link will be too full at its current growth.', 'Calculated from six monthly peaks', 'Platform calculation', 'daily', 'Links tab "Crosses 85%"; saturation watch', 'Backhaul'],
+['InfiniBand port state and errors', 'net', 'Up / Flapping, symbol errors', 'Health of each InfiniBand cable in the GPU fabric.', 'NVIDIA UFM, IB switches', 'UFM API', '≈ 30 s', 'AI & GPU Fabric; alarm "InfiniBand Link Flapping"', 'InfiniBand (IB)'],
+
+['Device health score', 'hw', '0–100', 'One score per device from reachability, alarms, CPU, memory and temperature.', 'Calculated by the platform', 'Platform calculation', '1 min', 'Device header; Equipment "Health"', 'Health score'],
+['CPU utilisation', 'hw', '%', 'Share of processor time in use.', 'SNMP (network devices); node agent or BMC (servers)', 'SNMP, agent, Redfish', '1–5 min', 'Equipment "CPU · mem · temp"; alarm "High CPU Utilization"', 'CPU / memory utilisation'],
+['Memory utilisation', 'hw', '%', 'Share of memory in use.', 'SNMP or node agent', 'SNMP, agent', '1–5 min', 'Equipment; alarm "High Memory Utilization"', 'CPU / memory utilisation'],
+['Device temperature', 'hw', '°C', 'Internal temperature reported by the device.', 'SNMP (network) or BMC (servers)', 'SNMP, Redfish, IPMI', '1–5 min', 'Equipment; alarm "Temperature Warning"', 'BMC'],
+['Power supply state', 'hw', 'OK / Fault', 'Whether each of the device\'s power supplies works.', 'BMC (servers); SNMP (network)', 'Redfish, IPMI, SNMP', '1–5 min', 'Alarm "Power Supply Fault"; "running on single PSU"', 'PSU'],
+['Fan state', 'hw', 'OK / Fault', 'Whether the device\'s fans work.', 'BMC; SNMP', 'Redfish, IPMI, SNMP', '1–5 min', 'Alarm "Fan Tray Failure"', 'Module / line card'],
+['Disk health', 'hw', 'OK / Predicted failure', 'Early warning that a disk is about to fail.', 'Storage array or BMC', 'Array API, Redfish', '5 min', 'Alarm "Disk Failure Predicted"', 'Storage array'],
+['Memory ECC (servers)', 'hw', 'count', 'Corrected memory errors on a server; a rising count warns of a failing module.', 'BMC', 'Redfish, IPMI', '5 min', 'Alarm "Memory ECC Errors"', 'ECC'],
+['Uptime / last reboot', 'hw', 'days, date', 'Time since the device last restarted.', 'SNMP sysUpTime; BMC', 'SNMP, Redfish', '5 min', 'Device Overview "Uptime"', 'Server / host'],
+['Firmware and OS version', 'hw', 'version text', 'Software running on the device; used to spot drift.', 'BMC (Redfish); SNMP; node agent', 'Redfish, SNMP, agent', 'daily', 'Device header OS VERSION; driver rollout change', 'Firmware'],
+
+['GPU utilisation', 'dcgm', '%', 'Share of time the GPU was busy.', 'DCGM exporter (DCGM_FI_DEV_GPU_UTIL)', 'Prometheus scrape', '≈ 30 s', 'Heat maps; per-GPU table', 'GPU utilisation'],
+['SM active', 'dcgm', '%', 'Share of the GPU\'s processing blocks doing work.', 'DCGM exporter (DCGM_FI_PROF_SM_ACTIVE)', 'Prometheus scrape', '≈ 30 s', 'Node detail "SM active"', 'SM / SM active'],
+['Tensor active', 'dcgm', '%', 'Share of time the AI maths units are busy.', 'DCGM exporter (DCGM_FI_PROF_PIPE_TENSOR_ACTIVE)', 'Prometheus scrape', '≈ 30 s', 'Profiling & traffic view', 'Tensor active'],
+['GPU memory used', 'dcgm', 'GB', 'GPU memory in use against its size (80 or 141 GB).', 'DCGM exporter (DCGM_FI_DEV_FB_USED)', 'Prometheus scrape', '≈ 30 s', 'Per-GPU Memory column', 'FB used'],
+['GPU / HBM temperature', 'dcgm', '°C', 'Chip and memory temperature; above about 85 °C the GPU throttles.', 'DCGM exporter (GPU_TEMP, MEMORY_TEMP)', 'Prometheus scrape', '≈ 30 s', 'Per-GPU Temp column; hottest GPU', 'GPU / HBM temperature'],
+['GPU power', 'dcgm', 'W', 'Power each GPU draws (up to 700 W on H100 / H200).', 'DCGM exporter (DCGM_FI_DEV_POWER_USAGE)', 'Prometheus scrape', '≈ 30 s', 'Per-GPU Power column; node power', 'Power / energy'],
+['SM clock and P-state', 'dcgm', 'MHz; P0 / P2 / P8', 'Processor speed and performance state.', 'DCGM exporter (DCGM_FI_DEV_SM_CLOCK)', 'Prometheus scrape', '≈ 30 s', 'Per-GPU Clock column; Energy tile', 'Clock / P-state'],
+['Throttle reasons', 'dcgm', 'thermal / power cap / hardware', 'Why a GPU slowed itself down.', 'DCGM exporter (CLOCK_THROTTLE_REASONS)', 'Prometheus scrape', '≈ 30 s', 'Throttle column; "Heat & power" tile', 'Throttle reasons'],
+['ECC errors (SBE / DBE)', 'dcgm', 'count', 'Corrected and uncorrectable GPU memory errors.', 'DCGM exporter (ECC_SBE / ECC_DBE)', 'Prometheus scrape', '≈ 30 s', 'ECC column; INC-0064', 'ECC'],
+['Retired pages / row remap', 'dcgm', 'count, pending', 'Bad memory areas the GPU has stopped using; pending needs a reset.', 'DCGM exporter', 'Prometheus scrape', '≈ 30 s', 'Node detail; "remap pending"', 'Retired pages / row remap'],
+['Xid errors', 'dcgm', 'code', 'Driver error codes, e.g. 79 fell off the bus, 48 double-bit ECC, 74 NVLink.', 'DCGM exporter (DCGM_FI_DEV_XID_ERRORS)', 'Prometheus scrape', 'event', '"Hardware errors" tile; INC-0061', 'Xid'],
+['PCIe replays', 'dcgm', 'count', 'Retransmissions between GPU and server; a jump often comes before an Xid 79.', 'DCGM exporter (PCIE_REPLAY_COUNTER)', 'Prometheus scrape', '≈ 30 s', 'Telemetry "Most PCIe replays"', 'PCIe replay'],
+['NVLink errors and bandwidth', 'dcgm', 'count; GB/s', 'Health and traffic of the GPU-to-GPU links inside a server.', 'DCGM exporter (NVLINK counters)', 'Prometheus scrape', '≈ 30 s', 'Profiling & traffic view; INC-0063', 'NVLink / NVSwitch'],
+
+['GPU allocation', 'gpu', '% of GPUs in jobs', 'Share of the fleet assigned to running jobs.', 'Scheduler (Kubernetes or Slurm)', 'Scheduler API', '≈ 1 min', 'AI & GPU "Allocation" tile', 'Scheduler'],
+['Job state', 'gpu', 'Running / Slowed / Stalled / Idle', 'Whether each training or inference job is healthy.', 'Scheduler + DCGM', 'Scheduler API, Prometheus', '≈ 1 min', 'Jobs tab; blast-radius card', 'Job'],
+['Step time', 'gpu', 'seconds', 'Time per training step against the job\'s normal pace.', 'Training framework metrics', 'Prometheus', '≈ 1 min', '"2.56 s vs 1.96 s" on the slowest job', 'Step time'],
+['MFU', 'gpu', '%', 'How much of the GPUs\' maths capacity a training job really uses.', 'Training framework metrics', 'Prometheus', '≈ 1 min', 'Job details', 'MFU'],
+['GPU time lost', 'gpu', '₹ or $ per hour', 'Productive GPU time wasted by stalled, slowed and idle jobs.', 'Calculated: scheduler + DCGM × GPU-hour price', 'Platform calculation', '1 min', 'AI & GPU "GPU time lost"', 'GPU time lost'],
+['Work to redo', 'gpu', '₹ or $, minutes', 'GPU time since the last checkpoint that must be repeated.', 'Calculated from job checkpoint time', 'Platform calculation', '1 min', 'Blast-radius card', 'Work to redo'],
+
+['Active alarms by severity', 'ops', 'count', 'Open alarms, by Critical / Major / Minor / Warning.', 'All telemetry sources', 'SNMP traps, syslog, BMS, Redfish, DCGM, UFM', 'live', 'Alerts page; command center vitals', 'Alarm / alert'],
+['Open incidents by severity', 'ops', 'count', 'Open incidents, by Critical / High / Medium / Low.', 'Created by the platform; synced to ITSM', 'Platform; ITSM API', 'live', 'Incidents; command center headline', 'Incident'],
+['Incidents past SLA', 'ops', 'count', 'Open incidents beyond their response or resolution target.', 'Platform, using ITSM SLA policy', 'Platform calculation', 'live', 'Command center; Incidents "SLA clock"', 'Response / resolution SLA'],
+['MTTR', 'ops', 'hours', 'Average time to resolve incidents over 30 days.', 'Platform incident history', 'Platform calculation', 'daily', 'Incidents "Resolution · 30 days"', 'MTTR'],
+['Operations health', 'ops', '0–100', 'Overall score from incident response, network or fabric, power and cooling.', 'Calculated by the platform', 'Platform calculation', '1 min', 'Command center health ring', 'Operations health'],
+['Telemetry freshness', 'ops', 'minutes', 'Age of the newest data from each site; over 15 minutes is stale.', 'Collectors', 'Platform', '1 min', 'Datacenter bar "2 m ago"; "collector stale"', 'Telemetry freshness'],
+['Changes in progress', 'ops', 'count', 'Change and maintenance windows open now.', 'ITSM tool', 'ITSM API', 'on change', 'Changes & maintenance; command center pulse', 'Change / maintenance'],
+
+['Service availability (30 d)', 'money', '%', 'Share of the last 30 days each customer service worked.', 'Calculated from service state history', 'Platform calculation', '15 min', 'Customer and service pages "Uptime 30 d"', 'Uptime / availability'],
+['SLA target', 'money', '%', 'Availability promised in the contract.', 'Contracts (CRM)', 'CRM API', 'on change', 'Customer and service pages "target 99.9%"', 'SLA'],
+['Losing now', 'money', '₹ or $ per hour', 'Revenue lost per hour by services down or degraded.', 'Calculated: service state × monthly charge (billing)', 'Platform calculation', '1 min', 'Revenue impact; command center band', 'Losing now'],
+['Impact so far', 'money', '₹ or $', 'Revenue lost plus credits triggered since each fault began.', 'Calculated by the platform', 'Platform calculation', '1 min', 'Revenue impact', 'Impact so far'],
+['At stake', 'money', '₹ or $ per month', 'Revenue of services one failure away from going down.', 'Calculated by the platform', 'Platform calculation', '1 min', 'Revenue impact "At stake"', 'At stake'],
+['Service credits owed', 'money', '₹ or $', 'Refunds triggered by missed SLAs (10 / 25 / 50% tiers).', 'Contract terms (CRM) applied by the platform', 'Platform calculation', '15 min', 'Revenue impact "Service credits owed"', 'Service credit'],
+['Revenue within SLA', 'money', '%', 'Share of monthly revenue whose services met their target.', 'Calculated by the platform', 'Platform calculation', '15 min', 'Revenue impact "Within SLA · 30 d"', 'SLA'],
+['Customers affected', 'money', 'count', 'Customers with a down, degraded or exposed service.', 'Calculated by the platform from CRM and service state', 'Platform calculation', '1 min', 'Command center "Who is affected"; site Customers tab', 'Committed / premium customer'],
+
+['Rack space used', 'site', 'U', 'Rack units occupied against the total.', 'DCIM', 'API or import', 'on change', 'Assets "Rack space used"', 'U (rack unit)'],
+['Ports in use', 'site', 'count by speed', 'Ports used of each class (1G, 10G, 100G, 400G, fibre).', 'SNMP / gNMI interface state and DCIM', 'SNMP, gNMI, API', '1 hour', 'Assets "Ports in use"', 'Port / interface'],
+['Installed and planned devices', 'site', 'count', 'Devices in the racks, and rack space reserved for planned ones.', 'DCIM / CMDB', 'API or import', 'on change', 'Assets; Equipment', 'Lifecycle']
+];
+let mq = '', msort = { k: 1, dir: 1 };
+const M_COLS = ['Metric', 'Area', 'Unit / values', 'What it means', 'Source system', 'How it arrives', 'Update', 'Shown in the tool'];
+function renderMetrics() {
+  const q = mq.trim().toLowerCase();
+  const rows = METRICS.filter(r => (area === 'all' || r[1] === area || (area === 'gpu' && r[1] === 'dcgm')) && (!q || r.slice(0, 8).join(' ').toLowerCase().includes(q)))
+    .sort((a, b) => { const k = msort.k, x = k === 1 ? AREAS.findIndex(z => z[0] === a[1]) : a[k], y = k === 1 ? AREAS.findIndex(z => z[0] === b[1]) : b[k]; return (x > y ? 1 : x < y ? -1 : 0) * msort.dir || a[0].localeCompare(b[0]); });
+  const an = k => (AREAS.find(a => a[0] === k) || [0, k])[1];
+  document.getElementById('view').innerHTML = `<div class="mx">
+    <div class="mx-h"><div><h2>Metrics and their sources</h2><p class="sub">Every reading and KPI the platform shows, what it means, which system it comes from and how. Click a column to sort; click a metric to open its glossary card.</p></div>
+      <input id="mq" type="search" value="${esc(mq)}" placeholder="Filter, e.g. UPS, Modbus, DCGM, °C" aria-label="Filter metrics" autocomplete="off"></div>
+    <p class="mx-count">Showing <b>${rows.length}</b> of ${METRICS.length} metrics${area === 'all' ? '' : ` in ${esc(an(area))}`}</p>
+    <div class="tablewrap"><table class="srctab mxtab"><thead><tr>${M_COLS.map((c, i) => `<th><button class="mx-sort" data-msort="${i}" aria-sort="${msort.k === i ? (msort.dir > 0 ? 'ascending' : 'descending') : 'none'}">${esc(c)}${msort.k === i ? (msort.dir > 0 ? ' ↑' : ' ↓') : ''}</button></th>`).join('')}</tr></thead>
+      <tbody>${rows.map(r => `<tr><td class="w">${findTerm(r[8] || '') ? `<button class="mx-go" data-go="${esc(findTerm(r[8])[0])}">${esc(r[0])}</button>` : esc(r[0])}</td><td><span class="tagcat">${esc(an(r[1]))}</span></td><td class="mono-ish">${esc(r[2])}</td><td>${esc(r[3])}</td><td>${esc(r[4])}</td><td>${esc(r[5])}</td><td class="nowrap">${esc(r[6])}</td><td>${esc(r[7])}</td></tr>`).join('') || `<tr><td colspan="8" class="empty-row">No metric matches "${esc(mq)}".</td></tr>`}</tbody></table></div>
+  </div>`;
+}
+
 /* ------------------------------------------------------------------ explainers */
 const LADDER = [
   { k: 'site', name: 'Datacenter', n: 'TX-DC-022 · Houston', what: 'The whole building with its power plant, cooling plant, security and network connections to other sites.', facts: [['Tier', 'Tier III'], ['Floors', '2'], ['GPU nodes', '132'], ['GPUs', '1,056']], terms: ['Datacenter (DC)', 'Tier', 'Edge redundancy'] },
@@ -548,9 +692,10 @@ function renderStats() {
 }
 function renderChips() {
   const el = document.getElementById('catChips');
-  el.hidden = mode !== 'glossary' && mode !== 'cards';
-  const counts = Object.fromEntries(AREAS.map(([k]) => [k, T.filter(t => t[2] === k).length]));
-  el.innerHTML = [['all', 'All areas', T.length], ...AREAS.map(([k, n]) => [k, n, counts[k]])]
+  el.hidden = mode !== 'glossary' && mode !== 'cards' && mode !== 'metrics';
+  const metricMode = mode === 'metrics';
+  const counts = Object.fromEntries(AREAS.map(([k]) => [k, metricMode ? METRICS.filter(r => r[1] === k || (k === 'gpu' && r[1] === 'dcgm')).length : T.filter(t => t[2] === k).length]));
+  el.innerHTML = [['all', 'All areas', metricMode ? METRICS.length : T.length], ...AREAS.filter(([k]) => !metricMode || counts[k]).map(([k, n]) => [k, n, counts[k]])]
     .map(([k, n, c]) => `<button class="chip" data-area="${k}" aria-pressed="${area === k}">${esc(n)} <span class="n">${c}</span></button>`).join('');
 }
 
@@ -677,9 +822,10 @@ function renderCards() {
 
 function render() {
   document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.mode === mode)));
+  document.querySelector('.wrap').classList.toggle('wide', mode === 'metrics');
   document.getElementById('glossaryControls').hidden = mode !== 'glossary';
   renderChips(); renderStats();
-  ({ glossary: renderGlossary, explain: renderExplain, questions: renderQuestions, cards: renderCards })[mode]();
+  ({ glossary: renderGlossary, explain: renderExplain, questions: renderQuestions, metrics: renderMetrics, cards: renderCards })[mode]();
 }
 function goTerm(name) {
   mode = 'glossary'; area = 'all'; query = ''; document.getElementById('q').value = ''; document.getElementById('hideLearned').checked = false; render();
@@ -693,6 +839,7 @@ function goTerm(name) {
 document.addEventListener('click', e => {
   const b = e.target.closest('button, .fc-card'); if (!b) return;
   if (b.dataset.mode) { mode = b.dataset.mode; if (mode === 'cards') buildDeck(); store.set('dcfg.mode', mode); try { history.replaceState(null, '', '#' + mode); } catch {} render(); window.scrollTo({ top: 0 }); return; }
+  if (b.dataset.msort) { const k = Number(b.dataset.msort); msort = msort.k === k ? { k, dir: -msort.dir } : { k, dir: 1 }; renderMetrics(); return; }
   if (b.dataset.area) { area = b.dataset.area; if (mode === 'cards') buildDeck(); render(); return; }
   if (b.dataset.go) { goTerm(b.dataset.go); return; }
   if (b.hasAttribute('data-more')) { const m = b.closest('.card').querySelector('.more'); m.hidden = !m.hidden; b.textContent = m.hidden ? 'Where it appears, data source, what to say' : 'Hide details'; return; }
@@ -707,12 +854,12 @@ document.addEventListener('click', e => {
   if (b.dataset.fc === 'know') { const t = deck[deckIdx % deck.length]; learned.add(t[0]); store.set('dcfg.learned', [...learned]); deck.splice(deckIdx % deck.length, 1); if (!deck.length) buildDeck(); deckIdx = deckIdx % deck.length; flipped = false; renderStats(); renderCards(); return; }
 });
 document.addEventListener('keydown', e => { if (e.target.id === 'fcCard' && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); flipped = !flipped; renderCards(); } });
-document.addEventListener('input', e => { if (e.target.id === 'q') { query = e.target.value; renderGlossary(); } else if (e.target.closest('.calc')) calc(); });
+document.addEventListener('input', e => { if (e.target.id === 'mq') { mq = e.target.value; const pos = e.target.selectionStart; renderMetrics(); const el = document.getElementById('mq'); el.focus(); try { el.setSelectionRange(pos, pos); } catch {} return; } if (e.target.id === 'q') { query = e.target.value; renderGlossary(); } else if (e.target.closest('.calc')) calc(); });
 document.getElementById('hideLearned').addEventListener('change', renderGlossary);
 
 const h = (location.hash || '').slice(1);
-mode = ['glossary', 'explain', 'questions', 'cards'].includes(h) ? h : store.get('dcfg.mode', 'glossary');
-if (!['glossary', 'explain', 'questions', 'cards'].includes(mode)) mode = 'glossary';
+mode = ['glossary', 'explain', 'questions', 'metrics', 'cards'].includes(h) ? h : store.get('dcfg.mode', 'glossary');
+if (!['glossary', 'explain', 'questions', 'metrics', 'cards'].includes(mode)) mode = 'glossary';
 if (mode === 'cards') buildDeck();
 render();
 </script>
