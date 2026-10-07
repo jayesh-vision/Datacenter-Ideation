@@ -1,3 +1,4 @@
+import { sevLabel } from '../../lib/vocab';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import { geoNow } from '../../api';
@@ -23,11 +24,11 @@ const BASEMAPS: { id: BaseId; label: string; base: string; ref?: string; attr: s
 ];
 const tile = (svc: string) => `${ESRI}/${svc}/MapServer/tile/{z}/{y}/{x}`;
 const thumb = (svc: string) => `${ESRI}/${svc}/MapServer/tile/${geoNow().map.thumbTile}`;   // one tile over the geography, as a basemap preview
-const KIND: Record<PinKind, { label: string }> = { crit: { label: 'SEV1/2' }, warn: { label: 'Incidents' }, ok: { label: 'Healthy' } };
+const KIND: Record<PinKind, { label: string }> = { crit: { label: 'Critical / high' }, warn: { label: 'Incidents' }, ok: { label: 'Healthy' } };
 const loadBase = (): BaseId => { try { const v = localStorage.getItem('dco.map.base'); return BASEMAPS.some(b => b.id === v) ? (v as BaseId) : 'light'; } catch { return 'light'; } };
 
 /* Live estate map. Sites are rings sized by estate weight and coloured by state; a site
-   with an open SEV1/2 ripples, one with lesser incidents pulses slowly. Backhaul that is
+   with an open critical / high incident ripples, one with lesser incidents pulses slowly. Backhaul that is
    down is drawn as moving red dashes. Clicking a site opens its summary and fans out its
    backhaul to peer sites. Basemap is switchable (light / streets / satellite / terrain). */
 export function DcMap({ pins, links = [], onNav, height = 520 }: { pins: DcPin[]; links?: DcLinkPair[]; onNav: (path: string) => void; height?: number }) {
@@ -105,7 +106,7 @@ export function DcMap({ pins, links = [], onNav, height = 520 }: { pins: DcPin[]
       const s = p.size;
       const html = `<div class="dcpin is-${p.kind}${first ? ' is-enter' : ''}" style="--s:${s}px;--d:${i * 25}ms">${p.kind !== 'ok' ? '<i class="dcpin-halo"></i>' : ''}${p.kind === 'crit' ? '<i class="dcpin-halo is-2"></i>' : ''}<i class="dcpin-ring"></i>${p.incidents ? `<b class="dcpin-badge">${p.incidents}</b>` : ''}${p.kind === 'crit' ? '' : `<span class="dcpin-label">${p.id}</span>`}</div>`;
       const mk = L.marker([p.lat, p.lng], { icon: L.divIcon({ html, className: 'dcpin-wrap', iconSize: [s, s], iconAnchor: [s / 2, s / 2] }), riseOnHover: true, zIndexOffset: order[p.kind] * 1000, keyboard: true, title: '' });
-      mk.bindTooltip(`<b>${p.id}</b> · ${p.city}<br>${p.incidents ? `${p.incidents} open incident${p.incidents === 1 ? '' : 's'}${p.worstSev ? ` · worst SEV${p.worstSev}` : ''}` : 'no open incident'} · ${p.alerts} alarms`, { direction: 'top', offset: [0, -s / 2 - 4], className: 'map-tip' });
+      mk.bindTooltip(`<b>${p.id}</b> · ${p.city}<br>${p.incidents ? `${p.incidents} open incident${p.incidents === 1 ? '' : 's'}${p.worstSev ? ` · worst ${sevLabel(p.worstSev).toLowerCase()}` : ''}` : 'no open incident'} · ${p.alerts} alarms`, { direction: 'top', offset: [0, -s / 2 - 4], className: 'map-tip' });
       mk.on('click', e => { L.DomEvent.stopPropagation(e); mk.closeTooltip(); setSel(cur => (cur === p.id ? null : p.id)); });
       mk.addTo(g);
       if (p.kind === 'crit') L.marker([p.lat, p.lng], { pane: 'dclabels', interactive: false, keyboard: false, icon: L.divIcon({ html: `<span class="dcpin-label is-fixed${first ? ' is-enter' : ''}" style="--o:${s / 2 + 3}px">${p.id}</span>`, className: 'dcpin-wrap', iconSize: [0, 0] }) }).addTo(g);
@@ -159,7 +160,7 @@ export function DcMap({ pins, links = [], onNav, height = 520 }: { pins: DcPin[]
         ))}
         <span className="dcmap-leg-link" title="Backhaul between datacenters that is down"><i />Link down</span>
       </div>
-      {full && <div className="dcmap-fulltitle"><b>Live estate</b><span>{pins.length} datacenters · {counts.crit} with SEV1/2 · {links.filter(l => l.down).length} backhaul down</span></div>}
+      {full && <div className="dcmap-fulltitle"><b>Live estate</b><span>{pins.length} datacenters · {counts.crit} with critical / high · {links.filter(l => l.down).length} backhaul down</span></div>}
       {sel && byId.get(sel) && <SiteCard p={byId.get(sel)!} onClose={() => setSel(null)} onNav={path => nav.current(path)} />}
       {hint && <div className="dcmap-hint">Click the map, then scroll to zoom</div>}
     </div>
@@ -175,7 +176,7 @@ function arc(a: [number, number], z: [number, number]): [number, number][] {
 
 /* site summary, docked inside the map so it is never clipped by the map edge */
 function SiteCard({ p, onClose, onNav }: { p: DcPin; onClose: () => void; onNav: (path: string) => void }) {
-  const chip = p.kind === 'crit' ? { t: 'error', l: `SEV${p.worstSev} open` } : p.kind === 'warn' ? { t: 'warning', l: 'Needs attention' } : { t: 'success', l: 'Normal' };
+  const chip = p.kind === 'crit' ? { t: 'error', l: `${sevLabel(p.worstSev)} open` } : p.kind === 'warn' ? { t: 'warning', l: 'Needs attention' } : { t: 'success', l: 'Normal' };
   const cells: [string, string, string, boolean][] = [
     ['Incidents', String(p.incidents), p.breaching ? `${p.breaching} past SLA` : p.incidents ? 'within SLA' : 'none open', p.breaching > 0],
     ['Alarms', String(p.alerts), p.critAlerts ? `${p.critAlerts} critical` : 'none critical', p.critAlerts > 0],

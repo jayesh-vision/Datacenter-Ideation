@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { ChangeStatus, Discovery, Health, IncidentStatus, LinkState, RolloutStatus, ServiceStatus, Severity } from '../api/types';
-import { CHANGE, DISCOVERY, HEALTH, INCIDENT, LINK_STATE, ROLLOUT, SERVICE, SEVERITY, SEV_TONE, utilColor } from '../lib/vocab';
+import { CHANGE, DISCOVERY, HEALTH, INCIDENT, LINK_STATE, ROLLOUT, SERVICE, SEVERITY, SEV_TONE, sevLabel, utilColor } from '../lib/vocab';
 import { Chip } from './kit';
 
 type Sz = 'sm' | 'xs';
@@ -12,7 +12,7 @@ export const HealthChip = ({ s, size = 'sm', children }: { s: Health; size?: Sz;
 export const LinkStateChip = ({ s, size = 'xs' }: { s: LinkState; size?: Sz }) => <Chip tone={LINK_STATE[s].tone} size={size} dot>{LINK_STATE[s].label}</Chip>;
 export const ServiceChip = ({ s, size = 'sm' }: { s: ServiceStatus; size?: Sz }) => <Chip tone={SERVICE[s].tone} size={size} dot>{SERVICE[s].label}</Chip>;
 export const IncidentChip = ({ s, size = 'sm' }: { s: IncidentStatus; size?: Sz }) => <Chip tone={INCIDENT[s].tone} size={size} dot>{s}</Chip>;
-export const SevChip = ({ n, size = 'sm' }: { n: number; size?: Sz }) => <Chip tone={SEV_TONE[n]} size={size}>SEV{n}</Chip>;
+export const SevChip = ({ n, size = 'sm' }: { n: number; size?: Sz }) => <Chip tone={SEV_TONE[n]} size={size}>{sevLabel(n)}</Chip>;
 export const PriChip = ({ n, size = 'sm' }: { n: number; size?: Sz }) => <Chip tone={SEV_TONE[n]} size={size}>P{n}</Chip>;
 export const ChangeChip = ({ s, size = 'sm' }: { s: ChangeStatus; size?: Sz }) => <Chip tone={CHANGE[s].tone} size={size} dot>{s}</Chip>;
 export const SevDot = ({ s }: { s: Severity }) => <i className="sev-dot" style={{ background: SEVERITY[s].color }} title={SEVERITY[s].label} />;

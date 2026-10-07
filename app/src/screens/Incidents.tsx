@@ -1,3 +1,4 @@
+import { SEV_TONE, sevLabel } from '../lib/vocab';
 import { useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
@@ -6,7 +7,7 @@ import type { Incident } from '../api/types';
 import { usePage, PageHead, Loading } from '../shell/page';
 import { DataTable, type Col } from '../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../ui/ListToolbar';
-import { Fresh, IncidentChip, PriChip, SevChip } from '../ui/status';
+import { Fresh, IncidentChip, SevChip } from '../ui/status';
 import { fmtDate, fmtDateTime, fmtMoney, fmtTime } from '../lib/format';
 import { downloadCsv, fmtHm, slaText } from './ops/shared';
 import { Facts, SoftMeter, Split, StatGrid, StatTile, type Tone } from '../ui/Analytics';
@@ -44,7 +45,7 @@ export function Incidents() {
     { key: 'id', header: 'ID', width: 86, render: i => <span className="mono strong">{i.id}</span>, sort: i => Number(i.id.slice(4)) },
     { key: 'title', header: 'Title', render: i => <span className="cell-2"><span className="strong" style={{ fontWeight: 500 }}>{i.title}</span><small>{i.dcId} · {i.impact.services ? `${i.impact.services} services · ${i.impact.customers} customers` : 'no customer service affected'}</small></span>, wrap: true },
     { key: 'type', header: 'Type', width: 60, render: i => { const Ic = TYPE_ICON[i.type]; return <span className={`type-ico t-${i.type.toLowerCase()}`} title={i.type} aria-label={i.type}><Ic size={13} /></span>; }, sort: i => i.type },
-    { key: 'sev', header: 'Sev · Pri', width: 108, render: i => <span className="row nowrap" style={{ gap: 6 }}><SevChip n={i.sev} size="xs" /><PriChip n={i.pri} size="xs" /></span>, sort: i => -(i.sev * 10 + i.pri) },
+    { key: 'sev', header: 'Severity', width: 96, render: i => <SevChip n={i.sev} size="xs" />, sort: i => -(i.sev * 10 + i.pri) },
     { key: 'sla', header: 'SLA', width: 128, render: i => (isOpen(i) ? <span className={`num nowrap ${i.sla.resolveLeft < 0 ? 'bad strong' : i.sla.breaching ? 'warn' : ''}`}>{slaText(i.sla.resolveLeft)}{i.sla.resolveLeft >= 0 && i.sla.responseBreached && <small className="bad" style={{ display: 'block', fontSize: 11 }}>response breached</small>}</span> : <span className="muted num">{i.resolved ? `MTTR ${fmtHm((i.resolved - i.detected) / 60000)}` : '—'}</span>), sort: i => (isOpen(i) ? i.sla.resolveLeft : 1e9) },
     /* what the incident is costing: the hourly loss and the total so far, or what is riding on it */
     { key: 'rev', header: vocabNow().money.noun, sort: i => (i.revenue ? i.revenue.impact + i.revenue.rate * 1e3 + i.revenue.exposed / 1e4 : -1), render: i => { const r = isOpen(i) ? i.revenue : null; return !r ? <span className="faint">—</span>
@@ -54,7 +55,7 @@ export function Incidents() {
     { key: 'det', header: 'Detected', width: '15%', hideBelow: 1340, render: i => <span className="cell-2"><span className="num">{fmtDate(i.detected)}</span><small className="num">{fmtTime(i.detected)}</small></span>, sort: i => i.detected }
   ];
   const exportCsv = () => downloadCsv(`incidents-${view}.csv`, [['ID', 'Status', 'Title', 'Type', 'Severity', 'Priority', 'Datacenter', 'Owner', 'Detected', 'Resolved', 'SLA', 'Losing per hour', 'Impact so far', 'Monthly at stake'],
-    ...rows.map(i => [i.id, i.status, i.title, i.type, `SEV${i.sev}`, `P${i.pri}`, i.dcId, i.owner, fmtDateTime(i.detected), i.resolved ? fmtDateTime(i.resolved) : '', isOpen(i) ? slaText(i.sla.resolveLeft) : '', i.revenue?.rate ?? 0, i.revenue?.impact ?? 0, i.revenue?.exposed ?? 0])]);
+    ...rows.map(i => [i.id, i.status, i.title, i.type, sevLabel(i.sev), `P${i.pri}`, i.dcId, i.owner, fmtDateTime(i.detected), i.resolved ? fmtDateTime(i.resolved) : '', isOpen(i) ? slaText(i.sla.resolveLeft) : '', i.revenue?.rate ?? 0, i.revenue?.impact ?? 0, i.revenue?.exposed ?? 0])]);
 
   return (
     <div className="page">
@@ -68,7 +69,7 @@ export function Incidents() {
               actions={[{ label: 'Export CSV', icon: I.Download, onClick: exportCsv }]}
               filters={[
                 { id: 'view', label: 'View', quick: true, value: view, defaultValue: 'open', onChange: v => set('view', v === 'open' ? '' : v), options: [
-                  { id: 'open', label: 'Open', count: scoped.filter(isOpen).length }, { id: 'sev1', label: 'SEV1 open', count: scoped.filter(i => isOpen(i) && i.sev === 1).length },
+                  { id: 'open', label: 'Open', count: scoped.filter(isOpen).length }, { id: 'sev1', label: 'Critical open', count: scoped.filter(i => isOpen(i) && i.sev === 1).length },
                   { id: 'breaching', label: 'Breaching SLA', count: scoped.filter(i => i.sla.breaching).length }, { id: 'all', label: 'All incidents', count: scoped.length }] },
                 { id: 'dc', label: 'Datacenter', quick: true, value: dc, anyLabel: 'Any datacenter', onChange: v => set('dc', v), options: dcs.map(d => ({ id: d.id, label: `${d.id} · ${d.city}` })) }
               ]} />
@@ -89,8 +90,8 @@ function IncidentAnalytics({ open, res30, mttr, met, slaPct, view, onView }: { o
   const svc = open.reduce((a, i) => a + i.impact.services, 0), cust = open.reduce((a, i) => a + i.impact.customers, 0), prem = open.reduce((a, i) => a + i.impact.premium, 0);
   return (
     <StatGrid>
-      <StatTile label="Open incidents" value={open.length} sub={`${open.filter(i => i.sev <= 2).length} SEV1/2`} subTone={open.some(i => i.sev === 1) ? 'bad' : undefined} onClick={() => onView('open')} active={view === 'open'}>
-        <Split parts={[1, 2, 3, 4].map(n => ({ key: `s${n}`, label: `SEV${n}`, n: open.filter(i => i.sev === n).length, tone: (['error', 'orange', 'warning', 'neutral'] as Tone[])[n - 1] }))} onPick={k => k === 's1' && onView('sev1')} active={view === 'sev1' ? 's1' : undefined} />
+      <StatTile label="Open incidents" value={open.length} sub={`${open.filter(i => i.sev <= 2).length} critical / high`} subTone={open.some(i => i.sev === 1) ? 'bad' : undefined} onClick={() => onView('open')} active={view === 'open'}>
+        <Split parts={[1, 2, 3, 4].map(n => ({ key: `s${n}`, label: sevLabel(n), n: open.filter(i => i.sev === n).length, tone: SEV_TONE[n] }))} onPick={k => k === 's1' && onView('sev1')} active={view === 'sev1' ? 's1' : undefined} />
       </StatTile>
       <StatTile label="SLA clock" value={breached.length} sub="past SLA" subTone={breached.length ? 'bad' : undefined} onClick={() => onView('breaching')} active={view === 'breaching'}>
         <Split parts={[{ key: 'b', label: 'Breached', n: breached.length, tone: 'error' }, { key: 'r', label: 'Due soon', n: atRisk.length, tone: 'warning' }, { key: 'ok', label: 'On track', n: open.length - breached.length - atRisk.length, tone: 'success' }]} />

@@ -1,3 +1,4 @@
+import { sevChipCls, sevLabel } from '../lib/vocab';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
@@ -63,7 +64,7 @@ export function Revenue() {
           <Split parts={[{ key: 'lost', label: W.lost, n: t.lost, tone: 'error', display: inr(t.lost) }, { key: 'cr', label: W.credits, n: t.credits, tone: 'orange', display: inr(t.credits) }]} />
           <Facts items={[{ n: inr(t.forecast24), label: 'by +24 h', tone: t.forecast24 > impact ? 'warn' : undefined }]} />
         </StatTile>
-        <StatTile label="At stake" value={inr(t.mrrExposed)} sub="a month" subTone={t.mrrExposed ? 'warn' : undefined} onClick={() => go('issues', { rview: 'stake' })} active={tab === 'issues' && rview === 'stake'}>
+        <StatTile label="At stake" value={inr(t.mrrExposed)} sub="/mo" subTone={t.mrrExposed ? 'warn' : undefined} onClick={() => go('issues', { rview: 'stake' })} active={tab === 'issues' && rview === 'stake'}>
           <Split other={inr} parts={v.byDomain.filter(d => d.mrrExposed > 0).sort((a, b) => b.mrrExposed - a.mrrExposed).map(d => ({ key: d.domain, label: d.domain, n: d.mrrExposed, tone: 'info' as Tone, display: inr(d.mrrExposed) }))} />
           <Facts items={[{ n: perHr(t.potentialRate), label: 'if they fail' }]} />
         </StatTile>
@@ -131,7 +132,7 @@ function IssueHero({ kind, issue: i, view: v, onOpen }: { kind: 'cost' | 'stake'
       <div className="vw-card-accent" style={{ background: cost ? 'var(--vw-color-red-500)' : 'var(--vw-color-amber-500)' }} />
       <div className="rev-hero-h">
         <span className="vw-card-metric-label">{head}</span>
-        <span className="rev-hero-meta"><DomainTag d={i.domain} />{i.incident && <span className={`vw-chip ${i.incident.sev === 1 ? 'vw-chip--error' : i.incident.sev === 2 ? 'vw-chip--warning' : 'vw-chip--neutral'} is-strong cmd-chip`}>SEV{i.incident.sev}</span>}</span>
+        <span className="rev-hero-meta"><DomainTag d={i.domain} />{i.incident && <span className={`vw-chip ${sevChipCls(i.incident.sev)} is-strong cmd-chip`}>{sevLabel(i.incident.sev)}</span>}</span>
       </div>
       <button type="button" className="rev-hero-title" onClick={() => onOpen(i.id)} title="Open the cost breakdown">{i.title}</button>
       <span className="vw-label rev-hero-sub">{i.incident ? `${i.id} · ` : ''}{i.dcId}{i.where !== i.dcId ? ` · ${i.where}` : ''} · began {fmtAgo(i.since, v.now)}{i.changeId ? ` · after ${i.changeId}` : ''}</span>

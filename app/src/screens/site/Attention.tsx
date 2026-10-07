@@ -1,3 +1,4 @@
+import { sevChipCls, sevLabel } from '../../lib/vocab';
 import { Link, useNavigate } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { clockNow, getAlerts, getChanges, getIncidents, getNetworkElements, useQuery, vocabNow } from '../../api';
@@ -58,7 +59,7 @@ export function Attention({ data }: { data: SiteData }) {
           {incs && incs.length ? (
             <div className="att-list">{[...incs].sort((a, b) => a.sev - b.sev || a.sla.resolveLeft - b.sla.resolveLeft).map(i => (
               <Link key={i.id} to={`/incidents/${i.id}`} className="att-row">
-                <span className={`vw-chip ${i.sev === 1 ? 'vw-chip--error' : i.sev === 2 ? 'vw-chip--warning' : 'vw-chip--neutral'} is-strong cmd-chip`}>SEV{i.sev}</span>
+                <span className={`vw-chip ${sevChipCls(i.sev)} is-strong cmd-chip`}>{sevLabel(i.sev)}</span>
                 <span className="att-main"><b>{i.title}</b><small>{i.id} · {i.status} · {i.owner} · {i.impact.services} {vocabNow().services.toLowerCase()}</small></span>
                 <span className={`att-sla${i.sla.breaching ? ' is-late' : ''}`}>{i.sla.resolveLeft < 0 ? `Overdue ${fmtDur(-i.sla.resolveLeft)}` : `${fmtDur(i.sla.resolveLeft)} left`}</span>
               </Link>))}</div>

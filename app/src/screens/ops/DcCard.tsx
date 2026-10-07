@@ -1,3 +1,4 @@
+import { sevChipCls, sevLabel } from '../../lib/vocab';
 import { Link } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { vocabNow } from '../../api';
@@ -76,7 +77,7 @@ function IncidentBody({ inc: i, siteId, now }: { inc: CardIncident; siteId: stri
   return (
     <Link to={`/incidents/${i.id}`} className="ci-body" title={`Open incident ${i.id}`}>
       <div className="ci-head">
-        <span className={`vw-chip ${i.sev === 1 ? 'vw-chip--error' : i.sev === 2 ? 'vw-chip--warning' : 'vw-chip--neutral'} is-strong cmd-chip`}>SEV{i.sev}</span>
+        <span className={`vw-chip ${sevChipCls(i.sev)} is-strong cmd-chip`}>{sevLabel(i.sev)}</span>
         <span className="vw-card-activity-label">{i.id}</span>
         <span className="vw-chip vw-chip--neutral cmd-chip">{i.type}</span>
         <span className="vw-footer-meta ci-age">{fmtAgo(i.detected, now)}</span>

@@ -44,6 +44,7 @@ export function useGeo(): { geo: Geo; def: GeoDef } {
 }
 /* the first site of the active geography — the default where a screen needs a datacenter */
 export const defaultDcId = () => S.heroDcId();
+export const heroNeId = () => S.heroNeId();
 
 /* ---- estate & inventory */
 export const getEstate = () => wait(S.estate);                                                     // GET /estate

@@ -7,7 +7,7 @@ import { usePage, Loading, useSentinel } from '../shell/page';
 import { DataTable, type Col } from '../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../ui/ListToolbar';
 import { Meter } from '../ui/status';
-import { ROLLOUT, SEVERITY } from '../lib/vocab';
+import { ROLLOUT, SEVERITY, SEV_TONE, sevChipCls, sevLabel } from '../lib/vocab';
 import { fmtMoney, fmtNum } from '../lib/format';
 import '../styles/datacenters.css';
 import { OpstralBtn } from '../ui/OpstralMark';
@@ -48,7 +48,7 @@ export function Datacenters() {
       <span className="cell-2"><span className="vw-card-activity-label">{d.name}</span><small title={d.state}>{d.city} · {d.tier}{d.status !== 'on-air' ? ` · ${ROLLOUT[d.status].label}` : ''}</small></span>
     ) },
     { key: 'inc', header: 'Open incidents', sort: d => (d.worstSev ? 10 - d.worstSev : 0) * 100 + d.openIncidents, render: d => d.openIncidents
-      ? <span className="vw-flex vw-items-center vw-gap-sm"><span className="dcl-num">{d.openIncidents}</span>{d.worstSev > 0 && <span className={`vw-chip ${d.worstSev === 1 ? 'vw-chip--error' : d.worstSev === 2 ? 'vw-chip--warning' : 'vw-chip--neutral'} dcl-chip`}>SEV{d.worstSev}</span>}</span>
+      ? <span className="vw-flex vw-items-center vw-gap-sm"><span className="dcl-num">{d.openIncidents}</span>{d.worstSev > 0 && <span className={`vw-chip ${sevChipCls(d.worstSev)} dcl-chip`}>{sevLabel(d.worstSev)}</span>}</span>
       : <span className="vw-label">None</span> },
     { key: 'alarms', header: 'Alarms', align: 'right', sort: d => d.critAlerts * 1000 + d.activeAlerts, render: d => <span className="cell-2" style={{ alignItems: 'flex-end' }}><span className="dcl-num">{d.activeAlerts}</span><small className="nowrap" style={{ color: d.critAlerts ? BAD : undefined }}>{d.critAlerts ? `${d.critAlerts} critical` : 'none critical'}</small></span> },
     { key: 'net', header: 'Network', sort: d => d.linksDown * 10 + d.unreachable, render: d => {
@@ -157,7 +157,6 @@ const STATE_META: Record<SiteState, { label: string; color: string; tone: Tone }
 /* same rule as the datacenter page's site status */
 const stateOf = (d: DcSummary): SiteState => d.worstSev === 1 || d.facilityIssues.some(f => /on battery|fault/i.test(f)) || d.edge.state === 'isolated' ? 'critical'
   : d.openIncidents || d.critAlerts || d.linksDown || d.unreachable || d.facilityIssues.length || d.edge.state !== 'redundant' ? 'attention' : 'normal';
-const SEV_TONE: Record<number, Tone> = { 1: 'error', 2: 'orange', 3: 'warning', 4: 'neutral' };
 const ALM_TONE: Record<Severity, Tone> = { critical: 'error', major: 'orange', minor: 'warning', warning: 'neutral' };
 type Inc = Awaited<ReturnType<typeof getIncidents>>[number];
 type Alm = Awaited<ReturnType<typeof getAlerts>>[number];
@@ -183,7 +182,7 @@ function EstateOverview({ live, alarms, incs, onView }: { live: DcSummary[]; ala
         <Split parts={(['critical', 'attention', 'normal'] as SiteState[]).map(s => ({ key: s, label: STATE_META[s].label, n: cnt(s), tone: STATE_META[s].tone }))} />
       </StatTile>
       <StatTile label="Open incidents" value={incs.length} sub={past ? `${past} past SLA` : 'all within SLA'} subTone={past ? 'bad' : undefined}>
-        <Split parts={[1, 2, 3, 4].map(n => ({ key: `s${n}`, label: `SEV${n}`, n: sev(n), tone: SEV_TONE[n] }))} />
+        <Split parts={[1, 2, 3, 4].map(n => ({ key: `s${n}`, label: sevLabel(n), n: sev(n), tone: SEV_TONE[n] }))} />
       </StatTile>
       <StatTile label="Active alarms" value={fmtNum(alarms.length)} sub={`${fmtNum(unack)} unacked`}>
         <Split parts={(['critical', 'major', 'minor', 'warning'] as Severity[]).map(s => ({ key: s, label: SEVERITY[s].label, n: asev(s), tone: ALM_TONE[s] }))} />
@@ -223,7 +222,7 @@ function RegionCard({ name, sites, incs, on, onClick, onSite }: { name: string; 
         <span className="dcr-n">{sites.length} sites</span>
       </div>
       <div className="dcr-stats">
-        <div><span className="dco-l">Incidents</span><b>{inc}</b><small className={hot ? 'bad' : ''}>{hot ? `${hot} SEV1/2` : 'no SEV1/2'}</small></div>
+        <div><span className="dco-l">Incidents</span><b>{inc}</b><small className={hot ? 'bad' : ''}>{hot ? `${hot} critical / high` : 'no critical / high'}</small></div>
         <div><span className="dco-l">Alarms</span><b>{alarms}</b><small className={crit ? 'bad' : ''}>{crit ? `${crit} critical` : 'none critical'}</small></div>
         <div><span className="dco-l">Power</span><b>{pp}%</b><span className="dco-meter is-sm"><i style={{ width: `${pp}%`, background: pp >= 85 ? SOFT.error : SOFT.info }} /></span></div>
       </div>

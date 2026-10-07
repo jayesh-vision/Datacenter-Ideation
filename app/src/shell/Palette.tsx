@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { createPortal } from 'react-dom';
-import { search, defaultDcId, geoNow } from '../api';
+import { search, defaultDcId, heroNeId, geoNow } from '../api';
 
 type Row = { kind: string; label: string; sub: string; to: string };
 const ICON: Record<string, I.LucideIcon> = { Datacenter: I.Building2, 'Network element': I.Router, Device: I.Server, Service: I.Waypoints, Customer: I.Users, Incident: I.Siren, Alert: I.BellRing, Change: I.ArrowLeftRight, Go: I.Zap };
 const QUICK = (): Row[] => [
   { kind: 'Go', label: `${defaultDcId()} · ${geoNow().dcs[0][2]}`, sub: 'In-progress datacenter with open reconciliation', to: `/datacenters/${defaultDcId()}` },
-  { kind: 'Go', label: `${defaultDcId()}-PE-T4-01 · Alerts & diagnostics`, sub: 'Flapping backhaul with AI root-cause', to: `/ne/${defaultDcId()}-PE-T4-01?tab=alerts` },
+  { kind: 'Go', label: `${heroNeId()} · Alerts & diagnostics`, sub: 'Flapping backhaul with AI root-cause', to: `/ne/${heroNeId()}?tab=alerts` },
   { kind: 'Go', label: 'INC-0001 · RCA workspace', sub: 'Optical degradation incident', to: '/incidents/INC-0001' },
   { kind: 'Go', label: 'Facilities', sub: 'Power chain, UPS, DG, cooling and environment', to: '/facilities' },
   { kind: 'Go', label: 'Datacenters', sub: 'Operational state of every live datacenter', to: '/datacenters' }

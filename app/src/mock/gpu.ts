@@ -34,7 +34,7 @@ interface DbLike {
 }
 
 export const GPU_RATE = { cloud: 175000, enterprise: 85000, neocloud: 150000 } as const;  // ₹ per GPU per month (cloud list price · enterprise chargeback · neocloud reserved rate)
-const LIQUID_SITES = () => [dcAt(22), dcAt(20), dcAt(23)];                       // newest halls: H200, direct-to-chip liquid cooling
+export const LIQUID_SITES = () => [dcAt(22), dcAt(20), dcAt(23)];                       // newest halls: H200, direct-to-chip liquid cooling
 const DRIFT_SITES = () => [dcAt(10), dcAt(11), dcAt(21)];                         // still on the previous driver branch
 const DRIVER_STD = '550.127.05', DRIVER_OLD = '535.183.01';
 const r0 = (n: number) => Math.round(n), r1 = (n: number) => Math.round(n * 10) / 10;

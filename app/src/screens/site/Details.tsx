@@ -10,7 +10,7 @@ import { utilColor } from '../../lib/vocab';
 import type { SiteData } from './Site';
 
 const SPLIT_COLORS = ['var(--primaryColor500)', 'var(--vw-color-cyan-500)', 'var(--vw-color-slate-400)'];
-const PORT_COLOR: Record<string, string> = { '1G copper': 'var(--vw-color-emerald-500)', '10G SFP+': 'var(--vw-color-amber-500)', '100G QSFP28': 'var(--primaryColor500)', 'Optical (ODF)': 'var(--vw-color-purple-500)' };
+const PORT_COLOR: Record<string, string> = { '1G copper': 'var(--vw-color-emerald-500)', '10G SFP+': 'var(--vw-color-amber-500)', '100G QSFP28': 'var(--primaryColor500)', '400G OSFP': 'var(--vw-color-indigo-500)', 'Optical (ODF)': 'var(--vw-color-purple-500)' };
 
 /* INV-02 — power chain, rack space, ports, building and cooling for one site
    (DC-SITE-002…007). */

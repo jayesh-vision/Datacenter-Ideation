@@ -2,7 +2,8 @@
    answered from the live mock estate, so every statement carries evidence the
    operator can open. A real LLM/RAG service would return the same shape. */
 
-import { raw, isOpen, impactOf, linksOf, summarize, slaState, changes as listChanges, revenue, getPersona, gpu, geoDef, heroDcId } from './server';
+import { sevLabel } from '../lib/vocab';
+import { raw, isOpen, impactOf, linksOf, summarize, slaState, changes as listChanges, revenue, getPersona, gpu, geoDef, heroNeId } from './server';
 import { PERSONA_BY_ID } from './personas';
 import { fmtMoney, fmtDur, fmtNum } from '../lib/format';
 import { HOUR, DAY } from './seed';
@@ -80,7 +81,7 @@ export function ask(q: string, ctx: Ctx): Answer {
           `Left unresolved for another 24 h it reaches ${fmtMoney(one.forecast24)} — restoring now avoids ${fmtMoney(Math.max(0, one.forecast24 - one.lost - one.credits))}.`]
         : [`Nothing is lost yet. ${one.exposed} ${svcL} worth ${fmtMoney(one.mrrExposed)} a month are still running on this fault.`, `If it takes them down it costs ${rate(one.potentialRate)}, plus ${fmtMoney(one.potentialCredits)} of ${W.creditsL} after a ${r.method.outageHours} h outage.`];
       if (one.changeId) lines.push(`It followed change ${one.changeId} at the same site.`);
-      if (one.underPrioritised) lines.push(`It ranks #${one.rank} by ${W.nounL} impact but is only SEV${one.incident!.sev} — review its priority.`);
+      if (one.underPrioritised) lines.push(`It ranks #${one.rank} by ${W.nounL} impact but is only ${sevLabel(one.incident!.sev).toLowerCase()} severity — review its priority.`);
       return { title: `What ${one.id} is costing`, confidence: 90, lines, evidence: [{ label: one.id, to: one.to }, ...one.top.slice(0, 4).map(c => ({ label: c.name, to: `/customers/${c.id}` }))], actions: [{ label: `Open ${W.impactL}`, to: '/revenue' }], followups: ['Which issue is costing the most revenue?', `What changed before ${one.id}?`] };
     }
     const losing = r.issues.filter(i => i.rate + i.lost + i.credits > 0), stake = [...r.issues].filter(i => i.mrrExposed > 0).sort((a, b) => b.mrrExposed - a.mrrExposed);
@@ -145,7 +146,7 @@ export function ask(q: string, ctx: Ctx): Answer {
     const since = db.now - 24 * HOUR;
     const cs = listChanges({}).filter(c => c.windowStart >= since && c.windowStart <= db.now);
     const inc = db.incidents.filter(i => i.detected >= since);
-    return { title: 'Last 24 hours', confidence: 99, lines: [`${inc.length} incidents opened, ${db.alerts.filter(a => a.start >= since).length} alerts raised, ${cs.length} changes/maintenance started.`, ...cs.map(c => `${c.id} ${c.status}: ${c.title} (${c.dcId}, ${fmtDateTime(c.windowStart)})`), ...inc.slice(0, 4).map(i => `${i.id} SEV${i.sev} ${i.status}: ${i.title}`)],
+    return { title: 'Last 24 hours', confidence: 99, lines: [`${inc.length} incidents opened, ${db.alerts.filter(a => a.start >= since).length} alerts raised, ${cs.length} changes/maintenance started.`, ...cs.map(c => `${c.id} ${c.status}: ${c.title} (${c.dcId}, ${fmtDateTime(c.windowStart)})`), ...inc.slice(0, 4).map(i => `${i.id} ${sevLabel(i.sev)} ${i.status}: ${i.title}`)],
       evidence: [...cs.map(c => ({ label: c.id, to: `/changes?id=${c.id}` })), ...inc.slice(0, 4).map(i => ({ label: i.id, to: `/incidents/${i.id}` }))], actions: [], followups: [] };
   }
   /* risk at a location / summary */
@@ -157,12 +158,12 @@ export function ask(q: string, ctx: Ctx): Answer {
       const inc = db.incidents.filter(i => i.dcId === d.id && isOpen(i));
       const hot = linksOf({ dcId: d.id, protocol: 'LLDP' }).filter(l => l.utilPct >= 80 && l.role !== 'Access');
       lines.push(`${d.id} (${d.status}, ${d.city}): health ${s.healthScore}, ${s.activeAlerts} active alarms, ${inc.length} open incidents, coverage ${s.coveragePct}% (${s.notDiscovered} not discovered, ${s.drifted} drifted).`);
-      inc.slice(0, 3).forEach(i => { lines.push(`  • ${i.id} SEV${i.sev} — ${i.title}${slaState(i).breaching ? ' (breaching SLA)' : ''}`); ev.push({ label: i.id, to: `/incidents/${i.id}` }); });
+      inc.slice(0, 3).forEach(i => { lines.push(`  • ${i.id} ${sevLabel(i.sev)} — ${i.title}${slaState(i).breaching ? ' (breaching SLA)' : ''}`); ev.push({ label: i.id, to: `/incidents/${i.id}` }); });
       d.risks.filter(r => r.severity === 'critical' || r.severity === 'major').slice(0, 2).forEach(r => lines.push(`  • ${r.domain}: ${r.title}`));
       hot.slice(0, 2).forEach(l => lines.push(`  • ${l.aNe} ${l.aIf} at ${l.utilPct}% (+${l.growthPct}%/mo)`));
       ev.push({ label: d.id, to: `/datacenters/${d.id}?tab=attention` });
     }
     return { title: dcs.length > 1 ? `Risk across ${dcs.map(d => d.id).join(', ')}` : `What is at risk in ${dcs[0].id}`, confidence: 88, lines, evidence: ev, actions: [{ label: 'Open site attention', to: `/datacenters/${dcs[0].id}?tab=attention` }], followups: ['Which links will exhaust first?'] };
   }
-  return { title: 'I can answer from the live estate', confidence: 0, lines: [`Ask about a place ("what is at risk in ${geoDef().heroCity}?"), an element ("what services depend on ${heroDcId()}-PE-T4-01?"), an incident ("what changed before INC-0001?") or capacity ("which links will exhaust first?").`], evidence: [], actions: [], followups: suggestions(ctx) };
+  return { title: 'I can answer from the live estate', confidence: 0, lines: [`Ask about a place ("what is at risk in ${geoDef().heroCity}?"), an element ("what services depend on ${heroNeId()}?"), an incident ("what changed before INC-0001?") or capacity ("which links will exhaust first?").`], evidence: [], actions: [], followups: suggestions(ctx) };
 }

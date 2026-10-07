@@ -40,7 +40,12 @@ export const SERVICE: Record<ServiceStatus, { label: string; tone: Tone }> = {
 export const INCIDENT: Record<IncidentStatus, { tone: Tone }> = {
   Open: { tone: 'error' }, Investigating: { tone: 'warning' }, Mitigated: { tone: 'info' }, Resolved: { tone: 'success' }, Closed: { tone: 'neutral' }
 };
-export const SEV_TONE: Record<number, Tone> = { 1: 'error', 2: 'orange', 3: 'warning', 4: 'neutral' };
+/* Incident severity: stored as 1–4, shown as words (user, 07-Oct-2026). Alarms keep Critical / Major / Minor / Warning. */
+export const SEV_LABEL: Record<number, string> = { 1: 'Critical', 2: 'High', 3: 'Medium', 4: 'Low' };
+export const sevLabel = (n: number) => SEV_LABEL[n] ?? `Level ${n}`;
+export const SEV_TONE: Record<number, 'error' | 'warning' | 'info' | 'neutral'> = { 1: 'error', 2: 'warning', 3: 'info', 4: 'neutral' };
+/* the class of a solid incident-severity chip (vw-chip--*) */
+export const sevChipCls = (n: number) => `vw-chip--${n === 1 ? 'error' : n === 2 ? 'warning' : n === 3 ? 'info' : 'neutral'}`;
 export const CHANGE: Record<ChangeStatus, { tone: Tone }> = {
   Draft: { tone: 'neutral' }, 'Pending approval': { tone: 'warning' }, Approved: { tone: 'info' }, 'In progress': { tone: 'purple' }, Completed: { tone: 'success' }, 'Rolled back': { tone: 'orange' }, Rejected: { tone: 'error' }
 };

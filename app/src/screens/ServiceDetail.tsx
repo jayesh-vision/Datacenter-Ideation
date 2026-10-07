@@ -128,7 +128,7 @@ export function ServiceDetail() {
         </Panel>
         <Panel title="Open incidents affecting this service" count={incidents.length} icon={I.Siren} flush>
           {incidents.length ? (
-            <table className="nst-table dt-table"><thead><tr><th>Incident</th><th>Sev</th><th>Status</th><th>Owner</th></tr></thead>
+            <table className="nst-table dt-table"><thead><tr><th>Incident</th><th>Severity</th><th>Status</th><th>Owner</th></tr></thead>
               <tbody>{incidents.map(i => (
                 <tr key={i.id} className="is-click" onClick={() => nav(`/incidents/${i.id}`)}>
                   <td className="is-wrap"><span className="cell-2"><IncLink id={i.id} /><small>{i.title}</small></span></td><td><SevChip n={i.sev} size="xs" /></td><td><IncidentChip s={i.status} size="xs" /></td><td>{i.owner}</td>

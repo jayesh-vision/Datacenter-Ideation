@@ -1,3 +1,4 @@
+import { sevLabel } from '../lib/vocab';
 import { ScopeChip } from '../ui/scope';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -6,7 +7,7 @@ import { addWorklog, advanceIncident, clockNow, getIncident, hypothesisFeedback,
 import type { ActionStep, IncidentStatus, RevIssue } from '../api/types';
 import { usePage, Loading, useSentinel } from '../shell/page';
 import { Btn, Chip, Panel } from '../ui/kit';
-import { ChangeChip, CustLink, DcLink, IncidentChip, PriChip, SevChip, SevDot, SeverityChip, SvcLink, ServiceChip } from '../ui/status';
+import { ChangeChip, CustLink, DcLink, IncidentChip, SevChip, SevDot, SeverityChip, SvcLink, ServiceChip } from '../ui/status';
 import { fmtAgo, fmtDateTime, fmtDateTimeS, fmtDur, fmtQty } from '../lib/format';
 import { CostCurve, DomainTag, Fig, inr, lc, perHr, perMo, stateText } from './revenue/parts';
 import { NotFound } from './NotFound';
@@ -53,7 +54,7 @@ export function IncidentDetail() {
         <div className="row wrap" style={{ gap: 10 }}>
           <Btn icon={I.ArrowLeft} onClick={() => nav('/incidents')}>Incidents</Btn>
           <h1 className="mono">{inc.id}</h1>
-          <SevChip n={inc.sev} /><PriChip n={inc.pri} /><IncidentChip s={inc.status} />
+          <SevChip n={inc.sev} /><IncidentChip s={inc.status} />
           {inc.sla.breaching && <Chip tone="error">SLA breach</Chip>}
           <span className="row muted" style={{ gap: 6, fontSize: 13 }}><span className={`type-ico t-${inc.type.toLowerCase()}`}><TypeIc size={13} /></span>{inc.type} · <DcLink id={inc.dcId} tab="attention" /> · {dc.city}</span>
         </div>
@@ -74,7 +75,7 @@ export function IncidentDetail() {
           sub={inc.sla.responseBreached ? `acknowledged after ${inc.sla.responseMin} m · target ${fmtHm(inc.responseSlaMin)}` : inc.acknowledged ? `acknowledged in ${inc.sla.responseMin} m · target ${fmtHm(inc.responseSlaMin)}` : `${fmtHm(Math.max(0, inc.sla.responseLeft))} left to acknowledge`} />
         <OpsKpi label="Resolution SLA" tone={open && inc.sla.resolveLeft < 0 ? 'bad' : open && inc.sla.resolveLeft < inc.resolveSlaMin * 0.25 ? 'warn' : undefined}
           value={open ? slaText(inc.sla.resolveLeft) : inc.resolved ? fmtHm((inc.resolved - inc.detected) / 60000) : '—'} sub={open ? `target ${fmtHm(inc.resolveSlaMin)} from detection` : 'time to resolve'} />
-        <OpsKpi label="Severity · priority" value={`SEV${inc.sev} · P${inc.pri}`} sub={`${inc.type} · ${dc.city}`} />
+        <OpsKpi label="Severity" value={sevLabel(inc.sev)} sub={`${inc.pri !== inc.sev ? `Priority P${inc.pri} · ` : ''}${inc.type} · ${dc.city}`} />
       </div>
 
       <div className="inc-grid">

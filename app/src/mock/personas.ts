@@ -17,6 +17,8 @@ export interface PersonaDef {
   vocab: PersonaVocab;
   /* device count vs. the telco seed row (MH-DC-001 = 179 network elements) */
   scale: number;
+  /* WAN edge router naming: telco/colo/cloud 'PE-T4', a GPU cloud 'BDR' (border router) */
+  edgePrefix: string;
   /* [name, segment, city, state, plan, premium] */
   customers: [string, string, string, string, string, boolean][];
   serviceTypes: PersonaServiceType[];
@@ -30,7 +32,7 @@ export interface PersonaDef {
 const NETWORK: PersonaDef = {
   id: 'network', label: 'Network / Telco DC', short: 'Telco', tagline: 'Connectivity services — routers, switches and DWDM; customers buy circuits',
   vocab: { customer: 'Customer', customers: 'Customers', service: 'Service', services: 'Services', equipment: 'Network equipment', premium: 'Premium', capacityLabel: 'Bandwidth', primaryUnit: 'Mbps', handoff: 'NE · handoff', searchHint: 'Customer, ID, segment', money: { noun: 'Revenue', impact: 'Revenue impact', lost: 'Revenue lost', credits: 'SLA credits', base: 'Monthly recurring revenue', billing: 'Circuits are billed monthly. An outage is rebated pro-rata for the time the circuit was down or degraded, and an SLA miss adds a credit against the monthly charge.' } },
-  scale: 1,
+  scale: 1, edgePrefix: 'PE-T4',
   customers: [], serviceTypes: [], sla: { premium: 99.9, standard: 99.5 },
   rooms: { big: [{ name: 'Ground', rooms: ['MDF', 'Hall A'] }, { name: '1st floor', rooms: ['Equipment room', 'Hall B'] }], small: [{ name: 'Ground', rooms: ['MDF'] }, { name: '1st floor', rooms: ['Equipment room'] }] },
   tall: { dcIndex: 9, floors: [{ name: 'Ground', rooms: ['MDF'] }, { name: '1st floor', rooms: ['Transmission room'] }, { name: '2nd floor', rooms: ['Equipment room A'] }, { name: '3rd floor', rooms: ['Equipment room B'] }, { name: '4th floor', rooms: ['Core room'] }, { name: '5th floor', rooms: ['Hall C'] }, { name: '6th floor', rooms: ['Hall D'] }] },
@@ -45,7 +47,7 @@ const NETWORK: PersonaDef = {
 const COLOCATION: PersonaDef = {
   id: 'colocation', label: 'Colocation DC', short: 'Colo', tagline: 'Space, power and interconnection — tenants own the gear in the cabinets',
   vocab: { customer: 'Tenant', customers: 'Tenants', service: 'Contract', services: 'Contracts', equipment: 'Cabinets & plant', premium: 'Anchor', capacityLabel: 'Contracted power', primaryUnit: 'kW', handoff: 'Cabinet · circuit', searchHint: 'Tenant, ID, segment', money: { noun: 'Revenue', impact: 'Revenue impact', lost: 'Revenue lost', credits: 'SLA credits', base: 'Monthly contract revenue', billing: 'Space, power and cross-connects are billed monthly. Power or cooling outside the contracted envelope is rebated pro-rata, and an SLA miss adds a credit against the monthly charge.' } },
-  scale: 0.6,
+  scale: 0.6, edgePrefix: 'PE-T4',
   customers: [
     ['Hyperscale Cloud East', 'Hyperscaler', 'Mumbai', 'Maharashtra', 'Private cage · 2N', true],
     ['Nimbus Cloud Services', 'Hyperscaler', 'Bengaluru', 'Karnataka', 'Private cage · 2N', true],
@@ -92,7 +94,7 @@ const COLOCATION: PersonaDef = {
 const CLOUD: PersonaDef = {
   id: 'cloud', label: 'Cloud DC', short: 'Cloud', tagline: 'Compute and storage at scale — thousands of hosts; accounts run instances',
   vocab: { customer: 'Account', customers: 'Accounts', service: 'Workload', services: 'Workloads', equipment: 'Hosts & fabric', premium: 'Enterprise-tier', capacityLabel: 'vCPU allocated', primaryUnit: 'vCPU', handoff: 'Host · NIC', searchHint: 'Account, ID, segment', money: { noun: 'Revenue', impact: 'Revenue impact', lost: 'Revenue lost', credits: 'Service credits', base: 'Monthly run-rate revenue', billing: 'Workloads are billed for the hours they run. Hours a workload is down are never billed, degraded hours are discounted, and an availability miss adds a service credit.' } },
-  scale: 2.5,
+  scale: 2.5, edgePrefix: 'PE-T4',
   customers: [
     ['ShopSwift Commerce', 'Retail', 'Bengaluru', 'Karnataka', 'Enterprise support', true],
     ['PayNow Fintech', 'BFSI', 'Mumbai', 'Maharashtra', 'Enterprise support', true],
@@ -140,7 +142,7 @@ const CLOUD: PersonaDef = {
 const ENTERPRISE: PersonaDef = {
   id: 'enterprise', label: 'Enterprise / Private DC', short: 'Enterprise', tagline: 'Runs the firm’s own applications — business units are the customers',
   vocab: { customer: 'Business unit', customers: 'Business units', service: 'Application', services: 'Applications', equipment: 'Servers & fabric', premium: 'Tier-1', capacityLabel: 'Users served', primaryUnit: 'users', handoff: 'Host · cluster', searchHint: 'Business unit, ID, segment', money: { noun: 'Business value', impact: 'Business impact', lost: 'Cost of downtime', credits: 'OLA rebates', base: 'Monthly business value', billing: 'Each application carries the monthly value the business unit is charged for it. Downtime costs that value pro-rata, and an OLA miss is rebated to the business unit.' } },
-  scale: 1.4,
+  scale: 1.4, edgePrefix: 'PE-T4',
   customers: [
     ['Retail Banking', 'Revenue', 'Mumbai', 'Maharashtra', 'Tier-1 · RTO 15 min', true],
     ['Corporate Banking', 'Revenue', 'Mumbai', 'Maharashtra', 'Tier-1 · RTO 15 min', true],
@@ -179,7 +181,7 @@ const NEOCLOUD: PersonaDef = {
   id: 'neocloud', label: 'NeoCloud / GPU cloud', short: 'NeoCloud', tagline: 'Rents GPU capacity — reserved clusters and on-demand GPUs for AI teams',
   vocab: { customer: 'Customer', customers: 'Customers', service: 'Reservation', services: 'Reservations', equipment: 'GPU nodes & fabric', premium: 'Committed', capacityLabel: 'GPUs reserved', primaryUnit: 'GPU', handoff: 'Node · rail', searchHint: 'Customer, ID, segment',
     money: { noun: 'Revenue', impact: 'Revenue impact', lost: 'Revenue lost', credits: 'Service credits', base: 'Monthly GPU revenue', billing: 'GPUs are billed per GPU-hour: reserved clusters at a committed monthly rate, on-demand capacity by the hour. Hours a GPU is down or a job is stalled are not billed, and an availability miss adds a service credit.' } },
-  scale: 1.5,
+  scale: 1.5, edgePrefix: 'BDR',
   customers: [
     ['Lumen AI Labs', 'AI lab', 'Bengaluru', 'Karnataka', 'Reserved · 3-year', true],
     ['Vectra Models', 'AI lab', 'Mumbai', 'Maharashtra', 'Reserved · 1-year', true],
@@ -213,4 +215,6 @@ const NEOCLOUD: PersonaDef = {
 
 export const PERSONAS: PersonaDef[] = [NETWORK, COLOCATION, CLOUD, ENTERPRISE, NEOCLOUD];
 export const PERSONA_BY_ID: Record<Persona, PersonaDef> = { network: NETWORK, colocation: COLOCATION, cloud: CLOUD, enterprise: ENTERPRISE, neocloud: NEOCLOUD };
+/* the WAN edge router i of a site, e.g. MH-DC-001-PE-T4-01 or (NeoCloud) MH-DC-001-BDR-01 */
+export const edgeId = (p: Persona, dcId: string, i: number) => `${dcId}-${PERSONA_BY_ID[p].edgePrefix}-${String(i).padStart(2, '0')}`;
 export const isPersona = (x: unknown): x is Persona => typeof x === 'string' && x in PERSONA_BY_ID;

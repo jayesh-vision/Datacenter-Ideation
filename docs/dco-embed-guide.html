@@ -127,7 +127,7 @@ th { font-weight: 500; color: var(--ink-500); font-size: 12.5px; background: var
         <tr><td>Sized in</td><td>Mbps</td><td>Contracted kW</td><td>vCPU (GPU clusters per GPU)</td><td>Users served</td><td>GPUs reserved</td></tr>
         <tr><td>Top tier</td><td>Premium</td><td>Anchor</td><td>Enterprise-tier</td><td>Tier-1</td><td>Committed</td></tr>
         <tr><td>SLA (top / standard)</td><td>99.9% / 99.5%</td><td>99.999% / 99.99%</td><td>99.99% / 99.95%</td><td>99.9% / 99.5%</td><td>99.9% / 99.5%</td></tr>
-        <tr><td>What's in the racks</td><td>Routers, switches, DWDM</td><td>Tenant-owned gear, meet-me room</td><td>Leaf-spine fabric, servers, storage, GPU nodes</td><td>Fabric, ESX hosts, SAN, GPU nodes</td><td>GPU nodes (70% of hosts), storage, leaf-spine and InfiniBand fabric</td></tr>
+        <tr><td>What's in the racks</td><td>Routers, switches, DWDM</td><td>Tenant-owned gear, meet-me room</td><td>Leaf-spine fabric, servers, storage, GPU nodes</td><td>Fabric, ESX hosts, SAN, GPU nodes</td><td>GPU nodes (DGX / HGX H100 and H200, 72% of hosts) on a 400G InfiniBand rail fabric, 100G Ethernet front-end fabric, out-of-band management, parallel-file-system storage (VAST, WEKA, DDN), a small CPU pool, two border routers — no telco gear</td></tr>
         <tr><td>Money words</td><td>Revenue impact · SLA credits</td><td>Revenue impact · SLA credits</td><td>Revenue impact · Service credits</td><td>Business impact · Cost of downtime · OLA rebates</td><td>Revenue impact · Service credits</td></tr>
         <tr><td>AI &amp; GPU screen</td><td>Hidden (no GPU fleet)</td><td>Tenant AI cages: power, coolant, inlet</td><td>Full GPU fleet, jobs, heat map, fabric</td><td>Full GPU fleet, charged back to business units</td><td>Full GPU fleet — the core of the business, with DCGM telemetry</td></tr>
         <tr><td>Multi-storey demo building (India / USA)</td><td>DL-DC-009 / IL-DC-009</td><td>KA-DC-020 / CA-DC-020</td><td>TN-DC-022 / TX-DC-022</td><td>HR-DC-011 / GA-DC-011</td><td>TS-DC-023 / NC-DC-023</td></tr>
@@ -267,7 +267,7 @@ const FIG = [
   ['Colocation', 'colocation', 'in', '₹8.04 Cr', '₹174/h', '₹81.57 L', 24, 553, '12 AI cages · 536 kW'], ['Colocation', 'colocation', 'us', '$1.63M', '$3/h', '$209.6K', 24, 553, '12 AI cages · 536 kW'],
   ['Cloud', 'cloud', 'in', '₹97.91 Cr', '₹58,460/h', '₹12.75 Cr', 24, '1,830', '4,880 on 610 nodes'], ['Cloud', 'cloud', 'us', '$19.91M', '$1,249/h', '$2.83M', 24, '1,830', '4,880 on 610 nodes'],
   ['Enterprise', 'enterprise', 'in', '₹18.63 Cr', '₹13,879/h', '₹2.52 Cr', 14, 442, '1,312 on 164 nodes'], ['Enterprise', 'enterprise', 'us', '$3.78M', '$246/h', '$528.9K', 14, 442, '1,312 on 164 nodes'],
-  ['NeoCloud', 'neocloud', 'in', '₹225.64 Cr', '₹53,486/h', '₹28.19 Cr', 12, 757, '17,008 on 2,126 nodes'], ['NeoCloud', 'neocloud', 'us', '$45.31M', '$1,035/h', '$5.78M', 12, 780, '17,008 on 2,126 nodes']
+  ['NeoCloud', 'neocloud', 'in', '₹220.52 Cr', '₹51,137/h', '₹26.42 Cr', 12, 655, '16,728 on 2,091 nodes'], ['NeoCloud', 'neocloud', 'us', '$44.18M', '$1,035/h', '$5.32M', 12, 666, '16,728 on 2,091 nodes']
 ];
 function renderFigures() {
   document.getElementById('figRows').innerHTML = FIG.map(([name, pz, gg, rev, rate, stake, cust, svc, gpu]) => {

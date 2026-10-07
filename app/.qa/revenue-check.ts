@@ -7,7 +7,7 @@ if (process.env.GEO === 'us') S.setGeo('us');
 let fail = 0;
 const near = (a: number, b: number, tol: number) => Math.abs(a - b) <= tol;
 const ok = (name: string, cond: boolean, detail = '') => { if (!cond) { fail++; console.log('  FAIL', name, detail); } };
-for (const p of ['network', 'colocation', 'cloud', 'enterprise'] as const) {
+for (const p of ['network', 'colocation', 'cloud', 'enterprise', 'neocloud'] as const) {
   S.setPersona(p);
   const v = S.revenue();
   const keys = ['mrrDown', 'mrrDegraded', 'mrrExposed', 'rate', 'lost', 'credits'] as const;

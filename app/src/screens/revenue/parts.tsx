@@ -1,3 +1,4 @@
+import { sevLabel } from '../../lib/vocab';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
@@ -123,7 +124,7 @@ export function IssueTable({ view: v, onOpen, hideDc, pageSize = 15 }: { view: R
         <span className="rev-flags">
           <DomainTag d={i.domain} />
           {i.changeId && <span className="vw-chip vw-chip--neutral" title={`Change ${i.changeId} completed at this site shortly before the fault`}>after {i.changeId}</span>}
-          {i.underPrioritised && <span className="vw-chip vw-chip--warning" title={`Ranks #${i.rank} by ${lc(W.noun)} impact but is only SEV${i.incident!.sev}`}>review priority</span>}
+          {i.underPrioritised && <span className="vw-chip vw-chip--warning" title={`Ranks #${i.rank} by ${lc(W.noun)} impact but is only ${sevLabel(i.incident!.sev).toLowerCase()} severity`}>review priority</span>}
         </span>
       </span>) },
     { key: 'hit', header: 'Impacted', sort: i => i.down * 1e6 + i.degraded * 1e3 + i.exposed, render: i => <span className="cell-2 rev-hit"><span>{stateText(i)}</span><small>{i.customers} {(i.customers === 1 ? V.customer : V.customers).toLowerCase()}{i.premium ? ` · ${i.premium} ${V.premium.toLowerCase()}` : ''}</small></span> },
@@ -190,7 +191,7 @@ export function IssueDrawer({ issue: i, view: v, onClose }: { issue: RevIssue | 
           <SeverityChip s={i.severity} size="xs" />
           {i.incident ? <><SevChip n={i.incident.sev} size="xs" /><IncidentChip s={i.incident.status} size="xs" /><span className="vw-label">{i.incident.owner} · {slaText(i.incident.resolveLeft)}</span></> : <span className="vw-chip vw-chip--warning">No incident tracking this</span>}
         </div>
-        {i.underPrioritised && <div className="note note--warn"><I.TriangleAlert size={15} />Ranks #{i.rank} by {lc(W.noun)} impact but is only SEV{i.incident!.sev}. Review its priority.</div>}
+        {i.underPrioritised && <div className="note note--warn"><I.TriangleAlert size={15} />Ranks #{i.rank} by {lc(W.noun)} impact but is only {sevLabel(i.incident!.sev).toLowerCase()} severity. Review its priority.</div>}
         {i.changeId && <div className="note note--info"><I.ArrowLeftRight size={15} /><span>Change <Link className="ent-link mono" to={`/changes?id=${i.changeId}`}>{i.changeId}</Link> completed at this site shortly before the fault began.</span></div>}
 
         <div className="rev-figs">

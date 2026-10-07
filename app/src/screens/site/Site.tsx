@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { getDatacenter, getIncidents, useQuery, clockNow, usePersona, hasGpuNow } from '../../api';
@@ -48,6 +48,16 @@ export function Site() {
   /* header collapse — per-viewer convenience, collapsed by default to give the tabs room */
   const [compact, setCompact] = useState(() => { try { return localStorage.getItem('dco.site.header') !== 'expanded'; } catch { return true; } });
   const toggleHead = () => setCompact(c => { try { localStorage.setItem('dco.site.header', c ? 'expanded' : 'compact'); } catch { /* storage blocked */ } return !c; });
+  /* the pinned site bar + tabs: publish its height so list toolbars inside a tab pin just below it */
+  const pageRef = useRef<HTMLDivElement>(null), stickyRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = stickyRef.current, page = pageRef.current;
+    if (!el || !page) return;
+    const set = () => page.style.setProperty('--site-sticky-h', `${Math.ceil(el.getBoundingClientRect().height)}px`);
+    set();
+    const ro = new ResizeObserver(set); ro.observe(el);
+    return () => ro.disconnect();
+  });
   if (loading && !data) return <Loading label="Loading site" />;
   if (!data) return <NotFound what="Datacenter" />;
   const { dc, summary: s } = data;
@@ -72,7 +82,7 @@ export function Site() {
     : s.openIncidents || s.critAlerts || s.linksDown || s.unreachable || unitsFailed.length || feedsBad.length || s.edge.state !== 'redundant' ? 'attention' : 'ok';
   type K = { k: string; l: string; v: string; note: string; tone: 'neutral' | 'negative' | 'warn'; icon: I.LucideIcon; to: string };
   const kpis: K[] = [
-    { k: 'inc', l: 'Incidents', v: String(s.openIncidents), note: s.openIncidents ? [n1 ? `${n1} SEV1` : '', n2 ? `${n2} SEV2` : '', past ? `${past} past SLA` : ''].filter(Boolean).join(' · ') || 'SEV3/4 only' : 'none open', tone: n1 || past ? 'negative' : 'neutral', icon: I.Siren, to: `/incidents?dc=${dc.id}` },
+    { k: 'inc', l: 'Incidents', v: String(s.openIncidents), note: s.openIncidents ? [n1 ? `${n1} critical` : '', n2 ? `${n2} high` : '', past ? `${past} past SLA` : ''].filter(Boolean).join(' · ') || 'medium / low only' : 'none open', tone: n1 || past ? 'negative' : 'neutral', icon: I.Siren, to: `/incidents?dc=${dc.id}` },
     { k: 'alm', l: 'Active alarms', v: String(s.activeAlerts), note: s.critAlerts ? `${s.critAlerts} critical` : 'none critical', tone: s.critAlerts ? 'negative' : 'neutral', icon: I.BellRing, to: `/alerts?dc=${dc.id}` },
     { k: 'edge', l: 'Edge links', v: `${s.edge.up}/${s.edge.total}`, note: s.edge.state === 'redundant' ? 'all up · redundant' : s.edge.state === 'isolated' ? 'site isolated' : 'redundancy lost', tone: s.edge.state === 'isolated' ? 'negative' : s.edge.state === 'redundancy-lost' ? 'warn' : 'neutral', icon: I.Cable, to: `/datacenters/${dc.id}?tab=topology` },
     { k: 'net', l: 'Network faults', v: String(s.linksDown + s.unreachable), note: [s.linksDown ? `${s.linksDown} link${s.linksDown === 1 ? '' : 's'} down` : '', s.unreachable ? `${s.unreachable} unreachable` : ''].filter(Boolean).join(' · ') || 'all links up', tone: s.linksDown || s.unreachable ? 'warn' : 'neutral', icon: I.Network, to: `/alerts?dc=${dc.id}&q=Down` },
@@ -87,30 +97,8 @@ export function Site() {
   const collapseBtn = <button type="button" className="nst-btn nst-btn--sm nst-btn--icon dch-toggle" title={compact ? 'Show site details and KPIs' : 'Collapse site header'} aria-expanded={!compact} onClick={toggleHead}>{compact ? <I.ChevronDown size={16} /> : <I.ChevronUp size={16} />}</button>;
 
   return (
-    <div className="page site">
-      {compact ? (
-      <section className="vw-card-section dch-bar">
-        <span className="dch-bar-ic"><I.Building2 size={16} /></span>
-        <h1 className="dch-bar-name" title={`${dc.address}, ${dc.city}, ${dc.state}`}>{dc.name}</h1>
-        <RolloutChip s={dc.status} />
-        <span className={`dch-state dch-bar-state is-${planned ? 'ok' : siteState}`}><i />{stateLabel}</span>
-        {planned ? <div className="dch-bar-flags"><span className="vw-footer-meta">site not live</span></div> : <FlagRow
-          items={[
-            ...flagged.map(x => ({ key: x.k, node: <Link to={x.to} className={`vw-chip ${x.tone === 'negative' ? 'vw-chip--error' : 'vw-chip--warning'} dch-flag`} title={`${x.l}: ${x.v} · ${x.note}`}><x.icon size={13} /><b>{x.k === 'svc' ? String(s.servicesDegraded) : x.v}</b> {FLAG_LABEL[x.k]}</Link> })),
-            ...(staleCol.length ? [{ key: 'stale', node: <span className="vw-chip vw-chip--warning dch-flag" title={`${staleCol.map(c => c.name).join(', ')} stale — telemetry older than the 15-minute freshness SLA`}><I.TriangleAlert size={13} />collector stale</span> }] : [])
-          ]}
-          more={k => <button type="button" className="vw-chip vw-chip--neutral dch-flag" title="Show all site KPIs" onClick={toggleHead}>+{k} more</button>}
-          empty={<span className="vw-footer-meta"><I.CircleCheck size={13} /> all KPIs normal</span>} />}
-        {!planned && <span className="dch-bar-fresh" title="Latest telemetry from this site's collectors"><Fresh>{fmtAgo(Math.max(...dc.collectors.map(c => c.lastSeen)), now)}</Fresh></span>}
-        <div className="dch-bar-actions">
-          <Btn icon={I.Network} title="Topology" onClick={() => go('topology')} disabled={!s.discovered} />
-          <Btn icon={I.Zap} title="Facilities" onClick={() => nav(`/facilities?dc=${dc.id}`)} />
-          <Btn icon={I.ArrowLeftRight} title="Changes & maintenance" onClick={() => nav(`/changes?dc=${dc.id}`)} />
-          <OpstralBtn title="Ask Opstral AI about this datacenter" onClick={() => ask(`What is at risk in ${dc.id}?`)}>Opstral AI</OpstralBtn>
-          {collapseBtn}
-        </div>
-      </section>
-      ) : <>
+    <div className="page site" ref={pageRef}>
+      {!compact && <>
       <section className="vw-card-section dch">
         <div className="dch-top">
           <span className="vw-card-icon-lg dch-ic"><I.Building2 size={22} /></span>
@@ -157,11 +145,35 @@ export function Site() {
       </div>
       </>}
 
+      {/* the site bar and the tabs stay pinned under the top bar while the tab content scrolls */}
+      <div className="site-sticky" ref={stickyRef}>
+      {compact && <section className="vw-card-section dch-bar">
+        <span className="dch-bar-ic"><I.Building2 size={16} /></span>
+        <h1 className="dch-bar-name" title={`${dc.address}, ${dc.city}, ${dc.state}`}>{dc.name}</h1>
+        <RolloutChip s={dc.status} />
+        <span className={`dch-state dch-bar-state is-${planned ? 'ok' : siteState}`}><i />{stateLabel}</span>
+        {planned ? <div className="dch-bar-flags"><span className="vw-footer-meta">site not live</span></div> : <FlagRow
+          items={[
+            ...flagged.map(x => ({ key: x.k, node: <Link to={x.to} className={`vw-chip ${x.tone === 'negative' ? 'vw-chip--error' : 'vw-chip--warning'} dch-flag`} title={`${x.l}: ${x.v} · ${x.note}`}><x.icon size={13} /><b>{x.k === 'svc' ? String(s.servicesDegraded) : x.v}</b> {FLAG_LABEL[x.k]}</Link> })),
+            ...(staleCol.length ? [{ key: 'stale', node: <span className="vw-chip vw-chip--warning dch-flag" title={`${staleCol.map(c => c.name).join(', ')} stale — telemetry older than the 15-minute freshness SLA`}><I.TriangleAlert size={13} />collector stale</span> }] : [])
+          ]}
+          more={k => <button type="button" className="vw-chip vw-chip--neutral dch-flag" title="Show all site KPIs" onClick={toggleHead}>+{k} more</button>}
+          empty={<span className="vw-footer-meta"><I.CircleCheck size={13} /> all KPIs normal</span>} />}
+        {!planned && <span className="dch-bar-fresh" title="Latest telemetry from this site's collectors"><Fresh>{fmtAgo(Math.max(...dc.collectors.map(c => c.lastSeen)), now)}</Fresh></span>}
+        <div className="dch-bar-actions">
+          <Btn icon={I.Network} title="Topology" onClick={() => go('topology')} disabled={!s.discovered} />
+          <Btn icon={I.Zap} title="Facilities" onClick={() => nav(`/facilities?dc=${dc.id}`)} />
+          <Btn icon={I.ArrowLeftRight} title="Changes & maintenance" onClick={() => nav(`/changes?dc=${dc.id}`)} />
+          <OpstralBtn title="Ask Opstral AI about this datacenter" onClick={() => ask(`What is at risk in ${dc.id}?`)}>Opstral AI</OpstralBtn>
+          {collapseBtn}
+        </div>
+      </section>}
       <div className="pills" role="tablist">
           {TABS.filter(t => t.id !== 'gpu' || hasGpuNow(dc.id)).map(t => {
             const n = t.id === 'attention' ? s.openIncidents + s.critAlerts : t.id === 'elements' ? s.installed : t.id === 'customers' ? s.customers : undefined;
             return <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={`pill${tab === t.id ? ' is-active' : ''}`} onClick={() => go(t.id)}>{t.id === 'customers' ? vocab.customers : t.id === 'revenue' ? vocab.money.noun : t.label}{n ? <span className="count">{n}</span> : null}</button>;
           })}
+      </div>
       </div>
 
       {tab === 'overview' && <Suspense fallback={<Loading label="Loading Data center view" />}><Twin dcId={dc.id} /></Suspense>}

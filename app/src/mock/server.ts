@@ -1,13 +1,15 @@
 /* The mock "backend": synchronous queries, derived roll-ups and mutations over
    one in-memory estate. Only src/api/index.ts talks to this module. */
 
+import { sevLabel } from '../lib/vocab';
 import type {
   ActionStep, Alert, AlertScope, EdgeStatus, OpsState, AuditEntry, CapacityPlan, Change, ChangeStatus, Datacenter, DcSummary, Incident, IncidentStatus, Interface, Link, Location,
   ImpactCause, NetworkElement, Persona, ReconTask, RevDomain, RevIssue, RevenueView, RolloutStatus, Service, Severity, TimelineEvent
 } from '../api/types';
 import { NE_CATEGORY } from '../api/types';
 import { generate, finaliseHealth, type Db } from './generate';
-import { isPersona } from './personas';
+import { edgeId, isPersona } from './personas';
+import { planeOf, type Plane } from '../lib/fabric';
 import { GEO_BY_ID, dcAt, isGeo, setActiveGeo, type Geo } from './geo';
 import { overrideGeo, overridePersona } from './override';
 import { fmtNum, setMoneyLocale } from '../lib/format';
@@ -46,6 +48,8 @@ export function setGeo(g: Geo) {
 }
 /* the hero site of the active geography (the first row): the default for Facilities, Topology and new changes */
 export const heroDcId = () => dcAt(1);
+/* the hero WAN-edge router (flapping backhaul story): MH-DC-001-PE-T4-01, or BDR-01 in a GPU cloud */
+export const heroNeId = () => edgeId(persona, dcAt(1), 1);
 
 /* a link may carry ?persona=… (demo playbook deep links): it wins and is remembered */
 const requestedPersona = (): Persona => {
@@ -532,11 +536,17 @@ export function commandCenter() {
   const edgeAll = liveDcs.map(d => ({ id: d.id, e: edgeStatus(d.id) }));
   const edgeLost = edgeAll.filter(x => x.e.state === 'redundancy-lost'), edgeIsolated = edgeAll.filter(x => x.e.state === 'isolated');
   const join = (xs: string[], none: string) => (xs.length ? xs.join(' · ') : none);
+  /* a GPU cloud reads its network as fabric planes: InfiniBand, Ethernet front-end, management */
+  const neo = persona === 'neocloud';
+  const downBy = (pl: Plane) => linksDown.filter(l => planeOf(l) === pl).length;
+  const netDetail = neo
+    ? `IB ${downBy('ib')} · Eth ${downBy('eth')} · OOB ${downBy('mgmt')} down · ${unreachable.length} unreachable`
+    : `${linksDown.length} links down · ${unreachable.length} unreachable · ${edgeLost.length} site${edgeLost.length === 1 ? '' : 's'} lost edge redundancy`;
   const domains = [
     { key: 'response', label: 'Incident response', value: pct(open.length - breaching.length, open.length), measure: 'Open incidents still within resolution SLA',
-      detail: `${breaching.length} of ${open.length} open incidents past SLA${n1 ? ` · ${n1} SEV1` : ''}`, to: '/incidents?view=breaching', state: (breaching.some(i => i.sev === 1) ? 'critical' : breaching.length ? 'attention' : 'ok') as AreaState },
-    { key: 'network', label: 'Network', value: pct(lldp.length - linksDown.length + live.length - unreachable.length, lldp.length + live.length), measure: 'Physical links up and devices reachable',
-      detail: `${linksDown.length} links down · ${unreachable.length} unreachable · ${edgeLost.length} site${edgeLost.length === 1 ? '' : 's'} lost edge redundancy`, to: '/datacenters?view=edge', state: (edgeIsolated.length ? 'critical' : linksDown.length || unreachable.length || edgeLost.length ? 'attention' : 'ok') as AreaState },
+      detail: `${breaching.length} of ${open.length} open incidents past SLA${n1 ? ` · ${n1} critical` : ''}`, to: '/incidents?view=breaching', state: (breaching.some(i => i.sev === 1) ? 'critical' : breaching.length ? 'attention' : 'ok') as AreaState },
+    { key: 'network', label: neo ? 'Fabric' : 'Network', value: pct(lldp.length - linksDown.length + live.length - unreachable.length, lldp.length + live.length), measure: neo ? 'Fabric cables up and nodes reachable' : 'Physical links up and devices reachable',
+      detail: netDetail, to: '/datacenters?view=edge', state: (edgeIsolated.length ? 'critical' : linksDown.length || unreachable.length || edgeLost.length ? 'attention' : 'ok') as AreaState },
     { key: 'power', label: 'Power', value: pct(upsAll.length - upsBad.length + feeds.length - feedsBad.length, upsAll.length + feeds.length), measure: 'UPS online and utility feeds normal',
       detail: join([...upsBad.map(u => `${u.name} ${u.state.toLowerCase()} (${u.dc})`), ...(feedsBad.length ? [`${feedsBad.length} utility feed${feedsBad.length > 1 ? 's' : ''} lost${feedsBad.some(f => !upsBad.some(u => u.dc === f.dc)) ? ` (${[...new Set(feedsBad.map(f => f.dc))].join(', ')})` : ''}`] : [])], `All ${upsAll.length} UPS online · all feeds normal`),
       to: upsBad[0] ? `/facilities?dc=${upsBad[0].dc}` : '/facilities', state: (upsBad.some(u => u.state === 'On battery' || u.state === 'Fault') ? 'critical' : upsBad.length || feedsBad.length ? 'attention' : 'ok') as AreaState },
@@ -550,7 +560,7 @@ export function commandCenter() {
   const weakest = [...domains].sort((a, b) => a.value - b.value)[0];
   const attention = [
     { key: 'breaching', n: breaching.length, label: 'incident(s) breaching SLA', to: '/incidents?view=breaching', tone: 'error' },
-    { key: 'sev1', n: open.filter(i => i.sev === 1).length, label: 'SEV1 incident(s) open', to: '/incidents?view=sev1', tone: 'error' },
+    { key: 'sev1', n: open.filter(i => i.sev === 1).length, label: 'critical incident(s) open', to: '/incidents?view=sev1', tone: 'error' },
     { key: 'links', n: linksDown.length, label: 'physical link(s) down', to: '/alerts?q=Link%20Down', tone: 'error' },
     { key: 'crit', n: al.filter(a => a.severity === 'critical' || a.severity === 'major').length, label: 'critical/major alarm(s) active', to: '/alerts?sev=critical', tone: 'warning' },
     { key: 'svc', n: degraded.length, label: 'service(s) degraded', to: '/incidents', tone: 'warning' },
@@ -607,7 +617,7 @@ export function commandCenter() {
   const horizon = db.now + 7 * DAY;
   type Ev = { at: number; kind: 'deadline' | 'maintenance' | 'change' | 'test' | 'plan' | 'forecast'; label: string; sub: string; to: string; tone: string; overdue?: boolean };
   const upcoming: Ev[] = [];
-  open.forEach(i => { const due = i.detected + i.resolveSlaMin * MIN; if (due <= horizon) upcoming.push({ at: Math.max(due, db.now - 6 * HOUR), kind: 'deadline', label: `${i.id} resolution due`, sub: `SEV${i.sev} · ${i.dcId} · ${i.title}`, to: `/incidents/${i.id}`, tone: due < db.now ? 'error' : 'warning', overdue: due < db.now }); });
+  open.forEach(i => { const due = i.detected + i.resolveSlaMin * MIN; if (due <= horizon) upcoming.push({ at: Math.max(due, db.now - 6 * HOUR), kind: 'deadline', label: `${i.id} resolution due`, sub: `${sevLabel(i.sev)} · ${i.dcId} · ${i.title}`, to: `/incidents/${i.id}`, tone: due < db.now ? 'error' : 'warning', overdue: due < db.now }); });
   db.changes.filter(c => c.windowStart >= db.now - 6 * HOUR && c.windowStart <= horizon && !['Completed', 'Rolled back', 'Rejected'].includes(c.status)).forEach(c => upcoming.push({ at: c.windowStart, kind: c.kind === 'Maintenance' ? 'maintenance' : 'change', label: `${c.id} · ${c.kind === 'Maintenance' ? 'maintenance' : 'change'} window`, sub: `${c.dcId} · ${c.title} · ${c.status}`, to: `/changes?id=${c.id}`, tone: c.status === 'Pending approval' ? 'warning' : 'info' }));
   db.datacenters.filter(d => d.status !== 'planned').forEach(d => { const due = d.power.dg.lastTest + 30 * DAY; if (due >= db.now - 6 * HOUR && due <= horizon) upcoming.push({ at: due, kind: 'test', label: `${d.id} DG monthly test due`, sub: `${d.power.dg.kva} kVA · last ${fmtWhenShort(d.power.dg.lastTest)} · ${d.power.dg.result}`, to: `/facilities?dc=${d.id}`, tone: 'neutral' }); });
   upcoming.sort((a, b) => a.at - b.at);
@@ -632,7 +642,7 @@ export function commandCenter() {
     const bits: string[] = [];
     const n1 = open.filter(i => i.sev === 1), n2 = open.filter(i => i.sev === 2);
     const sites = new Set([...n1, ...n2].map(i => i.dcId)).size;
-    if (n1.length || n2.length) bits.push(`${[n1.length ? `${n1.length} SEV1` : '', n2.length ? `${n2.length} SEV2` : ''].filter(Boolean).join(' and ')} open across ${sites} datacenter${sites === 1 ? '' : 's'}`);
+    if (n1.length || n2.length) bits.push(`${[n1.length ? `${n1.length} critical` : '', n2.length ? `${n2.length} high` : ''].filter(Boolean).join(' and ')} incidents open across ${sites} datacenter${sites === 1 ? '' : 's'}`);
     if (breaching.length) bits.push(`${breaching.length} incidents past SLA`);
     if (exposedCustomers.filter(c => c.premium).length) bits.push(`${exposedCustomers.filter(c => c.premium).length} premium customers exposed`);
     if (overWarn.length) bits.push(`${overWarn.length} uplinks above 85%`);

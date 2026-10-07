@@ -7,7 +7,7 @@ import { Panel, Chip, Drawer, Seg } from '../ui/kit';
 import { StackBar } from '../ui/status';
 import { Sparkline } from '../charts/Sparkline';
 import { DcMap, type DcPin } from './overview/DcMap';
-import { ROLLOUT } from '../lib/vocab';
+import { ROLLOUT, sevChipCls, sevLabel } from '../lib/vocab';
 import { fmtAgo, fmtDow, fmtDur, fmtMoney, fmtNum, fmtShortDate, fmtTime } from '../lib/format';
 import '../styles/command.css';
 import '../styles/revenue.css';
@@ -106,7 +106,7 @@ function Situation({ d }: { d: CC }) {
                 <span className="cmd-info" tabIndex={0} title="Average of the four areas below. Counts each datacenter site, its edge links and its dependencies; downstream PoP and site alarms are excluded."><I.Info size={13} /></span>
               </span>
               <span className={`vw-chip vw-chip--${bandChip} is-strong`} style={{ alignSelf: 'flex-start' }}>{s.band}</span>
-              <p className="hero-line">{s.n1 ? <><b className="hot">{s.n1} SEV1</b> and </> : null}<b>{s.n2} SEV2</b> open across <b>{s.critSites} datacenters</b></p>
+              <p className="hero-line">{s.n1 ? <><b className="hot">{s.n1} critical</b> and </> : null}<b>{s.n2} high</b> incidents open across <b>{s.critSites} datacenters</b></p>
               <span className="vw-label">{s.exposedPremium} {vocabNow().premium.toLowerCase()} {vocabNow().customers.toLowerCase()} affected · {p.breaching} incidents past SLA · weakest area: {s.weakest.label}</span>
             </div>
           </div>
@@ -131,7 +131,7 @@ function Situation({ d }: { d: CC }) {
           <DcMap pins={pins} links={d.dcLinks} onNav={nav} height={430} />
           <div className="hero-map-head">
             <span className="vw-card-activity-label">Live estate</span>
-            <span className="vw-label">{d.dcMap.length} datacenters · {d.dcMap.filter(x => x.worstSev && x.worstSev <= 2).length} with SEV1/2 · {d.dcLinks.filter(l => l.down).length} backhaul down</span>
+            <span className="vw-label">{d.dcMap.length} datacenters · {d.dcMap.filter(x => x.worstSev && x.worstSev <= 2).length} with critical / high · {d.dcLinks.filter(l => l.down).length} backhaul down</span>
           </div>
         </div>
       </section>
@@ -160,13 +160,13 @@ function Situation({ d }: { d: CC }) {
         <div className="vw-flex vw-justify-between vw-items-center vw-gap-sm cmd-crit-head">
           <div className="vw-flex vw-items-center vw-gap-sm">
             <span className="vw-card-title">Critical now</span>
-            {n1 > 0 && <span className="vw-chip vw-chip--error is-strong">{n1} SEV1</span>}
-            {n2 > 0 && <span className="vw-chip vw-chip--warning is-strong">{n2} SEV2</span>}
-            {!d.critical.length && <span className="vw-chip vw-chip--neutral">No SEV1 or SEV2 open</span>}
+            {n1 > 0 && <span className="vw-chip vw-chip--error is-strong">{n1} Critical</span>}
+            {n2 > 0 && <span className="vw-chip vw-chip--warning is-strong">{n2} High</span>}
+            {!d.critical.length && <span className="vw-chip vw-chip--neutral">No critical or high incidents open</span>}
           </div>
           {d.critical.length > 0 && (
             <div className="vw-flex vw-items-center vw-gap-sm">
-              <Seg size="sm" value={only1} onChange={setOnly1} options={[{ id: 'all', label: 'SEV1 + SEV2' }, { id: 'sev1', label: 'SEV1 only' }]} />
+              <Seg size="sm" value={only1} onChange={setOnly1} options={[{ id: 'all', label: 'Critical + High' }, { id: 'sev1', label: 'Critical only' }]} />
               <button type="button" className="nst-icon-btn" aria-label="Scroll left" onClick={() => scroll(-1)}><I.ChevronLeft size={16} /></button>
               <button type="button" className="nst-icon-btn" aria-label="Scroll right" onClick={() => scroll(1)}><I.ChevronRight size={16} /></button>
               <Link to="/incidents?view=sev1" className="nst-btn nst-btn--sm nst-btn--ghost">All critical<I.ArrowRight size={14} /></Link>
@@ -224,7 +224,7 @@ function ImpactBoard({ d }: { d: CC }) {
       <div className="board">
         {d.topIncidents.map(i => (
           <Link key={i.id} to={`/incidents/${i.id}`} className="board-row">
-            <span className={`vw-chip ${i.sev === 1 ? 'vw-chip--error' : i.sev === 2 ? 'vw-chip--warning' : 'vw-chip--neutral'} is-strong cmd-chip`}>SEV{i.sev}</span>
+            <span className={`vw-chip ${sevChipCls(i.sev)} is-strong cmd-chip`}>{sevLabel(i.sev)}</span>
             <div style={{ minWidth: 0 }}>
               <div className="t">{i.title}</div>
               <div className="m"><span className="mono">{i.id}</span><span>·</span><span>{i.dcId}</span><span>·</span><span>{i.owner}</span><span>·</span><span>{i.status}</span></div>
@@ -279,7 +279,7 @@ function Causes({ d }: { d: CC }) {
       <div>
         {d.causes.map(c => (
           <div className="cause" key={c.label}>
-            <div className="l">{c.label}{c.hot > 0 && <span className="hot">{c.hot} SEV1/2</span>}</div>
+            <div className="l">{c.label}{c.hot > 0 && <span className="hot">{c.hot} critical / high</span>}</div>
             <div className="v">{c.n}</div>
             <div className="track"><i style={{ width: `${(c.n / max) * 100}%`, background: C.accent }} /></div>
             <div className="c"><span>avg confidence {c.confidence}%</span><span>·</span>{c.ids.map(id => <Link key={id} to={`/incidents/${id}`} className="ent-link">{id}</Link>)}</div>
@@ -363,7 +363,7 @@ function EstateWall({ d, open, onClose }: { d: CC; open: boolean; onClose: () =>
               </div>
               <div className="foot">
                 {planned ? <span className="tpill is-plan">planned · {x.ne} NE</span> : <>
-                  {x.incidents > 0 ? <span className={`tpill ${x.worstSev && x.worstSev <= 2 ? 'is-inc' : 'is-plan'}`}>{x.incidents} inc{x.worstSev ? ` · SEV${x.worstSev}` : ''}</span> : <span className="tpill is-ok">no incidents</span>}
+                  {x.incidents > 0 ? <span className={`tpill ${x.worstSev && x.worstSev <= 2 ? 'is-inc' : 'is-plan'}`}>{x.incidents} inc{x.worstSev ? ` · ${sevLabel(x.worstSev)}` : ''}</span> : <span className="tpill is-ok">no incidents</span>}
                   {x.critAlerts > 0 ? <span className="tpill is-alm">{x.critAlerts} crit alm</span> : x.alerts > 0 ? <span className="tpill is-plan">{x.alerts} alm</span> : null}
                 </>}
               </div>

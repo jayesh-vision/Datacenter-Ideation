@@ -98,6 +98,9 @@ User ask: show revenue degradation caused by datacenter issues and which issue c
 ## Visual rhythm (02-Oct-2026) — one system, not per-screen styling
 - `OpsKpi` (screens/ops/shared.tsx) is THE KPI card everywhere: `.app-kpi` = white `.vw-card-section`, grey icon, light metric,
   `.vw-card-variance` note; state only via the 3px top accent (red = fault, amber = attention). No pastel-tinted tiles.
+- Datacenter page pinned header (07-Oct-2026, user): the slim site bar + the tab row stay pinned under the top bar (`.site-sticky` in
+  Site.tsx / site.css); expanded header mode pins only the tabs. Its measured height is `--site-sticky-h`, used to pin list toolbars and
+  grid headers inside tabs just below it. Tabs stay on one row at 1280 (tighter pills). Check: `node .qa/site-sticky.mjs`.
 - Datacenter page (02-Oct-2026): header collapses to a slim bar (default; remembered per browser) with flagged-KPI chips
   (`site/FlagRow.tsx`, auto-fits, "+N more") and telemetry freshness. Inside site tabs use `site/SummaryStrip.tsx`
   (one slim card, clickable items = filters), not rows of OpsKpi cards.
@@ -162,9 +165,23 @@ Menu item **AI & GPU** (`/gpu`, `screens/Gpu.tsx`) and a datacenter tab, both sh
 if the seed, incidents or revenue model change, re-check them.
 
 ## NeoCloud persona and DCGM telemetry (07-Oct-2026)
-Fifth persona `neocloud` (GPU-as-a-service: customers rent reserved clusters and on-demand GPUs; 70% of hosts are GPU nodes,
-scale 1.5, GPU_RATE.neocloud ₹1,50,000/GPU/mo, SLA 99.9/99.5, tall site index 23). Same cloud-style fabric and the same GPU layer;
-every `persona === 'cloud'` branch that means "a GPU cloud" must include `neocloud`. The persona switch, PERSONA_ICON, the playbook
+Fifth persona `neocloud` (GPU-as-a-service: customers rent reserved clusters and on-demand GPUs; scale 1.5,
+GPU_RATE.neocloud ₹1,50,000/GPU/mo, SLA 99.9/99.5, tall site index 23). Same GPU layer (`mock/gpu.ts`) as cloud/enterprise;
+every `persona === 'cloud'` branch that means "a GPU cloud" must include `neocloud`.
+Bill of materials (user, 07-Oct-2026: "NeoCloud installs GPUs and what they need, not telco gear") — its own `buildNes` branch and link block
+in generate.ts, no DWDM, no PE/AGG/ToR: 2 border routers `BDR-01/02` (Juniper MX304, the hero backhaul story lives on BDR-01 xe-0/0/3),
+2 firewalls, `IB-SPINE`/`IB-LEAF` (NVIDIA Quantum-2 QM9700, 64 × 400G NDR, rail-optimised: a GPU node links two IB leafs at 400G),
+`ETH-SPINE`/`ETH-LEAF` (NVIDIA Spectrum-4 SN5600 / Arista 7060DX5, 100G front-end + storage, BGP), `OOB-nn` (SN2201, 1G BMC ports),
+hosts = 72% `GPU-nnn` (DGX H100 / Supermicro SYS-821GE-TNHR / Dell XE9680; H200 variants at the liquid sites), 10% `STG-nnn`
+(VAST, WEKA, DDN), rest `CPU-nnnn`. Interface kinds `ce` (100G Ethernet on hosts, eth0..) and `ndr` (400G OSFP, ib0..7); hosts get
+`mgmt0`. WAN-edge naming is per persona: `PersonaDef.edgePrefix` + `edgeId(persona, dcId, i)` (never write `PE-T4-01` literally;
+screens use `heroNeId()`). Capex/opex labels and the Junos/BFD/fabric changes read per persona. Cloud/enterprise GPU nodes at liquid
+sites now carry the H200 model name (only the model string changed).
+Fabric planes (user, 07-Oct-2026): in NeoCloud, links read by network plane, not routing protocol — `lib/fabric.ts` `planeOf()` =
+InfiniBand (400G) · Ethernet front-end (100G) · Management/OOB (1G or an OOB switch end). Device Links tab (`ne/Links.tsx`): every
+device except the border routers shows "Fabric connections" plane cards (+ a BGP card where the switch runs it); border routers keep
+the protocol cards. Command center row is "Fabric" (IB · Eth · OOB down · unreachable; the line has 280 px). Cable incidents say "N fabric cables
+down in X · HOST lost both front-end uplinks" with transceiver / fibre-trunk RCA and DOM actions. The persona switch, PERSONA_ICON, the playbook
 and the embed guide list five personas.
 GPU telemetry follows the NVIDIA DCGM exporter: `Gpu` carries the DCGM fields (comments name them: util / SM active / tensor /
 mem copy / DRAM, FB used, GPU + HBM temp, power + energy, SM + mem clock, P-state, fan, throttle reasons, ECC SBE/DBE, retired
@@ -200,3 +217,9 @@ When a screen gains a URL parameter or a new route is added, add it to the guide
 Deployment overrides (`mock/override.ts`): Vercel env vars `VITE_PERSONA_OVERRIDE` / `VITE_GEO_OVERRIDE` with rules
 `[geo:]from=to` or `to` (comma-separated, first match wins) — applied AFTER the URL and the saved choice, so they win over links in
 other people's code. Build-time (Vite), so changing them needs a redeploy. Unset = no override.
+
+## Incident severity words (07-Oct-2026, user)
+Incidents show Critical / High / Medium / Low (stored as sev 1–4; `lib/vocab.ts` `SEV_LABEL` / `sevLabel()` / `SEV_TONE` / `sevChipCls()`),
+never "SEV1". Alarms keep Critical / Major / Minor / Warning. Priority (P1–P4) is not shown as a chip; the incident page shows it only when
+it differs from severity. URL view ids (`?view=sev1`) are unchanged. The 3D twin side panel (`site/twin/Panel.tsx`) still says "SEV1"
+because the twin is frozen — change it only if the user lifts that.

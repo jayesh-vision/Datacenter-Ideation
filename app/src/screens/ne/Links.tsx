@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ListToolbar } from '../../ui/ListToolbar';
 import * as I from 'lucide-react';
-import { clockNow, getLink, useQuery } from '../../api';
+import { clockNow, getLink, usePersona, useQuery } from '../../api';
+import { PLANE_LABEL, planeOf, type Plane } from '../../lib/fabric';
 import type { LinkState, Protocol } from '../../api/types';
 import { Chip, Drawer, Panel } from '../../ui/kit';
 import { DataTable, type Col } from '../../ui/DataTable';
@@ -22,19 +23,31 @@ const CARDS: { p: Protocol; icon: I.LucideIcon; tone: string; rows: [string, (s:
   { p: 'LSP', icon: I.Activity, tone: 'error', rows: [['Active LSP', s => s === 'up', 'good'], ['Standby LSP', s => s === 'standby', 'warn'], ['Down LSP', s => s === 'down', 'bad']] },
   { p: 'ISIS', icon: I.TriangleAlert, tone: 'warning', rows: [['Up links', s => s === 'up', 'good'], ['Down links', s => s === 'down', 'bad'], ['Init state', s => s === 'init', 'warn']] }
 ];
+/* GPU cloud: hosts and fabric switches are read by network plane, not by routing protocol */
+const PLANE_ICON: Record<Plane, I.LucideIcon> = { ib: I.Zap, eth: I.Network, mgmt: I.Wrench };
+const speedOf = (ls: L[]) => [...new Set(ls.map(l => fmtBw(l.capacityMbps)))].join(' / ');
 export const riskOf = (l: L) => (l.utilPct >= WARN || l.forecastMonths <= 6 ? { label: 'At risk', tone: 'error' as const } : l.forecastMonths <= 12 ? { label: 'Watch', tone: 'warning' as const } : { label: 'Healthy', tone: 'success' as const });
 
 export function Links({ d }: { d: NeData }) {
   const { ne } = d;
   const [sp, setSp] = useSearchParams();
+  const { persona } = usePersona();
+  /* NeoCloud: everything except the border routers is shown as fabric planes (+ BGP where the switch runs it) */
+  const fabric = persona === 'neocloud' && !ne.isPe;
+  const phys = d.links.filter(l => l.protocol === 'LLDP');
+  const planes = (['ib', 'eth', 'mgmt'] as Plane[]).filter(p => phys.some(l => planeOf(l) === p));
+  const bgp = d.links.filter(l => l.protocol === 'BGP');
   const [proto, setProto] = useState<Protocol>('LLDP');
+  const [plane, setPlane] = useState<Plane | 'bgp' | null>(null);
+  const pick = plane ?? planes[0] ?? 'eth';
   const [open, setOpen] = useState<string | null>(null);
   const [lq, setLq] = useState(''), [lst, setLst] = useState(''), [lrole, setLrole] = useState('');
   const countdown = useMemo(() => d.links.filter(l => l.protocol === 'LLDP' && (l.role === 'Backhaul' || l.role === 'Uplink')).sort((a, b) => a.forecastMonths - b.forecastMonths), [d.links]);
   const pre = sp.get('if');
   const sel = countdown.find(l => linkIf(l, ne.id).local === pre) ?? countdown[0];
   if (ne.discovery === 'not-discovered') return <NoTelemetry ne={ne} what="links" />;
-  const all = d.links.filter(l => l.protocol === proto);
+  const all = !fabric ? d.links.filter(l => l.protocol === proto) : pick === 'bgp' ? bgp : phys.filter(l => planeOf(l) === pick);
+  const noun = !fabric ? `${proto} links` : pick === 'bgp' ? 'BGP sessions' : `${PLANE_LABEL[pick]} cables`;
   const rows = all.filter(l => (!lst || l.state === lst) && (!lrole || l.role === lrole) && (!lq || `${linkIf(l, ne.id).local} ${linkIf(l, ne.id).peerNe} ${linkIf(l, ne.id).peerIf} ${l.id}`.toLowerCase().includes(lq.toLowerCase())));
 
   const cols: Col<L>[] = [
@@ -50,6 +63,28 @@ export function Links({ d }: { d: NeData }) {
 
   return (
     <>
+      {fabric ? (
+      <Panel title="Fabric connections" sub="Every cable on this device, by the network it belongs to; a down cable is what needs an operator">
+        <div className="ne-proto">
+          {planes.map(p => {
+            const ls = phys.filter(l => planeOf(l) === p), Ic = PLANE_ICON[p];
+            const rows: [string, number | string, string][] = [['Cables up', ls.filter(l => l.state === 'up').length, 'good'], ['Cables down', ls.filter(l => l.state === 'down').length, 'bad'], ['Port speed', speedOf(ls), 'info']];
+            return (
+              <button key={p} type="button" className={`ne-proto-card${pick === p ? ' is-active' : ''}`} onClick={() => setPlane(p)} aria-pressed={pick === p}>
+                <div className="row" style={{ gap: 10 }}><span className="vw-card-icon-sm ne-dep-ic"><Ic size={15} /></span><span><b>{PLANE_LABEL[p]}</b><small>{ls.length} cable{ls.length === 1 ? '' : 's'}</small></span></div>
+                {rows.map(([label, n, cls]) => <div key={label} className="row between ne-proto-row"><span>{label}</span><b className={`num ${n ? cls : 'faint'}`}>{n}</b></div>)}
+              </button>
+            );
+          })}
+          {bgp.length > 0 && (
+            <button type="button" className={`ne-proto-card${pick === 'bgp' ? ' is-active' : ''}`} onClick={() => setPlane('bgp')} aria-pressed={pick === 'bgp'}>
+              <div className="row" style={{ gap: 10 }}><span className="vw-card-icon-sm ne-dep-ic"><I.Repeat size={15} /></span><span><b>BGP</b><small>{bgp.length} session{bgp.length === 1 ? '' : 's'}</small></span></div>
+              {([['Established', 'up', 'good'], ['Idle', 'idle', 'bad'], ['Down', 'down', 'bad']] as const).map(([label, st, cls]) => { const n = bgp.filter(l => l.state === st).length; return <div key={label} className="row between ne-proto-row"><span>{label}</span><b className={`num ${n ? cls : 'faint'}`}>{n}</b></div>; })}
+            </button>
+          )}
+        </div>
+      </Panel>
+      ) : (
       <Panel title="Protocol adjacencies" sub="Pick a protocol to list its links; down and init sessions are what need an operator">
         <div className="ne-proto">
           {CARDS.map(c => {
@@ -63,11 +98,12 @@ export function Links({ d }: { d: NeData }) {
           })}
         </div>
       </Panel>
+      )}
 
       <section className="vw-card-section" style={{ padding: 0, overflow: 'hidden' }}>
         <DataTable rows={rows} cols={cols} onRow={l => setOpen(l.id)} pageSize={20} defaultSort={{ key: 'state', dir: 'asc' }}
           toolbar={
-            <ListToolbar shown={rows.length} total={all.length} noun={`${proto} links`}
+            <ListToolbar shown={rows.length} total={all.length} noun={noun}
               search={{ value: lq, onChange: setLq, placeholder: 'Interface, peer, link ID' }}
               filters={[
                 { id: 'state', label: 'State', quick: true, value: lst, anyLabel: 'Any state', onChange: setLst, options: [...new Set(all.map(l => l.state))].map(x => ({ id: x, label: x[0].toUpperCase() + x.slice(1), count: all.filter(l => l.state === x).length })) },
@@ -80,11 +116,11 @@ export function Links({ d }: { d: NeData }) {
         <section className="vw-card-section ne-fc">
           <div className="ne-fc-head">
             <span className="vw-card-icon-md ne-dep-ic"><I.TrendingUp size={18} /></span>
-            <div style={{ flex: 1 }}><span className="vw-card-title-sm">Link saturation watch</span><span className="vw-label" style={{ display: 'block' }}>Backhaul and uplinks on this device, soonest to cross the 85% warning line first · trend of the last 6 monthly peaks</span></div>
+            <div style={{ flex: 1 }}><span className="vw-card-title-sm">Link saturation watch</span><span className="vw-label" style={{ display: 'block' }}>{fabric ? 'Spine uplinks' : 'Backhaul and uplinks'} on this device, soonest to cross the 85% warning line first · trend of the last 6 monthly peaks</span></div>
           </div>
           <div className="ne-fc-body">
             <div className="ne-fc-list">
-              <div className="ne-fc-label">{countdown.length} backhaul / uplink{countdown.length === 1 ? '' : 's'}</div>
+              <div className="ne-fc-label">{countdown.length} {fabric ? 'spine uplink' : 'backhaul / uplink'}{countdown.length === 1 ? '' : 's'}</div>
               {countdown.map(l => {
                 const k = linkIf(l, ne.id), r = riskOf(l), on = l.id === sel.id;
                 return (
@@ -92,7 +128,7 @@ export function Links({ d }: { d: NeData }) {
                     <div className="row between"><span className="mono strong">{k.local}</span><span className="row" style={{ gap: 4 }}>{l.role === 'Backhaul' && <Chip tone="neutral" size="xs">Backhaul</Chip>}<Chip tone={r.tone} size="xs">{r.label}</Chip></span></div>
                     <dl>
                       <div><dt>Bandwidth utilisation</dt><dd className={l.utilPct >= WARN ? 'bad' : l.utilPct >= 75 ? 'warn' : 'good'}>{l.utilPct}%</dd></div>
-                      <div><dt>Active sessions</dt><dd>{fmtNum(l.sessions)}</dd></div>
+                      {!fabric && <div><dt>Active sessions</dt><dd>{fmtNum(l.sessions)}</dd></div>}
                       <div><dt>Crosses 85%</dt><dd>{l.forecastMonths === 0 ? 'Crossed' : l.forecastDate && l.forecastMonths < 60 ? fmtMonth(l.forecastDate) : '> 5 years'}</dd></div>
                       <div><dt>Trend</dt><dd>+{l.growthPct}%/mo</dd></div>
                     </dl>
@@ -108,7 +144,7 @@ export function Links({ d }: { d: NeData }) {
               <ForecastChart history={sel.history} growth={sel.growthPct} now={clockNow()} height={340} />
               <p className="ne-fc-note">
                 {sel.utilPct >= WARN ? <>Already above the {WARN}% warning line{Number.isFinite(sel.critMonths) && sel.critMonths > 0 ? <>; at +{sel.growthPct}%/mo it reaches the {CRIT}% critical line in ~<b>{Math.max(1, Math.round(sel.critMonths))} month{Math.round(sel.critMonths) > 1 ? 's' : ''}</b></> : null}. </> : sel.forecastDate ? <>At +{sel.growthPct}%/mo this link reaches {WARN}% around <b>{fmtMonth(sel.forecastDate)}</b>{Number.isFinite(sel.critMonths) && sel.critMonths < 60 ? <> and {CRIT}% in ~{Math.max(1, Math.round(sel.critMonths))} months</> : null}. </> : null}
-                Capacity {fmtBw(sel.capacityMbps)} · {fmtNum(sel.sessions)} active sessions.
+                Capacity {fmtBw(sel.capacityMbps)}{fabric ? '' : ` · ${fmtNum(sel.sessions)} active sessions`}.
               </p>
             </div>
           </div>

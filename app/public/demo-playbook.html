@@ -268,7 +268,7 @@ body.presenter .act-body { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr
         <tr><td>Sized in</td><td>Mbps</td><td>Contracted kW</td><td>vCPU (GPU clusters per GPU)</td><td>Users served</td><td>GPUs reserved</td></tr>
         <tr><td>Top tier</td><td>Premium</td><td>Anchor</td><td>Enterprise-tier</td><td>Tier-1</td><td>Committed</td></tr>
         <tr><td>SLA (top / standard)</td><td>99.9% / 99.5%</td><td>99.999% / 99.99%</td><td>99.99% / 99.95%</td><td>99.9% / 99.5%</td><td>99.9% / 99.5%</td></tr>
-        <tr><td>What's in the racks</td><td>Routers, switches, DWDM</td><td>Tenant-owned gear, meet-me room</td><td>Leaf-spine fabric, servers, storage, GPU nodes</td><td>Fabric, ESX hosts, SAN, GPU nodes</td><td>GPU nodes (70% of hosts), storage, leaf-spine and InfiniBand fabric</td></tr>
+        <tr><td>What's in the racks</td><td>Routers, switches, DWDM</td><td>Tenant-owned gear, meet-me room</td><td>Leaf-spine fabric, servers, storage, GPU nodes</td><td>Fabric, ESX hosts, SAN, GPU nodes</td><td>GPU nodes (DGX / HGX H100 and H200, 72% of hosts) on a 400G InfiniBand rail fabric, 100G Ethernet front-end fabric, out-of-band management, parallel-file-system storage (VAST, WEKA, DDN), a small CPU pool, two border routers — no telco gear</td></tr>
         <tr><td>Money words</td><td>Revenue impact · SLA credits</td><td>Revenue impact · SLA credits</td><td>Revenue impact · Service credits</td><td>Business impact · Cost of downtime · OLA rebates</td><td>Revenue impact · Service credits</td></tr>
         <tr><td>AI &amp; GPU screen</td><td>Hidden (no GPU fleet)</td><td>Tenant AI cages: power, coolant, inlet</td><td>Full GPU fleet, jobs, heat map, fabric</td><td>Full GPU fleet, charged back to business units</td><td>Full GPU fleet — the core of the business, with DCGM telemetry</td></tr>
         <tr><td>Multi-storey demo building (India / USA)</td><td>DL-DC-009 / IL-DC-009</td><td>KA-DC-020 / CA-DC-020</td><td>TN-DC-022 / TX-DC-022</td><td>HR-DC-011 / GA-DC-011</td><td>TS-DC-023 / NC-DC-023</td></tr>
@@ -393,18 +393,18 @@ const P = {
     words: { customer: 'Customer', customers: 'customers', service: 'Reservation', services: 'reservations', premium: 'Committed', unit: 'GPUs reserved', money: 'Revenue impact', credits: 'Service credits', lost: 'Revenue lost' },
     am: 'Customer success manager', amSub: 'Owns the committed-contract AI labs.',
     sell: 'reserved GPU clusters, on-demand GPUs, storage, CPU instances',
-    cc: { health: 89, band: 'Watch', sev1: 1, sev2: 6, open: 26, breaching: 11, dcs: 23, svcs: '757', cust: 12 },
-    rev: { base: '₹225.64 Cr', rate: '₹53,486/h', sofar: '₹69.68 L', stake: '₹28.19 Cr', within: '88.3%', next: '₹4.80 L in 4 min' },
-    top: { id: 'INC-0061', title: 'GPU fell off the bus — national-llm-pretrain-34b stalled (152 GPUs)', site: 'KA-DC-020 Bengaluru', rate: '₹31,233/h', sofar: '₹23.00 L', f24: '₹1.22 Cr', hit: 'a 152-GPU reserved cluster for National AI Mission', next: '₹34.20 L credit step in 3 h 33 min', change: '', route: '/incidents/INC-0061' },
-    stakeIssue: { title: 'UPS-2 on battery at DL-DC-009 New Delhi', amt: '₹16.75 Cr a month', rate: '₹2.29 L/h', credits: '₹2.52 Cr' },
-    ups: { site: 'DL-DC-009 New Delhi', battery: '13 min', load: '71%', exposed: '51 reservations · 12 customers', stake: '₹16.75 Cr a month', ifFail: '₹2.29 L/h' },
+    cc: { health: 89, band: 'Watch', sev1: 1, sev2: 8, open: 26, breaching: 11, dcs: 23, svcs: '655', cust: 12 },
+    rev: { base: '₹220.52 Cr', rate: '₹51,137/h', sofar: '₹24.01 L', stake: '₹26.42 Cr', within: '85.5%', next: '₹22.80 L in 7 min' },
+    top: { id: 'INC-0063', title: 'NVLink errors on GPU-033 — vectra-diffusion-train running 22% slower', site: 'TS-DC-023 Hyderabad', rate: '₹8,877/h', sofar: '₹21.88 L', f24: '₹56.41 L', hit: 'a 144-GPU reserved cluster for Vectra Models, paced by one straggler GPU', next: '₹32.40 L credit step in 10 h 16 min', change: '', under: true, route: '/incidents/INC-0063' },
+    stakeIssue: { title: 'UPS-2 on battery at DL-DC-009 New Delhi', amt: '₹15.90 Cr a month', rate: '₹2.18 L/h', credits: '₹2.42 Cr' },
+    ups: { site: 'DL-DC-009 New Delhi', battery: '13 min', load: '71%', exposed: '48 reservations · 12 customers', stake: '₹15.90 Cr a month', ifFail: '₹2.18 L/h' },
     tall: { id: 'TS-DC-023', floors: 6 },
-    risk: { route: '/datacenters/MH-DC-001?tab=customers&cview=risk', who: 'Mapwise Geo, HealthCloud Analytics, National AI Mission, QuantLedger AI, VoiceLoop, Lumen AI Labs', why: 'a shelf midplane fault under two sleds, a storage controller failover, a link down, a single power supply', story: 'Six customers, five different faults, one site. The tool names the fault behind each customer, so the success manager calls with the reason, not a guess.' },
-    hero2: { id: 'INC-0002', route: '/incidents/INC-0002', title: 'the UPS on battery in Delhi', why: 'the generator controller stayed in MANUAL after yesterday\'s feeder switchover (CHG-2005)', fix: 'start the generator by hand, transfer load, put the controller back to AUTO', money: '₹16.75 Cr a month of GPU reservations is running on the next 13 minutes of battery' },
-    domains: 'Capacity and network cost the most over 30 days (₹87.60 L and ₹64.62 L of ₹2.99 Cr); GPU hardware faults add ₹44.88 L.',
-    ask: ['Which GPU job is losing the most?', 'What is INC-0061 costing us?', 'What is INC-0002 costing us?', 'Which issue is costing the most revenue?'],
-    gpu: { gpus: '17,008', nodes: 2126, alloc: '90%', lost: '₹47,945/h', job: 'national-llm-pretrain-34b', owner: 'National AI Mission', jobGpus: 152, site: 'KA-DC-020 Bengaluru', inc: 'INC-0061', stalledRate: '₹31,233/h', redo: '₹27,068', redoMin: 52, slowJob: 'a 152-GPU job for Vectra Models', slowPct: '24%', idle: '16 GPUs held idle for 6 hours by an embedding service (₹3,288/h)', rate: '₹205 per GPU-hour' },
-    value: [['17,008 GPUs', 'one fleet, one page: health, heat, jobs, fabric'], ['1 GPU → 152', 'one failed GPU stopped a 152-GPU reserved cluster'], ['₹53,486/h', 'of GPU revenue at risk, ranked by issue'], ['DCGM', 'every GPU down to ECC, NVLink and PCIe counters']]
+    risk: { route: '/datacenters/MH-DC-001?tab=customers&cview=risk', who: 'QuantLedger AI, Vectra Models, Pixelforge Studio', why: 'a power-supply fault on two GPU nodes under a committed reservation, and two customers already below their 30-day SLA', story: 'Three customers, one site. The tool names the fault behind each one, so the success manager calls with the reason, not a guess.' },
+    hero2: { id: 'INC-0002', route: '/incidents/INC-0002', title: 'the UPS on battery in Delhi', why: 'the generator controller stayed in MANUAL after yesterday\'s feeder switchover (CHG-2005)', fix: 'start the generator by hand, transfer load, put the controller back to AUTO', money: '₹15.90 Cr a month of GPU reservations is running on the next 13 minutes of battery' },
+    domains: 'Network costs the most over 30 days (₹1.86 Cr of ₹3.55 Cr), then capacity (₹77.28 L) and power (₹38.09 L); GPU hardware faults add ₹22.07 L.',
+    ask: ['Which GPU job is losing the most?', 'What is INC-0063 costing us?', 'What is INC-0002 costing us?', 'Which issue is costing the most revenue?'],
+    gpu: { gpus: '16,728', nodes: 2091, alloc: '90%', lost: '₹46,301/h', job: 'national-llm-pretrain-70b', owner: 'National AI Mission', jobGpus: 144, site: 'KA-DC-020 Bengaluru', inc: 'INC-0061', stalledRate: '₹29,589/h', redo: '₹25,644', redoMin: 52, slowJob: 'a 152-GPU job for Lumen AI Labs', slowPct: '24%', idle: '16 GPUs held idle for 6 hours by an embedding service (₹3,288/h)', rate: '₹205 per GPU-hour' },
+    value: [['16,728 GPUs', 'one fleet, one page: health, heat, jobs, fabric'], ['1 GPU → 144', 'one failed GPU stopped a 144-GPU reserved cluster'], ['₹51,137/h', 'of GPU revenue at risk, ranked by issue'], ['DCGM', 'every GPU down to ECC, NVLink and PCIe counters']]
   }
 };
 
@@ -446,18 +446,18 @@ const ACTS = [
     qa: p => [['Is this your data or ours?', 'Demo data, generated to behave like a real estate. In production the same screens read your inventory, monitoring and billing feeds.']] },
 
   { n: 2, min: 2, short: 'Estate', q: '"How are we doing right now?"', route: '/', btn: 'Command center',
-    say: p => [`"This is the first screen the NOC lead sees. Operations health is ${p.cc.health} out of 100 — <b>${p.cc.band}</b>. There ${p.cc.sev1 === 1 ? 'is 1 SEV1' : `are ${p.cc.sev1} SEV1s`} and ${p.cc.sev2} SEV2s; ${p.cc.breaching} incidents are already past their SLA."`,
-      `"The map pulses where it hurts. Red rings are SEV1/SEV2 sites; dashed lines are backhaul that is down."`,
+    say: p => [`"This is the first screen the NOC lead sees. Operations health is ${p.cc.health} out of 100 — <b>${p.cc.band}</b>. There ${p.cc.sev1 === 1 ? 'is 1 critical incident' : `are ${p.cc.sev1} critical incidents`} and ${p.cc.sev2} high; ${p.cc.breaching} incidents are already past their SLA."`,
+      `"The map pulses where it hurts. Red rings are sites with a critical or high incident; dashed lines are backhaul that is down."`,
       `"Notice the <b>${p.words.money}</b> line under the vitals — the same afternoon, in money. We'll come back to it."`],
     steps: p => ['Point at the health ring and the four areas next to it (Response, Network, Power, Cooling).', 'Click a red pin on the map to show the docked site card; close it.', 'Scroll to <b>Critical now</b>: one card per site, worst incident first.', `Point at the ${p.words.money} band: losing ${p.rev.rate}, ${p.rev.stake} at stake.`],
-    see: p => [['Operations health', `${p.cc.health} · ${p.cc.band}`], ['SEV1 / SEV2 open', `${p.cc.sev1} / ${p.cc.sev2}`, 'bad'], ['Past SLA', p.cc.breaching, 'warn'], ['Losing now', p.rev.rate, 'bad']],
+    see: p => [['Operations health', `${p.cc.health} · ${p.cc.band}`], ['Critical / high open', `${p.cc.sev1} / ${p.cc.sev2}`, 'bad'], ['Past SLA', p.cc.breaching, 'warn'], ['Losing now', p.rev.rate, 'bad']],
     aha: p => 'One screen answers "where is it bad" before anyone opens a ticket.',
     qa: p => [['Why is health only 86 when most sites are fine?', 'It averages four areas — response, network, power, cooling — and counts edge links and dependencies, not downstream sites.'], ['Can it show only my region?', 'Yes — the Datacenters list filters by region, and every card links straight to the site.']] },
 
   { n: 3, min: 3, short: 'Money', q: '"What is this costing us?"', route: '/revenue', btn: p => p.words.money,
     say: p => [`"Leadership's real question. The team is losing <b>${p.rev.rate}</b> right now, ${p.rev.sofar} so far on open issues. More worrying: <b>${p.rev.stake}</b> a month is still running but sits on a critical fault."`,
       `"The tool gives two answers to 'which issue costs the most'. On the left, what is costing the most right now: <b>${p.top.title}</b> at ${p.top.site}, ${p.top.rate}. On the right, what has the most riding on it: <b>${p.stakeIssue.title}</b> — ${p.stakeIssue.amt}, ${p.stakeIssue.rate} if it fails."`,
-      p.top.under ? `"And look at the badge: the costliest incident is only a <b>SEV3</b>. The tool flags it for a priority review — severity alone would have put it at the back of the queue."` : `"Next credit step: ${p.rev.next}. That is the clock finance cares about."`],
+      p.top.under ? `"And look at the badge: the costliest incident is only <b>Medium</b> severity. The tool flags it for a priority review — severity alone would have put it at the back of the queue."` : `"Next credit step: ${p.rev.next}. That is the clock finance cares about."`],
     steps: p => ['Read the six tiles left to right: losing now, impact so far, at stake, credits owed, costliest cause, within SLA.', 'Point at the two answer cards and their cost-of-delay curves (solid = so far, dashed = next 24 h).', 'Click the first row in the Issues table to open the cost breakdown drawer; show "Who it hits".', 'Open <b>How it is calculated</b> if finance is in the room.'],
     see: p => [['Losing now', p.rev.rate, 'bad'], ['At stake', p.rev.stake, 'warn'], [`${p.words.money[0]}${p.words.money.slice(1)} — #1`, p.top.rate, 'bad'], ['Within SLA · 30 d', p.rev.within]],
     aha: p => `Not "how many alarms" — "${p.rev.rate} is leaving the business, and here is the issue to fix first."`,
@@ -502,7 +502,7 @@ const ACTS = [
   { n: 8, min: 2, short: 'Fix first', q: '"What do we fix first?"', route: p => p.top.route, btn: p => p.top.id.startsWith('INC') ? p.top.id : `${p.top.site.split(' ')[0]} · Revenue tab`,
     say: p => [`"With limited engineers, fix order matters. The costliest issue is <b>${p.top.title}</b> at ${p.top.site}: ${p.top.hit}."`,
       `"It is losing ${p.top.rate}; ${p.top.sofar} so far; <b>${p.top.f24}</b> if it runs another day. ${p.top.next ? p.top.next[0].toUpperCase() + p.top.next.slice(1) + '.' : ''}"`,
-      p.top.untracked ? `"And look at the last column: <b>nobody has opened an incident for it</b>. It never raised a critical alarm — it just quietly degrades the AI fabric. Ranking by ${p.words.money.toLowerCase()} is how you find it."` : p.top.under ? `"It was logged as SEV3 — routine. By money it is near the top. That is the conversation this tool starts: severity says how broken, ${p.words.money.toLowerCase()} says how much it matters."` : p.top.why ? `"It is ${p.top.why}. Restoring the coolant flow is worth more than anything else on the board."` : `"Restoring it now is worth more than anything else on the board."`],
+      p.top.untracked ? `"And look at the last column: <b>nobody has opened an incident for it</b>. It never raised a critical alarm — it just quietly degrades the AI fabric. Ranking by ${p.words.money.toLowerCase()} is how you find it."` : p.top.under ? `"It was logged as Medium severity — routine. By money it is near the top. That is the conversation this tool starts: severity says how broken, ${p.words.money.toLowerCase()} says how much it matters."` : p.top.why ? `"It is ${p.top.why}. Restoring the coolant flow is worth more than anything else on the board."` : `"Restoring it now is worth more than anything else on the board."`],
     steps: p => [p.top.route.includes('tab=revenue') ? `Show the site Revenue tab: the issue table, where the money sits, affected ${p.words.customers}.` : `Scroll to the ${p.words.money} panel on the incident.`, 'Hover the cost-of-delay curve: impact so far, then the dashed next 24 hours.', 'Point at "Next credit step" — the deadline that changes the bill.'],
     see: p => [['Losing now', p.top.rate, 'bad'], ['So far', p.top.sofar], ['If it runs 24 h', p.top.f24, 'warn'], ['Next step', p.top.next || '—']],
     aha: p => 'Fix order by money and SLA deadline, not by who shouts loudest.',
@@ -640,7 +640,7 @@ const FIG = [
   ['Colocation', 'colocation', 'in', '₹8.04 Cr', '₹174/h', '₹81.57 L', 24, 553, '12 AI cages · 536 kW'], ['Colocation', 'colocation', 'us', '$1.63M', '$3/h', '$209.6K', 24, 553, '12 AI cages · 536 kW'],
   ['Cloud', 'cloud', 'in', '₹97.91 Cr', '₹58,460/h', '₹12.75 Cr', 24, '1,830', '4,880 on 610 nodes'], ['Cloud', 'cloud', 'us', '$19.91M', '$1,249/h', '$2.83M', 24, '1,830', '4,880 on 610 nodes'],
   ['Enterprise', 'enterprise', 'in', '₹18.63 Cr', '₹13,879/h', '₹2.52 Cr', 14, 442, '1,312 on 164 nodes'], ['Enterprise', 'enterprise', 'us', '$3.78M', '$246/h', '$528.9K', 14, 442, '1,312 on 164 nodes'],
-  ['NeoCloud', 'neocloud', 'in', '₹225.64 Cr', '₹53,486/h', '₹28.19 Cr', 12, 757, '17,008 on 2,126 nodes'], ['NeoCloud', 'neocloud', 'us', '$45.31M', '$1,035/h', '$5.78M', 12, 780, '17,008 on 2,126 nodes']
+  ['NeoCloud', 'neocloud', 'in', '₹220.52 Cr', '₹51,137/h', '₹26.42 Cr', 12, 655, '16,728 on 2,091 nodes'], ['NeoCloud', 'neocloud', 'us', '$44.18M', '$1,035/h', '$5.32M', 12, 666, '16,728 on 2,091 nodes']
 ];
 function renderFigures() {
   document.getElementById('figRows').innerHTML = FIG.map(([name, pz, g, rev, rate, stake, cust, svc, gpu]) => {

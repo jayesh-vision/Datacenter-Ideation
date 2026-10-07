@@ -8,6 +8,8 @@ import type { Db } from './generate';
 import { addAlert } from './generate';
 import { DAY, HOUR, MIN } from './seed';
 import { activeGeo, dcAt } from './geo';
+import { edgeId } from './personas';
+import { PLANE_LABEL, planeOf } from '../lib/fabric';
 
 export const RESPONSE_SLA = { 1: 15, 2: 30, 3: 60, 4: 240 } as const;
 export const RESOLVE_SLA = { 1: 240, 2: 480, 3: 1440, 4: 4320 } as const;
@@ -56,13 +58,13 @@ export function buildIncidents(db: Db, TITLES: Record<Incident['type'], string[]
   };
 
   /* 1 — the reference incident on the hero PE */
-  const HERO = `${dcAt(1)}-PE-T4-01`;
+  const HERO = edgeId(persona, dcAt(1), 1);
   const x3 = db.links.find(l => l.protocol === 'LLDP' && ((l.aNe === HERO && l.aIf === 'xe-0/0/3') || (l.zNe === HERO && l.zIf === 'xe-0/0/3')))!;
   const peers = db.nes.filter(n => n.isPe && n.dcId !== dcAt(1) && n.discovery !== 'not-discovered' && n.vendor === 'JUNIPER').filter((_, i) => i % 6 === 1).slice(0, 4);
   peers.forEach((p, i) => addAlert(db, { neId: p.id, dcId: p.dcId, ifName: 'xe-0/0/2', severity: 'minor', title: 'Optical Rx Power Low', description: `Rx power ${(-10.4 - i * 0.3).toFixed(1)} dBm — same SFP-10G-LR lot 22B`, source: 'Interface', type: 'Optics', start: now - (6 + i * 5) * HOUR, state: 'active' }));
   const chgPatch = db.changes.find(c => c.title.startsWith('Re-patch ODF'))!;
   mk({
-    title: 'Optical degradation on PE-T4-01 xe-0/0/3 — backhaul flapping', type: 'Network', sev: 2, pri: 2, status: 'Open', owner: 'Mike Johnson', reportedBy: 'Monitoring System', dcId: dcAt(1),
+    title: `Optical degradation on ${HERO.slice(dcAt(1).length + 1)} xe-0/0/3 — backhaul flapping`, type: 'Network', sev: 2, pri: 2, status: 'Open', owner: 'Mike Johnson', reportedBy: 'Monitoring System', dcId: dcAt(1),
     detected: new Date(2026, 9, 1, 12, 38).getTime(), acknowledged: new Date(2026, 9, 1, 13, 10).getTime(), responseSlaMin: RESPONSE_SLA[2], resolveSlaMin: RESOLVE_SLA[2],
     alertIds: ['ALM-1930', 'ALM-1774', 'ALM-1702', 'ALM-1831'],
     affected: [{ kind: 'NE', id: HERO, label: HERO }, { kind: 'Link', id: x3.id, label: `${HERO} xe-0/0/3 → ${x3.aNe === HERO ? x3.zNe : x3.aNe}` }, { kind: 'Rack', id: db.neById.get(HERO)!.rackId, label: db.neById.get(HERO)!.rackId.replace(`${dcAt(1)}-`, '') }],
@@ -155,11 +157,21 @@ export function buildIncidents(db: Db, TITLES: Record<Incident['type'], string[]
     /* severity policy: a multi-link outage exposing 3+ premium customers is SEV1 */
     const prem = impactOf(db, { linkIds: as.map(a => a.linkId!) }).premium.length;
     const sev = as.length > 1 && prem >= 3 ? 1 as const : as.length > 1 ? 2 as const : 3 as const;
-    mk({ title: as.length > 1 ? `${as.length} physical links down in ${dc}` : `Link down — ${as[0].neId} ${as[0].ifName}`, type: 'Network', sev, pri: sev, status: pick(r, ['Open', 'Investigating', 'Investigating'] as const), owner: pick(r, activeGeo().people), reportedBy: 'Monitoring System', dcId: dc,
+    /* a GPU cloud names the cable and the node it cut off, by fabric plane */
+    const neo = persona === 'neocloud';
+    const short = (id: string) => id.slice(dc.length + 1);
+    const ls = as.map(a => db.links.find(l => l.id === a.linkId)!);
+    const isSw = (id: string) => /-(IB|ETH)-(LEAF|SPINE)-|-OOB-|-BDR-|-FW-/.test(id);
+    const hostOf = (l: (typeof ls)[number]) => (isSw(l.aNe) ? l.zNe : l.aNe);
+    const cut = [...new Set(ls.filter(l => planeOf(l) === 'eth').map(hostOf))].find(h => !isSw(h) && ls.filter(l => planeOf(l) === 'eth' && hostOf(l) === h).length >= 2);
+    const neoTitle = as.length > 1
+      ? `${as.length} fabric cables down in ${dc}${cut ? ` · ${short(cut)} lost both front-end uplinks` : ''}`
+      : `${PLANE_LABEL[planeOf(ls[0])]} cable down — ${short(ls[0].aNe)} ${ls[0].aIf} to ${short(ls[0].zNe)}`;
+    mk({ title: neo ? neoTitle : as.length > 1 ? `${as.length} physical links down in ${dc}` : `Link down — ${as[0].neId} ${as[0].ifName}`, type: 'Network', sev, pri: sev, status: pick(r, ['Open', 'Investigating', 'Investigating'] as const), owner: pick(r, activeGeo().people), reportedBy: 'Monitoring System', dcId: dc,
       detected: Math.min(...as.map(a => a.start)) + MIN, acknowledged: chance2(r) ? Math.min(...as.map(a => a.start)) + intBetween(r, 5, 70) * MIN : undefined, responseSlaMin: RESPONSE_SLA[sev], resolveSlaMin: RESOLVE_SLA[sev], alertIds: as.map(a => a.id),
       affected: as.map(a => ({ kind: 'Link' as const, id: a.linkId!, label: `${a.neId} ${a.ifName}` })),
-      rca: [{ cause: as.length > 1 ? 'Common cable tray / ODF fault' : 'Optic or patch-cord failure', confidence: as.length > 1 ? 71 : 80, evidence: as.map(a => ({ label: `${a.code}: ${a.description}`, ref: a.id, at: a.start })) }, { cause: 'Far-end line card fault', confidence: as.length > 1 ? 29 : 20, evidence: [{ label: 'Far-end reports LOS on the same ports', ref: as[0].linkId }] }],
-      actions: [step(1, { step: 'Check light levels at ODF and swap patch cords', owner: 'Field ops', expected: 'Carrier restored', rollback: 'Restore original cord', verify: 'Link up, 0 errors 15 min', disruptive: false }), step(2, { step: 'Replace optic if Rx < −14 dBm', owner: 'Field ops', expected: 'Link stable', rollback: 'Re-insert optic', verify: 'Rx ≥ −7 dBm', disruptive: true })],
+      rca: [{ cause: neo ? (as.length > 1 ? 'Shared fibre trunk or patch panel between the GPU hall and the leaf row' : 'Transceiver (QSFP / OSFP) or cable failure') : as.length > 1 ? 'Common cable tray / ODF fault' : 'Optic or patch-cord failure', confidence: as.length > 1 ? 71 : 80, evidence: as.map(a => ({ label: `${a.code}: ${a.description}`, ref: a.id, at: a.start })) }, { cause: neo ? 'Leaf switch port or ASIC fault' : 'Far-end line card fault', confidence: as.length > 1 ? 29 : 20, evidence: [{ label: 'Far-end reports LOS on the same ports', ref: as[0].linkId }] }],
+      actions: [step(1, { step: neo ? 'Check transceiver light levels (DOM) and reseat or swap the cables' : 'Check light levels at ODF and swap patch cords', owner: 'Field ops', expected: neo ? 'Cables back up' : 'Carrier restored', rollback: 'Restore original cord', verify: 'Link up, 0 errors 15 min', disruptive: false }), step(2, { step: neo ? 'Replace the transceiver if Rx < −14 dBm' : 'Replace optic if Rx < −14 dBm', owner: 'Field ops', expected: 'Link stable', rollback: 'Re-insert optic', verify: 'Rx ≥ −7 dBm', disruptive: true })],
       changeIds: [], similar: null }, { linkIds: as.map(a => a.linkId!) });
   }));
   hot.slice(0, 3).forEach(a => pool.push(() => {
