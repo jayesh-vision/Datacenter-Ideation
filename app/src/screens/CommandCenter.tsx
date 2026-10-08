@@ -43,18 +43,18 @@ export function CommandCenter() {
 /* Estate-health gauge drawn with NST tokens; value in Poppins light like
    .vw-card-metric-* so it reads as a metric, not a graphic. */
 function HealthGauge({ value, band }: { value: number; band: string }) {
-  const size = 124, r = size / 2 - 10, cx = size / 2, cy = size / 2 + 3;
+  const size = 112, r = size / 2 - 8, cx = size / 2, cy = size / 2;
   const pt = (deg: number, rr = r) => [cx + rr * Math.cos((deg * Math.PI) / 180), cy + rr * Math.sin((deg * Math.PI) / 180)];
   const arc = (from: number, to: number) => { const [x1, y1] = pt(from), [x2, y2] = pt(to); return `M${x1},${y1} A${r},${r} 0 ${to - from > 180 ? 1 : 0} 1 ${x2},${y2}`; };
   const v = Math.max(0, Math.min(100, value));
   const c = band === 'Healthy' ? 'var(--vw-color-emerald-500)' : band === 'Watch' ? 'var(--vw-color-amber-500)' : 'var(--vw-color-red-500)';
   return (
-    <svg width={size} height={size * 0.8} viewBox={`0 0 ${size} ${size * 0.8}`} role="img" aria-label={`Operations health ${value} of 100, ${band}`}>
-      <path d={arc(135, 405)} fill="none" style={{ stroke: 'var(--vw-color-slate-100)' }} strokeWidth={10} strokeLinecap="round" />
-      {v > 0 && <path d={arc(135, 135 + (270 * v) / 100)} fill="none" style={{ stroke: c }} strokeWidth={10} strokeLinecap="round" />}
+    <svg width={size} height={size * 0.88} viewBox={`0 0 ${size} ${size * 0.88}`} role="img" aria-label={`Operations health ${value} of 100, ${band}`}>
+      <path d={arc(135, 405)} fill="none" style={{ stroke: 'var(--vw-color-slate-100)' }} strokeWidth={9} strokeLinecap="round" />
+      {v > 0 && <path d={arc(135, 135 + (270 * v) / 100)} fill="none" style={{ stroke: c }} strokeWidth={9} strokeLinecap="round" />}
       {[0, 25, 50, 75, 100].map(t => { const a = 135 + 2.7 * t; const [x1, y1] = pt(a, r - 10), [x2, y2] = pt(a, r - 14); return <line key={t} x1={x1} y1={y1} x2={x2} y2={y2} style={{ stroke: 'var(--vw-color-slate-300)' }} strokeWidth={1.5} />; })}
-      <text x={cx} y={cy + 10} textAnchor="middle" style={{ fontSize: 'var(--vw-font-value-xxl)', fontWeight: 300, fill: 'var(--vw-color-gray-900)', fontFamily: 'var(--fontFamily)' }}>{value}</text>
-      <text x={cx} y={cy + 24} textAnchor="middle" style={{ fontSize: 'var(--vw-font-label-sm)', fill: 'var(--vw-color-gray-500)', fontFamily: 'var(--fontFamily)' }}>of 100</text>
+      <text x={cx} y={cy + 8} textAnchor="middle" style={{ fontSize: 'var(--vw-font-value-xxl)', fontWeight: 300, fill: 'var(--vw-color-gray-900)', fontFamily: 'var(--fontFamily)' }}>{value}</text>
+      <text x={cx} y={cy + 23} textAnchor="middle" style={{ fontSize: 'var(--vw-font-label-sm)', fill: 'var(--vw-color-gray-500)', fontFamily: 'var(--fontFamily)' }}>of 100</text>
     </svg>
   );
 }
@@ -93,15 +93,30 @@ function Situation({ d }: { d: CC }) {
           <div className="hero-verdict">
             <HealthGauge value={d.shi} band={s.band} />
             <div className="hero-verdict-txt">
-              <span className="vw-card-metric-label cmd-gauge-label">Operations health
-                <span className="cmd-info" tabIndex={0} title="Average of the four areas below. Counts each datacenter site, its edge links and its dependencies; downstream PoP and site alarms are excluded."><I.Info size={13} /></span>
+              <span className="hero-verdict-top">
+                <span className="vw-card-metric-label cmd-gauge-label">Operations health
+                  <span className="cmd-info" tabIndex={0} title="Average of the four areas below. Counts each datacenter site, its edge links and its dependencies; downstream PoP and site alarms are excluded."><I.Info size={13} /></span>
+                </span>
+                <span className={`vw-chip vw-chip--${bandChip} is-strong`}>{s.band}</span>
               </span>
-              <span className={`vw-chip vw-chip--${bandChip} is-strong`} style={{ alignSelf: 'flex-start' }}>{s.band}</span>
+              <p className="hero-line">{s.critSites
+                ? <>Critical or high incidents at <b>{s.critSites}</b> of {p.liveDcs} datacenters</>
+                : <>No critical or high incident across <b>{p.liveDcs}</b> datacenters</>}</p>
+              <span className="hero-weak">Weakest area <b>{s.weakest.label}</b> · {s.weakest.value}%</span>
             </div>
           </div>
-          <div className="hero-verdict-sum">
-            <p className="hero-line">{s.n1 ? <><b className="hot">{s.n1} critical</b> and </> : null}<b>{s.n2} high</b> incidents open across <b>{s.critSites} datacenters</b></p>
-            <span className="vw-label">{s.exposedPremium} {vocabNow().premium.toLowerCase()} {vocabNow().customers.toLowerCase()} affected · {p.breaching} incidents past SLA · weakest area: {s.weakest.label}</span>
+          <div className="hero-facts">
+            {[
+              { k: 'crit', n: s.n1, l: 'Critical', sub: 'incidents', to: '/incidents?view=sev1', tone: s.n1 ? 'bad' : '' },
+              { k: 'high', n: s.n2, l: 'High', sub: 'incidents', to: '/incidents', tone: s.n2 ? 'warn' : '' },
+              { k: 'sla', n: p.breaching, l: 'Past SLA', sub: `of ${p.open} open`, to: '/incidents?view=breaching', tone: p.breaching ? 'bad' : '' },
+              { k: 'cust', n: s.exposedPremium, l: vocabNow().premium, sub: `${vocabNow().customers.toLowerCase()} affected`, to: '/incidents', tone: '' }
+            ].map(x => (
+              <Link key={x.k} to={x.to} className={`hero-fact${x.tone ? ` is-${x.tone}` : ''}`} title={`${x.n} ${x.l.toLowerCase()} ${x.sub}`}>
+                <span className="hero-fact-n">{x.n}</span>
+                <span className="hero-fact-l">{x.l}</span>
+              </Link>
+            ))}
           </div>
           <div className="hero-areas" role="list">
             {d.domains.map(x => {

@@ -134,7 +134,9 @@ User ask: show revenue degradation caused by datacenter issues and which issue c
 - Palette: slate/white, brand blue accent, red/amber for faults only. The digital twin (`screens/site/twin`) is signed off — don't restyle it.
 
 ## Command center layout (02-Oct-2026, after the user rejected the 17-box version)
-Hero card (08-Oct-2026, user) = three columns 30 / 40 / 30, 600 px tall: health ring + verdict + 4 areas as rows (left) · the live
+Hero card (08-Oct-2026, user) = three columns 30 / 40 / 30, 600 px tall: health ring + title/band + one verdict line + weakest area,
+a 2 × 2 strip of clickable numbers (Critical · High · Past SLA · premium customers; colour on the number only), then 4 areas as rows (left;
+check `node .qa/cc-verdict.mjs`) · the live
 DcMap (middle) · a vertically scrolling column of every live datacenter as a `DcCard`, worst first, with an All / Critical / High quick
 filter on the worst open incident; cards there are a compact variant (CSS under `.hero-dcs-list`, ~286 px, ≥1.5 visible) (`DcColumn` in CommandCenter.tsx; the mock's `dcMap` rows carry `condition` + the quiet-card fields).
 The vitals strip, the horizontal Critical-now lane and the revenue band were removed (08-Oct-2026, user; revenue will get a proper place on
@@ -228,3 +230,10 @@ Incidents show Critical / High / Medium / Low (stored as sev 1–4; `lib/vocab.t
 never "SEV1". Alarms keep Critical / Major / Minor / Warning. Priority (P1–P4) is not shown as a chip; the incident page shows it only when
 it differs from severity. URL view ids (`?view=sev1`) are unchanged. The 3D twin side panel (`site/twin/Panel.tsx`) still says "SEV1"
 because the twin is frozen — change it only if the user lifts that.
+
+## Field guide (07–08-Oct-2026)
+`docs/dco-field-guide.html` (served at `/field-guide.html`; copy to `app/public/field-guide.html` after editing). Tabs: Glossary · How it fits
+together · Customer questions · Metrics & sources · Inventory · Flashcards. Inventory tab (08-Oct-2026, user: "monitoring depends on inventory"):
+containment chain (region → port and cable), six "why monitoring needs inventory" cards, a 10-step onboarding order, and a filterable catalogue
+of 84 inventory items in 11 domains (Core / Recommended / Optional, system of record, how it gets in, where the tool shows it); 14 glossary terms
+in the "Inventory" area. Docs only — the tool's inventory screens stay parked. Check: `node .qa/field-inv.mjs`.
