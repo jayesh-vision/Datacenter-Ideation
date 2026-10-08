@@ -10,6 +10,9 @@
                                us                      → always the USA
                                in=us                   → a request for India becomes the USA
 
+     VITE_PERSONA_DEFAULT    the persona a first-time viewer sees (no ?persona=, no saved choice), e.g. neocloud.
+                             Not an override: the persona switch and links still work. Unset = network.
+
    Unset (the default) means no override. Vite inlines these at build time, so a change needs a redeploy. */
 type Rule = { scope?: string; from?: string; to: string };
 const parse = (raw: string | undefined): Rule[] =>
@@ -29,3 +32,4 @@ const apply = (rules: Rule[], requested: string, scope?: string) =>
 export const overridePersona = (requested: string, geo: string) => apply(PERSONA_RULES, requested, geo);
 export const overrideGeo = (requested: string) => apply(GEO_RULES, requested);
 export const overridesActive = () => ({ persona: PERSONA_RULES.length > 0, geo: GEO_RULES.length > 0 });
+export const defaultPersona = () => (env('VITE_PERSONA_DEFAULT') ?? '').trim().toLowerCase();

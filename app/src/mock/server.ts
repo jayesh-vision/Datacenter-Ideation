@@ -11,7 +11,7 @@ import { generate, finaliseHealth, type Db } from './generate';
 import { edgeId, isPersona } from './personas';
 import { planeOf, type Plane } from '../lib/fabric';
 import { GEO_BY_ID, dcAt, isGeo, setActiveGeo, type Geo } from './geo';
-import { overrideGeo, overridePersona } from './override';
+import { defaultPersona, overrideGeo, overridePersona } from './override';
 import { fmtNum, setMoneyLocale } from '../lib/format';
 import { mulberry32 } from '../lib/rng';
 import { impactOf, isOpen, RESOLVE_SLA, RESPONSE_SLA } from './incidents';
@@ -51,13 +51,21 @@ export const heroDcId = () => dcAt(1);
 /* the hero WAN-edge router (flapping backhaul story): MH-DC-001-PE-T4-01, or BDR-01 in a GPU cloud */
 export const heroNeId = () => edgeId(persona, dcAt(1), 1);
 
-/* a link may carry ?persona=… (demo playbook deep links): it wins and is remembered */
+/* a link may carry ?persona=… (demo playbook deep links): it wins and is remembered. With neither a link
+   nor a saved choice the deployment default applies (VITE_PERSONA_DEFAULT, mock/override.ts; else network).
+   A saved choice made under an earlier default is dropped once, so a new default reaches returning viewers. */
 const requestedPersona = (): Persona => {
+  const d = defaultPersona(); const fallback: Persona = isPersona(d) ? d : 'network';
+  try {
+    const prev = localStorage.getItem('dco.persona.default') ?? 'network';   // before the marker existed the default was network
+    if (prev !== fallback) localStorage.removeItem('dco.persona');
+    localStorage.setItem('dco.persona.default', fallback);
+  } catch { /* storage blocked */ }
   try {
     const q = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('persona') : null;
     if (isPersona(q)) { try { localStorage.setItem('dco.persona', q); } catch { /* storage blocked */ } return q; }
-    const v = localStorage.getItem('dco.persona'); return isPersona(v) ? v : 'network';
-  } catch { return 'network'; }
+    const v = localStorage.getItem('dco.persona'); return isPersona(v) ? v : fallback;
+  } catch { return fallback; }
 };
 /* a deployment override (VITE_PERSONA_OVERRIDE, mock/override.ts) wins over the URL and the saved choice */
 const loadPersona = (): Persona => { const r = requestedPersona(); const o = overridePersona(r, geo); return isPersona(o) ? o : r; };

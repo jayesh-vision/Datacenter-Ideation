@@ -1,0 +1,52 @@
+/* Realistic digital twin (second 3D view). Layout classes come from twin.css; these are the
+   stage, its overlay controls and the DOM labels the scene pins to objects. */
+.t2-stage { background: #D3DBE5; }
+.t2-overlay { position: absolute; inset: 0 0 auto 0; z-index: 6; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; padding: 10px; pointer-events: none; }
+.t2-overlay > * { pointer-events: auto; }
+.t2-overlay-left { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; max-width: calc(100% - 210px); }
+.t2-overlay-left .seg { flex-wrap: wrap; }
+.t2-overlay-right { display: flex; align-items: center; gap: 6px; padding: 4px; background: rgba(255, 255, 255, .92); border: 1px solid var(--vw-color-slate-200); border-radius: var(--vw-radius-sm); box-shadow: 0 1px 2px rgba(15, 23, 42, .06); }
+.t2-overlay .seg { background: rgba(255, 255, 255, .92); box-shadow: 0 1px 2px rgba(15, 23, 42, .08); }
+.t2-legend { display: inline-flex; flex-wrap: wrap; gap: 10px; padding: 4px 9px; border-radius: 7px; background: rgba(255, 255, 255, .9); border: 1px solid rgba(15, 23, 42, .06); font-size: var(--vw-font-label-xs); color: var(--vw-color-gray-600); box-shadow: 0 1px 2px rgba(15, 23, 42, .06); }
+.t2-legend span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.t2-legend i { width: 11px; height: 11px; border-radius: 3px; border: 1px solid rgba(15, 23, 42, .08); }
+.t2-whole { height: 28px; }
+.t2-hint { position: absolute; left: 12px; bottom: 12px; z-index: 5; font-size: 11px; color: var(--vw-color-gray-600); background: rgba(255, 255, 255, .9); border-radius: 6px; padding: 3px 8px; pointer-events: none; }
+
+/* labels pinned in the scene: projected world points → DOM */
+.t2-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 3; }
+.t2-label { position: absolute; left: 0; top: 0; pointer-events: none; will-change: transform; }
+.t2-label > * { pointer-events: auto; transform: translate(-50%, -50%); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; background: rgba(255, 255, 255, .97); border: 1px solid var(--vw-color-slate-300); border-left-width: 3px; border-radius: 7px; padding: 3px 9px; font: 500 11px 'Poppins', sans-serif; color: var(--vw-color-gray-900); box-shadow: 0 6px 16px -8px rgba(16, 34, 58, .35); user-select: none; cursor: default; line-height: 1.3; }
+.t2-label button { cursor: pointer; }
+.t2-label button:hover { border-color: var(--primaryColor500); }
+.t2-label strong { font-family: var(--num); font-weight: 600; }
+.t2-label small { font-family: 'Poppins', sans-serif; font-weight: 400; font-size: 10.5px; color: var(--vw-color-gray-500); }
+.t2-label .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.t2-label.is-critical > * { border-left-color: var(--vw-color-red-500); }
+.t2-label.is-major > * { border-left-color: var(--vw-color-amber-500); }
+.t2-label.is-minor > * { border-left-color: #F5B82E; }
+.t2-label.is-edge > * { border-left-color: var(--primaryColor500); }
+.t2-label.is-sel > * { border-color: var(--primaryColor500); border-left-color: var(--primaryColor500); }
+.t2-label.t2-floor > * { font-weight: 600; font-size: 12px; padding: 4px 10px; border-left-width: 1px; }
+.t2-label.t2-floor.is-critical > * { border-color: var(--vw-color-red-500); box-shadow: 0 0 0 2px rgba(239, 68, 68, .18); }
+.t2-label.t2-floor.is-major > * { border-color: var(--vw-color-amber-500); box-shadow: 0 0 0 2px rgba(245, 158, 11, .18); }
+.t2-label.t2-floor.is-critical small { color: var(--vw-color-red-600); }
+.t2-label.t2-floor.is-major small { color: var(--vw-color-amber-700); }
+.t2-label.t2-room > * { transform: translate(0, -50%); background: rgba(255, 255, 255, .9); border-left-width: 1px; text-transform: uppercase; letter-spacing: .4px; font-weight: 600; color: var(--vw-color-gray-700); padding: 2px 8px; box-shadow: 0 4px 12px -6px rgba(16, 34, 58, .3); }
+.t2-label.t2-room strong { font-family: 'Poppins', sans-serif; }
+.t2-label.t2-room small { text-transform: none; letter-spacing: 0; font-family: var(--num); }
+.t2-label.t2-att > * { flex-direction: column; align-items: flex-start; gap: 0; max-width: 220px; padding: 4px 9px; }
+.t2-label.t2-att small { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+.t2-label.t2-att .dot { position: absolute; left: -14px; display: none; }
+.t2-label.t2-eq > * { transform: translate(0, -50%); }
+.t2-label.t2-eq.is-sel > * { background: var(--primaryColor500); border-color: var(--primaryColor500); color: #fff; }
+.t2-label.t2-eq.is-sel small { color: rgba(255, 255, 255, .8); }
+
+/* host: slim bar with the view switch above either twin */
+.twin-host { display: flex; flex-direction: column; gap: var(--vw-space-sm); }
+.twin-host-bar { display: flex; align-items: center; gap: 10px; min-height: 30px; }
+.twin-host-path { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.site-view-switch { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; }
+.site-view-switch .vw-label { white-space: nowrap; }
+.twin-host .twin-side { max-height: 600px; }
+@media (max-width: 1280px) { .twin-host .twin-side { max-height: 560px; } }

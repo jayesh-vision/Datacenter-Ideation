@@ -107,7 +107,7 @@ export function NetworkElement() {
       <Tabs<Tab> value={tab} onChange={setTab} tabs={[
         { id: 'overview', label: 'Overview' },
         { id: 'hardware', label: 'Hardware & interfaces', count: data.interfaces.length },
-        ...(ne.role === 'GPU' ? [{ id: 'gpus' as Tab, label: 'GPUs · DCGM', count: 8 }] : []),
+        ...(ne.role === 'GPU' ? [{ id: 'gpus' as Tab, label: /Gaudi|Max 1550/.test(ne.model) ? 'GPUs · Intel' : 'GPUs · DCGM', count: 8 }] : []),
         { id: 'links', label: 'Links', count: data.links.length },
         { id: 'impact', label: 'Impact', count: data.services.length },
         { id: 'alerts', label: 'Alerts & diagnostics', count: active.length }

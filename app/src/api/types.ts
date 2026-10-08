@@ -254,7 +254,9 @@ export interface DcSummary {
    GPU nodes are NetworkElements with role 'GPU'; this layer adds what an AI operations team watches:
    per-GPU telemetry (DCGM-style), clusters (pods) on a rail-optimised InfiniBand fabric, the jobs running
    on them, liquid cooling, and — for colocation — tenant AI cages the operator sees only as power and cooling. */
-export type GpuModel = 'H100 SXM 80 GB' | 'H200 SXM 141 GB';
+/* accelerator models in the fleet — datasheet figures per model in lib/gpuSpec.ts */
+export type GpuModel = 'B200 SXM 192 GB' | 'H200 SXM 141 GB' | 'H100 SXM 80 GB' | 'A100 SXM 80 GB' | 'L40S PCIe 48 GB' | 'T4 PCIe 16 GB' | 'Gaudi 3 OAM 128 GB' | 'Max 1550 OAM 128 GB';
+export type GpuVendor = 'NVIDIA' | 'Intel';
 export type GpuHealth = 'healthy' | 'degraded' | 'failed';
 export type GpuThrottle = 'none' | 'thermal' | 'power-cap' | 'hw-slowdown';
 export interface GpuXid { code: number; at: number; text: string }
@@ -283,13 +285,13 @@ export interface Gpu {
 /* in-job: allocated to a running job · idle: healthy spare · drained: cordoned for maintenance · failed: awaiting RMA · burn-in: new or repaired, under test */
 export type GpuNodeState = 'in-job' | 'idle' | 'drained' | 'failed' | 'burn-in';
 export interface GpuNode {
-  neId: string; dcId: string; rackId: string; clusterId: string; model: GpuModel; gpus: Gpu[]; state: GpuNodeState; jobId?: string;
+  neId: string; dcId: string; rackId: string; clusterId: string; model: GpuModel; vendor: GpuVendor; server: string; gpus: Gpu[]; state: GpuNodeState; jobId?: string;
   cooling: 'air' | 'liquid'; driver: string; firmware: string; powerKw: number; health: GpuHealth;
   ib: { rail: number; state: 'up' | 'down' | 'flapping'; errors: number }[]; note?: string; rma?: string;
   /* the last 24 hours, one sample per hour, across the node's 8 GPUs: mean utilisation, hottest GPU, node power */
   series: { util: number[]; tempC: number[]; powerKw: number[] };
 }
-export interface GpuCluster { id: string; name: string; dcId: string; room: string; scheduler: 'Kubernetes' | 'Slurm'; fabric: string; model: GpuModel; cooling: 'air' | 'liquid'; nodes: string[] }
+export interface GpuCluster { id: string; name: string; dcId: string; room: string; scheduler: 'Kubernetes' | 'Slurm'; fabric: string; model: GpuModel; vendor: GpuVendor; cooling: 'air' | 'liquid'; nodes: string[] }
 /* running · slowed (a straggler or throttling drags every step) · stalled (a node failed; waiting to restart from checkpoint) · at-risk (a node will need a reset) */
 export type GpuJobState = 'running' | 'slowed' | 'stalled' | 'at-risk' | 'idle';
 export interface GpuJob {

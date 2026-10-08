@@ -144,6 +144,23 @@ the Command center later). Then ONE row of three equal columns, 600 px, bodies s
 What to do next. The "Why" (root-cause families) panel was removed 08-Oct-2026. Checks: `node .qa/cc-hero.mjs`, `node .qa/cc-trio.mjs`.
 Don't reintroduce rows of boxed KPI tiles on the landing page.
 
+## Realistic digital twin (08-Oct-2026, user) — a second 3D view, the first one untouched
+The datacenter Overview tab now hosts two 3D views (`site/TwinHost.tsx`): a slim bar "Digital twin · Building › Floor › Room › Rack ›
+Equipment" with a View switch Schematic | Realistic (`?twin=schematic|realistic` wins, then localStorage `dco.twin.view`; default
+schematic). Schematic = the signed-off twin in `site/twin/*` (still frozen). Realistic = `site/twin2/*`, a port of the user's friend's
+DC-Digital-View prototype (`../DC-Digital-View/`, untracked, kept as the visual reference): textured device bezels per role (server /
+GPU / storage / switch / router / firewall / optical / tenant / patch), perforated cabinet doors (the selected rack's door swings open),
+ID plates, LED light bars, overhead wire-basket + fibre trays with drops into every rack, cold-aisle containment (only where racks face
+each other), white CRAH / UPS / rectifier cabinets and a dark battery bank with textured fronts, a DG canopy outside, glass curtain
+wall + roof parapet at building level, studio lighting, AO + LED bloom (`@react-three/postprocessing`; dropped automatically on slow GPUs).
+Rack / device camera is its own (`aislePose`, 08-Oct-2026 fix: the shared straight-back pose ended up inside the facing row): rack =
+front-on from 3.5 m with the facing row of the same pair faded to glass (`facingRow`, no clicks, devices hidden); device = close-up from
+inside the cold aisle. It reuses the schematic twin's layout (`twin/layout.ts`), attention roll-up, camera poses (backed off 1.2× at building / floor level),
+`TwinPanel` and `Pick` semantics, so numbers, drill path and panel are identical in both views. Floor mode shows only the chosen floor.
+Overlays: Health · Temperature (floor heat-map from rack inlets) · Rack power · Connectivity (edge stubs). Labels are DOM anchors
+projected every frame (`twin2/anchors2.ts`), never drei `Html` (per-label React roots break under React 19). Rules carried over: health is
+shown by LEDs, beacons and halos, cabinets stay neutral. Check: `node .qa/twin2.mjs` (and `W=1280`); it is slow under software GL.
+
 ## Testing cadence (user, 02-Oct-2026)
 Small change → verify only the affected screen (screenshot/measure at 1440 and 1280). Full suite `app/.qa/regress.sh` ONLY when the
 user explicitly asks — not even before push/deploy. Digital twin is final: don't edit `src/screens/site/twin/*`, don't run `twin.mjs` / `twin-full.mjs`.
@@ -190,6 +207,14 @@ device except the border routers shows "Fabric connections" plane cards (+ a BGP
 the protocol cards. Command center row is "Fabric" (IB · Eth · OOB down · unreachable; the line has 280 px). Cable incidents say "N fabric cables
 down in X · HOST lost both front-end uplinks" with transceiver / fibre-trunk RCA and DOM actions. The persona switch, PERSONA_ICON, the playbook
 and the embed guide list five personas.
+GPU models & vendors (08-Oct-2026, user: "different NVIDIA GPUs … and other vendors like Intel"): catalogue `lib/gpuSpec.ts` (B200 · H200 · H100 ·
+A100 · L40S · T4 from NVIDIA, Gaudi 3 · Data Center GPU Max 1550 from Intel: memory, TDP, clocks, scale-up link, fabric, server per OEM, driver,
+telemetry source, `rateX` price vs an H100). One model per pod, chosen by site position in `mock/gpu.ts` `SITE_PLAN`; the GPU host NE takes
+the pod's server model. L40S / T4 pods run inference jobs only. Fault stories (Xid 79 / 48 / 74, NVLink) pick NVIDIA pods only, so they land
+where they did; drift = a node on its model's `driverOld`; job / service price = persona rate × `rateX` (H100 = H200 = 1). UI: AI & GPU
+"GPU models" tab (vendor cards + model table → Nodes filtered by `?gmodel=` model or vendor), vendor tag + model on nodes, cluster cards,
+jobs, node drawer hardware row (`[data-gpu-hw]`), vendor-aware telemetry labels (DCGM / Intel Gaudi hl-smi / Intel XPU Manager).
+Check: `node .qa/gpu-models.mjs <persona>`.
 GPU telemetry follows the NVIDIA DCGM exporter: `Gpu` carries the DCGM fields (comments name them: util / SM active / tensor /
 mem copy / DRAM, FB used, GPU + HBM temp, power + energy, SM + mem clock, P-state, fan, throttle reasons, ECC SBE/DBE, retired
 pages + row remap, PCIe replay + traffic, NVLink errors + traffic, last Xid); `GpuNode.series` = 24 h hourly history built AFTER the
@@ -224,6 +249,11 @@ When a screen gains a URL parameter or a new route is added, add it to the guide
 Deployment overrides (`mock/override.ts`): Vercel env vars `VITE_PERSONA_OVERRIDE` / `VITE_GEO_OVERRIDE` with rules
 `[geo:]from=to` or `to` (comma-separated, first match wins) — applied AFTER the URL and the saved choice, so they win over links in
 other people's code. Build-time (Vite), so changing them needs a redeploy. Unset = no override.
+`VITE_PERSONA_DEFAULT` (08-Oct-2026, user) = the persona a viewer gets with no `?persona=` and no saved choice; set to `neocloud` on
+Vercel production (local dev stays network). Not an override: the switch and links still work. A saved choice made under a different default
+is dropped once (`dco.persona.default` marker) so returning viewers see the new default.
+The user's platform iframe (apps.visionwaves.com) passes its own `?persona=`, so production ALSO sets `VITE_PERSONA_OVERRIDE=neocloud`
+(every load opens NeoCloud; the in-app switch still works until the next reload). Remove that variable + redeploy to give links control again.
 
 ## Incident severity words (07-Oct-2026, user)
 Incidents show Critical / High / Medium / Low (stored as sev 1–4; `lib/vocab.ts` `SEV_LABEL` / `sevLabel()` / `SEV_TONE` / `sevChipCls()`),

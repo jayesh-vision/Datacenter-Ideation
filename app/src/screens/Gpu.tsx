@@ -12,7 +12,8 @@ import { IncLink, SevChip, Fresh } from '../ui/status';
 import { Facts, MiniBars, SoftMeter, Split, StatGrid, StatTile, type Tone } from '../ui/Analytics';
 import { TimeChart } from '../charts/TimeChart';
 import { Sparkline } from '../charts/Sparkline';
-import type { GpuTelemetry, Leader } from '../mock/gpu-view';
+import type { GpuModelRow, GpuTelemetry, Leader } from '../mock/gpu-view';
+import { GPU_VENDORS, gpuName, gpuSpec } from '../lib/gpuSpec';
 import { fmtAgo, fmtDur, fmtMoney, fmtNum } from '../lib/format';
 import { OpstralBtn } from '../ui/OpstralMark';
 import { downloadCsv } from './ops/shared';
@@ -24,7 +25,7 @@ import '../styles/gpu.css';
    fleet as a heat map, then the nodes, cooling, power and the InfiniBand fabric.
    Colocation operators host tenant AI cages instead: power, coolant and inlet only. */
 
-type TabId = 'clusters' | 'jobs' | 'nodes' | 'telemetry' | 'cooling' | 'fabric';
+type TabId = 'clusters' | 'jobs' | 'nodes' | 'models' | 'telemetry' | 'cooling' | 'fabric';
 type NodeR = GpuNodeRow & { id: string };
 const short = (id: string) => id.replace(/^[A-Z]{2}-DC-\d{3}-/, '');
 const perH = (n: number) => `${fmtMoney(n)}/h`;
@@ -52,7 +53,7 @@ export function GpuPage() {
     <div className="page gpu">
       <PageHead title="AI & GPU" sub={cages ? 'Tenant AI cages: the high-density, liquid-cooled cabinets your tenants fill with GPUs — their power, coolant and inlet temperature.' : 'The GPU fleet, the AI jobs running on it, and what a single bad GPU costs — health, heat, power and the InfiniBand fabric.'}
         actions={<>
-          <Fresh>{cages ? 'Live · BMS and CDU telemetry' : 'Live · DCGM telemetry every 30 s'}</Fresh>
+          <Fresh>{cages ? 'Live · BMS and CDU telemetry' : v.fleet.models.some(m => m.vendor === 'Intel') ? 'Live · DCGM and Intel GPU telemetry every 30 s' : 'Live · DCGM telemetry every 30 s'}</Fresh>
           <select className="select" value={dc} onChange={e => setDc(e.target.value)} aria-label="Datacenter">
             <option value="">All datacenters</option>
             {v.sites.length ? (dc && !v.sites.some(s => s.id === dc) ? [{ id: dc, nodes: 0, cages: 0 }, ...v.sites] : v.sites).map(s => <option key={s.id} value={s.id}>{s.id} · {dcs.find(d => d.id === s.id)?.city ?? ''}{s.nodes ? ` · ${s.nodes} nodes` : s.cages ? ` · ${s.cages} cages` : ''}</option>) : null}
@@ -78,8 +79,8 @@ export function GpuBody({ v, embedded }: { v: GpuView; embedded?: boolean }) {
 function Fleet({ v, embedded }: { v: GpuView; embedded?: boolean }) {
   const [sp, setSp] = useSearchParams();
   const { vocab: V } = usePersona();
-  const tab = (['clusters', 'jobs', 'nodes', 'telemetry', 'cooling', 'fabric'].includes(sp.get('gtab') ?? '') ? sp.get('gtab') : 'clusters') as TabId;
-  const go = (t: TabId, patch: Record<string, string> = {}) => { const n = new URLSearchParams(sp); ['gtab', 'gstate', 'q', 'gview'].forEach(k => n.delete(k)); if (t !== 'clusters') n.set('gtab', t); Object.entries(patch).forEach(([k, x]) => n.set(k, x)); setSp(n, { replace: true }); };
+  const tab = (['clusters', 'jobs', 'nodes', 'models', 'telemetry', 'cooling', 'fabric'].includes(sp.get('gtab') ?? '') ? sp.get('gtab') : 'clusters') as TabId;
+  const go = (t: TabId, patch: Record<string, string> = {}) => { const n = new URLSearchParams(sp); ['gtab', 'gstate', 'q', 'gview', 'gmodel'].forEach(k => n.delete(k)); if (t !== 'clusters') n.set('gtab', t); Object.entries(patch).forEach(([k, x]) => n.set(k, x)); setSp(n, { replace: true }); };
   const [node, setNode] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const f = v.fleet, js = v.jobsSummary, w = v.waste;
@@ -95,7 +96,7 @@ function Fleet({ v, embedded }: { v: GpuView; embedded?: boolean }) {
       <StatGrid>
         <StatTile label="GPUs" value={fmtNum(f.gpus)} sub={`${f.nodes} nodes`} onClick={() => go('nodes')} active={tab === 'nodes'}>
           <Split parts={[{ key: 'h', label: 'Healthy', n: f.gpuHealth.healthy, tone: 'info' }, { key: 'd', label: 'Degraded', n: f.gpuHealth.degraded, tone: 'orange' }, { key: 'f', label: 'Failed', n: f.gpuHealth.failed, tone: 'error' }]} onPick={k => go('nodes', { gstate: k === 'h' ? '' : k === 'd' ? 'degraded' : 'failed' })} />
-          <Facts items={[{ n: f.models.map(m => m.model.split(' ')[0]).join(' · '), label: '' }]} />
+          <Facts items={[{ n: GPU_VENDORS.map(vd => ({ vd, n: f.models.filter(m => m.vendor === vd).reduce((a, m) => a + m.gpus, 0) })).filter(x => x.n).map(x => `${x.vd} ${fmtNum(x.n)}`).join(' · '), label: '' }]} />
         </StatTile>
         <StatTile label="Allocation" value={`${f.allocatedPct}%`} sub="in jobs" onClick={() => go('clusters')} active={tab === 'clusters'}>
           <Split parts={[{ key: 'j', label: 'In jobs', n: f.inJobGpus, tone: 'info' }, { key: 's', label: 'Spare', n: f.spareGpus, tone: 'neutral' }, { key: 'o', label: 'Out of service', n: f.outGpus, tone: 'warning' }]} />
@@ -130,6 +131,7 @@ function Fleet({ v, embedded }: { v: GpuView; embedded?: boolean }) {
         { id: 'clusters', label: 'Clusters', icon: I.LayoutGrid, count: v.clusters.length },
         { id: 'jobs', label: 'Jobs', icon: I.BrainCircuit, count: js.total },
         { id: 'nodes', label: 'Nodes', icon: I.Server, count: f.nodes },
+        { id: 'models', label: 'GPU models', icon: I.Cpu, count: f.models.length },
         { id: 'telemetry', label: 'Telemetry', icon: I.Activity },
         { id: 'cooling', label: 'Cooling & power', icon: I.Thermometer, count: cduBad.length + v.racks.filter(r => r.state !== 'ok').length || undefined },
         { id: 'fabric', label: 'Fabric', icon: I.Network }
@@ -137,13 +139,14 @@ function Fleet({ v, embedded }: { v: GpuView; embedded?: boolean }) {
       {tab === 'clusters' && <Clusters v={v} onNode={setNode} />}
       {tab === 'jobs' && <Jobs v={v} onJob={setJobId} hideDc={!!v.dcId} />}
       {tab === 'nodes' && <Nodes v={v} onNode={setNode} hideDc={!!v.dcId} />}
+      {tab === 'models' && <Models v={v} onModel={m => go('nodes', { gmodel: m })} />}
       {tab === 'telemetry' && v.telemetry && <Telemetry t={v.telemetry} v={v} onNode={setNode} />}
       {tab === 'cooling' && <CoolingPower v={v} />}
       {tab === 'fabric' && <Fabric v={v} onNode={setNode} />}
 
       <NodeDrawer id={node} onClose={() => setNode(null)} onJob={id => { setNode(null); setJobId(id); }} />
       <JobDrawer j={job} v={v} onClose={() => setJobId(null)} onNode={id => { setJobId(null); setNode(id); }} />
-      <span className="vw-label gpu-foot">GPU time is priced at {fmtMoney(v.rate)} per GPU-hour ({v.rateLabel}). A stalled job loses all its GPUs, a slowed job the share of each step it loses, an idle allocation everything it holds. {V.money.impact} counts what {V.customers.toLowerCase()} are billed; this counts productive GPU time.</span>
+      <span className="vw-label gpu-foot">GPU time is priced at {fmtMoney(v.rate)} per H100 GPU-hour ({v.rateLabel}); other models are scaled to their list price. A stalled job loses all its GPUs, a slowed job the share of each step it loses, an idle allocation everything it holds. {V.money.impact} counts what {V.customers.toLowerCase()} are billed; this counts productive GPU time.</span>
     </div>
   );
 }
@@ -243,7 +246,7 @@ function ClusterCard({ c, v, onNode }: { c: GpuClusterRow; v: GpuView; onNode: (
   return (
     <section className={`vw-card-section gpu-cl is-${c.worst}`}>
       <div className="gpu-cl-h">
-        <div className="gpu-cl-id"><b>{c.dcId} · {c.name}</b><span className="vw-label">{c.model} · {c.cooling === 'liquid' ? 'liquid-cooled' : 'air-cooled'} · {c.scheduler}</span></div>
+        <div className="gpu-cl-id"><b>{c.dcId} · {c.name}</b><span className="vw-label"><VendorTag v={c.vendor} />{c.model} · {c.cooling === 'liquid' ? 'liquid-cooled' : 'air-cooled'} · {c.scheduler}</span></div>
         <span className={`gpu-dot is-${c.worst}`} title={c.worst === 'ok' ? 'Healthy' : c.worst === 'warn' ? 'Needs attention' : 'Fault'} />
       </div>
       <div className="gpu-cl-stats">
@@ -275,7 +278,7 @@ function Jobs({ v, onJob, hideDc }: { v: GpuView; onJob: (id: string) => void; h
   const rows = v.jobs.filter(j => (!st || j.state === st || (st === 'slowed' && j.state === 'at-risk')) && (!kind || j.kind === kind) && (!q || `${j.id} ${j.name} ${j.owner} ${j.dcId}`.toLowerCase().includes(q.toLowerCase())));
   const max = Math.max(1, ...v.jobs.map(j => j.wasteRate));
   const cols: Col<GpuJobRow>[] = [
-    { key: 'job', header: 'Job', wrap: true, sort: j => j.name, render: j => <span className="cell-2"><span className="gpu-strong">{j.name}</span><small>{j.id} · {j.kind}{hideDc ? '' : ` · ${j.dcId}`} {j.cluster}</small></span> },
+    { key: 'job', header: 'Job', wrap: true, sort: j => j.name, render: j => <span className="cell-2"><span className="gpu-strong">{j.name}</span><small>{j.id} · {j.kind}{hideDc ? '' : ` · ${j.dcId}`} {j.cluster} · {j.gpuModel}</small></span> },
     { key: 'owner', header: V.customer, wrap: true, sort: j => j.owner, render: j => <span className="cell-2"><span>{j.owner}</span>{j.premium && <small>{V.premium}</small>}</span> },
     { key: 'gpus', header: 'GPUs', sort: j => j.gpus, render: j => <span className="cell-2"><span className="num">{j.gpus}</span><small className="nowrap">{j.nodes.length} node{j.nodes.length === 1 ? '' : 's'}</small></span> },
     { key: 'state', header: 'State', sort: j => ['stalled', 'at-risk', 'slowed', 'idle', 'running'].indexOf(j.state), render: j => <StateChip s={j.state} /> },
@@ -302,14 +305,14 @@ function Jobs({ v, onJob, hideDc }: { v: GpuView; onJob: (id: string) => void; h
 
 function Nodes({ v, onNode, hideDc }: { v: GpuView; onNode: (id: string) => void; hideDc?: boolean }) {
   const [sp, setSp] = useSearchParams();
-  const st = sp.get('gstate') ?? '', q = sp.get('q') ?? '';
+  const st = sp.get('gstate') ?? '', q = sp.get('q') ?? '', model = sp.get('gmodel') ?? '';
   const [view, setView] = useState('');
   const set = (k: string, x: string) => { const n = new URLSearchParams(sp); x ? n.set(k, x) : n.delete(k); setSp(n, { replace: true }); };
   const match = (n: GpuNodeRow) => !st || (st === 'degraded' ? n.worst !== 'ok' : st === 'failed' ? n.health === 'failed' || n.state === 'failed' : n.state === st);
-  const rows = useMemo<NodeR[]>(() => v.nodes.map(n => ({ ...n, id: n.neId })).filter(n => match(n) && (!view || (view === 'drift' ? n.drift : view === 'liquid' ? n.cooling === 'liquid' : n.throttled > 0)) && (!q || `${n.neId} ${n.job ?? ''} ${n.owner ?? ''} ${n.rackName}`.toLowerCase().includes(q.toLowerCase())))
-    .sort((a, b) => ({ bad: 0, warn: 1, ok: 2 })[a.worst] - ({ bad: 0, warn: 1, ok: 2 })[b.worst]), [v.nodes, st, view, q]);
+  const rows = useMemo<NodeR[]>(() => v.nodes.map(n => ({ ...n, id: n.neId })).filter(n => match(n) && (!model || n.model === model || n.vendor === model) && (!view || (view === 'drift' ? n.drift : view === 'liquid' ? n.cooling === 'liquid' : n.throttled > 0)) && (!q || `${n.neId} ${n.job ?? ''} ${n.owner ?? ''} ${n.rackName}`.toLowerCase().includes(q.toLowerCase())))
+    .sort((a, b) => ({ bad: 0, warn: 1, ok: 2 })[a.worst] - ({ bad: 0, warn: 1, ok: 2 })[b.worst]), [v.nodes, st, view, q, model]);
   const cols: Col<NodeR>[] = [
-    { key: 'node', header: 'Node', sort: n => n.neId, render: n => <span className="cell-2"><span className="mono gpu-strong">{short(n.neId)}</span><small className="nowrap">{hideDc ? '' : `${n.dcId} · `}{n.rackName} · {n.cluster}</small></span> },
+    { key: 'node', header: 'Node', sort: n => n.neId, render: n => <span className="cell-2"><span className="nowrap" title={`${gpuName(n.model)} × 8 · ${n.server}`}><span className="mono gpu-strong">{short(n.neId)}</span> <VendorTag v={n.vendor} /><span className="gpu-model-s">{gpuSpec(n.model).short}</span></span><small className="nowrap">{hideDc ? '' : `${n.dcId} · `}{n.rackName} · {n.cluster}</small></span> },
     { key: 'gpus', header: 'GPUs', render: n => <span className="gpu-strip" aria-label="GPU health">{n.gpus.map(g => <i key={g.idx} title={`GPU${g.idx} · ${g.util}% · ${g.tempC}°C${g.throttle !== 'none' ? ` · ${g.throttle}` : ''}${g.xid ? ` · Xid ${g.xid.code}` : ''}`} style={{ background: cellColor(g.health, g.util, g.throttle, n.state) }} />)}</span> },
     { key: 'state', header: 'State', sort: n => n.state, render: n => <StateChip s={n.state} /> },
     { key: 'job', header: 'Job', wrap: true, sort: n => n.job ?? '', render: n => (n.job ? <span className="cell-2"><span>{n.job}</span><small>{n.owner}</small></span> : <span className="faint">{n.note ?? '—'}</span>) },
@@ -324,6 +327,9 @@ function Nodes({ v, onNode, hideDc }: { v: GpuView; onNode: (id: string) => void
       <DataTable rows={rows} cols={cols} onRow={n => onNode(n.neId)} pageSize={25}
         toolbar={<ListToolbar shown={rows.length} total={v.nodes.length} noun="nodes" search={{ value: q, onChange: x => set('q', x), placeholder: 'Node, job, rack' }}
           filters={[
+            { id: 'gmodel', label: 'GPU model', quick: true, value: model, anyLabel: 'Any model', onChange: x => set('gmodel', x), options: [
+              ...GPU_VENDORS.filter(vd => v.nodes.some(n => n.vendor === vd)).map(vd => ({ id: vd, label: `All ${vd}`, count: v.nodes.filter(n => n.vendor === vd).length })),
+              ...v.fleet.models.map(m => ({ id: m.model, label: gpuName(m.model), count: m.nodes }))] },
             { id: 'gstate', label: 'Condition', quick: true, value: st, anyLabel: 'Any condition', onChange: x => set('gstate', x), options: [
               { id: 'degraded', label: 'Needs attention', count: v.nodes.filter(n => n.worst !== 'ok').length }, { id: 'failed', label: 'Failed', count: v.nodes.filter(n => n.health === 'failed' || n.state === 'failed').length },
               { id: 'in-job', label: 'In a job', count: v.nodes.filter(n => n.state === 'in-job').length }, { id: 'idle', label: 'Spare', count: v.nodes.filter(n => n.state === 'idle').length },
@@ -332,6 +338,51 @@ function Nodes({ v, onNode, hideDc }: { v: GpuView; onNode: (id: string) => void
               { id: 'throttled', label: 'Throttled', count: v.nodes.filter(n => n.throttled > 0).length }, { id: 'drift', label: `Old driver (not ${v.fleet.driverStd})`, count: v.nodes.filter(n => n.drift).length }, { id: 'liquid', label: 'Liquid-cooled', count: v.nodes.filter(n => n.cooling === 'liquid').length }] }
           ]} />} />
     </section>
+  );
+}
+
+/* ---------------------------------------------------------------- models */
+
+export const VendorTag = ({ v }: { v: string }) => <span className={`gpu-vendor is-${v.toLowerCase()}`}>{v}</span>;
+
+/* the accelerator models in the fleet: datasheet, where they run, how busy and healthy they are */
+function Models({ v, onModel }: { v: GpuView; onModel: (m: string) => void }) {
+  const [vendor, setVendor] = useState('');
+  const ms = v.fleet.models;
+  const rows = ms.filter(m => !vendor || m.vendor === vendor).map(m => ({ ...m, id: m.model }));
+  const total = ms.reduce((a, m) => a + m.gpus, 0);
+  const vendors = GPU_VENDORS.map(vd => ({ vd, ms: ms.filter(m => m.vendor === vd) })).filter(x => x.ms.length);
+  const cols: Col<GpuModelRow & { id: string }>[] = [
+    { key: 'model', header: 'GPU model', wrap: true, sort: m => `${m.vendor} ${m.model}`, render: m => <span className="cell-2 gpu-model-cell"><span className="nowrap gpu-strong"><VendorTag v={m.vendor} />{m.model}</span><small>{gpuSpec(m.model).arch} · {gpuSpec(m.model).memGb} GB {gpuSpec(m.model).memType} · {gpuSpec(m.model).tdpW} W · {gpuSpec(m.model).form}</small></span> },
+    { key: 'use', header: 'Used for', sort: m => gpuSpec(m.model).use, render: m => <span className={`vw-chip ${gpuSpec(m.model).use === 'training' ? 'vw-chip--info' : 'vw-chip--neutral'} cmd-chip`}>{gpuSpec(m.model).use === 'training' ? 'Training' : 'Inference'}</span> },
+    { key: 'gpus', header: 'GPUs', sort: m => m.gpus, render: m => <span className="cell-2"><span className="num">{fmtNum(m.gpus)}</span><small className="nowrap">{m.nodes} nodes · {m.clusters} pod{m.clusters === 1 ? '' : 's'} · {fmtNum(m.powerKw)} kW</small></span> },
+    { key: 'sites', header: 'Datacenters', wrap: true, sort: m => m.sites.length, render: m => <span className="cell-2"><span className="num">{m.sites.length}</span><small>{m.sites.slice(0, 3).join(' · ')}{m.sites.length > 3 ? ` +${m.sites.length - 3}` : ''}</small></span> },
+    { key: 'link', header: 'Scale-up · scale-out', wrap: true, render: m => <span className="cell-2"><span>{gpuSpec(m.model).link || 'PCIe only'}</span><small>{gpuSpec(m.model).fabric}</small></span> },
+    { key: 'busy', header: 'In jobs · busy', sort: m => m.inJob / Math.max(1, m.gpus), render: m => <span className="cell-2"><span className="num nowrap">{Math.round((m.inJob / Math.max(1, m.gpus)) * 100)}% allocated</span><small className="nowrap">{m.util}% busy in jobs</small></span> },
+    { key: 'health', header: 'Health', sort: m => m.failed * 100 + m.degraded, render: m => (m.failed || m.degraded ? <span className="cell-2">{m.failed > 0 && <span className="gpu-bad nowrap num">{m.failed} failed</span>}{m.degraded > 0 && <span className="gpu-warn nowrap num">{m.degraded} degraded</span>}</span> : <span className="faint">all healthy</span>) },
+    { key: 'tel', header: 'Telemetry', wrap: true, hideBelow: 1600, render: m => <span className="vw-label">{gpuSpec(m.model).telemetry}</span> }
+  ];
+  return (
+    <div className="col" style={{ gap: 12 }}>
+      <div className="gpu-vendors">
+        {vendors.map(x => {
+          const n = x.ms.reduce((a, m) => a + m.gpus, 0);
+          return (
+            <button key={x.vd} type="button" className={`vw-card-section gpu-vendor-card${vendor === x.vd ? ' is-on' : ''}`} onClick={() => setVendor(vendor === x.vd ? '' : x.vd)} aria-pressed={vendor === x.vd}>
+              <span className="gpu-vendor-h"><VendorTag v={x.vd} /><span className="vw-label">{Math.round((n / Math.max(1, total)) * 100)}% of the fleet</span></span>
+              <b className="num">{fmtNum(n)} <small>GPUs</small></b>
+              <span className="gpu-vendor-bar">{x.ms.map(m => <i key={m.model} style={{ flex: m.gpus }} title={`${m.model} · ${fmtNum(m.gpus)} GPUs`} />)}</span>
+              <span className="gpu-vendor-ms">{x.ms.map(m => <span key={m.model}><b>{gpuSpec(m.model).short}</b> {fmtNum(m.gpus)}</span>)}</span>
+            </button>
+          );
+        })}
+      </div>
+      <section className="card">
+        <DataTable rows={rows} cols={cols} onRow={m => onModel(m.model)} pageSize={20} defaultSort={{ key: 'gpus', dir: 'desc' }}
+          toolbar={<ListToolbar shown={rows.length} total={ms.length} noun="GPU models"
+            filters={[{ id: 'vendor', label: 'Vendor', quick: true, value: vendor, anyLabel: 'Any vendor', onChange: setVendor, options: vendors.map(x => ({ id: x.vd, label: x.vd, count: x.ms.length })) }]} />} />
+      </section>
+    </div>
   );
 }
 
@@ -448,7 +499,7 @@ function Telemetry({ t, v, onNode }: { t: GpuTelemetry; v: GpuView; onNode: (id:
         <Lead title="NVLink errors" items={t.leaders.nvlink} hint="DCGM_FI_DEV_NVLINK_*_ERROR_COUNT_TOTAL" />
         <Lead title="Correctable ECC" items={t.leaders.sbe} hint="DCGM_FI_DEV_ECC_SBE_VOL_TOTAL · many SBE on one GPU foreshadow a DBE" />
         <Lead title="Allocated but idle" items={t.leaders.idle} hint="in a job, under 5% utilisation" />
-        <Panel title="Metrics collected" icon={I.ListChecks} sub="NVIDIA DCGM exporter fields behind this page">
+        <Panel title="Metrics collected" icon={I.ListChecks} sub={v.fleet.models.some(m => m.vendor === 'Intel') ? 'NVIDIA DCGM exporter fields behind this page · Intel Gaudi (habanalabs exporter) and Data Center GPU Max (XPU Manager) report the same counters under their own names' : 'NVIDIA DCGM exporter fields behind this page'}>
           <ul className="gpu-fields">{t.fields.map(x => <li key={x.field}><code>{x.field}</code><span>{x.what}</span></li>)}</ul>
         </Panel>
       </div>
@@ -466,7 +517,7 @@ function NodeDrawer({ id, onClose, onJob }: { id: string | null; onClose: () => 
   const d = data && data.node.neId === id ? data : null;
   const n = d?.node;
   return (
-    <Drawer open onClose={onClose} width={860} title={n ? short(n.neId) : id} sub={n ? `${n.model} × 8 · ${n.dcId} · ${n.rackName} · ${n.cluster} · ${n.cooling === 'liquid' ? 'liquid-cooled' : 'air-cooled'}` : 'Loading'}
+    <Drawer open onClose={onClose} width={860} title={n ? short(n.neId) : id} sub={n ? `${gpuName(n.model)} × 8 · ${n.dcId} · ${n.rackName} · ${n.cluster} · ${n.cooling === 'liquid' ? 'liquid-cooled' : 'air-cooled'}` : 'Loading'}
       foot={<>
         <Btn icon={I.Server} onClick={() => nav(`/ne/${encodeURIComponent(id)}?tab=gpus`)}>Open device</Btn>
         {n?.jobId && <Btn icon={I.BrainCircuit} onClick={() => onJob(n.jobId!)}>Open job</Btn>}
@@ -482,7 +533,8 @@ function NodeDrawer({ id, onClose, onJob }: { id: string | null; onClose: () => 
 /* Everything DCGM reports for one node: recommendation, node figures, the per-GPU table in two views
    (health and profiling), 24 h history, InfiniBand ports and alarms. Shared by the AI & GPU drawer and the device page. */
 export function GpuNodeDetail({ d }: { d: NonNullable<Awaited<ReturnType<typeof getGpuNode>>> }) {
-  const n = d.node;
+  const n = d.node, spec = gpuSpec(n.model), nv = n.vendor === 'NVIDIA';
+  const ib = spec.fabric.startsWith('InfiniBand');
   const [view, setView] = useState<'health' | 'profile'>('health');
   const action = n.gpus.some(g => g.xid?.code === 79) ? 'Cordon the node, restart the job from its checkpoint on a spare node, then run DCGM level-3 diagnostics; RMA the GPU if they fail.'
     : n.gpus.some(g => g.remapPending) ? 'Let the job reach its next checkpoint, then drain the node and reset the GPU to apply the row remap.'
@@ -496,17 +548,25 @@ export function GpuNodeDetail({ d }: { d: NonNullable<Awaited<ReturnType<typeof 
     <div className="gpu-drawer">
       <div className="row wrap" style={{ gap: 8 }}><StateChip s={n.state} />{n.job && <span className="vw-label">{n.job} · {n.owner}</span>}{n.note && <span className="vw-label">{n.note}</span>}</div>
       {action && <div className={`note ${n.worst === 'bad' ? 'note--bad' : 'note--warn'}`}><I.Wrench size={15} /><span><b>Recommended:</b> {action}</span></div>}
+      <div className="gpu-hw" data-gpu-hw>
+        <span className="gpu-hw-name"><VendorTag v={n.vendor} /><b>{n.model}</b><span className="vw-label">× 8 · {spec.arch}</span></span>
+        <span><span className="vw-label">Server</span>{n.server}</span>
+        <span><span className="vw-label">Memory</span>{spec.memGb} GB {spec.memType}</span>
+        <span><span className="vw-label">Power limit</span>{spec.tdpW} W · {spec.form}</span>
+        <span><span className="vw-label">Scale-up</span>{spec.link || 'none (PCIe only)'}</span>
+        <span><span className="vw-label">Telemetry</span>{spec.telemetry}</span>
+      </div>
       <div className="rev-figs">
         <div className="rev-fig"><span className="vw-label">Utilisation</span><b className="num">{n.util}%</b><small>SM active {Math.round(n.gpus.reduce((a, g) => a + g.smActive, 0) / 8)}% · tensor {Math.round(n.gpus.reduce((a, g) => a + g.tensorActive, 0) / 8)}%</small></div>
-        <div className="rev-fig"><span className="vw-label">Node power</span><b className="num">{n.powerKw} kW</b><small>GPUs {(n.gpus.reduce((a, g) => a + g.powerW, 0) / 1000).toFixed(1)} kW of {(n.gpus.length * 0.7).toFixed(1)} · {n.gpus.reduce((a, g) => a + g.energyKwh24, 0).toFixed(0)} kWh / 24 h</small></div>
+        <div className="rev-fig"><span className="vw-label">Node power</span><b className="num">{n.powerKw} kW</b><small>GPUs {(n.gpus.reduce((a, g) => a + g.powerW, 0) / 1000).toFixed(1)} kW of {(n.gpus.reduce((a, g) => a + g.tdpW, 0) / 1000).toFixed(1)} · {n.gpus.reduce((a, g) => a + g.energyKwh24, 0).toFixed(0)} kWh / 24 h</small></div>
         <div className="rev-fig"><span className="vw-label">Hottest GPU</span><b className={`num${n.maxTemp >= 85 ? ' gpu-bad' : ''}`}>{n.maxTemp}°C</b><small>HBM {Math.max(...n.gpus.map(g => g.hbmC))}°C{n.cooling === 'air' ? ` · fans ${Math.round(n.gpus.reduce((a, g) => a + g.fanPct, 0) / 8)}%` : ' · liquid'}</small></div>
         <div className="rev-fig"><span className="vw-label">Driver</span><b className={`num${n.drift ? ' gpu-warn' : ''}`}>{n.driver}</b><small>{n.firmware}</small></div>
       </div>
       <div className="rev-sec">
-        <div className="rev-sec-h"><b>Per GPU</b><span className="vw-label">as the DCGM exporter reports it</span><span className="grow" /><Seg size="sm" value={view} onChange={setView} options={[{ id: 'health', label: 'Health' }, { id: 'profile', label: 'Profiling & traffic' }]} /></div>
+        <div className="rev-sec-h"><b>Per GPU</b><span className="vw-label">as {nv ? 'the DCGM exporter' : spec.telemetry} reports it</span><span className="grow" /><Seg size="sm" value={view} onChange={setView} options={[{ id: 'health', label: 'Health' }, { id: 'profile', label: 'Profiling & traffic' }]} /></div>
         <div className="dt-scroll"><table className="nst-table dt-table gpu-gpus">
           {view === 'health' ? <>
-            <thead><tr><th>GPU</th><th>Health</th><th>Util</th><th>Memory</th><th>Temp · HBM</th><th>Power</th><th>Clock · P-state</th><th>Throttle</th><th>ECC · pages</th><th>NVLink err</th><th>Last Xid</th></tr></thead>
+            <thead><tr><th>GPU</th><th>Health</th><th>Util</th><th>Memory</th><th>Temp · HBM</th><th>Power</th><th>Clock · P-state</th><th>Throttle</th><th>ECC · pages</th><th>{spec.link ? `${spec.linkShort} err` : 'Link err'}</th><th>{nv ? 'Last Xid' : 'Last error'}</th></tr></thead>
             <tbody>{n.gpus.map(g => (
               <tr key={g.idx} className={g.health !== 'healthy' ? `is-${g.health}` : ''}>
                 <td className="mono">GPU{g.idx}</td>
@@ -518,18 +578,18 @@ export function GpuNodeDetail({ d }: { d: NonNullable<Awaited<ReturnType<typeof 
                 <td className="num nowrap">{g.clockMhz} MHz · {g.pstate}</td>
                 <td className={g.throttle !== 'none' ? 'gpu-warn nowrap' : 'faint'}>{g.throttle === 'none' ? '—' : g.throttle}</td>
                 <td className="num nowrap">{g.dbe ? <span className="gpu-bad">{g.dbe} DBE</span> : null}{g.dbe && g.sbe ? ' · ' : ''}{g.sbe ? `${g.sbe} SBE` : g.dbe ? '' : '—'}{g.remapPending ? <small className="gpu-warn"> remap</small> : null}{g.retiredPages ? <small className="gpu-warn"> · {g.retiredPages} pg</small> : null}</td>
-                <td className={`num${g.nvlinkErr > 100 ? ' gpu-bad' : ''}`}>{g.nvlinkErr || '—'}</td>
+                <td className={`num${g.nvlinkErr > 100 ? ' gpu-bad' : ''}`}>{spec.link ? g.nvlinkErr || '—' : '—'}</td>
                 <td>{g.xid ? <span className="gpu-bad nowrap" title={`${g.xid.text} · ${new Date(g.xid.at).toTimeString().slice(0, 5)}`}>Xid {g.xid.code}</span> : <span className="faint">—</span>}</td>
               </tr>))}</tbody>
           </> : <>
-            <thead><tr><th>GPU</th><th>Util</th><th>SM active</th><th>SM occ.</th><th>Tensor</th><th>Mem copy</th><th>DRAM</th><th>Mem clock</th><th>Fan</th><th>PCIe rx / tx</th><th>PCIe replay</th><th>NVLink rx / tx</th><th>Energy 24 h</th></tr></thead>
+            <thead><tr><th>GPU</th><th>Util</th><th>SM active</th><th>SM occ.</th><th>Tensor</th><th>Mem copy</th><th>DRAM</th><th>Mem clock</th><th>Fan</th><th>PCIe rx / tx</th><th>PCIe replay</th><th>{spec.link ? spec.linkShort : 'Scale-up'} rx / tx</th><th>Energy 24 h</th></tr></thead>
             <tbody>{n.gpus.map(g => (
               <tr key={g.idx} className={g.health !== 'healthy' ? `is-${g.health}` : ''}>
                 <td className="mono">GPU{g.idx}</td>
                 <td className="num">{g.util}%</td><td className="num">{g.smActive}%</td><td className="num">{g.smOccupancy}%</td><td className="num">{g.tensorActive}%</td><td className="num">{g.memCopyUtil}%</td><td className="num">{g.dramActive}%</td>
                 <td className="num nowrap">{g.memClockMhz} MHz</td><td className="num">{n.cooling === 'air' ? `${g.fanPct}%` : '—'}</td>
                 <td className="num nowrap">{g.pcieRxGbs} / {g.pcieTxGbs} GB/s</td><td className={`num${g.pcieReplay > 100 ? ' gpu-bad' : g.pcieReplay ? ' gpu-warn' : ''}`}>{g.pcieReplay || '—'}</td>
-                <td className="num nowrap">{g.nvlinkRxGbs} / {g.nvlinkTxGbs} GB/s</td><td className="num nowrap">{g.energyKwh24} kWh</td>
+                <td className="num nowrap">{spec.link ? `${g.nvlinkRxGbs} / ${g.nvlinkTxGbs} GB/s` : '—'}</td><td className="num nowrap">{g.energyKwh24} kWh</td>
               </tr>))}</tbody>
           </>}
         </table></div>
@@ -544,8 +604,8 @@ export function GpuNodeDetail({ d }: { d: NonNullable<Awaited<ReturnType<typeof 
         <span className="vw-label">{hours[0]} to {hours[23]}</span>
       </div>
       <div className="rev-sec">
-        <div className="rev-sec-h"><b>InfiniBand ports</b><span className="vw-label">one 400G port per GPU, on rails 0–7</span></div>
-        <div className="gpu-ports">{n.ib.map(p => <span key={p.rail} className={`gpu-port is-${p.state}`} title={`${fmtNum(p.errors)} symbol errors`}><b>ib{p.rail}</b>{p.state === 'up' ? `${p.errors} err` : p.state}</span>)}</div>
+        <div className="rev-sec-h"><b>{ib ? 'InfiniBand ports' : 'Scale-out ports'}</b><span className="vw-label">{ib ? `one port per GPU, on rails 0–7 · ${spec.fabric}` : spec.fabric}</span></div>
+        <div className="gpu-ports">{n.ib.map(p => <span key={p.rail} className={`gpu-port is-${p.state}`} title={`${fmtNum(p.errors)} symbol errors`}><b>{ib ? 'ib' : 'eth'}{p.rail}</b>{p.state === 'up' ? `${p.errors} err` : p.state}</span>)}</div>
       </div>
       {d.alerts.length > 0 && (
         <div className="rev-sec">

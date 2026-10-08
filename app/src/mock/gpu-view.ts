@@ -4,15 +4,19 @@
 
 import type { AiCage, Cdu, Gpu, GpuCluster, GpuJob, GpuNode, Persona } from '../api/types';
 import type { Db } from './generate';
+import { isDrift, jobRate } from './gpu';
+import { gpuSpec } from '../lib/gpuSpec';
 
 const HOUR = 3600000;
 export type Worst = 'ok' | 'warn' | 'bad';
 export interface GpuJobRow extends GpuJob {
-  owner: string; premium: boolean; cluster: string; slowdownPct: number;
+  owner: string; premium: boolean; cluster: string; gpuModel: string; slowdownPct: number;
   /* GPU time being lost now (₹/h), lost so far (₹), work to redo since the last checkpoint (₹), at stake if an at-risk job crashes (₹) */
   wasteRate: number; wasteSoFar: number; redo: number; atStake: number;
   incidentSev?: number; incidentStatus?: string;
 }
+/* one accelerator model in scope: how many, where, how busy and how healthy */
+export interface GpuModelRow { model: GpuNode['model']; vendor: GpuNode['vendor']; nodes: number; gpus: number; inJob: number; util: number; degraded: number; failed: number; sites: string[]; clusters: number; powerKw: number }
 export interface GpuNodeRow extends GpuNode { cluster: string; job?: string; jobState?: string; owner?: string; util: number; maxTemp: number; throttled: number; xid?: Gpu['xid']; worst: Worst; alerts: number; rackName: string; room: string; drift: boolean }
 export interface GpuClusterRow extends GpuCluster { gpus: number; inJob: number; spare: number; out: number; healthy: number; degraded: number; failed: number; jobs: number; util: number; powerKw: number; worst: Worst; cells: { neId: string; state: GpuNode['state']; worst: Worst; jobId?: string; g: { h: Gpu['health']; u: number; t: number; th: Gpu['throttle'] }[] }[] }
 export interface GpuRackRow { id: string; name: string; dcId: string; room: string; drawKw: number; budgetKw: number; liquid: boolean; nodes: number; maxTemp: number; cdu?: string; state: Worst }
@@ -35,7 +39,7 @@ export interface GpuView {
     nodes: number; gpus: number; nodeState: Record<GpuNode['state'], number>; gpuHealth: Record<Gpu['health'], number>;
     inJobGpus: number; spareGpus: number; outGpus: number; allocatedPct: number; utilInJobs: number;
     throttle: { thermal: number; hw: number; power: number }; hottest: number; xid: { code: number; text: string; n: number }[]; sbe: number; dbe: number; remapPending: number;
-    driftNodes: number; driverStd: string; rmaOpen: number; burnIn: number; liquidNodes: number; powerKw: number; models: { model: string; nodes: number }[];
+    driftNodes: number; driverStd: string; rmaOpen: number; burnIn: number; liquidNodes: number; powerKw: number; models: GpuModelRow[];
   };
   jobsSummary: { running: number; slowed: number; stalled: number; atRisk: number; idle: number; total: number; gpus: number };
   waste: { rate: number; stalled: number; slowed: number; idle: number; soFar: number; redo: number; atStake: number };
@@ -92,20 +96,20 @@ export function gpuView(db: Db, persona: Persona, dcId?: string): GpuView {
     const xid = n.gpus.map(g => g.xid).filter(Boolean).sort((a, b) => b!.at - a!.at)[0] ?? undefined;
     return { ...n, cluster: clusterById.get(n.clusterId)?.name ?? '', job: j?.name, jobState: j?.state, owner: j ? cust.get(j.customerId)?.name : undefined,
       util: Math.round(n.gpus.reduce((a, g) => a + g.util, 0) / 8), maxTemp: Math.max(...n.gpus.map(g => g.tempC)), throttled: n.gpus.filter(g => g.throttle !== 'none').length, xid,
-      worst: worstOf(n), alerts: alertsOn.get(n.neId) ?? 0, rackName: rk?.name ?? n.rackId, room: rk ? `${rk.floor} · ${rk.room}` : '', drift: n.driver !== st.driverStd };
+      worst: worstOf(n), alerts: alertsOn.get(n.neId) ?? 0, rackName: rk?.name ?? n.rackId, room: rk ? `${rk.floor} · ${rk.room}` : '', drift: isDrift(n) };
   });
 
   /* jobs and the GPU time they are losing */
   const jobs: GpuJobRow[] = st.jobs.filter(j => inScope(j.dcId)).map(j => {
     const c = cust.get(j.customerId);
     const slow = j.state === 'slowed' ? 1 - j.baselineMs / j.stepMs : 0;
-    const perH = j.gpus * rate;
+    const perH = j.gpus * jobRate(st, j);
     const hrs = j.since ? (now - j.since) / HOUR : 0;
     const wasteRate = j.state === 'stalled' || j.state === 'idle' ? perH : j.state === 'slowed' ? perH * slow : 0;
     const redo = j.state === 'stalled' && j.since ? perH * ((j.since - j.lastCheckpoint) / HOUR) : 0;
     const atStake = j.state === 'at-risk' ? perH * (j.checkpointMin / 60) : 0;
     const inc = j.incidentId ? incById.get(j.incidentId) : undefined;
-    return { ...j, owner: c?.name ?? j.customerId, premium: !!c?.premium, cluster: clusterById.get(j.clusterId)?.name ?? '', slowdownPct: Math.round(slow * 100), wasteRate: Math.round(wasteRate), wasteSoFar: Math.round(wasteRate * hrs), redo: Math.round(redo), atStake: Math.round(atStake), incidentSev: inc?.sev, incidentStatus: inc?.status };
+    return { ...j, owner: c?.name ?? j.customerId, premium: !!c?.premium, cluster: clusterById.get(j.clusterId)?.name ?? '', gpuModel: `${clusterById.get(j.clusterId)?.vendor ?? ''} ${gpuSpec(clusterById.get(j.clusterId)?.model ?? 'H100 SXM 80 GB').short}`.trim(), slowdownPct: Math.round(slow * 100), wasteRate: Math.round(wasteRate), wasteSoFar: Math.round(wasteRate * hrs), redo: Math.round(redo), atStake: Math.round(atStake), incidentSev: inc?.sev, incidentStatus: inc?.status };
   }).sort((a, b) => b.wasteRate - a.wasteRate || b.atStake - a.atStake || b.gpus - a.gpus);
 
   const clusters: GpuClusterRow[] = st.clusters.filter(c => inScope(c.dcId)).map(c => {
@@ -127,7 +131,11 @@ export function gpuView(db: Db, persona: Persona, dcId?: string): GpuView {
   const xidCount = new Map<number, number>();
   gpus.forEach(g => { if (g.xid && g.xid.at > now - 24 * HOUR) xidCount.set(g.xid.code, (xidCount.get(g.xid.code) ?? 0) + 1); });
   const inService = (nodeState['in-job'] + nodeState.idle) * 8;
-  const models = new Map<string, number>(); nodesAll.forEach(n => models.set(n.model, (models.get(n.model) ?? 0) + 1));
+  const models: GpuModelRow[] = [...new Set(nodesAll.map(n => n.model))].map(m => {
+    const on = nodesAll.filter(n => n.model === m), g = on.flatMap(n => n.gpus), busy = on.filter(n => n.state === 'in-job');
+    return { model: m, vendor: gpuSpec(m).vendor, nodes: on.length, gpus: g.length, inJob: busy.length * 8, util: busy.length ? Math.round(busy.flatMap(n => n.gpus).reduce((a, x) => a + x.util, 0) / (busy.length * 8)) : 0,
+      degraded: g.filter(x => x.health === 'degraded').length, failed: g.filter(x => x.health === 'failed').length, sites: [...new Set(on.map(n => n.dcId))], clusters: new Set(on.map(n => n.clusterId)).size, powerKw: Math.round(on.reduce((a, n) => a + n.powerKw, 0)) };
+  }).sort((a, b) => b.gpus - a.gpus);
 
   const racks: GpuRackRow[] = [...new Set(nodesAll.map(n => n.rackId))].map(id => {
     const n0 = nodesAll.find(n => n.rackId === id)!; const rk = dcById.get(n0.dcId)!.racks.find(r => r.id === id)!;
@@ -153,8 +161,8 @@ export function gpuView(db: Db, persona: Persona, dcId?: string): GpuView {
       throttle: { thermal: gpus.filter(g => g.throttle === 'thermal').length, hw: gpus.filter(g => g.throttle === 'hw-slowdown').length, power: gpus.filter(g => g.throttle === 'power-cap').length },
       hottest: Math.max(...gpus.map(g => g.tempC)), xid: [...xidCount.entries()].map(([code, n]) => ({ code, n, text: xidText[code] ?? `Xid ${code}` })).sort((a, b) => b.n - a.n),
       sbe: gpus.reduce((a, g) => a + g.sbe, 0), dbe: gpus.reduce((a, g) => a + g.dbe, 0), remapPending: gpus.filter(g => g.remapPending).length,
-      driftNodes: nodesAll.filter(n => n.driver !== st.driverStd).length, driverStd: st.driverStd, rmaOpen: nodesAll.filter(n => n.rma).length, burnIn: nodeState['burn-in'],
-      liquidNodes: nodesAll.filter(n => n.cooling === 'liquid').length, powerKw: Math.round(nodesAll.reduce((a, n) => a + n.powerKw, 0)), models: [...models.entries()].map(([model, n]) => ({ model, nodes: n }))
+      driftNodes: nodesAll.filter(n => isDrift(n)).length, driverStd: st.driverStd, rmaOpen: nodesAll.filter(n => n.rma).length, burnIn: nodeState['burn-in'],
+      liquidNodes: nodesAll.filter(n => n.cooling === 'liquid').length, powerKw: Math.round(nodesAll.reduce((a, n) => a + n.powerKw, 0)), models
     },
     jobsSummary: { running: jobs.filter(j => j.state === 'running').length, slowed: jobs.filter(j => j.state === 'slowed').length, stalled: jobs.filter(j => j.state === 'stalled').length, atRisk: jobs.filter(j => j.state === 'at-risk').length, idle: jobs.filter(j => j.state === 'idle').length, total: jobs.length, gpus: sum(j => j.gpus) },
     waste: { rate: sum(j => j.wasteRate), stalled: sum(j => j.wasteRate, j => j.state === 'stalled'), slowed: sum(j => j.wasteRate, j => j.state === 'slowed'), idle: sum(j => j.wasteRate, j => j.state === 'idle'), soFar: sum(j => j.wasteSoFar + j.redo), redo: sum(j => j.redo), atStake: sum(j => j.atStake) },

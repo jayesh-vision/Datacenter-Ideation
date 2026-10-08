@@ -124,3 +124,27 @@ button.gpu-node:hover { border-color: var(--primaryColor500); }
 .gpu-fields li { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 8px; }
 .gpu-fields code { font-size: 11px; color: var(--vw-color-gray-700); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gpu-fields span { color: var(--vw-color-gray-500); }
+
+/* GPU models and vendors (08-Oct-2026) */
+.gpu-vendor { display: inline-flex; align-items: center; height: 18px; padding: 0 6px; margin-right: 6px; border-radius: 4px; font: 600 10px/1 'Poppins', sans-serif; letter-spacing: .3px; vertical-align: 1px; border: 1px solid transparent; }
+.gpu-vendor.is-nvidia { background: #EEF7E6; color: #3E6B12; border-color: #CFE6B8; }
+.gpu-vendor.is-intel { background: var(--primaryColor50, #EAF3FE); color: var(--primaryColor700, #0B5CB8); border-color: var(--primaryColor100, #CFE3FC); }
+.gpu-vendors { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.gpu-vendor-card { display: flex; flex-direction: column; gap: 8px; text-align: left; cursor: pointer; border: 1px solid var(--vw-color-slate-200); background: #fff; }
+.gpu-vendor-card.is-on { border-color: var(--primaryColor500); box-shadow: 0 0 0 1px var(--primaryColor500); }
+.gpu-vendor-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.gpu-vendor-card > b { font-size: 26px; font-weight: 300; color: var(--vw-color-gray-900); }
+.gpu-vendor-card > b small { font-size: 12px; color: var(--vw-color-gray-500); font-family: 'Poppins', sans-serif; }
+.gpu-vendor-bar { display: flex; gap: 2px; height: 8px; border-radius: 4px; overflow: hidden; }
+.gpu-vendor-bar i { background: var(--vw-color-slate-300); min-width: 4px; }
+.gpu-vendor-bar i:nth-child(2n) { background: var(--vw-color-slate-400); }
+.gpu-vendor-bar i:nth-child(3n) { background: var(--vw-color-blue-300); }
+.gpu-vendor-ms { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--vw-color-gray-600); }
+.gpu-vendor-ms b { font-weight: 500; color: var(--vw-color-gray-900); }
+.gpu-hw { display: flex; flex-wrap: wrap; gap: 8px 22px; padding: 10px 12px; border: 1px solid var(--vw-color-slate-200); border-radius: var(--vw-radius-sm); background: var(--vw-color-slate-50); font-size: 12.5px; color: var(--vw-color-gray-800); }
+.gpu-hw > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.gpu-hw > .gpu-hw-name { flex-direction: row; align-items: center; gap: 4px; flex-basis: 100%; }
+.gpu-hw-name b { font-weight: 600; font-size: 13.5px; color: var(--vw-color-gray-900); }
+.gpu-strong + .gpu-vendor { margin-left: 4px; margin-right: 4px; }
+.gpu-model-s { font-size: 12px; color: var(--vw-color-gray-700); }
+.gpu-model-cell { min-width: 230px; }

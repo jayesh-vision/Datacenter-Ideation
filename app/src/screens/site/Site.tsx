@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { getDatacenter, getIncidents, useQuery, clockNow, usePersona, hasGpuNow } from '../../api';
@@ -18,7 +18,7 @@ import { Details } from './Details';
 import { Timeline } from './Timeline';
 import { FlagRow } from './FlagRow';
 import { TopologyView } from '../Topology';
-const Twin = lazy(() => import('./twin/Twin'));
+import { TwinHost, useTwinView } from './TwinHost';
 import '../../styles/site.css';
 import { OpstralBtn } from '../../ui/OpstralMark';
 
@@ -43,6 +43,7 @@ export function Site() {
   const ask = useSentinel();
   usePage([{ label: 'Datacenters', to: '/datacenters' }, { label: id }], { dcId: id });
   const { vocab } = usePersona();
+  const [twinView, setTwinView] = useTwinView();
   const { data, loading } = useQuery(() => getDatacenter(id), [id]);
   const { data: incs } = useQuery(() => getIncidents({ dcId: id, status: 'open' }), [id]);
   /* header collapse — per-viewer convenience, collapsed by default to give the tabs room */
@@ -176,7 +177,7 @@ export function Site() {
       </div>
       </div>
 
-      {tab === 'overview' && <Suspense fallback={<Loading label="Loading Data center view" />}><Twin dcId={dc.id} /></Suspense>}
+      {tab === 'overview' && <TwinHost dcId={dc.id} view={twinView} onView={setTwinView} />}
       {tab === 'attention' && <Attention data={data} />}
       {tab === 'topology' && <TopologyView key={dc.id} dc={dc.id} />}
       {tab === 'metrics' && <Metrics data={data} />}
