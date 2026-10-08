@@ -286,7 +286,11 @@ export function networkElement(id: string) {
   const dc = dcOf(ne.dcId)!;
   const rack = dc.racks.find(r => r.id === ne.rackId)!;
   const recon = db.recon.find(t => t.neId === id && t.status !== 'Resolved');
-  return { ne, interfaces: ifs, links, alerts, rack, dc: summarize(dc), recon, services: servicesOf({ neId: id }), incidents: db.incidents.filter(i => i.affected.some(a => a.id === id) || i.alertIds.some(aid => alerts.some(a => a.id === aid))), changes: db.changes.filter(c => c.scope.includes(id)) };
+  /* everything else in the same cabinet, for the device twin's rack view */
+  const live = liveAlerts();
+  const rackNes = db.nes.filter(n => n.rackId === ne.rackId).map(n => ({ id: n.id, name: n.name, role: n.role, u: n.u, uSize: n.uSize ?? 1, vendor: n.vendor, model: n.model, opsState: opsStateOf(n),
+    worst: live.filter(a => a.neId === n.id).reduce<string | null>((w, a) => (a.severity === 'critical' || w === 'critical' ? 'critical' : a.severity === 'major' || w === 'major' ? 'major' : w ?? 'minor'), null), reachable: n.icmp.state !== 'critical' }));
+  return { ne, rackNes, interfaces: ifs, links, alerts, rack, dc: summarize(dc), recon, services: servicesOf({ neId: id }), incidents: db.incidents.filter(i => i.affected.some(a => a.id === id) || i.alertIds.some(aid => alerts.some(a => a.id === aid))), changes: db.changes.filter(c => c.scope.includes(id)) };
 }
 
 export function interfacesOf(neId: string): Interface[] { return db.ifaces.get(neId) ?? []; }

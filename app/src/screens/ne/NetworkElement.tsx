@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { getNetworkElement, useQuery, getGpuNode } from '../../api';
@@ -15,11 +15,12 @@ import { Hardware } from './Hardware';
 import { Links } from './Links';
 import { Impact } from './Impact';
 import { NeAlerts } from './NeAlerts';
+const Device3D = lazy(() => import('./twin3d/Device3D').then(m => ({ default: m.Device3D })));
 import '../../styles/ne.css';
 
 export type NeData = NonNullable<Awaited<ReturnType<typeof getNetworkElement>>>;
-type Tab = 'overview' | 'hardware' | 'gpus' | 'links' | 'impact' | 'alerts';
-const TABS: Tab[] = ['overview', 'hardware', 'gpus', 'links', 'impact', 'alerts'];
+type Tab = 'overview' | 'twin' | 'hardware' | 'gpus' | 'links' | 'impact' | 'alerts';
+const TABS: Tab[] = ['overview', 'twin', 'hardware', 'gpus', 'links', 'impact', 'alerts'];
 const ROLE_ICON: Record<string, I.LucideIcon> = { Router: I.Router, Switch: I.Network, DWDM: I.Waves, Firewall: I.ShieldCheck, Access: I.RadioTower };
 
 /* Operational state of a device (same rule as the site Equipment tab) */
@@ -106,6 +107,7 @@ export function NetworkElement() {
 
       <Tabs<Tab> value={tab} onChange={setTab} tabs={[
         { id: 'overview', label: 'Overview' },
+        { id: 'twin', label: 'Digital twin' },
         { id: 'hardware', label: 'Hardware & interfaces', count: data.interfaces.length },
         ...(ne.role === 'GPU' ? [{ id: 'gpus' as Tab, label: /Gaudi|Max 1550/.test(ne.model) ? 'GPUs · Intel' : 'GPUs · DCGM', count: 8 }] : []),
         { id: 'links', label: 'Links', count: data.links.length },
@@ -114,6 +116,7 @@ export function NetworkElement() {
       ]} />
 
       {tab === 'overview' && <Overview d={data} />}
+      {tab === 'twin' && <Suspense fallback={<Loading label="Loading digital twin" />}><Device3D d={data} /></Suspense>}
       {tab === 'hardware' && <Hardware d={data} />}
       {tab === 'gpus' && ne.role === 'GPU' && <GpuTab id={ne.id} />}
       {tab === 'links' && <Links d={data} />}

@@ -28,8 +28,13 @@ export type SiteData = NonNullable<Awaited<ReturnType<typeof getDatacenter>>>;
 type Tab = 'overview' | 'attention' | 'topology' | 'metrics' | 'customers' | 'revenue' | 'gpu' | 'assets' | 'elements' | 'details' | 'timeline';
 const TABS: { id: Tab; label: string }[] = [
   /* Cabling ('equipment') is hidden per the user (02-Oct-2026); component kept, old ?tab=equipment links fall back to Overview */
-  { id: 'overview', label: 'Overview' }, { id: 'attention', label: 'Attention' }, { id: 'topology', label: 'Topology' }, { id: 'metrics', label: 'Metrics' }, { id: 'customers', label: 'Customers' }, { id: 'revenue', label: 'Revenue' }, { id: 'gpu', label: 'AI & GPU' },
-  { id: 'assets', label: 'Assets' }, { id: 'elements', label: 'Equipment' }, { id: 'details', label: 'Power & space' }, { id: 'timeline', label: 'Ops log' }
+  /* Order (08-Oct-2026, user asked for a sensible sequence) follows the operator's questions:
+     how is the site and what needs me (Overview · Attention · Metrics) → the physical plant and what is installed
+     (Power & space · AI & GPU · Equipment · Assets) → how it connects (Topology) → who and what money it affects
+     (Customers · Revenue) → what happened (Ops log). */
+  { id: 'overview', label: 'Overview' }, { id: 'attention', label: 'Attention' }, { id: 'metrics', label: 'Metrics' },
+  { id: 'details', label: 'Power & space' }, { id: 'gpu', label: 'AI & GPU' }, { id: 'elements', label: 'Equipment' }, { id: 'assets', label: 'Assets' },
+  { id: 'topology', label: 'Topology' }, { id: 'customers', label: 'Customers' }, { id: 'revenue', label: 'Revenue' }, { id: 'timeline', label: 'Ops log' }
 ];
 
 const FLAG_LABEL: Record<string, string> = { inc: 'incidents', alm: 'alarms', edge: 'edge', net: 'faults', pwr: 'power', cool: 'cooling', pue: 'PUE', svc: 'svc degraded' };

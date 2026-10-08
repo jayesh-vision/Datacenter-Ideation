@@ -51,7 +51,8 @@ Edge redundancy (`DcSummary.edge`): redundant / redundancy-lost / isolated. Guar
 Scope decisions 02-Oct-2026: the menu is Command center · Revenue impact (added 05-Oct-2026) · Datacenters · Facilities · AI & GPU (05-Oct-2026, GPU estates only) · Alerts · Incidents · Changes & maintenance.
 Topology left the menu 05-Oct-2026 (user): it lives only as the datacenter page's Topology tab; `/topology?dc=X` redirects to that tab.
 Network services, Customers and Capacity & forecast are parked (code kept, routes redirect); services and customers appear only as
-impact on incidents, devices and sites. Revenue was hidden until 05-Oct-2026; the user then asked for it — see "Revenue impact" below. Site tabs: Overview (3D) · Attention · Topology (`TopologyView` from screens/Topology.tsx, same view as the /topology page) · Metrics (aggregated thermal/power/backup/fault KPIs)
+impact on incidents, devices and sites. Revenue was hidden until 05-Oct-2026; the user then asked for it — see "Revenue impact" below. Site tab ORDER (08-Oct-2026, user): Overview · Attention · Metrics · Power & space · AI & GPU · Equipment · Assets · Topology · Customers ·
+Revenue · Ops log (health → plant & installed base → connectivity → impact → history). Site tabs: Overview (3D) · Attention · Topology (`TopologyView` from screens/Topology.tsx, same view as the /topology page) · Metrics (aggregated thermal/power/backup/fault KPIs)
 · Customers (customers served from the DC) · Revenue (`site/Revenue.tsx`) · Assets (floors/rooms/racks, equipment by category, facility plant) · Equipment
 (installed devices only; planned devices = reserved rack space) · Power & space · Ops log. Cabling tab hidden (02-Oct-2026; `site/Equipment.tsx` kept). No discovery/drift/reconciliation UI.
 
@@ -160,6 +161,21 @@ inside the cold aisle. It reuses the schematic twin's layout (`twin/layout.ts`),
 Overlays: Health · Temperature (floor heat-map from rack inlets) · Rack power · Connectivity (edge stubs). Labels are DOM anchors
 projected every frame (`twin2/anchors2.ts`), never drei `Html` (per-label React roots break under React 19). Rules carried over: health is
 shown by LEDs, beacons and halos, cabinets stay neutral. Check: `node .qa/twin2.mjs` (and `W=1280`); it is slow under software GL.
+
+## Device digital twin (08-Oct-2026, user) — a pictorial, live view of one piece of equipment
+3D since the user rejected the 2D diagram version ("don't use the reference screenshots as is"): `screens/ne/twin3d/` (`kit.tsx` hardware primitives —
+chassis, port cages + link LEDs, spinning fans, finned heatsinks, PSUs, DIMMs, Pick (hover outline, fault halo), Ex (explode / lid motion), canvas
+captions; `devices.tsx` models per family + rack + accelerator; `Device3D.tsx` stage, modes Device · Open lid · Exploded · One accelerator · In the rack,
+camera 3/4 · Front · Rear · Top, Health / Heat overlay). Inspector data still comes from the 2D scene builders below (`twin/scenes.tsx`), which are
+also the no-WebGL fallback. Check: `node .qa/devtwin.mjs` (WebGL via SwiftShader).
+Device page tab **Digital twin** (`?tab=twin`, `screens/ne/twin/`: `model.ts` parts vocabulary + silicon lookup, `scenes.tsx` one builder per view
+and family, `DeviceTwin.tsx` SVG renderer + inspector; styles `styles/devtwin.css`). Views (`?tview=`): face (front panel / rear I/O / front & rear),
+inside (top view: ASIC or NP7, control CPU, DRAM, port cages, PSUs, fans; DWDM = optical path; GPU = 8 GPUs + NVSwitch / PCIe switch / RoCE / Xe Link,
+CPUs, NICs, BMC, PSUs, fans or coolant manifold), chip (GPU only, `?gpu=0..7`: die with SMs lit by SM-active, HBM / GDDR stacks, scale-up ports,
+power, PCIe, cold plate / heatsink) and rack (busway A+B, PDUs, every device in the cabinet by U, cold/hot aisle or liquid manifolds;
+`networkElement()` returns `rackNes`). Part colour = kind (compute · power · cooling · network · memory · storage · management, the reference's
+legend); state from modules, interfaces (down / admin-down / errors / flaps), GPU telemetry and rack power. Click → inspector; issues listed in the
+summary. Check: `node .qa/devtwin.mjs` (12 devices × every view × 1440/1280).
 
 ## Testing cadence (user, 02-Oct-2026)
 Small change → verify only the affected screen (screenshot/measure at 1440 and 1280). Full suite `app/.qa/regress.sh` ONLY when the
