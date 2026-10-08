@@ -621,7 +621,15 @@ export function commandCenter() {
   db.changes.filter(c => c.windowStart >= db.now - 6 * HOUR && c.windowStart <= horizon && !['Completed', 'Rolled back', 'Rejected'].includes(c.status)).forEach(c => upcoming.push({ at: c.windowStart, kind: c.kind === 'Maintenance' ? 'maintenance' : 'change', label: `${c.id} · ${c.kind === 'Maintenance' ? 'maintenance' : 'change'} window`, sub: `${c.dcId} · ${c.title} · ${c.status}`, to: `/changes?id=${c.id}`, tone: c.status === 'Pending approval' ? 'warning' : 'info' }));
   db.datacenters.filter(d => d.status !== 'planned').forEach(d => { const due = d.power.dg.lastTest + 30 * DAY; if (due >= db.now - 6 * HOUR && due <= horizon) upcoming.push({ at: due, kind: 'test', label: `${d.id} DG monthly test due`, sub: `${d.power.dg.kva} kVA · last ${fmtWhenShort(d.power.dg.lastTest)} · ${d.power.dg.result}`, to: `/facilities?dc=${d.id}`, tone: 'neutral' }); });
   upcoming.sort((a, b) => a.at - b.at);
-  const dcMap = db.datacenters.filter(d => d.status !== 'planned').map(d => { const sm = summarize(d); const inc = open.filter(i => i.dcId === d.id); return { id: d.id, city: d.city, lat: d.lat, lng: d.lng, status: d.status, health: sm.healthScore, ne: sm.ne, coveragePct: sm.coveragePct, incidents: inc.length, worstSev: inc.length ? Math.min(...inc.map(i => i.sev)) : 0, breaching: inc.filter(i => i.sla.breaching).length, alerts: sm.activeAlerts, critAlerts: sm.critAlerts, powerPct: sm.powerCapKw ? Math.round((sm.powerKw / sm.powerCapKw) * 100) : 0, coolPct: Math.round((d.cooling.loadKw / d.cooling.capacityKw) * 100), facilityIssue: d.power.ups.some(u => u.state !== 'Online') || d.cooling.units.some(u => u.status === 'Failed'), services: sm.services, regionId: d.regionId, tier: d.tier, pue: sm.pue, load24h: d.power.load24h }; });
+  const dcMap = db.datacenters.filter(d => d.status !== 'planned').map(d => {
+    const sm = summarize(d); const inc = open.filter(i => i.dcId === d.id);
+    /* same rule as the Datacenters list / site page status */
+    const condition: 'critical' | 'attention' | 'normal' = sm.worstSev === 1 || sm.facilityIssues.some(f => /on battery|fault/i.test(f)) || sm.edge.state === 'isolated' ? 'critical'
+      : sm.openIncidents || sm.critAlerts || sm.linksDown || sm.unreachable || sm.facilityIssues.length || sm.edge.state !== 'redundant' ? 'attention' : 'normal';
+    return { id: d.id, city: d.city, stateName: d.state, lat: d.lat, lng: d.lng, status: d.status, health: sm.healthScore, ne: sm.ne, coveragePct: sm.coveragePct, incidents: inc.length, worstSev: inc.length ? Math.min(...inc.map(i => i.sev)) : 0, breaching: inc.filter(i => i.sla.breaching).length, alerts: sm.activeAlerts, critAlerts: sm.critAlerts, powerPct: sm.powerCapKw ? Math.round((sm.powerKw / sm.powerCapKw) * 100) : 0, coolPct: Math.round((d.cooling.loadKw / d.cooling.capacityKw) * 100), facilityIssue: d.power.ups.some(u => u.state !== 'Online') || d.cooling.units.some(u => u.status === 'Failed'), services: sm.services, regionId: d.regionId, tier: d.tier, pue: sm.pue, load24h: d.power.load24h,
+      /* for the command center's datacenter column (one DcCard per site) */
+      condition, servicesDegraded: sm.servicesDegraded, customers: sm.customers, linksDown: sm.linksDown, unreachable: sm.unreachable, edge: sm.edge, facilityIssues: sm.facilityIssues };
+  });
   /* inter-datacenter backhaul, one row per site pair (for the estate map) */
   const pairMap = new Map<string, { a: string; z: string; n: number; down: number }>();
   for (const l of lldp) {
@@ -663,7 +671,7 @@ export function commandCenter() {
       };
     })(),
     situation: { n1: open.filter(i => i.sev === 1).length, n2: open.filter(i => i.sev === 2).length, critSites: new Set(open.filter(i => i.sev <= 2).map(i => i.dcId)).size, exposedServices: exposedSvc.length, headline, band: shi >= 85 && breaching.length === 0 ? 'Healthy' : shi >= 60 ? 'Watch' : 'Degraded', weakest, revenueAtRisk, exposedPremium: exposedCustomers.filter(c => c.premium).length, services: db.services.length, customers: db.customers.length, lldp: lldp.length },
-    topIncidents, critical, svcStatus, exposedCustomers: exposedCustomers.slice(0, 6), causes, changeImplicated, recommendations, upcoming, dcMap, dcLinks, regions,
+    topIncidents, critical, svcStatus, exposedCustomers: exposedCustomers.slice(0, 12), exposedCustomerCount: exposedCustomers.length, causes, changeImplicated, recommendations, upcoming, dcMap, dcLinks, regions,
     pulse: { facilityAlarms, activeChanges: activeChanges.length, unreachable: unreachable.length, health, open: open.length, breaching: breaching.length, critMajor: al.filter(a => a.severity === 'critical' || a.severity === 'major').length, powerHeadroom: pw.headroom, linksDown: linksDown.length, servicesDegraded: degraded.length,
       pue: Math.round((s.filter(x => x.status !== 'planned').reduce((a, x) => a + x.pue, 0) / s.filter(x => x.status !== 'planned').length) * 100) / 100,
       availability: Math.round((live.reduce((a, n) => a + n.icmp.availability, 0) / live.length) * 100) / 100, mttrMin: Math.round(mttr), slaPct: resolved30.length ? Math.round((slaMet / resolved30.length) * 100) : 100,

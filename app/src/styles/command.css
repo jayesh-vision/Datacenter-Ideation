@@ -238,7 +238,7 @@
 /* Critical-now card: a fixed row template so cards align field for field */
 
 .ci-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.ci-age { margin-left: auto; white-space: nowrap; }
+.ci-age { margin-left: auto; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .ci-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 20px; }
 .ci-where { display: flex; align-items: center; gap: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ci-where svg { color: var(--vw-color-gray-400); flex-shrink: 0; }
@@ -272,7 +272,7 @@
 .ci-dc { margin: 0 !important; padding: 15px var(--vw-space-md) 10px !important; color: inherit; text-decoration: none; border-radius: var(--vw-radius-lg) var(--vw-radius-lg) 0 0; transition: background .15s; }
 .ci-dc:hover { background: var(--primaryColor50); }
 .ci-dc:hover .ci-dc-name { color: var(--primaryColor700); }
-.ci-body { display: grid; grid-template-rows: 24px 40px 40px 44px 30px 70px; row-gap: 10px; align-content: start; padding: 12px var(--vw-space-md) var(--vw-space-md); color: inherit; text-decoration: none; border-radius: 0 0 var(--vw-radius-lg) var(--vw-radius-lg); transition: background .15s; }
+.ci-body { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: 24px 40px 40px 44px 30px 70px; row-gap: 10px; align-content: start; padding: 12px var(--vw-space-md) var(--vw-space-md); color: inherit; text-decoration: none; border-radius: 0 0 var(--vw-radius-lg) var(--vw-radius-lg); transition: background .15s; }
 .ci-body:hover { background: var(--vw-color-slate-50); }
 .ci-body:hover .ci-head .vw-card-activity-label { color: var(--primaryColor700); }
 .ci-dc:focus-visible, .ci-body:focus-visible { outline: 2px solid var(--primaryColor500); outline-offset: -2px; }
@@ -347,8 +347,17 @@
 .ops-area-head { align-items: flex-start !important; }
 .ops-state { margin-top: 3px; }
 
-/* ---- hero: health verdict (left) + live estate map (right) ------------- */
-.hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 0; padding: 0 !important; overflow: hidden; }
+/* ---- hero: health verdict (left) · live estate map (middle) · datacenter cards (right) ---- */
+.hero { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 4fr) minmax(0, 3fr); gap: 0; padding: 0 !important; overflow: hidden; }
+/* right column scrolls vertically inside the height the other two columns set */
+.hero-dcs { position: relative; border-left: 1px solid var(--vw-color-slate-200); min-height: 600px; display: flex; flex-direction: column; min-width: 0; }
+.hero-dcs-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px var(--vw-space-md) 10px; border-bottom: 1px solid var(--vw-color-slate-200); flex-shrink: 0; }
+.hero-dcs-filter { padding: 8px var(--vw-space-md); border-bottom: 1px solid var(--vw-color-slate-200); flex-shrink: 0; }
+.hero-dcs-filter .seg { width: 100%; display: flex; }
+.hero-dcs-filter .seg > button { flex: 1; }
+.hero-dcs-body { position: relative; flex: 1; min-height: 0; }
+.hero-dcs-list { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; display: flex; flex-direction: column; gap: var(--vw-space-sm); padding: var(--vw-space-sm) var(--vw-space-sm) var(--vw-space-md); background: var(--vw-color-slate-50); }
+.hero-dcs-list .cmd-inc { flex-shrink: 0; }
 .hero-left { display: flex; flex-direction: column; gap: var(--vw-space-md); padding: var(--vw-space-lg) var(--vw-space-xl); min-width: 0; }
 .hero-verdict { display: flex; align-items: center; gap: var(--vw-space-lg); }
 .hero-verdict-txt { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
@@ -369,7 +378,7 @@
 .hero-area-score { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
 .hero-area-score .vw-card-metric-md { color: var(--vw-color-gray-900); }
 .hero-area-score .bar { width: 100%; height: 5px; background: var(--vw-color-slate-100); }
-.hero-map { position: relative; border-left: 1px solid var(--vw-color-slate-200); min-height: 430px; }
+.hero-map { position: relative; border-left: 1px solid var(--vw-color-slate-200); min-height: 600px; }
 .hero-map .dcmap { border-radius: 0; position: absolute !important; inset: 0; height: auto !important; }
 .hero-map-head { position: absolute; top: 12px; left: 12px; z-index: 500; display: flex; flex-direction: column; gap: 1px; background: rgba(255, 255, 255, .94); border: 1px solid var(--vw-color-slate-200); border-radius: var(--vw-radius-sm); padding: 8px 12px; }
 
@@ -385,7 +394,6 @@
 .cmd-where { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) !important; }
 .cmd-triad { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
 @media (max-width: 1280px) {
-  .hero { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .hero-left { padding: var(--vw-space-md) var(--vw-space-lg); }
   .hero-area::before { left: -16px; }
   .vitals { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -493,3 +501,70 @@
 .dcmap .dcpop-g span { grid-column: 1 / -1; }
 .dcmap .dcpop-g small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dcmap .dcpop { top: 76px; }
+
+/* 30 / 40 / 30 hero (08-Oct-2026): the verdict sits under the gauge row so the narrow left column reads in 2–3 lines */
+.hero-verdict { gap: var(--vw-space-md); }
+.hero-verdict > svg { width: 104px; height: auto; }
+.hero-verdict-sum { display: flex; flex-direction: column; gap: 4px; margin-top: -6px; }
+.hero-verdict-sum .hero-line { font-size: var(--vw-font-heading-md) !important; line-height: 1.4; margin: 0; }
+.hero-area { grid-template-columns: 32px minmax(0, 1fr) 84px; gap: 10px; }
+.hero-area-top { flex-wrap: wrap; row-gap: 0; column-gap: 8px; }
+.hero-areas { flex: 1; }
+.hero-area { flex: 1; }
+
+/* map search (08-Oct-2026): panel to the left of the map tools */
+.dcmap-find { position: absolute; right: 42px; top: 0; width: 300px; max-width: calc(100vw - 80px); display: flex; flex-direction: column; border: 1px solid var(--vw-color-slate-200); border-radius: 12px; background: #fff; box-shadow: 0 12px 28px rgba(15, 23, 42, .16); overflow: hidden; animation: dcpop-in .16s ease-out; }
+.dcmap-find-in { display: flex; align-items: center; gap: 8px; padding: 0 10px; height: 40px; border-bottom: 1px solid var(--vw-color-slate-200); color: var(--vw-color-gray-500); }
+.dcmap-find-in input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; font-size: 13px; color: var(--vw-color-gray-900); }
+.dcmap-find-in button { display: grid; place-items: center; width: 22px; height: 22px; border: 0; border-radius: 6px; background: transparent; color: var(--vw-color-gray-500); cursor: pointer; }
+.dcmap-find-in button:hover { background: var(--vw-color-slate-100); }
+.dcmap-find-list { max-height: 260px; overflow-y: auto; overscroll-behavior: contain; padding: 4px; scrollbar-width: thin; }
+.dcmap-find-list > button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 8px; border: 0; border-radius: 8px; background: transparent; font: inherit; text-align: left; cursor: pointer; }
+.dcmap-find-list > button.is-on { background: var(--primaryColor50); }
+.dcmap-find-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; border: 2px solid var(--primaryColor500); }
+.dcmap-find-dot.is-warn { border-color: var(--vw-color-amber-500); } .dcmap-find-dot.is-crit { border-color: var(--vw-color-red-500); }
+.dcmap-find-txt { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.3; }
+.dcmap-find-txt b { font-size: 13px; font-weight: 500; color: var(--vw-color-gray-900); }
+.dcmap-find-txt span { font-size: 11.5px; color: var(--vw-color-gray-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dcmap-find-n { font-size: 11px; color: var(--vw-color-gray-700); background: var(--vw-color-slate-100); border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
+.dcmap-find-empty { padding: 14px 10px; font-size: 12.5px; color: var(--vw-color-gray-500); text-align: center; }
+.dcmap-find-foot { padding: 6px 10px; border-top: 1px solid var(--vw-color-slate-100); font-size: 11px; color: var(--vw-color-gray-500); }
+
+/* compact DcCard in the command center's datacenter column: ~1.5 cards visible */
+.hero-dcs-list .ci-dc { padding: 9px 12px 8px !important; gap: 8px; }
+.hero-dcs-list .ci-dc-ic { width: 28px; height: 28px; }
+.hero-dcs-list .ci-dc-name { font-size: var(--vw-font-label-md); }
+.hero-dcs-list .ci-body { grid-template-rows: 22px auto auto auto auto auto; row-gap: 7px; padding: 9px 12px 11px; }
+.hero-dcs-list .ci-title { -webkit-line-clamp: 1; line-height: 18px; font-size: var(--vw-font-label-md); }
+.hero-dcs-list .ci-cause { flex-direction: row; align-items: baseline; gap: 6px; }
+.hero-dcs-list .ci-cause > .vw-label { flex-shrink: 0; }
+.hero-dcs-list .ci-impact { padding-top: 6px; }
+.hero-dcs-list .ci-impact .vw-card-metric-sm { font-size: var(--vw-font-value-sm, 16px); line-height: 1.2; }
+.hero-dcs-list .ci-sla { gap: 4px; }
+.hero-dcs-list .ci-next { padding: 6px 9px; }
+.hero-dcs-list .ci-next .ci-clamp2 { -webkit-line-clamp: 1; }
+.hero-map:has(.dcmap-find) > .hero-map-head { display: none; }   /* search panel needs the top of the map */
+
+/* ---- what · who · what to do (08-Oct-2026): one row, three equal columns, equal height, bodies scroll ---- */
+.cmd-trio { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; grid-auto-rows: 600px; align-items: stretch; }
+.cmd-trio > .panel { height: 100%; min-height: 0; display: flex; flex-direction: column; contain: none; }
+.cmd-trio > .panel .panel-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.cmd-trio .cmd-fill .board { overflow: visible; max-height: none; }
+.cmd-trio .panel-foot { flex-shrink: 0; }
+/* What is happening, narrow: severity + SLA on one line, the incident below it */
+.cmd-trio .board-row { grid-template-columns: minmax(0, 1fr) 118px; grid-template-areas: "chip sla" "body body"; gap: 6px 10px; padding: 10px 14px; }
+.cmd-trio .board-row > .cmd-chip { grid-area: chip; justify-self: start; }
+.cmd-trio .board-row > div { grid-area: body; }
+.cmd-trio .board-row > .slaw { grid-area: sla; }
+/* What to do next, narrow: the action button sits under its text */
+.cmd-trio .rec { grid-template-columns: 34px minmax(0, 1fr); grid-template-areas: "ico main" ". cta"; row-gap: 8px; }
+.cmd-trio .rec > .ico { grid-area: ico; }
+.cmd-trio .rec > div { grid-area: main; }
+.cmd-trio .rec > .nst-btn { grid-area: cta; justify-self: start; }
+/* Who is affected: the customer list uses the column's height */
+.cmd-trio .expo-list { margin-top: 8px; }
+.cmd-trio .expo-row { padding: 9px 8px; border-top: 1px solid var(--line-soft); border-radius: 0; }
+.cmd-trio .expo-row:first-child { border-top: 0; }
+.cmd-trio .panel-foot { flex-wrap: wrap; row-gap: 2px; padding: 9px 16px; font-size: 12px; }
+.cmd-trio .panel-foot > span { min-width: 0; }
+.cmd-trio .expo-row { grid-template-columns: minmax(0, 1fr) 64px; }

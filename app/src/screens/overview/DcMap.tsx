@@ -9,6 +9,8 @@ export type PinKind = 'crit' | 'warn' | 'ok';
 export interface DcPin {
   id: string; lat: number; lng: number; city: string; tier: string; kind: PinKind; size: number;
   incidents: number; worstSev: number; breaching: number; alerts: number; critAlerts: number; powerPct: number; coolPct: number; services: number; facilityIssue: boolean;
+  /* extra words the map search matches on, e.g. "Illinois · Midwest" */
+  place?: string;
 }
 export interface DcLinkPair { a: string; z: string; n: number; down: number }
 
@@ -43,6 +45,7 @@ export function DcMap({ pins, links = [], onNav, height = 520 }: { pins: DcPin[]
   const [show, setShow] = useState<Record<PinKind, boolean>>({ crit: true, warn: true, ok: true });
   const [sel, setSel] = useState<string | null>(null);
   const [hint, setHint] = useState(false);
+  const [findOpen, setFindOpen] = useState(false);
   /* expanded: fills the app's content area (top bar and left menu stay visible); Esc closes */
   const [full, setFull] = useState(false);
   useEffect(() => {
@@ -130,6 +133,14 @@ export function DcMap({ pins, links = [], onNav, height = 520 }: { pins: DcPin[]
   const counts = { crit: pins.filter(p => p.kind === 'crit').length, warn: pins.filter(p => p.kind === 'warn').length, ok: pins.filter(p => p.kind === 'ok').length };
   const issues = pins.filter(p => p.kind !== 'ok');
   const fitIssues = () => { const m = map.current; if (!m || !issues.length) return; setSel(null); m.flyToBounds(L.latLngBounds(issues.map(p => [p.lat, p.lng] as [number, number])).pad(0.25), { duration: 0.7, maxZoom: 7 }); };
+  /* search: fly to the site and open its summary; a site hidden by the legend is shown again */
+  const goTo = (p: DcPin) => {
+    const m = map.current; if (!m) return;
+    setShow(s => (s[p.kind] ? s : { ...s, [p.kind]: true }));
+    setFindOpen(false); setBaseOpen(false);
+    m.flyTo([p.lat, p.lng], Math.max(m.getZoom(), 7), { duration: 0.7 });
+    setSel(p.id);
+  };
   const reset = () => { const m = map.current; if (!m) return; setSel(null); m.flyToBounds(INDIA(), { duration: 0.7, padding: [4, 4] }); };
 
   return (
@@ -137,7 +148,11 @@ export function DcMap({ pins, links = [], onNav, height = 520 }: { pins: DcPin[]
       <div ref={el} style={{ position: 'absolute', inset: 0 }} />
       <div className="dcmap-tools">
         <div className="dcmap-base">
-          <button type="button" className={`dcmap-btn${baseOpen ? ' is-on' : ''}`} title="Basemap" aria-label="Basemap" aria-expanded={baseOpen} onClick={() => setBaseOpen(o => !o)}><I.Layers size={16} /></button>
+          <button type="button" className={`dcmap-btn${findOpen ? ' is-on' : ''}`} title="Search datacenters" aria-label="Search datacenters" aria-expanded={findOpen} onClick={() => { setFindOpen(o => !o); setBaseOpen(false); }}><I.Search size={16} /></button>
+          {findOpen && <MapSearch pins={pins} onPick={goTo} onClose={() => setFindOpen(false)} />}
+        </div>
+        <div className="dcmap-base">
+          <button type="button" className={`dcmap-btn${baseOpen ? ' is-on' : ''}`} title="Basemap" aria-label="Basemap" aria-expanded={baseOpen} onClick={() => { setBaseOpen(o => !o); setFindOpen(false); }}><I.Layers size={16} /></button>
           {baseOpen && (
             <div className="dcmap-basemenu" role="listbox" aria-label="Basemap">
               {BASEMAPS.map(b => (
@@ -163,6 +178,48 @@ export function DcMap({ pins, links = [], onNav, height = 520 }: { pins: DcPin[]
       {full && <div className="dcmap-fulltitle"><b>Live estate</b><span>{pins.length} datacenters · {counts.crit} with critical / high · {links.filter(l => l.down).length} backhaul down</span></div>}
       {sel && byId.get(sel) && <SiteCard p={byId.get(sel)!} onClose={() => setSel(null)} onNav={path => nav.current(path)} />}
       {hint && <div className="dcmap-hint">Click the map, then scroll to zoom</div>}
+    </div>
+  );
+}
+
+/* search panel beside the map tools: id, city, state, region or tier; arrows + Enter pick, Esc closes */
+function MapSearch({ pins, onPick, onClose }: { pins: DcPin[]; onPick: (p: DcPin) => void; onClose: () => void }) {
+  const [q, setQ] = useState('');
+  const [at, setAt] = useState(0);
+  const inp = useRef<HTMLInputElement>(null);
+  useEffect(() => { inp.current?.focus(); }, []);
+  const rank: Record<PinKind, number> = { crit: 0, warn: 1, ok: 2 };
+  const hits = useMemo(() => {
+    const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const hay = (p: DcPin) => `${p.id} ${p.city} ${p.place ?? ''} ${p.tier}`.toLowerCase();
+    return pins.filter(p => words.every(w => hay(p).includes(w)))
+      .sort((a, b) => Number(!a.id.toLowerCase().startsWith(words[0] ?? '')) - Number(!b.id.toLowerCase().startsWith(words[0] ?? '')) || rank[a.kind] - rank[b.kind] || a.id.localeCompare(b.id));
+  }, [pins, q]);
+  const cur = Math.min(at, Math.max(0, hits.length - 1));
+  const key = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setAt(Math.min(cur + 1, hits.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setAt(Math.max(cur - 1, 0)); }
+    else if (e.key === 'Enter' && hits[cur]) onPick(hits[cur]);
+    else if (e.key === 'Escape') { e.stopPropagation(); onClose(); }
+  };
+  return (
+    <div className="dcmap-find" role="dialog" aria-label="Search datacenters" onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()} onWheel={e => e.stopPropagation()}>
+      <div className="dcmap-find-in">
+        <I.Search size={15} />
+        <input ref={inp} value={q} onChange={e => { setQ(e.target.value); setAt(0); }} onKeyDown={key} placeholder="Datacenter, city, state, region" aria-label="Search datacenters" />
+        {q && <button type="button" aria-label="Clear search" onClick={() => { setQ(''); inp.current?.focus(); }}><I.X size={14} /></button>}
+      </div>
+      <div className="dcmap-find-list" role="listbox">
+        {hits.map((p, k) => (
+          <button key={p.id} type="button" role="option" aria-selected={k === cur} className={k === cur ? 'is-on' : ''} onMouseEnter={() => setAt(k)} onClick={() => onPick(p)}>
+            <i className={`dcmap-find-dot is-${p.kind}`} />
+            <span className="dcmap-find-txt"><b>{p.id}</b><span>{p.city}{p.place ? ` · ${p.place}` : ''} · {p.tier}</span></span>
+            {p.incidents > 0 && <span className="dcmap-find-n">{p.incidents} inc</span>}
+          </button>
+        ))}
+        {!hits.length && <div className="dcmap-find-empty">No datacenter matches “{q}”.</div>}
+      </div>
+      <div className="dcmap-find-foot">{hits.length} of {pins.length} · ↑↓ to move · Enter to open</div>
     </div>
   );
 }

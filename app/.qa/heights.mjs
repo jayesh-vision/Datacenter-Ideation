@@ -4,7 +4,7 @@ const b = await chromium.launch();
 for (const w of [1440, 1280]) {
   const p = await b.newPage({ viewport: { width: w, height: 900 } });
   await p.goto('http://localhost:5181/', { waitUntil: 'networkidle' }); await p.waitForTimeout(800);
-  const rows = await p.evaluate(() => [...document.querySelectorAll('.cmd-where, .cmd-triad')].map(g => {
+  const rows = await p.evaluate(() => [...document.querySelectorAll('.cmd-trio')].map(g => {
     const kids = [...g.children].map(c => c.getBoundingClientRect());
     const tops = new Map(); kids.forEach(r => { const k = Math.round(r.top); tops.set(k, [...(tops.get(k) ?? []), Math.round(r.height)]); });
     return { cls: g.className, rows: [...tops.values()] };

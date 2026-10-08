@@ -21,8 +21,8 @@ for (const w of [1440, 1280]) {
     await p.goBack(); await p.waitForTimeout(800); await p.locator('.dcl-tiles a[href^="/incidents/"]').first().click(); await p.waitForTimeout(600); console.log(' body click ->', new URL(p.url()).pathname);
     await p.goto('http://localhost:5181/datacenters', { waitUntil: 'load' }); await p.waitForTimeout(1000); await p.click('.lt-view button[aria-label="List view"]'); await p.waitForTimeout(300); console.log(' back to list rows:', await p.locator('.dt-table tbody tr').count());
     await p.goto('http://localhost:5181/', { waitUntil: 'load' }); await p.waitForTimeout(1500);
-    console.log(' command center cards:', JSON.stringify(await p.evaluate(() => { const T = [...document.querySelectorAll('.cmd-lane .cmd-inc')]; return { n: T.length, h: [...new Set(T.map(t => Math.round(t.getBoundingClientRect().height)))].join('/') }; })));
-    await p.locator('.cmd-crit').screenshot({ path: '.qa/out/dctiles_cc.png' });
+    console.log(' command center cards:', JSON.stringify(await p.evaluate(() => { const T = [...document.querySelectorAll('.hero-dcs-list .cmd-inc')]; return { n: T.length, h: [...new Set(T.map(t => Math.round(t.getBoundingClientRect().height)))].join('/') }; })));
+    await p.locator('.hero-dcs').screenshot({ path: '.qa/out/dctiles_cc.png' });
   }
   await ctx.close();
 }

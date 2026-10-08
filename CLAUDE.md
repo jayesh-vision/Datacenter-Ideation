@@ -86,8 +86,8 @@ User ask: show revenue degradation caused by datacenter issues and which issue c
 - Screens: `/revenue` (`screens/Revenue.tsx`: strip of 6 tiles, two answer cards "Costing the most right now" / "Most at stake" with a
   cost-of-delay curve, tabs Issues · Customers · Datacenters · Causes & trend · One failure away; row → cost-breakdown drawer;
   "How it is calculated" drawer). Shared parts in `screens/revenue/parts.tsx` (IssueTable, IssueDrawer, CostCurve, Fig, lc()).
-  Also: datacenter Revenue tab, incident "Revenue impact" panel, a column on the Datacenters and Incidents lists, a one-line band on
-  the Command center, Opstral AI answers ("Which issue is costing the most revenue?", "What is INC-0002 costing us?").
+  Also: datacenter Revenue tab, incident "Revenue impact" panel, a column on the Datacenters and Incidents lists (the Command center band was
+  removed 08-Oct-2026, to be re-placed later), Opstral AI answers ("Which issue is costing the most revenue?", "What is INC-0002 costing us?").
 - Words come from `vocab.money` (enterprise = Business value / Business impact / Cost of downtime / OLA rebates); use `lc()` to
   lower-case them (keeps SLA/OLA). Money in a grid cell uses `.rev-amt`, NOT `.strong` (that class forces a 220px column).
 - Customer page (`screens/CustomerDetail.tsx`, 05-Oct-2026): identity header (avatar, state, facts row, one-line verdict with the main
@@ -124,7 +124,8 @@ User ask: show revenue degradation caused by datacenter issues and which issue c
   Command center's Critical-now lane (worst open incident per site, or a quiet variant). Check: `node .qa/dc-tiles.mjs`.
 - Estate map (`overview/DcMap.tsx`, 04-Oct-2026): Esri basemaps Light/Streets/Satellite/Terrain (remembered), rippling pins for
   SEV1/2 and incident sites, animated dashes on backhaul that is down, click → summary popup + that site's backhaul fan-out, expand button fills the content area (Esc closes),
-  legend items toggle states, Focus-issues / Reset buttons, wheel-zoom only after clicking the map. Check: `node .qa/map.mjs`.
+  legend items toggle states, Focus-issues / Reset buttons, wheel-zoom only after clicking the map, a search tool (top of the tool column,
+  `MapSearch`: id / city / state / region / tier via `DcPin.place`; pick → fly to the site + open its card). Check: `node .qa/map.mjs`.
 - Lists keep their toolbar and column header pinned under the top bar while rows scroll (sticky; wrappers use `overflow: clip`,
   never `hidden`, around a `.dt`). Check: `node .qa/sticky.mjs`.
 - Every list uses `ui/ListToolbar.tsx` (no hand-built toolbars): `Showing N of M` · search · ≤2 quick filters (searchable dropdowns)
@@ -133,8 +134,12 @@ User ask: show revenue degradation caused by datacenter issues and which issue c
 - Palette: slate/white, brand blue accent, red/amber for faults only. The digital twin (`screens/site/twin`) is signed off — don't restyle it.
 
 ## Command center layout (02-Oct-2026, after the user rejected the 17-box version)
-Hero card = health ring + verdict + 4 areas as rows (left) and the live DcMap (right); one `.vitals` strip of 6 metrics with
-24 h sparklines (`commandCenter().trends`); then Critical now cards; then ImpactBoard | Recommendations, Exposure | Causes (the 7-day "What happens next" board was removed 05-Oct-2026).
+Hero card (08-Oct-2026, user) = three columns 30 / 40 / 30, 600 px tall: health ring + verdict + 4 areas as rows (left) · the live
+DcMap (middle) · a vertically scrolling column of every live datacenter as a `DcCard`, worst first, with an All / Critical / High quick
+filter on the worst open incident; cards there are a compact variant (CSS under `.hero-dcs-list`, ~286 px, ≥1.5 visible) (`DcColumn` in CommandCenter.tsx; the mock's `dcMap` rows carry `condition` + the quiet-card fields).
+The vitals strip, the horizontal Critical-now lane and the revenue band were removed (08-Oct-2026, user; revenue will get a proper place on
+the Command center later). Then ONE row of three equal columns, 600 px, bodies scroll (`.cmd-trio`): What is happening · Who is affected ·
+What to do next. The "Why" (root-cause families) panel was removed 08-Oct-2026. Checks: `node .qa/cc-hero.mjs`, `node .qa/cc-trio.mjs`.
 Don't reintroduce rows of boxed KPI tiles on the landing page.
 
 ## Testing cadence (user, 02-Oct-2026)

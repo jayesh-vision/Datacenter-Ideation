@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { clockNow, getCommandCenter, useQuery, vocabNow } from '../api';
@@ -8,11 +8,8 @@ import { StackBar } from '../ui/status';
 import { Sparkline } from '../charts/Sparkline';
 import { DcMap, type DcPin } from './overview/DcMap';
 import { ROLLOUT, sevChipCls, sevLabel } from '../lib/vocab';
-import { fmtAgo, fmtDow, fmtDur, fmtMoney, fmtNum, fmtShortDate, fmtTime } from '../lib/format';
+import { fmtAgo, fmtDow, fmtDur, fmtNum, fmtShortDate, fmtTime } from '../lib/format';
 import '../styles/command.css';
-import '../styles/revenue.css';
-import { lc } from './revenue/parts';
-import { MoneyIcon } from '../ui/Money';
 import { DcCard } from './ops/DcCard';
 import { OpstralBadge, OpstralBtn } from '../ui/OpstralMark';
 
@@ -31,13 +28,11 @@ export function CommandCenter() {
   return (
     <div className="page cmd">
       <Situation d={data} />
-      <div className="grid cmd-where">
+      {/* what · who · what to do — three equal columns */}
+      <div className="grid cmd-trio">
         <ImpactBoard d={data} />
-        <Recommendations d={data} />
-      </div>
-      <div className="grid cmd-triad">
         <Exposure d={data} />
-        <Causes d={data} />
+        <Recommendations d={data} />
       </div>
     </div>
   );
@@ -71,18 +66,14 @@ function Situation({ d }: { d: CC }) {
   const ask = useSentinel();
   const now = clockNow();
   const p = d.pulse, s = d.situation;
-  const [only1, setOnly1] = useState<'all' | 'sev1'>('all');
   const [wall, setWall] = useState(false);
-  const lane = useRef<HTMLDivElement>(null);
   const bandChip = s.band === 'Healthy' ? 'success' : s.band === 'Watch' ? 'warning' : 'error';
-  const crit = only1 === 'sev1' ? d.critical.filter(i => i.sev === 1) : d.critical;
-  const n1 = d.critical.filter(i => i.sev === 1).length, n2 = d.critical.length - n1;
-  const scroll = (dir: number) => lane.current?.scrollBy({ left: dir * 340, behavior: 'smooth' });
   const pins = useMemo<DcPin[]>(() => d.dcMap.map(x => ({
     id: x.id, lat: x.lat, lng: x.lng, city: x.city, tier: x.tier, kind: x.worstSev && x.worstSev <= 2 ? 'crit' : x.incidents || x.critAlerts || x.facilityIssue ? 'warn' : 'ok',
     size: 12 + Math.round(Math.sqrt(x.ne) * 0.9), incidents: x.incidents, worstSev: x.worstSev, breaching: x.breaching, alerts: x.alerts, critAlerts: x.critAlerts,
-    powerPct: x.powerPct, coolPct: x.coolPct, services: x.services, facilityIssue: x.facilityIssue
-  })), [d.dcMap]);
+    powerPct: x.powerPct, coolPct: x.coolPct, services: x.services, facilityIssue: x.facilityIssue,
+    place: [x.stateName, d.regions.find(r => r.id === x.regionId)?.name].filter(Boolean).join(' · ')
+  })), [d.dcMap, d.regions]);
   return (
     <>
       <div className="vw-flex vw-justify-between vw-items-center vw-gap-sm cmd-head">
@@ -106,9 +97,11 @@ function Situation({ d }: { d: CC }) {
                 <span className="cmd-info" tabIndex={0} title="Average of the four areas below. Counts each datacenter site, its edge links and its dependencies; downstream PoP and site alarms are excluded."><I.Info size={13} /></span>
               </span>
               <span className={`vw-chip vw-chip--${bandChip} is-strong`} style={{ alignSelf: 'flex-start' }}>{s.band}</span>
-              <p className="hero-line">{s.n1 ? <><b className="hot">{s.n1} critical</b> and </> : null}<b>{s.n2} high</b> incidents open across <b>{s.critSites} datacenters</b></p>
-              <span className="vw-label">{s.exposedPremium} {vocabNow().premium.toLowerCase()} {vocabNow().customers.toLowerCase()} affected · {p.breaching} incidents past SLA · weakest area: {s.weakest.label}</span>
             </div>
+          </div>
+          <div className="hero-verdict-sum">
+            <p className="hero-line">{s.n1 ? <><b className="hot">{s.n1} critical</b> and </> : null}<b>{s.n2} high</b> incidents open across <b>{s.critSites} datacenters</b></p>
+            <span className="vw-label">{s.exposedPremium} {vocabNow().premium.toLowerCase()} {vocabNow().customers.toLowerCase()} affected · {p.breaching} incidents past SLA · weakest area: {s.weakest.label}</span>
           </div>
           <div className="hero-areas" role="list">
             {d.domains.map(x => {
@@ -128,76 +121,56 @@ function Situation({ d }: { d: CC }) {
           </div>
         </div>
         <div className="hero-map">
-          <DcMap pins={pins} links={d.dcLinks} onNav={nav} height={430} />
+          <DcMap pins={pins} links={d.dcLinks} onNav={nav} height={600} />
           <div className="hero-map-head">
             <span className="vw-card-activity-label">Live estate</span>
             <span className="vw-label">{d.dcMap.length} datacenters · {d.dcMap.filter(x => x.worstSev && x.worstSev <= 2).length} with critical / high · {d.dcLinks.filter(l => l.down).length} backhaul down</span>
           </div>
         </div>
+        <DcColumn d={d} now={now} />
       </section>
 
-      {/* vitals: one strip, each metric with its 24 h trend */}
-      <section className="vw-card-section vitals">
-        {[
-          { k: 'open', l: 'Open incidents', v: String(p.open), note: `${p.breaching} past SLA`, bad: p.breaching > 0, t: d.trends.open, to: '/incidents' },
-          { k: 'alm', l: 'Major+ alarms', v: String(p.critMajor), note: 'critical and major', t: d.trends.critMajor, to: '/alerts?sev=critical' },
-          { k: 'links', l: 'Links down', v: String(p.linksDown), note: `of ${fmtNum(s.lldp)} physical`, t: d.trends.linksDown, to: '/alerts?q=Link%20Down' },
-          { k: 'svc', l: `${vocabNow().services} degraded`, v: String(p.servicesDegraded), note: `of ${fmtNum(s.services)}`, t: d.trends.services, to: '/incidents' },
-          { k: 'avail', l: 'Availability', v: `${p.availability}%`, note: `${p.unreachable} unreachable`, t: d.trends.availability, to: '/alerts?q=Unreachable' },
-          { k: 'power', l: 'IT + facility power', v: `${fmtNum(d.trends.powerKw[23])} kW`, note: `${p.facilityAlarms} facility alarms`, bad: p.facilityAlarms > 0, t: d.trends.powerKw, to: '/facilities' }
-        ].map(x => (
-          <Link key={x.k} to={x.to} className="vital">
-            <span className="vw-card-metric-label">{x.l}</span>
-            <span className="vital-row"><span className="vw-card-metric-lg">{x.v}</span><span className="vital-spark"><Sparkline values={x.t} color={x.bad ? 'var(--vw-color-red-500)' : 'var(--primaryColor500)'} height={30} /></span></span>
-            <span className={`vw-card-variance ${x.bad ? 'is-negative' : 'is-neutral'} vital-note`}>{x.note} · 24 h</span>
-          </Link>
-        ))}
-      </section>
 
-      <RevenueBand d={d} />
-
-      <section className="vw-card-section cmd-crit">
-        <div className="vw-flex vw-justify-between vw-items-center vw-gap-sm cmd-crit-head">
-          <div className="vw-flex vw-items-center vw-gap-sm">
-            <span className="vw-card-title">Critical now</span>
-            {n1 > 0 && <span className="vw-chip vw-chip--error is-strong">{n1} Critical</span>}
-            {n2 > 0 && <span className="vw-chip vw-chip--warning is-strong">{n2} High</span>}
-            {!d.critical.length && <span className="vw-chip vw-chip--neutral">No critical or high incidents open</span>}
-          </div>
-          {d.critical.length > 0 && (
-            <div className="vw-flex vw-items-center vw-gap-sm">
-              <Seg size="sm" value={only1} onChange={setOnly1} options={[{ id: 'all', label: 'Critical + High' }, { id: 'sev1', label: 'Critical only' }]} />
-              <button type="button" className="nst-icon-btn" aria-label="Scroll left" onClick={() => scroll(-1)}><I.ChevronLeft size={16} /></button>
-              <button type="button" className="nst-icon-btn" aria-label="Scroll right" onClick={() => scroll(1)}><I.ChevronRight size={16} /></button>
-              <Link to="/incidents?view=sev1" className="nst-btn nst-btn--sm nst-btn--ghost">All critical<I.ArrowRight size={14} /></Link>
-            </div>
-          )}
-        </div>
-        {crit.length > 0 && (
-          <div className="cmd-lane" ref={lane}>
-            {crit.map(i => <DcCard key={i.id} now={now} site={{ id: i.dcId, city: i.city, state: i.state, tier: i.tier, siteOpen: i.siteOpen }} inc={i} />)}
-          </div>
-        )}
-      </section>
       <EstateWall d={d} open={wall} onClose={() => setWall(false)} />
     </>
   );
 }
 
-/* one slim line of money under the vitals: what is being lost, what it has cost, what is at stake */
-function RevenueBand({ d }: { d: CC }) {
-  const r = d.revenue, W = vocabNow().money;
-  const cliff = r.sla.nextCliff;
+/* third hero column: every live datacenter as the same DcCard the Datacenters tile view uses,
+   worst first, scrolling vertically inside the hero's height; quick filter by the worst open incident */
+const COND_RANK = { critical: 0, attention: 1, normal: 2 } as const;
+type DcFilter = 'all' | 'crit' | 'high';
+function DcColumn({ d, now }: { d: CC; now: number }) {
+  const [f, setF] = useState<DcFilter>('all');
+  const n1 = d.dcMap.filter(x => x.worstSev === 1).length, n2 = d.dcMap.filter(x => x.worstSev === 2).length;
+  const sites = useMemo(() => [...d.dcMap].filter(x => f === 'all' || x.worstSev === (f === 'crit' ? 1 : 2)).sort((a, b) => COND_RANK[a.condition] - COND_RANK[b.condition] || (a.worstSev || 9) - (b.worstSev || 9) || b.incidents - a.incidents || a.health - b.health || a.id.localeCompare(b.id)), [d.dcMap, f]);
+  const hot = d.dcMap.filter(x => x.condition === 'critical').length, watch = d.dcMap.filter(x => x.condition === 'attention').length;
   return (
-    <Link to="/revenue" className="vw-card-section rev-band" title={`Open ${lc(W.impact)}`}>
-      <span className="rev-band-h"><span className="rev-band-ic"><MoneyIcon size={16} /></span><b>{W.impact}</b></span>
-      <span className="rev-band-item"><span className="vw-label">Losing now</span><b className="num" style={{ color: r.total.rate ? '#b21313' : undefined }}>{fmtMoney(r.total.rate)}/h</b></span>
-      <span className="rev-band-item"><span className="vw-label">Impact so far</span><b className="num">{fmtMoney(r.total.lost + r.total.credits)}</b></span>
-      <span className="rev-band-item"><span className="vw-label">At stake</span><b className="num">{fmtMoney(r.total.mrrExposed)}/mo</b></span>
-      <span className="rev-band-item"><span className="vw-label">Next credit step</span><b className="num">{cliff ? `${fmtMoney(cliff.amount)} in ${fmtDur(cliff.inMin)}` : 'none pending'}</b></span>
-      <span className="rev-band-item rev-band-top" title={r.top?.title ?? r.stake?.title}><span className="vw-label">{r.top ? 'Costing the most' : r.stake ? 'Most at stake' : 'Open issues'}</span><b>{r.top ? (r.top.incident ? r.top.id : r.top.dcId) : r.stake ? (r.stake.incident ? r.stake.id : r.stake.dcId) : 'none'}</b></span>
-      <span className="rev-band-go">Open<I.ArrowRight size={14} /></span>
-    </Link>
+    <div className="hero-dcs">
+      <div className="hero-dcs-head">
+        <div className="vw-flex vw-flex-col" style={{ minWidth: 0 }}>
+          <span className="vw-card-activity-label">Datacenters</span>
+          <span className="vw-label">{d.dcMap.length} live · {hot} critical · {watch} attention</span>
+        </div>
+        <Link to="/datacenters" className="panel-link">All<I.ChevronRight size={14} /></Link>
+      </div>
+      <div className="hero-dcs-filter">
+        <Seg size="sm" value={f} onChange={setF} options={[{ id: 'all', label: `All ${d.dcMap.length}` }, { id: 'crit', label: `Critical ${n1}` }, { id: 'high', label: `High ${n2}` }]} />
+      </div>
+      <div className="hero-dcs-body"><div className="hero-dcs-list">
+        {sites.map(x => {
+          const site = { id: x.id, city: x.city, state: x.stateName, tier: x.tier, siteOpen: x.incidents };
+          const inc = d.critical.find(i => i.dcId === x.id);
+          if (inc) return <DcCard key={x.id} now={now} site={site} inc={inc} />;
+          const net = [x.linksDown ? `${x.linksDown} link${x.linksDown === 1 ? '' : 's'} down` : '', x.unreachable ? `${x.unreachable} device${x.unreachable === 1 ? '' : 's'} unreachable` : ''].filter(Boolean).join(' · ');
+          const fac = x.facilityIssues[0];
+          return <DcCard key={x.id} now={now} site={site} quiet={{ state: x.condition === 'normal' ? 'normal' : 'attention', alarms: x.alerts, critAlarms: x.critAlerts, services: x.services, degraded: x.servicesDegraded, customers: x.customers,
+            powerPct: x.powerPct, coolPct: x.coolPct, noteLabel: fac ? 'Facility' : 'Network & edge',
+            note: fac ? x.facilityIssues.join(' · ') : `${net || 'All links up'} · edge ${x.edge.up}/${x.edge.total} up${x.edge.state === 'redundant' ? '' : x.edge.state === 'isolated' ? ' — isolated' : ' — redundancy lost'}` }} />;
+        })}
+        {!sites.length && <div className="wk-empty">{f === 'all' ? 'No live datacenters.' : `No datacenter has a ${f === 'crit' ? 'critical' : 'high'} incident open.`}</div>}
+      </div></div>
+    </div>
   );
 }
 
@@ -220,7 +193,8 @@ function SlaCell({ left, total, breaching }: { left: number; total: number; brea
 function ImpactBoard({ d }: { d: CC }) {
   return (
     <Panel className="cmd-fill" title="What is happening" sub={`Open incidents ranked by severity and ${vocabNow().customer.toLowerCase()} impact`} icon={I.Siren} count={d.pulse.open}
-      actions={<Link to="/incidents" className="panel-link">All incidents<I.ChevronRight size={14} /></Link>} flush>
+      actions={<Link to="/incidents" className="panel-link">All incidents<I.ChevronRight size={14} /></Link>} flush
+      foot={<><span>{d.pulse.breaching} past SLA · mean time to resolve {fmtDur(d.pulse.mttrMin)} over 30 days</span><Link to="/incidents?view=breaching" className="panel-link">Breaching worklist<I.ChevronRight size={14} /></Link></>}>
       <div className="board">
         {d.topIncidents.map(i => (
           <Link key={i.id} to={`/incidents/${i.id}`} className="board-row">
@@ -234,10 +208,6 @@ function ImpactBoard({ d }: { d: CC }) {
           </Link>
         ))}
       </div>
-      <div className="panel-foot" style={{ marginTop: 'auto' }}>
-        <span>{d.pulse.breaching} past SLA · mean time to resolve {fmtDur(d.pulse.mttrMin)} over 30 days</span>
-        <Link to="/incidents?view=breaching" className="panel-link">Breaching worklist<I.ChevronRight size={14} /></Link>
-      </div>
     </Panel>
   );
 }
@@ -249,7 +219,7 @@ function Exposure({ d }: { d: CC }) {
   return (
     <Panel title="Who is affected" sub={`${vocabNow().customer} exposure from degraded ${vocabNow().services.toLowerCase()}`} icon={I.Users}
       actions={<Link to="/incidents" className="panel-link">Incidents<I.ChevronRight size={14} /></Link>}>
-      <div className="expo-top"><span className="big">{d.situation.exposedServices}</span><span className="sub">{vocabNow().services.toLowerCase()} degraded · {d.exposedCustomers.length} {vocabNow().customers.toLowerCase()} affected</span></div>
+      <div className="expo-top"><span className="big">{d.situation.exposedServices}</span><span className="sub">{vocabNow().services.toLowerCase()} degraded · {d.exposedCustomerCount} {vocabNow().customers.toLowerCase()} affected</span></div>
       <div className="col" style={{ gap: 6, marginTop: 10 }}>
         <StackBar height={8} parts={[{ value: st.Active, color: C.soft, label: 'Active' }, { value: st.Degraded, color: C.warn, label: 'Degraded' }, { value: st.Down, color: C.bad, label: 'Down' }, { value: st.Disabled, color: C.track, label: 'Disabled' }]} />
         <div className="row between" style={{ fontSize: 11.5, color: 'var(--ink-500)' }}><span><b className="num" style={{ color: 'var(--ink-800)' }}>{fmtNum(st.Active)}</b> active</span><span><b className="num" style={{ color: 'var(--ink-800)' }}>{st.Degraded}</b> degraded</span><span><b className="num" style={{ color: 'var(--ink-800)' }}>{st.Down}</b> down</span><span><b className="num">{st.Disabled}</b> disabled</span></div>
@@ -266,29 +236,6 @@ function Exposure({ d }: { d: CC }) {
           </Link>
         ))}
         {!d.exposedCustomers.length && <div className="wk-empty">No {vocabNow().customer.toLowerCase()} currently rides a degraded {vocabNow().service.toLowerCase()}.</div>}
-      </div>
-    </Panel>
-  );
-}
-
-function Causes({ d }: { d: CC }) {
-  const max = Math.max(1, ...d.causes.map(c => c.n));
-  return (
-    <Panel title="Why" sub="Root-cause families behind the open incidents" icon={I.Microscope}
-      actions={<Link to="/incidents" className="panel-link">RCA workspaces<I.ChevronRight size={14} /></Link>}>
-      <div>
-        {d.causes.map(c => (
-          <div className="cause" key={c.label}>
-            <div className="l">{c.label}{c.hot > 0 && <span className="hot">{c.hot} critical / high</span>}</div>
-            <div className="v">{c.n}</div>
-            <div className="track"><i style={{ width: `${(c.n / max) * 100}%`, background: C.accent }} /></div>
-            <div className="c"><span>avg confidence {c.confidence}%</span><span>·</span>{c.ids.map(id => <Link key={id} to={`/incidents/${id}`} className="ent-link">{id}</Link>)}</div>
-          </div>
-        ))}
-      </div>
-      <div className="vw-card-child-shaded cmd-note" style={{ marginTop: 12 }}>
-        <I.ArrowLeftRight size={14} style={{ marginTop: 2, flexShrink: 0 }} />
-        <span><b className="num">{d.changeImplicated.length}</b> of {d.pulse.open} open incidents had a change or maintenance close inside the 72 h before detection — {d.changeImplicated.slice(0, 3).map((id, k) => <span key={id}>{k > 0 && ', '}<Link to={`/incidents/${id}`} className="ent-link">{id}</Link></span>)}.</span>
       </div>
     </Panel>
   );
