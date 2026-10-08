@@ -168,7 +168,7 @@ chassis, port cages + link LEDs, spinning fans, finned heatsinks, PSUs, DIMMs, P
 captions; `devices.tsx` models per family + rack + accelerator; `Device3D.tsx` stage, modes Device · Open lid · Exploded · One accelerator · In the rack,
 camera 3/4 · Front · Rear · Top, Health / Heat overlay). Inspector data still comes from the 2D scene builders below (`twin/scenes.tsx`), which are
 also the no-WebGL fallback. Check: `node .qa/devtwin.mjs` (WebGL via SwiftShader).
-Device page tab **Digital twin** (`?tab=twin`, `screens/ne/twin/`: `model.ts` parts vocabulary + silicon lookup, `scenes.tsx` one builder per view
+Device page tab **3D view** (renamed from "Digital twin", user 08-Oct-2026) (`?tab=twin`, `screens/ne/twin/`: `model.ts` parts vocabulary + silicon lookup, `scenes.tsx` one builder per view
 and family, `DeviceTwin.tsx` SVG renderer + inspector; styles `styles/devtwin.css`). Views (`?tview=`): face (front panel / rear I/O / front & rear),
 inside (top view: ASIC or NP7, control CPU, DRAM, port cages, PSUs, fans; DWDM = optical path; GPU = 8 GPUs + NVSwitch / PCIe switch / RoCE / Xe Link,
 CPUs, NICs, BMC, PSUs, fans or coolant manifold), chip (GPU only, `?gpu=0..7`: die with SMs lit by SM-active, HBM / GDDR stacks, scale-up ports,

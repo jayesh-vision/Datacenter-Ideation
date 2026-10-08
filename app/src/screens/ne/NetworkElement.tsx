@@ -107,7 +107,7 @@ export function NetworkElement() {
 
       <Tabs<Tab> value={tab} onChange={setTab} tabs={[
         { id: 'overview', label: 'Overview' },
-        { id: 'twin', label: 'Digital twin' },
+        { id: 'twin', label: '3D view' },
         { id: 'hardware', label: 'Hardware & interfaces', count: data.interfaces.length },
         ...(ne.role === 'GPU' ? [{ id: 'gpus' as Tab, label: /Gaudi|Max 1550/.test(ne.model) ? 'GPUs · Intel' : 'GPUs · DCGM', count: 8 }] : []),
         { id: 'links', label: 'Links', count: data.links.length },
@@ -116,7 +116,7 @@ export function NetworkElement() {
       ]} />
 
       {tab === 'overview' && <Overview d={data} />}
-      {tab === 'twin' && <Suspense fallback={<Loading label="Loading digital twin" />}><Device3D d={data} /></Suspense>}
+      {tab === 'twin' && <Suspense fallback={<Loading label="Loading 3D view" />}><Device3D d={data} /></Suspense>}
       {tab === 'hardware' && <Hardware d={data} />}
       {tab === 'gpus' && ne.role === 'GPU' && <GpuTab id={ne.id} />}
       {tab === 'links' && <Links d={data} />}

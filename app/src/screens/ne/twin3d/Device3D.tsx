@@ -74,7 +74,7 @@ function Device3DInner({ d }: { d: NeData }) {
   return (
     <section className="card dt dt3" data-devtwin={mode}>
       <div className="dt-head">
-        <div className="dt-title"><b>{ne.name.replace(`${ne.dcId}-`, '')} · digital twin</b><span className="vw-label">{caption}</span></div>
+        <div className="dt-title"><b>{ne.name.replace(`${ne.dcId}-`, '')} in 3D</b><span className="vw-label">{caption}</span></div>
         <Seg size="sm" value={mode} onChange={v => set({ tview: v === 'product' ? null : v })} options={modes} />
       </div>
       {mode === 'chip' && gpu && <div className="dt-chips"><span className="dt-gpus" role="group" aria-label="Pick a GPU">{gpu.gpus.map(x => (
