@@ -153,6 +153,11 @@ Each area also carries `good` / `total` / `items` / `why` (server.ts `explain`):
 score bar is always neutral blue. Power story (12-Oct-2026 data fix): at dcAt(9) only utility feed A is lost and the ATS has moved its load
 onto standby feed B; UPS-2 is on battery (before, both feeds were marked lost, which contradicted the alarm / incident / RCA).
 
+Hero numbers must add up (12-Oct-2026, user caught "7 of 23" next to 1 Critical + 8 High): the verdict line reads "N critical or high incidents at
+S of 23 datacenters" (N = Critical + High tiles; a site can carry several) with an info bubble listing each site (`situation.critBySite`). The High
+tile opens `/incidents?view=high` (new view, open + High), the premium-customer tile scrolls to "Who is affected" (`.cc-affected`), never an
+unfiltered list. Check: `npx tsx .qa/cc-numbers.ts` (every hero figure vs the list it links to, 5 personas × India/USA).
+
 ## Info icons (12-Oct-2026, user) — an "i" on every widget
 `Info` in `ui/kit.tsx` (portalled bubble, flips near the bottom, click inside a link only toggles). `info?: string` on `Panel`, `Kpi`, `OpsKpi`,
 `StatTile` and `SummaryStrip` items; hand-built headers place `<Info text=…/>` after the title. Texts: 1–2 sentences — what the widget shows, how
@@ -174,6 +179,13 @@ inside the cold aisle. It reuses the schematic twin's layout (`twin/layout.ts`),
 Overlays: Health · Temperature (floor heat-map from rack inlets) · Rack power · Connectivity (edge stubs). Labels are DOM anchors
 projected every frame (`twin2/anchors2.ts`), never drei `Html` (per-label React roots break under React 19). Rules carried over: health is
 shown by LEDs, beacons and halos, cabinets stay neutral. Check: `node .qa/twin2.mjs` (and `W=1280`); it is slow under software GL.
+Realistic twin additions (12-Oct-2026, user): an open room names every rack with a status dot (as the schematic does; the label overlay
+steps overlapping labels apart and keeps them clear of the controls); a rack label opens that rack. With a rack open, its facing row and the
+cold-aisle frame are left out entirely (the glass ghost still blocked the view). Plant is selectable (`twin2/units.ts`: cooling units, UPS,
+rectifier, battery bank, DG; key kept beside `Sel` because the schematic types are frozen): the camera flies to the unit (staying inside the
+room), racks / cabinets in the line of sight are hidden, and a card shows its facts + "Open in Facilities". **Walk** button = street-view mode
+(`twin2/walk.tsx`): eye-level camera, drag to look, click the floor to walk there (ring marks the spot), W A S D / arrows (Shift faster),
+scroll to zoom, racks and cabinets block the way, picking anything walks up to it, Esc stops. Check: `node .qa/twin2-walk.mjs`.
 
 ## Device digital twin (08-Oct-2026, user) — a pictorial, live view of one piece of equipment
 3D since the user rejected the 2D diagram version ("don't use the reference screenshots as is"): `screens/ne/twin3d/` (`kit.tsx` hardware primitives —

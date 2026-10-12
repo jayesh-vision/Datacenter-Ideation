@@ -13,8 +13,10 @@ import * as THREE from 'three';
 import type CameraControlsImpl from 'camera-controls';
 import type { TwinData, TwinNe } from '../../../api/ext-twin';
 import { FLOOR_H, PITCH, PLATE_T, RACK_D, RACK_W, U_H, cameraPose, rackWorld, type CoolingL, type FloorL, type Level, type PowerL, type RackL, type RoomL, type Sel, type TwinLayout } from '../twin/layout';
-import type { Hover, Layer, Pick, PosMap } from '../twin/Scene';
+import type { Hover, Layer, PosMap } from '../twin/Scene';
 import type { Anchor2 } from './anchors2';
+import { DG_KEY, coolKey, powerKey, type Pick2 } from './units';
+import { WalkControls, type WalkSpot } from './walk';
 import type { Attention, AttSev } from '../twin/attention';
 import { bezelTex, doorAlphaTex, epoxyTex, frontTex, perfTex, rackLabelTex, rackSideTex, rackTopTex, roofTex, tileTex, type BezelKind, type FrontKind } from './textures';
 
@@ -56,8 +58,10 @@ function barColor(rk: RackL, layer: Layer, sev: RackSev) {
 }
 const bezelKind = (ne: TwinNe): BezelKind => ne.role === 'Server' ? 'server' : ne.role === 'GPU' ? 'gpu' : ne.role === 'Storage' ? 'storage' : ne.role === 'Switch' || ne.role === 'Access' ? 'switch' : ne.role === 'Router' ? 'router' : ne.role === 'Firewall' ? 'firewall' : ne.role === 'DWDM' ? 'optical' : ne.role === 'Tenant gear' ? 'tenant' : 'appliance';
 
-interface Ctx { L: TwinLayout; data: TwinData; layer: Layer; sel: Sel; level: Level; onPick: (p: Pick) => void; setHover: (h: Hover | null) => void; att?: Attention }
-type Ev = { stopPropagation: () => void; instanceId?: number };
+interface Ctx { L: TwinLayout; data: TwinData; layer: Layer; sel: Sel; level: Level; onPick: (p: Pick2) => void; setHover: (h: Hover | null) => void; att?: Attention; unit?: string | null; walkTo?: (x: number, z: number) => void; hide?: Set<string> }
+type Ev = { stopPropagation: () => void; instanceId?: number; delta?: number; point?: THREE.Vector3 };
+/* a click that ended a drag (orbit, or looking around while walking) is not a pick */
+const dragged = (e: Ev) => (e.delta ?? 0) > 6;
 const NO_RAY = () => null;
 
 /* ---------------- shared geometry & materials ---------------- */
@@ -80,10 +84,6 @@ const MAT = {
   reserved: new THREE.MeshBasicMaterial({ color: '#9DB7D6', transparent: true, opacity: 0.16, depthWrite: false })
 };
 /* a rack in the facing row while another rack is open: faint glass outline, so the camera can look through it */
-const FADE_M = new THREE.MeshStandardMaterial({ color: '#94A3B8', transparent: true, opacity: 0.1, depthWrite: false, roughness: 0.6 });
-const FADE_EDGE = new THREE.LineBasicMaterial({ color: '#94A3B8', transparent: true, opacity: 0.45 });
-const FADE_EDGES_GEO: Record<string, THREE.EdgesGeometry> = {};
-const fadeEdges = (h: number) => (FADE_EDGES_GEO[h.toFixed(3)] ??= new THREE.EdgesGeometry(new THREE.BoxGeometry(RACK_W - 0.01, h - 0.06, RACK_D)));
 /* racks between the aisle camera and the selected rack = the facing row of the same rack pair */
 export function facingRow(room: RoomL, sel: Sel): Set<string> {
   const out = new Set<string>();
@@ -129,21 +129,21 @@ function InstancedSet({ items, geometry, material, castShadow, noRay }: { items:
 }
 
 /* ---------------- scene ---------------- */
-export function TwinScene2({ L, data, layer, sel, level, onPick, setHover, att, anchors, posRef, resetTick = 0, fx = true }: Ctx & { anchors: Anchor2[]; posRef: MutableRefObject<PosMap>; resetTick?: number; fx?: boolean }) {
-  const ctx: Ctx = { L, data, layer, sel, level, onPick, setHover, att };
+export function TwinScene2({ L, data, layer, sel, level, onPick, setHover, att, anchors, posRef, resetTick = 0, fx = true, unit = null, focusPose, walk = null, onWalkTo, hide }: Ctx & { anchors: Anchor2[]; posRef: MutableRefObject<PosMap>; resetTick?: number; fx?: boolean; focusPose?: [number[], number[]] | null; walk?: WalkSpot | null; onWalkTo?: (x: number, z: number) => void }) {
+  const ctx: Ctx = { L, data, layer, sel, level, onPick, setHover, att, unit, walkTo: walk ? onWalkTo : undefined, hide: walk ? undefined : hide };
   const building = level === 'building';
   const [dpr, setDpr] = useState(1.5);
   const [post, setPost] = useState(fx);
   useEffect(() => { setPost(fx); }, [fx]);
   /* same poses as the schematic twin; the building view backs off a little so the facade, roof and DG stay in frame */
-  const pose = useMemo<[number[], number[]]>(() => aislePose(L, sel) ?? (() => { const [e, t] = cameraPose(L, sel); const k = sel.floor === null ? 1.2 : sel.room === null ? 1.22 : 1; return k === 1 ? [e, t] : [e.map((v, i) => t[i] + (v - t[i]) * k), t] as [number[], number[]]; })(), [L, sel]);
+  const pose = useMemo<[number[], number[]]>(() => focusPose ?? aislePose(L, sel) ?? (() => { const [e, t] = cameraPose(L, sel); const k = sel.floor === null ? 1.2 : sel.room === null ? 1.22 : 1; return k === 1 ? [e, t] : [e.map((v, i) => t[i] + (v - t[i]) * k), t] as [number[], number[]]; })(), [L, sel, focusPose]);
   const floor = sel.floor !== null ? L.floors[sel.floor] : null;
   const groundY = building || !floor ? 0 : floor.y;
   const span = Math.max(L.building.w, L.building.d);
   return (
     <Canvas shadows="percentage" dpr={dpr} camera={{ fov: 34, near: 0.1, far: 500, position: pose[0] as [number, number, number] }}
       gl={{ antialias: true, powerPreference: 'high-performance', toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 0.95, preserveDrawingBuffer: true }}
-      onPointerMissed={() => onPick({})}>
+      onPointerMissed={() => { if (!walk) onPick({}); }}>
       <PerformanceMonitor flipflops={3} onDecline={() => { setDpr(1); setPost(false); }} onFallback={() => { setDpr(1); setPost(false); }} />
       <color attach="background" args={['#D3DBE5']} />
       <fog attach="fog" args={['#D3DBE5', span * 4, span * 8]} />
@@ -171,7 +171,7 @@ export function TwinScene2({ L, data, layer, sel, level, onPick, setHover, att, 
       {L.dg && (building || sel.floor === 0) && <Generator ctx={ctx} y={groundY} />}
       <StaticShadows deps={`${level}|${sel.floor}|${sel.room}`} />
       <Projector anchors={anchors} posRef={posRef} />
-      <Rig pose={pose} resetTick={resetTick} />
+      {walk ? <WalkControls spot={walk} L={L} /> : <Rig pose={pose} resetTick={resetTick} />}
       {post && (
         <EffectComposer multisampling={2}>
           <N8AO aoRadius={1.0} intensity={2.0} distanceFalloff={0.6} halfRes quality="performance" />
@@ -252,7 +252,7 @@ function FloorLevel({ floor, ctx, lite }: { floor: FloorL; ctx: Ctx; lite: boole
     <group position={[0, floor.y, 0]}>
       {/* structural slab (top at PLATE_T) */}
       <mesh position={[0, PLATE_T - 0.15, 0]} receiveShadow castShadow={lite}
-        onClick={lite ? (e: Ev) => { e.stopPropagation(); ctx.onPick({ floor: floor.idx }); } : undefined}
+        onClick={lite ? (e: Ev) => { e.stopPropagation(); ctx.onPick({ floor: floor.idx }); } : ctx.walkTo ? (e: Ev) => { e.stopPropagation(); if (!dragged(e) && e.point) ctx.walkTo!(e.point.x, e.point.z); } : undefined}
         onPointerOver={lite ? (e: Ev) => { e.stopPropagation(); setHover(true); ctx.setHover({ kind: 'floor', title: floor.name, sub }); } : undefined}
         onPointerOut={lite ? () => { setHover(false); ctx.setHover(null); } : undefined}>
         <boxGeometry args={[floor.w + 1.0, 0.3, floor.d + 1.0]} />
@@ -334,7 +334,9 @@ function useHeat(room: RoomL, on: boolean) {
 }
 
 function Room2({ room, floor, ctx, lite }: { room: RoomL; floor: FloorL; ctx: Ctx; lite: boolean }) {
-  const faded = useMemo(() => (lite ? new Set<string>() : facingRow(room, ctx.sel)), [room, ctx.sel, lite]);
+  const faded = useMemo(() => (lite || ctx.walkTo ? new Set<string>() : new Set([...facingRow(room, ctx.sel), ...(ctx.hide ?? [])])), [room, ctx.sel, lite, ctx.walkTo, ctx.hide]);
+  /* with a rack open, the cold-aisle frame in front of it goes too (user 12-Oct-2026: nothing between the camera and the rack) */
+  const rackOpen = !lite && !ctx.walkTo && !!ctx.sel.rack && room.racks.some(r => r.rack.id === ctx.sel.rack);
   const fadedKey = [...faded].sort().join(',');
   const [hover, setHover] = useState(false);
   const selected = ctx.sel.room === room.id;
@@ -349,7 +351,11 @@ function Room2({ room, floor, ctx, lite }: { room: RoomL; floor: FloorL; ctx: Ct
   ];
   const ring = selected && !lite ? ACCENT : rAtt ? ATT_C[rAtt] : hover && !lite ? '#8FB8F0' : null;
   const sub = room.kind === 'power' ? `${room.power.length} plant units` : `${room.racks.length} racks · ${room.racks.reduce((a, r) => a + r.nes.length, 0)} devices · ${room.cooling.length} cooling units${room.sensor ? ` · ${room.sensor.tempC}°C / ${room.sensor.humidity}% RH` : ''}`;
-  const pick = (e: Ev) => { e.stopPropagation(); ctx.onPick(lite ? { floor: floor.idx } : { floor: floor.idx, room: room.id }); };
+  const pick = (e: Ev) => {
+    e.stopPropagation(); if (dragged(e)) return;
+    if (ctx.walkTo && e.point) { ctx.walkTo(e.point.x, e.point.z); return; }
+    ctx.onPick(lite ? { floor: floor.idx } : { floor: floor.idx, room: room.id });
+  };
   const maxH = room.racks.length ? Math.max(...room.racks.map(r => r.h)) : 2.0;
   return (
     <group position={[room.x, 0, room.z]}>
@@ -372,12 +378,12 @@ function Room2({ room, floor, ctx, lite }: { room: RoomL; floor: FloorL; ctx: Ct
         </group>
       ))}
       {/* perforated cold-aisle tiles + containment (glass roof, end panels) */}
-      {!lite && room.aisles.filter(a => a.kind === 'cold' && room.racks.some(r => r.rot === 0 && r.z < a.z) && room.racks.some(r => r.rot !== 0 && r.z > a.z)).map((a, i) => <Containment key={i} x0={a.x - a.w / 2} x1={a.x + a.w / 2} z0={a.z - a.d / 2} z1={a.z + a.d / 2} h={maxH + 0.05} />)}
+      {!lite && !rackOpen && room.aisles.filter(a => a.kind === 'cold' && room.racks.some(r => r.rot === 0 && r.z < a.z) && room.racks.some(r => r.rot !== 0 && r.z > a.z)).map((a, i) => <Containment key={i} x0={a.x - a.w / 2} x1={a.x + a.w / 2} z0={a.z - a.d / 2} z1={a.z + a.d / 2} h={maxH + 0.05} />)}
       {!lite && <CableTrays room={room} />}
       {room.racks.map(rk => <Rack2 key={rk.rack.id} rk={rk} ctx={ctx} lite={lite} fade={faded.has(rk.rack.id)} />)}
       {!lite && room.racks.length > 0 && <DeviceFaces room={room} ctx={ctx} hide={fadedKey} />}
-      {room.cooling.map(c => <CoolingUnit2 key={c.unit.id} c={c} ctx={ctx} lite={lite} />)}
-      {room.power.map(p => <PowerUnit2 key={p.label} p={p} ctx={ctx} lite={lite} />)}
+      {room.cooling.filter(c => !ctx.hide?.has(coolKey(c.unit.id))).map(c => <CoolingUnit2 key={c.unit.id} c={c} ctx={ctx} lite={lite} />)}
+      {room.power.filter(p => !ctx.hide?.has(powerKey(room.id, p.label))).map(p => <PowerUnit2 key={p.label} p={p} roomId={room.id} ctx={ctx} lite={lite} />)}
       {!lite && ctx.layer === 'connectivity' && room.racks.filter(r => r.nes.some(n => n.edge)).map(rk => {
         const down = rk.nes.some(n => n.linksDown); const sx = room.w / 2 + 0.9;
         return <Line key={`e${rk.rack.id}`} points={[[rk.x, rk.h + 0.4, rk.z], [sx, rk.h + 0.4, rk.z], [sx + 0.6, rk.h + 0.4, rk.z]]} color={down ? LED.critical : ACCENT} lineWidth={down ? 3 : 2} dashed={down} dashSize={0.15} gapSize={0.08} />;
@@ -462,13 +468,14 @@ type St = 'ok' | 'warn' | 'bad';
 const ST_LED: Record<St, string> = { ok: '#3FDC74', warn: '#F5B82E', bad: '#FF4D4F' };
 const ST_ATT: Record<St, AttSev | null> = { ok: null, warn: 'major', bad: 'critical' };
 /* a white facility cabinet (CRAH / CRAC / CDU / UPS / rectifier) or dark battery bank, textured front and back */
-function Cabinet({ title, sub, x, z, w, d, h, kind, st, ctx, lite, selectable }: { title: string; sub: string; x: number; z: number; w: number; d: number; h: number; kind: FrontKind; st: St; ctx: Ctx; lite: boolean; selectable?: Pick }) {
+function Cabinet({ title, sub, x, z, w, d, h, kind, st, ctx, lite, selectable }: { title: string; sub: string; x: number; z: number; w: number; d: number; h: number; kind: FrontKind; st: St; ctx: Ctx; lite: boolean; selectable?: Pick2 }) {
+  const chosen = !!selectable?.unit && ctx.unit === selectable.unit;
   const [hover, setHover] = useState(false);
   const front = useMemo(() => (lite ? null : frontTex(kind)), [kind, lite]);
   const alarm = st !== 'ok';
   const ev = lite ? {} : {
-    onClick: selectable ? (e: Ev) => { e.stopPropagation(); ctx.onPick(selectable); } : undefined,
-    onPointerOver: (e: Ev) => { e.stopPropagation(); setHover(true); ctx.setHover({ kind: kind === 'crah' ? 'cooling' : 'power', title, sub }); },
+    onClick: selectable ? (e: Ev) => { e.stopPropagation(); if (!dragged(e)) ctx.onPick(selectable); } : undefined,
+    onPointerOver: (e: Ev) => { e.stopPropagation(); setHover(true); ctx.setHover({ kind: kind === 'crah' ? 'cooling' : 'power', title, sub: `${sub} · click to zoom to it` }); },
     onPointerOut: () => { setHover(false); ctx.setHover(null); }
   };
   const beaconY = h + 0.55;
@@ -476,7 +483,7 @@ function Cabinet({ title, sub, x, z, w, d, h, kind, st, ctx, lite, selectable }:
     <group position={[x, 0, z]}>
       <RoundedBox args={[w, h, d]} radius={Math.min(0.05, h / 10)} smoothness={3} position={[0, h / 2, 0]} castShadow receiveShadow {...ev}>
         <meshStandardMaterial color={BODY[kind]} roughness={0.5} metalness={0.15} />
-        {!lite && hover && <Outlines thickness={0.03} color="#7FB0F5" />}
+        {!lite && (hover || chosen) && <Outlines thickness={chosen ? 0.04 : 0.03} color={chosen ? ACCENT : '#7FB0F5'} />}
       </RoundedBox>
       {front && [1, -1].map(sgn => (
         <mesh key={sgn} position={[0, h / 2, sgn * (d / 2 + 0.003)]} rotation={[0, sgn === 1 ? 0 : Math.PI, 0]} raycast={NO_RAY}>
@@ -493,11 +500,11 @@ function Cabinet({ title, sub, x, z, w, d, h, kind, st, ctx, lite, selectable }:
 function CoolingUnit2({ c, ctx, lite }: { c: CoolingL; ctx: Ctx; lite: boolean }) {
   const u = c.unit;
   const st: St = u.status === 'Failed' ? 'bad' : u.status === 'Maintenance' ? 'warn' : 'ok';
-  return <Cabinet title={u.name} sub={`${u.status} · ${u.type} · ${u.loadPct}% of ${u.capacityKw} kW · supply ${u.supplyC}°C / return ${u.returnC}°C`} x={c.x} z={c.z} w={c.w} d={0.8} h={2.0} kind="crah" st={st} ctx={ctx} lite={lite} />;
+  return <Cabinet title={u.name} sub={`${u.status} · ${u.type} · ${u.loadPct}% of ${u.capacityKw} kW · supply ${u.supplyC}°C / return ${u.returnC}°C`} x={c.x} z={c.z} w={c.w} d={0.8} h={2.0} kind="crah" st={st} ctx={ctx} lite={lite} selectable={{ unit: coolKey(u.id) }} />;
 }
-function PowerUnit2({ p, ctx, lite }: { p: PowerL; ctx: Ctx; lite: boolean }) {
+function PowerUnit2({ p, roomId, ctx, lite }: { p: PowerL; roomId: string; ctx: Ctx; lite: boolean }) {
   const sub = p.ups ? `${p.ups.state} · ${p.ups.loadPct}% of ${p.ups.capacityKw} kW · ${p.ups.redundancy} · ${p.ups.batteryMin} min autonomy` : p.kind === 'battery' ? 'DC plant battery bank' : 'AC → 48 V DC rectifier';
-  return <Cabinet title={p.label} sub={sub} x={p.x} z={p.z} w={p.w} d={p.d} h={p.h} kind={p.kind === 'ups' ? 'ups' : p.kind === 'battery' ? 'battery' : 'panel'} st={p.state} ctx={ctx} lite={lite} />;
+  return <Cabinet title={p.label} sub={sub} x={p.x} z={p.z} w={p.w} d={p.d} h={p.h} kind={p.kind === 'ups' ? 'ups' : p.kind === 'battery' ? 'battery' : 'panel'} st={p.state} ctx={ctx} lite={lite} selectable={{ unit: powerKey(roomId, p.label) }} />;
 }
 /* diesel generator outside the building: white canopy, exhaust stack, plinth, safety marking */
 function Generator({ ctx, y }: { ctx: Ctx; y: number }) {
@@ -513,9 +520,10 @@ function Generator({ ctx, y }: { ctx: Ctx; y: number }) {
         <mesh key={i} position={[dx, 0.012, dz]} rotation={[-Math.PI / 2, 0, 0]} raycast={NO_RAY}><planeGeometry args={[sw, sd]} /><meshStandardMaterial color="#E8B21E" roughness={0.6} /></mesh>
       ))}
       <RoundedBox args={[g.w, g.h, g.d]} radius={0.05} smoothness={3} position={[0, g.h / 2 + 0.16, 0]} castShadow receiveShadow
-        onPointerOver={(e: Ev) => { e.stopPropagation(); setHover(true); ctx.setHover({ kind: 'dg', title: `DG set ${dg.kva} kVA`, sub }); }} onPointerOut={() => { setHover(false); ctx.setHover(null); }}>
+        onClick={(e: Ev) => { e.stopPropagation(); if (!dragged(e)) ctx.onPick({ unit: DG_KEY }); }}
+        onPointerOver={(e: Ev) => { e.stopPropagation(); setHover(true); ctx.setHover({ kind: 'dg', title: `DG set ${dg.kva} kVA`, sub: `${sub} · click to zoom to it` }); }} onPointerOut={() => { setHover(false); ctx.setHover(null); }}>
         <meshStandardMaterial color="#E8ECF0" roughness={0.5} metalness={0.15} />
-        {hover && <Outlines thickness={0.03} color="#7FB0F5" />}
+        {(hover || ctx.unit === DG_KEY) && <Outlines thickness={0.03} color={ctx.unit === DG_KEY ? ACCENT : '#7FB0F5'} />}
       </RoundedBox>
       {[1, -1].map(sgn => (
         <mesh key={sgn} position={[0, g.h / 2 + 0.16, sgn * (g.d / 2 + 0.003)]} rotation={[0, sgn === 1 ? 0 : Math.PI, 0]} raycast={NO_RAY}><planeGeometry args={[g.w - 0.02, g.h - 0.06]} /><meshStandardMaterial map={front} roughness={0.55} metalness={0.15} /></mesh>
@@ -572,12 +580,8 @@ function RackDoor({ rk, open, M, label }: { rk: RackL; open: boolean; M: RackMat
 
 function Rack2({ rk, ctx, lite, fade }: { rk: RackL; ctx: Ctx; lite: boolean; fade?: boolean }) {
   const [hover, setHover] = useState(false);
-  if (fade) return (
-    <group position={[rk.x, 0, rk.z]} rotation={[0, rk.rot, 0]}>
-      <mesh position={[0, rk.h / 2 + 0.03, 0]} material={FADE_M} raycast={NO_RAY}><boxGeometry args={[RACK_W - 0.01, rk.h - 0.06, RACK_D]} /></mesh>
-      <lineSegments position={[0, rk.h / 2 + 0.03, 0]} geometry={fadeEdges(rk.h)} material={FADE_EDGE} raycast={NO_RAY} />
-    </group>
-  );
+  /* the facing row of an open rack is left out entirely: a glass ghost still drew edges in front of the rack */
+  if (fade) return null;
   const ghost = ctx.data.dc.status === 'planned' || (rk.nes.length === 0 && rk.reserved.length > 0);
   const M = rackMaterials(ghost);
   const selected = ctx.sel.rack === rk.rack.id;
@@ -590,7 +594,7 @@ function Rack2({ rk, ctx, lite, fade }: { rk: RackL; ctx: Ctx; lite: boolean; fa
   const short = rk.rack.name.replace(`${ctx.data.dc.id}-`, '');
   const sub = `${rk.rack.role} · ${rk.rack.usedU}/${rk.rack.heightU} U · ${rk.rack.drawKw} / ${rk.rack.budgetKw} kW · ${rk.rack.tempC}°C inlet · ${rk.nes.length} devices`;
   const ev = lite ? {} : {
-    onClick: (e: Ev) => { e.stopPropagation(); ctx.onPick({ rack: rk.rack.id }); },
+    onClick: (e: Ev) => { e.stopPropagation(); if (!dragged(e)) ctx.onPick({ rack: rk.rack.id }); },
     onPointerOver: (e: Ev) => { e.stopPropagation(); setHover(true); ctx.setHover({ kind: 'rack', title: rk.rack.name, sub }); },
     onPointerOut: () => { setHover(false); ctx.setHover(null); }
   };
@@ -680,7 +684,7 @@ function BezelGroup({ g, codes, ctx, onHover }: { g: DevLayout['groups'][number]
   };
   return (
     <instancedMesh ref={ref} args={[BOX, material, g.items.length]}
-      onClick={(e: Ev) => { e.stopPropagation(); const it = g.items[e.instanceId ?? -1]; if (!it) return; ctx.onPick(it.id ? { rack: it.rk.rack.id, ne: it.id } : { rack: it.rk.rack.id }); }}
+      onClick={(e: Ev) => { e.stopPropagation(); if (dragged(e)) return; const it = g.items[e.instanceId ?? -1]; if (!it) return; ctx.onPick(it.id ? { rack: it.rk.rack.id, ne: it.id } : { rack: it.rk.rack.id }); }}
       onPointerMove={(e: Ev) => { e.stopPropagation(); const it = g.items[e.instanceId ?? -1]; if (!it) return; onHover(it.id); if (it.ne) ctx.setHover(info(it)); else ctx.setHover({ kind: 'ne', title: `${it.rk.rack.name} · patch panel`, sub: 'Optical distribution frame · passive, not monitored' }); }}
       onPointerOut={() => { onHover(null); ctx.setHover(null); }} />
   );

@@ -99,8 +99,10 @@ function Situation({ d }: { d: CC }) {
                 </span>
                 <span className={`vw-chip vw-chip--${bandChip} is-strong`}>{s.band}</span>
               </span>
+              {/* incidents AND the sites they sit at, so the line adds up with the Critical + High tiles below (user, 12-Oct-2026) */}
               <p className="hero-line">{s.critSites
-                ? <>Critical or high incidents at <b>{s.critSites}</b> of {p.liveDcs} datacenters</>
+                ? <><b>{s.n1 + s.n2}</b> critical or high incident{s.n1 + s.n2 === 1 ? '' : 's'} at <b>{s.critSites}</b> of {p.liveDcs} datacenters
+                    <Info text={`${s.n1} Critical + ${s.n2} High = ${s.n1 + s.n2} open incidents, at ${s.critSites} datacenter${s.critSites === 1 ? '' : 's'} (a site can have more than one): ${s.critBySite.map(x => `${x.id} ${[x.n1 && `${x.n1} Critical`, x.n2 && `${x.n2} High`].filter(Boolean).join(' + ')}`).join(' · ')}.`} /></>
                 : <>No critical or high incident across <b>{p.liveDcs}</b> datacenters</>}</p>
               <span className="hero-weak">Weakest area <b>{s.weakest.label}</b> · {s.weakest.value}%</span>
             </div>
@@ -108,11 +110,11 @@ function Situation({ d }: { d: CC }) {
           <div className="hero-facts">
             {[
               { k: 'crit', n: s.n1, l: 'Critical', sub: 'incidents', to: '/incidents?view=sev1', tone: s.n1 ? 'bad' : '', info: 'Open incidents at severity Critical (service down or a datacenter at risk). Click to open the Critical worklist.' },
-              { k: 'high', n: s.n2, l: 'High', sub: 'incidents', to: '/incidents', tone: s.n2 ? 'warn' : '', info: 'Open incidents at severity High (redundancy lost or a service degraded). Click to open the incident list.' },
+              { k: 'high', n: s.n2, l: 'High', sub: 'incidents', to: '/incidents?view=high', tone: s.n2 ? 'warn' : '', info: 'Open incidents at severity High (redundancy lost or a service degraded). Click to open the High worklist.' },
               { k: 'sla', n: p.breaching, l: 'Past SLA', sub: `of ${p.open} open`, to: '/incidents?view=breaching', tone: p.breaching ? 'bad' : '', info: `Open incidents whose resolution SLA clock has run out (${p.breaching} of ${p.open} open). Click to open the breaching worklist.` },
-              { k: 'cust', n: s.exposedPremium, l: vocabNow().premium, sub: `${vocabNow().customers.toLowerCase()} affected`, to: '/incidents', tone: '', info: `${vocabNow().premium} ${vocabNow().customers.toLowerCase()} with at least one ${vocabNow().service.toLowerCase()} degraded or down by an open incident.` }
+              { k: 'cust', n: s.exposedPremium, l: vocabNow().premium, sub: `${vocabNow().customers.toLowerCase()} affected`, to: '/#affected', tone: '', info: `${vocabNow().premium} ${vocabNow().customers.toLowerCase()} with at least one ${vocabNow().service.toLowerCase()} degraded or down. Click to jump to the Who is affected panel, which lists them.` }
             ].map(x => (
-              <Link key={x.k} to={x.to} className={`hero-fact${x.tone ? ` is-${x.tone}` : ''}`} title={`${x.n} ${x.l.toLowerCase()} ${x.sub}`}>
+              <Link key={x.k} to={x.to} onClick={x.k === 'cust' ? e => { e.preventDefault(); document.querySelector('.cc-affected')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } : undefined} className={`hero-fact${x.tone ? ` is-${x.tone}` : ''}`} title={`${x.n} ${x.l.toLowerCase()} ${x.sub}`}>
                 <span className="hero-fact-n">{x.n}</span>
                 <span className="hero-fact-l">{x.l}</span>
                 <Info text={x.info} className="hero-fact-i" />
@@ -254,7 +256,7 @@ function ImpactBoard({ d }: { d: CC }) {
 function Exposure({ d }: { d: CC }) {
   const st = d.svcStatus;
   return (
-    <Panel title="Who is affected" sub={`${vocabNow().customer} exposure from degraded ${vocabNow().services.toLowerCase()}`} icon={I.Users}
+    <Panel className="cc-affected" title="Who is affected" sub={`${vocabNow().customer} exposure from degraded ${vocabNow().services.toLowerCase()}`} icon={I.Users}
       info={`${vocabNow().services} whose path crosses an open incident or active alarm, and the ${vocabNow().customers.toLowerCase()} that ride them — ${vocabNow().premium.toLowerCase()} first. The bar splits every ${vocabNow().service.toLowerCase()} by status. Click a ${vocabNow().customer.toLowerCase()} to see what is hitting them.`}
       actions={<Link to="/incidents" className="panel-link">Incidents<I.ChevronRight size={14} /></Link>}>
       <div className="expo-top"><span className="big">{d.situation.exposedServices}</span><span className="sub">{vocabNow().services.toLowerCase()} degraded · {d.exposedCustomerCount} {vocabNow().customers.toLowerCase()} affected</span></div>

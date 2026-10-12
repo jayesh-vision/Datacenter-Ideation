@@ -201,7 +201,7 @@ const R = [
   ['/topology?dc={id}', 'Topology', 'Redirects to the datacenter\'s Topology tab', [['dc', 'datacenter ID', 'required']], '', 'KA-DC-020', '', true],
   ['Operate'],
   ['/alerts', 'Alerts', 'Alarm console', [['sev', 'critical · major · minor · warning', 'severity'], ['state', 'open · acknowledged · cleared', 'default open'], ['dc', 'datacenter ID', 'site'], ['source', 'Interface · Link · Power · Cooling · Environment · CPU · Protocol · Security · Discovery', 'source'], ['scope', 'dc · downstream · all', 'datacenter scope (default dc)'], ['q', 'text', 'search']], '?sev=critical'],
-  ['/incidents', 'Incidents', 'Incident list with SLA clocks and revenue', [['view', 'open · sev1 · breaching · all', 'default open'], ['dc', 'datacenter ID', 'site'], ['q', 'text', 'search']], '?view=sev1'],
+  ['/incidents', 'Incidents', 'Incident list with SLA clocks and revenue', [['view', 'open · sev1 · high · breaching · all', 'default open'], ['dc', 'datacenter ID', 'site'], ['q', 'text', 'search']], '?view=sev1'],
   ['/incidents/{id}', 'Incident', 'RCA, impact, revenue, action plan, closure checks', [], '', 'INC-0001'],
   ['/changes', 'Changes & maintenance', 'Changes, maintenance windows, impact preview', [['id', 'CHG-xxxx', 'open one change'], ['kind', 'all · change · maintenance', 'kind'], ['status', 'Draft · Pending approval · Approved · In progress · Completed · Rolled back', 'status'], ['new', 'change · maintenance', 'open the create form'], ['q', 'text', 'search']], '?id=CHG-2002'],
   ['Drill-downs'],

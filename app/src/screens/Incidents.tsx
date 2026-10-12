@@ -14,7 +14,7 @@ import { Facts, SoftMeter, Split, StatGrid, StatTile, type Tone } from '../ui/An
 import '../styles/revenue.css';
 
 type Row = Incident & { sla: { breaching: boolean; resolveLeft: number; responseBreached: boolean; responseMin: number }; revenue: { rank: number; rate: number; impact: number; atRisk: number; exposed: number; potentialRate: number; cliffMin: number | null; underPrioritised: boolean } | null };
-type View = 'open' | 'sev1' | 'breaching' | 'all';
+type View = 'open' | 'sev1' | 'high' | 'breaching' | 'all';
 export const TYPE_ICON: Record<Incident['type'], I.LucideIcon> = { Network: I.Network, Power: I.Zap, Cooling: I.Snowflake, Rack: I.Server, Capacity: I.Gauge, Security: I.ShieldAlert, GPU: I.Cpu };
 const isOpen = (i: Incident) => i.status === 'Open' || i.status === 'Investigating' || i.status === 'Mitigated';
 
@@ -31,7 +31,7 @@ export function Incidents() {
   const now = clockNow();
 
   const scoped = useMemo(() => ((all ?? []) as Row[]).filter(i => (!dc || i.dcId === dc) && (!q || `${i.id} ${i.title} ${i.owner} ${i.dcId}`.toLowerCase().includes(q.toLowerCase()))), [all, dc, q]);
-  const rows = useMemo(() => scoped.filter(i => view === 'all' ? true : view === 'sev1' ? isOpen(i) && i.sev === 1 : view === 'breaching' ? i.sla.breaching : isOpen(i)), [scoped, view]);
+  const rows = useMemo(() => scoped.filter(i => view === 'all' ? true : view === 'sev1' ? isOpen(i) && i.sev === 1 : view === 'high' ? isOpen(i) && i.sev === 2 : view === 'breaching' ? i.sla.breaching : isOpen(i)), [scoped, view]);
   if (!all || !dcs) return <Loading />;
 
   const open = scoped.filter(isOpen);
@@ -70,6 +70,7 @@ export function Incidents() {
               filters={[
                 { id: 'view', label: 'View', quick: true, value: view, defaultValue: 'open', onChange: v => set('view', v === 'open' ? '' : v), options: [
                   { id: 'open', label: 'Open', count: scoped.filter(isOpen).length }, { id: 'sev1', label: 'Critical open', count: scoped.filter(i => isOpen(i) && i.sev === 1).length },
+                  { id: 'high', label: 'High open', count: scoped.filter(i => isOpen(i) && i.sev === 2).length },
                   { id: 'breaching', label: 'Breaching SLA', count: scoped.filter(i => i.sla.breaching).length }, { id: 'all', label: 'All incidents', count: scoped.length }] },
                 { id: 'dc', label: 'Datacenter', quick: true, value: dc, anyLabel: 'Any datacenter', onChange: v => set('dc', v), options: dcs.map(d => ({ id: d.id, label: `${d.id} · ${d.city}` })) }
               ]} />
@@ -90,8 +91,8 @@ function IncidentAnalytics({ open, res30, mttr, met, slaPct, view, onView }: { o
   const svc = open.reduce((a, i) => a + i.impact.services, 0), cust = open.reduce((a, i) => a + i.impact.customers, 0), prem = open.reduce((a, i) => a + i.impact.premium, 0);
   return (
     <StatGrid>
-      <StatTile label="Open incidents" value={open.length} sub={`${open.filter(i => i.sev <= 2).length} critical / high`} subTone={open.some(i => i.sev === 1) ? 'bad' : undefined} onClick={() => onView('open')} active={view === 'open'} info="Incidents in Open, Investigating or Mitigated status, split by severity. Click the tile for the Open view; click Critical in the legend for the critical-only view.">
-        <Split parts={[1, 2, 3, 4].map(n => ({ key: `s${n}`, label: sevLabel(n), n: open.filter(i => i.sev === n).length, tone: SEV_TONE[n] }))} onPick={k => k === 's1' && onView('sev1')} active={view === 'sev1' ? 's1' : undefined} />
+      <StatTile label="Open incidents" value={open.length} sub={`${open.filter(i => i.sev <= 2).length} critical / high`} subTone={open.some(i => i.sev === 1) ? 'bad' : undefined} onClick={() => onView('open')} active={view === 'open'} info="Incidents in Open, Investigating or Mitigated status, split by severity. Click the tile for the Open view; click Critical or High in the legend for that severity only.">
+        <Split parts={[1, 2, 3, 4].map(n => ({ key: `s${n}`, label: sevLabel(n), n: open.filter(i => i.sev === n).length, tone: SEV_TONE[n] }))} onPick={k => k === 's1' ? onView('sev1') : k === 's2' && onView('high')} active={view === 'sev1' ? 's1' : view === 'high' ? 's2' : undefined} />
       </StatTile>
       <StatTile label="SLA clock" value={breached.length} sub="past SLA" subTone={breached.length ? 'bad' : undefined} onClick={() => onView('breaching')} active={view === 'breaching'} info="Open incidents past SLA: resolution time used up, or the response time missed. Due soon = less than a quarter of the resolution SLA left. Click to list the breaching incidents.">
         <Split parts={[{ key: 'b', label: 'Breached', n: breached.length, tone: 'error' }, { key: 'r', label: 'Due soon', n: atRisk.length, tone: 'warning' }, { key: 'ok', label: 'On track', n: open.length - breached.length - atRisk.length, tone: 'success' }]} />

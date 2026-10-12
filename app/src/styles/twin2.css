@@ -50,3 +50,30 @@
 .site-view-switch .vw-label { white-space: nowrap; }
 .twin-host .twin-side { max-height: 600px; }
 @media (max-width: 1280px) { .twin-host .twin-side { max-height: 560px; } }
+
+/* rack names inside an open room (12-Oct-2026): compact pill = status dot + name, like the schematic twin */
+.t2-label.t2-rack.is-compact > * { padding: 2px 7px; gap: 5px; font-size: 10.5px; border-left-width: 3px; }
+.t2-label.is-ok > * { border-left-color: #3FDC74; }
+.t2-label.t2-unit > button:hover, .t2-label.t2-rack > button:hover { background: #fff; box-shadow: 0 0 0 2px rgba(28, 129, 239, .18), 0 6px 16px -8px rgba(16, 34, 58, .35); }
+/* Walk (street view) toggle */
+.t2-walk { display: inline-flex; align-items: center; gap: 6px; }
+.t2-walk.is-on { background: var(--primaryColor500); border-color: var(--primaryColor500); color: #fff; }
+/* plant unit card (cooling / UPS / rectifier / battery / DG) */
+.t2-card { position: absolute; right: 12px; bottom: 12px; z-index: 6; width: 280px; max-width: calc(100% - 24px); display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: rgba(255, 255, 255, .97); border: 1px solid var(--vw-color-slate-200); border-left: 3px solid #3FDC74; border-radius: var(--vw-radius-sm); box-shadow: 0 8px 24px -12px rgba(16, 34, 58, .4); font-size: 12px; color: var(--vw-color-gray-700); }
+.t2-card.is-warn { border-left-color: var(--vw-color-amber-500); }
+.t2-card.is-bad { border-left-color: var(--vw-color-red-500); }
+.t2-card-h { display: flex; align-items: center; gap: 7px; }
+.t2-card-h b { flex: 1; min-width: 0; font-size: 13px; color: var(--vw-color-gray-900); font-family: var(--num); }
+.t2-card .dot { width: 8px; height: 8px; border-radius: 50%; background: #3FDC74; flex: none; }
+.t2-card.is-warn .dot { background: var(--vw-color-amber-500); }
+.t2-card.is-bad .dot { background: var(--vw-color-red-500); }
+.t2-card-x { border: 0; background: none; padding: 2px; cursor: pointer; color: var(--vw-color-gray-500); display: inline-flex; }
+.t2-card-type { color: var(--vw-color-gray-500); }
+.t2-card-type em { font-style: normal; font-weight: 600; color: var(--vw-color-gray-800); }
+.t2-card.is-bad .t2-card-type em { color: var(--vw-color-red-600); }
+.t2-card.is-warn .t2-card-type em { color: var(--vw-color-amber-700); }
+.t2-card dl { margin: 0; display: flex; flex-direction: column; gap: 3px; }
+.t2-card dl > div { display: flex; justify-content: space-between; gap: 10px; }
+.t2-card dt { color: var(--vw-color-gray-500); }
+.t2-card dd { margin: 0; font-family: var(--num); font-weight: 500; color: var(--vw-color-gray-900); text-align: right; }
+.t2-card a { color: var(--primaryColor600); font-weight: 500; text-decoration: none; }
