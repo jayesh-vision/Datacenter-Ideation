@@ -318,3 +318,7 @@ incidents, changes; not imported). Rebuild: `npx tsx scripts/inventory/export_ba
 `python scripts/inventory/build_template.py out.xlsx [x.json]` (needs openpyxl; no json = the template). Served under `/downloads/`;
 the personas page and platform overview are served at `/datacenter-personas.html`, `/dco-platform-overview.pdf|.docx` (copy after editing docs/).
 Known mock gaps the backup's checks flag: serials repeat across sites, GJ-DC-013 (planned) racks exceed its 10 kW, 115 GPU hosts lack GPU records.
+Data model explorer (12-Oct-2026, user): `docs/dco-data-model.html` (served at `/data-model.html`; copy to `app/public/` after editing). 33 entities
+(types.ts + template sheets) and 65 relationships in one `E` / `R` table; views Ontology (focus entity, 1 or 2 steps out), Full map (3 × 3 domain
+clusters) and Hierarchy (containment tree); details panel = fields marked Import / Live / Derived, sheet, example id, relationships. Counts per persona
+come from the mock (`COUNTS`, India); update E / R when types.ts gains an entity.

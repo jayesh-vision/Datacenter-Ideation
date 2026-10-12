@@ -1,0 +1,710 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DCO Data Model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* DCO data model explorer: three views of one ontology (entities of app/src/api/types.ts + the import template).
+   Ontology = one entity in the centre with everything it touches; Map = the whole model by domain; Hierarchy = the containment tree.
+   One details panel serves all three. Domain colours: location slate · space indigo · power ochre · cooling teal · equipment blue ·
+   connectivity violet · GPU green · commercial magenta · operations orange. */
+:root{
+  --bg:#F4F6FA; --surface:#FFFFFF; --surface2:#EEF1F6; --fg:#141A26; --muted:#5A6378; --line:#D5DBE5; --edge:#8A93A8;
+  --accent:#2E5BD8; --accent-soft:#E3EAFE; --dot:#D9DEE8;
+  --d-loc:#4B5873; --d-space:#4338CA; --d-power:#9A6200; --d-cool:#0A869E; --d-it:#1D6FB8; --d-net:#7446C4; --d-gpu:#1F8A4C; --d-biz:#B83280; --d-ops:#C2410C;
+  --src-i:#2E5BD8; --src-i-soft:#E3EAFE; --src-l:#1F8A4C; --src-l-soft:#DDF3E6; --src-d:#7446C4; --src-d-soft:#EEE6FC;
+  --f-display:"Poppins",system-ui,sans-serif; --f-body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif; --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F131B; --surface:#171C27; --surface2:#1F2533; --fg:#E7EAF2; --muted:#9AA3B8; --line:#2E3546; --edge:#5D6780;
+  --accent:#86A2FF; --accent-soft:#232D52; --dot:#232A39;
+  --d-loc:#A3AEC6; --d-space:#A5A0FF; --d-power:#E2B250; --d-cool:#4FCFE4; --d-it:#6CB2F2; --d-net:#B896F7; --d-gpu:#5BD08A; --d-biz:#F08BC8; --d-ops:#FF9C5C;
+  --src-i:#86A2FF; --src-i-soft:#232D52; --src-l:#5BD08A; --src-l-soft:#173826; --src-d:#B896F7; --src-d-soft:#2F2448; color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0F131B; --surface:#171C27; --surface2:#1F2533; --fg:#E7EAF2; --muted:#9AA3B8; --line:#2E3546; --edge:#5D6780;
+  --accent:#86A2FF; --accent-soft:#232D52; --dot:#232A39;
+  --d-loc:#A3AEC6; --d-space:#A5A0FF; --d-power:#E2B250; --d-cool:#4FCFE4; --d-it:#6CB2F2; --d-net:#B896F7; --d-gpu:#5BD08A; --d-biz:#F08BC8; --d-ops:#FF9C5C;
+  --src-i:#86A2FF; --src-i-soft:#232D52; --src-l:#5BD08A; --src-l-soft:#173826; --src-d:#B896F7; --src-d-soft:#2F2448; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.5;display:flex;flex-direction:column;min-height:100vh}
+button,input,select{font:inherit;color:inherit}
+h1,h2,h3{font-family:var(--f-display);margin:0;letter-spacing:-.01em;text-wrap:balance}
+p{margin:0}
+.mono{font-family:var(--f-mono)}
+
+/* header */
+header.top{padding:14px 20px 12px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--line);background:var(--surface)}
+.title-row{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline}
+.eyebrow{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font-size:24px;font-weight:600}
+.lede{color:var(--muted);max-width:110ch;font-size:13.5px}
+.controls{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
+.seg{display:inline-flex;background:var(--surface2);border:1px solid var(--line);border-radius:9px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;padding:6px 14px;border-radius:7px;cursor:pointer;color:var(--muted);font-weight:500}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.search{position:relative}
+.search input{width:240px;max-width:60vw;padding:7px 10px 7px 30px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.search svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--muted)}
+.search ul{position:absolute;z-index:30;top:calc(100% + 4px);left:0;width:280px;margin:0;padding:4px;list-style:none;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(10,20,40,.14);max-height:320px;overflow:auto}
+.search li{padding:6px 8px;border-radius:6px;cursor:pointer;display:flex;gap:8px;align-items:center}
+.search li:hover,.search li.on{background:var(--accent-soft)}
+.search li small{color:var(--muted);margin-left:auto}
+select{padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+label.inline{display:inline-flex;gap:6px;align-items:center;color:var(--muted);font-size:13px}
+.legend{display:flex;flex-wrap:wrap;gap:6px}
+.legend button{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:3px 10px 3px 8px;font-size:12.5px;cursor:pointer}
+.legend button i{width:9px;height:9px;border-radius:3px;display:inline-block}
+.legend button[aria-pressed="false"]{opacity:.45;text-decoration:line-through}
+.keys{display:flex;flex-wrap:wrap;gap:14px;align-items:center;font-size:12.5px;color:var(--muted)}
+.keys span{display:inline-flex;align-items:center;gap:6px}
+
+/* body */
+main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 380px;min-height:0}
+.stage{position:relative;min-height:560px;background:var(--bg);background-image:radial-gradient(var(--dot) 1.2px,transparent 1.2px);background-size:22px 22px;overflow:hidden}
+[hidden]{display:none!important}
+#svg{position:absolute;inset:0;width:100%;height:100%;cursor:grab;touch-action:none}
+#svg.panning{cursor:grabbing}
+.cluster rect{fill:var(--surface);fill-opacity:.55;stroke:var(--line);stroke-dasharray:4 4}
+.cluster text{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.zoom{position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;gap:4px;z-index:5}
+.zoom button{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-size:16px;display:grid;place-items:center}
+.hint{position:absolute;left:12px;bottom:12px;font-size:12px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:5px 10px;z-index:5;max-width:calc(100% - 80px)}
+.crumbs{position:absolute;left:12px;top:12px;display:flex;flex-wrap:wrap;gap:4px;z-index:5;max-width:calc(100% - 24px)}
+.crumbs button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:2px 10px;font-size:12px;cursor:pointer;color:var(--muted)}
+.crumbs button:last-child{color:var(--fg);border-color:var(--accent)}
+
+/* svg graph */
+.node{cursor:pointer}
+.node .card{fill:var(--surface);stroke:var(--line);stroke-width:1}
+.node .bar{stroke:none}
+.node .t{font-family:var(--f-display);font-weight:600;font-size:13px;fill:var(--fg)}
+.node .s{font-size:11px;fill:var(--muted)}
+.node.center .card{stroke:var(--accent);stroke-width:2}
+.node.center .t{font-size:15px}
+.node.sel .card{stroke:var(--accent);stroke-width:2}
+.node.zero .t,.node.zero .s{opacity:.55}
+.node:hover .card{stroke:var(--accent)}
+.node.dim{opacity:.18}
+#svg.is-map .node .t{font-size:15.5px}
+#svg.is-map .node .s{font-size:12.5px}
+#svg.is-map .edge .lbl text{font-size:13px}
+.edge path{fill:none;stroke:var(--edge);stroke-width:1.4}
+.edge.ref path{stroke-dasharray:6 5}
+.edge.is path{stroke-dasharray:2 4;stroke-width:1.8}
+.edge.hot path{stroke:var(--accent);stroke-width:2}
+.edge.dim{opacity:.08}
+#svg.is-map .edge:not(.hot) path{opacity:.45}
+.edge .lbl rect{fill:var(--surface);stroke:var(--line)}
+.edge .lbl text{font-size:11px;fill:var(--muted)}
+.edge.hot .lbl rect{stroke:var(--accent)}
+.edge.hot .lbl text{fill:var(--fg)}
+
+/* hierarchy */
+.tree{position:absolute;inset:0;overflow:auto;padding:16px 18px 80px;background:var(--bg)}
+.tree h3{font-size:14px;margin:18px 0 6px;color:var(--muted);font-weight:600}
+.tree h3:first-child{margin-top:0}
+.tree ul{list-style:none;margin:0;padding-left:22px;border-left:1px dashed var(--line);margin-left:9px}
+.tree > ul{border-left:0;padding-left:0;margin-left:0}
+.row{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:8px;cursor:pointer}
+.tree-in{max-width:940px}
+.row .ct{min-width:64px;text-align:right}
+.row .sh{min-width:190px;text-align:center}
+.row:hover{background:var(--surface)}
+.row.sel{background:var(--accent-soft)}
+.row .tw{width:18px;height:18px;border:0;background:transparent;cursor:pointer;color:var(--muted);display:grid;place-items:center;flex:none;padding:0}
+.row .tw.leaf{visibility:hidden}
+.row .dot{width:10px;height:10px;border-radius:3px;flex:none}
+.row .nm{font-weight:600}
+.row .vb{font-size:12px;color:var(--muted);font-style:italic}
+.row .ct{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--muted);font-size:12.5px}
+.row .sh{font-family:var(--f-mono);font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:0 6px;white-space:nowrap}
+li.closed > ul{display:none}
+.tree-tools{display:flex;gap:6px;margin-bottom:10px}
+.tree-tools button{border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:4px 10px;font-size:12.5px;cursor:pointer}
+
+/* panel */
+aside.panel{border-left:1px solid var(--line);background:var(--surface);overflow:auto;padding:18px 18px 40px;display:flex;flex-direction:column;gap:16px;min-height:0}
+.p-head{display:flex;flex-direction:column;gap:6px}
+.p-head h2{font-size:20px;font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:2px 9px;font-size:12px;border:1px solid var(--line);background:var(--surface2)}
+.chip i{width:8px;height:8px;border-radius:2px}
+.p-desc{color:var(--muted)}
+.kv{display:grid;grid-template-columns:110px minmax(0,1fr);gap:6px 10px;font-size:13px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;overflow-wrap:anywhere}
+.sec h3{font-size:13px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.sec h3 small{font-family:var(--f-body);font-weight:400;color:var(--muted)}
+table.fields{width:100%;border-collapse:collapse;font-size:12.5px}
+table.fields th{text-align:left;font-weight:500;color:var(--muted);padding:5px 6px;background:var(--surface2);border-bottom:1px solid var(--line)}
+table.fields td{padding:5px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+table.fields td:first-child{font-family:var(--f-mono);font-size:12px;overflow-wrap:anywhere}
+.src{display:inline-block;font-size:11px;border-radius:5px;padding:0 6px;font-weight:500;white-space:nowrap}
+.src.I{color:var(--src-i);background:var(--src-i-soft)} .src.L{color:var(--src-l);background:var(--src-l-soft)} .src.D{color:var(--src-d);background:var(--src-d-soft)}
+.rels{display:flex;flex-direction:column;gap:4px}
+.rel{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);cursor:pointer;text-align:left;width:100%}
+.rel:hover{border-color:var(--accent)}
+.rel .vb{color:var(--muted);font-size:12.5px;min-width:0}
+.rel b{font-weight:600}
+.rel .card{margin-left:auto;font-family:var(--f-mono);font-size:11px;color:var(--muted);white-space:nowrap}
+.p-actions{display:flex;gap:8px;flex-wrap:wrap}
+.p-actions button{border:1px solid var(--line);background:var(--surface2);border-radius:8px;padding:6px 12px;cursor:pointer;font-weight:500}
+.p-actions button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.empty-note{color:var(--muted);font-size:12.5px}
+
+@media (max-width: 980px){
+  main{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto}
+  .stage{min-height:520px;height:62vh}
+  aside.panel{border-left:0;border-top:1px solid var(--line)}
+  header.top{padding:14px 16px 10px}
+  .search input{width:200px}
+}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="title-row">
+    <span class="eyebrow">DCO · Data model</span>
+    <h1>How every item connects</h1>
+  </div>
+  <p class="lede">The 33 kinds of record the platform keeps, from region down to a single GPU, and how they link: cables, customers and services, alarms and incidents. Field names match <span class="mono">api/types.ts</span>; sheet names match the inventory import template.</p>
+  <div class="controls">
+    <div class="seg" role="group" aria-label="View">
+      <button data-view="ontology" aria-pressed="true">Ontology</button>
+      <button data-view="map" aria-pressed="false">Full map</button>
+      <button data-view="tree" aria-pressed="false">Hierarchy</button>
+    </div>
+    <div class="search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="Find an entity or field…" autocomplete="off" aria-label="Find an entity or field">
+      <ul id="qres" hidden></ul>
+    </div>
+    <label class="inline" id="hopWrap">Show <select id="hops"><option value="1">direct links</option><option value="2">2 steps out</option></select></label>
+    <label class="inline">Counts for <select id="persona">
+      <option value="neocloud">NeoCloud</option><option value="network">Network operator</option><option value="colocation">Colocation</option><option value="cloud">Cloud</option><option value="enterprise">Enterprise</option>
+    </select></label>
+    <div class="legend" id="legend"></div>
+    <div class="keys" aria-label="Line styles">
+      <span><svg width="34" height="8"><path d="M1 4H33" stroke="var(--edge)" stroke-width="1.6"/></svg>contains</span>
+      <span><svg width="34" height="8"><path d="M1 4H33" stroke="var(--edge)" stroke-width="1.6" stroke-dasharray="6 5"/></svg>refers to</span>
+      <span><svg width="34" height="8"><path d="M1 4H33" stroke="var(--edge)" stroke-width="1.8" stroke-dasharray="2 4"/></svg>is a kind of</span>
+    </div>
+  </div>
+</header>
+<main>
+  <section class="stage" id="stage" aria-label="Data model diagram">
+    <svg id="svg" role="img" aria-label="Entity relationship diagram">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--edge)"/></marker>
+        <marker id="arrHot" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--accent)"/></marker>
+        <marker id="arrIs" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="var(--surface)" stroke="var(--edge)" stroke-width="1.4"/></marker>
+      </defs>
+      <g id="vp"><g id="gEdges"></g><g id="gHeads"></g><g id="gNodes"></g></g>
+    </svg>
+    <div class="tree" id="tree" hidden></div>
+    <div class="crumbs" id="crumbs"></div>
+    <div class="hint" id="hint"></div>
+    <div class="zoom" id="zoomBox">
+      <button id="zin" title="Zoom in" aria-label="Zoom in">+</button>
+      <button id="zout" title="Zoom out" aria-label="Zoom out">−</button>
+      <button id="zfit" title="Fit to view" aria-label="Fit to view">⤢</button>
+    </div>
+  </section>
+  <aside class="panel" id="panel" aria-live="polite"></aside>
+</main>
+
+<script>
+/* ------------------------------------------------------------------ model */
+const DOMAINS = {
+  loc:   { name: 'Location',     c: '--d-loc' },
+  space: { name: 'Space',        c: '--d-space' },
+  power: { name: 'Power',        c: '--d-power' },
+  cool:  { name: 'Cooling',      c: '--d-cool' },
+  it:    { name: 'Equipment',    c: '--d-it' },
+  net:   { name: 'Connectivity', c: '--d-net' },
+  gpu:   { name: 'GPU',          c: '--d-gpu' },
+  biz:   { name: 'Commercial',   c: '--d-biz' },
+  ops:   { name: 'Operations',   c: '--d-ops' },
+};
+/* src: I = imported (template), L = live (collectors, BMS, scheduler, ITSM), D = derived by the platform */
+const E = {
+  region: { n: 'Region', d: 'loc', t: 'Region', sheet: 'Sites (region)', ex: 'west', seen: 'Command center map, filters',
+    desc: 'The top of the geography (North, South, East, West). It groups states and sets the map bounds.',
+    f: [['id', 'string', 'I'], ['name', 'string', 'I']] },
+  state: { n: 'State / market', d: 'loc', t: 'Circle', sheet: 'Sites (state)', ex: 'Maharashtra', seen: 'Datacenters list, map search',
+    desc: 'A state (India) or market (USA) that sites belong to. It drives map search and the region roll-ups.',
+    f: [['id', 'string', 'I'], ['name', 'string', 'I'], ['state', 'string', 'I'], ['regionId', 'Region.id', 'I'], ['lat · lng', 'number', 'I']] },
+  site: { n: 'Datacenter', d: 'loc', t: 'Datacenter', sheet: 'Sites', ex: 'MH-DC-001', seen: 'Datacenters, datacenter page (every tab), Command center',
+    desc: 'One building or campus. Every other record points to a datacenter, either directly or through its floor, room and rack.',
+    f: [['id', 'XX-DC-NNN', 'I'], ['name · tier · status', 'string', 'I'], ['city · state · address · lat · lng', 'string / number', 'I'], ['power.capacityKw', 'kW (design IT load)', 'I'],
+        ['cooling.capacityKw · redundancy', 'kW · N / N+1 / 2N', 'I'], ['power.pue', 'design I · live L', 'L'], ['power.load24h · peakKw', 'kW series', 'L'], ['summary (health, attention, edge)', 'roll-up', 'D']] },
+  floor: { n: 'Floor', d: 'loc', t: 'Datacenter.floors[]', sheet: 'Floors', ex: 'Ground', seen: '3D twin (Building › Floor)',
+    desc: 'A storey of the building. Floors set the order of the 3D twin.', f: [['name', 'string', 'I'], ['level', 'integer', 'I'], ['rooms[]', 'Room names', 'I']] },
+  room: { n: 'Room / hall', d: 'loc', t: 'floors[].rooms[]', sheet: 'Rooms', ex: 'GPU hall A', seen: '3D twin (Room), heat map, alarm location',
+    desc: 'A data hall, meet-me room, AI hall or plant room. Cooling zones and sensors are named by floor and room.',
+    f: [['room_name', 'string', 'I'], ['room_type', 'Data hall · AI hall · Meet-me room · Plant room…', 'I'], ['containment · cooling_method', 'list', 'I'], ['temperature map', 'from rack inlets', 'D']] },
+  rack: { n: 'Rack / cabinet', d: 'space', t: 'Rack', sheet: 'Racks', ex: 'MH-DC-001-RACK-A', seen: 'Power & space, Assets, 3D twin, Revenue (rack exposure)',
+    desc: 'A cabinet in a room. It holds devices by U position, draws power from two feeds and may be leased to a tenant.',
+    f: [['id · name · role', 'string', 'I'], ['heightU', 'U', 'I'], ['budgetKw', 'kW provisioned', 'I'], ['owner · tenantId · contractedKw', 'colocation', 'I'], ['density · liquid', 'ai · Y/N', 'I'],
+        ['usedU · ports · portsUsed', 'from devices', 'D'], ['drawKw', 'kW from PDUs', 'L'], ['tempC', 'inlet °C', 'L']] },
+  cage: { n: 'AI cage', d: 'space', t: 'AiCage', sheet: 'Racks (role = AI cage)', ex: 'KA-DC-020-RACK-E', seen: 'AI & GPU (colocation), datacenter AI & GPU tab',
+    desc: 'A tenant’s high-density cabinet. The GPUs belong to the tenant; the operator supplies the power and the liquid cooling.',
+    f: [['rackId', 'Rack.id', 'I'], ['tenantId', 'Customer.id', 'I'], ['contractedKw', 'kW', 'I'], ['cduId', 'Cdu.id', 'I'], ['drawKw · inletC', 'live', 'L'], ['state · note', 'ok / warn / bad', 'D']] },
+  feed: { n: 'Power feed', d: 'power', t: 'PowerFeed', sheet: 'Power_Feeds', ex: 'AC-1 · Utility feed A', seen: 'Facilities → Power (power path), Metrics',
+    desc: 'A utility (AC) or DC-plant feed into the site. The ATS moves load from the active feed to the standby feed.',
+    f: [['id · type', 'AC / DC', 'I'], ['source · rating', 'string', 'I'], ['capacityKw', 'kW', 'I'], ['loadKw', 'kW', 'L'], ['status', 'Normal / Warning / Alarm', 'L']] },
+  ups: { n: 'UPS', d: 'power', t: 'UpsUnit', sheet: 'UPS', ex: 'MH-DC-001-UPS-2', seen: 'Facilities → Power, "If utility power fails", 3D twin (clickable)',
+    desc: 'An uninterruptible power supply between the feeds and the racks. It carries the load on battery until the generator starts.',
+    f: [['id · name', 'string', 'I'], ['capacityKw', 'kW', 'I'], ['redundancy', 'N / N+1 / 2N', 'I'], ['batteryMin', 'minutes of autonomy', 'I'], ['loadPct', '%', 'L'], ['state', 'Online · On battery · Bypass · Fault', 'L']] },
+  dg: { n: 'Generator (DG)', d: 'power', t: 'Datacenter.power.dg', sheet: 'Generators', ex: 'DG set 4,675 kVA', seen: 'Facilities → Power ride-through, 3D twin',
+    desc: 'The diesel generator that takes over when utility power is lost. Fuel level and run hours set the ride-through time.',
+    f: [['kva', 'kVA', 'I'], ['runtimeH', 'hours on a full tank', 'I'], ['lastTest · result', 'date · Pass / Fail', 'I'], ['fuelPct', '%', 'L']] },
+  rect: { n: 'Rectifier', d: 'power', t: 'PowerFeed (type DC)', sheet: 'DC_Plant (Rectifier)', ex: 'RECT-01 · 48 V', seen: 'Facilities → Power, 3D twin',
+    desc: 'Turns AC into the 48 V DC that telco and network gear runs on.', f: [['rating', '48 V · A', 'I'], ['capacityKw', 'kW', 'I'], ['dcKw (load)', 'kW', 'L']] },
+  battery: { n: 'Battery bank', d: 'power', t: 'Datacenter.power.battery', sheet: 'DC_Plant (Battery bank)', ex: 'BATT-01 · 48 V 22,500 Ah', seen: 'Facilities → Power, 3D twin',
+    desc: 'The DC-plant battery string behind the rectifier. It is flagged when autonomy drops below 3 hours.',
+    f: [['volts · ah', 'V · Ah', 'I'], ['runtimeH', 'hours of autonomy', 'L'], ['lastTest', 'date', 'I']] },
+  cooling: { n: 'Cooling unit', d: 'cool', t: 'CoolingUnit (CRAH / CRAC)', sheet: 'Cooling_Units', ex: 'MH-DC-001-CRAH-11', seen: 'Facilities → Cooling, 3D twin (clickable)',
+    desc: 'A computer-room air handler or air conditioner serving one zone (floor and room).',
+    f: [['id · name · type', 'CRAH / CRAC / CDU', 'I'], ['zone', '"Floor · Room"', 'I'], ['capacityKw', 'kW', 'I'], ['loadPct', '%', 'L'], ['supplyC · returnC', '°C', 'L'], ['status', 'Operational · Maintenance · Failed', 'L']] },
+  cdu: { n: 'CDU (liquid loop)', d: 'cool', t: 'Cdu', sheet: 'CDUs', ex: 'KA-DC-020-CDU-1', seen: 'AI & GPU, Facilities → Cooling',
+    desc: 'A coolant distribution unit feeding direct-liquid-cooled GPU racks or AI cages. Low flow throttles every GPU it serves.',
+    f: [['id · name · room', 'string', 'I'], ['racks[]', 'Rack.id list', 'I'], ['capacityKw · flowNominal', 'kW · L/min', 'I'], ['loadKw · flowLpm', 'live', 'L'], ['supplyC · returnC · pump', '°C · A/B', 'L'], ['state', 'ok / warn / bad', 'D']] },
+  sensor: { n: 'Environment sensor', d: 'cool', t: 'EnvSensor', sheet: 'Sensors', ex: 'MH-DC-001-ENV-1', seen: 'Facilities → Environment (safe bands)',
+    desc: 'Temperature and humidity, smoke and leak detection in a zone.', f: [['id · zone', 'string', 'I'], ['kind', 'Temp + humidity · Leak · Smoke', 'I'], ['tempC · humidity', '°C · %', 'L'], ['smoke · leak', 'boolean', 'L']] },
+  collector: { n: 'Collector', d: 'it', t: 'Datacenter.collectors[]', sheet: 'Collectors', ex: 'COL-MH-DC-001-1', seen: 'Datacenter header (telemetry freshness), alarm scope',
+    desc: 'A monitoring source: SNMP or gNMI poller, BMS gateway, Redfish or DCGM exporter. If it goes stale, its devices show as unmonitored.',
+    f: [['id · name', 'string', 'I'], ['protocol · domain', 'SNMP · gNMI · Modbus · BACnet · Redfish · DCGM', 'I'], ['state', 'up / stale / down', 'L'], ['lastSeen', 'time', 'L']] },
+  device: { n: 'Device', d: 'it', t: 'NetworkElement', sheet: 'Devices', ex: 'MH-DC-001-BDR-01', seen: 'Equipment, device page (all tabs), 3D twin, Topology',
+    desc: 'Anything racked: router, switch, firewall, DWDM, server, storage, GPU node, or an opaque block of tenant gear.',
+    f: [['id · name (hostname)', 'string', 'I'], ['role · layer', 'Router … Tenant gear · core / spine / leaf / access', 'I'], ['vendor · model · os · serial', 'string', 'I'], ['ip · mac', 'management', 'I'],
+        ['rackId · u · uSize', 'position in the rack', 'I'], ['lifecycle', 'Ready · Planned · Maintenance · Decommissioning', 'I'], ['opsState', 'in-service · unmonitored · planned · tenant-owned', 'D'],
+        ['health · cpu · mem · tempC · uptime', 'live', 'L'], ['icmp · ntp · radius', 'reachability, time, AAA', 'L']] },
+  module: { n: 'Module', d: 'it', t: 'NetworkElement.modules[]', sheet: 'Modules', ex: 'FPC0 · MPC (fixed)', seen: 'Device page → Hardware, 3D device view',
+    desc: 'A line card, power supply, fan tray or routing engine inside a device.', f: [['slot · name · serial', 'string', 'I'], ['state', 'OK · Fault · Empty', 'L'], ['tempC', '°C', 'L']] },
+  iface: { n: 'Interface (port)', d: 'it', t: 'Interface', sheet: 'Interfaces', ex: 'xe-0/0/3', seen: 'Device page → Interfaces, Topology',
+    desc: 'A physical port on a device. Links join two interfaces; services are handed off on one.',
+    f: [['name · type · speedMbps', 'string · Mbps', 'I'], ['admin state', 'up · admin-down · reserved', 'I'], ['optics.model', 'transceiver', 'I'], ['state (oper)', 'up / down', 'L'],
+        ['utilPct · inErrors · crcErrors · flaps24h', 'counters', 'L'], ['optics rx / tx dBm', 'DOM', 'L'], ['peer', 'from LLDP', 'D']] },
+  link: { n: 'Link', d: 'net', t: 'Link', sheet: 'Links', ex: 'LNK-00001', seen: 'Topology, device Links tab, incidents ("N cables down")',
+    desc: 'A connection between two interfaces: a cable inside a fabric, an uplink, or backhaul leaving the site. Routing adjacencies (OSPF, BGP) are links too.',
+    f: [['aNe · aIf · zNe · zIf', 'Device + Interface', 'I'], ['role', 'Fabric · Uplink · Backhaul · Peering · Access', 'I'], ['protocol', 'LLDP · OSPF · BGP · ISIS · LSP', 'I'], ['capacityMbps', 'Mbps', 'I'],
+        ['state · utilPct · sessions', 'live', 'L'], ['edge / scope', 'leaves the site?', 'D']] },
+  cable: { n: 'Cable / fibre', d: 'net', t: 'Link.physical', sheet: 'Links (cable columns)', ex: 'MH-DC-001-CBL-0001', seen: 'Link details, incident RCA (fibre trunk)',
+    desc: 'The physical path under a link: cable or trunk, strand, and the patch-panel or ODF port at each end.', f: [['cable', 'label', 'I'], ['strand', 'colour / pair', 'I'], ['aPort · zPort', 'patch / ODF port', 'I']] },
+  gcluster: { n: 'GPU cluster', d: 'gpu', t: 'GpuCluster', sheet: 'GPU_Clusters', ex: 'MH-DC-001-POD-1', seen: 'AI & GPU → Clusters',
+    desc: 'A pod of up to 32 GPU nodes on one fabric and one scheduler, all with the same GPU model.',
+    f: [['id · name · room', 'string', 'I'], ['scheduler', 'Kubernetes / Slurm', 'I'], ['fabric', 'InfiniBand NDR 400G…', 'I'], ['model · vendor', 'GPU model', 'I'], ['cooling', 'air / liquid', 'I'], ['nodes[]', 'GpuNode ids', 'I']] },
+  gnode: { n: 'GPU node', d: 'gpu', t: 'GpuNode', sheet: 'GPU_Nodes', ex: 'MH-DC-001-GPU-001', seen: 'AI & GPU → Nodes, device page "GPUs · DCGM"',
+    desc: 'A GPU server. It is also a Device (role GPU) and holds eight GPUs.',
+    f: [['neId', 'Device.id', 'I'], ['clusterId', 'GpuCluster.id', 'I'], ['model · vendor · server', 'string', 'I'], ['driver · firmware', 'version', 'I'], ['state', 'in-job · idle · drained · failed · burn-in', 'L'],
+        ['health · powerKw · ib rails', 'live', 'L'], ['series (24 h)', 'util · temp · power', 'L']] },
+  gpu: { n: 'GPU', d: 'gpu', t: 'Gpu', sheet: '— (from DCGM)', ex: 'GPU 0 of GPU-001', seen: 'Node drawer, Telemetry tab, 3D accelerator view',
+    desc: 'One accelerator. Its readings come from the NVIDIA DCGM exporter or Intel tools; none of them are imported.',
+    f: [['index', '0–7', 'D'], ['util · SM active · tensor', '%', 'L'], ['GPU / HBM temp · power · clocks', 'DCGM', 'L'], ['ECC SBE / DBE · retired pages · row remap', 'counters', 'L'], ['NVLink · PCIe errors', 'counters', 'L'], ['last Xid', 'code', 'L']] },
+  job: { n: 'GPU job', d: 'gpu', t: 'GpuJob', sheet: '— (from the scheduler)', ex: 'JOB-4101', seen: 'AI & GPU → Jobs, revenue (GPU time lost)',
+    desc: 'A training, fine-tuning or inference run on a cluster. A stalled or slowed job is GPU time lost.',
+    f: [['name · kind', 'training · fine-tuning · inference', 'L'], ['clusterId · nodes[] · gpus', 'placement', 'L'], ['customerId · serviceId', 'who pays', 'L'], ['state', 'running · slowed · stalled · at-risk · idle', 'L'],
+        ['stepMs · baselineMs · mfu', 'performance', 'L'], ['lastCheckpoint', 'time', 'L'], ['cause · incidentId', 'why slowed', 'D']] },
+  customer: { n: 'Customer', d: 'biz', t: 'Customer', sheet: 'Customers', ex: 'CUST-1202', seen: 'Customer page, Who is affected, Revenue impact',
+    desc: 'A tenant, cloud customer or business unit that buys services from the datacenters.',
+    f: [['id · name · segment', 'string', 'I'], ['city · state · plan', 'string', 'I'], ['premium', 'Y / N', 'I'], ['accountManager', 'string', 'I'], ['revenueMonthly', 'sum of services', 'D']] },
+  service: { n: 'Service', d: 'biz', t: 'Service', sheet: 'Services', ex: 'SVC-SV-1100', seen: 'Customer page, incident impact, Revenue impact',
+    desc: 'What a customer buys and where it is delivered: a circuit, cabinet, power, VM, storage volume or GPU cluster. Impact and revenue at risk are worked out per service.',
+    f: [['type · customerId · dcId', 'string', 'I'], ['neId · ifName', 'hand-off', 'I'], ['qty · unit', 'Mbps · kW · GPU · vCPU…', 'I'], ['slaTarget', '%', 'I'], ['revenueMonthly · critical', 'money · Y/N', 'I'],
+        ['path[] · linkIds[]', 'devices and links it rides', 'D'], ['status · uptime30d · utilPct', 'live', 'L']] },
+  revissue: { n: 'Revenue impact', d: 'biz', t: 'RevIssue', sheet: '— (calculated)', ex: 'Issue on INC-0002', seen: 'Revenue impact, incident "Revenue impact" panel',
+    desc: 'The cost of one open issue. Each down, degraded or exposed service is charged to one issue.',
+    f: [['mrrDown · mrrDegraded · mrrExposed', 'money', 'D'], ['rate · lost', 'per hour · so far', 'D'], ['credits · nextCliff', 'SLA credit tiers', 'D'], ['forecast24', 'money', 'D']] },
+  alert: { n: 'Alarm', d: 'ops', t: 'Alert', sheet: '— (from collectors)', ex: 'ALM-…', seen: 'Alerts, datacenter Attention, incident',
+    desc: 'An event from a collector against a device, port, link, rack or plant unit. Its scope (site, edge, dependency) decides which datacenter it counts against.',
+    f: [['code · severity · title', 'Critical · Major · Minor · Warning', 'L'], ['source · type · start', 'string · time', 'L'], ['neId · ifName · linkId · rackId', 'what it is on', 'L'], ['state', 'active · acknowledged · cleared', 'L'],
+        ['scope · category', 'site · edge · dependency · downstream', 'D'], ['incidentId · symptomOf', 'correlation', 'D']] },
+  incident: { n: 'Incident', d: 'ops', t: 'Incident', sheet: '— (operations)', ex: 'INC-0002', seen: 'Incidents, incident page, Command center',
+    desc: 'A group of related alarms handled as one problem, with its impact, root cause, actions and linked changes.',
+    f: [['title · type · sev · status', 'Critical / High / Medium / Low', 'L'], ['owner · detected · resolved', 'person · time', 'L'], ['alertIds[]', 'Alert ids', 'D'], ['affected[]', 'NE · Link · Rack · Service · Customer', 'D'],
+        ['impact', 'services · customers · premium · money', 'D'], ['response / resolve SLA', 'minutes', 'I']] },
+  rca: { n: 'Root-cause hypothesis', d: 'ops', t: 'Hypothesis', sheet: '— (AI)', ex: 'Utility feed A lost', seen: 'Incident page → Diagnosis',
+    desc: 'A possible cause of an incident with a confidence score and the evidence behind it.', f: [['cause', 'text', 'D'], ['confidence', '0–1', 'D'], ['evidence[]', 'label · ref · time', 'D'], ['rejected', 'boolean', 'L']] },
+  action: { n: 'Action step', d: 'ops', t: 'ActionStep', sheet: '— (AI + operator)', ex: 'Start the spare pump skid', seen: 'Incident page → Recommended action',
+    desc: 'A recommended step with its owner, expected result, rollback and check. Disruptive steps need approval.',
+    f: [['step · owner', 'text', 'D'], ['expected · rollback · verify', 'text', 'D'], ['disruptive', 'boolean', 'D'], ['status', 'pending … done', 'L']] },
+  change: { n: 'Change / maintenance', d: 'ops', t: 'Change', sheet: '— (ITSM)', ex: 'CHG-…', seen: 'Changes & maintenance, incident (linked change)',
+    desc: 'A planned change or maintenance window on devices at a site. A change that overlaps a fault is a likely cause.',
+    f: [['kind · title · risk', 'Change / Maintenance', 'L'], ['windowStart · windowEnd', 'time', 'L'], ['scope[]', 'Device ids', 'L'], ['status · requester · approver', 'workflow', 'L'], ['incidentId', 'link', 'D']] },
+};
+/* [from, to, verb, cardinality, kind]  kind: c = contains · r = refers to · is = is a kind of */
+const R = [
+  ['region', 'state', 'contains', '1 : N', 'c'], ['state', 'site', 'contains', '1 : N', 'c'], ['site', 'floor', 'has', '1 : N', 'c'], ['floor', 'room', 'has', '1 : N', 'c'],
+  ['room', 'rack', 'holds', '1 : N', 'c'], ['rack', 'device', 'houses (at a U)', '1 : N', 'c'], ['device', 'module', 'has', '1 : N', 'c'], ['device', 'iface', 'has', '1 : N', 'c'],
+  ['link', 'iface', 'connects A and Z', 'N : 2', 'r'], ['link', 'cable', 'runs over', 'N : 0..1', 'r'],
+  ['cage', 'rack', 'is a', '1 : 1', 'is'], ['cage', 'customer', 'leased by', 'N : 1', 'r'], ['cage', 'cdu', 'cooled by', 'N : 1', 'r'],
+  ['rack', 'customer', 'leased by (tenant)', 'N : 0..1', 'r'], ['device', 'customer', 'owned by (tenant gear)', 'N : 0..1', 'r'],
+  ['site', 'feed', 'fed by', '1 : N', 'c'], ['site', 'ups', 'has', '1 : N', 'c'], ['site', 'dg', 'has', '1 : N', 'c'], ['site', 'rect', 'has', '1 : N', 'c'], ['site', 'battery', 'has', '1 : N', 'c'],
+  ['dg', 'feed', 'stands by for', 'N : N', 'r'], ['feed', 'ups', 'feeds', '1 : N', 'r'], ['ups', 'rack', 'protects', 'N : N', 'r'], ['feed', 'rack', 'powers (PDU A / B)', 'N : N', 'r'],
+  ['rect', 'feed', 'produces (DC feed)', '1 : 1', 'r'], ['battery', 'rect', 'backs up', '1 : 1', 'r'],
+  ['room', 'cooling', 'houses', '1 : N', 'c'], ['cooling', 'room', 'cools (zone)', 'N : 1', 'r'], ['cdu', 'cooling', 'is a', '1 : 1', 'is'], ['cdu', 'rack', 'cools (liquid)', '1 : N', 'r'],
+  ['room', 'sensor', 'has', '1 : N', 'c'], ['room', 'cdu', 'houses', '1 : N', 'c'],
+  ['site', 'collector', 'monitored by', '1 : N', 'c'], ['collector', 'device', 'polls', '1 : N', 'r'],
+  ['gnode', 'device', 'is a', '1 : 1', 'is'], ['gnode', 'gpu', 'has', '1 : 8', 'c'], ['gcluster', 'gnode', 'groups', '1 : N', 'c'], ['gcluster', 'room', 'sits in', 'N : 1', 'r'],
+  ['job', 'gcluster', 'runs on', 'N : 1', 'r'], ['job', 'gnode', 'uses', 'N : N', 'r'], ['job', 'service', 'billed as', '1 : 1', 'r'],
+  ['customer', 'service', 'buys', '1 : N', 'c'], ['service', 'site', 'delivered at', 'N : 1', 'r'], ['service', 'device', 'delivered on', 'N : 1', 'r'], ['service', 'iface', 'handed off on', 'N : 0..1', 'r'],
+  ['service', 'link', 'rides', 'N : N', 'r'], ['service', 'rack', 'occupies (cabinet lease)', 'N : N', 'r'],
+  ['alert', 'device', 'raised on', 'N : 0..1', 'r'], ['alert', 'iface', 'raised on', 'N : 0..1', 'r'], ['alert', 'link', 'raised on', 'N : 0..1', 'r'], ['alert', 'rack', 'raised on', 'N : 0..1', 'r'],
+  ['alert', 'ups', 'raised on', 'N : 0..1', 'r'], ['alert', 'cooling', 'raised on', 'N : 0..1', 'r'], ['alert', 'site', 'counts against (scope)', 'N : 1', 'r'],
+  ['incident', 'alert', 'groups', '1 : N', 'c'], ['incident', 'site', 'at', 'N : 1', 'r'], ['incident', 'service', 'affects', 'N : N', 'r'], ['incident', 'customer', 'affects', 'N : N', 'r'],
+  ['incident', 'rca', 'has', '1 : N', 'c'], ['incident', 'action', 'has', '1 : N', 'c'], ['incident', 'change', 'linked to', 'N : N', 'r'],
+  ['change', 'device', 'targets', 'N : N', 'r'], ['change', 'site', 'at', 'N : 1', 'r'],
+  ['revissue', 'incident', 'charged to', 'N : 0..1', 'r'], ['revissue', 'service', 'costs', '1 : N', 'r'],
+];
+/* counts per business model, taken from the mock estate (India, 24 datacenters, 12-Oct-2026) */
+const COUNTS = {"network":{"region":4,"state":16,"site":24,"floor":53,"room":57,"rack":152,"cage":0,"feed":63,"ups":48,"dg":24,"rect":24,"battery":24,"cooling":114,"cdu":0,"sensor":57,"collector":46,"device":2559,"module":7723,"iface":50546,"link":7658,"cable":4320,"gcluster":0,"gnode":0,"gpu":0,"job":0,"customer":36,"service":1136,"alert":259,"incident":60,"rca":84,"action":46,"change":12,"revissue":6},"colocation":{"region":4,"state":16,"site":24,"floor":52,"room":82,"rack":283,"cage":12,"feed":63,"ups":72,"dg":24,"rect":24,"battery":24,"cooling":164,"cdu":4,"sensor":82,"collector":46,"device":1535,"module":1548,"iface":13998,"link":2112,"cable":989,"gcluster":0,"gnode":0,"gpu":0,"job":0,"customer":24,"service":553,"alert":107,"incident":48,"rca":60,"action":23,"change":12,"revissue":4},"cloud":{"region":4,"state":16,"site":24,"floor":52,"room":98,"rack":641,"cage":0,"feed":63,"ups":94,"dg":24,"rect":24,"battery":24,"cooling":196,"cdu":16,"sensor":98,"collector":46,"device":6398,"module":42533,"iface":46866,"link":13438,"cable":12155,"gcluster":29,"gnode":610,"gpu":4880,"job":126,"customer":24,"service":1845,"alert":657,"incident":64,"rca":93,"action":61,"change":13,"revissue":27},"enterprise":{"region":4,"state":16,"site":24,"floor":52,"room":92,"rack":344,"cage":0,"feed":63,"ups":90,"dg":24,"rect":24,"battery":24,"cooling":184,"cdu":7,"sensor":92,"collector":46,"device":3583,"module":22205,"iface":27886,"link":7976,"cable":6877,"gcluster":21,"gnode":164,"gpu":1312,"job":52,"customer":14,"service":446,"alert":376,"incident":64,"rca":93,"action":60,"change":13,"revissue":20},"neocloud":{"region":4,"state":16,"site":24,"floor":52,"room":98,"rack":722,"cage":0,"feed":63,"ups":94,"dg":24,"rect":24,"battery":24,"cooling":196,"cdu":41,"sensor":98,"collector":46,"device":3839,"module":34582,"iface":71320,"link":12527,"cable":11939,"gcluster":76,"gnode":2091,"gpu":16728,"job":430,"customer":12,"service":724,"alert":454,"incident":64,"rca":93,"action":59,"change":13,"revissue":10}};
+const TREE = [
+  ['Physical: where everything is', [['region', [['state', [['site', [
+    ['floor', [['room', [['rack', [['device', [['module'], ['iface', [['link', [['cable']]]]], ['gnode', [['gpu']]]]], ['cage']]], ['cooling'], ['cdu'], ['sensor'], ['gcluster', [['job']]]]]]],
+    ['feed'], ['ups'], ['dg'], ['rect', [['battery']]], ['collector']]]]]]]]],
+  ['Commercial: who depends on it', [['customer', [['service', [['revissue']]], ['cage']]]]],
+  ['Operations: what goes wrong', [['incident', [['alert'], ['rca'], ['action'], ['change'], ['revissue']]]]],
+];
+const MAP_COLS = [['loc', ['region', 'state', 'site', 'floor', 'room']], ['space', ['rack', 'cage']], ['power', ['feed', 'ups', 'dg', 'rect', 'battery']], ['cool', ['cooling', 'cdu', 'sensor']],
+  ['it', ['collector', 'device', 'module', 'iface']], ['net', ['link', 'cable']], ['gpu', ['gcluster', 'gnode', 'gpu', 'job']], ['biz', ['customer', 'service', 'revissue']], ['ops', ['alert', 'incident', 'rca', 'action', 'change']]];
+
+/* ------------------------------------------------------------------ state */
+const $ = s => document.querySelector(s);
+const NS = 'http://www.w3.org/2000/svg';
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const st = { view: 'ontology', e: 'rack', hops: 1, persona: 'neocloud', hidden: new Set(), trail: ['rack'], sel: 'rack' };
+try { const h = new URLSearchParams(location.hash.slice(1)); if (h.get('view')) st.view = h.get('view'); if (E[h.get('e')]) { st.e = st.sel = h.get('e'); st.trail = [st.e]; } if (h.get('hops')) st.hops = +h.get('hops') || 1; if (COUNTS[h.get('persona')]) st.persona = h.get('persona'); } catch {}
+const saveHash = () => { try { history.replaceState(null, '', `#view=${st.view}&e=${st.sel}&hops=${st.hops}&persona=${st.persona}`); } catch {} };
+const fmt = n => (n ?? 0).toLocaleString('en-US');
+const count = id => COUNTS[st.persona]?.[id] ?? 0;
+const PERSONA_NAME = { neocloud: 'NeoCloud', network: 'network operator', colocation: 'colocation', cloud: 'cloud', enterprise: 'enterprise' };
+const edgesOf = id => R.filter(r => r[0] === id || r[1] === id);
+const visible = id => !st.hidden.has(E[id].d);
+
+/* ------------------------------------------------------------------ svg graph */
+const W = 178, H = 58, WC = 210, HC = 70;
+let view = { x: 0, y: 0, k: 1 };
+const vp = $('#vp'), svg = $('#svg');
+const applyView = () => vp.setAttribute('transform', `translate(${view.x},${view.y}) scale(${view.k})`);
+let nodesEl = new Map(), edgesEl = [], pos = new Map(), size = new Map();
+
+function el(tag, attrs, parent) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+function trunc(t, max) { return t.length > max ? t.slice(0, max - 1) + '…' : t; }
+
+function buildGraph(nodes, edges, opts) {
+  const gN = $('#gNodes'), gE = $('#gEdges'), gH = $('#gHeads');
+  gN.textContent = ''; gE.textContent = ''; gH.textContent = '';
+  nodesEl = new Map(); edgesEl = [];
+  for (const h of opts.clusters ?? []) { const g = el('g', { class: 'cluster' }, gH); el('rect', { x: h.x, y: h.y, width: h.w, height: h.h, rx: 16 }, g); const t = el('text', { x: h.x + 18, y: h.y + 26, fill: css(DOMAINS[h.d].c) }, g); t.textContent = DOMAINS[h.d].name; }
+  for (const ed of edges) {
+    const g = el('g', { class: `edge ${ed.r[4] === 'c' ? 'con' : ed.r[4] === 'is' ? 'is' : 'ref'}` }, gE);
+    const p = el('path', { 'marker-end': ed.r[4] === 'is' ? 'url(#arrIs)' : 'url(#arr)' }, g);
+    let lbl = null;
+    if (opts.labels) {
+      lbl = el('g', { class: 'lbl' }, g);
+      const rect = el('rect', { rx: 9, height: 18 }, lbl); const tx = el('text', { 'text-anchor': 'middle', y: 13 }, lbl);
+      tx.textContent = `${ed.r[2]} · ${ed.r[3]}`;
+      lbl._w = Math.max(40, tx.textContent.length * (opts.map ? 7 : 5.9) + 14); if (opts.map) { rect.setAttribute('height', 21); tx.setAttribute('y', 15); } rect.setAttribute('width', lbl._w); rect.setAttribute('x', -lbl._w / 2);
+    }
+    const t = document.createElementNS(NS, 'title'); t.textContent = `${E[ed.r[0]].n} ${ed.r[2]} ${E[ed.r[1]].n} (${ed.r[3]})`; g.appendChild(t);
+    edgesEl.push({ ...ed, g, p, lbl });
+  }
+  for (const n of nodes) {
+    const big = n.role === 'center', w = big ? WC : opts.map ? 210 : W, h = big ? HC : opts.map ? 62 : H;
+    size.set(n.id, [w, h]);
+    const ent = E[n.id], c = css(DOMAINS[ent.d].c), cnt = count(n.id);
+    const g = el('g', { class: `node${big ? ' center' : ''}${n.id === st.sel && !big ? ' sel' : ''}${cnt === 0 && ent.sheet[0] !== '—' ? ' zero' : ''}`, tabindex: 0, role: 'button', 'aria-label': `${ent.n}, ${DOMAINS[ent.d].name}` }, gN);
+    el('rect', { class: 'card', x: -w / 2, y: -h / 2, width: w, height: h, rx: 10 }, g);
+    el('rect', { class: 'bar', x: -w / 2, y: -h / 2 + 8, width: 4, height: h - 16, rx: 2, fill: c }, g);
+    const t1 = el('text', { class: 't', x: -w / 2 + 16, y: big ? -6 : -4 }, g); t1.textContent = trunc(ent.n, big ? 24 : opts.map ? 22 : 21);
+    const t2 = el('text', { class: 's', x: -w / 2 + 16, y: big ? 15 : 14 }, g);
+    t2.textContent = `${DOMAINS[ent.d].name} · ${fmt(cnt)}`;
+    g.addEventListener('click', ev => { ev.stopPropagation(); if (dragMoved) return; opts.onClick(n.id); });
+    g.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); opts.onClick(n.id); } });
+    g.addEventListener('mouseenter', () => highlight(n.id, true)); g.addEventListener('mouseleave', () => highlight(opts.keepHot ?? null));
+    g.style.opacity = n.op ?? 1;
+    nodesEl.set(n.id, g);
+  }
+  curveMode = !!opts.map; svg.classList.toggle('is-map', !!opts.map); labelCenter = opts.center ?? null;
+}
+let curveMode = false, labelCenter = null;   /* curveMode = full map: labels and neighbours only on hover */
+function border(a, b, w, h) {   // point on the rectangle around a, towards b
+  const dx = b[0] - a[0], dy = b[1] - a[1]; if (!dx && !dy) return a;
+  const s = Math.min(Math.abs((w / 2 + 3) / (dx || 1e-9)), Math.abs((h / 2 + 3) / (dy || 1e-9)));
+  return [a[0] + dx * s, a[1] + dy * s];
+}
+function draw() {
+  for (const [id, g] of nodesEl) { const p = pos.get(id); if (p) g.setAttribute('transform', `translate(${p[0]},${p[1]})`); }
+  for (const ed of edgesEl) {
+    const a = pos.get(ed.r[0]), b = pos.get(ed.r[1]); if (!a || !b) continue;
+    const [wa, ha] = size.get(ed.r[0]), [wb, hb] = size.get(ed.r[1]);
+    const s = border(a, b, wa, ha), e = border(b, a, wb, hb);
+    const d = `M${s[0]},${s[1]} L${e[0]},${e[1]}`;
+    /* in the ontology, labels sit 60% of the way out from the centre so the ones near the middle don't pile up */
+    const t = labelCenter === ed.r[0] ? 0.6 : labelCenter === ed.r[1] ? 0.4 : 0.5;
+    const mid = [s[0] + (e[0] - s[0]) * t, s[1] + (e[1] - s[1]) * t];
+    ed.p.setAttribute('d', d);
+    if (ed.lbl) ed.lbl.setAttribute('transform', `translate(${mid[0]},${mid[1] - 9})`);
+  }
+}
+/* hover = trace one entity (others fade); idle on the map = every line visible, the selected entity's in colour */
+function highlight(id, hover = false) {
+  for (const ed of edgesEl) {
+    const on = id && (ed.r[0] === id || ed.r[1] === id);
+    ed.g.classList.toggle('hot', !!on); ed.g.classList.toggle('dim', hover && !!id && !on && curveMode);
+    ed.p.setAttribute('marker-end', ed.r[4] === 'is' ? 'url(#arrIs)' : on ? 'url(#arrHot)' : 'url(#arr)');
+    if (ed.lbl) ed.lbl.style.display = curveMode && !on ? 'none' : '';
+  }
+  if (curveMode) {
+    if (!hover) { for (const [, g] of nodesEl) g.classList.remove('dim'); return; }
+    const near = new Set(id ? [id, ...edgesOf(id).flatMap(r => [r[0], r[1]])] : []);
+    for (const [nid, g] of nodesEl) g.classList.toggle('dim', !!id && !near.has(nid));
+  }
+}
+function animateTo(target, ms = 480) {
+  const from = new Map(pos), t0 = performance.now();
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const center = target.get(st.e) ?? [0, 0];
+  const step = now => {
+    const k = reduce ? 1 : Math.min(1, (now - t0) / ms), ease = 1 - Math.pow(1 - k, 3);
+    for (const [id, p] of target) { const f = from.get(id) ?? center; pos.set(id, [f[0] + (p[0] - f[0]) * ease, f[1] + (p[1] - f[1]) * ease]); }
+    draw(); if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+/* ontology: the chosen entity in the middle, its neighbours on a ring, optionally a second ring */
+function ontology(animate = true) {
+  const c = st.e;
+  const ring1 = [], seen = new Set([c]);
+  const order = Object.keys(DOMAINS);
+  const nb = edgesOf(c).map(r => (r[0] === c ? r[1] : r[0])).filter(x => !seen.has(x) && visible(x));
+  for (const x of [...new Set(nb)].sort((a, b) => order.indexOf(E[a].d) - order.indexOf(E[b].d) || E[a].n.localeCompare(E[b].n))) { ring1.push(x); seen.add(x); }
+  const n1 = ring1.length || 1;
+  const target = new Map([[c, [0, 0]]]);
+  /* second ring: each neighbour gets a sector sized by how many new entities hang off it */
+  const kidsOf = new Map();
+  if (st.hops === 2) for (const p of ring1) {
+    const kids = [...new Set(edgesOf(p).map(r => (r[0] === p ? r[1] : r[0])))].filter(x => !seen.has(x) && visible(x));
+    kids.forEach(k => seen.add(k)); kidsOf.set(p, kids);
+  }
+  const weight = p => Math.max(1, (kidsOf.get(p) ?? []).length);
+  const total = ring1.reduce((a, p) => a + weight(p), 0) || 1;
+  const n2 = [...kidsOf.values()].reduce((a, k) => a + k.length, 0);
+  const r1 = Math.max(250, (n1 * 205) / (2 * Math.PI)) * (st.hops === 2 ? 1.05 : 1);
+  const r2 = Math.max(r1 + 260, (n2 * 200) / (2 * Math.PI));
+  /* the ring never gets so tight that a side card or its label touches the centre card */
+  const RX1 = Math.max(r1 * 1.3, 420), RY1 = Math.max(r1 * 0.85, 235);
+  const ring2 = [];
+  let acc = 0;
+  ring1.forEach(p => {
+    const w = st.hops === 2 ? weight(p) : 1, a0 = -Math.PI / 2 + (acc / (st.hops === 2 ? total : n1)) * Math.PI * 2, span = (w / (st.hops === 2 ? total : n1)) * Math.PI * 2; acc += w;
+    const a = a0 + span / 2;
+    target.set(p, [Math.cos(a) * RX1, Math.sin(a) * RY1]);
+    (kidsOf.get(p) ?? []).forEach((k, j, all) => { const ak = a0 + ((j + 0.5) / all.length) * span; ring2.push([k, p]); target.set(k, [Math.cos(ak) * (RX1 + (r2 - r1) * 1.3), Math.sin(ak) * (RY1 + (r2 - r1) * 0.85)]); });
+  });
+  const nodes = [{ id: c, role: 'center' }, ...ring1.map(id => ({ id })), ...ring2.map(([id]) => ({ id, op: 0.85 }))];
+  const keep = new Set(nodes.map(n => n.id));
+  const edges = R.filter(r => keep.has(r[0]) && keep.has(r[1]) && (r[0] === c || r[1] === c || (st.hops === 2 && ring2.some(([k, p]) => (r[0] === k && r[1] === p) || (r[1] === k && r[0] === p))))).map(r => ({ r }));
+  buildGraph(nodes, edges, { labels: true, onClick: id => focus(id), keepHot: c, center: c });
+  for (const id of [...pos.keys()]) if (!keep.has(id)) pos.delete(id);
+  if (animate) animateTo(target); else { pos = new Map(target); draw(); }
+  highlight(c);
+  if (!animate || !st._fitted) { fit(target); st._fitted = true; }
+  $('#hint').textContent = `${ring1.length} entities linked to ${E[c].n}${st.hops === 2 ? `, ${ring2.length} more one step further` : ''}. Click any card to put it in the middle. Drag to pan, scroll to zoom.`;
+  renderCrumbs();
+}
+const GRID = [['loc', 'space', 'power'], ['cool', 'it', 'net'], ['gpu', 'biz', 'ops']];
+function map() {
+  const target = new Map(), nodes = [], clusters = [];
+  const cols = Object.fromEntries(MAP_COLS);
+  const CW = 500, CH = 330, GX = 50, GY = 40;
+  GRID.forEach((row, ri) => row.forEach((d, ci) => {
+    if (st.hidden.has(d)) return;
+    const ids = cols[d], x0 = ci * (CW + GX), y0 = ri * (CH + GY);
+    clusters.push({ d, x: x0, y: y0, w: CW, h: CH });
+    const nc = ids.length > 3 ? 2 : 1, nr = Math.ceil(ids.length / nc);
+    ids.forEach((id, j) => {
+      const c = Math.floor(j / nr), r = j % nr;
+      const x = x0 + CW / 2 + (nc === 2 ? (c ? 117 : -117) : 0), y = y0 + 44 + ((CH - 44) / (nr + 1)) * (r + 1) + (nc === 2 && c ? 26 : 0);
+      target.set(id, [x, y]); nodes.push({ id });
+    });
+  }));
+  const keep = new Set(nodes.map(n => n.id));
+  const edges = R.filter(r => keep.has(r[0]) && keep.has(r[1])).map(r => ({ r }));
+  buildGraph(nodes, edges, { labels: true, map: true, clusters, onClick: id => select(id), keepHot: st.sel });
+  pos = new Map(target); draw(); highlight(st.sel);
+  fit(target, clusters);
+  $('#hint').textContent = `All ${nodes.length} entities and ${edges.length} relationships, grouped by domain. Hover a card to trace its links, click it to read it, double-click to open it in Ontology.`;
+  for (const [id, g] of nodesEl) g.addEventListener('dblclick', () => { st.e = id; st.trail = [id]; setView('ontology'); });
+  $('#crumbs').textContent = '';
+}
+let lastClusters = null;
+function fit(target, clusters = null) {
+  const r = $('#stage').getBoundingClientRect(); if (!r.width) return;
+  if (clusters === true) clusters = lastClusters; lastClusters = clusters;
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  for (const [, p] of target) { x0 = Math.min(x0, p[0] - WC / 2); x1 = Math.max(x1, p[0] + WC / 2); y0 = Math.min(y0, p[1] - HC / 2); y1 = Math.max(y1, p[1] + HC / 2); }
+  for (const c of clusters || []) { x0 = Math.min(x0, c.x); y0 = Math.min(y0, c.y); x1 = Math.max(x1, c.x + c.w); y1 = Math.max(y1, c.y + c.h); }
+  const pad = r.width < 600 ? 14 : 48, k = Math.min(1.15, (r.width - pad * 2) / (x1 - x0 || 1), (r.height - pad * 2 - 40) / (y1 - y0 || 1));
+  view.k = Math.max(0.15, k); view.x = r.width / 2 - ((x0 + x1) / 2) * view.k; view.y = r.height / 2 + 10 - ((y0 + y1) / 2) * view.k; applyView();
+}
+
+/* pan / zoom */
+let drag = null, dragMoved = false;
+svg.addEventListener('pointerdown', e => { if (e.button !== 0) return; drag = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y }; dragMoved = false; });
+window.addEventListener('pointermove', e => { if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 4) { dragMoved = true; svg.classList.add('panning'); } view.x = drag.vx + dx; view.y = drag.vy + dy; applyView(); });
+window.addEventListener('pointerup', () => { drag = null; svg.classList.remove('panning'); setTimeout(() => { dragMoved = false; }, 0); });
+function zoomAt(f, cx, cy) { const k = Math.min(2.5, Math.max(0.18, view.k * f)); view.x = cx - (cx - view.x) * (k / view.k); view.y = cy - (cy - view.y) * (k / view.k); view.k = k; applyView(); }
+svg.addEventListener('wheel', e => { e.preventDefault(); const r = svg.getBoundingClientRect(); zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top); }, { passive: false });
+const mid = () => { const r = svg.getBoundingClientRect(); return [r.width / 2, r.height / 2]; };
+$('#zin').onclick = () => zoomAt(1.25, ...mid()); $('#zout').onclick = () => zoomAt(0.8, ...mid());
+$('#zfit').onclick = () => (st.view === 'map' ? fit(pos, true) : fit(pos));
+
+/* ------------------------------------------------------------------ hierarchy */
+const INV = { 'is a': 'kind of', 'connects A and Z': 'joined by', 'sits in': 'hosts', 'runs on': 'runs', 'backs up': 'backed by', 'leased by': 'leases', 'charged to': 'costed as',
+  'groups': 'grouped by', 'stands by for': 'backed by', 'produces (DC feed)': 'fed by', 'costs': 'costed by', 'linked to': 'linked to', 'cools (zone)': 'cooled by' };
+function verbBetween(parent, child) {
+  const r = R.find(x => x[0] === parent && x[1] === child) ?? R.find(x => x[1] === parent && x[0] === child);
+  if (!r) return '';
+  return r[0] === parent ? r[2] : INV[r[2]] ?? `${r[2]} (reverse)`;
+}
+const closed = new Set();
+function tree() {
+  const outer = $('#tree'); outer.textContent = ''; const box = document.createElement('div'); box.className = 'tree-in'; outer.appendChild(box);
+  const tools = document.createElement('div'); tools.className = 'tree-tools';
+  tools.innerHTML = '<button data-a="open">Expand all</button><button data-a="close">Collapse all</button>';
+  tools.onclick = e => { const a = e.target.dataset.a; if (!a) return; closed.clear(); if (a === 'close') box.querySelectorAll('li[data-k]').forEach(li => { if (li.querySelector('ul')) closed.add(li.dataset.k); }); tree(); };
+  box.appendChild(tools);
+  for (const [title, roots] of TREE) {
+    const h = document.createElement('h3'); h.textContent = title; box.appendChild(h);
+    const ul = document.createElement('ul'); box.appendChild(ul);
+    const add = (node, parent, into, path) => {
+      const [id, kids = []] = node; if (!visible(id)) return;
+      const k = `${path}/${id}`, ent = E[id];
+      const li = document.createElement('li'); li.dataset.k = k; if (closed.has(k)) li.classList.add('closed');
+      const row = document.createElement('div'); row.className = `row${st.sel === id ? ' sel' : ''}`; row.tabIndex = 0; row.setAttribute('role', 'treeitem');
+      const tw = document.createElement('button'); tw.className = `tw${kids.length ? '' : ' leaf'}`; tw.setAttribute('aria-label', 'Expand or collapse');
+      tw.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transform:rotate(${closed.has(k) ? 0 : 90}deg);transition:transform .15s"><path d="m9 6 6 6-6 6"/></svg>`;
+      tw.onclick = e => { e.stopPropagation(); closed.has(k) ? closed.delete(k) : closed.add(k); tree(); };
+      row.appendChild(tw);
+      row.insertAdjacentHTML('beforeend', `<i class="dot" style="background:var(${DOMAINS[ent.d].c})"></i><span class="nm">${ent.n}</span>${parent ? `<span class="vb">${verbBetween(parent, id)}</span>` : ''}<span class="ct">${fmt(count(id))}</span><span class="sh">${ent.sheet}</span>`);
+      row.onclick = () => select(id); row.onkeydown = e => { if (e.key === 'Enter') select(id); };
+      li.appendChild(row);
+      if (kids.length) { const sub = document.createElement('ul'); for (const c of kids) add(c, id, sub, k); li.appendChild(sub); }
+      into.appendChild(li);
+    };
+    for (const r of roots) add(r, null, ul, title);
+  }
+  $('#hint').textContent = 'Containment from region down to a GPU, then who depends on it and what goes wrong. The number is how many exist in the chosen business model.';
+  $('#crumbs').textContent = '';
+}
+
+/* ------------------------------------------------------------------ panel */
+function panel() {
+  const id = st.sel, ent = E[id], dm = DOMAINS[ent.d];
+  const out = R.filter(r => r[0] === id), inn = R.filter(r => r[1] === id);
+  const relBtn = (r, dir) => `<button class="rel" data-go="${dir === 'out' ? r[1] : r[0]}">${dir === 'out'
+      ? `<span class="vb">${r[2]}</span> <b>${E[r[1]].n}</b>` : `<b>${E[r[0]].n}</b> <span class="vb">${r[2]}</span>`}<span class="card">${r[3]}</span></button>`;
+  const cnt = count(id);
+  $('#panel').innerHTML = `
+    <div class="p-head">
+      <span class="eyebrow">Entity</span>
+      <h2>${ent.n}</h2>
+      <div class="chips"><span class="chip"><i style="background:var(${dm.c})"></i>${dm.name}</span><span class="chip mono">${ent.t}</span><span class="chip">${fmt(cnt)} in ${PERSONA_NAME[st.persona]}</span></div>
+    </div>
+    <p class="p-desc">${ent.desc}</p>
+    <dl class="kv">
+      <dt>Import sheet</dt><dd>${ent.sheet}</dd>
+      <dt>Example</dt><dd class="mono">${ent.ex}</dd>
+      <dt>Shown in</dt><dd>${ent.seen}</dd>
+    </dl>
+    <div class="p-actions">${st.view !== 'ontology' || st.e !== id ? '<button class="primary" data-act="focus">Open in Ontology</button>' : ''}</div>
+    <div class="sec"><h3>Fields <small><span class="src I">Import</span> <span class="src L">Live</span> <span class="src D">Derived</span></small></h3>
+      <table class="fields"><thead><tr><th>Field</th><th>Values</th><th>Source</th></tr></thead><tbody>
+      ${ent.f.map(([f, t, s]) => `<tr><td>${f}</td><td>${t}</td><td><span class="src ${s}">${{ I: 'Import', L: 'Live', D: 'Derived' }[s]}</span></td></tr>`).join('')}
+      </tbody></table></div>
+    <div class="sec"><h3>${ent.n} points to <small>${out.length}</small></h3><div class="rels">${out.map(r => relBtn(r, 'out')).join('') || '<p class="empty-note">Nothing: other records point to this one.</p>'}</div></div>
+    <div class="sec"><h3>Points to ${ent.n} <small>${inn.length}</small></h3><div class="rels">${inn.map(r => relBtn(r, 'in')).join('') || '<p class="empty-note">Nothing points here; it is a top-level record.</p>'}</div></div>`;
+  $('#panel').querySelectorAll('[data-go]').forEach(b => b.onclick = () => (st.view === 'ontology' ? focus(b.dataset.go) : select(b.dataset.go)));
+  const f = $('#panel [data-act="focus"]'); if (f) f.onclick = () => { st.e = id; st.trail = [id]; setView('ontology'); };
+}
+
+/* ------------------------------------------------------------------ actions */
+function select(id) {
+  st.sel = id; panel(); saveHash();
+  if (st.view === 'map') { for (const [nid, g] of nodesEl) g.classList.toggle('sel', nid === id); highlight(id); buildKeep(id); }
+  if (st.view === 'tree') tree();
+}
+function buildKeep(id) { for (const [, g] of nodesEl) g.onmouseleave = () => highlight(id); }
+function focus(id) {
+  if (st.trail[st.trail.length - 1] !== id) { const i = st.trail.indexOf(id); st.trail = i >= 0 ? st.trail.slice(0, i + 1) : [...st.trail, id].slice(-8); }
+  st.e = id; st.sel = id; ontology(true); panel(); saveHash();
+}
+function renderCrumbs() {
+  const c = $('#crumbs'); c.textContent = '';
+  if (st.trail.length < 2) return;
+  for (const id of st.trail) { const b = document.createElement('button'); b.textContent = E[id].n; b.onclick = () => focus(id); c.appendChild(b); }
+}
+function setView(v) {
+  st.view = v; st._fitted = false;
+  document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === v)));
+  const isTree = v === 'tree';
+  $('#tree').hidden = !isTree; svg.style.display = isTree ? 'none' : ''; $('#zoomBox').hidden = isTree;
+  $('#hopWrap').style.display = v === 'ontology' ? '' : 'none';
+  if (v === 'ontology') { st.sel = st.e; pos = new Map(); ontology(false); }
+  else if (v === 'map') map(); else tree();
+  panel(); saveHash();
+}
+document.querySelectorAll('.seg button').forEach(b => b.onclick = () => setView(b.dataset.view));
+$('#hops').value = String(st.hops); $('#hops').onchange = e => { st.hops = +e.target.value; ontology(false); saveHash(); };
+$('#persona').value = st.persona; $('#persona').onchange = e => { st.persona = e.target.value; setView(st.view); };
+
+/* legend = domain filter */
+const lg = $('#legend');
+for (const [k, d] of Object.entries(DOMAINS)) {
+  const b = document.createElement('button'); b.setAttribute('aria-pressed', 'true'); b.innerHTML = `<i style="background:var(${d.c})"></i>${d.name}`;
+  b.title = `Show or hide ${d.name}`;
+  b.onclick = () => { st.hidden.has(k) ? st.hidden.delete(k) : st.hidden.add(k); b.setAttribute('aria-pressed', String(!st.hidden.has(k))); if (E[st.e].d === k && st.hidden.has(k)) { } setView(st.view); };
+  lg.appendChild(b);
+}
+
+/* search: entities by name, type or field */
+const q = $('#q'), qres = $('#qres'); let hits = [], hi = 0;
+function runSearch() {
+  const s = q.value.trim().toLowerCase(); if (!s) { qres.hidden = true; return; }
+  hits = Object.entries(E).map(([id, e]) => {
+    const fieldHit = e.f.find(f => f[0].toLowerCase().includes(s));
+    const score = e.n.toLowerCase().startsWith(s) ? 0 : e.n.toLowerCase().includes(s) ? 1 : e.t.toLowerCase().includes(s) || e.sheet.toLowerCase().includes(s) ? 2 : fieldHit ? 3 : e.desc.toLowerCase().includes(s) ? 4 : 9;
+    return { id, score, why: score === 3 ? `field ${fieldHit[0]}` : score === 2 ? e.t : DOMAINS[e.d].name };
+  }).filter(h => h.score < 9).sort((a, b) => a.score - b.score).slice(0, 10);
+  hi = 0;
+  qres.innerHTML = hits.map((h, i) => `<li data-id="${h.id}" class="${i === hi ? 'on' : ''}"><i class="dot" style="width:9px;height:9px;border-radius:3px;background:var(${DOMAINS[E[h.id].d].c})"></i>${E[h.id].n}<small>${h.why}</small></li>`).join('') || '<li>No match</li>';
+  qres.hidden = false;
+}
+function pick(id) { qres.hidden = true; q.value = ''; if (st.view === 'ontology') focus(id); else select(id); }
+q.addEventListener('input', runSearch);
+q.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { q.value = ''; qres.hidden = true; }
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); hi = (hi + (e.key === 'ArrowDown' ? 1 : -1) + hits.length) % (hits.length || 1); qres.querySelectorAll('li').forEach((li, i) => li.classList.toggle('on', i === hi)); }
+  if (e.key === 'Enter' && hits[hi]) pick(hits[hi].id);
+});
+qres.addEventListener('mousedown', e => { const li = e.target.closest('li[data-id]'); if (li) { e.preventDefault(); pick(li.dataset.id); } });
+q.addEventListener('blur', () => setTimeout(() => { qres.hidden = true; }, 120));
+
+let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (st.view === 'map') fit(pos, true); else if (st.view === 'ontology') fit(pos); }, 150); });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => setView(st.view));
+setView(st.view);
+</script>
+</body>
+</html>
