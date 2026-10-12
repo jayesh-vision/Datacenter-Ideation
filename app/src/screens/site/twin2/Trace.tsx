@@ -84,12 +84,12 @@ function Busway({ p, len = 1.6, c }: { p: P3; len?: number; c: string }) {
     </group>
   );
 }
-function Feed({ p, bad }: { p: P3; bad?: boolean }) {
+function Feed({ p, bad, warn }: { p: P3; bad?: boolean; warn?: boolean }) {
   return (
     <group position={p}>
       <mesh position={[0, 0.55, 0]} castShadow><boxGeometry args={[1.0, 1.1, 0.8]} /><meshStandardMaterial color="#9AA5B4" roughness={0.6} metalness={0.25} /></mesh>
       {[-0.3, 0, 0.3].map(x => <mesh key={x} position={[x, 1.25, 0]} castShadow><cylinderGeometry args={[0.05, 0.07, 0.3, 10]} /><meshStandardMaterial color="#C7CDD6" /></mesh>)}
-      <mesh position={[0, 0.9, 0.405]} raycast={NO_RAY}><boxGeometry args={[0.5, 0.04, 0.01]} /><meshBasicMaterial color={bad ? '#FF4D4F' : '#22C55E'} toneMapped={false} /></mesh>
+      <mesh position={[0, 0.9, 0.405]} raycast={NO_RAY}><boxGeometry args={[0.5, 0.04, 0.01]} /><meshBasicMaterial color={bad ? '#FF4D4F' : warn ? '#F5B82E' : '#22C55E'} toneMapped={false} /></mesh>
     </group>
   );
 }
@@ -229,8 +229,8 @@ function PowerScene({ me, power }: { me: TwinNe; power: PowerRow[] }) {
             {cable([[X(2) + 0.8, 2.6, z], [X(3), 2.6, z], [X(3), 2.05, z]], ups.state === 'bad' ? '#FF4D4F' : ups.state === 'warn' ? '#F5B82E' : base, 4, ups.state !== 'ok')}
             <Cabinet p={[X(3), 0, z]} kind={pdu.kind === 'DC' ? 'battery' : 'ups'} led={ST[ups.state]} />
             <Tag p={[X(3), 2.85, z + 0.2]} text={ups.name} sub={ups.sub} s={1.30} />
-            {cable([[X(3) + 0.45, 1.0, z], [X(4) - 0.5, 1.0, z]], feed.state === 'bad' ? '#FF4D4F' : '#64748B', 4, feed.state === 'bad')}
-            <Feed p={[X(4), 0, z]} bad={feed.state === 'bad'} />
+            {cable([[X(3) + 0.45, 1.0, z], [X(4) - 0.5, 1.0, z]], feed.state === 'bad' ? '#FF4D4F' : feed.state === 'warn' ? '#F5B82E' : '#64748B', 4, feed.state !== 'ok')}
+            <Feed p={[X(4), 0, z]} bad={feed.state === 'bad'} warn={feed.state === 'warn'} />
             <Tag p={[X(4), 1.9, z]} text={feed.name} sub={feed.sub} s={1.23} />
           </group>
         );
@@ -271,7 +271,7 @@ export function Trace({ kind, me, onKind, onClose }: { kind: TraceKind; me: Twin
             {data.power.map(p => (
               <div key={p.cord.psu} className={`t2-tl-row is-${p.cord.state === 'live' ? 'ok' : p.cord.state === 'on-battery' ? 'warn' : 'bad'}`}>
                 <b><i style={{ background: p.pdu.kind === 'DC' ? SIDE.DC : SIDE[p.pdu.side] }} />{p.cord.psu} → {p.pdu.name} outlet {p.cord.outlet}</b>
-                <small>{p.chain[3].name} → {p.chain[4].name} · {p.cord.state === 'live' ? `${p.cord.drawW} W` : p.cord.state.replace('-', ' ')}</small>
+                <small>{p.cord.state === 'psu-failed' ? `Supply failed: its cord to ${p.pdu.name} carries no load` : p.cord.state === 'no-power' ? `No power at the outlet` : `${p.cord.drawW} W`} · {p.chain[3].name} → {p.chain[4].name}</small>
               </div>))}
           </>}
           {sel && paths?.get(sel.linkId) && <div className="t2-tl-note"><b>Check first</b><span>{paths.get(sel.linkId)!.verdict}</span></div>}

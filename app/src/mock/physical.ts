@@ -475,6 +475,18 @@ function hav(la1: number, lo1: number, la2: number, lo2: number) {
   return 2 * R * Math.asin(Math.sqrt(x));
 }
 
+/* the utility feed behind a UPS: when that feed is lost and another one is live, the ATS has moved the load onto it
+   (DL-DC-009: feed A lost, ATS on feed B); with no other feed the generator carries it */
+function feedStep(dc: Datacenter, feed: Datacenter['power']['feeds'][number] | undefined) {
+  if (!feed) return { kind: 'feed', id: '', name: '—', state: 'ok' as PhysState };
+  if (feed.status === 'Alarm') {
+    const alt = dc.power.feeds.find(f => f.type === 'AC' && f.id !== feed.id && f.status !== 'Alarm');
+    if (alt) return { kind: 'feed', id: alt.id, name: `${alt.source} (via ATS)`, sub: `${feed.source} lost · ATS on alternate source`, state: 'warn' as PhysState, note: `${feed.source} lost, the ATS carries that side on ${alt.source}` };
+    return { kind: 'feed', id: feed.id, name: `DG set ${dc.power.dg.kva} kVA`, sub: `${feed.source} lost · generator ${dc.power.dg.result === 'Pass' ? 'running' : 'last test failed'}`, state: (dc.power.dg.result === 'Pass' ? 'warn' : 'bad') as PhysState, note: `${feed.source} lost, the generator carries the load` };
+  }
+  return { kind: 'feed', id: feed.id, name: feed.source, sub: `${feed.rating} · ${feed.status}`, state: (feed.status === 'Warning' ? 'warn' : 'ok') as PhysState };
+}
+
 /* ------------------------------------------------------------ device view */
 
 export function devicePhysical(db: Db, neId: string) {
@@ -494,17 +506,25 @@ export function devicePhysical(db: Db, neId: string) {
       { kind: 'outlet', id: `${pdu.id}:${c.outlet}`, name: `${pdu.name} outlet ${c.outlet}`, sub: `${bank.name} · ${bank.loadA} of ${bank.breakerA} A`, state: (c.state === 'no-power' ? 'bad' : bank.state === 'warn' ? 'warn' : bank.state === 'tripped' ? 'bad' : 'ok') as PhysState },
       { kind: 'pdu', id: pdu.id, name: `${rack.name} ${pdu.name}`, sub: `${pdu.model} · ${pdu.loadKw} of ${pdu.capacityKw} kW`, state: (pdu.state === 'tripped' ? 'bad' : pdu.state === 'ok' ? 'ok' : 'warn') as PhysState, note: pdu.note },
       { kind: pdu.kind === 'DC' ? 'rectifier' : 'ups', id: pdu.upstreamId, name: pdu.upstreamName, sub: ups ? `${ups.state} · ${ups.loadPct}% load · ${ups.batteryMin} min battery` : pdu.kind === 'DC' ? `${dc.power.battery.volts} V battery · ${dc.power.battery.runtimeH} h` : undefined, state: (ups && ups.state !== 'Online' ? (ups.state === 'On battery' ? 'warn' : 'bad') : 'ok') as PhysState },
-      { kind: 'feed', id: feed?.id ?? '', name: feed?.source ?? '—', sub: feed ? `${feed.rating} · ${feed.status}` : undefined, state: (feed?.status === 'Alarm' ? 'bad' : feed?.status === 'Warning' ? 'warn' : 'ok') as PhysState }
+      feedStep(dc, feed)
     ];
     return { cord: c, pdu, chain };
   });
   const on = cords.filter(c => c.state === 'live' || c.state === 'on-battery');
   const sides = new Set(on.map(c => s.pduById.get(c.pduId)!.side));
   const opaque = isOpaque(ne);
+  /* what is wrong upstream or in the device, said next to the redundancy verdict so the summary never contradicts the chain */
+  const issues = [
+    ...cords.filter(c => c.state === 'psu-failed').map(c => `${c.psu} failed`),
+    ...cords.filter(c => c.state === 'no-power').map(c => `no power at ${s.pduById.get(c.pduId)!.name} outlet ${c.outlet}`),
+    ...[...new Set(power.filter(p => p.chain[4].note).map(p => p.chain[4].note!))],
+    ...[...new Set(cords.filter(c => c.state === 'on-battery').map(c => `${s.pduById.get(c.pduId)!.upstreamName} on battery`))]
+  ];
+  const tail = issues.length ? ` · ${issues.join(' · ')}` : '';
   const verdict = planned(ne) ? { state: 'off' as PhysState, text: 'Planned: no power until it is installed' }
-    : !on.length ? { state: 'bad' as PhysState, text: 'No supply has power: the device is down' }
-    : sides.size >= 2 ? { state: (on.some(c => c.state === 'on-battery') ? 'warn' : 'ok') as PhysState, text: on.some(c => c.state === 'on-battery') ? 'Dual-fed; one side is on UPS battery right now' : `Dual-fed: stays up if either side fails${opaque ? ' (tenant gear: cords per the tenant\'s power order)' : ''}` }
-    : { state: 'warn' as PhysState, text: cords.length >= 2 && cords.every(c => c.pduId.endsWith('-A')) ? 'Single point of failure: both cords on PDU-A' : `Single-fed right now: only ${[...sides][0]} side has power` };
+    : !on.length ? { state: 'bad' as PhysState, text: `No supply has power: the device is down${tail}` }
+    : sides.size >= 2 ? { state: (issues.length ? 'warn' : 'ok') as PhysState, text: issues.length ? `Dual-fed, still up on both sides${tail}` : `Dual-fed: stays up if either side fails${opaque ? ' (tenant gear: cords per the tenant\'s power order)' : ''}` }
+    : { state: 'warn' as PhysState, text: (cords.length >= 2 && cords.every(c => c.pduId.endsWith('-A')) ? 'Single point of failure: both cords on PDU-A' : `Single-fed right now: only the ${[...sides][0]} side has power`) + tail };
   const rc = s.rackCooling.find(r => r.rackId === rack.id)!;
   const zone = s.zones.find(z => z.id === rc.zoneId)!;
   const cdu = rc.cduId ? db.gpu?.cdus.find(c => c.id === rc.cduId) : undefined;

@@ -250,7 +250,11 @@ export function PathCard({ L, data, sel, pv }: { L: TwinLayout; data: TwinData; 
   if (!pv.phys || !sel.rack || (!pv.power && !pv.cables)) return null;
   const rk = L.racks.find(r => r.rack.id === sel.rack); if (!rk) return null;
   const short = (s: string) => s.replace(`${data.dc.id}-`, '');
-  const feed = (id: string) => data.dc.power.feeds.find(f => f.id === id)?.source ?? id;
+  const feed = (id: string) => {
+    const f = data.dc.power.feeds.find(x => x.id === id); if (!f) return id;
+    const alt = f.status === 'Alarm' ? data.dc.power.feeds.find(x => x.type === 'AC' && x.id !== f.id && x.status !== 'Alarm') : undefined;
+    return f.status !== 'Alarm' ? f.source : alt ? `${alt.source} (via ATS; ${f.source} lost)` : `DG (${f.source} lost)`;
+  };
   const pdus = pv.phys.pdus.filter(p => p.rackId === rk.rack.id);
   const trunks = pv.phys.trunks.filter(t => t.aRackId === rk.rack.id);
   const odf = trunks[0] ? L.racks.find(r => r.rack.id === trunks[0].zRackId)?.rack.name : undefined;
