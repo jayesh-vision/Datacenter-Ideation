@@ -93,7 +93,7 @@ const COLOCATION: PersonaDef = {
 
 const CLOUD: PersonaDef = {
   id: 'cloud', label: 'Cloud DC', short: 'Cloud', tagline: 'Compute and storage at scale — thousands of hosts; accounts run instances',
-  vocab: { customer: 'Account', customers: 'Accounts', service: 'Workload', services: 'Workloads', equipment: 'Hosts & fabric', premium: 'Enterprise-tier', capacityLabel: 'vCPU allocated', primaryUnit: 'vCPU', handoff: 'Host · NIC', searchHint: 'Account, ID, segment', money: { noun: 'Revenue', impact: 'Revenue impact', lost: 'Revenue lost', credits: 'Service credits', base: 'Monthly run-rate revenue', billing: 'Workloads are billed for the hours they run. Hours a workload is down are never billed, degraded hours are discounted, and an availability miss adds a service credit.' } },
+  vocab: { customer: 'Account', customers: 'Accounts', service: 'Workload', services: 'Workloads', equipment: 'Hosts & network', premium: 'Enterprise-tier', capacityLabel: 'vCPU allocated', primaryUnit: 'vCPU', handoff: 'Host · NIC', searchHint: 'Account, ID, segment', money: { noun: 'Revenue', impact: 'Revenue impact', lost: 'Revenue lost', credits: 'Service credits', base: 'Monthly run-rate revenue', billing: 'Workloads are billed for the hours they run. Hours a workload is down are never billed, degraded hours are discounted, and an availability miss adds a service credit.' } },
   scale: 2.5, edgePrefix: 'PE-T4',
   customers: [
     ['ShopSwift Commerce', 'Retail', 'Bengaluru', 'Karnataka', 'Enterprise support', true],
@@ -141,7 +141,7 @@ const CLOUD: PersonaDef = {
 
 const ENTERPRISE: PersonaDef = {
   id: 'enterprise', label: 'Enterprise / Private DC', short: 'Enterprise', tagline: 'Runs the firm’s own applications — business units are the customers',
-  vocab: { customer: 'Business unit', customers: 'Business units', service: 'Application', services: 'Applications', equipment: 'Servers & fabric', premium: 'Tier-1', capacityLabel: 'Users served', primaryUnit: 'users', handoff: 'Host · cluster', searchHint: 'Business unit, ID, segment', money: { noun: 'Business value', impact: 'Business impact', lost: 'Cost of downtime', credits: 'OLA rebates', base: 'Monthly business value', billing: 'Each application carries the monthly value the business unit is charged for it. Downtime costs that value pro-rata, and an OLA miss is rebated to the business unit.' } },
+  vocab: { customer: 'Business unit', customers: 'Business units', service: 'Application', services: 'Applications', equipment: 'Servers & network', premium: 'Tier-1', capacityLabel: 'Users served', primaryUnit: 'users', handoff: 'Host · cluster', searchHint: 'Business unit, ID, segment', money: { noun: 'Business value', impact: 'Business impact', lost: 'Cost of downtime', credits: 'OLA rebates', base: 'Monthly business value', billing: 'Each application carries the monthly value the business unit is charged for it. Downtime costs that value pro-rata, and an OLA miss is rebated to the business unit.' } },
   scale: 1.4, edgePrefix: 'PE-T4',
   customers: [
     ['Retail Banking', 'Revenue', 'Mumbai', 'Maharashtra', 'Tier-1 · RTO 15 min', true],
@@ -179,7 +179,7 @@ const ENTERPRISE: PersonaDef = {
 
 const NEOCLOUD: PersonaDef = {
   id: 'neocloud', label: 'NeoCloud / GPU cloud', short: 'NeoCloud', tagline: 'Rents GPU capacity — reserved clusters and on-demand GPUs for AI teams',
-  vocab: { customer: 'Customer', customers: 'Customers', service: 'Reservation', services: 'Reservations', equipment: 'GPU nodes & fabric', premium: 'Committed', capacityLabel: 'GPUs reserved', primaryUnit: 'GPU', handoff: 'Node · rail', searchHint: 'Customer, ID, segment',
+  vocab: { customer: 'Customer', customers: 'Customers', service: 'Reservation', services: 'Reservations', equipment: 'GPU nodes & network', premium: 'Committed', capacityLabel: 'GPUs reserved', primaryUnit: 'GPU', handoff: 'Node · rail', searchHint: 'Customer, ID, segment',
     money: { noun: 'Revenue', impact: 'Revenue impact', lost: 'Revenue lost', credits: 'Service credits', base: 'Monthly GPU revenue', billing: 'GPUs are billed per GPU-hour: reserved clusters at a committed monthly rate, on-demand capacity by the hour. Hours a GPU is down or a job is stalled are not billed, and an availability miss adds a service credit.' } },
   scale: 1.5, edgePrefix: 'BDR',
   customers: [

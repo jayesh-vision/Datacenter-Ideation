@@ -64,26 +64,31 @@ export function Facilities() {
         </>} />
 
       <StatGrid>
-        <StatTile label="Power load" value={`${pwrPct}%`} sub={`${fmtKw(totalKw)} of ${fmtKw(dc.power.capacityKw)}`} subTone={pwrPct >= 85 ? 'bad' : undefined} onClick={() => set('tab', '')} active={tab === 'power'}>
+        <StatTile label="Power load" value={`${pwrPct}%`} sub={`${fmtKw(totalKw)} of ${fmtKw(dc.power.capacityKw)}`} subTone={pwrPct >= 85 ? 'bad' : undefined} onClick={() => set('tab', '')} active={tab === 'power'}
+          info="Total facility draw (IT, cooling, lighting & other) as a share of installed power capacity; red at 85%. Facts: today's peak and the headroom left. Click opens the Power & backup tab.">
           <SoftMeter pct={pwrPct} tone={loadTone(pwrPct)} />
           <Facts items={[{ n: fmtKw(dc.power.peakKw), label: 'peak today' }, { n: fmtKw(Math.max(0, dc.power.capacityKw - totalKw)), label: 'headroom' }]} />
         </StatTile>
-        <StatTile label="PUE" value={dc.power.pue.toFixed(2)} sub="facility ÷ IT load">
+        <StatTile label="PUE" value={dc.power.pue.toFixed(2)} sub="facility ÷ IT load" info="Power usage effectiveness: total facility power divided by the IT equipment load (1.00 would be no overhead). The bar splits today's draw into IT, cooling and lighting & other.">
           <Split parts={dc.power.split.map((x, i) => ({ key: x.label, label: i === 0 ? 'IT' : x.label.split(' ')[0], n: Math.round(x.kw * 10) / 10, tone: (['info', 'cyan', 'neutral'] as Tone[])[i] ?? 'neutral' }))} />
         </StatTile>
-        <StatTile label="UPS" value={`${ups.length - upsDown.length}/${ups.length}`} sub={upsDown.length ? upsDown.map(u => `${u.name} ${u.state.toLowerCase()}`).join(', ') : `online · ${ups[0]?.redundancy ?? 'N'} intact`} subTone={upsDown.length ? 'bad' : undefined} onClick={() => set('tab', '')}>
+        <StatTile label="UPS" value={`${ups.length - upsDown.length}/${ups.length}`} sub={upsDown.length ? upsDown.map(u => `${u.name} ${u.state.toLowerCase()}`).join(', ') : `online · ${ups[0]?.redundancy ?? 'N'} intact`} subTone={upsDown.length ? 'bad' : undefined} onClick={() => set('tab', '')}
+          info="UPS units online out of those installed, split online / on battery / fault or bypass. The fact is the shortest battery autonomy of any unit at its current load. Click opens the Power & backup tab.">
           <Split parts={[{ key: 'on', label: 'Online', n: ups.length - upsDown.length, tone: 'success' }, { key: 'bat', label: 'On battery', n: ups.filter(u => u.state === 'On battery').length, tone: 'warning' }, { key: 'flt', label: 'Fault', n: ups.filter(u => u.state === 'Fault' || u.state === 'Bypass').length, tone: 'error' }]} />
           <Facts items={[{ n: `${Math.min(...ups.map(u => u.batteryMin))} min`, label: 'shortest autonomy', tone: upsDown.length ? 'bad' : undefined }]} />
         </StatTile>
-        <StatTile label="Cooling" value={`${units.length - coolDown.length}/${units.length}`} sub={coolDown.length ? `${coolDown[0].name} ${coolDown[0].status.toLowerCase()}${coolDown.length > 1 ? ` +${coolDown.length - 1}` : ''}` : `units running · ${dc.cooling.redundancy}`} subTone={coolDown.some(u => u.status === 'Failed') ? 'bad' : coolDown.length ? 'warn' : undefined} onClick={() => set('tab', 'cooling')} active={tab === 'cooling'}>
+        <StatTile label="Cooling" value={`${units.length - coolDown.length}/${units.length}`} sub={coolDown.length ? `${coolDown[0].name} ${coolDown[0].status.toLowerCase()}${coolDown.length > 1 ? ` +${coolDown.length - 1}` : ''}` : `units running · ${dc.cooling.redundancy}`} subTone={coolDown.some(u => u.status === 'Failed') ? 'bad' : coolDown.length ? 'warn' : undefined} onClick={() => set('tab', 'cooling')} active={tab === 'cooling'}
+          info="Cooling units (CRAH, CRAC, CDU) running out of those installed, split running / in maintenance / failed. The fact is the heat load as a share of installed cooling capacity. Click opens the Cooling tab.">
           <Split parts={[{ key: 'op', label: 'Running', n: units.filter(u => u.status === 'Operational').length, tone: 'success' }, { key: 'mt', label: 'Maint.', n: units.filter(u => u.status === 'Maintenance').length, tone: 'warning' }, { key: 'fl', label: 'Failed', n: units.filter(u => u.status === 'Failed').length, tone: 'error' }]} />
           <Facts items={[{ n: `${coolPct}%`, label: 'of capacity in use', tone: coolPct >= 85 ? 'warn' : undefined }]} />
         </StatTile>
-        <StatTile label="Environment" value={`${hottest}°C`} sub={hotZones.length ? `${hotZones.length} zone${hotZones.length > 1 ? 's' : ''} above ${TEMP.hi}°C` : 'hottest zone'} subTone={hotZones.length ? 'bad' : undefined} onClick={() => set('tab', 'environment')} active={tab === 'environment'}>
+        <StatTile label="Environment" value={`${hottest}°C`} sub={hotZones.length ? `${hotZones.length} zone${hotZones.length > 1 ? 's' : ''} above ${TEMP.hi}°C` : 'hottest zone'} subTone={hotZones.length ? 'bad' : undefined} onClick={() => set('tab', 'environment')} active={tab === 'environment'}
+          info={`Hottest zone sensor in the hall. The bar counts zones in range (≤25°C), warm (25–${TEMP.hi}°C) and hot (above ${TEMP.hi}°C); the fact is the humidity range across zones. Click opens the Environment tab.`}>
           <Split parts={[{ key: 'ok', label: 'In range', n: sensors.filter(s => s.tempC <= 25).length, tone: 'success' }, { key: 'warm', label: 'Warm', n: sensors.filter(s => s.tempC > 25 && s.tempC <= TEMP.hi).length, tone: 'warning' }, { key: 'hot', label: 'Hot', n: hotZones.length, tone: 'error' }]} />
           <Facts items={[{ n: `${Math.min(...sensors.map(s => s.humidity))}–${Math.max(...sensors.map(s => s.humidity))}%`, label: 'humidity' }]} />
         </StatTile>
-        <StatTile label="Alarms & maintenance" value={fac.length} sub={fac.length ? `facility alarm${fac.length > 1 ? 's' : ''} active` : 'no facility alarms'} subTone={fac.some(a => a.severity === 'critical') ? 'bad' : undefined} onClick={() => set('tab', 'maintenance')} active={tab === 'maintenance'}>
+        <StatTile label="Alarms & maintenance" value={fac.length} sub={fac.length ? `facility alarm${fac.length > 1 ? 's' : ''} active` : 'no facility alarms'} subTone={fac.some(a => a.severity === 'critical') ? 'bad' : undefined} onClick={() => set('tab', 'maintenance')} active={tab === 'maintenance'}
+          info="Open alarms from the Power, Cooling and Environment sources at this site, split by severity. The fact counts maintenance windows still to come and the next one's date. Click opens the Maintenance & alarms tab.">
           <Split parts={(['critical', 'major', 'minor', 'warning'] as Severity[]).map(sv => ({ key: sv, label: SEVERITY[sv].label, n: fac.filter(a => a.severity === sv).length, tone: SEV_TONE[sv] })).filter(x => x.n || x.key === 'critical')} />
           <Facts items={[{ n: upcoming.length, label: upcoming[0] ? `due · next ${fmtDate(upcoming[0].windowStart).slice(0, 6)}` : 'maintenance due' }]} />
         </StatTile>
@@ -261,12 +266,14 @@ function PowerTab({ dc }: { dc: Datacenter }) {
   return (
     <>
       <Panel title="Power path" sub="Live single-line view from the sources to the loads. Hover a block to trace what feeds it and what it feeds." icon={I.Workflow}
+        info="Single-line diagram from the utility feeds and DG set through the ATS and LT panel to the UPS, rectifiers and loads. Animated edges carry power, dashed grey is standby, red is lost. Hovering a block lights everything upstream and downstream of it."
         actions={<span className="pp-legend"><span><i className="is-live" />Live</span><span><i className="is-standby" />Standby</span><span><i className="is-warn" />Degraded</span><span><i className="is-alarm" />Lost</span><Fresh>BMS · 2 min ago</Fresh></span>}>
         <PowerPath dc={dc} />
       </Panel>
 
       <div className="grid g-2 fac-eq">
-        <Panel title="Site load · last 24 hours" sub="Total facility draw against installed capacity" icon={I.Activity}>
+        <Panel title="Site load · last 24 hours" sub="Total facility draw against installed capacity" icon={I.Activity}
+          info="Hourly total facility draw for the last 24 h against installed capacity (dashed line). Now, peak, average and headroom come from the same readings; the small bars are the monthly load over 12 months with its growth.">
           <div className="lc-stats">
             <div><span>Now</span><b>{fmtKw(totalKw)}</b></div>
             <div><span>Peak</span><b>{fmtKw(Math.max(...p.load24h))}</b></div>
@@ -277,12 +284,14 @@ function PowerTab({ dc }: { dc: Datacenter }) {
             series={[{ key: 'load', label: 'Site load', color: 'var(--primaryColor500)', kind: 'area', values: p.load24h }]} target={{ value: p.capacityKw, label: 'Capacity' }} />
           <div className="lc-year"><span className="vw-label">12-month trend · {growth >= 0 ? '+' : ''}{growth}%</span><MiniBars values={p.history12m} tone="info" /></div>
         </Panel>
-        <Panel title="If utility power fails" sub="How long the site carries its load, and what could stop it" icon={I.ShieldCheck}>
+        <Panel title="If utility power fails" sub="How long the site carries its load, and what could stop it" icon={I.ShieldCheck}
+          info="The ride-through sequence: UPS batteries (shortest unit's autonomy), then the DG at 80% of its kVA rating, then fuel hours at the tested runtime. The checks flag UPS redundancy, feeds, DG and battery tests and fuel that could shorten it.">
           <RideThrough dc={dc} />
         </Panel>
       </div>
 
-      <Panel title="Rack power" count={racks.length} sub={hotRacks ? `${hotRacks} rack${hotRacks > 1 ? 's' : ''} at or above 85% of budget` : 'Live draw against budget · every rack within budget'} icon={I.Server} flush>
+      <Panel title="Rack power" count={racks.length} sub={hotRacks ? `${hotRacks} rack${hotRacks > 1 ? 's' : ''} at or above 85% of budget` : 'Live draw against budget · every rack within budget'} icon={I.Server} flush
+        info={`Every energised rack's live draw against its power budget, highest share first. Over budget at 85%, High at 75%; an inlet above ${TEMP.hi}°C is flagged Hot. Click a row to open the rack on the datacenter page.`}>
         {racks.length ? <>
           <RackTable racks={racks} onRow={() => nav(`/datacenters/${dc.id}?tab=details`)} />
         </> : <div className="panel-body"><Empty icon={I.Server} title="No racks energised yet" /></div>}
@@ -337,7 +346,8 @@ function Cooling({ dc }: { dc: Datacenter }) {
   return (
     <>
       <div className="grid g-1-2 fac-eq">
-        <Panel title="Heat balance" sub="Can the running units carry the heat load, and survive one more failure?" icon={I.Scale}>
+        <Panel title="Heat balance" sub="Can the running units carry the heat load, and survive one more failure?" icon={I.Scale}
+          info="Heat to remove (the site's heat load) against the capacity of the running units, what would remain after one more unit failed, and installed capacity, all on one scale. Redundancy holds when running units ≥ units needed plus one spare.">
           <div className={`note ${designOk ? 'note--good' : 'note--bad'}`}>{designOk ? <I.CheckCircle2 size={15} /> : <I.ShieldAlert size={15} />}
             <span>{designOk ? `Redundancy intact: ${op.length} units running for a load that needs ${needed}.` : `Redundancy lost in ${[...failedZones].join(', ')}: ${op.length} running for a load that needs ${needed}.`}</span></div>
           <div className="hb">
@@ -351,7 +361,8 @@ function Cooling({ dc }: { dc: Datacenter }) {
             <span className="hb-foot"><em />heat load line</span>
           </div>
         </Panel>
-        <Panel title="Cooling units" count={c.units.length} sub="Load, supply and return air per unit" icon={I.Fan}>
+        <Panel title="Cooling units" count={c.units.length} sub="Load, supply and return air per unit" icon={I.Fan}
+          info="One card per CRAH, CRAC or CDU: load as a share of its capacity (amber from 75%, red from 85%), supply and return temperature and the ΔT between them, and the zone it serves. A failed unit shows no readings.">
           <div className="cu-grid">
             {c.units.map(u => { const st = u.status === 'Operational' ? 'success' : u.status === 'Failed' ? 'error' : 'warning'; const load = u.status === 'Failed' ? 0 : u.loadPct; return (
               <div key={u.id} className={`cu is-${st}`}>
@@ -364,7 +375,8 @@ function Cooling({ dc }: { dc: Datacenter }) {
           </div>
         </Panel>
       </div>
-      <Panel title="Dependent racks" count={racks.length} sub="In a zone with a unit down, or inlet above 30°C" icon={I.Server} flush>
+      <Panel title="Dependent racks" count={racks.length} sub="In a zone with a unit down, or inlet above 30°C" icon={I.Server} flush
+        info="Racks that depend on cooling that is failed or in maintenance (same zone), or whose inlet is above 30°C, hottest first, with their power draw.">
         {racks.length ? (
           <table className="nst-table dt-table"><thead><tr><th>Rack</th><th>Zone</th><th>Inlet</th><th>Draw</th></tr></thead>
             <tbody>{racks.map(r => <tr key={r.id}><td className="mono strong">{r.name}</td><td className="is-wrap">{r.floor} · {r.room}</td><td className={`num ${r.tempC > 30 ? 'bad' : ''}`}>{r.tempC}°C</td><td className="num">{fmtKw(r.drawKw)}</td></tr>)}</tbody></table>
@@ -386,7 +398,8 @@ function Band({ value, min, max, lo, hi }: { value: number; min: number; max: nu
 function Environment({ dc }: { dc: Datacenter }) {
   const sensors = dc.cooling.sensors;
   return (
-    <Panel title="Zones" count={sensors.length} sub={`Each reading against its safe band — ${TEMP.lo}–${TEMP.hi}°C and ${HUM.lo}–${HUM.hi}% RH`} icon={I.Thermometer} actions={<Fresh>sensors · 1 min</Fresh>}>
+    <Panel title="Zones" count={sensors.length} sub={`Each reading against its safe band — ${TEMP.lo}–${TEMP.hi}°C and ${HUM.lo}–${HUM.hi}% RH`} icon={I.Thermometer} actions={<Fresh>sensors · 1 min</Fresh>}
+      info={`One card per zone sensor: temperature and humidity marked on their scale with the safe band shaded (${TEMP.lo}–${TEMP.hi}°C, ${HUM.lo}–${HUM.hi}% RH), smoke and leak detectors, and the racks in the zone with their highest inlet. Red = over temperature, smoke or leak; amber = humidity out of band.`}>
       <div className="zn-grid">
         {sensors.map(s => {
           const h = s.tempC > TEMP.hi || s.tempC < TEMP.lo, w = s.humidity > HUM.hi || s.humidity < HUM.lo, ev = s.smoke || s.leak;
@@ -419,7 +432,8 @@ function Maintenance({ alerts, changes }: { alerts: NonNullable<Awaited<ReturnTy
   const now = clockNow();
   return (
     <div className="grid g-2 fac-eq">
-      <Panel title="Facility alarms" count={alerts.length} sub="Power, cooling and environment events and their incident" icon={I.BellRing} flush>
+      <Panel title="Facility alarms" count={alerts.length} sub="Power, cooling and environment events and their incident" icon={I.BellRing} flush
+        info="Open alarms whose source is Power, Cooling or Environment at this site: severity, the alarm and its code, the incident tracking it (or 'not correlated') and how long ago it was raised.">
         {alerts.length ? (
           <table className="nst-table dt-table"><thead><tr><th>Severity</th><th>Alarm</th><th>Incident</th><th className="is-right">Raised</th></tr></thead>
             <tbody>{alerts.map(a => (
@@ -428,6 +442,7 @@ function Maintenance({ alerts, changes }: { alerts: NonNullable<Awaited<ReturnTy
         ) : <div className="panel-body"><Empty icon={I.CheckCircle2} title="No active facility alarms" /></div>}
       </Panel>
       <Panel title="Maintenance schedule" count={changes.length} sub="Inspections and tests for generators, batteries, UPS, cooling and safety systems" icon={I.CalendarClock} flush
+        info="Changes of kind Maintenance at this site: window start, what is being done, requester and approver, risk and status. Click a row to open it in Changes & maintenance."
         actions={<Link to="/changes" className="panel-link">Change calendar<I.ChevronRight size={14} /></Link>}>
         {changes.length ? (
           <table className="nst-table dt-table"><thead><tr><th>Window</th><th>Maintenance</th><th>Risk</th><th>Status</th></tr></thead>

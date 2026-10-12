@@ -370,7 +370,7 @@ export function injectGpuFaults(db: DbLike, persona: Persona, addAlert: AddAlert
     const since = now - 54 * MIN;
     node.ib[3] = { rail: 3, state: 'flapping', errors: 4812 };
     Object.assign(j5, { state: 'slowed', since, stepMs: r0(j5.baselineMs * 1.12), mfu: r1(j5.mfu / 1.12), cause: `InfiniBand rail 3 flapping on ${short(n)}`, causeNeId: n });
-    addAlert({ neId: n, dcId: j5.dcId, severity: 'major', title: 'InfiniBand Link Flapping', description: `${short(n)} ib3 (rail 3): 14 state changes in 30 min, 4,812 symbol errors — collectives retrying`, source: 'Interface', type: 'Fabric', start: since, state: 'active' });
+    addAlert({ neId: n, dcId: j5.dcId, severity: 'major', title: 'InfiniBand Link Flapping', description: `${short(n)} ib3 (rail 3): 14 state changes in 30 min, 4,812 symbol errors — collectives retrying`, source: 'Interface', type: 'Network', start: since, state: 'active' });
     svcOf(j5).forEach(s => { if (s.status === 'Active') s.status = 'Degraded'; });
   }
   /* F6 — Delhi GPU rack near its breaker: nodes power-capped (the site is also on UPS battery) */

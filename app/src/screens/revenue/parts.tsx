@@ -6,7 +6,7 @@ import type { RevDomain, RevIssue, RevenueView } from '../../api/types';
 import { REV_DOMAINS } from '../../api/types';
 import { vocabNow } from '../../api';
 import { useSentinel } from '../../shell/page';
-import { Btn, Drawer } from '../../ui/kit';
+import { Btn, Drawer, Info } from '../../ui/kit';
 import { DataTable, type Col } from '../../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
 import { IncLink, IncidentChip, SevChip, SeverityChip } from '../../ui/status';
@@ -209,13 +209,15 @@ export function IssueDrawer({ issue: i, view: v, onClose }: { issue: RevIssue | 
         </div>
 
         <div className="rev-sec">
-          <div className="rev-sec-h"><b>{losing ? 'Cost of delay' : 'What a failure would cost'}</b><span className="vw-label">{losing ? 'impact so far, and the next 24 hours if nothing changes' : `cumulative cost if these ${V.services.toLowerCase()} go down now`}</span></div>
+          <div className="rev-sec-h"><b>{losing ? 'Cost of delay' : 'What a failure would cost'}<Info text={losing
+            ? `Cumulative ${lc(W.lost)} plus ${lc(W.credits)} for this issue: solid from the start of the fault to now, dashed for the next 24 h if nothing changes. Hover for the value at a point in time.`
+            : `Cumulative cost if the exposed ${V.services.toLowerCase()} go down now: hourly rate × hours plus the ${lc(W.credits)} each further hour of outage triggers, over 24 h. Hover for a point in time.`} /></b><span className="vw-label">{losing ? 'impact so far, and the next 24 hours if nothing changes' : `cumulative cost if these ${V.services.toLowerCase()} go down now`}</span></div>
           <CostCurve curve={i.curve} now={v.now} height={190} />
           {losing && i.mrrExposed > 0 && <span className="vw-label">Another {perMo(i.mrrExposed)} is still running on this fault ({perHr(i.potentialRate)} more if it fails).</span>}
         </div>
 
         <div className="rev-sec">
-          <div className="rev-sec-h"><b>Who it hits</b><span className="vw-label">{i.customers} {V.customers.toLowerCase()} · {i.premium} {V.premium.toLowerCase()}{i.customers > i.top.length ? ` · top ${i.top.length} shown` : ''}</span></div>
+          <div className="rev-sec-h"><b>Who it hits<Info text={`${V.customers} whose ${V.services.toLowerCase()} are charged to this issue, largest impact first: their monthly charge and what the issue has cost them (${lc(W.lost)} + ${lc(W.credits)}). Click a row to open the ${V.customer.toLowerCase()}.`} /></b><span className="vw-label">{i.customers} {V.customers.toLowerCase()} · {i.premium} {V.premium.toLowerCase()}{i.customers > i.top.length ? ` · top ${i.top.length} shown` : ''}</span></div>
           <table className="nst-table dt-table rev-mini">
             <thead><tr><th>{V.customer}</th><th>{V.services}</th><th>Monthly</th><th>{losing ? 'Impact so far' : 'State'}</th></tr></thead>
             <tbody>{i.top.map(c => (

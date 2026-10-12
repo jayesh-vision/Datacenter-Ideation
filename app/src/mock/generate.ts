@@ -631,7 +631,7 @@ export function generate(persona: Persona = 'network'): Db {
       id, locationId: id, name: id, status, category, siteType: 'Datacenter', regionId: c.regionId, circleId, zone: activeGeo().regions.find(x => x.id === c.regionId)!.name, city, state: c.state, address, lat, lng, tier,
       commissionedOn: status === 'on-air' ? NOW - intBetween(rr, 200, 1400) * DAY : undefined, collectors,
       capex: { approved: capexApproved, committed: capexCommitted, spent: Math.round(capexCommitted * between(rr, 0.7, 0.92)), lines: [
-        { item: persona === 'neocloud' ? 'GPU nodes, storage & fabric' : persona === 'cloud' || persona === 'enterprise' ? 'Servers, storage & fabric' : 'Network equipment', approved: Math.round(capexApproved * 0.52), committed: Math.round(capexCommitted * 0.55) },
+        { item: persona === 'neocloud' ? 'GPU nodes, storage & network' : persona === 'cloud' || persona === 'enterprise' ? 'Servers, storage & network' : 'Network equipment', approved: Math.round(capexApproved * 0.52), committed: Math.round(capexCommitted * 0.55) },
         { item: 'Power & UPS', approved: Math.round(capexApproved * 0.18), committed: Math.round(capexCommitted * 0.17) },
         { item: 'Cooling', approved: Math.round(capexApproved * 0.12), committed: Math.round(capexCommitted * 0.11) },
         { item: 'Civil & fit-out', approved: Math.round(capexApproved * 0.1), committed: Math.round(capexCommitted * 0.1) },
@@ -664,7 +664,11 @@ export function generate(persona: Persona = 'network'): Db {
 
   /* hand-set facility conditions that incidents reference */
   const dc3 = datacenters.find(d => d.id === dcAt(3))!; dc3.cooling.units[0].status = 'Failed'; dc3.cooling.units[1].status = 'Maintenance'; dc3.cooling.sensors[0].tempC = 29.4; dc3.racks.filter(rk => rk.room === dc3.cooling.units[0].zone.split(' · ')[1]).forEach(rk => { rk.tempC = r1(rk.tempC + 5.2); });
-  const dc9 = datacenters.find(d => d.id === dcAt(9))!; dc9.power.ups[1].state = 'On battery'; dc9.power.ups[1].loadPct = 71; dc9.power.feeds.filter(f => f.type === 'AC').forEach(f => { f.status = 'Alarm'; f.loadKw = 0; });
+  const dc9 = datacenters.find(d => d.id === dcAt(9))!; dc9.power.ups[1].state = 'On battery'; dc9.power.ups[1].loadPct = 71; /* only feed A trips (the alarm, the incident and its RCA all say "utility feed A lost"); feed B stays up, which is why
+     only UPS-2 — the module on the A side — is on battery. Before 12-Oct-2026 both feeds were marked lost, which contradicted that. */
+  { const fa = dc9.power.feeds.find(f => f.type === 'AC' && f.source === 'Utility feed A'), fb = dc9.power.feeds.find(f => f.type === 'AC' && f.source === 'Utility feed B');
+    /* the ATS has moved the AC load onto standby feed B (the power path shows B live, ATS "on alternate source") */
+    if (fa) { if (fb) fb.loadKw = fa.loadKw; fa.status = 'Alarm'; fa.loadKw = 0; } }
   const dc20 = datacenters.find(d => d.id === dcAt(20))!; dc20.racks.slice(2, 5).forEach((rk, i) => { rk.drawKw = r1(rk.budgetKw * (0.91 + i * 0.03)); });
   const dc1 = datacenters.find(d => d.id === dcAt(1))!;
   dc1.readiness = [

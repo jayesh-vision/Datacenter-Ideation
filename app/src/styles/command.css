@@ -605,3 +605,40 @@
 }
 .hero-fact::before { display: none; }
 .hero-fact.is-warn .hero-fact-n { color: var(--vw-color-amber-600); }
+
+/* area rows (12-Oct-2026, user): the title stretches into one link over the row; the datacenters with an
+   issue are chips (critical red, attention amber, "+N" lists the rest on hover); the score gets a caption */
+.hero-area-link { color: inherit; text-decoration: none; }
+.hero-area-link::after { content: ''; position: absolute; inset: 0; }
+.hero-area-link b { font-size: var(--vw-font-label-md); font-weight: 500; color: var(--vw-color-gray-900); }
+.hero-area-sites { display: flex; align-items: center; gap: 4px; margin-top: 3px; min-width: 0; overflow: hidden; }
+.hero-site { position: relative; z-index: 1; display: inline-flex; align-items: center; height: 18px; padding: 0 7px; border-radius: 9px; font-family: var(--fontMono, 'Inter', sans-serif); font-size: 10.5px; font-weight: 500; letter-spacing: .01em; color: var(--vw-color-gray-700); background: var(--vw-color-slate-100); border: 1px solid var(--vw-color-slate-200); text-decoration: none; white-space: nowrap; flex-shrink: 0; }
+.hero-site:hover { background: var(--vw-color-slate-200); color: var(--vw-color-gray-900); }
+.hero-site.is-critical { color: var(--vw-color-red-700); background: var(--vw-color-red-50); border-color: var(--vw-color-red-200); }
+.hero-site.is-critical:hover { background: var(--vw-color-red-100); }
+.hero-site.is-attention { color: var(--vw-color-amber-700); background: var(--vw-color-amber-50); border-color: var(--vw-color-amber-200); }
+.hero-site.is-attention:hover { background: var(--vw-color-amber-100); }
+.hero-site.is-more { cursor: help; }
+.hero-area-score { gap: 2px; }
+.hero-area-score .ops-state { margin-bottom: 1px; }
+.hero-area-unit { font-size: var(--vw-font-label-xs); color: var(--vw-color-gray-500); white-space: nowrap; line-height: 1; }
+.hero-area-score .bar { margin-top: 3px; }
+.hero-area { padding-top: 9px; padding-bottom: 9px; }
+.hero-area-top { display: block; line-height: 1.3; }
+.hero-area-link b { font-size: 13px; }
+.hero-area { grid-template-columns: 28px minmax(0, 1fr) 84px; gap: 8px; }
+.hero-area-ic { width: 28px; height: 28px; }
+.hero-area-top .info-tip { margin-left: 4px; vertical-align: -1px; }
+@media (max-width: 1280px) {
+  .only-wide { display: none !important; }
+  .hero-area { grid-template-columns: minmax(0, 1fr) 84px; gap: 8px; }
+  .hero-area-ic { display: none; }
+  .hero-area-main { gap: 1px; }
+  .hero-area-sites { margin-top: 1px; }
+  .hero-left { gap: 8px !important; }
+  .hero-fact { padding: 6px 10px 5px; }
+}
+@media (min-width: 1281px) { .only-narrow { display: none !important; } }
+.hero-fact .hero-fact-i { position: absolute; top: 6px; right: 6px; margin: 0; }
+@media (max-width: 1280px) { .hero-area-sites { margin-top: 2px; } .hero-site { height: 16px; font-size: 10px; padding: 0 5px; } }
+.hero-sites-l { font-size: var(--vw-font-label-xs); color: var(--vw-color-gray-500); white-space: nowrap; margin-right: 2px; flex-shrink: 0; }

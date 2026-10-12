@@ -5,7 +5,7 @@ import * as I from 'lucide-react';
 import { getRevenue, useQuery, usePersona } from '../api';
 import type { RevCustomer, RevDc, RevExposure, RevIssue, RevenueView } from '../api/types';
 import { usePage, PageHead, Loading, useSentinel } from '../shell/page';
-import { Btn, Panel, Tabs } from '../ui/kit';
+import { Btn, Info, Panel, Tabs } from '../ui/kit';
 import { DataTable, type Col } from '../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../ui/ListToolbar';
 import { DcLink, Fresh } from '../ui/status';
@@ -56,26 +56,26 @@ export function Revenue() {
         </>} />
 
       <StatGrid>
-        <StatTile label="Losing now" value={inr(t.rate)} sub="per hour" subTone={t.rate ? 'bad' : undefined} onClick={() => go('issues', { rview: 'losing' })} active={tab === 'issues' && rview === 'losing'}>
+        <StatTile label="Losing now" value={inr(t.rate)} sub="per hour" subTone={t.rate ? 'bad' : undefined} onClick={() => go('issues', { rview: 'losing' })} active={tab === 'issues' && rview === 'losing'} info={`What open issues cost per hour right now: each down ${V.service.toLowerCase()}'s monthly charge ÷ 730 h, degraded ones at 30% of that. Click to list the issues losing ${lc(W.noun)}.`}>
           <Split parts={[{ key: 'down', label: 'Down', n: downRate, tone: 'error', display: perHr(downRate) }, { key: 'deg', label: 'Degraded', n: degRate, tone: 'orange', display: perHr(degRate) }]} />
           <Facts items={[{ n: t.down + t.degraded, label: `${V.services.toLowerCase()} · ${losing.length} issue${losing.length === 1 ? '' : 's'}` }]} />
         </StatTile>
-        <StatTile label="Impact so far" value={inr(impact)} onClick={() => go('issues', { rview: 'losing' })}>
+        <StatTile label="Impact so far" value={inr(impact)} onClick={() => go('issues', { rview: 'losing' })} info={`${W.lost} (hourly rate × hours since each fault began) plus the ${lc(W.credits)} the impacted minutes have already triggered. The fact is the total if nothing is restored for another 24 h. Click to list the issues.`}>
           <Split parts={[{ key: 'lost', label: W.lost, n: t.lost, tone: 'error', display: inr(t.lost) }, { key: 'cr', label: W.credits, n: t.credits, tone: 'orange', display: inr(t.credits) }]} />
           <Facts items={[{ n: inr(t.forecast24), label: 'by +24 h', tone: t.forecast24 > impact ? 'warn' : undefined }]} />
         </StatTile>
-        <StatTile label="At stake" value={inr(t.mrrExposed)} sub="/mo" subTone={t.mrrExposed ? 'warn' : undefined} onClick={() => go('issues', { rview: 'stake' })} active={tab === 'issues' && rview === 'stake'}>
+        <StatTile label="At stake" value={inr(t.mrrExposed)} sub="/mo" subTone={t.mrrExposed ? 'warn' : undefined} onClick={() => go('issues', { rview: 'stake' })} active={tab === 'issues' && rview === 'stake'} info={`Monthly charge of ${V.services.toLowerCase()} still running on a critical fault (UPS on battery, failed cooling, critical alarm on their path), by kind of issue. Nothing is lost yet; the fact is the hourly loss if they fail. Click to list them.`}>
           <Split other={inr} parts={v.byDomain.filter(d => d.mrrExposed > 0).sort((a, b) => b.mrrExposed - a.mrrExposed).map(d => ({ key: d.domain, label: d.domain, n: d.mrrExposed, tone: 'info' as Tone, display: inr(d.mrrExposed) }))} />
           <Facts items={[{ n: perHr(t.potentialRate), label: 'if they fail' }]} />
         </StatTile>
-        <StatTile label={`${W.credits} owed`} value={inr(t.credits + v.sla.creditsLocked)} onClick={() => go('customers', { cview: 'owed' })} active={tab === 'customers'}>
+        <StatTile label={`${W.credits} owed`} value={inr(t.credits + v.sla.creditsLocked)} onClick={() => go('customers', { cview: 'owed' })} active={tab === 'customers'} info={`${W.credits} triggered by today's open issues plus those already locked in by the last 30 days' uptime shortfall. The fact is the next SLA tier step and when it lands. Click for the ${V.customers.toLowerCase()} owed ${lc(W.credits)}.`}>
           <Split parts={[{ key: 'open', label: 'Open issues', n: t.credits, tone: 'orange', display: inr(t.credits) }, { key: 'locked', label: 'Locked in · 30 d', n: v.sla.creditsLocked, tone: 'info', display: inr(v.sla.creditsLocked) }]} />
           <Facts items={[v.sla.nextCliff ? { n: inr(v.sla.nextCliff.amount), label: `more in ${fmtDur(v.sla.nextCliff.inMin)}`, tone: v.sla.nextCliff.inMin <= 60 ? 'bad' : 'warn' } : { n: 'None', label: 'pending' }]} />
         </StatTile>
-        <StatTile label="Costliest cause · 30 d" value={topDom && topDom.hist30 ? topDom.domain : '—'} sub={topDom && v.trend.total ? `${Math.round((topDom.hist30 / v.trend.total) * 100)}%` : 'no impact'} onClick={() => go('trends')} active={tab === 'trends'}>
+        <StatTile label="Costliest cause · 30 d" value={topDom && topDom.hist30 ? topDom.domain : '—'} sub={topDom && v.trend.total ? `${Math.round((topDom.hist30 / v.trend.total) * 100)}%` : 'no impact'} onClick={() => go('trends')} active={tab === 'trends'} info={`The kind of issue with the largest 30-day ${lc(W.impact)}: resolved incidents priced by duration and severity, ${lc(W.credits)} locked in, and today's open impact. The qualifier is its share. Click for the Causes & trend tab.`}>
           <Split other={inr} parts={hist.filter(d => d.hist30 > 0).map(d => ({ key: d.domain, label: d.domain, n: d.hist30, tone: 'info' as Tone, display: inr(d.hist30) }))} />
         </StatTile>
-        <StatTile label="Within SLA · 30 d" value={`${v.sla.withinPct}%`} sub={`of ${inr(v.base.mrr)}`} subTone={v.sla.withinPct < 90 ? 'warn' : undefined} onClick={() => go('customers', { cview: 'owed' })}>
+        <StatTile label="Within SLA · 30 d" value={`${v.sla.withinPct}%`} sub={`of ${inr(v.base.mrr)}`} subTone={v.sla.withinPct < 90 ? 'warn' : undefined} onClick={() => go('customers', { cview: 'owed' })} info={`Share of monthly ${lc(W.noun)} on ${V.services.toLowerCase()} that meet their 30-day SLA target and are not impacted now. Facts: ${V.services.toLowerCase()} below target, and ${V.customers.toLowerCase()} impacted now. Click for the ${V.customers.toLowerCase()} owed ${lc(W.credits)}.`}>
           <SoftMeter pct={v.sla.withinPct} tone={v.sla.withinPct >= 95 ? 'info' : v.sla.withinPct >= 85 ? 'warning' : 'error'} />
           <Facts items={[{ n: v.sla.below, label: `${V.services.toLowerCase()} below SLA`, tone: v.sla.below ? 'warn' : undefined }, { n: custHit, label: `${V.customers.toLowerCase()} hit now` }]} />
         </StatTile>
@@ -114,9 +114,12 @@ function IssueHero({ kind, issue: i, view: v, onOpen }: { kind: 'cost' | 'stake'
   const { vocab: V } = usePersona();
   const W = V.money;
   const head = kind === 'cost' ? 'Costing the most right now' : 'Most at stake';
+  const help = kind === 'cost'
+    ? `The open issue with the largest impact so far (${lc(W.lost)} + ${lc(W.credits)}), then by hourly loss: its loss per hour, impact so far, the 24 h forecast and the cost-of-delay curve. Click the title or Cost breakdown for details.`
+    : `The issue with the most monthly ${lc(W.noun)} riding on a critical fault that has lost nothing yet: what it costs per hour if it fails and the ${lc(W.credits)} after a ${v.method.outageHours} h outage. Click the title or Cost breakdown for details.`;
   if (!i) return (
     <section className="vw-card-section rev-hero is-quiet">
-      <div className="rev-hero-h"><span className="vw-card-metric-label">{head}</span></div>
+      <div className="rev-hero-h"><span className="vw-card-metric-label">{head}<Info text={help} /></span></div>
       <div className="rev-hero-quiet"><I.CircleCheck size={20} /><div><b>{kind === 'cost' ? `No open issue is losing ${lc(W.noun)}` : `No ${lc(W.noun)} is riding on a critical fault`}</b><span className="vw-label">{kind === 'cost' ? `Every ${V.service.toLowerCase()} on a faulted path is still running.` : 'Power, cooling and edge paths are carrying their load with redundancy.'}</span></div></div>
     </section>
   );
@@ -131,7 +134,7 @@ function IssueHero({ kind, issue: i, view: v, onOpen }: { kind: 'cost' | 'stake'
     <section className={`vw-card-section vw-card--accent rev-hero is-${kind}`}>
       <div className="vw-card-accent" style={{ background: cost ? 'var(--vw-color-red-500)' : 'var(--vw-color-amber-500)' }} />
       <div className="rev-hero-h">
-        <span className="vw-card-metric-label">{head}</span>
+        <span className="vw-card-metric-label">{head}<Info text={help} /></span>
         <span className="rev-hero-meta"><DomainTag d={i.domain} />{i.incident && <span className={`vw-chip ${sevChipCls(i.incident.sev)} is-strong cmd-chip`}>{sevLabel(i.incident.sev)}</span>}</span>
       </div>
       <button type="button" className="rev-hero-title" onClick={() => onOpen(i.id)} title="Open the cost breakdown">{i.title}</button>
@@ -230,7 +233,7 @@ function Trends({ v }: { v: RevenueView }) {
   const share = (n: number) => (v.trend.total ? `${Math.round((n / v.trend.total) * 100)}%` : '0%');
   return (
     <div className="grid rev-trends">
-      <Panel title={`Daily ${lc(W.impact)} · 30 days`} icon={I.ChartColumn} sub="Resolved incidents, credits locked in and what is open today, by kind of issue">
+      <Panel title={`Daily ${lc(W.impact)} · 30 days`} icon={I.ChartColumn} sub="Resolved incidents, credits locked in and what is open today, by kind of issue" info={`Stacked per day by kind of issue: resolved incidents priced as ${V.services.toLowerCase()} affected × the site's average hourly charge × duration × a severity weight, ${lc(W.credits)} locked in by 30-day uptime, and today's open impact in the last bar.`}>
         <TimeChart labels={labels.map((l, k) => (k % 3 === 2 || k === 29 ? l.slice(0, 6) : ''))} fullLabels={labels} height={250} format={n => inr(n)}
           series={doms.map(d => ({ key: d.domain, label: d.domain, color: DOMAIN[d.domain].color, kind: 'bar' as const, stack: 'impact', values: v.trend.series[d.domain] }))} />
         <div className="rev-kv">
@@ -242,10 +245,10 @@ function Trends({ v }: { v: RevenueView }) {
         </div>
       </Panel>
       <div className="col" style={{ gap: 16 }}>
-        <Panel title="Which kind of issue costs the most" icon={I.Scale} sub="Share of the 30-day impact">
+        <Panel title="Which kind of issue costs the most" icon={I.Scale} sub="Share of the 30-day impact" info={`Each kind of issue's share of the 30-day ${lc(W.impact)} shown in the daily chart, largest first, with how many of its issues are open right now.`}>
           <BarList items={doms.map(d => ({ key: d.domain, label: d.domain, sublabel: d.issues ? `${d.issues} open` : undefined, value: d.hist30, display: inr(d.hist30), secondary: share(d.hist30), color: DOMAIN[d.domain].color }))} />
         </Panel>
-        <Panel title="What moves the number" icon={I.Lightbulb}>
+        <Panel title="What moves the number" icon={I.Lightbulb} info={`Four levers read from the live model: the hourly loss that stops on restore, ${lc(W.credits)} stepping within the hour, open issues that began shortly after a change at the same site, and what is riding on critical faults.`}>
           <ul className="rev-levers">
             <li><span className="rev-lever-ic"><I.Timer size={15} /></span><span><b>{perHr(v.total.rate)}</b> stops the moment the open issues are restored. Every hour off the recovery time is worth that.</span></li>
             <li><span className="rev-lever-ic"><I.AlarmClock size={15} /></span><span>{v.sla.cliff60.services ? <><b>{inr(v.sla.cliff60.amount)}</b> of {lc(W.credits)} triggers within the next hour across {v.sla.cliff60.services} {V.services.toLowerCase()}.</> : <>No {lc(W.credits).replace(/s$/, '')} step is due in the next hour.</>}</span></li>

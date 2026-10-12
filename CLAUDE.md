@@ -142,8 +142,21 @@ DcMap (middle) · a vertically scrolling column of every live datacenter as a `D
 filter on the worst open incident; cards there are a compact variant (CSS under `.hero-dcs-list`, ~286 px, ≥1.5 visible) (`DcColumn` in CommandCenter.tsx; the mock's `dcMap` rows carry `condition` + the quiet-card fields).
 The vitals strip, the horizontal Critical-now lane and the revenue band were removed (08-Oct-2026, user; revenue will get a proper place on
 the Command center later). Then ONE row of three equal columns, 600 px, bodies scroll (`.cmd-trio`): What is happening · Who is affected ·
-What to do next. The "Why" (root-cause families) panel was removed 08-Oct-2026. Checks: `node .qa/cc-hero.mjs`, `node .qa/cc-trio.mjs`.
+Recommendations (renamed from "What to do next", user 12-Oct-2026). The "Why" (root-cause families) panel was removed 08-Oct-2026. Checks: `node .qa/cc-hero.mjs`, `node .qa/cc-trio.mjs`.
 Don't reintroduce rows of boxed KPI tiles on the landing page.
+Area rows (12-Oct-2026, user): each of the 4 areas carries `sites` (datacenters with an issue there, critical first, note + deep link) shown as
+chips under the detail line (2 names at 1440, 1 at 1280, then "+N" listing the rest on hover; `.only-wide` / `.only-narrow`), the score has a
+caption (`unit`: within SLA · links up · plant online · in range) and the state word sits above the score. The title is a stretched link
+(`.hero-area-link::after`); chips are their own links. The area icon column is hidden at 1280 so labels never wrap; the hero stays 600 px.
+Each area also carries `good` / `total` / `items` / `why` (server.ts `explain`): the % = good ÷ total, higher is better, caption "healthy"
+(response: "within SLA"); the status word follows the worst single issue (one UPS on battery = Critical at 98%) and its hover says why; the
+score bar is always neutral blue. Power story (12-Oct-2026 data fix): at dcAt(9) only utility feed A is lost and the ATS has moved its load
+onto standby feed B; UPS-2 is on battery (before, both feeds were marked lost, which contradicted the alarm / incident / RCA).
+
+## Info icons (12-Oct-2026, user) — an "i" on every widget
+`Info` in `ui/kit.tsx` (portalled bubble, flips near the bottom, click inside a link only toggles). `info?: string` on `Panel`, `Kpi`, `OpsKpi`,
+`StatTile` and `SummaryStrip` items; hand-built headers place `<Info text=…/>` after the title. Texts: 1–2 sentences — what the widget shows, how
+the number is computed, what clicking does; persona vocabulary via `vocabNow()`. New widgets must get one.
 
 ## Realistic digital twin (08-Oct-2026, user) — a second 3D view, the first one untouched
 The datacenter Overview tab now hosts two 3D views (`site/TwinHost.tsx`): a slim bar "Digital twin · Building › Floor › Room › Rack ›
@@ -220,7 +233,7 @@ sites now carry the H200 model name (only the model string changed).
 Fabric planes (user, 07-Oct-2026): in NeoCloud, links read by network plane, not routing protocol — `lib/fabric.ts` `planeOf()` =
 InfiniBand (400G) · Ethernet front-end (100G) · Management/OOB (1G or an OOB switch end). Device Links tab (`ne/Links.tsx`): every
 device except the border routers shows "Fabric connections" plane cards (+ a BGP card where the switch runs it); border routers keep
-the protocol cards. Command center row is "Fabric" (IB · Eth · OOB down · unreachable; the line has 280 px). Cable incidents say "N fabric cables
+the protocol cards. Command center row is "Network" (IB · Eth · OOB down · unreachable; the user asked 12-Oct-2026 that the Fabric category reads Network everywhere — area row, AI & GPU tab (id stays `gtab=fabric`), device "Network connections", link role chip, incident titles "N network cables down"). Cable incidents say "N fabric cables
 down in X · HOST lost both front-end uplinks" with transceiver / fibre-trunk RCA and DOM actions. The persona switch, PERSONA_ICON, the playbook
 and the embed guide list five personas.
 GPU models & vendors (08-Oct-2026, user: "different NVIDIA GPUs … and other vendors like Intel"): catalogue `lib/gpuSpec.ts` (B200 · H200 · H100 ·

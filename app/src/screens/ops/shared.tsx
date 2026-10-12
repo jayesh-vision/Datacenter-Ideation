@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { Check, X } from 'lucide-react';
 import { fmtDur } from '../../lib/format';
+import { Info } from '../../ui/kit';
 import '../../styles/ops.css';
 
 /* Local toast for ops screens (the shell has no global toast bus). */
@@ -48,11 +49,11 @@ export function refTo(ref: string | undefined, alertNe?: (code: string) => strin
   return null;
 }
 
-export function OpsKpi({ label, value, sub, tone, onClick, active, icon, unit }: { label: string; value: ReactNode; sub?: ReactNode; tone?: 'bad' | 'warn' | 'good'; onClick?: () => void; active?: boolean; icon?: ReactNode; unit?: string }) {
+export function OpsKpi({ label, value, sub, tone, onClick, active, icon, unit, info }: { label: string; value: ReactNode; sub?: ReactNode; tone?: 'bad' | 'warn' | 'good'; onClick?: () => void; active?: boolean; icon?: ReactNode; unit?: string; info?: string }) {
   const Tag = onClick ? 'button' : 'div';
   return (
     <Tag type={onClick ? 'button' : undefined} className={`vw-card-section${onClick ? ' vw-card--clickable' : ''} app-kpi${tone ? ` is-${tone}` : ''}${active ? ' is-active' : ''}`} onClick={onClick} aria-pressed={onClick ? active : undefined}>
-      <div className="app-kpi-h"><span className="vw-card-metric-label">{label}</span>{icon}</div>
+      <div className="app-kpi-h"><span className="vw-card-metric-label">{label}{info && <Info text={info} />}</span>{icon}</div>
       <div className="app-kpi-v"><span className="vw-card-metric-lg">{value}</span>{unit && <span className="vw-label">{unit}</span>}</div>
       {sub && <div className={`vw-card-variance ${tone === 'bad' ? 'is-negative' : tone === 'good' ? 'is-positive' : 'is-neutral'} app-kpi-s`}>{sub}</div>}
     </Tag>

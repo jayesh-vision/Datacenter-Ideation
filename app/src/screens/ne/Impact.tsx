@@ -62,10 +62,14 @@ export function Impact({ d }: { d: NeData }) {
   return (
     <>
       <div className="kpis">
-        <OpsKpi label="Services on this device" value={svcs.length} sub={`${live.length} live · ${custs.size} customers`} icon={<I.Waypoints size={15} />} />
-        <OpsKpi label="At risk now" value={atRisk.length} tone={atRisk.length ? 'bad' : undefined} sub={atRisk.length ? `${custsAtRisk.size} customers · ${premAtRisk} premium` : 'no service affected'} icon={<I.TriangleAlert size={15} />} />
-        <OpsKpi label="Degraded / down" value={live.filter(s => s.status !== 'Active').length} tone={live.some(s => s.status !== 'Active') ? 'warn' : undefined} sub={`${live.filter(s => s.status === 'Degraded').length} degraded · ${live.filter(s => s.status === 'Down').length} down`} icon={<I.Activity size={15} />} />
-        <OpsKpi label="Below SLA · 30 d" value={belowSla} tone={belowSla ? 'warn' : undefined} sub={belowSla ? 'uptime under contracted target' : 'all within target'} icon={<I.ShieldCheck size={15} />} />
+        <OpsKpi label="Services on this device" value={svcs.length} sub={`${live.length} live · ${custs.size} customers`} icon={<I.Waypoints size={15} />}
+          info="Every service whose handoff port or path is on this device, and the distinct customers behind them. Live excludes services that are disabled." />
+        <OpsKpi label="At risk now" value={atRisk.length} tone={atRisk.length ? 'bad' : undefined} sub={atRisk.length ? `${custsAtRisk.size} customers · ${premAtRisk} premium` : 'no service affected'} icon={<I.TriangleAlert size={15} />}
+          info="Live services that are down or degraded, ride a link that is down, in an open incident or 85%+ utilised, have an alarm on their handoff port, or run at 90%+ of contracted size; with the customers behind them." />
+        <OpsKpi label="Degraded / down" value={live.filter(s => s.status !== 'Active').length} tone={live.some(s => s.status !== 'Active') ? 'warn' : undefined} sub={`${live.filter(s => s.status === 'Degraded').length} degraded · ${live.filter(s => s.status === 'Down').length} down`} icon={<I.Activity size={15} />}
+          info="Live services on this device whose status is not Active right now, split into degraded and down." />
+        <OpsKpi label="Below SLA · 30 d" value={belowSla} tone={belowSla ? 'warn' : undefined} sub={belowSla ? 'uptime under contracted target' : 'all within target'} icon={<I.ShieldCheck size={15} />}
+          info="Live services whose measured uptime over the last 30 days is below their contracted SLA target, so an SLA credit is already due." />
       </div>
 
       <div className="grid g-main-side ne-impact" style={{ alignItems: 'start' }}>
@@ -81,14 +85,14 @@ export function Impact({ d }: { d: NeData }) {
             } />
         </section>
         <div className="col" style={{ gap: 16 }}>
-          <Panel title="At risk now" count={atRisk.length} sub={incOnDevice ? `${openInc.length} open incident${openInc.length > 1 ? 's' : ''} on this device` : 'from faulty links and alarms on this device'} flush>
+          <Panel title="At risk now" count={atRisk.length} sub={incOnDevice ? `${openInc.length} open incident${openInc.length > 1 ? 's' : ''} on this device` : 'from faulty links and alarms on this device'} flush info="The services at risk and why: down or degraded, the link it rides is down, in an incident or saturated, an alarm on its handoff port, or usage near its contracted size. Click a row to open the service.">
             {atRisk.length ? <div className="att-list">{atRisk.map(({ s, why }) => (
               <button key={s.id} type="button" className="att-row" onClick={() => nav(`/services/${s.id}`)}>
                 <span className="att-main"><b>{s.customer.name}{s.customer.premium ? ' · premium' : ''}</b><small>{s.id} · {s.type} · {why}</small></span>
                 <ServiceChip s={s.status} size="xs" />
               </button>))}</div> : <div className="empty" style={{ padding: 24 }}><span className="empty-ico"><I.ShieldCheck size={20} /></span><b>No service at risk</b></div>}
           </Panel>
-          <Panel title="By service family">
+          <Panel title="By service family" info="How many services of each type are on this device; the amber count beside a type is how many of them are degraded or down.">
             <div className="att-kv">{fam.map(f => { const deg = f.cs.filter(s => s.status === 'Degraded' || s.status === 'Down').length; return (
               <div key={f.t} className="att-kv-row"><span className="vw-label">{f.label}</span><span className="vw-value num">{f.cs.length}{deg ? <Chip tone="warning" size="xs" title="degraded or down">{deg}</Chip> : null}</span></div>
             ); })}</div>

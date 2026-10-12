@@ -165,7 +165,7 @@ export function buildIncidents(db: Db, TITLES: Record<Incident['type'], string[]
     const hostOf = (l: (typeof ls)[number]) => (isSw(l.aNe) ? l.zNe : l.aNe);
     const cut = [...new Set(ls.filter(l => planeOf(l) === 'eth').map(hostOf))].find(h => !isSw(h) && ls.filter(l => planeOf(l) === 'eth' && hostOf(l) === h).length >= 2);
     const neoTitle = as.length > 1
-      ? `${as.length} fabric cables down in ${dc}${cut ? ` · ${short(cut)} lost both front-end uplinks` : ''}`
+      ? `${as.length} network cables down in ${dc}${cut ? ` · ${short(cut)} lost both front-end uplinks` : ''}`
       : `${PLANE_LABEL[planeOf(ls[0])]} cable down — ${short(ls[0].aNe)} ${ls[0].aIf} to ${short(ls[0].zNe)}`;
     mk({ title: neo ? neoTitle : as.length > 1 ? `${as.length} physical links down in ${dc}` : `Link down — ${as[0].neId} ${as[0].ifName}`, type: 'Network', sev, pri: sev, status: pick(r, ['Open', 'Investigating', 'Investigating'] as const), owner: pick(r, activeGeo().people), reportedBy: 'Monitoring System', dcId: dc,
       detected: Math.min(...as.map(a => a.start)) + MIN, acknowledged: chance2(r) ? Math.min(...as.map(a => a.start)) + intBetween(r, 5, 70) * MIN : undefined, responseSlaMin: RESPONSE_SLA[sev], resolveSlaMin: RESOLVE_SLA[sev], alertIds: as.map(a => a.id),

@@ -36,7 +36,7 @@ export function Hardware({ d }: { d: NeData }) {
 
   return (
     <>
-      <Panel title="Modules" sub={nd ? 'From the planned record — no hardware inventory reported yet' : `Reported by ${ne.collector}`} count={ne.modules.length || undefined}>
+      <Panel title="Modules" sub={nd ? 'From the planned record — no hardware inventory reported yet' : `Reported by ${ne.collector}`} count={ne.modules.length || undefined} info="Field-replaceable units the device reports (line cards, fans, PSUs, control modules) with slot, serial, temperature and state. 55°C or more is red; Fault is the module's own fault LED. Interfaces are listed below.">
         {ne.modules.length ? (
           <table className="nst-table ne-mini">
             <thead><tr><th>Slot</th><th>Module</th><th>Serial</th><th className="is-right">Temperature</th><th>State</th></tr></thead>

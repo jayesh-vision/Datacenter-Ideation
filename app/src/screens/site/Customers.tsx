@@ -79,10 +79,14 @@ export function Customers({ data }: { data: SiteData }) {
   return (
     <div className="col" style={{ gap: 16 }}>
       <SummaryStrip items={[
-        { key: 'all', label: `${vocab.customers} served`, value: rows.length, sub: `${rows.filter(r => r.premium).length} ${vocab.premium.toLowerCase()}`, onClick: () => set('cview', ''), active: view === 'all' },
-        { key: 'svc', label: `${vocab.services} from this DC`, value: fmtNum(svcs.length), sub: fmtQty(svcs.filter(s => s.unit === vocab.primaryUnit).reduce((a, s) => a + s.qty, 0), vocab.primaryUnit) + ' provisioned' },
-        { key: 'risk', label: `${vocab.customers} at risk`, value: atRisk.length, sub: byCause.length ? `${byCause.length} active cause${byCause.length === 1 ? '' : 's'}` : 'degraded or below SLA', tone: atRisk.length ? 'warn' : undefined, onClick: () => set('cview', 'risk'), active: view === 'risk' },
-        { key: 'prem', label: `${vocab.premium} affected`, value: atRisk.filter(r => r.premium).length, sub: `of ${rows.filter(r => r.premium).length} ${vocab.premium.toLowerCase()}`, tone: atRisk.some(r => r.premium) ? 'bad' : undefined, onClick: () => set('cview', 'premium'), active: view === 'premium' }
+        { key: 'all', label: `${vocab.customers} served`, value: rows.length, sub: `${rows.filter(r => r.premium).length} ${vocab.premium.toLowerCase()}`, onClick: () => set('cview', ''), active: view === 'all',
+          info: `Distinct ${vocab.customers.toLowerCase()} with at least one ${vocab.service.toLowerCase()} served from this datacenter, and how many of them are ${vocab.premium.toLowerCase()}. Click to show all of them in the list.` },
+        { key: 'svc', label: `${vocab.services} from this DC`, value: fmtNum(svcs.length), sub: fmtQty(svcs.filter(s => s.unit === vocab.primaryUnit).reduce((a, s) => a + s.qty, 0), vocab.primaryUnit) + ' provisioned',
+          info: `All ${vocab.services.toLowerCase()} whose handoff is on equipment at this site, and the total ${vocab.capacityLabel.toLowerCase()} provisioned across them.` },
+        { key: 'risk', label: `${vocab.customers} at risk`, value: atRisk.length, sub: byCause.length ? `${byCause.length} active cause${byCause.length === 1 ? '' : 's'}` : 'degraded or below SLA', tone: atRisk.length ? 'warn' : undefined, onClick: () => set('cview', 'risk'), active: view === 'risk',
+          info: `${vocab.customers} with a ${vocab.service.toLowerCase()} that is degraded or down, has an active fault on its path (device, port, link, rack or site), or missed its 30-day SLA. Click to filter the list to them.` },
+        { key: 'prem', label: `${vocab.premium} affected`, value: atRisk.filter(r => r.premium).length, sub: `of ${rows.filter(r => r.premium).length} ${vocab.premium.toLowerCase()}`, tone: atRisk.some(r => r.premium) ? 'bad' : undefined, onClick: () => set('cview', 'premium'), active: view === 'premium',
+          info: `${vocab.premium} ${vocab.customers.toLowerCase()} among those at risk, out of all ${vocab.premium.toLowerCase()} served here; red when any is affected. Click to filter the list to ${vocab.premium.toLowerCase()}.` }
       ]} />
       <div className="grid cust-grid">
         <section className="card">
@@ -99,7 +103,7 @@ export function Customers({ data }: { data: SiteData }) {
         </section>
         <div className="col" style={{ gap: 16 }}>
           {byCause.length > 0 && (
-            <Panel title="What is impacting them" icon={I.TriangleAlert} sub={`${byCause.length} active fault${byCause.length === 1 ? '' : 's'} on ${vocab.customer.toLowerCase()} paths · click to filter`}>
+            <Panel title="What is impacting them" icon={I.TriangleAlert} sub={`${byCause.length} active fault${byCause.length === 1 ? '' : 's'} on ${vocab.customer.toLowerCase()} paths · click to filter`} info={`Active faults on the paths of ${vocab.services.toLowerCase()} served here, most severe first, with where each one is, its kind and how many ${vocab.customers.toLowerCase()} and ${vocab.services.toLowerCase()} it hits. Click a fault to filter the list to the ${vocab.customers.toLowerCase()} it affects.`}>
               <div className="cust-causes">
                 {(allCauses ? byCause : byCause.slice(0, 6)).map(x => (
                   <button key={x.c.code} type="button" className={`cust-cause${cause === x.c.code ? ' is-on' : ''}`} onClick={() => set('cause', cause === x.c.code ? '' : x.c.code)}>
@@ -113,8 +117,8 @@ export function Customers({ data }: { data: SiteData }) {
               </div>
             </Panel>
           )}
-          <Panel title="By segment" icon={I.Building}><BarList items={segs.map(([k, v]) => ({ key: k, label: k, value: v, display: String(v) }))} /></Panel>
-          <Panel title={`By ${vocab.service.toLowerCase()} type`} icon={I.Layers}><BarList items={types.map(([k, v]) => ({ key: k, label: k, value: v, display: String(v) }))} /></Panel>
+          <Panel title="By segment" icon={I.Building} info={`How many ${vocab.customers.toLowerCase()} served from this site fall in each market segment, largest first.`}><BarList items={segs.map(([k, v]) => ({ key: k, label: k, value: v, display: String(v) }))} /></Panel>
+          <Panel title={`By ${vocab.service.toLowerCase()} type`} icon={I.Layers} info={`Number of ${vocab.services.toLowerCase()} served from this site of each ${vocab.service.toLowerCase()} type, largest first.`}><BarList items={types.map(([k, v]) => ({ key: k, label: k, value: v, display: String(v) }))} /></Panel>
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { clockNow } from '../../api';
-import { Panel, Chip } from '../../ui/kit';
+import { Panel, Chip, Info } from '../../ui/kit';
 import { Meter, Legend } from '../../ui/status';
 import { TimeChart } from '../../charts/TimeChart';
 import { Donut } from '../../charts/Donut';
@@ -39,7 +39,7 @@ export function Details({ data }: { data: SiteData }) {
     <div className="col" style={{ gap: 16 }}>
       <div className="grid g-4">
         <div className="card cap-card" style={{ '--cc': 'var(--vw-color-orange-400)' } as React.CSSProperties}>
-          <span className="cap-l">Power in use</span>
+          <span className="cap-l">Power in use<Info text="Facility power drawn right now against the site's installed capacity, split into the AC mains and the −48 V DC plant. Headroom = capacity minus the recorded peak load." /></span>
           <span className="cap-v">{used}<small>kW</small></span>
           <span className="cap-s">of {fmtNum(p.capacityKw)} kW capacity · {Math.round(pct)}%</span>
           <span className="stackbar" style={{ height: 6 }}><i style={{ width: `${(p.acKw / p.capacityKw) * 100}%`, background: 'var(--vw-color-orange-400)' }} /><i style={{ width: `${(p.dcKw / p.capacityKw) * 100}%`, background: 'var(--vw-color-sky-500)' }} /></span>
@@ -47,7 +47,7 @@ export function Details({ data }: { data: SiteData }) {
           <span className="cap-good"><I.TrendingUp size={13} />{Math.round((p.capacityKw - p.peakKw) * 10) / 10} kW headroom · peak {p.peakKw} kW</span>
         </div>
         <div className="card cap-card" style={{ '--cc': 'var(--vw-color-emerald-500)' } as React.CSSProperties}>
-          <span className="cap-l">Rack space</span>
+          <span className="cap-l">Rack space<Info text="Rack units occupied by installed and planned equipment out of the total U across every rack at the site. Empty racks are counted as reserved for growth." /></span>
           <span className="cap-v">{s.rackUsedU}<small>U</small></span>
           <span className="cap-s">of {s.rackTotalU} U in {dc.racks.length} racks · {Math.round(uPct)}%</span>
           <span className="bar"><i style={{ width: `${uPct}%`, background: 'var(--vw-color-emerald-500)' }} /></span>
@@ -55,7 +55,7 @@ export function Details({ data }: { data: SiteData }) {
           <span className="cap-s">{dc.racks.filter(r => r.usedU === 0).length} empty rack{dc.racks.filter(r => r.usedU === 0).length === 1 ? '' : 's'} reserved for growth</span>
         </div>
         <div className="card cap-card" style={{ '--cc': 'var(--primaryColor500)' } as React.CSSProperties}>
-          <span className="cap-l">Ports</span>
+          <span className="cap-l">Ports<Info text="Ports on installed equipment that are patched or in use out of all ports at the site, with the fill of each port class (1G copper, 10G, 100G, 400G, optical) underneath." /></span>
           <span className="cap-v">{fmtNum(s.portsUsed)}<small>in use</small></span>
           <span className="cap-s">of {fmtNum(s.portsTotal)} ports · {Math.round(portPct)}%</span>
           <span className="bar"><i style={{ width: `${portPct}%`, background: 'var(--primaryColor500)' }} /></span>
@@ -63,7 +63,7 @@ export function Details({ data }: { data: SiteData }) {
           <span className="cap-s">{dc.ports.map(c => `${c.cls} ${Math.round((c.used / c.total) * 100)}%`).join(' · ')}</span>
         </div>
         <div className="card cap-card" style={{ '--cc': 'var(--vw-color-purple-500)' } as React.CSSProperties}>
-          <span className="cap-l">Building</span>
+          <span className="cap-l">Building<Info text="The physical shell and plant: number of racks, floors and rooms, UPS count, diesel generator rating, battery autonomy, PUE (total facility power ÷ IT power) and the cooling redundancy level." /></span>
           <span className="cap-v">{dc.racks.length}<small>racks</small></span>
           <span className="cap-s">{dc.floors.length} floors · {rooms} rooms</span>
           <span className="cap-s" style={{ marginTop: 'auto' }}>{p.ups.length} UPS · DG {p.dg.kva} kVA · battery {p.battery.runtimeH} h</span>
@@ -72,7 +72,7 @@ export function Details({ data }: { data: SiteData }) {
       </div>
 
       <div className="grid g-2-1">
-        <Panel title="Power" sub={`AC mains 415 V 3-phase · DC −48 V plant`} flush>
+        <Panel title="Power" sub={`AC mains 415 V 3-phase · DC −48 V plant`} flush info="Every power feed into the site with its source, rating, present load and utilisation (load ÷ feed capacity); a healthy feed carrying no load reads Standby. The chart is hourly facility load over the last 24 hours.">
           <table className="nst-table site-table">
             <thead><tr><th>Feed</th><th>Type</th><th>Source</th><th>Rating</th><th className="is-right">Load</th><th>Utilisation</th><th>Status</th></tr></thead>
             <tbody>
@@ -89,7 +89,7 @@ export function Details({ data }: { data: SiteData }) {
               : <div className="faint" style={{ padding: 24, textAlign: 'center' }}>No telemetry — site is planned.</div>}
           </div>
         </Panel>
-        <Panel title="Where the power goes" sub="now" actions={<Link to={`/facilities?dc=${dc.id}`} className="panel-link">Facilities<I.ChevronRight size={14} /></Link>}>
+        <Panel title="Where the power goes" sub="now" info="How the kW in use splits between IT load, cooling and other facility load, then the backup that takes over if a feed drops: DG set runtime and fuel, battery bank runtime, and each UPS with its load and minutes of autonomy." actions={<Link to={`/facilities?dc=${dc.id}`} className="panel-link">Facilities<I.ChevronRight size={14} /></Link>}>
           <Donut size={150} centerValue={`${used}`} centerLabel="kW in use" format={v => `${v} kW`} slices={p.split.map((x, i) => ({ key: x.label, label: x.label, value: x.kw, color: SPLIT_COLORS[i] }))} />
           <div className="site-sub-h"><b>Backup</b><span className="faint">if a feed drops</span></div>
           <div className="backup-row"><span className="cell-2"><b>DG set</b><small className="mono">{p.dg.kva} kVA · fuel {p.dg.fuelPct}%</small></span><span className="num">{p.dg.runtimeH} h</span><Chip tone={p.dg.result === 'Pass' ? 'success' : 'error'} size="xs">Test {p.dg.result.toLowerCase()} · {fmtAgo(p.dg.lastTest, now)}</Chip></div>
@@ -102,7 +102,7 @@ export function Details({ data }: { data: SiteData }) {
       </div>
 
       <div className="grid site-g-racks">
-        <Panel title="Floors, rooms and racks" sub={`${dc.floors.length} floors · ${rooms} rooms · ${dc.racks.length} racks`} flush>
+        <Panel title="Floors, rooms and racks" sub={`${dc.floors.length} floors · ${rooms} rooms · ${dc.racks.length} racks`} flush info="Every rack with its floor and room, U-space used, power draw and inlet temperature. Draw turns red at 85% of the rack's power budget, inlet above 27°C. The By floor cards roll the same racks up per floor.">
           <table className="nst-table site-table">
             <thead><tr><th>Rack</th><th>Floor · room</th><th>U-space used</th><th className="is-right">Draw</th><th className="is-right">Inlet</th></tr></thead>
             <tbody>
@@ -129,7 +129,7 @@ export function Details({ data }: { data: SiteData }) {
           </div>
         </Panel>
         <div className="col" style={{ gap: 16 }}>
-          <Panel title="Ports" sub={`${fmtNum(s.portsTotal - s.portsUsed)} free of ${fmtNum(s.portsTotal)}`} flush>
+          <Panel title="Ports" sub={`${fmtNum(s.portsTotal - s.portsUsed)} free of ${fmtNum(s.portsTotal)}`} flush info="Port capacity by class (total, used, free and fill), then the same per rack for racks holding active equipment. Fill = used ÷ total.">
             <table className="nst-table site-table">
               <thead><tr><th>Port class</th><th className="is-right">Total</th><th className="is-right">Used</th><th className="is-right">Free</th><th>Fill</th></tr></thead>
               <tbody>{dc.ports.map(c => <tr key={c.cls}><td><span className="row nowrap" style={{ gap: 8 }}><i className="site-dot" style={{ background: PORT_COLOR[c.cls] }} />{c.cls}</span></td><td className="is-right num">{fmtNum(c.total)}</td><td className="is-right num">{fmtNum(c.used)}</td><td className="is-right num">{fmtNum(c.total - c.used)}</td><td><Meter pct={(c.used / c.total) * 100} width={48} /></td></tr>)}</tbody>
@@ -140,7 +140,7 @@ export function Details({ data }: { data: SiteData }) {
               <tbody>{dc.racks.filter(r => r.ports > 0).map(r => <tr key={r.id}><td className="mono">{r.name}</td><td className="is-right num">{fmtNum(r.ports)}</td><td className="is-right num">{fmtNum(r.portsUsed)}</td><td><Meter pct={(r.portsUsed / r.ports) * 100} width={48} /></td></tr>)}</tbody>
             </table>
           </Panel>
-          <Panel title="Cooling" sub={`${cool.redundancy} · ${cool.units.length} units`} actions={<Link to={`/facilities?dc=${dc.id}&tab=cooling`} className="panel-link">Cooling detail<I.ChevronRight size={14} /></Link>}>
+          <Panel title="Cooling" sub={`${cool.redundancy} · ${cool.units.length} units`} info="Heat load being removed against installed cooling capacity, each cooling unit with its load share or fault state (hover for zone and supply / return temperatures), and the current temperature and humidity of every zone." actions={<Link to={`/facilities?dc=${dc.id}&tab=cooling`} className="panel-link">Cooling detail<I.ChevronRight size={14} /></Link>}>
             <div className="row between" style={{ marginBottom: 8 }}><span className="num"><b className="strong" style={{ fontSize: 18 }}>{cool.loadKw}</b> <span className="faint">of {fmtNum(cool.capacityKw)} kW</span></span><Meter pct={coolPct} width={120} /></div>
             <div className="unit-grid">
               {cool.units.map(u => (

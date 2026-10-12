@@ -55,7 +55,7 @@ export function Attention({ data }: { data: SiteData }) {
       </div>
 
       <div className="grid g-2">
-        <Panel title="Open incidents" count={incs?.length ?? 0} icon={I.Siren} actions={<Link to={`/incidents?dc=${dc.id}`} className="panel-link">All incidents<I.ChevronRight size={14} /></Link>} flush>
+        <Panel title="Open incidents" count={incs?.length ?? 0} icon={I.Siren} info="Incidents here that are Open, Investigating or Mitigated, most severe first, then least time left on the resolution SLA; the right column is that time left (or overdue). Click a row to open the incident." actions={<Link to={`/incidents?dc=${dc.id}`} className="panel-link">All incidents<I.ChevronRight size={14} /></Link>} flush>
           {incs && incs.length ? (
             <div className="att-list">{[...incs].sort((a, b) => a.sev - b.sev || a.sla.resolveLeft - b.sla.resolveLeft).map(i => (
               <Link key={i.id} to={`/incidents/${i.id}`} className="att-row">
@@ -66,7 +66,7 @@ export function Attention({ data }: { data: SiteData }) {
           ) : <Empty icon={I.ShieldCheck} title="No open incidents" />}
         </Panel>
 
-        <Panel title="Alarms in datacenter scope" count={alarms.length} icon={I.BellRing} sub="Site, edge links and dependencies · downstream excluded" actions={<Link to={`/alerts?dc=${dc.id}`} className="panel-link">Alerts console<I.ChevronRight size={14} /></Link>} flush>
+        <Panel title="Alarms in datacenter scope" count={alarms.length} icon={I.BellRing} sub="Site, edge links and dependencies · downstream excluded" info="Active alarms that count against this site: inside it, on links leaving it, or on something it depends on; downstream sites are excluded. Tiles split them by category, the list shows the 8 most severe. Click a tile or row to drill in." actions={<Link to={`/alerts?dc=${dc.id}`} className="panel-link">Alerts console<I.ChevronRight size={14} /></Link>} flush>
           <div className="att-cats">
             {CATS.map(c => { const xs = alarms.filter(a => a.category === c.k); const crit = xs.filter(a => a.severity === 'critical' || a.severity === 'major').length; return (
               <Link key={c.k} to={`/alerts?dc=${dc.id}`} className="att-cat" title={`${xs.length} ${c.k.toLowerCase()} alarms · ${crit} major or critical`}><span className="att-cat-h"><c.icon size={14} /><span className="vw-label">{c.k}</span></span><span className="att-cat-v"><span className="vw-card-metric-sm">{xs.length}</span>{crit ? <em>{crit} major+</em> : null}</span></Link>
@@ -82,7 +82,7 @@ export function Attention({ data }: { data: SiteData }) {
       </div>
 
       <div className="grid g-3">
-        <Panel title="Facility" icon={I.Zap} actions={<Link to={`/facilities?dc=${dc.id}`} className="panel-link">Facilities<I.ChevronRight size={14} /></Link>}>
+        <Panel title="Facility" icon={I.Zap} info="The plant keeping the site alive now: utility feeds in alarm, UPS units not online, DG rating / fuel / last test, battery autonomy, cooling units not operational and any zone above 27°C. Red text marks what is wrong." actions={<Link to={`/facilities?dc=${dc.id}`} className="panel-link">Facilities<I.ChevronRight size={14} /></Link>}>
           <div className="att-kv">
             <Row k="Utility feeds" v={feedsBad.length ? <span className="bad">{feedsBad.length} lost</span> : `${dc.power.feeds.filter(f => f.type === 'AC').length} normal`} />
             <Row k="UPS" v={upsBad.length ? <span className="bad">{upsBad.map(u => `${u.name} ${u.state.toLowerCase()}`).join(', ')}</span> : `${dc.power.ups.length}/${dc.power.ups.length} online · ${dc.power.ups[0]?.redundancy}`} />
@@ -93,7 +93,7 @@ export function Attention({ data }: { data: SiteData }) {
           </div>
         </Panel>
 
-        <Panel title="Edge links" icon={I.Cable} actions={<Link to={`/datacenters/${dc.id}?tab=topology`} className="panel-link">Topology<I.ChevronRight size={14} /></Link>}>
+        <Panel title="Edge links" icon={I.Cable} info="Links leaving the site (backhaul, uplinks) that are up out of all of them. Redundant = all up; Redundancy lost = one or more down; Site isolated = every one down. Below: links down inside the site and devices not answering ping." actions={<Link to={`/datacenters/${dc.id}?tab=topology`} className="panel-link">Topology<I.ChevronRight size={14} /></Link>}>
           <div className="att-edge">
             <span className="vw-card-metric-lg">{s.edge.up}/{s.edge.total}</span>
             <span className={`att-edge-state is-${s.edge.state}`}>{s.edge.state === 'redundant' ? 'All up · redundant' : s.edge.state === 'isolated' ? 'Site isolated' : 'Redundancy lost'}</span>
@@ -105,7 +105,7 @@ export function Attention({ data }: { data: SiteData }) {
           </div>
         </Panel>
 
-        <Panel title="Monitoring gaps" icon={I.EyeOff} sub="Installed devices with no telemetry are blind spots">
+        <Panel title="Monitoring gaps" icon={I.EyeOff} sub="Installed devices with no telemetry are blind spots" info="Installed devices at this site that no collector polls, out of every installed device; a fault on them would go unseen. Also warns when a collector has stopped reporting. The link lists the unmonitored devices.">
           <div className="att-edge">
             <span className="vw-card-metric-lg">{unmon.length}</span>
             <span className="vw-label">of {s.installed} installed devices not monitored</span>
@@ -117,7 +117,7 @@ export function Attention({ data }: { data: SiteData }) {
       </div>
 
       <div className="grid g-2">
-        <Panel title="Changes & maintenance" count={activeChg.length} icon={I.ArrowLeftRight} sub="In progress now or starting in the next 7 days" actions={<Link to={`/changes?dc=${dc.id}`} className="panel-link">Change calendar<I.ChevronRight size={14} /></Link>} flush>
+        <Panel title="Changes & maintenance" count={activeChg.length} icon={I.ArrowLeftRight} sub="In progress now or starting in the next 7 days" info="Changes at this site that are in progress, or approved / pending approval with a window starting in the last hour or the next 7 days, with their risk rating and start time. Click a row to open the change." actions={<Link to={`/changes?dc=${dc.id}`} className="panel-link">Change calendar<I.ChevronRight size={14} /></Link>} flush>
           {activeChg.length ? <div className="att-list">{activeChg.map(c => (
             <Link key={c.id} to={`/changes?id=${c.id}`} className="att-row">
               <span className="vw-chip vw-chip--neutral cmd-chip">{c.kind}</span>
@@ -126,7 +126,7 @@ export function Attention({ data }: { data: SiteData }) {
             </Link>))}</div> : <Empty icon={I.CalendarCheck} title="No change activity this week" />}
         </Panel>
 
-        <Panel title="Operational risks" count={opsRisks.length} icon={I.ShieldAlert} sub="Facility, network, security and supplier risks at this site" flush>
+        <Panel title="Operational risks" count={opsRisks.length} icon={I.ShieldAlert} sub="Facility, network, security and supplier risks at this site" flush info="Open risks logged against this site in the Facility, Network, Security and Supplier domains, each with its severity, detail and owner. These are known conditions on a register, not live alarms.">
           {opsRisks.length ? <div className="att-list">{opsRisks.map(r => (
             <div key={r.id} className="att-row">
               <SevDot s={r.severity} />

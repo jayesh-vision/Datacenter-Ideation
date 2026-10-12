@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowDownRight, ArrowUpRight, Check, ChevronRight, Minus, MoreHorizontal, Search, Trash2, X, type LucideIcon } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Check, ChevronRight, Info as InfoIcon, Minus, MoreHorizontal, Search, Trash2, X, type LucideIcon } from 'lucide-react';
 import type { Tone } from '../lib/tone';
 import { Sparkline } from '../charts/Sparkline';
 
@@ -29,15 +29,41 @@ export function IconBtn({ icon: I, title, onClick, active, size = 16 }: { icon: 
   return <button type="button" className={`nst-icon-btn${active ? ' is-active' : ''}`} onClick={onClick} title={title} aria-label={title}><I size={size} /></button>;
 }
 
-export function Panel({ title, sub, icon: I, count, actions, children, flush, foot, className = '', style }: {
-  title?: ReactNode; sub?: ReactNode; icon?: ComponentType<{ size?: number; className?: string }>; count?: number | string; actions?: ReactNode; children: ReactNode; flush?: boolean; foot?: ReactNode; className?: string; style?: CSSProperties;
+/* "i" icon that explains a widget or KPI in one or two sentences (12-Oct-2026, user: every widget gets one).
+   The bubble is portalled to <body> and positioned from the icon's rect, so panels that clip or scroll
+   cannot cut it off; it flips above the icon near the bottom of the viewport. Inside a link or a button a
+   click only toggles the bubble (it never navigates). */
+export function Info({ text, className = '' }: { text: string; className?: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [pos, setPos] = useState<{ x: number; y: number; up: boolean } | null>(null);
+  const show = () => {
+    const r = ref.current?.getBoundingClientRect(); if (!r) return;
+    const up = r.bottom + 110 > window.innerHeight;
+    /* centred under the icon, kept inside the content area (right of the menu rail) and the viewport */
+    const railR = document.querySelector('.rail')?.getBoundingClientRect().right ?? 0;
+    setPos({ x: Math.max(railR + 8, Math.min(window.innerWidth - 288, r.left + r.width / 2 - 140)), y: up ? r.top - 6 : r.bottom + 6, up });
+  };
+  const hide = () => setPos(null);
+  return (
+    <>
+      <span ref={ref} className={`info-tip ${className}`} tabIndex={0} role="img" aria-label={text} data-info onMouseEnter={show} onMouseLeave={hide} onFocus={show} onBlur={hide}
+        onClick={e => { e.preventDefault(); e.stopPropagation(); if (pos) hide(); else show(); }} onKeyDown={e => { if (e.key === 'Escape') hide(); }}>
+        <InfoIcon size={13} />
+      </span>
+      {pos && createPortal(<span className={`info-pop${pos.up ? ' is-up' : ''}`} style={{ left: pos.x, top: pos.y }} role="tooltip" data-info-pop>{text}</span>, document.body)}
+    </>
+  );
+}
+
+export function Panel({ title, sub, icon: I, count, actions, children, flush, foot, className = '', style, info }: {
+  title?: ReactNode; sub?: ReactNode; icon?: ComponentType<{ size?: number; className?: string }>; count?: number | string; actions?: ReactNode; children: ReactNode; flush?: boolean; foot?: ReactNode; className?: string; style?: CSSProperties; info?: string;
 }) {
   return (
     <section className={`panel vw-card-section ${className}`} style={style}>
       {(title || actions) && (
         <div className="panel-head">
           <div style={{ minWidth: 0 }}>
-            <h3>{I && <I size={16} className="muted" />}{title}{count !== undefined && <span className="count">{count}</span>}</h3>
+            <h3>{I && <I size={16} className="muted" />}{title}{count !== undefined && <span className="count">{count}</span>}{info && <Info text={info} />}</h3>
             {sub && <div className="sub">{sub}</div>}
           </div>
           {actions && <div className="row">{actions}</div>}
@@ -53,9 +79,9 @@ export function PanelLink({ children, onClick }: { children: ReactNode; onClick:
   return <button type="button" className="panel-link" onClick={onClick}>{children}<ChevronRight size={14} /></button>;
 }
 
-export function Kpi({ label, value, unit, delta, deltaGood = 'up', basis, icon: I, tone = 'info', onClick, spark, sparkColor, active, accent }: {
+export function Kpi({ label, value, unit, delta, deltaGood = 'up', basis, icon: I, tone = 'info', onClick, spark, sparkColor, active, accent, info }: {
   label: string; value: ReactNode; unit?: string; delta?: number | null; deltaGood?: 'up' | 'down'; basis?: ReactNode; icon?: LucideIcon; tone?: Tone;
-  onClick?: () => void; spark?: number[]; sparkColor?: string; active?: boolean; accent?: string;
+  onClick?: () => void; spark?: number[]; sparkColor?: string; active?: boolean; accent?: string; info?: string;
 }) {
   const good = delta === null || delta === undefined ? null : deltaGood === 'up' ? delta >= 0 : delta <= 0;
   return (
@@ -63,7 +89,7 @@ export function Kpi({ label, value, unit, delta, deltaGood = 'up', basis, icon: 
       onKeyDown={e => { if (onClick && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onClick(); } }}>
       {accent && <span className="kpi-accent" style={{ background: accent }} />}
       <div className="kpi-head">
-        <span className="kpi-label">{label}</span>
+        <span className="kpi-label">{label}{info && <Info text={info} />}</span>
         {I && <span className={`kpi-ico tone-${tone}`}><I size={16} /></span>}
       </div>
       <div className="kpi-main">

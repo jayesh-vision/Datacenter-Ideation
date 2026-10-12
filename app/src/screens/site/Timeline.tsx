@@ -38,7 +38,7 @@ export function Timeline({ data }: { data: SiteData }) {
   };
 
   return (
-    <Panel title="Ops log" sub="Incidents, changes and maintenance windows at this site"
+    <Panel title="Ops log" sub="Incidents, changes and maintenance windows at this site" info="The operational history of this site: incidents, changes and maintenance windows, with upcoming windows on top and past events newest first. The buttons toggle each event type; click an event to open the incident or change."
       actions={<div className="row wrap" style={{ gap: 6 }}>{kinds.map(k => <button key={k} type="button" className={`tl-filter${on.has(k) ? ' is-on' : ''}`} onClick={() => toggle(k)}>{(() => { const C = KIND[k].icon; return <C size={13} />; })()}{KIND[k].label}<span className="num">{all.filter(e => e.kind === k).length}</span></button>)}</div>}>
       {!ev.length ? <Empty icon={I.CalendarX} title="No events for the selected types" /> : (
         <div className="col" style={{ gap: 18 }}>

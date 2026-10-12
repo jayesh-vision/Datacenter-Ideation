@@ -90,24 +90,24 @@ function IncidentAnalytics({ open, res30, mttr, met, slaPct, view, onView }: { o
   const svc = open.reduce((a, i) => a + i.impact.services, 0), cust = open.reduce((a, i) => a + i.impact.customers, 0), prem = open.reduce((a, i) => a + i.impact.premium, 0);
   return (
     <StatGrid>
-      <StatTile label="Open incidents" value={open.length} sub={`${open.filter(i => i.sev <= 2).length} critical / high`} subTone={open.some(i => i.sev === 1) ? 'bad' : undefined} onClick={() => onView('open')} active={view === 'open'}>
+      <StatTile label="Open incidents" value={open.length} sub={`${open.filter(i => i.sev <= 2).length} critical / high`} subTone={open.some(i => i.sev === 1) ? 'bad' : undefined} onClick={() => onView('open')} active={view === 'open'} info="Incidents in Open, Investigating or Mitigated status, split by severity. Click the tile for the Open view; click Critical in the legend for the critical-only view.">
         <Split parts={[1, 2, 3, 4].map(n => ({ key: `s${n}`, label: sevLabel(n), n: open.filter(i => i.sev === n).length, tone: SEV_TONE[n] }))} onPick={k => k === 's1' && onView('sev1')} active={view === 'sev1' ? 's1' : undefined} />
       </StatTile>
-      <StatTile label="SLA clock" value={breached.length} sub="past SLA" subTone={breached.length ? 'bad' : undefined} onClick={() => onView('breaching')} active={view === 'breaching'}>
+      <StatTile label="SLA clock" value={breached.length} sub="past SLA" subTone={breached.length ? 'bad' : undefined} onClick={() => onView('breaching')} active={view === 'breaching'} info="Open incidents past SLA: resolution time used up, or the response time missed. Due soon = less than a quarter of the resolution SLA left. Click to list the breaching incidents.">
         <Split parts={[{ key: 'b', label: 'Breached', n: breached.length, tone: 'error' }, { key: 'r', label: 'Due soon', n: atRisk.length, tone: 'warning' }, { key: 'ok', label: 'On track', n: open.length - breached.length - atRisk.length, tone: 'success' }]} />
       </StatTile>
-      <StatTile label="Progress" value={`${open.length ? Math.round((open.filter(i => i.status !== 'Open').length / open.length) * 100) : 100}%`} sub="being worked">
+      <StatTile label="Progress" value={`${open.length ? Math.round((open.filter(i => i.status !== 'Open').length / open.length) * 100) : 100}%`} sub="being worked" info="Share of open incidents that have moved past Open into Investigating or Mitigated. The fact counts open incidents nobody has acknowledged yet.">
         <Split parts={[{ key: 'o', label: 'Open', n: open.filter(i => i.status === 'Open').length, tone: 'error' }, { key: 'i', label: 'Investigating', n: open.filter(i => i.status === 'Investigating').length, tone: 'warning' }, { key: 'm', label: 'Mitigated', n: open.filter(i => i.status === 'Mitigated').length, tone: 'info' }]} />
         <Facts items={[{ n: unack, label: 'not acknowledged', tone: unack ? 'warn' : undefined }]} />
       </StatTile>
-      <StatTile label="By type" value={types.filter(t => open.some(i => i.type === t)).length} sub="types open">
+      <StatTile label="By type" value={types.filter(t => open.some(i => i.type === t)).length} sub="types open" info="How many incident types (Network, GPU, Power, Cooling, Rack, Capacity, Security) have an open incident right now, and how the open incidents split between them.">
         <Split parts={types.map(t => ({ key: t, label: t, n: open.filter(i => i.type === t).length, tone: TYPE_TONE[t] })).filter(p => p.n)} />
       </StatTile>
-      <StatTile label="Resolution · 30 days" value={fmtHm(mttr)} sub="MTTR">
+      <StatTile label="Resolution · 30 days" value={fmtHm(mttr)} sub="MTTR" info="Mean time to resolve (detected to resolved) for incidents resolved in the last 30 days. The meter is the share of those that were resolved inside their resolution SLA.">
         <SoftMeter pct={slaPct} tone={slaPct >= 90 ? 'success' : slaPct >= 75 ? 'warning' : 'error'} />
         <Facts items={[{ n: `${slaPct}%`, label: 'within SLA', tone: slaPct < 90 ? 'warn' : undefined }, { n: `${met}/${res30.length}`, label: 'resolved in time' }]} />
       </StatTile>
-      <StatTile label={`${V.customer} impact`} value={svc} sub={`${V.services.toLowerCase()} affected`}>
+      <StatTile label={`${V.customer} impact`} value={svc} sub={`${V.services.toLowerCase()} affected`} info={`${V.services} on the affected scope of open incidents, summed across incidents, by impact level (High = Critical or two or more ${V.premium.toLowerCase()} ${V.customers.toLowerCase()} hit). The fact counts ${V.premium.toLowerCase()} and all ${V.customers.toLowerCase()} affected.`}>
         <Split parts={[{ key: 'h', label: 'High', n: open.filter(i => i.impact.level === 'High').length, tone: 'error' }, { key: 'm', label: 'Medium', n: open.filter(i => i.impact.level === 'Medium').length, tone: 'warning' }, { key: 'l', label: 'Low', n: open.filter(i => i.impact.level === 'Low').length, tone: 'neutral' }]} />
         <Facts items={[{ n: prem, label: `${V.premium.toLowerCase()} · ${cust} total`, tone: prem ? 'bad' : undefined }]} />
       </StatTile>

@@ -7,6 +7,7 @@ import { usePage, Loading, useSentinel } from '../shell/page';
 import { DataTable, type Col } from '../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../ui/ListToolbar';
 import { Meter } from '../ui/status';
+import { Info } from '../ui/kit';
 import { ROLLOUT, SEVERITY, SEV_TONE, sevChipCls, sevLabel } from '../lib/vocab';
 import { fmtMoney, fmtNum } from '../lib/format';
 import '../styles/datacenters.css';
@@ -97,7 +98,7 @@ export function Datacenters() {
       <section className={`vw-card-section dcl-regsec${regOpen ? '' : ' is-folded'}`}>
         <button type="button" className="dcl-regsec-h" onClick={toggleReg} aria-expanded={regOpen}>
           <I.ChevronDown size={16} className="dcl-fold" />
-          <span className="dcl-regsec-t">Regions</span>
+          <span className="dcl-regsec-t">Regions<Info text="Each region's worst site condition and its site count. Expand for a card per region with incidents, alarms, power load and the site that most needs attention." /></span>
           <span className="dcl-regsec-sum">{REGIONS().map(r => { const ss = live.filter(d => d.regionId === r.id).map(stateOf); const w: SiteState = ss.includes('critical') ? 'critical' : ss.includes('attention') ? 'attention' : 'normal'; return <span key={r.id} className={`vw-chip vw-chip--${STATE_META[w].tone} dco-pill`}><i className="chip-dot" />{r.name} · {ss.length} sites</span>; })}</span>
           <span className="dcl-regsec-hint">{regOpen ? 'Collapse' : 'Expand'}</span>
         </button>
@@ -178,24 +179,24 @@ function EstateOverview({ live, alarms, incs, onView }: { live: DcSummary[]; ala
   const custHit = live.filter(d => d.servicesDegraded).length;
   return (
     <StatGrid>
-      <StatTile label="Site status" value={live.length} sub="live datacenters">
+      <StatTile label="Site status" value={live.length} sub="live datacenters" info="Live datacenters by condition. Critical = a Critical incident, a UPS on battery, a plant fault or an isolated edge; Needs attention = any open incident, critical alarm, link down, unreachable device or facility issue.">
         <Split parts={(['critical', 'attention', 'normal'] as SiteState[]).map(s => ({ key: s, label: STATE_META[s].label, n: cnt(s), tone: STATE_META[s].tone }))} />
       </StatTile>
-      <StatTile label="Open incidents" value={incs.length} sub={past ? `${past} past SLA` : 'all within SLA'} subTone={past ? 'bad' : undefined}>
+      <StatTile label="Open incidents" value={incs.length} sub={past ? `${past} past SLA` : 'all within SLA'} subTone={past ? 'bad' : undefined} info="Open incidents across all live datacenters, split by severity. The qualifier counts incidents that have used up their resolution SLA or missed their response SLA.">
         <Split parts={[1, 2, 3, 4].map(n => ({ key: `s${n}`, label: sevLabel(n), n: sev(n), tone: SEV_TONE[n] }))} />
       </StatTile>
-      <StatTile label="Active alarms" value={fmtNum(alarms.length)} sub={`${fmtNum(unack)} unacked`}>
+      <StatTile label="Active alarms" value={fmtNum(alarms.length)} sub={`${fmtNum(unack)} unacked`} info="Open alarms in datacenter scope (the site, its edge links and its dependencies; downstream PoPs are excluded), by severity. Unacked = still Active, nobody has taken ownership yet.">
         <Split parts={(['critical', 'major', 'minor', 'warning'] as Severity[]).map(s => ({ key: s, label: SEVERITY[s].label, n: asev(s), tone: ALM_TONE[s] }))} />
       </StatTile>
-      <StatTile label="Power & facility" value={`${powPct}%`} sub={`of ${fmtNum(Math.round(capKw))} kW`}>
+      <StatTile label="Power & facility" value={`${powPct}%`} sub={`of ${fmtNum(Math.round(capKw))} kW`} info="Estate IT load as a share of the summed power capacity of all live sites. Facts: sites with a UPS off-line, a failed cooling unit or a lost feed (click to filter the list) and sites at 75% of capacity or more.">
         <SoftMeter pct={powPct} tone={powPct >= 85 ? 'error' : powPct >= 75 ? 'warning' : 'info'} />
         <Facts items={[{ n: fac.length, label: `facility issue${fac.length === 1 ? '' : 's'}`, tone: fac.length ? 'bad' : undefined, onClick: () => onView('facility') }, { n: hotPower, label: `site${hotPower === 1 ? '' : 's'} at ≥75% power` }]} />
       </StatTile>
-      <StatTile label="Edge redundancy" value={live.length - edgeLost - isolated} sub={`of ${live.length} redundant`}>
+      <StatTile label="Edge redundancy" value={live.length - edgeLost - isolated} sub={`of ${live.length} redundant`} info="Sites whose links leaving the datacenter (backhaul, PoP uplinks) are all up. Partial = at least one edge link down, Isolated = none up; click either to filter the list. Facts count links down and unreachable devices estate-wide.">
         <Split parts={[{ key: 'red', label: 'Full', n: live.length - edgeLost - isolated, tone: 'success' }, { key: 'lost', label: 'Partial', n: edgeLost, tone: 'warning' }, { key: 'iso', label: 'Isolated', n: isolated, tone: 'error' }]} onPick={k => k !== 'red' && onView('edge')} />
         <Facts items={[{ n: linksDown, label: 'links down' }, { n: unreach, label: 'devices unreachable' }]} />
       </StatTile>
-      <StatTile label={`${V.customer} impact`} value={deg} sub={`of ${fmtNum(svc)} degraded`}>
+      <StatTile label={`${V.customer} impact`} value={deg} sub={`of ${fmtNum(svc)} degraded`} info={`${V.services} down or degraded across the estate as a share of all ${V.services.toLowerCase()} served from live datacenters. The fact counts datacenters with at least one degraded ${V.service.toLowerCase()}.`}>
         <SoftMeter pct={svc ? Math.max(2, (deg / svc) * 100) : 0} tone={deg ? 'warning' : 'success'} />
         <Facts items={[{ n: custHit, label: `site${custHit === 1 ? '' : 's'} affected` }]} />
       </StatTile>
@@ -214,7 +215,7 @@ function RegionCard({ name, sites, incs, on, onClick, onSite }: { name: string; 
   return (
     <div role="button" tabIndex={0} aria-pressed={on} className={`vw-card-section vw-card--clickable dcl-region is-${rState}${on ? ' is-on' : ''}`} onClick={onClick} onKeyDown={e => { if (e.key === 'Enter') onClick(); }}>
       <div className="dcr-h">
-        <span className="dcr-name">{name} region</span>
+        <span className="dcr-name">{name} region<Info text="Sites in this region as dots coloured by condition, with regional totals: open incidents, alarms and power load against capacity. Click the card to filter the list to the region; click a dot or the highlighted site to open it." /></span>
         <span className={`dcr-state is-${rState}`}><i />{STATE_META[rState].label}</span>
       </div>
       <div className="dcr-dots" aria-label="Sites by status">

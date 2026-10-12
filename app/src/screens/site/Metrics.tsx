@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { clockNow, getNetworkElements, useQuery } from '../../api';
-import { Panel } from '../../ui/kit';
+import { Info, Panel } from '../../ui/kit';
 import { Meter, NeLink } from '../../ui/status';
 import { Sparkline } from '../../charts/Sparkline';
 import { fmtAgo, fmtNum } from '../../lib/format';
@@ -57,12 +57,18 @@ export function Metrics({ data }: { data: SiteData }) {
   }, [nes, dc, s.powerKw]);
 
   const vitals = [
-    { k: 'temp', l: 'Avg zone temperature', v: `${r1(m.zoneAvg)}°C`, note: `max ${m.zoneMax}°C / ${TEMP_LIMIT}°C`, bad: m.zoneMax > TEMP_LIMIT, t: m.tTemp },
-    { k: 'hum', l: 'Humidity', v: `${Math.round(m.humAvg)}%`, note: `band ${HUM[0]}–${HUM[1]}% RH`, bad: m.humAvg < HUM[0] || m.humAvg > HUM[1], t: m.tHum },
-    { k: 'pwr', l: 'IT + facility load', v: `${fmtNum(Math.round(m.kwNow))} kW`, note: `of ${fmtNum(dc.power.capacityKw)} kW · PUE ${dc.power.pue.toFixed(2)}`, bad: m.kwNow / dc.power.capacityKw >= 0.85, t: m.tPower },
-    { k: 'cool', l: 'Cooling load', v: `${Math.round(m.coolPct)}%`, note: `${dc.cooling.units.filter(u => u.status === 'Operational').length}/${dc.cooling.units.length} units · ${dc.cooling.redundancy}`, bad: m.coolPct >= 85 || dc.cooling.units.some(u => u.status === 'Failed'), t: m.tCool },
-    { k: 'bat', l: 'Battery backup', v: `${dc.power.battery.runtimeH} h`, note: `UPS autonomy ≥ ${m.upsMin} min`, bad: dc.power.ups.some(u => u.state === 'On battery') },
-    { k: 'dsl', l: 'Diesel in tank', v: `${fmtNum(m.fuelL)} L`, note: `${dc.power.dg.fuelPct}% · ${dc.power.dg.runtimeH} h runtime`, bad: dc.power.dg.fuelPct < 40 }
+    { k: 'temp', l: 'Avg zone temperature', v: `${r1(m.zoneAvg)}°C`, note: `max ${m.zoneMax}°C / ${TEMP_LIMIT}°C`, bad: m.zoneMax > TEMP_LIMIT, t: m.tTemp,
+      info: `Mean of the zone temperature sensors across the site, with the hottest zone against the ${TEMP_LIMIT}°C limit; red when any zone is above it. The sparkline is the last 24 hours.` },
+    { k: 'hum', l: 'Humidity', v: `${Math.round(m.humAvg)}%`, note: `band ${HUM[0]}–${HUM[1]}% RH`, bad: m.humAvg < HUM[0] || m.humAvg > HUM[1], t: m.tHum,
+      info: `Mean relative humidity across the zone sensors; red when the average leaves the ${HUM[0]}–${HUM[1]}% RH safe band (static risk below, condensation risk above). Sparkline = last 24 hours.` },
+    { k: 'pwr', l: 'IT + facility load', v: `${fmtNum(Math.round(m.kwNow))} kW`, note: `of ${fmtNum(dc.power.capacityKw)} kW · PUE ${dc.power.pue.toFixed(2)}`, bad: m.kwNow / dc.power.capacityKw >= 0.85, t: m.tPower,
+      info: 'Total facility power drawn now (IT plus cooling and plant) against installed capacity; red at 85% or more. PUE = total facility power ÷ IT power. Sparkline = hourly load over the last 24 hours.' },
+    { k: 'cool', l: 'Cooling load', v: `${Math.round(m.coolPct)}%`, note: `${dc.cooling.units.filter(u => u.status === 'Operational').length}/${dc.cooling.units.length} units · ${dc.cooling.redundancy}`, bad: m.coolPct >= 85 || dc.cooling.units.some(u => u.status === 'Failed'), t: m.tCool,
+      info: 'Heat load being removed as a share of installed cooling capacity, with operational units out of all units and the redundancy level. Red at 85% or more, or when any unit has failed. Sparkline follows the 24 h power load.' },
+    { k: 'bat', l: 'Battery backup', v: `${dc.power.battery.runtimeH} h`, note: `UPS autonomy ≥ ${m.upsMin} min`, bad: dc.power.ups.some(u => u.state === 'On battery'),
+      info: 'Hours the battery bank can carry the site if mains and generator both fail, and the shortest UPS autonomy at present load. Red while any UPS is running on battery.' },
+    { k: 'dsl', l: 'Diesel in tank', v: `${fmtNum(m.fuelL)} L`, note: `${dc.power.dg.fuelPct}% · ${dc.power.dg.runtimeH} h runtime`, bad: dc.power.dg.fuelPct < 40,
+      info: 'Litres of diesel in the generator tank, estimated from the tank size (sized to the DG rating) and the fuel level reading, with the runtime that fuel gives at rated load. Red under 40%.' }
   ];
 
   return (
@@ -70,7 +76,7 @@ export function Metrics({ data }: { data: SiteData }) {
       <section className="vw-card-section mx-vitals">
         {vitals.map(x => (
           <div key={x.k} className="mx-vital">
-            <span className="vw-card-metric-label">{x.l}</span>
+            <span className="vw-card-metric-label">{x.l}<Info text={x.info} /></span>
             <span className="mx-vital-row">
               <span className="vw-card-metric-lg">{x.v}</span>
               {x.t && <span className="mx-spark"><Sparkline values={x.t} color={x.bad ? BAD : ACCENT} height={28} /></span>}
@@ -81,7 +87,7 @@ export function Metrics({ data }: { data: SiteData }) {
       </section>
 
       <div className="grid g-2 mx-row">
-        <Panel title="Thermal & environment" icon={I.Thermometer} sub={`${m.zones.length} zone sensors · ${m.racks.length} racks with inlet probes`} actions={<Link to={`/facilities?dc=${dc.id}&tab=environment`} className="panel-link">Environment<I.ChevronRight size={14} /></Link>}>
+        <Panel title="Thermal & environment" icon={I.Thermometer} sub={`${m.zones.length} zone sensors · ${m.racks.length} racks with inlet probes`} info={`Average rack inlet temperature and range, the hottest device chassis (red at 55°C+), smoke / leak detection, then each zone's temperature (red above ${TEMP_LIMIT}°C, amber above 25.5°C) and humidity, and the 5 hottest racks.`} actions={<Link to={`/facilities?dc=${dc.id}&tab=environment`} className="panel-link">Environment<I.ChevronRight size={14} /></Link>}>
           <div className="mx-stats">
             <Stat l="Rack inlet avg" v={m.inlet.length ? `${r1(m.inlet.reduce((a, b) => a + b, 0) / m.inlet.length)}°C` : '—'} sub={m.inlet.length ? `range ${Math.min(...m.inlet)}–${Math.max(...m.inlet)}°C` : undefined} />
             <Stat l="Hottest device chassis" v={`${m.devTempMax}°C`} bad={m.devTempMax >= 55} />
@@ -97,7 +103,7 @@ export function Metrics({ data }: { data: SiteData }) {
           <div className="mx-chips">{m.hotRacks.map(r => <span key={r.id} className={`vw-chip ${r.tempC > TEMP_LIMIT ? 'vw-chip--error' : 'vw-chip--neutral'} cmd-chip`}>{r.name} · {r.tempC}°C</span>)}</div>
         </Panel>
 
-        <Panel title="Power & backup" icon={I.BatteryCharging} sub="UPS autonomy, battery bank and diesel generator" actions={<Link to={`/facilities?dc=${dc.id}`} className="panel-link">Power chain<I.ChevronRight size={14} /></Link>}>
+        <Panel title="Power & backup" icon={I.BatteryCharging} sub="UPS autonomy, battery bank and diesel generator" info="Each UPS with load, minutes of autonomy and state (red when not online), the battery bank and DG with their last tests, and diesel as litres in tank out of tank size. Burn rate and 30-day usage are estimates (≈0.2 L per kVA-hour at 75% load)." actions={<Link to={`/facilities?dc=${dc.id}`} className="panel-link">Power chain<I.ChevronRight size={14} /></Link>}>
           <table className="nst-table mx-table">
             <thead><tr><th>UPS</th><th>Load</th><th className="is-right">Autonomy</th><th className="is-right">State</th></tr></thead>
             <tbody>{dc.power.ups.map(u => (
@@ -118,7 +124,7 @@ export function Metrics({ data }: { data: SiteData }) {
       </div>
 
       <div className="grid g-2 mx-row">
-        <Panel title="Hardware fault indicators" icon={I.CircleAlert} sub={`${m.live.length} monitored devices · fans, power supplies and module fault LEDs`}>
+        <Panel title="Hardware fault indicators" icon={I.CircleAlert} sub={`${m.live.length} monitored devices · fans, power supplies and module fault LEDs`} info="Across in-service devices here: fan and PSU modules reporting OK out of all of them, modules with a lit fault LED, and devices showing red (critical health or a faulted module). The table lists each faulted module.">
           <div className="mx-stats mx-stats-4">
             <Stat l="Fans OK" v={`${m.fans.filter(f => f.state === 'OK').length}/${m.fans.length}`} bad={m.fans.some(f => f.state === 'Fault')} />
             <Stat l="PSUs OK" v={`${m.psus.filter(p => p.state === 'OK').length}/${m.psus.length}`} bad={m.psus.some(p => p.state === 'Fault')} />
@@ -133,7 +139,7 @@ export function Metrics({ data }: { data: SiteData }) {
           ) : <p className="vw-card-description mx-ok"><I.CircleCheck size={15} />No fault LEDs lit on monitored devices.</p>}
         </Panel>
 
-        <Panel title="Device load" icon={I.Cpu} sub={`Average CPU ${Math.round(m.cpuAvg)}% · memory ${Math.round(m.memAvg)}% across monitored devices`} actions={<Link to={`/datacenters/${dc.id}?tab=elements`} className="panel-link">Equipment<I.ChevronRight size={14} /></Link>}>
+        <Panel title="Device load" icon={I.Cpu} sub={`Average CPU ${Math.round(m.cpuAvg)}% · memory ${Math.round(m.memAvg)}% across monitored devices`} info="The 5 in-service devices with the highest CPU utilisation, with their memory use and chassis temperature; the subtitle averages CPU and memory over every monitored device. Click a device to open it." actions={<Link to={`/datacenters/${dc.id}?tab=elements`} className="panel-link">Equipment<I.ChevronRight size={14} /></Link>}>
           <table className="nst-table mx-table">
             <thead><tr><th>Busiest devices</th><th>CPU</th><th>Memory</th><th className="is-right">Temp</th></tr></thead>
             <tbody>{m.topCpu.map(n => (

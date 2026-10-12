@@ -5,7 +5,7 @@ import { clockNow, createChange, getChanges, getDatacenters, getNetworkElements,
 import type { Change, ChangeStatus } from '../api/types';
 import { usePage, PageHead, Loading } from '../shell/page';
 import { DataTable, type Col } from '../ui/DataTable';
-import { Btn, Chip, Drawer, Field, KV, SearchBox, CheckBox } from '../ui/kit';
+import { Btn, Chip, Drawer, Field, Info, KV, SearchBox, CheckBox } from '../ui/kit';
 import { ListToolbar, useParamPatch } from '../ui/ListToolbar';
 import { ChangeChip, DcLink, IncLink, NeLink } from '../ui/status';
 import { fmtDateTime, fmtMoney } from '../lib/format';
@@ -98,7 +98,7 @@ function ImpactPreview({ im: raw, self }: { im?: Impact; self?: string }) {
   if (!im) return <div className="faint" style={{ fontSize: 13 }}><span className="spinner" style={{ verticalAlign: -3, marginRight: 8 }} />Mapping dependencies…</div>;
   return (
     <div className="impact-box">
-      <div className="row between"><div className="ops-label" style={{ margin: 0 }}>Dependency impact</div><span className="row" style={{ gap: 8 }}><span className="faint" style={{ fontSize: 12 }}>risk score <b className="num">{im.score}</b>/100</span><Chip size="xs" tone={RISK_TONE[im.risk]}>{im.risk} risk</Chip></span></div>
+      <div className="row between"><div className="ops-label" style={{ margin: 0 }}>Dependency impact<Info text="What the scoped devices carry (links, services, customers, premium customers, monthly revenue) plus overlapping windows and open incidents on the same devices. Score = 6 per device + 3 per service + 8 per premium customer + 10 per overlap + 15 per open incident, max 100; 55+ High, 25+ Medium." /></div><span className="row" style={{ gap: 8 }}><span className="faint" style={{ fontSize: 12 }}>risk score <b className="num">{im.score}</b>/100</span><Chip size="xs" tone={RISK_TONE[im.risk]}>{im.risk} risk</Chip></span></div>
       <div className="bar" style={{ height: 6 }}><i style={{ width: `${im.score}%`, background: im.risk === 'High' ? 'var(--vw-color-red-500)' : im.risk === 'Medium' ? 'var(--vw-color-amber-500)' : 'var(--vw-color-emerald-500)' }} /></div>
       <div className="grid g-3 impact-stats">
         <div><span>Network elements</span><b className="num">{im.nes}</b></div><div><span>Physical links</span><b className="num">{im.links}</b></div><div><span>Services</span><b className="num">{im.services}</b></div>
@@ -172,25 +172,25 @@ function ChangeAnalytics({ all, now, status, onStatus }: { all: Change[]; now: n
   const rate = done30.length ? Math.round((ok / done30.length) * 100) : 100;
   return (
     <StatGrid>
-      <StatTile label="In the pipeline" value={live.length} sub="changes not yet closed">
+      <StatTile label="In the pipeline" value={live.length} sub="changes not yet closed" info="Changes and maintenance windows not yet closed, by status: Draft, Pending approval, Approved or In progress. Click a status to filter the list.">
         <Split parts={(['Draft', 'Pending approval', 'Approved', 'In progress'] as ChangeStatus[]).map(st => ({ key: st, label: st === 'Pending approval' ? 'Pending' : st, n: all.filter(c => c.status === st).length, tone: ST_TONE[st]! }))} onPick={onStatus} active={status} />
       </StatTile>
-      <StatTile label="Awaiting approval" value={pending.length} sub={oldest ? `oldest ${fmtDur((now - oldest) / 60000)}` : 'none waiting'} subTone={pending.length ? 'warn' : undefined} onClick={() => onStatus('Pending approval')} active={status === 'Pending approval'}>
+      <StatTile label="Awaiting approval" value={pending.length} sub={oldest ? `oldest ${fmtDur((now - oldest) / 60000)}` : 'none waiting'} subTone={pending.length ? 'warn' : undefined} onClick={() => onStatus('Pending approval')} active={status === 'Pending approval'} info="Windows waiting on an approver, by computed risk, with the age of the oldest request. The fact counts those flagged as emergency changes. Click to filter the list to pending approvals.">
         <Split parts={[{ key: 'High', label: 'High', n: pending.filter(c => c.risk === 'High').length, tone: 'error' }, { key: 'Medium', label: 'Medium', n: pending.filter(c => c.risk === 'Medium').length, tone: 'warning' }, { key: 'Low', label: 'Low', n: pending.filter(c => c.risk === 'Low').length, tone: 'success' }]} />
         <Facts items={[{ n: pending.filter(c => c.emergency).length, label: 'emergency' }]} />
       </StatTile>
-      <StatTile label="Next 7 days" value={week.length} sub="windows scheduled">
+      <StatTile label="Next 7 days" value={week.length} sub="windows scheduled" info="Windows still open (not completed, rolled back or rejected) that start between six hours ago and seven days from now, change versus maintenance, with a column per day.">
         <Split parts={[{ key: 'c', label: 'Change', n: week.filter(c => c.kind === 'Change').length, tone: 'info' }, { key: 'm', label: 'Maintenance', n: week.filter(c => c.kind === 'Maintenance').length, tone: 'cyan' }]} />
         <MiniBars values={days} labels={['Today', '+6 d']} tone="info" />
       </StatTile>
-      <StatTile label="Risk of open work" value={live.filter(c => c.risk === 'High').length} sub="high risk" subTone={live.some(c => c.risk === 'High') ? 'bad' : undefined}>
+      <StatTile label="Risk of open work" value={live.filter(c => c.risk === 'High').length} sub="high risk" subTone={live.some(c => c.risk === 'High') ? 'bad' : undefined} info="Windows not yet closed, by computed risk. Risk comes from the dependency impact score of the scope: devices and services it carries, premium customers, overlapping windows and open incidents (55+ High, 25+ Medium).">
         <Split parts={[{ key: 'High', label: 'High', n: live.filter(c => c.risk === 'High').length, tone: 'error' }, { key: 'Medium', label: 'Medium', n: live.filter(c => c.risk === 'Medium').length, tone: 'warning' }, { key: 'Low', label: 'Low', n: live.filter(c => c.risk === 'Low').length, tone: 'success' }]} />
       </StatTile>
-      <StatTile label="Outcome · 30 days" value={`${rate}%`} sub="first-time success">
+      <StatTile label="Outcome · 30 days" value={`${rate}%`} sub="first-time success" info="Windows that ended in the last 30 days: the share completed without a rollback. Click completed or rolled back to filter the list to those windows.">
         <SoftMeter pct={rate} tone={rate >= 90 ? 'success' : rate >= 75 ? 'warning' : 'error'} />
         <Facts items={[{ n: ok, label: 'completed', onClick: () => onStatus('Completed') }, { n: rb, label: 'rolled back', tone: rb ? 'bad' : undefined, onClick: () => onStatus('Rolled back') }]} />
       </StatTile>
-      <StatTile label="Change vs maintenance" value={all.length} sub="on record">
+      <StatTile label="Change vs maintenance" value={all.length} sub="on record" info="Everything on record, split into changes and maintenance windows. The fact counts windows open right now (start time passed, end time not yet reached, not closed).">
         <Split parts={[{ key: 'c', label: 'Change', n: all.filter(c => c.kind === 'Change').length, tone: 'info' }, { key: 'm', label: 'Maintenance', n: all.filter(c => c.kind === 'Maintenance').length, tone: 'cyan' }]} />
         <Facts items={[{ n: live.filter(c => c.windowStart <= now && c.windowEnd >= now).length, label: live.filter(c => c.windowStart <= now && c.windowEnd >= now).length === 1 ? 'window open now' : 'windows open now' }]} />
       </StatTile>

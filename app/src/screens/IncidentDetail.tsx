@@ -6,7 +6,7 @@ import * as I from 'lucide-react';
 import { addWorklog, advanceIncident, clockNow, getIncident, hypothesisFeedback, raiseEmergencyChange, runClosureChecks, setActionStatus, useQuery, vocabNow } from '../api';
 import type { ActionStep, IncidentStatus, RevIssue } from '../api/types';
 import { usePage, Loading, useSentinel } from '../shell/page';
-import { Btn, Chip, Panel } from '../ui/kit';
+import { Btn, Chip, Info, Panel } from '../ui/kit';
 import { ChangeChip, CustLink, DcLink, IncidentChip, SevChip, SevDot, SeverityChip, SvcLink, ServiceChip } from '../ui/status';
 import { fmtAgo, fmtDateTime, fmtDateTimeS, fmtDur, fmtQty } from '../lib/format';
 import { CostCurve, DomainTag, Fig, inr, lc, perHr, perMo, stateText } from './revenue/parts';
@@ -72,15 +72,17 @@ export function IncidentDetail() {
 
       <div className="kpis kpis-3">
         <OpsKpi label="Response SLA" tone={inc.sla.responseBreached ? 'bad' : undefined} value={inc.sla.responseBreached ? 'Breached' : inc.acknowledged ? 'Met' : 'Open'}
+          info="Whether the incident was acknowledged within its response target. Minutes from detection to acknowledgement (or to now while unacknowledged) compared with the target set by severity; red when the target was missed."
           sub={inc.sla.responseBreached ? `acknowledged after ${inc.sla.responseMin} m · target ${fmtHm(inc.responseSlaMin)}` : inc.acknowledged ? `acknowledged in ${inc.sla.responseMin} m · target ${fmtHm(inc.responseSlaMin)}` : `${fmtHm(Math.max(0, inc.sla.responseLeft))} left to acknowledge`} />
         <OpsKpi label="Resolution SLA" tone={open && inc.sla.resolveLeft < 0 ? 'bad' : open && inc.sla.resolveLeft < inc.resolveSlaMin * 0.25 ? 'warn' : undefined}
+          info="Time left to resolve before the resolution target (counted from detection) runs out; overdue when negative, amber under 25% of the target. For a resolved incident it shows the actual time to resolve."
           value={open ? slaText(inc.sla.resolveLeft) : inc.resolved ? fmtHm((inc.resolved - inc.detected) / 60000) : '—'} sub={open ? `target ${fmtHm(inc.resolveSlaMin)} from detection` : 'time to resolve'} />
-        <OpsKpi label="Severity" value={sevLabel(inc.sev)} sub={`${inc.pri !== inc.sev ? `Priority P${inc.pri} · ` : ''}${inc.type} · ${dc.city}`} />
+        <OpsKpi label="Severity" value={sevLabel(inc.sev)} info="Incident severity on the Critical / High / Medium / Low scale, with the incident type and site. Priority is shown here only when it differs from the severity." sub={`${inc.pri !== inc.sev ? `Priority P${inc.pri} · ` : ''}${inc.type} · ${dc.city}`} />
       </div>
 
       <div className="inc-grid">
         <div className="col" style={{ gap: 16 }}>
-          <Panel title="Details">
+          <Panel title="Details" info="The incident record: owner, reporter, site, detection / acknowledgement / resolution times and MTTR (detection to resolution). The Affected chips link to each device, rack or link in scope.">
             <table className="kv-table"><tbody>
               <tr><th>Title</th><td>{inc.title}</td></tr>
               <tr><th>Type</th><td>{inc.type}</td></tr>
@@ -95,7 +97,7 @@ export function IncidentDetail() {
             </tbody></table>
           </Panel>
 
-          <Panel title="Correlated alerts" count={alerts.length} sub="Grouped by topology, time and source (DC-OPS-001)">
+          <Panel title="Correlated alerts" count={alerts.length} sub="Grouped by topology, time and source (DC-OPS-001)" info="The live alarms this incident tracks, grouped by topology, time and source. Click a row to open the device's alarms. Downstream symptoms at remote sites are listed underneath as impact, not as separate issues.">
             {alerts.length ? <div className="col" style={{ gap: 8 }}>{alerts.map(a => (
               <Link key={a.id} to={a.neId ? `/ne/${encodeURIComponent(a.neId)}?tab=alerts` : `/alerts?q=${a.code}`} className={`alert-row sev-${a.severity}`}>
                 <SevDot s={a.severity} />
@@ -117,7 +119,7 @@ export function IncidentDetail() {
 
           {open && rev && <RevenuePanel rev={rev} now={now} onAsk={() => ask(`What is ${inc.id} costing us?`)} />}
 
-          <Panel title="Impact assessment" sub="Infrastructure → services → customers (DC-OPS-002, DC-NET-007)" actions={<Chip tone={inc.impact.level === 'High' ? 'error' : inc.impact.level === 'Medium' ? 'warning' : 'neutral'}>{inc.impact.level}</Chip>}>
+          <Panel title="Impact assessment" sub="Infrastructure → services → customers (DC-OPS-002, DC-NET-007)" info={`The path from site to the ${V.services.toLowerCase()} and ${V.customers.toLowerCase()} affected. Level is High when a ${V.premium.toLowerCase()} ${V.customer.toLowerCase()} is exposed, Medium when any ${V.service.toLowerCase()} is, else Low.`} actions={<Chip tone={inc.impact.level === 'High' ? 'error' : inc.impact.level === 'Medium' ? 'warning' : 'neutral'}>{inc.impact.level}</Chip>}>
             <div className="dep-path">
               <Link to={`/datacenters/${inc.dcId}`} className="dep-node"><I.Building2 size={14} /><span><small>Site</small>{inc.dcId}</span></Link>
               {rack && <><I.ChevronRight size={14} className="faint" /><Link to={refTo(rack.id) ?? '#'} className="dep-node"><I.Server size={14} /><span><small>Rack</small>{rack.label}</span></Link></>}
@@ -152,7 +154,7 @@ export function IncidentDetail() {
             )}
           </Panel>
 
-          <Panel title="Worklog" count={inc.worklog.length}>
+          <Panel title="Worklog" count={inc.worklog.length} info="Everything recorded against the incident, newest first: operator notes, system events (status changes, checks) and AI entries. Type a note and press Add to append your own.">
             <form className="wl-add" onSubmit={e => { e.preventDefault(); addWorklog(inc.id, note); setNote(''); }}>
               <input className="input" value={note} onChange={e => setNote(e.target.value)} placeholder="Add a worklog note…" />
               <Btn type="submit" variant="filled" disabled={!note.trim()}>Add</Btn>
@@ -167,7 +169,7 @@ export function IncidentDetail() {
 
         <div className="col" style={{ gap: 16 }}>
           <div className="ai-card">
-            <div className="ai-card-head"><b>AI diagnostics · root-cause hypotheses</b><span>Ranked by evidence; confirm or reject to train future recommendations</span></div>
+            <div className="ai-card-head"><b>AI diagnostics · root-cause hypotheses<Info text="Root-cause hypotheses ranked by confidence (the bar), each with the evidence that supports it; evidence links open the device or alarm. Confirm or Reject records your verdict on the incident." /></b><span>Ranked by evidence; confirm or reject to train future recommendations</span></div>
             <div className="ai-card-body">
               {inc.rca.map((h, k) => (
                 <div key={k} className={`ai-block hyp${h.rejected ? ' is-rejected' : ''}`}>
@@ -187,11 +189,11 @@ export function IncidentDetail() {
             </div>
           </div>
 
-          <Panel title="Action plan" sub="Priority order · disruptive steps need approval (DC-AI-007)" count={inc.actions.length}>
+          <Panel title="Action plan" sub="Priority order · disruptive steps need approval (DC-AI-007)" count={inc.actions.length} info="Recommended remediation steps in priority order, each with owner, expected outcome, rollback and verification. Non-disruptive steps can be run directly; disruptive ones go through request, approval, run and mark done.">
             {inc.actions.length ? <ol className="steps">{inc.actions.map((s, k) => <StepRow key={s.id} n={k + 1} s={s} incId={inc.id} open={open} />)}</ol> : <div className="faint" style={{ fontSize: 13 }}>No actions recorded.</div>}
           </Panel>
 
-          <Panel title="Change awareness" sub="Changes and maintenance near detection (DC-OPS-005)" count={changes.length}>
+          <Panel title="Change awareness" sub="Changes and maintenance near detection (DC-OPS-005)" count={changes.length} info="Changes and maintenance windows at this site in the 72 hours before detection or still open. A highlighted row touched a device in the incident's scope. Click a row to open the change.">
             {changes.length ? <div className="col" style={{ gap: 8 }}>{changes.map(c => {
               const rel = c.windowEnd <= inc.detected ? `ended ${fmtHm((inc.detected - c.windowEnd) / 60000)} before detection` : c.windowStart <= now ? 'window open now' : `starts in ${fmtHm((c.windowStart - now) / 60000)}`;
               const touches = c.scope.some(s => inc.affected.some(a => a.id === s));
@@ -204,13 +206,13 @@ export function IncidentDetail() {
           </Panel>
 
           {inc.similar && (
-            <Panel title="Similar events" sub="Estate correlation" actions={<Chip tone="info" size="xs">{similar.length} nodes</Chip>}>
+            <Panel title="Similar events" sub="Estate correlation" info="Other devices across the estate showing the same failure signature (for example the same optics lot or fault pattern). Each chip opens that device's alarms." actions={<Chip tone="info" size="xs">{similar.length} nodes</Chip>}>
               <p className="impact-sum" style={{ marginTop: 0 }}>{inc.similar.text}</p>
               <div className="row wrap" style={{ gap: 6 }}>{similar.map(n => <Link key={n.id} to={`/ne/${encodeURIComponent(n.id)}?tab=alerts`} className="vw-chip vw-chip--neutral chip-xs aff-chip">{n.id}</Link>)}</div>
             </Panel>
           )}
 
-          <Panel title="Closure verification" sub="Post-action evidence required before resolve (DC-OPS-008)"
+          <Panel title="Closure verification" sub="Post-action evidence required before resolve (DC-OPS-008)" info="The checks that must pass before the incident can be resolved (alarms cleared, health green, services back within SLA). Run closure checks evaluates them against the live data; Resolve stays locked until every check passes."
             actions={open && <Btn size="xs" icon={I.ListChecks} onClick={() => runClosureChecks(inc.id)}>Run closure checks</Btn>}>
             <ul className="checks">{inc.verification.map((v, k) => (
               <li key={k} className={v.ok === true ? 'ok' : v.ok === false ? 'fail' : ''}>
@@ -232,6 +234,7 @@ function RevenuePanel({ rev: r, now, onAsk }: { rev: RevIssue; now: number; onAs
   const avoid = Math.max(0, r.forecast24 - r.lost - r.credits);
   return (
     <Panel title={W.impact} icon={MoneyIcon} sub={losing ? `What this incident has cost and what another day costs · ranked #${r.rank} of the open issues` : `Nothing is lost yet · ${r.exposed} ${V.services.toLowerCase()} are still running on this fault`}
+      info={`What this incident costs: rate = monthly charge ÷ 730 h per impacted ${V.service.toLowerCase()} (degraded × 0.3); ${lc(W.lost)} = rate × hours since the alarm; ${lc(W.credits)} = the SLA tier the outage adds. The curve is the cost of delay.`}
       actions={<><DomainTag d={r.domain} />{r.underPrioritised && <Chip tone="warning" size="xs">Review priority</Chip>}</>}>
       <div className="rev-inc">
         <div className="rev-figs">

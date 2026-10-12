@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { clockNow, getCommandCenter, useQuery, vocabNow } from '../api';
 import { usePage, Loading, useSentinel } from '../shell/page';
-import { Panel, Chip, Drawer, Seg } from '../ui/kit';
+import { Panel, Chip, Drawer, Info, Seg } from '../ui/kit';
 import { StackBar } from '../ui/status';
 import { Sparkline } from '../charts/Sparkline';
 import { DcMap, type DcPin } from './overview/DcMap';
@@ -95,7 +95,7 @@ function Situation({ d }: { d: CC }) {
             <div className="hero-verdict-txt">
               <span className="hero-verdict-top">
                 <span className="vw-card-metric-label cmd-gauge-label">Operations health
-                  <span className="cmd-info" tabIndex={0} title="Average of the four areas below. Counts each datacenter site, its edge links and its dependencies; downstream PoP and site alarms are excluded."><I.Info size={13} /></span>
+                  <Info text="Average of the four area scores below (incident response, network, power, cooling). Counts each datacenter site, its edge links and its dependencies; downstream PoP and site alarms are excluded." />
                 </span>
                 <span className={`vw-chip vw-chip--${bandChip} is-strong`}>{s.band}</span>
               </span>
@@ -107,14 +107,15 @@ function Situation({ d }: { d: CC }) {
           </div>
           <div className="hero-facts">
             {[
-              { k: 'crit', n: s.n1, l: 'Critical', sub: 'incidents', to: '/incidents?view=sev1', tone: s.n1 ? 'bad' : '' },
-              { k: 'high', n: s.n2, l: 'High', sub: 'incidents', to: '/incidents', tone: s.n2 ? 'warn' : '' },
-              { k: 'sla', n: p.breaching, l: 'Past SLA', sub: `of ${p.open} open`, to: '/incidents?view=breaching', tone: p.breaching ? 'bad' : '' },
-              { k: 'cust', n: s.exposedPremium, l: vocabNow().premium, sub: `${vocabNow().customers.toLowerCase()} affected`, to: '/incidents', tone: '' }
+              { k: 'crit', n: s.n1, l: 'Critical', sub: 'incidents', to: '/incidents?view=sev1', tone: s.n1 ? 'bad' : '', info: 'Open incidents at severity Critical (service down or a datacenter at risk). Click to open the Critical worklist.' },
+              { k: 'high', n: s.n2, l: 'High', sub: 'incidents', to: '/incidents', tone: s.n2 ? 'warn' : '', info: 'Open incidents at severity High (redundancy lost or a service degraded). Click to open the incident list.' },
+              { k: 'sla', n: p.breaching, l: 'Past SLA', sub: `of ${p.open} open`, to: '/incidents?view=breaching', tone: p.breaching ? 'bad' : '', info: `Open incidents whose resolution SLA clock has run out (${p.breaching} of ${p.open} open). Click to open the breaching worklist.` },
+              { k: 'cust', n: s.exposedPremium, l: vocabNow().premium, sub: `${vocabNow().customers.toLowerCase()} affected`, to: '/incidents', tone: '', info: `${vocabNow().premium} ${vocabNow().customers.toLowerCase()} with at least one ${vocabNow().service.toLowerCase()} degraded or down by an open incident.` }
             ].map(x => (
               <Link key={x.k} to={x.to} className={`hero-fact${x.tone ? ` is-${x.tone}` : ''}`} title={`${x.n} ${x.l.toLowerCase()} ${x.sub}`}>
                 <span className="hero-fact-n">{x.n}</span>
                 <span className="hero-fact-l">{x.l}</span>
+                <Info text={x.info} className="hero-fact-i" />
               </Link>
             ))}
           </div>
@@ -122,15 +123,35 @@ function Situation({ d }: { d: CC }) {
             {d.domains.map(x => {
               const Ic = AREA_ICON[x.key] ?? I.Activity;
               const st = x.state;
+              /* the row is one link (stretched from the title); the datacenter chips are their own links on top of it.
+                 Two names fit at 1440 (one at 1280); beyond that one name + a "+N" chip that lists the rest on hover. */
+              const [s1, s2] = x.sites, n = x.sites.length;
+              const rest = x.sites.slice(1).map(si => `${si.id} · ${si.note}`).join('\n');
+              const chip = (si: typeof s1, cls = '') => <Link key={si.id} to={si.to} className={`hero-site is-${si.state}${cls}`} title={`${si.id} · ${si.note}`}>{si.id}</Link>;
               return (
-                <Link key={x.key} to={x.to} role="listitem" className={`hero-area is-${st}`} title={`${x.measure} — open the worklist`}>
+                <div key={x.key} role="listitem" className={`hero-area is-${st}`}>
                   <span className="hero-area-ic"><Ic size={16} /></span>
                   <span className="hero-area-main">
-                    <span className="hero-area-top"><b>{x.label}</b><span className={`ops-state is-${st}`}><i />{st === 'critical' ? 'Critical' : st === 'attention' ? 'Attention' : 'Normal'}</span></span>
+                    <span className="hero-area-top">
+                      <Link to={x.to} className="hero-area-link" title={`${x.label}: ${fmtNum(x.good)} of ${fmtNum(x.total)} ${x.items} — open the worklist`}><b>{x.label}</b></Link>
+                      <Info text={`Estate-wide: ${x.value}% = ${fmtNum(x.good)} of ${fmtNum(x.total)} ${x.items} across all ${p.liveDcs} live datacenters; higher is better. ${x.why} The chips list the ${x.sites.length || 'no'} datacenter${x.sites.length === 1 ? '' : 's'} with an issue here, worst first — click one to open it.`} />
+                    </span>
                     <span className="hero-area-detail" title={x.detail}>{x.detail}</span>
+                    {n > 0 && (
+                      <span className="hero-area-sites" data-area-sites={x.key}>
+                        <span className="hero-sites-l">Issues at</span>{chip(s1)}{n === 2 && chip(s2, ' only-wide')}
+                        {n > 1 && <span className={`hero-site is-more${n === 2 ? ' only-narrow' : ''}`} title={`${n - 1} more datacenter${n === 2 ? '' : 's'} with an issue in ${x.label}:\n${rest}`}>+{n - 1}</span>}
+                      </span>
+                    )}
                   </span>
-                  <span className="hero-area-score"><span className="vw-card-metric-md">{x.value}%</span><span className="bar"><i style={{ width: `${x.value}%`, background: st === 'critical' ? C.bad : st === 'attention' ? C.warn : C.accent }} /></span></span>
-                </Link>
+                  <span className="hero-area-score">
+                    <span className={`ops-state is-${st}`} title={x.why}><i />{st === 'critical' ? 'Critical' : st === 'attention' ? 'Attention' : 'Normal'}</span>
+                    <span className="vw-card-metric-md" title={`${fmtNum(x.good)} of ${fmtNum(x.total)} ${x.items}`}>{x.value}%</span>
+                    <span className="hero-area-unit">{x.unit}</span>
+                    {/* the bar is the score (how much is healthy), so it stays neutral; red / amber live on the status word and the row edge */}
+                    <span className="bar"><i style={{ width: `${x.value}%`, background: C.accent }} /></span>
+                  </span>
+                </div>
               );
             })}
           </div>
@@ -138,7 +159,7 @@ function Situation({ d }: { d: CC }) {
         <div className="hero-map">
           <DcMap pins={pins} links={d.dcLinks} onNav={nav} height={600} />
           <div className="hero-map-head">
-            <span className="vw-card-activity-label">Live estate</span>
+            <span className="vw-card-activity-label">Live estate<Info text="Every live datacenter on the map: red pins have a Critical / High incident, amber pins an incident or critical alarm, dashed red lines a backhaul link that is down. Click a pin for its summary and backhaul fan-out; use the tools to search, change the basemap or focus on issues." /></span>
             <span className="vw-label">{d.dcMap.length} datacenters · {d.dcMap.filter(x => x.worstSev && x.worstSev <= 2).length} with critical / high · {d.dcLinks.filter(l => l.down).length} backhaul down</span>
           </div>
         </div>
@@ -164,7 +185,7 @@ function DcColumn({ d, now }: { d: CC; now: number }) {
     <div className="hero-dcs">
       <div className="hero-dcs-head">
         <div className="vw-flex vw-flex-col" style={{ minWidth: 0 }}>
-          <span className="vw-card-activity-label">Datacenters</span>
+          <span className="vw-card-activity-label">Datacenters<Info text="Every live datacenter as a card, worst first: the open incident that matters most there (severity, likely cause, impact, time to SLA) or, when quiet, its alarms, power and cooling load. Filter by the worst open incident." /></span>
           <span className="vw-label">{d.dcMap.length} live · {hot} critical · {watch} attention</span>
         </div>
         <Link to="/datacenters" className="panel-link">All<I.ChevronRight size={14} /></Link>
@@ -208,6 +229,7 @@ function SlaCell({ left, total, breaching }: { left: number; total: number; brea
 function ImpactBoard({ d }: { d: CC }) {
   return (
     <Panel className="cmd-fill" title="What is happening" sub={`Open incidents ranked by severity and ${vocabNow().customer.toLowerCase()} impact`} icon={I.Siren} count={d.pulse.open}
+      info={`All open incidents across the estate, most severe first, then by ${vocabNow().premium.toLowerCase()} ${vocabNow().customer.toLowerCase()} impact. The bar on the right is the resolution SLA clock: blue = time left, red = overdue. Click a row to open the incident.`}
       actions={<Link to="/incidents" className="panel-link">All incidents<I.ChevronRight size={14} /></Link>} flush
       foot={<><span>{d.pulse.breaching} past SLA · mean time to resolve {fmtDur(d.pulse.mttrMin)} over 30 days</span><Link to="/incidents?view=breaching" className="panel-link">Breaching worklist<I.ChevronRight size={14} /></Link></>}>
       <div className="board">
@@ -233,6 +255,7 @@ function Exposure({ d }: { d: CC }) {
   const st = d.svcStatus;
   return (
     <Panel title="Who is affected" sub={`${vocabNow().customer} exposure from degraded ${vocabNow().services.toLowerCase()}`} icon={I.Users}
+      info={`${vocabNow().services} whose path crosses an open incident or active alarm, and the ${vocabNow().customers.toLowerCase()} that ride them — ${vocabNow().premium.toLowerCase()} first. The bar splits every ${vocabNow().service.toLowerCase()} by status. Click a ${vocabNow().customer.toLowerCase()} to see what is hitting them.`}
       actions={<Link to="/incidents" className="panel-link">Incidents<I.ChevronRight size={14} /></Link>}>
       <div className="expo-top"><span className="big">{d.situation.exposedServices}</span><span className="sub">{vocabNow().services.toLowerCase()} degraded · {d.exposedCustomerCount} {vocabNow().customers.toLowerCase()} affected</span></div>
       <div className="col" style={{ gap: 6, marginTop: 10 }}>
@@ -263,7 +286,9 @@ const REC_ICON: Record<string, { icon: I.LucideIcon; tone: string; cta: string }
 function Recommendations({ d }: { d: CC }) {
   const ask = useSentinel();
   return (
-    <Panel title="What to do next" sub="Opstral AI's ranked actions — disruptive steps stay approval-gated (DC-AI-006/007)" icon={OpstralBadge}
+    <Panel title="Recommendations" sub="Opstral AI's ranked actions — disruptive steps stay approval-gated (DC-AI-006/007)" icon={OpstralBadge}
+      info="Opstral AI ranks the next best action across all open incidents by severity, customer impact and time to SLA, and says why and what it buys. Steps that disrupt service wait for an operator's approval; the others open an action plan or change."
+
       actions={<button type="button" className="panel-link" onClick={() => ask('What should we do first?')}>Ask why<I.ChevronRight size={14} /></button>}>
       <div>
         {d.recommendations.map((r, k) => {

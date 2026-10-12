@@ -9,7 +9,7 @@ import type {
 import { NE_CATEGORY } from '../api/types';
 import { generate, finaliseHealth, type Db } from './generate';
 import { edgeId, isPersona } from './personas';
-import { planeOf, type Plane } from '../lib/fabric';
+import { PLANE_SHORT, planeOf, type Plane } from '../lib/fabric';
 import { GEO_BY_ID, dcAt, isGeo, setActiveGeo, type Geo } from './geo';
 import { defaultPersona, overrideGeo, overridePersona } from './override';
 import { fmtNum, setMoneyLocale } from '../lib/format';
@@ -548,24 +548,53 @@ export function commandCenter() {
   const edgeAll = liveDcs.map(d => ({ id: d.id, e: edgeStatus(d.id) }));
   const edgeLost = edgeAll.filter(x => x.e.state === 'redundancy-lost'), edgeIsolated = edgeAll.filter(x => x.e.state === 'isolated');
   const join = (xs: string[], none: string) => (xs.length ? xs.join(' · ') : none);
-  /* a GPU cloud reads its network as fabric planes: InfiniBand, Ethernet front-end, management */
+  /* a GPU cloud reads its network as planes: InfiniBand, Ethernet front-end, management (the area is still called Network, user 12-Oct-2026) */
   const neo = persona === 'neocloud';
   const downBy = (pl: Plane) => linksDown.filter(l => planeOf(l) === pl).length;
   const netDetail = neo
     ? `IB ${downBy('ib')} · Eth ${downBy('eth')} · OOB ${downBy('mgmt')} down · ${unreachable.length} unreachable`
     : `${linksDown.length} links down · ${unreachable.length} unreachable · ${edgeLost.length} site${edgeLost.length === 1 ? '' : 's'} lost edge redundancy`;
+  /* Which datacenters carry each area's issues (12-Oct-2026, user: "if more than one incident on power, how do we show
+     the datacenter names?"): one chip per site, critical first, with a note of what is wrong there and a deep link. */
+  const siteList = (xs: { id: string; crit?: boolean; note: string }[], to: (id: string) => string): AreaSite[] => {
+    const m = new Map<string, { crit: boolean; notes: Map<string, number> }>();
+    xs.forEach(x => { const e = m.get(x.id) ?? { crit: false, notes: new Map() }; e.crit ||= !!x.crit; e.notes.set(x.note, (e.notes.get(x.note) ?? 0) + 1); m.set(x.id, e); });
+    return [...m].map(([id, e]) => ({ id, state: e.crit ? 'critical' as const : 'attention' as const, to: to(id), n: [...e.notes.values()].reduce((a, c) => a + c, 0),
+      note: [...e.notes].map(([t, n]) => (n > 1 ? `${n} × ${t}` : t)).join(' · ') }))
+      .sort((a, b) => (a.state !== b.state ? (a.state === 'critical' ? -1 : 1) : b.n - a.n || a.id.localeCompare(b.id)));
+  };
   const domains = [
-    { key: 'response', label: 'Incident response', value: pct(open.length - breaching.length, open.length), measure: 'Open incidents still within resolution SLA',
-      detail: `${breaching.length} of ${open.length} open incidents past SLA${n1 ? ` · ${n1} critical` : ''}`, to: '/incidents?view=breaching', state: (breaching.some(i => i.sev === 1) ? 'critical' : breaching.length ? 'attention' : 'ok') as AreaState },
-    { key: 'network', label: neo ? 'Fabric' : 'Network', value: pct(lldp.length - linksDown.length + live.length - unreachable.length, lldp.length + live.length), measure: neo ? 'Fabric cables up and nodes reachable' : 'Physical links up and devices reachable',
-      detail: netDetail, to: '/datacenters?view=edge', state: (edgeIsolated.length ? 'critical' : linksDown.length || unreachable.length || edgeLost.length ? 'attention' : 'ok') as AreaState },
-    { key: 'power', label: 'Power', value: pct(upsAll.length - upsBad.length + feeds.length - feedsBad.length, upsAll.length + feeds.length), measure: 'UPS online and utility feeds normal',
-      detail: join([...upsBad.map(u => `${u.name} ${u.state.toLowerCase()} (${u.dc})`), ...(feedsBad.length ? [`${feedsBad.length} utility feed${feedsBad.length > 1 ? 's' : ''} lost${feedsBad.some(f => !upsBad.some(u => u.dc === f.dc)) ? ` (${[...new Set(feedsBad.map(f => f.dc))].join(', ')})` : ''}`] : [])], `All ${upsAll.length} UPS online · all feeds normal`),
-      to: upsBad[0] ? `/facilities?dc=${upsBad[0].dc}` : '/facilities', state: (upsBad.some(u => u.state === 'On battery' || u.state === 'Fault') ? 'critical' : upsBad.length || feedsBad.length ? 'attention' : 'ok') as AreaState },
-    { key: 'cooling', label: 'Cooling & environment', value: pct(units.length - unitsFailed.length + zones.length - zonesHot.length, units.length + zones.length), measure: 'Cooling units running and zones within 27°C',
-      detail: join([...unitsFailed.map(u => `${u.name} failed (${u.dc})`), ...(zonesHot.length ? [`${zonesHot.length} zone${zonesHot.length > 1 ? 's' : ''} >27°C`] : []), ...(unitsMaint.length ? [`${unitsMaint.length} in maint.`] : [])], 'All cooling units running · all zones in range'),
-      to: unitsFailed[0] ? `/facilities?dc=${unitsFailed[0].dc}&tab=cooling` : '/facilities?tab=cooling', state: (unitsFailed.length || zonesHot.length ? 'attention' : 'ok') as AreaState }
+    { key: 'response', label: 'Incident response', unit: 'in SLA · estate', value: pct(open.length - breaching.length, open.length), measure: 'Open incidents still within their resolution SLA',
+      detail: `${breaching.length} of ${open.length} open incidents past SLA${n1 ? ` · ${n1} critical` : ''}`, to: '/incidents?view=breaching', state: (breaching.some(i => i.sev === 1) ? 'critical' : breaching.length ? 'attention' : 'ok') as AreaState,
+      sites: siteList(breaching.map(i => ({ id: i.dcId, crit: i.sev === 1, note: `${i.id} ${sevLabel(i.sev)} past SLA` })), id => `/incidents?view=breaching&dc=${id}`) },
+    { key: 'network', label: 'Network', unit: 'estate healthy', value: pct(lldp.length - linksDown.length + live.length - unreachable.length, lldp.length + live.length), measure: neo ? 'Network cables up (InfiniBand, Ethernet, OOB) and nodes reachable' : 'Physical links up and devices reachable',
+      detail: netDetail, to: '/datacenters?view=edge', state: (edgeIsolated.length ? 'critical' : linksDown.length || unreachable.length || edgeLost.length ? 'attention' : 'ok') as AreaState,
+      sites: siteList([...linksDown.map(l => ({ id: l.dcId, note: neo ? `${PLANE_SHORT[planeOf(l)]} cable down` : 'link down' })), ...unreachable.map(n => ({ id: n.dcId, note: 'device unreachable' })),
+        ...edgeLost.map(x => ({ id: x.id, note: 'edge redundancy lost' })), ...edgeIsolated.map(x => ({ id: x.id, crit: true, note: 'isolated — no edge link up' }))], id => `/datacenters/${id}?tab=topology`) },
+    { key: 'power', label: 'Power', unit: 'estate healthy', value: pct(upsAll.length - upsBad.length + feeds.length - feedsBad.length, upsAll.length + feeds.length), measure: 'UPS units online and utility feeds normal',
+      detail: join([...upsBad.map(u => `${u.name} ${u.state.toLowerCase()}`), ...(feedsBad.length ? [`${feedsBad.length} utility feed${feedsBad.length > 1 ? 's' : ''} lost`] : [])], `All ${upsAll.length} UPS online · all feeds normal`),
+      to: upsBad[0] ? `/facilities?dc=${upsBad[0].dc}` : '/facilities', state: (upsBad.some(u => u.state === 'On battery' || u.state === 'Fault') ? 'critical' : upsBad.length || feedsBad.length ? 'attention' : 'ok') as AreaState,
+      sites: siteList([...upsBad.map(u => ({ id: u.dc, crit: u.state === 'On battery' || u.state === 'Fault', note: `${u.name} ${u.state.toLowerCase()}` })), ...feedsBad.map(f => ({ id: f.dc, note: `${f.source.replace(/^Utility/, 'utility')} lost` }))], id => `/facilities?dc=${id}`) },
+    { key: 'cooling', label: 'Cooling & environment', unit: 'estate healthy', value: pct(units.length - unitsFailed.length + zones.length - zonesHot.length, units.length + zones.length), measure: 'Cooling units running and zones within 27°C',
+      detail: join([...unitsFailed.map(u => `${u.name} failed`), ...(zonesHot.length ? [`${zonesHot.length} zone${zonesHot.length > 1 ? 's' : ''} >27°C`] : []), ...(unitsMaint.length ? [`${unitsMaint.length} in maint.`] : [])], 'All cooling units running · all zones in range'),
+      to: unitsFailed[0] ? `/facilities?dc=${unitsFailed[0].dc}&tab=cooling` : '/facilities?tab=cooling', state: (unitsFailed.length || zonesHot.length ? 'attention' : 'ok') as AreaState,
+      sites: siteList([...unitsFailed.map(u => ({ id: u.dc, note: `${u.name} failed` })), ...zonesHot.map(z => ({ id: z.dc, note: `${z.zone} ${z.tempC}°C` }))], id => `/facilities?dc=${id}&tab=cooling`) }
   ];
+  /* what the % counts and why the status word is what it is (12-Oct-2026, user: "97.7% and Critical — healthy or at risk?").
+     The % is the share of items in a good state (higher is better); the status follows the worst single issue, so one UPS on
+     battery makes Power Critical even when 98% of the plant is fine. */
+  const plantUps = upsBad.filter(u => u.state === 'On battery' || u.state === 'Fault');
+  const explain: Record<string, { good: number; total: number; items: string; why: string }> = {
+    response: { good: open.length - breaching.length, total: open.length, items: 'open incidents within their resolution SLA',
+      why: breaching.some(i => i.sev === 1) ? 'Critical because a Critical incident is past its SLA.' : breaching.length ? `Attention because ${breaching.length} incident${breaching.length === 1 ? ' is' : 's are'} past SLA.` : 'Normal: every open incident is within SLA.' },
+    network: { good: lldp.length - linksDown.length + live.length - unreachable.length, total: lldp.length + live.length, items: `${neo ? 'cables' : 'physical links'} up and devices reachable (${fmtNum(lldp.length)} ${neo ? 'cables' : 'links'} + ${fmtNum(live.length)} devices)`,
+      why: edgeIsolated.length ? `Critical because ${edgeIsolated.map(x => x.id).join(', ')} has no edge link up.` : linksDown.length || unreachable.length || edgeLost.length ? `Attention because ${[linksDown.length && `${linksDown.length} ${neo ? 'cables' : 'links'} are down`, unreachable.length && `${unreachable.length} devices are unreachable`, edgeLost.length && `${edgeLost.length} site${edgeLost.length === 1 ? ' has' : 's have'} lost edge redundancy`].filter(Boolean).join(', ')}.` : 'Normal: every link is up and every device reachable.' },
+    power: { good: upsAll.length - upsBad.length + feeds.length - feedsBad.length, total: upsAll.length + feeds.length, items: `UPS units online and utility feeds normal (${upsAll.length} UPS + ${feeds.length} feeds)`,
+      why: plantUps.length ? `Critical because ${plantUps.map(u => `${u.name} at ${u.dc} is ${u.state.toLowerCase()}`).join(', ')} — that load is running on limited battery time.` : upsBad.length || feedsBad.length ? 'Attention because a UPS or a utility feed is not normal; the load is still protected.' : 'Normal: every UPS is online and every feed normal.' },
+    cooling: { good: units.length - unitsFailed.length + zones.length - zonesHot.length, total: units.length + zones.length, items: `cooling units running and zones within 27°C (${units.length} units + ${zones.length} zones)`,
+      why: unitsFailed.length || zonesHot.length ? `Attention because ${[unitsFailed.length && `${unitsFailed.length} cooling unit${unitsFailed.length === 1 ? '' : 's'} failed`, zonesHot.length && `${zonesHot.length} zone${zonesHot.length === 1 ? ' is' : 's are'} above 27°C`].filter(Boolean).join(' and ')}.` : 'Normal: every cooling unit is running and every zone in range.' }
+  };
+  const areas = domains.map(d => ({ ...d, ...explain[d.key] }));
   const facilityAlarms = al.filter(a => !a.neId && (a.source === 'Power' || a.source === 'Cooling' || a.source === 'Environment')).length;
   const activeChanges = db.changes.filter(c => c.status === 'In progress' || (c.status === 'Approved' && c.windowStart <= db.now && c.windowEnd >= db.now));
   const shi = Math.round(domains.reduce((a, d) => a + d.value, 0) / domains.length);
@@ -689,7 +718,7 @@ export function commandCenter() {
       availability: Math.round((live.reduce((a, n) => a + n.icmp.availability, 0) / live.length) * 100) / 100, mttrMin: Math.round(mttr), slaPct: resolved30.length ? Math.round((slaMet / resolved30.length) * 100) : 100,
       opexMonthly: s.reduce((a, x) => a + x.opexMonthly, 0), capexCommitted: s.reduce((a, x) => a + x.capexCommitted, 0), capexApproved: s.reduce((a, x) => a + x.capexApproved, 0),
       upsOk: ups.filter(u => u.state === 'Online').length, upsTotal: ups.length, coolingN1, liveDcs: db.datacenters.filter(d => d.status !== 'planned').length, rollout: rollout.length },
-    domains, shi, insights, attention, activity, estate: s, cap, exhaust,
+    domains: areas, shi, insights, attention, activity, estate: s, cap, exhaust,
     /* money view of the same situation: what is being lost, what is at stake, the next credit step */
     revenue: (() => { const r = revenue(); const losing = r.issues.filter(i => i.lost + i.credits + i.rate > 0), stake = [...r.issues].filter(i => i.mrrExposed > 0).sort((a, b) => b.mrrExposed - a.mrrExposed);
       return { base: r.base.mrr, total: r.total, sla: r.sla, issues: r.issues.length, top: losing[0] ?? null, stake: stake[0] ?? null, byDomain: r.byDomain.map(d => ({ domain: d.domain, impact: d.lost + d.credits, exposed: d.mrrExposed })) }; })()
@@ -697,6 +726,8 @@ export function commandCenter() {
 }
 
 type AreaState = 'ok' | 'attention' | 'critical';
+/* a datacenter carrying one of an area's issues: chip on the Command center's area row */
+type AreaSite = { id: string; state: 'critical' | 'attention'; note: string; to: string; n: number };
 const fmtWhenShort = (t: number) => { const d = new Date(t); const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return `${String(d.getDate()).padStart(2, '0')}-${M[d.getMonth()]} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 
 /* ---------------------------------------------------------------- topology */

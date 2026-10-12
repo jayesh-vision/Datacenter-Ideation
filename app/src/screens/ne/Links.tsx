@@ -5,7 +5,7 @@ import * as I from 'lucide-react';
 import { clockNow, getLink, usePersona, useQuery } from '../../api';
 import { PLANE_LABEL, planeOf, type Plane } from '../../lib/fabric';
 import type { LinkState, Protocol } from '../../api/types';
-import { Chip, Drawer, Panel } from '../../ui/kit';
+import { Chip, Drawer, Info, Panel } from '../../ui/kit';
 import { DataTable, type Col } from '../../ui/DataTable';
 import { CustLink, LinkStateChip, Meter, NeLink, ServiceChip, SvcLink } from '../../ui/status';
 import { fmtBw, fmtMonth, fmtNum } from '../../lib/format';
@@ -24,6 +24,8 @@ const CARDS: { p: Protocol; icon: I.LucideIcon; tone: string; rows: [string, (s:
   { p: 'ISIS', icon: I.TriangleAlert, tone: 'warning', rows: [['Up links', s => s === 'up', 'good'], ['Down links', s => s === 'down', 'bad'], ['Init state', s => s === 'init', 'warn']] }
 ];
 /* GPU cloud: hosts and fabric switches are read by network plane, not by routing protocol */
+/* the link role 'Fabric' (intra-site core / leaf–spine adjacency) is shown as Network (user, 12-Oct-2026); the data value is unchanged */
+const roleLabel = (r: string) => (r === 'Fabric' ? 'Network' : r);
 const PLANE_ICON: Record<Plane, I.LucideIcon> = { ib: I.Zap, eth: I.Network, mgmt: I.Wrench };
 const speedOf = (ls: L[]) => [...new Set(ls.map(l => fmtBw(l.capacityMbps)))].join(' / ');
 export const riskOf = (l: L) => (l.utilPct >= WARN || l.forecastMonths <= 6 ? { label: 'At risk', tone: 'error' as const } : l.forecastMonths <= 12 ? { label: 'Watch', tone: 'warning' as const } : { label: 'Healthy', tone: 'success' as const });
@@ -53,7 +55,7 @@ export function Links({ d }: { d: NeData }) {
   const cols: Col<L>[] = [
     { key: 'if', header: 'Local interface', render: l => <span className="mono strong">{linkIf(l, ne.id).local}</span>, sort: l => linkIf(l, ne.id).local },
     { key: 'peer', header: 'Peer', render: l => <span className="cell-2"><NeLink id={linkIf(l, ne.id).peerNe} /><small className="mono">{linkIf(l, ne.id).peerIf}</small></span>, sort: l => linkIf(l, ne.id).peerNe },
-    { key: 'role', header: 'Role', render: l => <Chip tone={l.role === 'Backhaul' ? 'error' : l.role === 'Uplink' ? 'info' : 'neutral'} size="xs">{l.role}</Chip>, sort: l => l.role },
+    { key: 'role', header: 'Role', render: l => <Chip tone={l.role === 'Backhaul' ? 'error' : l.role === 'Uplink' ? 'info' : 'neutral'} size="xs">{roleLabel(l.role)}</Chip>, sort: l => l.role },
     { key: 'cap', header: 'Capacity', align: 'right', render: l => <span className="num">{fmtBw(l.capacityMbps)}</span>, sort: l => l.capacityMbps },
     { key: 'util', header: 'Utilisation', render: l => (l.state === 'up' ? <Meter pct={l.utilPct} width={64} /> : <span className="faint">—</span>), sort: l => l.utilPct },
     { key: 'fc', header: 'Crosses 85%', render: l => <span className="num nowrap">{l.state !== 'up' ? '—' : l.forecastMonths === 0 ? <span className="bad">Now</span> : l.forecastDate && l.forecastMonths < 36 ? fmtMonth(l.forecastDate) : '> 3 years'}</span>, sort: l => l.forecastMonths },
@@ -64,7 +66,7 @@ export function Links({ d }: { d: NeData }) {
   return (
     <>
       {fabric ? (
-      <Panel title="Fabric connections" sub="Every cable on this device, by the network it belongs to; a down cable is what needs an operator">
+      <Panel title="Network connections" sub="Every cable on this device, by the network it belongs to; a down cable is what needs an operator" info="The device's cables grouped by network plane: InfiniBand (400G compute), Ethernet front-end (100G), management / OOB, plus BGP sessions where the switch runs them. Pick a card to list its cables in the table below.">
         <div className="ne-proto">
           {planes.map(p => {
             const ls = phys.filter(l => planeOf(l) === p), Ic = PLANE_ICON[p];
@@ -85,7 +87,7 @@ export function Links({ d }: { d: NeData }) {
         </div>
       </Panel>
       ) : (
-      <Panel title="Protocol adjacencies" sub="Pick a protocol to list its links; down and init sessions are what need an operator">
+      <Panel title="Protocol adjacencies" sub="Pick a protocol to list its links; down and init sessions are what need an operator" info="Adjacencies by protocol: LLDP = physical cables, OSPF / ISIS = routing neighbours, BGP = peering sessions, LSP = MPLS paths, each counted by state. Pick a card to list its links in the table below.">
         <div className="ne-proto">
           {CARDS.map(c => {
             const ls = d.links.filter(l => l.protocol === c.p);
@@ -107,7 +109,7 @@ export function Links({ d }: { d: NeData }) {
               search={{ value: lq, onChange: setLq, placeholder: 'Interface, peer, link ID' }}
               filters={[
                 { id: 'state', label: 'State', quick: true, value: lst, anyLabel: 'Any state', onChange: setLst, options: [...new Set(all.map(l => l.state))].map(x => ({ id: x, label: x[0].toUpperCase() + x.slice(1), count: all.filter(l => l.state === x).length })) },
-                { id: 'role', label: 'Role', quick: true, value: lrole, anyLabel: 'Any role', onChange: setLrole, options: [...new Set(all.map(l => l.role))].map(x => ({ id: x, label: x, count: all.filter(l => l.role === x).length })) }
+                { id: 'role', label: 'Role', quick: true, value: lrole, anyLabel: 'Any role', onChange: setLrole, options: [...new Set(all.map(l => l.role))].map(x => ({ id: x, label: roleLabel(x), count: all.filter(l => l.role === x).length })) }
               ]} />
           } />
       </section>
@@ -116,7 +118,7 @@ export function Links({ d }: { d: NeData }) {
         <section className="vw-card-section ne-fc">
           <div className="ne-fc-head">
             <span className="vw-card-icon-md ne-dep-ic"><I.TrendingUp size={18} /></span>
-            <div style={{ flex: 1 }}><span className="vw-card-title-sm">Link saturation watch</span><span className="vw-label" style={{ display: 'block' }}>{fabric ? 'Spine uplinks' : 'Backhaul and uplinks'} on this device, soonest to cross the 85% warning line first · trend of the last 6 monthly peaks</span></div>
+            <div style={{ flex: 1 }}><span className="vw-card-title-sm">Link saturation watch<Info text={`${fabric ? 'Spine uplinks' : 'Backhaul and uplinks'} ordered by when they cross ${WARN}%, projected from current load and monthly growth. At risk = over ${WARN}% or within 6 months, Watch = within 12. Pick a link to chart its last 6 monthly peaks; Trace link opens the cable and what rides it.`} /></span><span className="vw-label" style={{ display: 'block' }}>{fabric ? 'Spine uplinks' : 'Backhaul and uplinks'} on this device, soonest to cross the 85% warning line first · trend of the last 6 monthly peaks</span></div>
           </div>
           <div className="ne-fc-body">
             <div className="ne-fc-list">
@@ -162,7 +164,7 @@ export function LinkDrawer({ id, onClose }: { id: string | null; onClose: () => 
   const l = data?.link;
   const phys = l?.physical ?? data?.siblings.find(x => x.protocol === 'LLDP')?.physical ?? null;
   return (
-    <Drawer open onClose={onClose} width={580} title={<span className="mono">{id}</span>} sub={l ? `${l.protocol} · ${l.role} · ${fmtBw(l.capacityMbps)}` : 'Loading'}>
+    <Drawer open onClose={onClose} width={580} title={<span className="mono">{id}</span>} sub={l ? `${l.protocol} · ${roleLabel(l.role)} · ${fmtBw(l.capacityMbps)}` : 'Loading'}>
       {!data || !l ? <Loading /> : (
         <div className="col" style={{ gap: 16 }}>
           <div className="ne-trace">

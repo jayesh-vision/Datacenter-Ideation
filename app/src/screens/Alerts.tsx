@@ -109,24 +109,24 @@ function AlertAnalytics({ alarms, now, sev, onSev, onDc }: { alarms: Alert[]; no
   const critDc = new Set(alarms.filter(a => a.severity === 'critical').map(a => a.dcId));
   return (
     <StatGrid>
-      <StatTile label="Active alarms" value={alarms.length} sub={`${unack.length} unacked`}>
+      <StatTile label="Active alarms" value={alarms.length} sub={`${unack.length} unacked`} info="Alarms matching the current scope, state and source filters, by severity. Unacked = still Active, not yet acknowledged by anyone. Click a severity to filter the list.">
         <Split parts={SEVS.map(s => ({ key: s, label: SEVERITY[s].label, n: alarms.filter(a => a.severity === s).length, tone: SEV_TONE[s] }))} onPick={onSev} active={sev} />
       </StatTile>
-      <StatTile label="Acknowledged" value={`${ackPct}%`} sub={`${alarms.length - unack.length} of ${alarms.length}`}>
+      <StatTile label="Acknowledged" value={`${ackPct}%`} sub={`${alarms.length - unack.length} of ${alarms.length}`} info="Share of the listed alarms that are no longer Active (acknowledged or cleared). Facts: critical alarms still waiting for an owner, and the age of the oldest unacknowledged alarm.">
         <SoftMeter pct={ackPct} tone={ackPct >= 80 ? 'success' : ackPct >= 50 ? 'warning' : 'error'} />
         <Facts items={[{ n: critUnack, label: 'critical waiting', tone: critUnack ? 'bad' : undefined }, { n: oldest ? fmtDur((now - oldest) / 60000) : '—', label: 'oldest' }]} />
       </StatTile>
-      <StatTile label="Correlated" value={inInc.length} sub={`alarms in ${incs} incident${incs === 1 ? '' : 's'}`}>
+      <StatTile label="Correlated" value={inInc.length} sub={`alarms in ${incs} incident${incs === 1 ? '' : 's'}`} info="Listed alarms already attached to an incident versus still uncorrelated. To correlate, select alarms that share a cause in the list and use Correlate into incident.">
         <Split parts={[{ key: 'in', label: 'In incidents', n: inInc.length, tone: 'info' }, { key: 'free', label: 'Uncorrelated', n: alarms.length - inInc.length, tone: 'neutral' }]} />
       </StatTile>
-      <StatTile label="By category" value={cats.filter(c => alarms.some(a => a.category === c)).length} sub="categories active">
+      <StatTile label="By category" value={cats.filter(c => alarms.some(a => a.category === c)).length} sub="categories active" info="How many alarm categories (Facility, Network, Device, Performance) have at least one listed alarm, and how the alarms split between them.">
         <Split parts={cats.map(c => ({ key: c, label: c, n: alarms.filter(a => a.category === c).length, tone: CAT_TONE[c] }))} />
       </StatTile>
-      <StatTile label="Raised · last 24 h" value={raised} sub={raised ? `peak at ${String(new Date(now - (23 - peak) * 3600000).getHours()).padStart(2, '0')}:00` : 'quiet'}>
+      <StatTile label="Raised · last 24 h" value={raised} sub={raised ? `peak at ${String(new Date(now - (23 - peak) * 3600000).getHours()).padStart(2, '0')}:00` : 'quiet'} info="Listed alarms that started in the last 24 hours: the bar splits them by severity, the columns count them per hour (the busiest hour is highlighted and named in the qualifier).">
         <Split legend={false} parts={SEVS.map(s => ({ key: s, label: SEVERITY[s].label, n: alarms.filter(a => a.severity === s && a.start > now - 86400000).length, tone: SEV_TONE[s] }))} />
         <MiniBars values={hours} labels={['24 h ago', 'now']} hot={raised ? peak : undefined} />
       </StatTile>
-      <StatTile label="Top datacenters" value={`${alarms.length ? Math.round((byDc.reduce((a, x) => a + x[1], 0) / alarms.length) * 100) : 0}%`} sub="of alarms in top 3">
+      <StatTile label="Top datacenters" value={`${alarms.length ? Math.round((byDc.reduce((a, x) => a + x[1], 0) / alarms.length) * 100) : 0}%`} sub="of alarms in top 3" info="Share of the listed alarms that sit in the three datacenters with the most alarms. A red bar means that site has a critical alarm. Click a site to filter the list to it.">
         <SoftMeter pct={alarms.length ? (byDc.reduce((a, x) => a + x[1], 0) / alarms.length) * 100 : 0} tone="warning" />
         <RankList items={byDc.map(([dc, n]) => ({ key: dc, label: dc, n, tone: critDc.has(dc) ? 'error' : 'warning', onClick: () => onDc(dc) }))} />
       </StatTile>

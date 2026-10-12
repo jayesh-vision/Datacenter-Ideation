@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Info } from './kit';
 
 /* Analytics strip used at the top of the list screens (Datacenters, Alerts,
    Incidents, Changes): one card of tiles, each tile = label · headline number
@@ -15,10 +16,10 @@ export function StatGrid({ children, cols = 6 }: { children: ReactNode; cols?: n
   return <section className={`vw-card-section dco-card dco-cols-${cols}`}>{children}</section>;
 }
 
-export function StatTile({ label, value, sub, subTone, children, onClick, active }: { label: ReactNode; value: ReactNode; sub?: ReactNode; subTone?: 'bad' | 'warn'; children?: ReactNode; onClick?: () => void; active?: boolean }) {
+export function StatTile({ label, value, sub, subTone, children, onClick, active, info }: { label: ReactNode; value: ReactNode; sub?: ReactNode; subTone?: 'bad' | 'warn'; children?: ReactNode; onClick?: () => void; active?: boolean; info?: string }) {
   const body = (
     <>
-      <span className="dco-l">{label}</span>
+      <span className="dco-l">{label}{info && <Info text={info} />}</span>
       <span className="dco-v"><span className="dco-num">{value}</span>{sub !== undefined && <span className={`dco-sub ${subTone ?? ''}`} title={typeof sub === 'string' ? sub : undefined}>{sub}</span>}</span>
       <div className="dco-detail">{children}</div>
     </>
