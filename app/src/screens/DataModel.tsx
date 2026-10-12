@@ -23,7 +23,7 @@ interface DmApi {
   setHidden: (d: string[]) => void; setQuery: (q: string) => number; reset: () => void; setFull: (on: boolean) => void;
 }
 /* the import template's data sheets (scripts/inventory/build_template.py) */
-const TEMPLATE_SHEETS = 20;
+const TEMPLATE_SHEETS = 35;
 /* containment from region to cable: the deepest path in the Hierarchy view */
 const DEPTH = ['region', 'state', 'site', 'floor', 'room', 'rack', 'device', 'iface', 'link', 'cable'];
 

@@ -48,6 +48,20 @@ LOOK = {
     'service_unit': ['cabinets', 'kW', 'Mbps', 'hours', 'GPU', 'vCPU', 'TB', 'users'],
     'collector_protocol': ['SNMP', 'gNMI', 'Redfish', 'DCGM exporter', 'Modbus TCP', 'BACnet', 'Syslog'],
     'collector_domain': ['Network', 'Facility', 'Compute', 'GPU'],
+    'pdu_side': ['A', 'B'],
+    'pdu_kind': ['AC', 'DC'],
+    'panel_kind': ['LC duplex', 'MPO', 'RJ45'],
+    'panel_role': ['rack', 'odf'],
+    'link_end': ['A', 'Z'],
+    'tray_route': ['Tray route 1', 'Tray route 2'],
+    'detection': ['VESDA aspirating', 'Point smoke + heat'],
+    'suppression': ['Novec 1230 gas', 'Inert gas (IG-541)', 'Pre-action sprinkler'],
+    'release_mode': ['Armed (auto)', 'Manual only', 'Isolated'],
+    'door_kind': ['Building entry', 'Data hall door', 'Cage door', 'Plant room door', 'Meet-me room door'],
+    'reader': ['Card + biometric', 'Card + PIN', 'Card'],
+    'support_level': ['24×7×4', 'NBD', '8×5 NBD', 'None'],
+    'pm_kind': ['UPS', 'Battery', 'Generator', 'Cooling', 'CDU', 'Fire', 'Electrical'],
+    'oncall_role': ['NOC shift lead', 'Network engineer', 'Facility engineer', 'Field technician', 'Duty manager', 'AI infrastructure engineer'],
 }
 
 # ---------------------------------------------------------------- sheet specs
@@ -231,11 +245,70 @@ S['Links'] = ('Link', 'One row per cable or circuit between two interfaces.', [
     ('role', 'Y', 'list', 'link_role', 'Link.role', 'Fabric (inside a fabric), Uplink, Backhaul (leaves the site), Peering, Access (to a host / customer).'),
     ('protocol', 'N', 'list', 'protocol', 'Link.protocol', 'Default LLDP (physical). Add BGP / OSPF rows for routing adjacencies if needed.'),
     ('capacity_mbps', 'Y', 'integer', '', 'Link.capacityMbps', ''),
-    ('cable_id', 'N', 'text', '', 'Link.physical.cable', 'Cable / trunk label.'),
+    ('cable_id', 'N', 'text', '', 'Link.physical.cable', 'Cross-connect jumper or cable label. The full patching of each end goes in Cable_Paths.'),
     ('strand', 'N', 'text', '', 'Link.physical.strand', 'Fibre strand or pair.'),
-    ('a_patch_port', 'N', 'text', '', 'Link.physical.aPort', 'Patch panel / ODF port at the A end.'),
-    ('z_patch_port', 'N', 'text', '', 'Link.physical.zPort', ''),
+    ('a_patch_port', 'N', 'text', '', 'Link.physical.aPort', 'Older exports only: superseded by Cable_Paths.'),
+    ('z_patch_port', 'N', 'text', '', 'Link.physical.zPort', 'Older exports only: superseded by Cable_Paths.'),
     ('carrier_circuit_id', 'C', 'text', '', '(reference only)', 'Backhaul: the carrier\'s circuit ID.'),
+])
+S['Rack_PDUs'] = ('RackPdu', 'Two per cabinet, A side and B side. −48 V fuse panels (BDFB) for DC-powered gear count as DC PDUs.', [
+    ('pdu_id', 'Y', 'text', '', 'RackPdu.id', 'Unique, for example MP-DC-001-A01-PDU-A.'),
+    ('site_id', 'Y', 'ref', 'Sites', 'RackPdu.dcId', ''),
+    ('rack_id', 'Y', 'ref', 'Racks', 'RackPdu.rackId', ''),
+    ('side', 'Y', 'list', 'pdu_side', 'RackPdu.side', 'A or B. Each side should be rated for the whole cabinet, so the cabinet survives the loss of either side.'),
+    ('kind', 'Y', 'list', 'pdu_kind', 'RackPdu.kind', 'AC rack PDU, or DC fuse panel fed from the rectifier plant.'),
+    ('model', 'N', 'text', '', 'RackPdu.model', 'Vendor and model, for example "Raritan PX3-5902V".'),
+    ('volts', 'Y', 'decimal', '', 'RackPdu.volts', '230, 400 (3-phase) or 48 (DC).'),
+    ('phases', 'Y', 'integer', '', 'RackPdu.phases', '1 or 3.'),
+    ('rating_a', 'Y', 'decimal', '', 'RackPdu.ratingA', 'Input breaker rating per phase (A).'),
+    ('capacity_kw', 'Y', 'decimal', '', 'RackPdu.capacityKw', 'What one side can carry. The tool checks the cabinet\'s draw against it for failover.'),
+    ('outlets', 'Y', 'integer', '', 'RackPdu.outlets', 'Number of outlets (C13 / C19).'),
+    ('upstream_id', 'Y', 'ref', 'UPS / DC_Plant', 'RackPdu.upstreamId', 'The UPS module (AC) or rectifier (DC) feeding this PDU: this is how a UPS fault is traced to devices.'),
+    ('feed_id', 'Y', 'ref', 'Power_Feeds', 'RackPdu.feedId', 'Utility feed behind that UPS.'),
+])
+S['Power_Connections'] = ('PowerCord', 'One row per power cord: which PDU outlet each device power supply plugs into.', [
+    ('device_id', 'Y', 'ref', 'Devices', 'PowerCord.neId', ''),
+    ('psu_slot', 'Y', 'text', '', 'PowerCord.psu', 'As the device names it (PSU1, PEM0). Tenant gear: Feed A / Feed B.'),
+    ('pdu_id', 'Y', 'ref', 'Rack_PDUs', 'PowerCord.pduId', 'A PDU in the same rack as the device.'),
+    ('outlet', 'Y', 'integer', '', 'PowerCord.outlet', 'Outlet number on that PDU.'),
+    ('breaker_bank', 'N', 'text', '', 'PowerCord.bankId', 'Phase or bank (L1, L2, L3). Leave blank to derive it from the outlet.'),
+    ('psu_rated_w', 'N', 'decimal', '', '(reference only)', 'Nameplate rating of the supply.'),
+])
+S['Patch_Panels'] = ('PatchPanel', 'Every patch panel and ODF panel.', [
+    ('panel_id', 'Y', 'text', '', 'PatchPanel.id', 'Unique, for example MP-DC-001-A01-PP-F1.'),
+    ('site_id', 'Y', 'ref', 'Sites', 'PatchPanel.dcId', ''),
+    ('rack_id', 'Y', 'ref', 'Racks', 'PatchPanel.rackId', ''),
+    ('name', 'Y', 'text', '', 'PatchPanel.name', 'Label on the panel.'),
+    ('kind', 'Y', 'list', 'panel_kind', 'PatchPanel.kind', 'LC duplex (fibre), MPO (high-density fibre) or RJ45 (copper).'),
+    ('role', 'Y', 'list', 'panel_role', 'PatchPanel.role', 'rack = top of a cabinet; odf = in the site\'s patching / main distribution rack.'),
+    ('ports', 'Y', 'integer', '', 'PatchPanel.ports', ''),
+])
+S['Trunk_Cables'] = ('Trunk', 'Permanent cables between a cabinet patch panel and the ODF (or between two ODFs).', [
+    ('trunk_id', 'Y', 'text', '', 'Trunk.id', ''),
+    ('site_id', 'Y', 'ref', 'Sites', 'Trunk.dcId', ''),
+    ('a_panel_id', 'Y', 'ref', 'Patch_Panels', 'Trunk.aPanel', ''),
+    ('z_panel_id', 'Y', 'ref', 'Patch_Panels', 'Trunk.zPanel', ''),
+    ('kind', 'Y', 'text', '', 'Trunk.kind', 'For example "MPO-24 OM4 trunk" or "Cat6A 24-cable bundle".'),
+    ('pairs', 'Y', 'integer', '', 'Trunk.pairs', 'Duplex pairs (fibre) or cables (copper).'),
+    ('route', 'Y', 'list', 'tray_route', 'Trunk.route', 'Tray route. Two diverse routes let dual-homed devices survive one cut tray.'),
+    ('length_m', 'N', 'decimal', '', 'Trunk.lengthM', ''),
+])
+S['Cable_Paths'] = ('CablePath (one row per link end)', 'How each end of a link is patched. An in-rack cable needs only the patch cord.', [
+    ('link_id', 'Y', 'ref', 'Links', 'CablePath.linkId', ''),
+    ('end', 'Y', 'list', 'link_end', '(A / Z end)', 'A = the a_device of the link, Z = the z_device.'),
+    ('device_id', 'Y', 'ref', 'Devices', 'CableHop (port)', ''),
+    ('patch_cord_id', 'N', 'text', '', 'CableHop (cord)', 'Label on the patch cord or DAC / AOC cable.'),
+    ('panel_id', 'C', 'ref', 'Patch_Panels', 'CableHop (panel)', 'Required when the cable leaves the cabinet: the cabinet\'s patch panel.'),
+    ('panel_port', 'C', 'integer', '', 'CableHop (panel)', ''),
+    ('trunk_id', 'C', 'ref', 'Trunk_Cables', 'CableHop (trunk)', 'Trunk from that panel to the ODF.'),
+    ('odf_panel_id', 'C', 'ref', 'Patch_Panels', 'CableHop (panel)', 'ODF panel where the trunk lands; the cross-connect jumper is patched here.'),
+    ('odf_port', 'C', 'integer', '', 'CableHop (panel)', ''),
+    ('osp_core', 'C', 'integer', '', 'CableHop (osp)', 'Backhaul only: core of the outside-plant cable on the ODF.'),
+])
+S['Cooling_Coverage'] = ('RackCooling', 'Optional: the cooling unit nearest each rack. Without it the system uses the units in the rack\'s room.', [
+    ('rack_id', 'Y', 'ref', 'Racks', 'RackCooling.rackId', ''),
+    ('primary_unit_id', 'Y', 'ref', 'Cooling_Units', 'RackCooling.primaryId', 'The CRAH / CRAC this rack depends on first.'),
+    ('cdu_id', 'C', 'ref', 'CDUs', 'RackCooling.cduId', 'Liquid-cooled racks.'),
 ])
 S['GPU_Clusters'] = ('GpuCluster', 'Only for GPU estates.', [
     ('cluster_id', 'Y', 'text', '', 'GpuCluster.id', ''),
@@ -296,6 +369,78 @@ S['Collectors'] = ('Datacenter.collectors[]', 'Monitoring sources the system wil
     ('host_ip', 'N', 'ip', '', '(integration)', ''),
     ('covers', 'N', 'text', '', '(integration)', 'What it polls.'),
 ])
+S['Fire_Systems'] = ('FireZone', 'Fire detection and suppression, one row per protected room.', [
+    ('zone_id', 'Y', 'text', '', 'FireZone.id', ''),
+    ('site_id', 'Y', 'ref', 'Sites', 'FireZone.dcId', ''),
+    ('room_id', 'Y', 'ref', 'Rooms', 'FireZone.zone', ''),
+    ('detection', 'Y', 'list', 'detection', 'FireZone.detection', 'VESDA (aspirating) in data halls; point smoke + heat elsewhere.'),
+    ('suppression', 'Y', 'list', 'suppression', 'FireZone.suppression', ''),
+    ('release_mode', 'Y', 'list', 'release_mode', 'FireZone.release', 'Armed (auto) in normal operation.'),
+    ('last_inspection', 'Y', 'date', '', 'FireZone.lastInspection', 'Quarterly inspection; the tool flags it overdue after 91 days.'),
+    ('panel_point', 'N', 'text', '', '(collector mapping)', 'Fire-panel / BMS point for live detector state.'),
+])
+S['Leak_Detection'] = ('LeakZone', 'Leak-detection rope zones under cooling units, CDUs and liquid racks.', [
+    ('zone_id', 'Y', 'text', '', 'LeakZone.id', ''),
+    ('site_id', 'Y', 'ref', 'Sites', 'LeakZone.dcId', ''),
+    ('room_id', 'Y', 'ref', 'Rooms', 'LeakZone.zone', ''),
+    ('guards', 'Y', 'text', '', 'LeakZone.covers', 'What the rope runs under (CRAH-11, CDU-01 manifold…).'),
+    ('length_m', 'N', 'decimal', '', 'LeakZone.lengthM', ''),
+    ('last_test', 'N', 'date', '', 'LeakZone.lastTest', 'Last wet test.'),
+])
+S['Access_Points'] = ('AccessPoint', 'Every access-controlled door: building entry, room doors, tenant cage doors.', [
+    ('door_id', 'Y', 'text', '', 'AccessPoint.id', ''),
+    ('site_id', 'Y', 'ref', 'Sites', 'AccessPoint.dcId', ''),
+    ('name', 'Y', 'text', '', 'AccessPoint.name', ''),
+    ('room_id', 'N', 'ref', 'Rooms', 'AccessPoint.zone', ''),
+    ('kind', 'Y', 'list', 'door_kind', 'AccessPoint.kind', ''),
+    ('reader', 'Y', 'list', 'reader', 'AccessPoint.reader', ''),
+    ('tenant_customer_id', 'C', 'ref', 'Customers', 'AccessPoint.tenantId', 'Cage doors: the tenant whose badges open it.'),
+])
+S['Support_Contracts'] = ('AssetLife.contract', 'Vendor support / AMC contracts.', [
+    ('contract_id', 'Y', 'text', '', 'contract.id', ''),
+    ('site_id', 'Y', 'ref', 'Sites', '(scope)', ''),
+    ('vendor', 'Y', 'text', '', '(vendor)', ''),
+    ('level', 'Y', 'list', 'support_level', 'contract.level', '24×7×4 = 4-hour on-site response; NBD = next business day.'),
+    ('start', 'N', 'date', '', '(reference only)', ''),
+    ('expires', 'Y', 'date', '', 'contract.expires', 'The tool flags devices whose contract ends within 90 days.'),
+])
+S['Asset_Lifecycle'] = ('AssetLife', 'Per device: install date, warranty and which contract covers it.', [
+    ('device_id', 'Y', 'ref', 'Devices', 'AssetLife.neId', ''),
+    ('installed', 'Y', 'date', '', 'AssetLife.installed', ''),
+    ('warranty_end', 'Y', 'date', '', 'AssetLife.warrantyEnd', ''),
+    ('contract_id', 'N', 'ref', 'Support_Contracts', 'AssetLife.contract', 'Blank = warranty only.'),
+])
+S['Model_Lifecycle'] = ('modelDates()', 'Vendor end-of-sale / end-of-support dates per model (one row per model).', [
+    ('vendor', 'Y', 'text', '', 'AssetLife.vendor', ''),
+    ('model', 'Y', 'text', '', 'AssetLife.model', 'Exactly as in Devices.model.'),
+    ('end_of_sale', 'Y', 'date', '', 'AssetLife.endOfSale', ''),
+    ('end_of_support', 'Y', 'date', '', 'AssetLife.endOfSupport', 'Past this date the device is flagged End of support.'),
+])
+S['Spares'] = ('SparePart', 'Field-replaceable spares held on site.', [
+    ('site_id', 'Y', 'ref', 'Sites', 'SparePart.dcId', ''),
+    ('part', 'Y', 'text', '', 'SparePart.part', 'Part family, for example "DELL power supply", "SFP-10G-LR", "H200 SXM 141 GB board".'),
+    ('fits', 'N', 'text', '', 'SparePart.fits', ''),
+    ('on_hand', 'Y', 'integer', '', 'SparePart.onHand', ''),
+    ('min_level', 'Y', 'integer', '', 'SparePart.min', 'The tool flags Low when the free count falls below it.'),
+])
+S['PM_Plan'] = ('PmTask', 'Preventive-maintenance plan of the plant (UPS, batteries, DG, cooling, CDU, fire, switchgear).', [
+    ('task_id', 'Y', 'text', '', 'PmTask.id', ''),
+    ('site_id', 'Y', 'ref', 'Sites', 'PmTask.dcId', ''),
+    ('asset_id', 'Y', 'text', '', 'PmTask.assetId', 'UPS, cooling unit, fire zone, DG… id from the sheets above.'),
+    ('kind', 'Y', 'list', 'pm_kind', 'PmTask.kind', ''),
+    ('task', 'Y', 'text', '', 'PmTask.task', ''),
+    ('interval_days', 'Y', 'integer', '', 'PmTask.intervalDays', ''),
+    ('last_done', 'Y', 'date', '', 'PmTask.lastDone', 'Next due = last done + interval.'),
+    ('owner', 'N', 'text', '', 'PmTask.owner', ''),
+])
+S['On_Call'] = ('OnCall', 'On-call rota: who answers per region and role.', [
+    ('region', 'Y', 'text', '', 'Region.name', 'Region as in Sites.region.'),
+    ('role', 'Y', 'list', 'oncall_role', 'OnCall.role', ''),
+    ('name', 'Y', 'text', '', 'OnCall.name', ''),
+    ('tier', 'Y', 'integer', '', 'OnCall.tier', '1, 2 or 3.'),
+    ('escalate_after_min', 'Y', 'integer', '', 'OnCall.escalateAfterMin', 'Minutes before an unacknowledged page escalates.'),
+    ('phone', 'N', 'text', '', '(paging)', ''),
+])
 ORDER = list(S.keys())
 
 # ---------------------------------------------------------------- example data (illustrative, two RackBank sites)
@@ -311,6 +456,12 @@ if BACKUP:
     S['Snapshot_Changes'] = ('Change (snapshot, not imported)', 'Changes and maintenance windows at the time of the backup.', [(k, 'N', 'text', '', m, '') for k, m in [
         ('change_id', 'Change.id'), ('site_id', 'Change.dcId'), ('kind', 'Change.kind'), ('title', 'Change.title'), ('status', 'Change.status'), ('risk', 'Change.risk'), ('window_start', 'Change.windowStart'),
         ('window_end', 'Change.windowEnd'), ('requester', 'Change.requester'), ('approver', 'Change.approver'), ('scope', 'Change.scope')]])
+    S['Snapshot_RMA'] = ('RmaCase (snapshot, not imported)', 'Open RMA cases at the time of the backup.', [(k, 'N', 'text', '', m, '') for k, m in [
+        ('rma_id', 'RmaCase.id'), ('site_id', 'RmaCase.dcId'), ('device_id', 'RmaCase.neId'), ('slot', 'RmaCase.slot'), ('part', 'RmaCase.part'), ('vendor_case', 'RmaCase.ref'), ('status', 'RmaCase.status'), ('opened', 'RmaCase.opened'), ('spare_on_site', 'RmaCase.spareOnSite')]])
+    S['Snapshot_Problems'] = ('Problem (snapshot, not imported)', 'Problem records grouping recurring incidents.', [(k, 'N', 'text', '', m, '') for k, m in [
+        ('problem_id', 'Problem.id'), ('title', 'Problem.title'), ('type', 'Problem.type'), ('state', 'Problem.state'), ('incidents', 'Problem.incidents'), ('open', 'Problem.open'), ('sites', 'Problem.sites'), ('workaround', 'Problem.workaround'), ('fix', 'Problem.fix'), ('owner', 'Problem.owner')]])
+    S['Snapshot_Orders'] = ('CrossConnectOrder + RemoteHandsTicket (snapshot)', 'Colocation cross-connect orders and remote-hands tickets.', [(k, 'N', 'text', '', m, '') for k, m in [
+        ('order_id', 'id'), ('kind', 'Cross-connect / Remote hands'), ('site_id', 'dcId'), ('customer_id', 'customerId'), ('detail', 'route or task'), ('state', 'state'), ('opened', 'ordered / opened'), ('due_or_minutes', 'due / minutes')]])
     ORDER = list(S.keys())
     META = BACKUP.pop('_meta')[0]
     rows = {k: [[(D.fromisoformat(v) if isinstance(v, str) and len(v) == 10 and v[4:5] == '-' and v[7:8] == '-' and v[:4].isdigit() else v) for v in r] for r in BACKUP.get(k, [])] for k in ORDER}
@@ -560,6 +711,88 @@ else:
     svc('CUST-006', 'Storage volume', T, 200, 'TB', 400000, 99.9, 'N', dev_=t_stg[0], start=D(2025, 3, 1))
     A['Services'] = sv
 
+    # --- physical last mile: rack PDUs + cords, patch panels, trunks, cable paths, cooling coverage
+    racks = {r[0]: r for r in A['Racks']}
+    ups_of = {site: [u[0] for u in A['UPS'] if u[1] == site] for site in (M, T)}
+    pdus, cords, panels, trunks, paths, cover = [], [], [], [], [], []
+    for i, r in enumerate(A['Racks']):
+        rid, site, kw = r[0], r[1], r[8]
+        rating = next(x for x in [(7.4, 230, 1, 32, 'Raritan PX3 1-ph 32 A', 24), (11, 400, 3, 16, 'Raritan PX3 3-ph 16 A', 24), (22, 400, 3, 32, 'Raritan PX3 3-ph 32 A', 36), (43.6, 400, 3, 63, 'Raritan PX4 3-ph 63 A', 48), (86, 400, 3, 125, 'Starline busway tap-off 125 A', 48)] if x[0] >= kw) if kw <= 86 else (86, 400, 3, 125, 'Starline busway tap-off 125 A', 48)
+        ua, ub = ups_of[site][1::2], ups_of[site][0::2]
+        for side, ups, feed in (('A', ua, r[15]), ('B', ub, r[16])):
+            pdus.append([f'{rid}-PDU-{side}', site, rid, side, 'AC', rating[4], rating[1], rating[2], rating[3], kw, rating[5], ups[i % len(ups)], feed])
+    nxt = {}
+    for d in A['Devices']:
+        did, rid, role, owner = d[0], d[11], d[3], d[15]
+        slots = ['Feed A', 'Feed B'] if owner == 'tenant' else ['PSU1', 'PSU2', 'PSU3', 'PSU4'] if role == 'GPU' else ['PSU1', 'PSU2']
+        for k, slot in enumerate(slots):
+            pid = f'{rid}-PDU-{"A" if k % 2 == 0 else "B"}'
+            o = nxt.get(pid, 0) + 1; nxt[pid] = o
+            cords.append([did, slot, pid, o, None, 3000 if role == 'GPU' else 1100 if role in ('Server', 'Storage') else 750 if owner == 'operator' else None])
+    rack_of = {d[0]: d[11] for d in A['Devices']}
+    odf_rack = {M: f'{M}-MMR-R01', T: f'{T}-MMR-R01'}
+    pp_use, odf_use, trk_use, osp = {}, {M: 0, T: 0}, {}, {M: 0, T: 0}
+    per_dev = {}
+    for l in A['Links']:
+        lid, a, z = l[0], l[1], l[3]
+        for end, dv, other in (('A', a, z), ('Z', z, a)):
+            site, rid = dv[:9], rack_of[dv]
+            cord = f'{rid}-PC-{len(paths) + 1:04d}'
+            if rack_of[other] == rid:
+                paths.append([lid, end, dv, cord, None, None, None, None, None, None]); continue
+            k = per_dev.get(dv, 0); per_dev[dv] = k + 1
+            route = f'Tray route {k % 2 + 1}'
+            pid = tid = pport = None
+            if rid != odf_rack[site]:
+                pp_use[rid] = pp_use.get(rid, 0) + 1; n = pp_use[rid]
+                pid, pport = f'{rid}-PP-F{(n - 1) // 24 + 1}', (n - 1) % 24 + 1
+                tid = f'{rid}-TRK-{k % 2 + 1}'; trk_use[tid] = (trk_use.get(tid, (0, route, rid, pid))[0] + 1, route, rid, pid)
+            odf_use[site] += 1; on = odf_use[site]
+            core = None
+            if other[:9] != site: osp[site] += 1; core = osp[site]
+            paths.append([lid, end, dv, cord, pid, pport, tid, f'{odf_rack[site]}-ODF-{(on - 1) // 24 + 1}', (on - 1) % 24 + 1, core])
+    for rid, n in pp_use.items():
+        for j in range((n - 1) // 24 + 1): panels.append([f'{rid}-PP-F{j + 1}', rid[:9], rid, f'PP-F{j + 1}', 'LC duplex', 'rack', 24])
+    for site, n in odf_use.items():
+        for j in range((n - 1) // 24 + 1): panels.append([f'{odf_rack[site]}-ODF-{j + 1}', site, odf_rack[site], f'ODF-{j + 1}', 'LC duplex', 'odf', 24])
+    for tid, (n, route, rid, pid) in trk_use.items():
+        trunks.append([tid, rid[:9], pid, f'{odf_rack[rid[:9]]}-ODF-1', 'MPO-24 OM4 trunk', 12 * ((n - 1) // 12 + 1), route, 35 if racks[rid][2].endswith(('MMR', 'NET')) else 60])
+    for r in A['Racks']:
+        units = [u for u in A['Cooling_Units'] if u[2] == r[2] and u[4] != 'CDU'] or [u for u in A['Cooling_Units'] if u[1] == r[1] and u[4] != 'CDU']
+        cover.append([r[0], units[r[5] % len(units)][0] if units else None, r[14]])
+    A['Rack_PDUs'], A['Power_Connections'], A['Patch_Panels'], A['Trunk_Cables'], A['Cable_Paths'], A['Cooling_Coverage'] = pdus, cords, panels, trunks, paths, cover
+
+    # --- safety, lifecycle, maintenance, on-call (illustrative)
+    rooms = [r for r in A['Rooms']]
+    fz, lk, ap = [], [], []
+    for r in rooms:
+        site, rid, rname, rtype = r[0], r[2], r[3], r[4]
+        plant = rtype in ('Plant room', 'UPS room', 'Battery room', 'NOC')
+        fz.append([f'{rid}-FZ', site, rid, 'Point smoke + heat' if plant else 'VESDA aspirating', 'Pre-action sprinkler' if plant else 'Novec 1230 gas', 'Armed (auto)', D(2026, 8, 20), f'FIRE.{rid[-5:]}'])
+        units = [u for u in A['Cooling_Units'] if u[2] == rid]
+        if units: lk.append([f'{rid}-LK', site, rid, 'Under ' + ', '.join(u[3] for u in units), 8 * len(units), D(2026, 7, 15)])
+        ap.append([f'{rid}-DR', site, f'{rname} door', rid, 'Plant room door' if plant else 'Meet-me room door' if rtype == 'Meet-me room' else 'Data hall door', 'Card + PIN' if plant else 'Card + biometric', None])
+    for site in (M, T): ap.insert(0, [f'{site}-DR-ENTRY', site, 'Main entrance · mantrap', None, 'Building entry', 'Card + biometric', None])
+    for rack, cust, _ in tenants_m: ap.append([f'{M}-{rack}-CAGE', M, f'Cage {rack}', f'{M}-HALLB' if rack.startswith('B') else f'{M}-HALLA', 'Cage door', 'Card + PIN', cust])
+    A['Fire_Systems'], A['Leak_Detection'], A['Access_Points'] = fz, lk, ap
+    vendors = sorted({(d[1], d[5]) for d in A['Devices'] if d[15] == 'operator'})
+    A['Support_Contracts'] = [[f'AMC-{site[:2]}-{i + 1:03d}', site, v, '24×7×4' if v in ('Juniper', 'NVIDIA', 'Supermicro', 'VAST Data') else 'NBD', D(2025, 4, 1), D(2027, 3, 31)] for i, (site, v) in enumerate(vendors)]
+    cid = {(c[1], c[2]): c[0] for c in A['Support_Contracts']}
+    A['Asset_Lifecycle'] = [[d[0], D(2025, 3, 1) if d[1] == T else D(2022, 3, 15), D(2028, 3, 1) if d[1] == T else D(2025, 3, 15), cid.get((d[1], d[5]))] for d in A['Devices'] if d[15] == 'operator']
+    A['Model_Lifecycle'] = sorted({(d[5], d[6]) for d in A['Devices'] if d[15] == 'operator'})
+    A['Model_Lifecycle'] = [[v, m, D(2029, 6, 30), D(2034, 6, 30)] for v, m in A['Model_Lifecycle']]
+    A['Spares'] = [[M, 'Juniper power supply', 'Border routers', 2, 1], [M, 'QSFP28-100G-LR4', 'optics', 4, 2], [M, 'SFP-10G-LR', 'optics', 6, 2],
+                   [T, 'OSFP-400G-SR4', 'optics', 8, 4], [T, 'Supermicro power supply', 'GPU nodes', 4, 2], [T, 'H200 SXM 141 GB board', 'GPU nodes', 1, 1], [T, 'NVMe 7.68 TB', 'storage', 6, 2]]
+    pm = []
+    def pmr(site, asset, kind, task, every, last): pm.append([f'{site}-PM-{len(pm) + 1:03d}', site, asset, kind, task, every, last, 'Facility team'])
+    for u in A['UPS']: pmr(u[1], u[0], 'UPS', 'Quarterly inspection and thermal scan', 91, D(2026, 8, 12)); pmr(u[1], u[0], 'Battery', 'Battery string impedance test', 182, D(2026, 5, 5))
+    for g in A['Generators']: pmr(g[1], g[0], 'Generator', 'Monthly on-load run', 30, g[6]); pmr(g[1], g[0], 'Generator', 'Annual load-bank test', 365, D(2026, 2, 10))
+    for c in A['Cooling_Units']: pmr(c[1], c[0], 'CDU' if c[4] == 'CDU' else 'Cooling', 'Coolant quality and filter change' if c[4] == 'CDU' else 'Filter change and coil clean', 91, D(2026, 7, 28))
+    for f in fz: pmr(f[1], f[0], 'Fire', 'Quarterly fire-system inspection', 91, f[6])
+    A['PM_Plan'] = pm
+    A['On_Call'] = [[reg, role, name, tier, esc, None] for reg, people in (('Central', ['Ritu Sharma', 'Arjun Mehta', 'Neha Gupta', 'Imran Khan', 'Suresh Rao']), ('South', ['Karthik Iyer', 'Divya Menon', 'Prakash Nair', 'Lakshmi Raman', 'Suresh Rao']))
+                    for (role, tier, esc), name in zip([('NOC shift lead', 1, 15), ('Network engineer', 2, 30), ('Facility engineer', 2, 30), ('Field technician', 2, 60), ('Duty manager', 3, 60)], people)]
+
 # ---------------------------------------------------------------- workbook
 NAVY, BLUE, GREY, AMBER, GREEN = '1F3A5F', '2E6BD9', 'E7ECF3', 'FCE8C3', 'DDF2E3'
 thin = Side(style='thin', color='C9D2DE')
@@ -740,6 +973,12 @@ checks = [
     ('Liquid racks name a CDU', f"=IF(COUNTIFS('Racks'!$N$2:$N${NR},\"Y\",'Racks'!$O$2:$O${NR},\"\")=0,\"OK\",\"FIX: liquid rack without CDU\")", 'A CDU fault is traced to the racks it feeds.'),
     ('Rack budget fits site IT capacity', f'=IF(SUMPRODUCT(--({col(2)}{r0 + 5}:{col(1 + NS)}{r0 + 5}>{col(2)}{r0 + 6}:{col(1 + NS)}{r0 + 6}))=0,"OK","CHECK: racks exceed IT capacity")', 'Power and space views compare the two.'),
     ('GPU nodes = Devices with role GPU', f"=IF(COUNTA('GPU_Nodes'!$A$2:$A${MAXR})=COUNTIF({rng('Devices', 'role')},\"GPU\"),\"OK\",\"FIX: GPU_Nodes and Devices differ\")", 'Each GPU node needs a rack position and a telemetry record.'),
+    ('Every installed device has a power connection', f"=IF(SUMPRODUCT(('Devices'!$O$2:$O${ND}<>\"Planned\")*('Devices'!$A$2:$A${ND}<>\"\")*(COUNTIF({rng('Power_Connections', 'device_id')},'Devices'!$A$2:$A${ND})=0))=0,\"OK\",\"FIX: device without a power cord\")", 'Without it the power path, single-fed devices and UPS / PDU what-ifs cannot be traced.'),
+    ('Power cords point at a known PDU', f"=IF(SUMPRODUCT(({rng('Power_Connections', 'pdu_id')}<>\"\")*(COUNTIF({rng('Rack_PDUs', 'pdu_id')},{rng('Power_Connections', 'pdu_id')})=0))=0,\"OK\",\"FIX: unknown pdu_id\")", 'The outlet map and failover check group cords by PDU.'),
+    ('Every rack has an A and a B PDU', f"=IF(SUMPRODUCT(('Racks'!$A$2:$A${NR}<>\"\")*((COUNTIFS({rng('Rack_PDUs', 'rack_id')},'Racks'!$A$2:$A${NR},{rng('Rack_PDUs', 'side')},\"A\")=0)+(COUNTIFS({rng('Rack_PDUs', 'rack_id')},'Racks'!$A$2:$A${NR},{rng('Rack_PDUs', 'side')},\"B\")=0)))=0,\"OK\",\"CHECK: rack with one power side\")", 'A cabinet with one side is a single point of failure for everything in it.'),
+    ('Cable paths name a known link', f"=IF(SUMPRODUCT(({rng('Cable_Paths', 'link_id')}<>\"\")*(COUNTIF({rng('Links', 'link_id')},{rng('Cable_Paths', 'link_id')})=0))=0,\"OK\",\"FIX: unknown link_id\")", 'Each cable path belongs to one link end.'),
+    ('Every operator device has warranty / support data', f"=IF(SUMPRODUCT(('Devices'!$P$2:$P${ND}=\"operator\")*('Devices'!$O$2:$O${ND}<>\"Planned\")*(COUNTIF({rng('Asset_Lifecycle', 'device_id')},'Devices'!$A$2:$A${ND})=0))=0,\"OK\",\"CHECK: device without lifecycle row\")", 'Warranty, contract and end-of-support flags need it.'),
+    ('Every room has a fire system', f"=IF(SUMPRODUCT(('Rooms'!$C$2:$C${len(rows['Rooms']) + 1}<>\"\")*(COUNTIF({rng('Fire_Systems', 'room_id')},'Rooms'!$C$2:$C${len(rows['Rooms']) + 1})=0))=0,\"OK\",\"CHECK: room without fire protection\")", 'Fire detection / suppression and its inspection plan are tracked per room.'),
     ('Customer revenue = sum of services', f"=IF(ROUND(SUM('Customers'!${c_rev}$2:${c_rev}${MAXR})-SUM({rng('Services', 'monthly_revenue')}),0)=0,\"OK\",\"FIX: a service names an unknown customer\")", 'Revenue impact adds up only if every service has a customer.'),
 ]
 for label, f, why in checks:

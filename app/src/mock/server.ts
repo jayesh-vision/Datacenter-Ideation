@@ -18,6 +18,11 @@ import { impactOf, isOpen, RESOLVE_SLA, RESPONSE_SLA } from './incidents';
 import { DAY, HOUR, MIN } from './seed';
 import { buildRevenue, customerHits, revenueView, type RevModel } from './revenue';
 import { gpuView, type GpuView } from './gpu-view';
+import { siteSafety as siteSafety_, clearSafety } from './safety';
+import { siteLifecycle as siteLifecycle_, clearLifecycle } from './lifecycle';
+import { sitePm as sitePm_, clearMaintenance } from './maintenance';
+import { clearOps, colocationOrders as colocationOrders_, incidentOps as incidentOps_, onCall as onCall_, problems as problems_, resilienceTests as resilienceTests_ } from './ops';
+import { cablePath as cablePath_, clearPhysical, devicePhysical as devicePhysical_, sitePhysicalPublic, whatIf as whatIf_ } from './physical';
 import { monthsTo, dateAfterMonths, WARN, CRIT } from '../lib/forecast';
 
 /* Persona: which business model the estate is generated as. Switching it rebuilds
@@ -74,7 +79,7 @@ let db: Db = generate(persona);
 let version = 0;
 const listeners = new Set<() => void>();
 export const subscribe = (f: () => void) => { listeners.add(f); return () => { listeners.delete(f); }; };
-const changed = () => { version++; finaliseHealth(db); summaryCache.clear(); revModel = null; revViews.clear(); listeners.forEach(f => f()); };
+const changed = () => { version++; clearPhysical(); clearSafety(); clearLifecycle(); clearMaintenance(); clearOps(); finaliseHealth(db); summaryCache.clear(); revModel = null; revViews.clear(); listeners.forEach(f => f()); };
 export const getVersion = () => version;
 const rebuild = () => { db = generate(persona); edgeCache.clear(); changed(); };
 export const reset = () => rebuild();
@@ -878,6 +883,29 @@ export function search(q: string) {
 }
 
 /* used by the Sentinel copilot */
+/* physical last mile: rack PDUs + power cords, cooling coverage, structured cabling, single points of failure (mock/physical.ts) */
+export const sitePhysical = (dcId: string) => sitePhysicalPublic(db, dcId);
+export const devicePhysical = (neId: string) => devicePhysical_(db, neId);
+export const cablePath = (linkId: string) => cablePath_(db, linkId);
+export const whatIf = (dcId: string, assetId: string) => whatIf_(db, dcId, assetId);
+
+/* Phase 2: environment & safety, asset lifecycle + RMA + spares, planned plant maintenance */
+export const siteSafety = (dcId: string) => siteSafety_(db, dcId);
+export const siteLifecycle = (dcId: string) => siteLifecycle_(db, dcId);
+export const sitePm = (dcId: string) => sitePm_(db, dcId);
+export function deviceLifecycle(neId: string) {
+  const ne = db.neById.get(neId); if (!ne) return null;
+  const s = siteLifecycle_(db, ne.dcId)!;
+  return { life: s.assets.find(a => a.neId === neId)!, rmas: s.rmas.filter(r => r.neId === neId), spares: s.spares.filter(x => s.rmas.some(r => r.neId === neId && (x.part === r.part || x.part === `${r.vendor} power supply` && /Power supply/.test(r.part)))) };
+}
+
+/* Phase 3: operations process */
+export const onCall = (dcId: string) => onCall_(db, dcId);
+export const incidentOps = (id: string) => incidentOps_(db, id);
+export const problems = () => problems_(db);
+export const resilienceTests = (dcId: string) => resilienceTests_(db, dcId, edgeStatus(dcId));
+export const colocationOrders = (q: { dcId?: string; customerId?: string } = {}) => colocationOrders_(db, q);
+
 export function raw() { return db; }
 export { isOpen, impactOf };
 export type { Alert, Service };

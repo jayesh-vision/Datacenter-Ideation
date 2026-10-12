@@ -324,7 +324,52 @@ which forces the light theme). Top section redesigned 12-Oct-2026 (user: "look l
 buttons, StatGrid of 6 tiles, Tabs (Ontology · Full map · Hierarchy, `?tab=map|tree`), ListToolbar card (search, Domain + Show quick filters, line key)
 around the iframe; the page hides its own header in embed mode and is driven through `window.DM` (it posts `{dm:'state'}` only for the user's own moves).
 Reset view + Full screen (user, 12-Oct-2026): toolbar icon buttons (ListToolbar `tools` slot) and the diagram's control stack; full screen = the card
-fills the content area under the top bar, Esc closes (standalone page uses browser full screen); reset = Rack in the middle, direct links, no filter / search. 33 entities
-(types.ts + template sheets) and 65 relationships in one `E` / `R` table; views Ontology (focus entity, 1 or 2 steps out), Full map (3 × 3 domain
+fills the content area under the top bar, Esc closes (standalone page uses browser full screen); reset = Rack in the middle, direct links, no filter / search. 38 entities
+(types.ts + template sheets) and 78 relationships in one `E` / `R` table; views Ontology (focus entity, 1 or 2 steps out), Full map (3 × 3 domain
 clusters) and Hierarchy (containment tree); details panel = fields marked Import / Live / Derived, sheet, example id, relationships. Counts per persona
 come from the mock (`COUNTS`, India); update E / R when types.ts gains an entity.
+
+## Physical last mile (12-Oct-2026, user: "how will power come to this device, how is the network cable attached?")
+Gap analysis agreed with the user: P1 = power, cooling and cabling down to the device + single points of failure (done); P2 = environment &
+safety, asset lifecycle / spares / RMA, planned plant maintenance; P3 = on-call / ITSM / notifications, colocation cross-connect orders.
+Read model `mock/physical.ts` (derived per site, cached per db; never changes generated collections, so every fingerprint holds):
+- Power: feed → UPS module (A side = UPS-2/4, B side = UPS-1/3, so "UPS-2 on battery" = A side) or the −48 V plant (network persona: DWDM +
+  access routers on BDFB panels) → rack PDU A/B (each side rated = rack budget) → breaker bank (cords round-robin over phases) → outlet → PSU.
+  Odd PSUs → A, even → B. Σ PDU load = rack draw. Stories: cloud "Host Power Lost" = PSU1 failed + PDU-B outlet 14 tripped; colocation
+  "Cabinet PDU-A Breaker Trip" = PDU-A tripped, cabinet on B only; DL-DC-009 A-side PDUs on battery; ~30% of sites have one device with both
+  cords on PDU-A (seeded "found at audit").
+- Cooling: units on a floor share its air (zone per floor); redundancy is judged for the site exactly as Facilities' heat balance; a floor is
+  "No spare" when it holds a unit that is down or a hot room. Each rack has a nearest unit; liquid racks send 75% of heat to their CDU.
+- Cabling (TIA-942 style): port → optic → patch cord → cabinet panel (PP-F/M/C n) → trunk (2 tray routes; Tier II = 1) → ODF in the patching
+  rack → cross-connect jumper (Link.physical.cable) → … far end; in-rack = one cord; backhaul adds the outside-plant cable (cores from the
+  site cable ledger, on the OSP ODF in the rack the "Re-patch ODF RACK-x" change names; hero xe-0/0/3 = core 7, re-patched by the "Re-patch ODF" change = first suspect). Link.physical aPort/zPort are no longer shown.
+- SPOFs per site: cords both on A, PSU failed, PDU tripped, cabinets one side cannot carry (≥90% of budget), UPS not online, Tier II single
+  feed / tray route / building entry, cooling spare lost. What-if (`whatIf(dc, asset)`): feed, UPS, side:A|B, PDU, cooling unit, trunk.
+API: `getSitePhysical · getDevicePhysical · getCablePath · getWhatIf`. Screens: device tab **Power & cabling** (`?tab=physical`, `ne/Physical.tsx`),
+link drawer cable path, Facilities Power (cabinet distribution, what-if, PDU A·B column, rack PDU drawer with outlet map), Cooling (coverage by
+floor, nearest unit), new tab **Single points of failure** (`?tab=resilience&domain=`), datacenter Attention panel. Shared parts in
+`screens/physical/parts.tsx`, styles `styles/physical.css`. Template / backups gained Rack_PDUs, Power_Connections, Patch_Panels, Trunk_Cables,
+Cable_Paths, Cooling_Coverage (+4 Summary checks); data model page = 38 entities / 78 relationships. Check: `npx tsx .qa/physical-check.ts`.
+
+## Phases 2 and 3 of the gap analysis (12-Oct-2026, user: "continue with remaining phases step by step")
+All read models, derived per site and cached per db; they raise no alarms and never change generated collections (fingerprints hold).
+- **Environment & safety** (`mock/safety.ts`): fire zones per room (VESDA / point detection, Novec / IG-541 / pre-action, agent %,
+  release mode, quarterly inspection; a booked fire Maintenance change counts as scheduled), leak rope under cooling units / CDUs /
+  liquid racks (all dry), access points (mantrap, room doors, tenant cage doors; a door is "Held open" under an in-progress change that
+  names a unit in that room). Shown on Facilities → Environment (`SafetyPanels`).
+- **Asset lifecycle** (`mock/lifecycle.ts`): install date (after commissioning), warranty, support contract per vendor × level, vendor
+  end-of-sale / support per model (catalogue: FortiGate 3700F past support, ASR 9006 within a year; others years out), state Covered /
+  Expiring / Out of warranty / End of support. RMA cases from modules in Fault (never past "Engineer booked" while the fault is live) +
+  GPU nodes with `rma`; spares per part family (the hero SFP spare exists). Shown on device Hardware (`DeviceLifecycle`) and datacenter
+  Assets (`SiteLifecycle`: RMA, spares, warranty & support).
+- **Planned maintenance** (`mock/maintenance.ts`): PM plan per plant asset (UPS, battery, DG, CRAH/CRAC, CDU, fire, LV/ATS, PDUs), reusing
+  DG / battery / fire dates, booked by a Maintenance change naming the asset; impact = the what-if. Facilities → Maintenance (`PmPlan`).
+- **Operations process** (`mock/ops.ts`): on-call rota per region (weekly rotation, day/night), incident paging chain + next escalation,
+  ServiceNow ref, customer notices (initial 15/30/60 min, updates 1/2/4 h; a few open incidents have an overdue update), problem records
+  grouping incidents by cause (optics lot → one problem incl. the hero INC-0001 = PRB "SFP lot 22B"), resilience tests per site,
+  colocation cross-connect orders + remote-hands tickets. Screens: incident "On call & communications", Incidents → **Problems** tab
+  (`?tab=problems&prb=`), Attention "On call now", Facilities → Single points of failure "Resilience tests", colocation Tenants tab and
+  customer page "Cross-connect orders" / "Remote hands". Views in `screens/physical/phase2.tsx` and `screens/ops/process.tsx`.
+- Template / backups: + Fire_Systems, Leak_Detection, Access_Points, Support_Contracts, Asset_Lifecycle, Model_Lifecycle, Spares, PM_Plan,
+  On_Call (35 data sheets, 15 checks); backups add Snapshot_RMA / Snapshot_Problems / Snapshot_Orders. Data model page = 51 entities /
+  107 relationships (domain "Cooling & safety"); map rows grow with their fullest cluster.

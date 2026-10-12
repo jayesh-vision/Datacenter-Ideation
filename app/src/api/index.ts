@@ -56,6 +56,19 @@ export const getNetworkElement = (id: string) => wait(() => S.networkElement(id)
 export const getInterfaces = (neId: string) => wait(() => S.interfacesOf(neId));                   // GET /network-elements/:id/interfaces
 export const getLinks = (q: Parameters<typeof S.linksOf>[0] = {}) => wait(() => S.linksOf(q));      // GET /links?neId&dcId&protocol
 export const getLink = (id: string) => wait(() => S.link(id));                                     // GET /links/:id
+export const getSitePhysical = (dcId: string) => wait(() => S.sitePhysical(dcId));                 // GET /datacenters/:id/physical (PDUs, cords, cooling coverage, panels, trunks, SPOFs)
+export const getDevicePhysical = (neId: string) => wait(() => S.devicePhysical(neId));            // GET /network-elements/:id/physical (power path, cooling, cable paths)
+export const getCablePath = (linkId: string) => wait(() => S.cablePath(linkId));                   // GET /links/:id/cable-path
+export const getWhatIf = (dcId: string, assetId: string) => wait(() => S.whatIf(dcId, assetId));  // GET /datacenters/:id/what-if?asset
+export const getSiteSafety = (dcId: string) => wait(() => S.siteSafety(dcId));                   // GET /datacenters/:id/safety (fire, leak, access)
+export const getSiteLifecycle = (dcId: string) => wait(() => S.siteLifecycle(dcId));             // GET /datacenters/:id/lifecycle (warranty, support, RMA, spares)
+export const getDeviceLifecycle = (neId: string) => wait(() => S.deviceLifecycle(neId));         // GET /network-elements/:id/lifecycle
+export const getSitePm = (dcId: string) => wait(() => S.sitePm(dcId));                           // GET /datacenters/:id/maintenance-plan
+export const getOnCall = (dcId: string) => wait(() => S.onCall(dcId));                            // GET /datacenters/:id/on-call
+export const getIncidentOps = (id: string) => wait(() => S.incidentOps(id));                      // GET /incidents/:id/operations (ITSM, paging, customer notices)
+export const getProblems = () => wait(() => S.problems());                                       // GET /problems
+export const getResilienceTests = (dcId: string) => wait(() => S.resilienceTests(dcId));          // GET /datacenters/:id/resilience-tests
+export const getColocationOrders = (q: { dcId?: string; customerId?: string } = {}) => wait(() => S.colocationOrders(q)); // GET /colocation/orders?dcId&customerId
 export const getTopology = (dcId: string) => wait(() => S.topology(dcId));                         // GET /datacenters/:id/topology
 
 /* ---- services & customers */

@@ -5,6 +5,8 @@ import * as I from 'lucide-react';
 import { clockNow, getDatacenters, getIncidents, useQuery, vocabNow } from '../api';
 import type { Incident } from '../api/types';
 import { usePage, PageHead, Loading } from '../shell/page';
+import { Tabs } from '../ui/kit';
+import { ProblemsTable } from './ops/process';
 import { DataTable, type Col } from '../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../ui/ListToolbar';
 import { Fresh, IncidentChip, SevChip } from '../ui/status';
@@ -24,6 +26,7 @@ export function Incidents() {
   const [sp, setSp] = useSearchParams();
   const applyParams = useParamPatch();
   const view = (sp.get('view') ?? 'open') as View, dc = sp.get('dc') ?? '', q = sp.get('q') ?? '';
+  const tab = sp.get('tab') === 'problems' ? 'problems' : 'incidents';
   const set = (k: string, v: string) => { const n = new URLSearchParams(sp); v ? n.set(k, v) : n.delete(k); setSp(n, { replace: true }); };
   usePage([{ label: 'Operate' }, { label: 'Incidents' }], dc ? { dcId: dc } : {});
   const { data: all, reload } = useQuery(() => getIncidents({}), []);
@@ -61,6 +64,8 @@ export function Incidents() {
     <div className="page">
       <PageHead title="Incidents" sub="Correlated operational incidents with SLA clocks, impact and owner." actions={<Fresh>Live · SLA clocks tick from detection</Fresh>} />
       <IncidentAnalytics open={open} res30={res30} mttr={mttr} met={met} slaPct={slaPct} view={view} onView={v => set('view', v === 'open' ? '' : v)} />
+      <Tabs value={tab} onChange={v => set('tab', v === 'incidents' ? '' : v)} tabs={[{ id: 'incidents', label: 'Incidents', icon: I.Siren, count: open.length }, { id: 'problems', label: 'Problems', icon: I.Bug }]} />
+      {tab === 'problems' ? <ProblemsTable dc={dc || undefined} initial={sp.get('prb')} /> : (
       <section className="card">
         <DataTable rows={rows} cols={cols} onRow={i => nav(`/incidents/${i.id}`)} defaultSort={{ key: 'id', dir: 'desc' }} pageSize={25}
           toolbar={
@@ -75,7 +80,7 @@ export function Incidents() {
                 { id: 'dc', label: 'Datacenter', quick: true, value: dc, anyLabel: 'Any datacenter', onChange: v => set('dc', v), options: dcs.map(d => ({ id: d.id, label: `${d.id} · ${d.city}` })) }
               ]} />
           } />
-      </section>
+      </section>)}
     </div>
   );
 }

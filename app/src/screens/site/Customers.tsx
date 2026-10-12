@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { ColocationOrders } from '../ops/process';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { getServices, useQuery, usePersona } from '../../api';
@@ -121,6 +122,7 @@ export function Customers({ data }: { data: SiteData }) {
           <Panel title={`By ${vocab.service.toLowerCase()} type`} icon={I.Layers} info={`Number of ${vocab.services.toLowerCase()} served from this site of each ${vocab.service.toLowerCase()} type, largest first.`}><BarList items={types.map(([k, v]) => ({ key: k, label: k, value: v, display: String(v) }))} /></Panel>
         </div>
       </div>
+      <ColocationOrders dcId={dc.id} names={Object.fromEntries(rows.map(r => [r.id, r.name]))} />
     </div>
   );
 }

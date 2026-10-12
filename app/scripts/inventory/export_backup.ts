@@ -2,6 +2,11 @@
    usage: npx tsx export_backup.ts <persona> <in|us> <out.json>  (run from app/, e.g. npx tsx scripts/inventory/export_backup.ts neocloud in /tmp/neocloud-in.json) */
 import { writeFileSync } from 'node:fs';
 import * as S from '../../src/mock/server';
+import { sitePhys } from '../../src/mock/physical';
+import { siteSafety } from '../../src/mock/safety';
+import { siteLifecycle } from '../../src/mock/lifecycle';
+import { sitePm } from '../../src/mock/maintenance';
+import { onCall, problems, colocationOrders } from '../../src/mock/ops';
 
 const [persona, geo, out] = process.argv.slice(2);
 S.setGeo(geo as 'in' | 'us');
@@ -74,6 +79,47 @@ for (const s of db.services) {
 for (const a of db.alerts) push('Snapshot_Alerts', [a.id, a.dcId, a.severity, a.state, a.title, a.source, a.category, a.scope, a.neId ?? a.node ?? null, a.ifName ?? null, a.linkId ?? a.rackId ?? null, ts(a.start), a.incidentId ?? null]);
 for (const i of db.incidents) push('Snapshot_Incidents', [i.id, i.dcId, ['', 'Critical', 'High', 'Medium', 'Low'][i.sev], i.status, i.type, i.title, i.owner, ts(i.detected), ts(i.resolved), i.alertIds.length, i.impact.services, i.impact.customers, i.impact.revenueAtRisk]);
 for (const c of db.changes) push('Snapshot_Changes', [c.id, c.dcId, c.kind, c.title, c.status, c.risk, ts(c.windowStart), ts(c.windowEnd), c.requester, c.approver ?? null, c.scope.join(';')]);
+/* physical last mile (mock/physical.ts): rack PDUs, cords, panels, trunks, per-end cable paths, cooling coverage */
+const linkById = new Map(db.links.map((l: any) => [l.id, l]));
+for (const dc of db.datacenters) {
+  const ph = sitePhys(db, dc.id)!;
+  for (const x of ph.pdus) push('Rack_PDUs', [x.id, dc.id, x.rackId, x.side, x.kind, x.model, x.volts, x.phases, x.ratingA, x.capacityKw, x.outlets, x.upstreamId, `${dc.id}-${x.feedId}`]);
+  for (const c of ph.cords) push('Power_Connections', [c.neId, c.psu, c.pduId, c.outlet, ph.pdus.find(x => x.id === c.pduId)!.banks.find(b => b.id === c.bankId)?.name ?? null, null]);
+  for (const pp of ph.panels) push('Patch_Panels', [pp.id, dc.id, pp.rackId, pp.name, pp.kind, pp.role, pp.ports]);
+  for (const t of ph.trunks) push('Trunk_Cables', [t.id, dc.id, t.aPanel, t.zPanel, t.kind, t.pairs, t.route, t.lengthM]);
+  for (const e of ph.ends.values()) { const l: any = linkById.get(e.linkId); push('Cable_Paths', [e.linkId, l.aNe === e.neId ? 'A' : 'Z', e.neId, e.cordId, e.panelId ?? null, e.panelPort ?? null, e.trunkId ?? null, e.odfPanel ?? null, e.odfPort ?? null, e.ospCore ?? null]); }
+  for (const r of ph.rackCooling) push('Cooling_Coverage', [r.rackId, r.primaryId, r.cduId ?? null]);
+}
+/* Phase 2 / 3 master data: fire, leak, access, contracts, lifecycle, spares, PM plan, on-call; plus RMA / problem / order snapshots */
+const contracts = new Map<string, unknown[]>(), models = new Map<string, unknown[]>();
+const regionsDone = new Set<string>();
+for (const dc of db.datacenters) {
+  const zr = new Map<string, string>();
+  dc.floors.forEach((f: any, fi: number) => f.rooms.forEach((rm: string, ri: number) => zr.set(`${f.name} · ${rm}`, `${dc.id}-F${fi}-R${ri + 1}`)));
+  const room = (z: string) => zr.get(z) ?? null;
+  const sf = siteSafety(db, dc.id)!;
+  for (const f of sf.fire) push('Fire_Systems', [f.id, dc.id, room(f.zone), f.detection, f.suppression, f.release, day(f.lastInspection), null]);
+  for (const l of sf.leak) push('Leak_Detection', [l.id, dc.id, room(l.zone), l.covers, l.lengthM, day(l.lastTest)]);
+  for (const a of sf.access) push('Access_Points', [a.id, dc.id, a.name, room(a.zone), a.kind, a.reader, a.tenantId ?? null]);
+  const lc = siteLifecycle(db, dc.id)!;
+  for (const a of lc.assets) {
+    if (a.state === 'Planned' || a.state === 'Tenant-owned') continue;
+    if (a.contract) contracts.set(a.contract.id, [a.contract.id, dc.id, a.vendor, a.contract.level, null, day(a.contract.expires)]);
+    models.set(`${a.vendor}|${a.model}`, [a.vendor, a.model, day(a.endOfSale), day(a.endOfSupport)]);
+    push('Asset_Lifecycle', [a.neId, day(a.installed), day(a.warrantyEnd), a.contract?.id ?? null]);
+  }
+  for (const x of lc.spares) push('Spares', [dc.id, x.part, x.fits, x.onHand, x.min]);
+  for (const r of lc.rmas) push('Snapshot_RMA', [r.id, dc.id, r.neId, r.slot, r.part, r.ref, r.status, ts(r.opened), yn(r.spareOnSite)]);
+  for (const t of sitePm(db, dc.id)!) push('PM_Plan', [t.id, dc.id, t.assetId, t.kind, t.task, t.intervalDays, day(t.lastDone), t.owner]);
+  const reg = regionName.get(dc.regionId) as string;
+  if (!regionsDone.has(reg)) { regionsDone.add(reg); for (const o of onCall(db, dc.id)) push('On_Call', [reg, o.role, o.name, o.tier, o.escalateAfterMin, null]); }
+}
+for (const c of contracts.values()) push('Support_Contracts', c);
+for (const m of models.values()) push('Model_Lifecycle', m);
+for (const p of problems(db)) push('Snapshot_Problems', [p.id, p.title, p.type, p.state, p.incidents.join(';'), p.open, p.sites.join(';'), p.workaround, p.fix, p.owner]);
+{ const o = colocationOrders(db, {});
+  for (const x of o.xc) push('Snapshot_Orders', [x.id, 'Cross-connect', x.dcId, x.customerId, `${x.from} → ${x.to}`, x.state, ts(x.ordered), day(x.due)]);
+  for (const h of o.hands) push('Snapshot_Orders', [h.id, 'Remote hands', h.dcId, h.customerId, h.task, h.state, ts(h.opened), h.minutes]); }
 R._meta = [[persona, geo, new Date(db.now).toISOString().slice(0, 16).replace('T', ' ')]];
 writeFileSync(out, JSON.stringify(R));
 console.log(persona, geo, Object.fromEntries(Object.entries(R).map(([k, v]) => [k, v.length])));

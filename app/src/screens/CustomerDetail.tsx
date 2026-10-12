@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ColocationOrders } from './ops/process';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ListToolbar } from '../ui/ListToolbar';
 import * as I from 'lucide-react';
@@ -173,6 +174,7 @@ export function CustomerDetail() {
               ]} />
           } />
       </Panel>
+      <ColocationOrders customerId={c.id} />
     </div>
   );
 }

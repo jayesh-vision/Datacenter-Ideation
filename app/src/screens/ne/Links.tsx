@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ListToolbar } from '../../ui/ListToolbar';
 import * as I from 'lucide-react';
-import { clockNow, getLink, usePersona, useQuery } from '../../api';
+import { clockNow, getCablePath, getLink, usePersona, useQuery } from '../../api';
+import { CablePathView } from '../physical/parts';
 import { PLANE_LABEL, planeOf, type Plane } from '../../lib/fabric';
 import type { LinkState, Protocol } from '../../api/types';
 import { Chip, Drawer, Info, Panel } from '../../ui/kit';
@@ -160,15 +161,16 @@ export function Links({ d }: { d: NeData }) {
 /* physical → interfaces → protocols → services (DC-NET-004) */
 export function LinkDrawer({ id, onClose }: { id: string | null; onClose: () => void }) {
   const { data } = useQuery(() => (id ? getLink(id) : Promise.resolve(null)), [id]);
+  const { data: path } = useQuery(() => (id ? getCablePath(id) : Promise.resolve(null)), [id]);
   if (!id) return null;
   const l = data?.link;
-  const phys = l?.physical ?? data?.siblings.find(x => x.protocol === 'LLDP')?.physical ?? null;
+  const panels = path?.hops.filter(h => h.kind === 'panel').length ?? 0;
   return (
     <Drawer open onClose={onClose} width={580} title={<span className="mono">{id}</span>} sub={l ? `${l.protocol} · ${roleLabel(l.role)} · ${fmtBw(l.capacityMbps)}` : 'Loading'}>
       {!data || !l ? <Loading /> : (
         <div className="col" style={{ gap: 16 }}>
           <div className="ne-trace">
-            <div className="ne-trace-step"><span className="kpi-ico tone-neutral"><I.Cable size={15} /></span><div><small>Physical{l.protocol !== 'LLDP' ? ' (LLDP span this session rides)' : ''}</small>{phys ? <b className="mono">{phys.cable} · {phys.strand} strand</b> : <b>No cable record in the ledger</b>}{phys && <span className="muted mono">{phys.aPort} ⇄ {phys.zPort}</span>}</div></div>
+            <div className="ne-trace-step"><span className="kpi-ico tone-neutral"><I.Cable size={15} /></span><div><small>Physical{l.protocol !== 'LLDP' ? ' (LLDP span this session rides)' : ''}</small>{path ? <b>{path.kind === 'in-rack' ? 'In-rack cable' : path.kind === 'inter-site' ? 'Outside-plant fibre between sites' : 'Structured cabling through the ODF'}</b> : <b>No cable record</b>}{path && <span className="muted">{path.hops.filter(h => h.kind !== 'port' && h.kind !== 'optic').length} passive segments · {panels} patch-panel ports · {path.verdict}</span>}</div></div>
             <div className="ne-trace-step"><span className="kpi-ico tone-info"><I.Router size={15} /></span><div><small>Interfaces</small>
               <span className="row wrap" style={{ gap: 6 }}><NeLink id={data.a.id} tab="hardware" /><span className="mono">{l.aIf}</span><I.ArrowLeftRight size={13} className="faint" /><NeLink id={data.z.id} tab="hardware" /><span className="mono">{l.zIf}</span></span>
               {data.aIf?.optics && <span className="muted">A-end Rx {data.aIf.optics.rxDbm} dBm · {data.aIf.inErrors} in-errors{data.zIf?.optics ? ` · Z-end Rx ${data.zIf.optics.rxDbm} dBm` : ''}</span>}
@@ -177,6 +179,7 @@ export function LinkDrawer({ id, onClose }: { id: string | null; onClose: () => 
             <div className="ne-trace-step"><span className="kpi-ico tone-success"><I.Waypoints size={15} /></span><div><small>Services & customers</small><b>{data.services.length} services · {new Set(data.services.map(s => s.customerId)).size} customers</b></div></div>
           </div>
           <div className="row" style={{ gap: 16 }}><span className="muted" style={{ fontSize: 12.5 }}>Utilisation</span><Meter pct={l.utilPct} width={140} /><span className="muted" style={{ fontSize: 12.5 }}>+{l.growthPct}%/mo · {l.forecastMonths === 0 ? 'above 85% now' : l.forecastDate && l.forecastMonths < 60 ? `85% by ${fmtMonth(l.forecastDate)}` : 'no exhaustion in 5 years'}</span></div>
+          {path && <div className="col" style={{ gap: 8 }}><b className="strong" style={{ fontSize: 13 }}>Cable path, end to end</b><CablePathView path={path} compact /></div>}
           {data.services.length > 0 && (
             <table className="nst-table ne-mini">
               <thead><tr><th>Service</th><th>Customer</th><th>Status</th><th className="is-right">Bandwidth</th></tr></thead>

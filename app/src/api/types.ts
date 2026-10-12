@@ -303,3 +303,116 @@ export interface GpuJob {
 export interface Cdu { id: string; dcId: string; name: string; room: string; racks: string[]; capacityKw: number; loadKw: number; supplyC: number; returnC: number; flowLpm: number; flowNominal: number; pump: 'A' | 'B'; state: 'ok' | 'warn' | 'bad'; note?: string }
 /* colocation: a tenant's high-density AI cabinet — tenant-owned GPUs, operator-owned power and cooling */
 export interface AiCage { rackId: string; dcId: string; name: string; room: string; tenantId: string; contractedKw: number; drawKw: number; cduId: string; inletC: number; state: 'ok' | 'warn' | 'bad'; note?: string }
+
+/* ---- physical last mile (12-Oct-2026, user): how power, cooling and cables reach each device.
+   Derived per site by mock/physical.ts from the racks, devices, links, plant and alarms above — never typed in. */
+export type PowerSide = 'A' | 'B';
+export type PhysState = 'ok' | 'warn' | 'bad' | 'off';
+/* one breaker bank of a rack PDU (a phase on a 3-phase unit): a group of outlets behind one breaker */
+export interface PduBank { id: string; name: string; from: number; to: number; breakerA: number; loadA: number; state: 'ok' | 'warn' | 'tripped' }
+/* rack PDU (AC) or −48 V fuse panel (BDFB, DC) on one side of a cabinet */
+export interface RackPdu {
+  id: string; dcId: string; rackId: string; name: string; side: PowerSide; kind: 'AC' | 'DC'; model: string; volts: number; phases: 1 | 3; ratingA: number;
+  capacityKw: number; outlets: number; loadKw: number; banks: PduBank[];
+  /* what feeds it: a UPS module (AC) or the rectifier plant (DC), and the utility feed behind that */
+  upstreamId: string; upstreamName: string; feedId: string;
+  state: 'ok' | 'warn' | 'tripped' | 'on-battery'; note?: string;
+}
+/* one power cord: a device power supply plugged into a PDU outlet */
+export interface PowerCord { neId: string; psu: string; pduId: string; outlet: number; bankId: string; drawW: number; state: 'live' | 'psu-failed' | 'no-power' | 'on-battery' | 'standby' }
+/* air cooling of one floor: the CRAH / CRAC units on a floor share its under-floor plenum, so redundancy is judged per floor;
+   a room with a unit down or a sensor above 27°C is listed as a hot room */
+export interface CoolingZone {
+  id: string; dcId: string; floor: string; rooms: string[]; hotRooms: string[]; unitIds: string[]; cduIds: string[]; rackIds: string[];
+  airHeatKw: number; liquidHeatKw: number; installedKw: number; runningKw: number; afterLossKw: number; state: 'n+1' | 'no-redundancy' | 'short';
+}
+export interface RackCooling { rackId: string; zoneId: string; primaryId: string | null; unitIds: string[]; cduId?: string; liquidPct: number }
+export interface PatchPanel { id: string; dcId: string; rackId: string; name: string; kind: 'LC duplex' | 'MPO' | 'RJ45'; role: 'rack' | 'odf'; ports: number; used: number }
+/* a permanent trunk cable from a cabinet's patch panel to the site ODF / main distribution rack */
+export interface Trunk { id: string; dcId: string; aPanel: string; zPanel: string; aRackId: string; zRackId: string; kind: string; pairs: number; used: number; route: string; lengthM: number; state: PhysState }
+export type CableHopKind = 'port' | 'optic' | 'cord' | 'panel' | 'trunk' | 'jumper' | 'osp';
+export interface CableHop { kind: CableHopKind; id: string; label: string; sub?: string; where?: string; neId?: string; state: PhysState; note?: string }
+/* the physical route of one LLDP link, end to end */
+export interface CablePath {
+  linkId: string; aNe: string; aIf: string; zNe: string; zIf: string; kind: 'in-rack' | 'structured' | 'inter-site';
+  hops: CableHop[]; state: PhysState; suspect: number | null; verdict: string; lengthM: number;
+}
+export type SpofDomain = 'Power' | 'Cooling' | 'Cabling' | 'Backhaul';
+/* a single point of failure: one thing whose loss takes devices, racks or links down */
+export interface Spof {
+  id: string; dcId: string; domain: SpofDomain; severity: Severity; title: string; detail: string; fix: string;
+  assets: string[]; neIds: string[]; rackIds: string[]; services: number; customers: number; to: string;
+}
+export interface SitePhysical {
+  dcId: string; pdus: RackPdu[]; cords: PowerCord[]; zones: CoolingZone[]; rackCooling: RackCooling[]; panels: PatchPanel[]; trunks: Trunk[];
+  /* link id → index into the per-link panel ports (cable paths are built on demand) */
+  spofs: Spof[];
+  totals: { pdus: number; cords: number; dualFed: number; singleFed: number; panels: number; trunks: number; paths: number; inRack: number; structured: number; interSite: number };
+}
+/* "what loses power / cooling / connectivity if this one thing fails" */
+export interface WhatIf {
+  assetId: string; label: string; kind: 'feed' | 'ups' | 'rectifier' | 'pdu-side' | 'pdu' | 'cooling' | 'trunk';
+  down: string[]; singleFed: string[]; overloaded: string[]; hotRacks: string[]; linksDown: string[]; services: number; customers: number; text: string;
+}
+
+/* ---- Phase 2 (12-Oct-2026, user): environment & safety, asset lifecycle, planned plant maintenance.
+   Read models derived per site by mock/safety.ts, mock/lifecycle.ts and mock/maintenance.ts; they raise no alarms of their own. */
+export interface FireZone {
+  id: string; dcId: string; zone: string; detection: 'VESDA aspirating' | 'Point smoke + heat'; detector: 'Normal' | 'Pre-alert' | 'Fire' | 'Fault'; obscurationPct: number;
+  suppression: 'Novec 1230 gas' | 'Inert gas (IG-541)' | 'Pre-action sprinkler'; agentPct: number; release: 'Armed (auto)' | 'Manual only' | 'Isolated';
+  lastInspection: number; nextInspection: number; state: PhysState; note?: string;
+}
+export interface LeakZone { id: string; dcId: string; zone: string; covers: string; lengthM: number; state: 'Dry' | 'Leak' | 'Cable fault'; lastTest: number }
+export interface AccessPoint {
+  id: string; dcId: string; name: string; zone: string; kind: 'Building entry' | 'Data hall door' | 'Cage door' | 'Plant room door' | 'Meet-me room door';
+  reader: 'Card + biometric' | 'Card + PIN' | 'Card'; state: 'Secured' | 'Held open' | 'Forced'; events24h: number; denied24h: number;
+  last: { at: number; who: string; ok: boolean }; tenantId?: string; note?: string;
+}
+export interface SiteSafety {
+  dcId: string; fire: FireZone[]; leak: LeakZone[]; access: AccessPoint[];
+  totals: { fireZones: number; armed: number; inspectionsDue: number; leakZones: number; dry: number; doors: number; secured: number; denied24h: number };
+}
+
+export type LifeState = 'Covered' | 'Expiring' | 'Out of warranty' | 'End of support' | 'Tenant-owned' | 'Planned';
+export interface AssetLife {
+  neId: string; dcId: string; vendor: string; model: string; installed: number; warrantyEnd: number; endOfSale: number; endOfSupport: number;
+  contract: { id: string; level: '24×7×4' | 'NBD' | '8×5 NBD' | 'None'; expires: number } | null; state: LifeState; note: string;
+}
+export interface RmaCase {
+  id: string; neId: string; dcId: string; part: string; slot: string; vendor: string; opened: number; ref: string;
+  status: 'Opened' | 'Part shipped' | 'Engineer booked' | 'Replaced · verifying'; eta: number; spareOnSite: boolean;
+}
+export interface SparePart { id: string; dcId: string; part: string; fits: string; onHand: number; min: number; reserved: number; state: 'ok' | 'low' | 'out' }
+export interface SiteLifecycle {
+  dcId: string; assets: AssetLife[]; rmas: RmaCase[]; spares: SparePart[];
+  totals: { devices: number; covered: number; expiring: number; outOfWarranty: number; endOfSupport: number; tenant: number; openRma: number; sparesLow: number };
+}
+
+export type PmState = 'done' | 'upcoming' | 'due' | 'overdue' | 'scheduled' | 'in-progress';
+export interface PmTask {
+  id: string; dcId: string; assetId: string; asset: string; kind: 'UPS' | 'Battery' | 'Generator' | 'Cooling' | 'CDU' | 'Fire' | 'Electrical';
+  task: string; intervalDays: number; lastDone: number; nextDue: number; state: PmState; owner: string; changeId?: string; impact?: string;
+}
+
+/* ---- Phase 3 (12-Oct-2026, user): operations process — on-call and escalation, ITSM sync, customer notifications, problem
+   records, resilience tests and colocation orders. Read models in mock/ops.ts. */
+export type OnCallRole = 'NOC shift lead' | 'Network engineer' | 'Facility engineer' | 'Field technician' | 'Duty manager' | 'AI infrastructure engineer';
+export interface OnCall { role: OnCallRole; name: string; tier: 1 | 2 | 3; shift: string; escalateAfterMin: number; covers: string }
+export interface IncidentOps {
+  incidentId: string;
+  itsm: { system: 'ServiceNow'; ref: string; state: string; group: string; synced: number };
+  paged: { who: string; role: OnCallRole; at: number; ack?: number; via: 'Phone' | 'SMS' | 'App' }[];
+  nextEscalation: { who: string; role: OnCallRole; at: number } | null;
+  notices: { at: number; kind: 'Initial notice' | 'Update' | 'Resolution'; channel: 'Email + portal' | 'Portal'; recipients: number; premium: number; state: 'sent' | 'overdue' | 'scheduled'; text: string }[];
+  nextUpdate: number | null; updateEveryMin: number; problemId?: string;
+}
+export interface Problem {
+  id: string; title: string; type: Incident['type']; state: 'Investigating' | 'Known error' | 'Fix in change'; incidents: string[]; open: number; sites: string[];
+  firstSeen: number; lastSeen: number; workaround: string; fix: string; changeId?: string; owner: string;
+}
+export interface ResilienceTest {
+  id: string; dcId: string; test: 'Generator start + transfer' | 'UPS battery autonomy' | 'ATS transfer' | 'Backhaul failover' | 'Cooling unit failover' | 'Site isolation (DR runbook)';
+  last: number | null; result: 'Pass' | 'Partial' | 'Fail' | 'Not run'; next: number; state: 'ok' | 'due' | 'overdue' | 'failed'; note: string;
+}
+export interface CrossConnectOrder { id: string; dcId: string; customerId: string; from: string; to: string; media: 'SMF LC' | 'MMF LC' | 'Cat6A'; state: 'Requested' | 'Approved' | 'Patched' | 'Tested' | 'Handed over'; ordered: number; due: number; serviceId?: string }
+export interface RemoteHandsTicket { id: string; dcId: string; customerId: string; task: string; state: 'Open' | 'In progress' | 'Done'; opened: number; minutes: number; engineer: string }

@@ -12,6 +12,7 @@ import { NotFound } from '../NotFound';
 import { GpuNodeDetail } from '../Gpu';
 import { Overview } from './Overview';
 import { Hardware } from './Hardware';
+import { Physical } from './Physical';
 import { Links } from './Links';
 import { Impact } from './Impact';
 import { NeAlerts } from './NeAlerts';
@@ -19,8 +20,8 @@ const Device3D = lazy(() => import('./twin3d/Device3D').then(m => ({ default: m.
 import '../../styles/ne.css';
 
 export type NeData = NonNullable<Awaited<ReturnType<typeof getNetworkElement>>>;
-type Tab = 'overview' | 'twin' | 'hardware' | 'gpus' | 'links' | 'impact' | 'alerts';
-const TABS: Tab[] = ['overview', 'twin', 'hardware', 'gpus', 'links', 'impact', 'alerts'];
+type Tab = 'overview' | 'twin' | 'hardware' | 'physical' | 'gpus' | 'links' | 'impact' | 'alerts';
+const TABS: Tab[] = ['overview', 'twin', 'hardware', 'physical', 'gpus', 'links', 'impact', 'alerts'];
 const ROLE_ICON: Record<string, I.LucideIcon> = { Router: I.Router, Switch: I.Network, DWDM: I.Waves, Firewall: I.ShieldCheck, Access: I.RadioTower };
 
 /* Operational state of a device (same rule as the site Equipment tab) */
@@ -109,6 +110,7 @@ export function NetworkElement() {
         { id: 'overview', label: 'Overview' },
         { id: 'twin', label: '3D view' },
         { id: 'hardware', label: 'Hardware & interfaces', count: data.interfaces.length },
+        { id: 'physical', label: 'Power & cabling' },
         ...(ne.role === 'GPU' ? [{ id: 'gpus' as Tab, label: /Gaudi|Max 1550/.test(ne.model) ? 'GPUs · Intel' : 'GPUs · DCGM', count: 8 }] : []),
         { id: 'links', label: 'Links', count: data.links.length },
         { id: 'impact', label: 'Impact', count: data.services.length },
@@ -118,6 +120,7 @@ export function NetworkElement() {
       {tab === 'overview' && <Overview d={data} />}
       {tab === 'twin' && <Suspense fallback={<Loading label="Loading 3D view" />}><Device3D d={data} /></Suspense>}
       {tab === 'hardware' && <Hardware d={data} />}
+      {tab === 'physical' && <Physical d={data} />}
       {tab === 'gpus' && ne.role === 'GPU' && <GpuTab id={ne.id} />}
       {tab === 'links' && <Links d={data} />}
       {tab === 'impact' && <Impact d={data} />}

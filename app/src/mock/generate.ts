@@ -466,7 +466,7 @@ export function generate(persona: Persona = 'network'): Db {
       it.state = l.state === 'down' ? 'down' : 'up'; it.utilPct = l.state === 'down' ? 0 : l.utilPct;
       const rr = mulberry32(seedOf(it.id));
       it.inErrors = l.state === 'down' ? intBetween(rr, 40, 400) : chance(rr, 0.08) ? intBetween(rr, 1, 30) : 0;
-      if (it.speedMbps >= 10000) it.optics = { model: it.speedMbps === 100000 ? 'QSFP28-100G-LR4' : 'SFP-10G-LR', rxDbm: r1(between(rr, -6.5, -2.2)), txDbm: r1(between(rr, -2.4, 0.8)), tempC: intBetween(rr, 34, 48) };
+      if (it.speedMbps >= 10000) it.optics = { model: it.speedMbps >= 400000 ? 'OSFP-400G-SR4 (NDR)' : it.speedMbps === 100000 ? 'QSFP28-100G-LR4' : 'SFP-10G-LR', rxDbm: r1(between(rr, -6.5, -2.2)), txDbm: r1(between(rr, -2.4, 0.8)), tempC: intBetween(rr, 34, 48) };
     }
   }
   /* server- and CPE-facing ports on access gear are in use too */

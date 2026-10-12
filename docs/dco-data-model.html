@@ -188,7 +188,7 @@ html.embed .stage{min-height:0}
     <span class="eyebrow">DCO · Data model</span>
     <h1>How every item connects</h1>
   </div>
-  <p class="lede">The 33 kinds of record the platform keeps, from region down to a single GPU, and how they link: cables, customers and services, alarms and incidents. Field names match <span class="mono">api/types.ts</span>; sheet names match the inventory import template.</p>
+  <p class="lede">The 51 kinds of record the platform keeps, from region down to a single GPU, and how they link: power cords and cable paths, fire and access, support and spares, customers and services, alarms, incidents, problems and maintenance. Field names match <span class="mono">api/types.ts</span>; sheet names match the inventory import template.</p>
   <div class="controls">
     <div class="seg" role="group" aria-label="View">
       <button data-view="ontology" aria-pressed="true">Ontology</button>
@@ -246,7 +246,7 @@ const DOMAINS = {
   loc:   { name: 'Location',     c: '--d-loc' },
   space: { name: 'Space',        c: '--d-space' },
   power: { name: 'Power',        c: '--d-power' },
-  cool:  { name: 'Cooling',      c: '--d-cool' },
+  cool:  { name: 'Cooling & safety', c: '--d-cool' },
   it:    { name: 'Equipment',    c: '--d-it' },
   net:   { name: 'Connectivity', c: '--d-net' },
   gpu:   { name: 'GPU',          c: '--d-gpu' },
@@ -271,7 +271,7 @@ const E = {
     desc: 'A data hall, meet-me room, AI hall or plant room. Cooling zones and sensors are named by floor and room.',
     f: [['room_name', 'string', 'I'], ['room_type', 'Data hall · AI hall · Meet-me room · Plant room…', 'I'], ['containment · cooling_method', 'list', 'I'], ['temperature map', 'from rack inlets', 'D']] },
   rack: { n: 'Rack / cabinet', d: 'space', t: 'Rack', sheet: 'Racks', ex: 'MH-DC-001-RACK-A', seen: 'Power & space, Assets, 3D twin, Revenue (rack exposure)',
-    desc: 'A cabinet in a room. It holds devices by U position, draws power from two feeds and may be leased to a tenant.',
+    desc: 'A cabinet in a room. It holds devices by U position, takes power through an A-side and a B-side PDU, is cooled by the nearest unit in its room and may be leased to a tenant.',
     f: [['id · name · role', 'string', 'I'], ['heightU', 'U', 'I'], ['budgetKw', 'kW provisioned', 'I'], ['owner · tenantId · contractedKw', 'colocation', 'I'], ['density · liquid', 'ai · Y/N', 'I'],
         ['usedU · ports · portsUsed', 'from devices', 'D'], ['drawKw', 'kW from PDUs', 'L'], ['tempC', 'inlet °C', 'L']] },
   cage: { n: 'AI cage', d: 'space', t: 'AiCage', sheet: 'Racks (role = AI cage)', ex: 'KA-DC-020-RACK-E', seen: 'AI & GPU (colocation), datacenter AI & GPU tab',
@@ -291,12 +291,27 @@ const E = {
   battery: { n: 'Battery bank', d: 'power', t: 'Datacenter.power.battery', sheet: 'DC_Plant (Battery bank)', ex: 'BATT-01 · 48 V 22,500 Ah', seen: 'Facilities → Power, 3D twin',
     desc: 'The DC-plant battery string behind the rectifier. It is flagged when autonomy drops below 3 hours.',
     f: [['volts · ah', 'V · Ah', 'I'], ['runtimeH', 'hours of autonomy', 'L'], ['lastTest', 'date', 'I']] },
+  pdu: { n: 'Rack PDU', d: 'power', t: 'RackPdu', sheet: 'Rack_PDUs', ex: 'MH-DC-001-RACK-C-PDU-B', seen: 'Device → Power & cabling, Facilities → Power (rack PDUs, outlet map), what-if',
+    desc: 'The power strip on one side (A or B) of a cabinet, or a −48 V fuse panel for DC gear. Each side is rated for the whole cabinet; it is fed by one UPS module or the rectifier plant.',
+    f: [['id · rackId · side', 'A / B', 'I'], ['kind · model', 'AC / DC', 'I'], ['volts · phases · ratingA', 'V · 1/3 · A', 'I'], ['capacityKw · outlets', 'kW · count', 'I'], ['upstreamId · feedId', 'UPS / rectifier · feed', 'I'],
+        ['loadKw · banks[].loadA', 'live (metered PDU)', 'L'], ['state', 'ok · on battery · tripped', 'D']] },
+  cord: { n: 'Power cord', d: 'power', t: 'PowerCord', sheet: 'Power_Connections', ex: 'CMP-0013 PSU2 → PDU-B/14', seen: 'Device → Power path, rack outlet map, single points of failure',
+    desc: 'One device power supply plugged into one PDU outlet. Odd supplies go to the A side, even to the B side; a device stays up while one cord still has power.',
+    f: [['neId · psu', 'Device · PSU slot', 'I'], ['pduId · outlet', 'RackPdu · number', 'I'], ['bank', 'phase / breaker bank', 'D'], ['drawW', 'W (shared over live supplies)', 'L'], ['state', 'live · on battery · PSU failed · no power', 'D']] },
   cooling: { n: 'Cooling unit', d: 'cool', t: 'CoolingUnit (CRAH / CRAC)', sheet: 'Cooling_Units', ex: 'MH-DC-001-CRAH-11', seen: 'Facilities → Cooling, 3D twin (clickable)',
     desc: 'A computer-room air handler or air conditioner serving one zone (floor and room).',
     f: [['id · name · type', 'CRAH / CRAC / CDU', 'I'], ['zone', '"Floor · Room"', 'I'], ['capacityKw', 'kW', 'I'], ['loadPct', '%', 'L'], ['supplyC · returnC', '°C', 'L'], ['status', 'Operational · Maintenance · Failed', 'L']] },
   cdu: { n: 'CDU (liquid loop)', d: 'cool', t: 'Cdu', sheet: 'CDUs', ex: 'KA-DC-020-CDU-1', seen: 'AI & GPU, Facilities → Cooling',
     desc: 'A coolant distribution unit feeding direct-liquid-cooled GPU racks or AI cages. Low flow throttles every GPU it serves.',
     f: [['id · name · room', 'string', 'I'], ['racks[]', 'Rack.id list', 'I'], ['capacityKw · flowNominal', 'kW · L/min', 'I'], ['loadKw · flowLpm', 'live', 'L'], ['supplyC · returnC · pump', '°C · A/B', 'L'], ['state', 'ok / warn / bad', 'D']] },
+  fire: { n: 'Fire system', d: 'cool', t: 'FireZone', sheet: 'Fire_Systems', ex: 'MH-DC-001-FZ-01', seen: 'Facilities → Environment (Fire detection & suppression)',
+    desc: 'Fire detection (VESDA or point smoke + heat) and suppression (gas or pre-action sprinkler) protecting one room, with its agent level, release mode and quarterly inspection.',
+    f: [['zone · detection · suppression', 'list', 'I'], ['release', 'Armed · Manual · Isolated', 'I'], ['lastInspection', 'date', 'I'], ['detector · obscuration · agentPct', 'live (fire panel)', 'L'], ['state', 'inspection overdue / agent low', 'D']] },
+  leak: { n: 'Leak detection', d: 'cool', t: 'LeakZone', sheet: 'Leak_Detection', ex: 'TN-DC-022-LK-03', seen: 'Facilities → Environment (Leak detection)',
+    desc: 'A leak-detection rope zone under cooling units, CDU manifolds and liquid-cooled racks.', f: [['zone · guards · lengthM', 'string', 'I'], ['lastTest', 'date', 'I'], ['state', 'Dry · Leak · Cable fault', 'L']] },
+  door: { n: 'Access point', d: 'cool', t: 'AccessPoint', sheet: 'Access_Points', ex: 'MH-DC-001-DR-01', seen: 'Facilities → Environment (Access control)',
+    desc: 'An access-controlled door: the building mantrap, a room door or a tenant cage door, with its reader and the last 24 hours of badge events.',
+    f: [['name · kind · reader', 'list', 'I'], ['tenantId', 'cage doors', 'I'], ['state', 'Secured · Held open · Forced', 'L'], ['events24h · denied24h · last', 'badge log', 'L']] },
   sensor: { n: 'Environment sensor', d: 'cool', t: 'EnvSensor', sheet: 'Sensors', ex: 'MH-DC-001-ENV-1', seen: 'Facilities → Environment (safe bands)',
     desc: 'Temperature and humidity, smoke and leak detection in a zone.', f: [['id · zone', 'string', 'I'], ['kind', 'Temp + humidity · Leak · Smoke', 'I'], ['tempC · humidity', '°C · %', 'L'], ['smoke · leak', 'boolean', 'L']] },
   collector: { n: 'Collector', d: 'it', t: 'Datacenter.collectors[]', sheet: 'Collectors', ex: 'COL-MH-DC-001-1', seen: 'Datacenter header (telemetry freshness), alarm scope',
@@ -306,6 +321,7 @@ const E = {
     desc: 'Anything racked: router, switch, firewall, DWDM, server, storage, GPU node, or an opaque block of tenant gear.',
     f: [['id · name (hostname)', 'string', 'I'], ['role · layer', 'Router … Tenant gear · core / spine / leaf / access', 'I'], ['vendor · model · os · serial', 'string', 'I'], ['ip · mac', 'management', 'I'],
         ['rackId · u · uSize', 'position in the rack', 'I'], ['lifecycle', 'Ready · Planned · Maintenance · Decommissioning', 'I'], ['opsState', 'in-service · unmonitored · planned · tenant-owned', 'D'],
+        ['installed · warrantyEnd · contract', 'Asset_Lifecycle', 'I'], ['endOfSale · endOfSupport', 'Model_Lifecycle', 'I'], ['lifecycle state', 'Covered · Expiring · Out of warranty · End of support', 'D'],
         ['health · cpu · mem · tempC · uptime', 'live', 'L'], ['icmp · ntp · radius', 'reachability, time, AAA', 'L']] },
   module: { n: 'Module', d: 'it', t: 'NetworkElement.modules[]', sheet: 'Modules', ex: 'FPC0 · MPC (fixed)', seen: 'Device page → Hardware, 3D device view',
     desc: 'A line card, power supply, fan tray or routing engine inside a device.', f: [['slot · name · serial', 'string', 'I'], ['state', 'OK · Fault · Empty', 'L'], ['tempC', '°C', 'L']] },
@@ -317,8 +333,24 @@ const E = {
     desc: 'A connection between two interfaces: a cable inside a fabric, an uplink, or backhaul leaving the site. Routing adjacencies (OSPF, BGP) are links too.',
     f: [['aNe · aIf · zNe · zIf', 'Device + Interface', 'I'], ['role', 'Fabric · Uplink · Backhaul · Peering · Access', 'I'], ['protocol', 'LLDP · OSPF · BGP · ISIS · LSP', 'I'], ['capacityMbps', 'Mbps', 'I'],
         ['state · utilPct · sessions', 'live', 'L'], ['edge / scope', 'leaves the site?', 'D']] },
-  cable: { n: 'Cable / fibre', d: 'net', t: 'Link.physical', sheet: 'Links (cable columns)', ex: 'MH-DC-001-CBL-0001', seen: 'Link details, incident RCA (fibre trunk)',
-    desc: 'The physical path under a link: cable or trunk, strand, and the patch-panel or ODF port at each end.', f: [['cable', 'label', 'I'], ['strand', 'colour / pair', 'I'], ['aPort · zPort', 'patch / ODF port', 'I']] },
+  cable: { n: 'Cable path', d: 'net', t: 'CablePath', sheet: 'Cable_Paths (one row per link end)', ex: 'LNK-00001 · A end', seen: 'Device → Power & cabling, link drawer (hop by hop), incident RCA',
+    desc: 'The physical route under a link, end to end: port, optic, patch cord, cabinet patch panel, trunk, ODF, cross-connect jumper (and the outside-plant cable for backhaul), then the same back out to the far port. The platform marks the segment to check first.',
+    f: [['linkId · end', 'Link.id · A / Z', 'I'], ['patch cord', 'label', 'I'], ['panel · port', 'PatchPanel.id', 'I'], ['trunk', 'Trunk.id', 'I'], ['ODF panel · port · OSP core', 'PatchPanel.id', 'I'], ['optic Rx / Tx', 'dBm', 'L'], ['state · suspect · verdict', 'which segment to check', 'D']] },
+  panel: { n: 'Patch panel / ODF', d: 'net', t: 'PatchPanel', sheet: 'Patch_Panels', ex: 'MH-DC-001-RACK-C-PP-F1', seen: 'Cable paths, Facilities → Single points of failure',
+    desc: 'A patch panel at the top of a cabinet, or an ODF panel in the site patching rack where trunks land and cross-connect jumpers are patched.',
+    f: [['id · name · rackId', 'string', 'I'], ['kind', 'LC duplex · MPO · RJ45', 'I'], ['role', 'rack / odf', 'I'], ['ports', 'integer', 'I'], ['used', 'from cable paths', 'D']] },
+  trunk: { n: 'Trunk cable', d: 'net', t: 'Trunk', sheet: 'Trunk_Cables', ex: 'MH-DC-001-RACK-C-TRK-1', seen: 'Cable paths, what-if (cut trunk)',
+    desc: 'A permanent multi-fibre or copper cable from a cabinet panel to the ODF, on a tray route. Two diverse routes let dual-homed devices survive one cut tray.',
+    f: [['id · aPanel · zPanel', 'PatchPanel.id', 'I'], ['kind · pairs', 'MPO-24 OM4…', 'I'], ['route', 'Tray route 1 / 2', 'I'], ['lengthM', 'm', 'I'], ['used', 'from cable paths', 'D'], ['state', 'ok / bad', 'D']] },
+  contract: { n: 'Support contract', d: 'it', t: 'AssetLife.contract', sheet: 'Support_Contracts', ex: 'AMC-MH-12272', seen: 'Device Hardware (Lifecycle & support), datacenter Assets',
+    desc: 'A vendor support / AMC contract (24×7×4, NBD…) covering a set of devices. Devices are flagged when it ends within 90 days or has lapsed.',
+    f: [['id · vendor · level', '24×7×4 / NBD / 8×5 NBD', 'I'], ['expires', 'date', 'I'], ['devices covered', 'from Asset_Lifecycle', 'D']] },
+  rma: { n: 'RMA case', d: 'it', t: 'RmaCase', sheet: 'Snapshot_RMA (live)', ex: 'RMA-11630', seen: 'Device Hardware, datacenter Assets → RMA cases',
+    desc: 'A return-merchandise case for a failed part (PSU, disk, controller, GPU board) with the vendor case, status and ETA; a spare on site means it can be swapped today.',
+    f: [['neId · slot · part', 'Device · Module', 'L'], ['vendor case ref', 'string', 'L'], ['status · eta', 'Opened → Part shipped → Engineer booked → Replaced', 'L'], ['spareOnSite', 'from spares', 'D']] },
+  spare: { n: 'Spare part', d: 'it', t: 'SparePart', sheet: 'Spares', ex: 'SFP-10G-LR × 3', seen: 'Datacenter Assets → Spares on site',
+    desc: 'Field-replaceable spares held at the site per part family, with the minimum to keep and what is reserved for open RMA cases.',
+    f: [['part · fits', 'part family', 'I'], ['onHand · min', 'count', 'I'], ['reserved', 'for open RMAs', 'D'], ['state', 'ok / low / out', 'D']] },
   gcluster: { n: 'GPU cluster', d: 'gpu', t: 'GpuCluster', sheet: 'GPU_Clusters', ex: 'MH-DC-001-POD-1', seen: 'AI & GPU → Clusters',
     desc: 'A pod of up to 32 GPU nodes on one fabric and one scheduler, all with the same GPU model.',
     f: [['id · name · room', 'string', 'I'], ['scheduler', 'Kubernetes / Slurm', 'I'], ['fabric', 'InfiniBand NDR 400G…', 'I'], ['model · vendor', 'GPU model', 'I'], ['cooling', 'air / liquid', 'I'], ['nodes[]', 'GpuNode ids', 'I']] },
@@ -340,6 +372,24 @@ const E = {
     desc: 'What a customer buys and where it is delivered: a circuit, cabinet, power, VM, storage volume or GPU cluster. Impact and revenue at risk are worked out per service.',
     f: [['type · customerId · dcId', 'string', 'I'], ['neId · ifName', 'hand-off', 'I'], ['qty · unit', 'Mbps · kW · GPU · vCPU…', 'I'], ['slaTarget', '%', 'I'], ['revenueMonthly · critical', 'money · Y/N', 'I'],
         ['path[] · linkIds[]', 'devices and links it rides', 'D'], ['status · uptime30d · utilPct', 'live', 'L']] },
+  spof: { n: 'Single point of failure', d: 'ops', t: 'Spof', sheet: '(derived, not imported)', ex: 'MH-DC-001-SPOF-TRIP', seen: 'Facilities → Single points of failure, datacenter Attention, device Power & cabling',
+    desc: 'One component whose loss would take devices down although the design is redundant: a device on one live cord, a cabinet one PDU cannot carry, a lost spare UPS or cooling unit, uplinks sharing a tray route, backhaul through one building entry.',
+    f: [['domain · severity', 'Power · Cooling · Cabling · Backhaul', 'D'], ['title · detail · fix', 'text', 'D'], ['assets[] · neIds[] · rackIds[]', 'what is at risk', 'D'], ['services · customers', 'impact', 'D']] },
+  pm: { n: 'Maintenance task (PM)', d: 'ops', t: 'PmTask', sheet: 'PM_Plan', ex: 'MH-DC-003-PM-008', seen: 'Facilities → Maintenance & alarms (Preventive maintenance plan)',
+    desc: 'A preventive-maintenance task on a plant asset (UPS inspection, battery test, DG run, filter change, fire inspection…) with its interval, last done and next due; a Maintenance change that names the asset books it. The impact line is the what-if of taking the asset out.',
+    f: [['assetId · task · intervalDays', 'string · days', 'I'], ['lastDone · owner', 'date · person', 'I'], ['nextDue · state', 'overdue / due / scheduled…', 'D'], ['changeId', 'Change.id', 'D'], ['impact', 'what-if', 'D']] },
+  oncall: { n: 'On-call rota', d: 'ops', t: 'OnCall', sheet: 'On_Call', ex: 'NOC shift lead · Sarah Chen', seen: 'Datacenter Attention (On call now), incident (paged)',
+    desc: 'Who answers for a region by role and tier (NOC lead, network / facility / AI engineers, field technician, duty manager) and how long before an unacknowledged page escalates.',
+    f: [['region · role · tier', 'list', 'I'], ['name', 'person', 'I'], ['escalateAfterMin', 'minutes', 'I'], ['shift', 'day / night', 'D']] },
+  problem: { n: 'Problem record', d: 'ops', t: 'Problem', sheet: 'Snapshot_Problems (derived)', ex: 'PRB-4445 · SFP lot 22B', seen: 'Incidents → Problems, incident (On call & communications)',
+    desc: 'Groups incidents with the same underlying cause across sites (DC-OPS-006), with the workaround in use, the permanent fix and the change that carries it.',
+    f: [['title · type · state', 'Investigating / Known error / Fix in change', 'D'], ['incidents[] · sites[]', 'Incident ids', 'D'], ['workaround · fix · changeId', 'text · Change.id', 'D']] },
+  notice: { n: 'Customer notice', d: 'ops', t: 'IncidentOps.notices[]', sheet: '(derived from incidents)', ex: 'INC-0001 · initial notice 13:08', seen: 'Incident (On call & communications)',
+    desc: 'The notices an incident owes its affected customers: an initial notice within 15 / 30 / 60 min by severity, then updates every 1 / 2 / 4 h until resolved. A missed update is overdue.',
+    f: [['at · kind · channel', 'Initial · Update · Resolution', 'D'], ['recipients · premium', 'from incident impact', 'D'], ['state', 'sent · scheduled · overdue', 'D'], ['itsm ref', 'ServiceNow INC…', 'L']] },
+  rtest: { n: 'Resilience test', d: 'ops', t: 'ResilienceTest', sheet: '(derived; history in the backup)', ex: 'Generator start + transfer', seen: 'Facilities → Single points of failure (Resilience tests)',
+    desc: 'A test that proves a redundancy works: generator start, UPS autonomy, ATS transfer, cooling and backhaul failover, the site-isolation DR runbook, with the last result and next due.',
+    f: [['test · interval', 'list', 'I'], ['last · result', 'date · Pass / Partial / Fail', 'L'], ['next · state', 'ok / due / overdue / failed', 'D']] },
   revissue: { n: 'Revenue impact', d: 'biz', t: 'RevIssue', sheet: '— (calculated)', ex: 'Issue on INC-0002', seen: 'Revenue impact, incident "Revenue impact" panel',
     desc: 'The cost of one open issue. Each down, degraded or exposed service is charged to one issue.',
     f: [['mrrDown · mrrDegraded · mrrExposed', 'money', 'D'], ['rate · lost', 'per hour · so far', 'D'], ['credits · nextCliff', 'SLA credit tiers', 'D'], ['forecast24', 'money', 'D']] },
@@ -347,6 +397,12 @@ const E = {
     desc: 'An event from a collector against a device, port, link, rack or plant unit. Its scope (site, edge, dependency) decides which datacenter it counts against.',
     f: [['code · severity · title', 'Critical · Major · Minor · Warning', 'L'], ['source · type · start', 'string · time', 'L'], ['neId · ifName · linkId · rackId', 'what it is on', 'L'], ['state', 'active · acknowledged · cleared', 'L'],
         ['scope · category', 'site · edge · dependency · downstream', 'D'], ['incidentId · symptomOf', 'correlation', 'D']] },
+  xc: { n: 'Cross-connect order', d: 'biz', t: 'CrossConnectOrder', sheet: 'Snapshot_Orders (colocation)', ex: 'XC-76071', seen: 'Datacenter Tenants, customer page (colocation)',
+    desc: 'A tenant order for a cross-connect from its cabinet through the meet-me room to a carrier, cloud on-ramp, peering fabric or another tenant; handed over it becomes a Cross-connect service.',
+    f: [['customerId · from · to · media', 'string', 'I'], ['state', 'Requested → Approved → Patched → Tested → Handed over', 'L'], ['ordered · due', 'date', 'L'], ['serviceId', 'Service.id', 'D']] },
+  hands: { n: 'Remote-hands ticket', d: 'biz', t: 'RemoteHandsTicket', sheet: 'Snapshot_Orders (colocation)', ex: 'RH-93982', seen: 'Datacenter Tenants, customer page (colocation)',
+    desc: 'Work the operator\'s on-site engineers do inside a tenant cabinet on request (power-cycle, re-seat, swap, escort), billed in minutes against the tenant\'s remote-hands plan.',
+    f: [['customerId · task', 'string', 'L'], ['state · minutes · engineer', 'Open / In progress / Done', 'L']] },
   incident: { n: 'Incident', d: 'ops', t: 'Incident', sheet: '— (operations)', ex: 'INC-0002', seen: 'Incidents, incident page, Command center',
     desc: 'A group of related alarms handled as one problem, with its impact, root cause, actions and linked changes.',
     f: [['title · type · sev · status', 'Critical / High / Medium / Low', 'L'], ['owner · detected · resolved', 'person · time', 'L'], ['alertIds[]', 'Alert ids', 'D'], ['affected[]', 'NE · Link · Rack · Service · Customer', 'D'],
@@ -368,9 +424,18 @@ const R = [
   ['cage', 'rack', 'is a', '1 : 1', 'is'], ['cage', 'customer', 'leased by', 'N : 1', 'r'], ['cage', 'cdu', 'cooled by', 'N : 1', 'r'],
   ['rack', 'customer', 'leased by (tenant)', 'N : 0..1', 'r'], ['device', 'customer', 'owned by (tenant gear)', 'N : 0..1', 'r'],
   ['site', 'feed', 'fed by', '1 : N', 'c'], ['site', 'ups', 'has', '1 : N', 'c'], ['site', 'dg', 'has', '1 : N', 'c'], ['site', 'rect', 'has', '1 : N', 'c'], ['site', 'battery', 'has', '1 : N', 'c'],
-  ['dg', 'feed', 'stands by for', 'N : N', 'r'], ['feed', 'ups', 'feeds', '1 : N', 'r'], ['ups', 'rack', 'protects', 'N : N', 'r'], ['feed', 'rack', 'powers (PDU A / B)', 'N : N', 'r'],
+  ['dg', 'feed', 'stands by for', 'N : N', 'r'], ['feed', 'ups', 'feeds', '1 : N', 'r'], ['ups', 'pdu', 'feeds (A or B side)', '1 : N', 'r'], ['rect', 'pdu', 'feeds (−48 V panel)', '1 : N', 'r'], ['pdu', 'feed', 'traces back to', 'N : 1', 'r'],
   ['rect', 'feed', 'produces (DC feed)', '1 : 1', 'r'], ['battery', 'rect', 'backs up', '1 : 1', 'r'],
   ['room', 'cooling', 'houses', '1 : N', 'c'], ['cooling', 'room', 'cools (zone)', 'N : 1', 'r'], ['cdu', 'cooling', 'is a', '1 : 1', 'is'], ['cdu', 'rack', 'cools (liquid)', '1 : N', 'r'],
+  ['rack', 'pdu', 'has (A + B side)', '1 : 2', 'c'], ['pdu', 'cord', 'has (outlets)', '1 : N', 'c'], ['cord', 'device', 'powers (one supply)', 'N : 1', 'r'], ['cord', 'module', 'plugs into (PSU)', '1 : 1', 'r'],
+  ['rack', 'panel', 'has', '1 : N', 'c'], ['trunk', 'panel', 'joins', 'N : 2', 'r'], ['cable', 'panel', 'patched through', 'N : N', 'r'], ['cable', 'trunk', 'runs in', 'N : N', 'r'], ['cooling', 'rack', 'nearest unit for', '1 : N', 'r'],
+  ['spof', 'site', 'found at', 'N : 1', 'r'], ['spof', 'device', 'puts at risk', 'N : N', 'r'], ['spof', 'pdu', 'caused by', 'N : N', 'r'],
+  ['fire', 'room', 'protects', 'N : 1', 'r'], ['leak', 'cooling', 'guards', 'N : N', 'r'], ['leak', 'rack', 'guards (liquid)', 'N : N', 'r'], ['door', 'room', 'controls entry to', 'N : 1', 'r'], ['door', 'customer', 'opens for (cage)', 'N : 0..1', 'r'],
+  ['contract', 'device', 'covers', '1 : N', 'r'], ['rma', 'device', 'repairs', 'N : 1', 'r'], ['rma', 'module', 'replaces', 'N : 1', 'r'], ['rma', 'spare', 'reserves', 'N : 0..1', 'r'], ['site', 'spare', 'holds', '1 : N', 'c'],
+  ['pm', 'ups', 'maintains', 'N : 1', 'r'], ['pm', 'cooling', 'maintains', 'N : 1', 'r'], ['pm', 'dg', 'maintains', 'N : 1', 'r'], ['pm', 'fire', 'inspects', 'N : 1', 'r'], ['pm', 'change', 'booked as', 'N : 0..1', 'r'],
+  ['oncall', 'site', 'answers for (region)', 'N : N', 'r'], ['incident', 'oncall', 'pages', 'N : N', 'r'], ['problem', 'incident', 'groups', '1 : N', 'c'], ['problem', 'change', 'fixed by', 'N : 0..1', 'r'],
+  ['incident', 'notice', 'owes', '1 : N', 'c'], ['notice', 'customer', 'sent to', 'N : N', 'r'], ['rtest', 'site', 'run at', 'N : 1', 'r'], ['rtest', 'ups', 'tests', 'N : N', 'r'], ['rtest', 'dg', 'tests', 'N : N', 'r'],
+  ['xc', 'customer', 'ordered by', 'N : 1', 'r'], ['xc', 'service', 'becomes', '1 : 0..1', 'r'], ['xc', 'rack', 'from (tenant cabinet)', 'N : 1', 'r'], ['hands', 'customer', 'requested by', 'N : 1', 'r'], ['hands', 'rack', 'works in', 'N : 1', 'r'],
   ['room', 'sensor', 'has', '1 : N', 'c'], ['room', 'cdu', 'houses', '1 : N', 'c'],
   ['site', 'collector', 'monitored by', '1 : N', 'c'], ['collector', 'device', 'polls', '1 : N', 'r'],
   ['gnode', 'device', 'is a', '1 : 1', 'is'], ['gnode', 'gpu', 'has', '1 : 8', 'c'], ['gcluster', 'gnode', 'groups', '1 : N', 'c'], ['gcluster', 'room', 'sits in', 'N : 1', 'r'],
@@ -385,16 +450,16 @@ const R = [
   ['revissue', 'incident', 'charged to', 'N : 0..1', 'r'], ['revissue', 'service', 'costs', '1 : N', 'r'],
 ];
 /* counts per business model, taken from the mock estate (India, 24 datacenters, 12-Oct-2026) */
-const COUNTS = {"network":{"region":4,"state":16,"site":24,"floor":53,"room":57,"rack":152,"cage":0,"feed":63,"ups":48,"dg":24,"rect":24,"battery":24,"cooling":114,"cdu":0,"sensor":57,"collector":46,"device":2559,"module":7723,"iface":50546,"link":7658,"cable":4320,"gcluster":0,"gnode":0,"gpu":0,"job":0,"customer":36,"service":1136,"alert":259,"incident":60,"rca":84,"action":46,"change":12,"revissue":6},"colocation":{"region":4,"state":16,"site":24,"floor":52,"room":82,"rack":283,"cage":12,"feed":63,"ups":72,"dg":24,"rect":24,"battery":24,"cooling":164,"cdu":4,"sensor":82,"collector":46,"device":1535,"module":1548,"iface":13998,"link":2112,"cable":989,"gcluster":0,"gnode":0,"gpu":0,"job":0,"customer":24,"service":553,"alert":107,"incident":48,"rca":60,"action":23,"change":12,"revissue":4},"cloud":{"region":4,"state":16,"site":24,"floor":52,"room":98,"rack":641,"cage":0,"feed":63,"ups":94,"dg":24,"rect":24,"battery":24,"cooling":196,"cdu":16,"sensor":98,"collector":46,"device":6398,"module":42533,"iface":46866,"link":13438,"cable":12155,"gcluster":29,"gnode":610,"gpu":4880,"job":126,"customer":24,"service":1845,"alert":657,"incident":64,"rca":93,"action":61,"change":13,"revissue":27},"enterprise":{"region":4,"state":16,"site":24,"floor":52,"room":92,"rack":344,"cage":0,"feed":63,"ups":90,"dg":24,"rect":24,"battery":24,"cooling":184,"cdu":7,"sensor":92,"collector":46,"device":3583,"module":22205,"iface":27886,"link":7976,"cable":6877,"gcluster":21,"gnode":164,"gpu":1312,"job":52,"customer":14,"service":446,"alert":376,"incident":64,"rca":93,"action":60,"change":13,"revissue":20},"neocloud":{"region":4,"state":16,"site":24,"floor":52,"room":98,"rack":722,"cage":0,"feed":63,"ups":94,"dg":24,"rect":24,"battery":24,"cooling":196,"cdu":41,"sensor":98,"collector":46,"device":3839,"module":34582,"iface":71320,"link":12527,"cable":11939,"gcluster":76,"gnode":2091,"gpu":16728,"job":430,"customer":12,"service":724,"alert":454,"incident":64,"rca":93,"action":59,"change":13,"revissue":10}};
+const COUNTS = {"network":{"region":4,"state":16,"site":24,"floor":53,"room":57,"rack":152,"cage":0,"feed":63,"ups":48,"dg":24,"rect":24,"battery":24,"cooling":114,"cdu":0,"sensor":57,"collector":46,"device":2559,"module":7723,"iface":50546,"link":7658,"cable":4320,"gcluster":0,"gnode":0,"gpu":0,"job":0,"customer":36,"service":1136,"alert":259,"incident":60,"rca":84,"action":46,"change":12,"revissue":6,"pdu":476,"cord":4894,"panel":689,"trunk":207,"spof":45,"fire":57,"leak":57,"door":81,"contract":157,"rma":7,"spare":268,"pm":372,"oncall":20,"problem":13,"notice":125,"rtest":138,"xc":0,"hands":0},"colocation":{"region":4,"state":16,"site":24,"floor":52,"room":82,"rack":283,"cage":12,"feed":63,"ups":72,"dg":24,"rect":24,"battery":24,"cooling":164,"cdu":4,"sensor":82,"collector":46,"device":1535,"module":1548,"iface":13998,"link":2112,"cable":989,"gcluster":0,"gnode":0,"gpu":0,"job":0,"customer":24,"service":553,"alert":107,"incident":48,"rca":60,"action":23,"change":12,"revissue":4,"pdu":566,"cord":2928,"panel":80,"trunk":61,"spof":42,"fire":82,"leak":89,"door":216,"contract":151,"rma":2,"spare":286,"pm":499,"oncall":20,"problem":12,"notice":105,"rtest":138,"xc":241,"hands":100},"cloud":{"region":4,"state":16,"site":24,"floor":52,"room":98,"rack":641,"cage":0,"feed":63,"ups":94,"dg":24,"rect":24,"battery":24,"cooling":196,"cdu":16,"sensor":98,"collector":46,"device":6398,"module":42533,"iface":46866,"link":13438,"cable":12155,"gcluster":29,"gnode":610,"gpu":4880,"job":126,"customer":24,"service":1845,"alert":657,"incident":64,"rca":93,"action":61,"change":13,"revissue":27,"pdu":1282,"cord":13514,"panel":2081,"trunk":828,"spof":63,"fire":98,"leak":106,"door":122,"contract":377,"rma":178,"spare":617,"pm":597,"oncall":23,"problem":15,"notice":137,"rtest":138,"xc":0,"hands":0},"enterprise":{"region":4,"state":16,"site":24,"floor":52,"room":92,"rack":344,"cage":0,"feed":63,"ups":90,"dg":24,"rect":24,"battery":24,"cooling":184,"cdu":7,"sensor":92,"collector":46,"device":3583,"module":22205,"iface":27886,"link":7976,"cable":6877,"gcluster":21,"gnode":164,"gpu":1312,"job":52,"customer":14,"service":446,"alert":376,"incident":64,"rca":93,"action":60,"change":13,"revissue":20,"pdu":688,"cord":7204,"panel":1101,"trunk":444,"spof":55,"fire":92,"leak":96,"door":116,"contract":358,"rma":87,"spare":600,"pm":568,"oncall":23,"problem":12,"notice":146,"rtest":138,"xc":0,"hands":0},"neocloud":{"region":4,"state":16,"site":24,"floor":52,"room":98,"rack":722,"cage":0,"feed":63,"ups":94,"dg":24,"rect":24,"battery":24,"cooling":196,"cdu":41,"sensor":98,"collector":46,"device":3839,"module":34582,"iface":71320,"link":12527,"cable":11939,"gcluster":76,"gnode":2091,"gpu":16728,"job":430,"customer":12,"service":724,"alert":454,"incident":64,"rca":93,"action":59,"change":13,"revissue":10,"pdu":1444,"cord":11558,"panel":3088,"trunk":1612,"spof":48,"fire":98,"leak":112,"door":122,"contract":284,"rma":97,"spare":554,"pm":622,"oncall":24,"problem":10,"notice":108,"rtest":138,"xc":0,"hands":0}};
 const TREE = [
   ['Physical: where everything is', [['region', [['state', [['site', [
-    ['floor', [['room', [['rack', [['device', [['module'], ['iface', [['link', [['cable']]]]], ['gnode', [['gpu']]]]], ['cage']]], ['cooling'], ['cdu'], ['sensor'], ['gcluster', [['job']]]]]]],
-    ['feed'], ['ups'], ['dg'], ['rect', [['battery']]], ['collector']]]]]]]]],
-  ['Commercial: who depends on it', [['customer', [['service', [['revissue']]], ['cage']]]]],
-  ['Operations: what goes wrong', [['incident', [['alert'], ['rca'], ['action'], ['change'], ['revissue']]]]],
+    ['floor', [['room', [['rack', [['device', [['module'], ['iface', [['link', [['cable']]]]], ['gnode', [['gpu']]]]], ['pdu', [['cord']]], ['panel', [['trunk']]], ['cage']]], ['cooling'], ['cdu'], ['sensor'], ['fire'], ['leak'], ['door'], ['gcluster', [['job']]]]]]],
+    ['feed'], ['ups'], ['dg'], ['rect', [['battery']]], ['collector'], ['spare'], ['rtest'], ['oncall']]]]]]]]],
+  ['Commercial: who depends on it', [['customer', [['service', [['revissue']]], ['cage'], ['xc'], ['hands']]]]],
+  ['Operations: what goes wrong', [['incident', [['alert'], ['rca'], ['action'], ['change'], ['revissue'], ['notice']]], ['problem'], ['pm'], ['spof']]],
 ];
-const MAP_COLS = [['loc', ['region', 'state', 'site', 'floor', 'room']], ['space', ['rack', 'cage']], ['power', ['feed', 'ups', 'dg', 'rect', 'battery']], ['cool', ['cooling', 'cdu', 'sensor']],
-  ['it', ['collector', 'device', 'module', 'iface']], ['net', ['link', 'cable']], ['gpu', ['gcluster', 'gnode', 'gpu', 'job']], ['biz', ['customer', 'service', 'revissue']], ['ops', ['alert', 'incident', 'rca', 'action', 'change']]];
+const MAP_COLS = [['loc', ['region', 'state', 'site', 'floor', 'room']], ['space', ['rack', 'cage']], ['power', ['feed', 'ups', 'dg', 'rect', 'battery', 'pdu', 'cord']], ['cool', ['cooling', 'cdu', 'sensor', 'fire', 'leak', 'door']],
+  ['it', ['collector', 'device', 'module', 'iface', 'contract', 'rma', 'spare']], ['net', ['link', 'cable', 'panel', 'trunk']], ['gpu', ['gcluster', 'gnode', 'gpu', 'job']], ['biz', ['customer', 'service', 'revissue', 'xc', 'hands']], ['ops', ['alert', 'incident', 'rca', 'action', 'change', 'spof', 'pm', 'oncall', 'problem', 'notice', 'rtest']]];
 
 /* ------------------------------------------------------------------ state */
 const $ = s => document.querySelector(s);
@@ -549,10 +614,14 @@ const GRID = [['loc', 'space', 'power'], ['cool', 'it', 'net'], ['gpu', 'biz', '
 function map() {
   const target = new Map(), nodes = [], clusters = [];
   const cols = Object.fromEntries(MAP_COLS);
-  const CW = 500, CH = 330, GX = 50, GY = 40;
+  const CW = 500, GX = 50, GY = 40;
+  /* each row is as tall as its fullest cluster (two columns of cards, ~44 px a card) */
+  const rowH = GRID.map(row => Math.max(330, 44 + (Math.max(...row.map(d => { const n = (cols[d] || []).length; return Math.ceil(n / (n > 3 ? 2 : 1)); })) + 1) * 58));
+  const rowY = rowH.map((_, i) => rowH.slice(0, i).reduce((a, h) => a + h + GY, 0));
   GRID.forEach((row, ri) => row.forEach((d, ci) => {
     if (st.hidden.has(d)) return;
-    const ids = cols[d], x0 = ci * (CW + GX), y0 = ri * (CH + GY);
+    const CH = rowH[ri];
+    const ids = cols[d], x0 = ci * (CW + GX), y0 = rowY[ri];
     clusters.push({ d, x: x0, y: y0, w: CW, h: CH });
     const nc = ids.length > 3 ? 2 : 1, nr = Math.ceil(ids.length / nc);
     ids.forEach((id, j) => {

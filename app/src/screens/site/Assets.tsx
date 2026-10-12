@@ -8,6 +8,7 @@ import { Donut } from '../../charts/Donut';
 import { SummaryStrip } from './SummaryStrip';
 import { fmtNum } from '../../lib/format';
 import type { SiteData } from './Site';
+import { SiteLifecycle } from '../physical/phase2';
 
 const PALETTE = ['#1C81EF', '#0d9488', '#7c3aed', '#db2777', '#0891b2', '#64748b'];
 const ROLE_LABEL: Record<string, string> = { Router: 'Routers', Switch: 'Switches', Firewall: 'Firewalls', DWDM: 'DWDM / optical', Access: 'Access', Server: 'Servers', Storage: 'Storage arrays', GPU: 'GPU nodes', 'Tenant gear': 'Tenant equipment' };
@@ -111,6 +112,7 @@ export function Assets({ data }: { data: SiteData }) {
           </div>
         </Panel>
       </div>
+      {dc.status !== 'planned' && <SiteLifecycle dcId={dc.id} />}
     </div>
   );
 }

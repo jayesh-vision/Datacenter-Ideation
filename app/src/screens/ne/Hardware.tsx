@@ -6,6 +6,7 @@ import { DataTable, type Col } from '../../ui/DataTable';
 import { Meter, NeLink } from '../../ui/status';
 import { fmtBw, fmtNum } from '../../lib/format';
 import type { NeData } from './NetworkElement';
+import { DeviceLifecycle } from '../physical/phase2';
 
 const IF_TONE: Record<IfState, 'success' | 'error' | 'neutral' | 'info'> = { up: 'success', down: 'error', 'admin-down': 'neutral', reserved: 'info' };
 const STATE_RANK: Record<IfState, number> = { down: 0, up: 1, reserved: 2, 'admin-down': 3 };
@@ -44,6 +45,7 @@ export function Hardware({ d }: { d: NeData }) {
           </table>
         ) : <p className="vw-card-description" style={{ margin: 0 }}>No module inventory until the device reports telemetry. Planned ports are listed below.</p>}
       </Panel>
+      <DeviceLifecycle neId={ne.id} />
       <section className="vw-card-section ne-hw" style={{ padding: 0, overflow: 'hidden' }}>
         <DataTable rows={rows} cols={cols} pageSize={40} defaultSort={{ key: 'state', dir: 'asc' }}
           toolbar={

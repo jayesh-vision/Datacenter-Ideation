@@ -1,4 +1,5 @@
 import { sevLabel } from '../lib/vocab';
+import { IncidentOpsPanel } from './ops/process';
 import { ScopeChip } from '../ui/scope';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -189,6 +190,7 @@ export function IncidentDetail() {
             </div>
           </div>
 
+          <IncidentOpsPanel id={inc.id} />
           <Panel title="Action plan" sub="Priority order · disruptive steps need approval (DC-AI-007)" count={inc.actions.length} info="Recommended remediation steps in priority order, each with owner, expected outcome, rollback and verification. Non-disruptive steps can be run directly; disruptive ones go through request, approval, run and mark done.">
             {inc.actions.length ? <ol className="steps">{inc.actions.map((s, k) => <StepRow key={s.id} n={k + 1} s={s} incId={inc.id} open={open} />)}</ol> : <div className="faint" style={{ fontSize: 13 }}>No actions recorded.</div>}
           </Panel>

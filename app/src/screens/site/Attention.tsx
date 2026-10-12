@@ -1,7 +1,9 @@
 import { sevChipCls, sevLabel } from '../../lib/vocab';
 import { Link, useNavigate } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { clockNow, getAlerts, getChanges, getIncidents, getNetworkElements, useQuery, vocabNow } from '../../api';
+import { clockNow, getAlerts, getChanges, getIncidents, getNetworkElements, getSitePhysical, useQuery, vocabNow } from '../../api';
+import { SpofList, SpofInfo } from '../physical/parts';
+import { OnCallPanel } from '../ops/process';
 import type { Alert, AlertCategory } from '../../api/types';
 import { Empty, Panel } from '../../ui/kit';
 import { ChangeChip, SevDot, SeverityChip } from '../../ui/status';
@@ -26,6 +28,7 @@ export function Attention({ data }: { data: SiteData }) {
   const { data: al } = useQuery(() => getAlerts({ dcId: dc.id, state: 'open' }), [dc.id]);
   const { data: chg } = useQuery(() => getChanges({ dcId: dc.id }), [dc.id]);
   const { data: nes } = useQuery(() => getNetworkElements({ dcId: dc.id }), [dc.id]);
+  const { data: phys } = useQuery(() => getSitePhysical(dc.id), [dc.id]);
 
   const alarms = (al ?? []) as Alert[];
   const unmon = (nes ?? []).filter(n => n.opsState === 'unmonitored');
@@ -135,6 +138,14 @@ export function Attention({ data }: { data: SiteData }) {
             </div>))}</div> : <Empty icon={I.ShieldCheck} title="No open operational risks" />}
         </Panel>
       </div>
+
+      {phys && dc.status !== 'planned' && (<div className="grid g-1-2">
+        <OnCallPanel dcId={dc.id} />
+        <Panel title={<>Single points of failure<SpofInfo /></>} count={phys.spofs.length} icon={I.ShieldAlert} flush sub="Power, cooling and cabling risks that would turn one more failure into an outage"
+          actions={phys.spofs.length > 4 ? <Link to={`/facilities?dc=${dc.id}&tab=resilience`} className="panel-link">All {phys.spofs.length}<I.ChevronRight size={14} /></Link> : undefined}>
+          <SpofList spofs={phys.spofs.slice(0, 4)} link />
+        </Panel>
+      </div>)}
     </div>
   );
 }
