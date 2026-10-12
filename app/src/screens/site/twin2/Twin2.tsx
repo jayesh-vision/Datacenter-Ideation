@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { getTwinData } from '../../../api/ext-twin';
-import { useQuery, usePersona } from '../../../api';
+import { getDevicePhysical, getSitePhysical, useQuery, usePersona } from '../../../api';
 import { Loading } from '../../../shell/page';
 import { Seg } from '../../../ui/kit';
 import { buildLayout, type Level, type Sel } from '../twin/layout';
@@ -13,6 +13,7 @@ import { buildAnchors2, type Anchor2 } from './anchors2';
 import { TwinPanel } from '../twin/Panel';
 import { buildAttention } from '../twin/attention';
 import { LEGENDS, TwinScene2 } from './Scene2';
+import { PathCard, pathPose, physAnchors, ROUTE_C, SIDE_C, type PhysView } from './paths';
 import '../../../styles/twin.css';
 import '../../../styles/twin2.css';
 
@@ -36,6 +37,12 @@ export default function Twin2({ dcId }: { dcId: string }) {
   /* selected plant unit (cooling / UPS / rectifier / battery / DG) and the walk (street view) spot */
   const [unit, setUnit] = useState<string | null>(null);
   const [walk, setWalk] = useState<WalkSpot | null>(null);
+  /* quick chips (13-Oct-2026, user): draw the power path and the cable paths into the twin */
+  const [showPower, setShowPower] = useState(false);
+  const [showCables, setShowCables] = useState(false);
+  const { data: phys } = useQuery(() => (showPower || showCables ? getSitePhysical(dcId) : Promise.resolve(null)), [dcId, showPower || showCables]);
+  const { data: devPhys } = useQuery(() => (showCables && sel.ne ? getDevicePhysical(sel.ne) : Promise.resolve(null)), [showCables, sel.ne]);
+  const pv: PhysView = useMemo(() => ({ phys: phys ?? null, dev: devPhys ?? null, power: showPower, cables: showCables }), [phys, devPhys, showPower, showCables]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key !== 'Escape') return; setWalk(w => { if (!w) setFull(false); return null; }); };
     window.addEventListener('keydown', onKey);
@@ -82,7 +89,7 @@ export default function Twin2({ dcId }: { dcId: string }) {
 
   const att = useMemo(() => (data && L ? buildAttention(L, data) : undefined), [data, L]);
   const posRef = useRef<PosMap>(new Map());
-  const anchors = useMemo(() => (data && L ? buildAnchors2(L, data, sel, level, layer, att, unit) : []), [data, L, sel, level, layer, att, unit]);
+  const anchors = useMemo(() => (data && L ? [...buildAnchors2(L, data, sel, level, layer, att, unit), ...(level !== 'building' ? physAnchors(L, data, sel, pv) : [])] : []), [data, L, sel, level, layer, att, unit, pv]);
   useEffect(() => { document.body.style.cursor = hover ? 'pointer' : ''; return () => { document.body.style.cursor = ''; }; }, [hover]);
   if (!data || !L) return <Loading label="Loading Data center view" />;
   const { dc } = data;
@@ -112,12 +119,20 @@ export default function Twin2({ dcId }: { dcId: string }) {
     <div className={`twin t2${full ? ' is-full' : ''}`} data-twin2>
       <div className="twin-main">
         <div className="twin-canvas t2-stage" data-twin-level-now={level}>
-          {gl ? <><TwinScene2 L={L} data={data} layer={layer} sel={sel} level={level} onPick={onPick} setHover={setHover} att={att} anchors={anchors} posRef={posRef} resetTick={resetTick} unit={unit} focusPose={unitView?.pose ?? null} hide={unitView?.hide} walk={walk} onWalkTo={onWalkTo} /><Labels anchors={anchors} posRef={posRef} onPick={onPick} /></>
+          {gl ? <><TwinScene2 L={L} data={data} layer={layer} sel={sel} level={level} onPick={onPick} setHover={setHover} att={att} anchors={anchors} posRef={posRef} resetTick={resetTick} unit={unit} focusPose={unitView?.pose ?? ((showPower || showCables) ? pathPose(L, sel) : null)} hide={unitView?.hide} pv={level !== 'building' ? pv : undefined} walk={walk} onWalkTo={onWalkTo} /><Labels anchors={anchors} posRef={posRef} onPick={onPick} /></>
             : <div className="twin-nogl"><I.Box size={28} /><b>3D view unavailable</b><span>This browser has no WebGL. Use the lists on the right to navigate floors, rooms, racks and equipment.</span></div>}
           <div className="t2-overlay">
             <div className="t2-overlay-left">
               <Seg size="sm" value={floorVal} onChange={v => go(v === 'B' ? EMPTY : { floor: Number(v), room: null, rack: null, ne: null })} options={floorOpts} />
               {level !== 'building' && <Seg size="sm" value={layer} onChange={setLayer} options={LAYERS} />}
+              {level !== 'building' && <div className="t2-chips" role="group" aria-label="Show paths">
+                <button type="button" className={`t2-chip${showPower ? ' is-on' : ''}`} aria-pressed={showPower} data-twin2-chip="power" onClick={() => setShowPower(v => !v)} title="Draw the power path: UPS → busway → rack PDU, A side and B side"><I.PlugZap size={13} />Power path</button>
+                <button type="button" className={`t2-chip${showCables ? ' is-on' : ''}`} aria-pressed={showCables} data-twin2-chip="cables" onClick={() => setShowCables(v => !v)} title="Draw the cable paths: rack → trunk → ODF; select a device to trace its own cables"><I.Cable size={13} />Cable paths</button>
+              </div>}
+              {level !== 'building' && (showPower || showCables) && <div className="t2-legend" data-twin2-paths-legend>
+                {showPower && <><span><i style={{ background: SIDE_C.A }} />A side</span><span><i style={{ background: SIDE_C.B }} />B side</span>{phys?.pdus.some(p => p.kind === 'DC') && <span><i style={{ background: SIDE_C.DC }} />−48 V DC</span>}<span><i style={{ background: '#F5B82E' }} />On battery</span><span><i style={{ background: '#FF4D4F' }} />Tripped</span></>}
+                {showCables && <><span><i style={{ background: ROUTE_C[0] }} />Tray route 1</span><span><i style={{ background: ROUTE_C[1] }} />Tray route 2</span><span><i style={{ background: '#22D3EE' }} />Selected device</span></>}
+              </div>}
               <div className="t2-legend" data-twin2-legend>{LEGENDS[level === 'building' ? 'health' : layer].map(x => <span key={x.l}><i style={{ background: x.c }} />{x.l}</span>)}</div>
             </div>
             <div className="t2-overlay-right">
@@ -135,6 +150,7 @@ export default function Twin2({ dcId }: { dcId: string }) {
               <Link to={`/facilities?dc=${dc.id}&tab=${unitObj.tab}`}>Open in Facilities →</Link>
             </div>
           )}
+          {!unitObj && <PathCard L={L} data={data} sel={sel} pv={pv} />}
           {hover ? <div className="twin-tip" role="status"><b>{hover.title}</b><span>{hover.sub}</span></div> : <div className="t2-hint">{hint}</div>}
         </div>
       </div>

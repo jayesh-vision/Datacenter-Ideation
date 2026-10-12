@@ -17,6 +17,7 @@ import type { Hover, Layer, PosMap } from '../twin/Scene';
 import type { Anchor2 } from './anchors2';
 import { DG_KEY, coolKey, powerKey, type Pick2 } from './units';
 import { WalkControls, type WalkSpot } from './walk';
+import { PhysOverlay, type PhysView } from './paths';
 import type { Attention, AttSev } from '../twin/attention';
 import { bezelTex, doorAlphaTex, epoxyTex, frontTex, perfTex, rackLabelTex, rackSideTex, rackTopTex, roofTex, tileTex, type BezelKind, type FrontKind } from './textures';
 
@@ -58,7 +59,7 @@ function barColor(rk: RackL, layer: Layer, sev: RackSev) {
 }
 const bezelKind = (ne: TwinNe): BezelKind => ne.role === 'Server' ? 'server' : ne.role === 'GPU' ? 'gpu' : ne.role === 'Storage' ? 'storage' : ne.role === 'Switch' || ne.role === 'Access' ? 'switch' : ne.role === 'Router' ? 'router' : ne.role === 'Firewall' ? 'firewall' : ne.role === 'DWDM' ? 'optical' : ne.role === 'Tenant gear' ? 'tenant' : 'appliance';
 
-interface Ctx { L: TwinLayout; data: TwinData; layer: Layer; sel: Sel; level: Level; onPick: (p: Pick2) => void; setHover: (h: Hover | null) => void; att?: Attention; unit?: string | null; walkTo?: (x: number, z: number) => void; hide?: Set<string> }
+interface Ctx { L: TwinLayout; data: TwinData; layer: Layer; sel: Sel; level: Level; onPick: (p: Pick2) => void; setHover: (h: Hover | null) => void; att?: Attention; unit?: string | null; pv?: PhysView; walkTo?: (x: number, z: number) => void; hide?: Set<string> }
 type Ev = { stopPropagation: () => void; instanceId?: number; delta?: number; point?: THREE.Vector3 };
 /* a click that ended a drag (orbit, or looking around while walking) is not a pick */
 const dragged = (e: Ev) => (e.delta ?? 0) > 6;
@@ -129,8 +130,8 @@ function InstancedSet({ items, geometry, material, castShadow, noRay }: { items:
 }
 
 /* ---------------- scene ---------------- */
-export function TwinScene2({ L, data, layer, sel, level, onPick, setHover, att, anchors, posRef, resetTick = 0, fx = true, unit = null, focusPose, walk = null, onWalkTo, hide }: Ctx & { anchors: Anchor2[]; posRef: MutableRefObject<PosMap>; resetTick?: number; fx?: boolean; focusPose?: [number[], number[]] | null; walk?: WalkSpot | null; onWalkTo?: (x: number, z: number) => void }) {
-  const ctx: Ctx = { L, data, layer, sel, level, onPick, setHover, att, unit, walkTo: walk ? onWalkTo : undefined, hide: walk ? undefined : hide };
+export function TwinScene2({ L, data, layer, sel, level, onPick, setHover, att, anchors, posRef, resetTick = 0, fx = true, unit = null, focusPose, walk = null, onWalkTo, hide, pv }: Ctx & { anchors: Anchor2[]; posRef: MutableRefObject<PosMap>; resetTick?: number; fx?: boolean; focusPose?: [number[], number[]] | null; walk?: WalkSpot | null; onWalkTo?: (x: number, z: number) => void }) {
+  const ctx: Ctx = { L, data, layer, sel, level, onPick, setHover, att, unit, walkTo: walk ? onWalkTo : undefined, hide: walk ? undefined : hide, pv };
   const building = level === 'building';
   const [dpr, setDpr] = useState(1.5);
   const [post, setPost] = useState(fx);
@@ -262,6 +263,7 @@ function FloorLevel({ floor, ctx, lite }: { floor: FloorL; ctx: Ctx; lite: boole
       {lite && <Facade w={floor.w} d={floor.d} />}
       <group position={[0, PLATE_T, 0]}>
         {floor.rooms.map(r => <Room2 key={r.id} room={r} floor={floor} ctx={ctx} lite={lite} />)}
+        {!lite && ctx.pv && <PhysOverlay L={ctx.L} floor={floor} data={ctx.data} sel={ctx.sel} pv={ctx.pv} />}
       </group>
     </group>
   );

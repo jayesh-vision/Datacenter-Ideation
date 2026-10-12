@@ -373,3 +373,17 @@ All read models, derived per site and cached per db; they raise no alarms and ne
 - Template / backups: + Fire_Systems, Leak_Detection, Access_Points, Support_Contracts, Asset_Lifecycle, Model_Lifecycle, Spares, PM_Plan,
   On_Call (35 data sheets, 15 checks); backups add Snapshot_RMA / Snapshot_Problems / Snapshot_Orders. Data model page = 51 entities /
   107 relationships (domain "Cooling & safety"); map rows grow with their fullest cluster.
+
+## Power & cable paths in 3D (13-Oct-2026, user: "show which UPS feeds which rack PDU and which cable comes from which device on the digital twin and the 3D view, with quick chips")
+- Realistic twin (`site/twin2/paths.tsx`): chips **Power path** / **Cable paths** (floor level and below). Power = per room an A (blue) and B
+  (orange) overhead busway fed by ONE UPS module each (`mock/physical.ts` now assigns UPS per room: A = UPS-2/4, B = UPS-1/3 by room index),
+  header on the wall facing the plant room, feeder behind the rear walls to the UPS (or a riser on upper floors), tap-off into every rack
+  (red dashed = tripped, amber dashed = on battery), green −48 V feeders from the rectifier to BDFB racks. Cables = every trunk from rack top
+  along the fibre channel to the ODF rack (teal route 1, purple route 2, red = all links down); with a device open its own cables go to the far
+  rack (cyan), in-rack cables loop on the cabinet front. Opening a rack with a chip on frames the rack + its busway/trunks (`pathPose`) and shows
+  `PathCard` (feed → UPS → busway → PDU, trunks to the ODF, the device's PSU cords and cables). Check: `node .qa/twin2-paths.mjs` (P= DC= W=).
+- Device 3D view (`ne/twin3d/paths3d.tsx`): chips **Power** / **Cables** switch to "In the rack"; Power = every PSU cord in the cabinet to its
+  rear PDU outlet (this device thick + labelled, camera to the rear at the device's height), PDU ← UPS captions; Cables = this device's ports to
+  the top-of-rack patch panel and the trunk, in-rack cables to the far device; a path card lists the chain. Check: `node .qa/devtwin-paths.mjs <ne> <persona>`.
+- Known: the shared twin side panel (`site/twin/Panel.tsx`, frozen) lists the site's first two UPS as "Power feeds" for every rack; at 4-UPS
+  sites rooms after the first are really fed from UPS-3/4 (the path card is right).

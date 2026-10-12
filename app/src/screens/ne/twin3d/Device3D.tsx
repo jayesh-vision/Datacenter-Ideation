@@ -6,7 +6,8 @@ import { CameraControls, ContactShadows, Environment, Lightformer, PerformanceMo
 import { Bloom, EffectComposer, N8AO } from '@react-three/postprocessing';
 import type CameraControlsImpl from 'camera-controls';
 import * as I from 'lucide-react';
-import { getGpuNode, useQuery } from '../../../api';
+import { getDevicePhysical, getGpuNode, getSitePhysical, useQuery } from '../../../api';
+import type { RackPathData } from './paths3d';
 import { Seg } from '../../../ui/kit';
 import { gpuSpec } from '../../../lib/gpuSpec';
 import type { NeData } from '../NetworkElement';
@@ -16,6 +17,7 @@ import { STATE_LABEL, type Info, type Part, type PState, type View } from '../tw
 import { Ctx3, type TwinCtx } from './kit';
 import { Accelerator, GpuServer, NetBox, OpticalShelf, RackView, ServerBox, StorageBox, TenantBox, dimsOf, rackDims, type DevProps, type Dims } from './devices';
 import '../../../styles/devtwin.css';
+import '../../../styles/twin2.css';
 
 /* Device digital twin in 3D (08-Oct-2026, user: "use your own intelligence … to create the digital twin"). A product-
    configurator view of the real equipment: modelled to its proportions, lit like a studio shot, with live LEDs, fans
@@ -46,9 +48,27 @@ function Device3DInner({ d }: { d: NeData }) {
   const [overlay, setOverlay] = useState<'health' | 'thermal'>('health');
   const [sel, setSel] = useState<string | null>(null);
   const [hover, setHover] = useState<{ id: string; x: number; y: number } | null>(null);
+  /* quick chips (13-Oct-2026, user): power cords and cables drawn in the rack view */
+  const [showPower, setShowPower] = useState(false), [showCables, setShowCables] = useState(false), [cardOpen, setCardOpen] = useState(true);
+  const anyPath = showPower || showCables;
+  const { data: sphys } = useQuery(() => (anyPath ? getSitePhysical(ne.dcId) : Promise.resolve(null)), [ne.dcId, anyPath]);
+  const { data: dphys } = useQuery(() => (anyPath ? getDevicePhysical(ne.id) : Promise.resolve(null)), [ne.id, anyPath]);
+  const paths: RackPathData | null = useMemo(() => {
+    if (!anyPath || !sphys) return null;
+    const pdus = sphys.pdus.filter(p => p.rackId === ne.rackId);
+    const ids = new Set(pdus.map(p => p.id));
+    return { power: showPower, cables: showCables, dp: dphys ?? null, pdus, cords: sphys.cords.filter(c => ids.has(c.pduId)) };
+  }, [anyPath, sphys, dphys, showPower, showCables, ne.rackId]);
+  const togglePath = (k: 'power' | 'cables') => {
+    const on = !(k === 'power' ? showPower : showCables);
+    (k === 'power' ? setShowPower : setShowCables)(on);
+    if (on && mode !== 'rack') set({ tview: 'rack' });
+    /* cords hang on the rear PDUs; cables leave from the front ports */
+    if (on) setCam(k === 'power' ? 'rear' : 'iso');
+  };
   const stage = useRef<HTMLDivElement>(null);
   const set = (patch: Record<string, string | null>) => { const n = new URLSearchParams(sp); Object.entries(patch).forEach(([k, v]) => (v === null ? n.delete(k) : n.set(k, v))); setSp(n, { replace: true }); setSel(null); };
-  useEffect(() => { setCam(mode === 'rack' ? 'iso' : mode === 'chip' ? 'iso' : 'iso'); }, [mode]);
+  useEffect(() => { setCam(c => (mode === 'rack' && c === 'rear' ? c : 'iso')); }, [mode]);
 
   /* what every part is and how it is: the same records the inspector reads, from every view of the device */
   const { info, states, issues } = useMemo(() => {
@@ -81,16 +101,33 @@ function Device3DInner({ d }: { d: NeData }) {
         <button key={x.idx} type="button" className={`dt-gpu-pick${x.idx === chip ? ' is-on' : ''} s-${x.health === 'failed' ? 'bad' : x.health === 'degraded' || x.throttle !== 'none' ? 'warn' : 'ok'}`} onClick={() => set({ gpu: String(x.idx) })} aria-pressed={x.idx === chip}>GPU {x.idx}</button>))}</span></div>}
       <div className="dt-body">
         <div className="dt3-stage" ref={stage} data-devtwin-stage>
-          <Canvas3D d={d} gpu={gpu} chip={chip} mode={mode} cam={cam} overlay={overlay} sel={sel} hoverId={hover?.id ?? null} states={states}
+          <Canvas3D d={d} gpu={gpu} chip={chip} mode={mode} paths={mode === 'rack' ? paths : null} cam={cam} overlay={overlay} sel={sel} hoverId={hover?.id ?? null} states={states}
             onPick={id => { if (id && id.startsWith('ne:') && id !== `ne:${ne.id}`) { setSel(id); return; } setSel(id && info.has(id) ? id : null); }}
             onHover={(id, e) => { if (!id) { setHover(null); return; } const r = stage.current?.getBoundingClientRect(); setHover({ id, x: (e?.nativeEvent.clientX ?? 0) - (r?.left ?? 0), y: (e?.nativeEvent.clientY ?? 0) - (r?.top ?? 0) }); }} />
           <div className="dt3-tools">
             <div className="seg seg--sm dt3-seg" role="group" aria-label="Camera">{([['iso', '3/4', I.Box], ['front', 'Front', I.PanelTop], ['rear', 'Rear', I.PanelBottom], ['top', 'Top', I.Layers]] as const).map(([id, l, Ico]) => (
               <button key={id} type="button" className={cam === id ? 'is-active' : ''} aria-pressed={cam === id} onClick={() => setCam(id)} title={`${l} view`}><Ico size={13} />{l}</button>))}</div>
+            <div className="dt3-chips" role="group" aria-label="Show paths">
+              <button type="button" className={`t2-chip${showPower ? ' is-on' : ''}`} aria-pressed={showPower} data-devtwin-chip="power" onClick={() => togglePath('power')} title="Power cords: each PSU to its PDU outlet, and the UPS behind each PDU"><I.PlugZap size={13} />Power</button>
+              <button type="button" className={`t2-chip${showCables ? ' is-on' : ''}`} aria-pressed={showCables} data-devtwin-chip="cables" onClick={() => togglePath('cables')} title="Cables: each port to the patch panel (and trunk) or to the far device in the rack"><I.Cable size={13} />Cables</button>
+            </div>
             <div className="seg seg--sm dt3-seg" role="group" aria-label="Overlay">{([['health', 'Health'], ['thermal', 'Heat']] as const).map(([id, l]) => (
               <button key={id} type="button" className={overlay === id ? 'is-active' : ''} aria-pressed={overlay === id} onClick={() => setOverlay(id)}>{l}</button>))}</div>
           </div>
           {hover && hovInfo && <div className="dt3-tip" style={{ left: Math.min(hover.x + 14, (stage.current?.clientWidth ?? 600) - 220), top: Math.max(8, hover.y - 44) }}><b>{hovInfo.title}</b><span className={`s-${states.get(hover.id)}`}>{STATE_LABEL[states.get(hover.id) ?? 'ok']}</span></div>}
+          {mode === 'rack' && paths && dphys && <div className={`t2-pathcard dt3-pathcard${cardOpen ? '' : ' is-min'}`} data-devtwin-pathcard>
+            <button type="button" className="t2-pc-toggle" onClick={() => setCardOpen(o => !o)} aria-expanded={cardOpen}>{cardOpen ? 'Hide path details' : 'Show path details'}</button>
+            {cardOpen && <>
+            {showPower && <div className="t2-pc-sec"><b>Power into {ne.name.replace(`${ne.dcId}-`, '')}</b>
+              {dphys.power.map(p => <div key={p.cord.psu} className={`t2-pc-row is-${p.pdu.state}`}><i style={{ background: p.pdu.kind === 'DC' ? '#10B981' : p.pdu.side === 'A' ? '#2F80ED' : '#F2994A' }} />
+                <span><strong>{p.cord.psu}</strong> → {p.pdu.name} outlet {p.cord.outlet} → <strong>{p.pdu.upstreamName}</strong> → {p.chain[4]?.name} <em>{p.cord.state === 'live' ? `${p.cord.drawW} W` : p.cord.state.replace('-', ' ')}</em></span></div>)}
+              <div className="t2-pc-sub">{dphys.verdict.text}</div></div>}
+            {showCables && <div className="t2-pc-sec"><b>Cables ({dphys.cables.length})</b>
+              {dphys.cables.slice(0, 4).map(c => <div key={c.linkId} className={`t2-pc-row is-${c.state}`}><i style={{ background: c.state === 'bad' ? '#FF4D4F' : c.state === 'warn' ? '#F5B82E' : '#22D3EE' }} />
+                <span><strong>{c.ifName}</strong> → {c.kind === 'in-rack' ? 'in-rack cord' : c.via} → <strong>{c.farNe.replace(`${ne.dcId}-`, '')}</strong> {c.farIf}</span></div>)}
+              {dphys.cables.length > 4 && <div className="t2-pc-sub">+{dphys.cables.length - 4} more on the Power & cabling tab</div>}</div>}
+            </>}
+          </div>}
           <div className="dt3-legend" data-devtwin-legend>
             {overlay === 'thermal'
               ? <><span className="vw-label">Component temperature</span><span className="dt3-heat">25°C<i />90°C</span></>
@@ -108,7 +145,7 @@ function Device3DInner({ d }: { d: NeData }) {
 }
 
 /* ------------------------------------------------------------------ the canvas */
-function Canvas3D(p: { d: NeData; gpu: DevProps['gpu']; chip: number; mode: Mode; cam: Cam; overlay: 'health' | 'thermal'; sel: string | null; hoverId: string | null; states: Map<string, PState>; onPick: (id: string | null) => void; onHover: (id: string | null, e?: ThreeEvent<PointerEvent>) => void }) {
+function Canvas3D(p: { d: NeData; gpu: DevProps['gpu']; chip: number; mode: Mode; paths: RackPathData | null; cam: Cam; overlay: 'health' | 'thermal'; sel: string | null; hoverId: string | null; states: Map<string, PState>; onPick: (id: string | null) => void; onHover: (id: string | null, e?: ThreeEvent<PointerEvent>) => void }) {
   const explode = useRef(0), lid = useRef(0);
   const [dpr, setDpr] = useState(1.75);
   const [post, setPost] = useState(true);
@@ -118,7 +155,7 @@ function Canvas3D(p: { d: NeData; gpu: DevProps['gpu']; chip: number; mode: Mode
   /* bounding-sphere radius of what is on stage (exploded assemblies grow upwards) */
   const r = p.mode === 'chip' ? 0.42 : 0.5 * Math.hypot(dims.w, dims.h + (p.mode === 'exploded' ? 0.3 : 0), dims.d);
   ctx.cap = Math.min(1.8, Math.max(0.8, r / 0.36));
-  const dev: DevProps = { d: p.d, gpu: p.gpu, chip: p.chip, labels: p.mode === 'exploded' || p.mode === 'chip' };
+  const dev: DevProps = { d: p.d, gpu: p.gpu, chip: p.chip, labels: p.mode === 'exploded' || p.mode === 'chip', paths: p.paths };
   const role = p.d.ne.role;
   const Model = p.mode === 'rack' ? RackView : p.mode === 'chip' ? Accelerator : role === 'GPU' ? GpuServer : role === 'DWDM' ? OpticalShelf : role === 'Server' ? ServerBox : role === 'Storage' ? StorageBox : role === 'Tenant gear' ? TenantBox : NetBox;
   return (
@@ -142,7 +179,7 @@ function Canvas3D(p: { d: NeData; gpu: DevProps['gpu']; chip: number; mode: Mode
         <Suspense fallback={null}><group key={`${p.mode}-${p.chip}`}><Model {...dev} /></group></Suspense>
       </Ctx3.Provider>
       <ContactShadows position={[0, -0.0005, 0]} scale={r * 4} blur={2.4} far={r * 1.2} opacity={0.42} resolution={512} frames={reduced ? 1 : Infinity} />
-      <Rig mode={p.mode} cam={p.cam} dims={dims} r={r} flat={p.mode !== 'rack' && p.mode !== 'chip' && dims.h < 0.1} />
+      <Rig mode={p.mode} cam={p.cam} dims={dims} r={r} flat={p.mode !== 'rack' && p.mode !== 'chip' && dims.h < 0.1} focusY={p.mode === 'rack' && p.paths && (p.paths.power || p.paths.cables) ? (p.d.ne.u - 1 + (p.d.ne.uSize ?? 1) / 2) * 0.0445 : null} />
       {post && <EffectComposer multisampling={2}>
         <N8AO aoRadius={Math.max(0.02, r * 0.05)} intensity={1.6} distanceFalloff={0.5} halfRes quality="performance" />
         <Bloom mipmapBlur luminanceThreshold={1.0} luminanceSmoothing={0.1} intensity={0.55} levels={4} />
@@ -162,15 +199,16 @@ function Animator({ mode, explode, lid }: { mode: Mode; explode: React.MutableRe
 }
 
 /* camera presets per mode, framed to the device */
-function Rig({ mode, cam, dims, r, flat }: { mode: Mode; cam: Cam; dims: Dims; r: number; flat: boolean }) {
+function Rig({ mode, cam, dims, r, flat, focusY = null }: { mode: Mode; cam: Cam; dims: Dims; r: number; flat: boolean; focusY?: number | null }) {
   const ref = useRef<CameraControlsImpl>(null);
   useEffect(() => {
     const c = ref.current; if (!c) return;
     const lift = mode === 'exploded' ? 0.15 : mode === 'open' ? 0.03 : 0;
-    const ty = mode === 'rack' ? dims.h * 0.48 : mode === 'chip' ? 0.05 : dims.h / 2 + lift;
+    /* with power / cable paths on, close in on this device's height in the cabinet */
+    const ty = focusY !== null ? Math.max(0.35, focusY) : mode === 'rack' ? dims.h * 0.48 : mode === 'chip' ? 0.05 : dims.h / 2 + lift;
     /* 1U / 2U gear: the story is on the faceplate, so the closed view leans to the front */
     const tz = mode === 'rack' ? 0.15 : flat && mode === 'product' && cam !== 'rear' && cam !== 'top' ? dims.d * 0.28 : 0;
-    const k = mode === 'rack' ? 1.12 : mode === 'exploded' ? 1.3 : flat && mode === 'product' ? 0.78 : 1.08;
+    const k = focusY !== null ? 0.64 : mode === 'rack' ? 1.12 : mode === 'exploded' ? 1.3 : flat && mode === 'product' ? 0.78 : 1.08;
     const dist = (r / Math.sin((30 / 2) * Math.PI / 180)) * k;
     const dir: Record<Cam, [number, number, number]> = mode === 'rack'
       ? { iso: [0.55, 0.18, 0.82], front: [0, 0.04, 1], rear: [0, 0.04, -1], top: [0.01, 1, 0.35] }
@@ -178,6 +216,6 @@ function Rig({ mode, cam, dims, r, flat }: { mode: Mode; cam: Cam; dims: Dims; r
       : { iso: [0.5, 0.42, 0.78], front: [0, 0.1, 1], rear: [0, 0.12, -1], top: [0.001, 1, 0.02] };
     const v = new THREE.Vector3(...dir[cam]).normalize().multiplyScalar(dist);
     c.setLookAt(v.x, ty + v.y, tz + v.z, 0, ty, tz, true);
-  }, [mode, cam, dims.h, dims.d, r, flat]);
+  }, [mode, cam, dims.h, dims.d, r, flat, focusY]);
   return <CameraControls ref={ref} makeDefault minDistance={r * 0.4} maxDistance={r * 9} dollyToCursor smoothTime={0.5} />;
 }

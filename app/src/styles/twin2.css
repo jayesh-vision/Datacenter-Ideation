@@ -77,3 +77,21 @@
 .t2-card dt { color: var(--vw-color-gray-500); }
 .t2-card dd { margin: 0; font-family: var(--num); font-weight: 500; color: var(--vw-color-gray-900); text-align: right; }
 .t2-card a { color: var(--primaryColor600); font-weight: 500; text-decoration: none; }
+
+/* quick chips: power / cable paths (13-Oct-2026) */
+.t2-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.t2-chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 11px; border-radius: 14px; border: 1px solid rgba(15, 23, 42, .14); background: rgba(255, 255, 255, .92); font: 500 12.5px/1 Poppins, system-ui, sans-serif; color: #334155; cursor: pointer; box-shadow: 0 1px 2px rgba(15, 23, 42, .08); }
+.t2-chip:hover { border-color: #93C3F8; }
+.t2-chip.is-on { background: #1C81EF; border-color: #1C81EF; color: #fff; }
+.t2-pathcard { position: absolute; left: 12px; bottom: 44px; z-index: 6; max-width: min(430px, calc(100% - 24px)); max-height: 42%; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; border-radius: 10px; background: rgba(255, 255, 255, .95); box-shadow: 0 4px 16px rgba(15, 23, 42, .14); font-size: 12.5px; color: #1E293B; }
+.t2-pc-sec { display: flex; flex-direction: column; gap: 4px; }
+.t2-pc-sec > b { font: 600 12.5px/1.3 Poppins, system-ui, sans-serif; }
+.t2-pc-row { display: flex; gap: 8px; align-items: flex-start; line-height: 1.4; }
+.t2-pc-row > i { flex: none; width: 10px; height: 10px; border-radius: 3px; margin-top: 3px; }
+.t2-pc-row strong { font-weight: 600; }
+.t2-pc-row em { font-style: normal; color: #64748B; }
+.t2-pc-row.is-tripped em, .t2-pc-row.is-bad strong { color: #DC2626; }
+.t2-pc-row.is-on-battery em, .t2-pc-row.is-warn em { color: #B45309; }
+.t2-pc-sub { color: #64748B; font-size: 12px; }
+.t2-pc-toggle { align-self: flex-end; border: 0; background: none; color: #1C81EF; font: 500 11.5px/1 Poppins, system-ui, sans-serif; cursor: pointer; padding: 0; }
+.t2-pathcard.is-min { padding: 6px 10px; }

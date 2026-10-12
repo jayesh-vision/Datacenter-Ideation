@@ -116,3 +116,8 @@ svg .dt-part[data-part^='if:'].is-sel .dt-body-s { stroke: #60A5FA; }
 .dt3-legend .led { width: 8px; height: 8px; border-radius: 50%; } .led.ok { background: #22C55E; box-shadow: 0 0 6px #22C55E; } .led.warn { background: #F59E0B; box-shadow: 0 0 6px #F59E0B; } .led.bad { background: #EF4444; box-shadow: 0 0 6px #EF4444; } .led.off { background: #64748B; }
 .dt3-heat { gap: 6px; } .dt3-heat i { width: 120px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #3B82F6, #22C55E, #EAB308, #F97316, #EF4444); }
 .dt3-heat { display: inline-flex; align-items: center; }
+/* power / cable chips in the device 3D view (13-Oct-2026) — chip look shared with the realistic twin */
+.dt3-chips { display: flex; gap: 6px; }
+.dt3-chips .t2-chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 11px; border-radius: 14px; border: 1px solid rgba(15, 23, 42, .14); background: rgba(255, 255, 255, .92); font: 500 12.5px/1 Poppins, system-ui, sans-serif; color: #334155; cursor: pointer; }
+.dt3-chips .t2-chip.is-on { background: #1C81EF; border-color: #1C81EF; color: #fff; }
+.dt3-pathcard { bottom: 52px; max-width: min(400px, calc(100% - 24px)); max-height: 36%; }

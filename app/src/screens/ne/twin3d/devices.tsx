@@ -10,9 +10,10 @@ import { gpuSpec } from '../../../lib/gpuSpec';
 import { bezelTex, type BezelKind } from '../../site/twin2/textures';
 import type { NeData } from '../NetworkElement';
 import { ifState, modState, siliconOf, type PState } from '../twin/model';
+import { RackPaths, type RackPathData } from './paths3d';
 import { B, Caption, Dimms, Ex, Face, Fan, Heatsink, MAT, Pick, PortField, Psu, RACK_W, U, heatColor, labelTex, ledMat, mat, perfTex, tintMat, useT, type PortSpec, type V3 } from './kit';
 
-export interface DevProps { d: NeData; gpu: GpuNodeRow | null; chip: number; labels: boolean }
+export interface DevProps { d: NeData; gpu: GpuNodeRow | null; chip: number; labels: boolean; paths?: RackPathData | null }
 export interface Dims { w: number; h: number; d: number }
 
 const W = RACK_W;
@@ -394,7 +395,7 @@ export function TenantBox({ d }: DevProps) {
 /* ---------------------------------------------------------------------- the rack: this device slid out, neighbours in place */
 const BEZEL: Record<string, BezelKind> = { GPU: 'gpu', Server: 'server', Storage: 'storage', Switch: 'switch', Router: 'router', Firewall: 'firewall', DWDM: 'optical', Access: 'router', 'Tenant gear': 'tenant' };
 export function rackDims(d: NeData): Dims { const u = d.rack.heightU || 42; return { w: 0.6, h: u * U + 0.12, d: 1.07 }; }
-export function RackView({ d }: DevProps) {
+export function RackView({ d, paths }: DevProps) {
   const t = useT();
   const { rack, rackNes, ne } = d;
   const u = rack.heightU || 42, H = u * U, D = 1.07, RW = 0.6;
@@ -442,6 +443,7 @@ export function RackView({ d }: DevProps) {
       {/* cold aisle tile in front */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.039, D / 2 + 0.32]} receiveShadow raycast={() => null}><planeGeometry args={[0.6, 0.6]} /><meshStandardMaterial map={perfTex([10, 10], '#C7CED8')} /></mesh>
       {t.overlay === 'thermal' && <mesh position={[0, H / 2, D / 2 + 0.06]} raycast={() => null}><planeGeometry args={[RW, H]} /><meshBasicMaterial color={heatColor(rack.tempC + 30)} transparent opacity={0.18} depthWrite={false} /></mesh>}
+      {paths && (paths.power || paths.cables) && <RackPaths pd={paths} H={H} D={D} RW={RW} nes={rackNes} meId={ne.id} />}
     </group>
   );
 }

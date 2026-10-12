@@ -83,7 +83,9 @@ function build(db: Db, dc: Datacenter): SitePhys {
   const candidates = nes.filter(n => !planned(n) && !isOpaque(n) && psus(n).length === 2 && !outletTrip.has(n.id) && n.id !== edgeId(db.persona, dcAt(1), 1) && !n.isPe);
   const miswired = dc.status !== 'planned' && candidates.length && rrSite() < 0.3 ? candidates[intBetween(rrSite, 0, candidates.length - 1)].id : null;
 
+  const roomKeys = dc.floors.flatMap(f => f.rooms.map(r => `${f.name}|${r}`));
   dc.racks.forEach((rk, ri) => {
+    const roomIdx = Math.max(0, roomKeys.indexOf(`${rk.floor}|${rk.room}`));
     const inRack = nes.filter(n => n.rackId === rk.id && !planned(n)).sort((a, b) => a.u - b.u);
     /* telco access gear and optical shelves run on the −48 V plant; core / spine routers report AC power entry modules */
     const dcPowered = (n: NetworkElement) => db.persona === 'network' && (n.role === 'DWDM' || (n.role === 'Router' && n.layer === 'access')) && !n.modules.some(m => /AC/.test(m.name));
@@ -95,7 +97,8 @@ function build(db: Db, dc: Datacenter): SitePhys {
     const draw = new Map(inRack.map((n, i) => [n.id, (ws[i] / sumW) * itKw]));
     const rating = RATINGS.find(x => x.kw >= rk.budgetKw) ?? RATINGS[RATINGS.length - 1];
     const mk = (side: PowerSide, kind: 'AC' | 'DC'): RackPdu => {
-      const ups = upsOf(side); const u = ups.length ? ups[ri % ups.length] : p.ups[0];
+      /* one UPS per side per room: the room's A and B busways each hang off one module */
+      const ups = upsOf(side); const u = ups.length ? ups[roomIdx % ups.length] : p.ups[0];
       const dcKind = kind === 'DC';
       return {
         id: `${rk.id}-${dcKind ? 'BDFB' : 'PDU'}-${side}`, dcId: dc.id, rackId: rk.id, name: `${dcKind ? 'BDFB' : 'PDU'}-${side}`, side, kind,
