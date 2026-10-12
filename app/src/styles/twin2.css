@@ -95,3 +95,36 @@
 .t2-pc-sub { color: #64748B; font-size: 12px; }
 .t2-pc-toggle { align-self: flex-end; border: 0; background: none; color: #1C81EF; font: 500 11.5px/1 Poppins, system-ui, sans-serif; cursor: pointer; padding: 0; }
 .t2-pathcard.is-min { padding: 6px 10px; }
+
+/* device popup + trace view (13-Oct-2026) */
+.t2-pop { position: absolute; left: 0; top: 0; z-index: 8; width: 288px; display: flex; flex-direction: column; gap: 6px; padding: 11px 12px 12px; background: rgba(255, 255, 255, .98); border: 1px solid var(--vw-color-slate-200); border-left: 3px solid #3FDC74; border-radius: 10px; box-shadow: 0 12px 30px -12px rgba(16, 34, 58, .45); font-size: 12.5px; color: var(--vw-color-gray-700); pointer-events: auto; }
+.t2-pop.is-warn { border-left-color: var(--vw-color-amber-500); } .t2-pop.is-bad { border-left-color: var(--vw-color-red-500); } .t2-pop.is-off { border-left-color: var(--vw-color-slate-400); }
+.t2-pop-h { display: flex; align-items: center; gap: 8px; } .t2-pop-h b { font: 600 14px/1.2 Poppins, system-ui, sans-serif; color: #0F172A; flex: 1; }
+.t2-pop-h .dot { width: 8px; height: 8px; border-radius: 50%; background: #3FDC74; } .t2-pop.is-warn .dot { background: #F5B82E; } .t2-pop.is-bad .dot { background: #FF4D4F; } .t2-pop.is-off .dot { background: #94A3B8; }
+.t2-pop-sub { color: #64748B; }
+.t2-pop dl { margin: 2px 0 4px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
+.t2-pop dl div { display: flex; flex-direction: column; gap: 1px; } .t2-pop dt { font-size: 11px; color: #64748B; } .t2-pop dd { margin: 0; font-weight: 500; color: #1E293B; }
+.t2-pop dd.s-bad { color: #DC2626; } .t2-pop dd.s-warn { color: #B45309; }
+.t2-pop-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.t2-pop-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 30px; border-radius: 8px; border: 1px solid var(--vw-color-slate-200); background: #fff; font: 500 12px/1 Poppins, system-ui, sans-serif; color: #1E293B; cursor: pointer; text-decoration: none; }
+.t2-pop-btn:hover { border-color: #93C3F8; background: #F3F8FE; }
+.t2-pop-btn.is-primary { background: #1C81EF; border-color: #1C81EF; color: #fff; }
+.t2-trace { position: absolute; inset: 0; z-index: 9; display: flex; flex-direction: column; background: #E9EEF4; }
+.t2-trace-bar { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: #fff; border-bottom: 1px solid var(--vw-color-slate-200); }
+.t2-trace-bar b { font: 600 14px/1 Poppins, system-ui, sans-serif; color: #0F172A; }
+.t2-trace-bar .grow { flex: 1; }
+.t2-trace-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 270px 1fr; }
+.t2-trace-list { overflow: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px; background: #F8FAFC; border-right: 1px solid var(--vw-color-slate-200); }
+.t2-tl-row { display: flex; flex-direction: column; gap: 3px; text-align: left; padding: 8px 10px; border: 1px solid var(--vw-color-slate-200); border-radius: 8px; background: #fff; font: inherit; font-size: 12.5px; cursor: pointer; }
+.t2-tl-row b { display: flex; align-items: center; gap: 6px; font-weight: 500; color: #0F172A; } .t2-tl-row b i { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+.t2-tl-row small { color: #64748B; font-size: 11.5px; overflow-wrap: anywhere; }
+.t2-tl-row.is-on { border-color: #1C81EF; box-shadow: 0 0 0 1px #1C81EF inset; }
+.t2-tl-row.is-bad small { color: #DC2626; } .t2-tl-row.is-warn small { color: #B45309; }
+.t2-tl-note { margin-top: 4px; padding: 8px 10px; border-radius: 8px; background: #FFFBEB; color: #92400E; display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; }
+.t2-trace-stage { position: relative; min-height: 0; }
+.t2-trace-stage > div:first-child { position: absolute !important; inset: 0; }
+.t2-trace-hint { position: absolute; left: 12px; bottom: 10px; font-size: 12px; color: #475569; background: rgba(255, 255, 255, .85); padding: 4px 8px; border-radius: 6px; }
+.t2-trace-empty { padding: 40px; text-align: center; color: #64748B; }
+@media (max-width: 1360px) { .t2-trace-body { grid-template-columns: 220px 1fr; } }
+.twin.t2 { position: relative; }
+.twin.t2 > .t2-trace { border-radius: 14px; overflow: hidden; border: 1px solid var(--vw-color-slate-200); }

@@ -14,6 +14,7 @@ import { TwinPanel } from '../twin/Panel';
 import { buildAttention } from '../twin/attention';
 import { LEGENDS, TwinScene2 } from './Scene2';
 import { PathCard, pathPose, physAnchors, ROUTE_C, SIDE_C, type PhysView } from './paths';
+import { Trace, type TraceKind } from './Trace';
 import '../../../styles/twin.css';
 import '../../../styles/twin2.css';
 
@@ -40,6 +41,10 @@ export default function Twin2({ dcId }: { dcId: string }) {
   /* quick chips (13-Oct-2026, user): draw the power path and the cable paths into the twin */
   const [showPower, setShowPower] = useState(false);
   const [showCables, setShowCables] = useState(false);
+  /* device popup actions (13-Oct-2026, user): a focused trace of just this device's cables or power */
+  const [trace, setTrace] = useState<TraceKind | null>(null);
+  const [popup, setPopup] = useState(true);
+  useEffect(() => { setTrace(null); setPopup(true); }, [sel.ne]);
   const { data: phys } = useQuery(() => (showPower || showCables ? getSitePhysical(dcId) : Promise.resolve(null)), [dcId, showPower || showCables]);
   const { data: devPhys } = useQuery(() => (showCables && sel.ne ? getDevicePhysical(sel.ne) : Promise.resolve(null)), [showCables, sel.ne]);
   const pv: PhysView = useMemo(() => ({ phys: phys ?? null, dev: devPhys ?? null, power: showPower, cables: showCables }), [phys, devPhys, showPower, showCables]);
@@ -119,7 +124,7 @@ export default function Twin2({ dcId }: { dcId: string }) {
     <div className={`twin t2${full ? ' is-full' : ''}`} data-twin2>
       <div className="twin-main">
         <div className="twin-canvas t2-stage" data-twin-level-now={level}>
-          {gl ? <><TwinScene2 L={L} data={data} layer={layer} sel={sel} level={level} onPick={onPick} setHover={setHover} att={att} anchors={anchors} posRef={posRef} resetTick={resetTick} unit={unit} focusPose={unitView?.pose ?? ((showPower || showCables) ? pathPose(L, sel) : null)} hide={unitView?.hide} pv={level !== 'building' ? pv : undefined} walk={walk} onWalkTo={onWalkTo} /><Labels anchors={anchors} posRef={posRef} onPick={onPick} /></>
+          {trace && ne ? null : gl ? <><TwinScene2 L={L} data={data} layer={layer} sel={sel} level={level} onPick={onPick} setHover={setHover} att={att} anchors={anchors} posRef={posRef} resetTick={resetTick} unit={unit} focusPose={unitView?.pose ?? ((showPower || showCables) ? pathPose(L, sel) : null)} hide={unitView?.hide} pv={level !== 'building' ? pv : undefined} walk={walk} onWalkTo={onWalkTo} /><Labels anchors={anchors} posRef={posRef} onPick={onPick} /></>
             : <div className="twin-nogl"><I.Box size={28} /><b>3D view unavailable</b><span>This browser has no WebGL. Use the lists on the right to navigate floors, rooms, racks and equipment.</span></div>}
           <div className="t2-overlay">
             <div className="t2-overlay-left">
@@ -150,10 +155,12 @@ export default function Twin2({ dcId }: { dcId: string }) {
               <Link to={`/facilities?dc=${dc.id}&tab=${unitObj.tab}`}>Open in Facilities →</Link>
             </div>
           )}
-          {!unitObj && <PathCard L={L} data={data} sel={sel} pv={pv} />}
+          {!unitObj && !trace && !(ne && popup) && <PathCard L={L} data={data} sel={sel} pv={pv} />}
+          {ne && popup && !trace && !walk && <DevicePopup ne={ne} dcId={dc.id} posRef={posRef} anchor={`e${ne.id}`} onTrace={setTrace} onClose={() => setPopup(false)} />}
           {hover ? <div className="twin-tip" role="status"><b>{hover.title}</b><span>{hover.sub}</span></div> : <div className="t2-hint">{hint}</div>}
         </div>
       </div>
+      {trace && ne && <Trace kind={trace} me={ne} onKind={setTrace} onClose={() => setTrace(null)} />}
       <aside className="twin-side" data-twin="panel">
         <TwinPanel data={data} L={L} sel={sel} level={level} onPick={onPick} crumbs={crumbs} att={att} />
       </aside>
@@ -218,6 +225,46 @@ function Labels({ anchors, posRef, onPick }: { anchors: Anchor2[]; posRef: React
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/* popup beside the selected device (13-Oct-2026, user): facts + actions; follows the device's projected position */
+function DevicePopup({ ne, dcId, posRef, anchor, onTrace, onClose }: { ne: import('../../../api/ext-twin').TwinNe; dcId: string; posRef: React.MutableRefObject<PosMap>; anchor: string; onTrace: (k: TraceKind) => void; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      const el = ref.current, p = posRef.current.get(anchor);
+      if (el && el.parentElement) {
+        const W = el.parentElement.clientWidth, H = el.parentElement.clientHeight, w = el.offsetWidth, h = el.offsetHeight;
+        const x = p && p[2] ? p[0] + 28 : W - w - 16, y = p && p[2] ? p[1] - 20 : 70;
+        el.style.transform = `translate(${Math.max(12, Math.min(W - w - 12, x)).toFixed(0)}px, ${Math.max(60, Math.min(H - h - 44, y)).toFixed(0)}px)`;
+        el.style.opacity = '1';
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [posRef, anchor]);
+  const st = ne.opsState !== 'in-service' ? 'off' : ne.worst === 'critical' ? 'bad' : ne.worst ? 'warn' : 'ok';
+  const word = ne.opsState === 'tenant-owned' ? 'Tenant-owned' : ne.opsState === 'unmonitored' ? 'Not monitored' : ne.opsState === 'planned' ? 'Planned' : ne.worst ? `${ne.alarms} alarm${ne.alarms === 1 ? '' : 's'} · ${ne.worst}` : 'Healthy';
+  return (
+    <div ref={ref} className={`t2-pop is-${st}`} data-twin2-popup={ne.id} style={{ opacity: 0 }}>
+      <div className="t2-pop-h"><span className="dot" /><b>{ne.name.replace(`${dcId}-`, '')}</b><button type="button" className="t2-card-x" aria-label="Close" onClick={onClose}><I.X size={14} /></button></div>
+      <span className="t2-pop-sub">{ne.role} · {ne.vendor} {ne.model}</span>
+      <dl>
+        <div><dt>Position</dt><dd>{ne.rackId.replace(`${dcId}-`, '')} · U{ne.u}{ne.uSize > 1 ? `–${ne.u + ne.uSize - 1}` : ''}</dd></div>
+        <div><dt>State</dt><dd className={`s-${st}`}>{word}</dd></div>
+        <div><dt>Links</dt><dd>{ne.links - ne.linksDown} of {ne.links} up{ne.linksDown ? ` · ${ne.linksDown} down` : ''}</dd></div>
+        <div><dt>Services</dt><dd>{ne.services}</dd></div>
+      </dl>
+      <div className="t2-pop-actions">
+        <Link className="t2-pop-btn is-primary" to={`/ne/${ne.id}`} data-pop-action="open"><I.ExternalLink size={13} />Open device</Link>
+        <button type="button" className="t2-pop-btn" onClick={() => onTrace('cables')} data-pop-action="cables"><I.Cable size={13} />View cabling</button>
+        <button type="button" className="t2-pop-btn" onClick={() => onTrace('power')} data-pop-action="power"><I.PlugZap size={13} />View power</button>
+        <Link className="t2-pop-btn" to={`/ne/${ne.id}?tab=twin`} data-pop-action="3d"><I.Box size={13} />Device in 3D</Link>
+      </div>
     </div>
   );
 }

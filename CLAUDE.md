@@ -387,3 +387,10 @@ All read models, derived per site and cached per db; they raise no alarms and ne
   the top-of-rack patch panel and the trunk, in-rack cables to the far device; a path card lists the chain. Check: `node .qa/devtwin-paths.mjs <ne> <persona>`.
 - Known: the shared twin side panel (`site/twin/Panel.tsx`, frozen) lists the site's first two UPS as "Power feeds" for every rack; at 4-UPS
   sites rooms after the first are really fed from UPS-3/4 (the path card is right).
+- Device popup + trace views (13-Oct-2026, user): selecting a device in the realistic twin opens `DevicePopup` beside it (role, model, rack · U,
+  state, links up, services; actions **Open device**, **View cabling**, **View power**, **Device in 3D**). View cabling / power opens `twin2/Trace.tsx`
+  over the whole twin: its own small 3D scene with ONLY this device and what it connects to. Cabling = one lane per cable through the real
+  hops (cord → cabinet panel → trunk → ODF → cross-connect → OSP …) to the far device; pick a cable in the list to see it alone with hop labels
+  and the check-first marker. Power = the device, each PSU cord to its outlet, the PDU (A / B), the busway, the UPS (or −48 V plant) and the
+  utility feed, the two sides as two rows seen from ~40° above. Camera fit is done by hand (camera-controls `fitToBox` snaps to a box face).
+  Check: `node .qa/twin2-trace.mjs` (P= DC= W=).
