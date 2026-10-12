@@ -3,6 +3,7 @@
    A (blue) / B (orange) strip at the outlet's height; this device's cords are thick and labelled. Cables: this device's ports
    run to the patch panel at the top of the cabinet front and up into the tray, or loop to the far device for in-rack cables.
    Geometry follows RackView (devices.tsx): rack depth 1.07 m, devices 0.8 m deep from the front rails, PDUs at the rear. */
+import type { ReactElement } from 'react';
 import { Line } from '@react-three/drei';
 import type { PowerCord, RackPdu } from '../../../api/types';
 import type { DevicePhysicalView } from '../../site/twin2/paths';
@@ -20,7 +21,7 @@ export function RackPaths({ pd, H, D, RW, nes, meId }: { pd: RackPathData; H: nu
   const rear = front - 0.8;             // device rear faces
   const stripZ = -D / 2 + 0.06 + 0.031;
   const pos = new Map(nes.map(n => [n.id, n]));
-  const out: JSX.Element[] = [];
+  const out: ReactElement[] = [];
   if (pd.power) {
     const pduBy = new Map(pd.pdus.map(p => [p.id, p]));
     const perNe = new Map<string, PowerCord[]>();

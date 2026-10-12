@@ -33,7 +33,7 @@ const dashedFor = (st?: string) => st === 'tripped' || st === 'on-battery';
 
 /* ---------------- power geometry (floor-local, y above the slab top) ---------------- */
 interface Seg { pts: P3[]; c: string; w: number; dashed?: boolean; dim?: boolean; key: string }
-function powerSegs(L: TwinLayout, floor: FloorL, phys: SitePhysical, sel: Sel): { segs: Seg[]; heads: { room: RoomL; side: 'A' | 'B'; at: P3; ups: string; dc?: boolean }[] } {
+function powerSegs(_L: TwinLayout, floor: FloorL, phys: SitePhysical, sel: Sel): { segs: Seg[]; heads: { room: RoomL; side: 'A' | 'B'; at: P3; ups: string; dc?: boolean }[] } {
   const segs: Seg[] = [], heads: { room: RoomL; side: 'A' | 'B'; at: P3; ups: string; dc?: boolean }[] = [];
   const plant = floor.rooms.find(r => r.kind === 'power');
   const selRoom = sel.rack ? floor.rooms.find(r => r.racks.some(k => k.rack.id === sel.rack)) : null;

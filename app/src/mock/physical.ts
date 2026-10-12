@@ -84,7 +84,7 @@ function build(db: Db, dc: Datacenter): SitePhys {
   const miswired = dc.status !== 'planned' && candidates.length && rrSite() < 0.3 ? candidates[intBetween(rrSite, 0, candidates.length - 1)].id : null;
 
   const roomKeys = dc.floors.flatMap(f => f.rooms.map(r => `${f.name}|${r}`));
-  dc.racks.forEach((rk, ri) => {
+  dc.racks.forEach(rk => {
     const roomIdx = Math.max(0, roomKeys.indexOf(`${rk.floor}|${rk.room}`));
     const inRack = nes.filter(n => n.rackId === rk.id && !planned(n)).sort((a, b) => a.u - b.u);
     /* telco access gear and optical shelves run on the −48 V plant; core / spine routers report AC power entry modules */
