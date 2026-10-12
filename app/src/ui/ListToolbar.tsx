@@ -28,7 +28,7 @@ export interface ListFilter {
   quick?: boolean;
 }
 
-export function ListToolbar({ shown, total, noun, search, filters = [], onRefresh, actions = [], onApply, layout, children }: {
+export function ListToolbar({ shown, total, noun, search, filters = [], onRefresh, actions = [], onApply, layout, children, tools }: {
   shown: number; total: number; noun?: string;
   search?: { value: string; onChange: (v: string) => void; placeholder: string };
   filters?: ListFilter[]; onRefresh?: () => void;
@@ -39,6 +39,8 @@ export function ListToolbar({ shown, total, noun, search, filters = [], onRefres
   layout?: { value: 'list' | 'tiles'; onChange: (v: 'list' | 'tiles') => void };
   /** extra inline content after the quick filters (e.g. an active cause chip) */
   children?: ReactNode;
+  /** extra icon buttons on the right, before refresh (e.g. reset view, full screen) */
+  tools?: ReactNode;
 }) {
   const [panel, setPanel] = useState(false);
   const [spin, setSpin] = useState(false);
@@ -66,6 +68,7 @@ export function ListToolbar({ shown, total, noun, search, filters = [], onRefres
       {quick.map(f => <QuickSelect key={f.id} f={f} />)}
       {children}
       <span className="lt-grow" />
+      {tools}
       <button type="button" className="nst-icon-btn lt-icon" title="Refresh" aria-label="Refresh" onClick={refresh}><I.RefreshCw size={16} className={spin ? 'lt-spin' : ''} /></button>
       {filters.length > 0 && (
         <button type="button" className={`nst-icon-btn lt-icon${panel || active ? ' is-on' : ''}`} title="Filters" aria-label="Filters" aria-expanded={panel} onClick={() => setPanel(p => !p)}>

@@ -75,7 +75,12 @@ main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 380px;min-height:0}
 .cluster rect{fill:var(--surface);fill-opacity:.55;stroke:var(--line);stroke-dasharray:4 4}
 .cluster text{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
 .zoom{position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;gap:4px;z-index:5}
-.zoom button{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-size:16px;display:grid;place-items:center}
+.zoom button{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--surface);cursor:pointer;display:grid;place-items:center;color:var(--muted)}
+.zoom button:hover{color:var(--fg);border-color:var(--accent)}
+.zoom-sep{height:4px}
+#zfull .ic-min,#zfull[aria-pressed="true"] .ic-max{display:none}
+#zfull[aria-pressed="true"] .ic-min{display:inline}
+#zfull[aria-pressed="true"]{color:var(--accent);border-color:var(--accent)}
 .hint{position:absolute;left:12px;bottom:12px;font-size:12px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:5px 10px;z-index:5;max-width:calc(100% - 80px)}
 .crumbs{position:absolute;left:12px;top:12px;display:flex;flex-wrap:wrap;gap:4px;z-index:5;max-width:calc(100% - 24px)}
 .crumbs button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:2px 10px;font-size:12px;cursor:pointer;color:var(--muted)}
@@ -160,6 +165,13 @@ table.fields td:first-child{font-family:var(--f-mono);font-size:12px;overflow-wr
 .p-actions button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
 .empty-note{color:var(--muted);font-size:12.5px}
 
+/* inside the app (/data-model): the app draws the title, tiles, tabs and toolbar; this page is only the stage + panel */
+html.embed header.top{display:none}
+html.embed body{min-height:0;height:100vh}
+html.embed main{height:100vh}
+html.embed .stage{min-height:0}
+.node.miss{opacity:.22}
+.row.miss{opacity:.35}
 @media (max-width: 980px){
   main{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto}
   .stage{min-height:520px;height:62vh}
@@ -214,9 +226,12 @@ table.fields td:first-child{font-family:var(--f-mono);font-size:12px;overflow-wr
     <div class="crumbs" id="crumbs"></div>
     <div class="hint" id="hint"></div>
     <div class="zoom" id="zoomBox">
-      <button id="zin" title="Zoom in" aria-label="Zoom in">+</button>
-      <button id="zout" title="Zoom out" aria-label="Zoom out">−</button>
-      <button id="zfit" title="Fit to view" aria-label="Fit to view">⤢</button>
+      <button id="zin" title="Zoom in" aria-label="Zoom in"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+      <button id="zout" title="Zoom out" aria-label="Zoom out"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+      <button id="zfit" title="Fit to view" aria-label="Fit to view"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="8" y="8" width="8" height="8" rx="1"/></svg></button>
+      <i class="zoom-sep" aria-hidden="true"></i>
+      <button id="zreset" title="Reset view" aria-label="Reset view"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button>
+      <button id="zfull" title="Full screen" aria-label="Full screen" aria-pressed="false"><span class="ic-max"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></span><span class="ic-min"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg></span></button>
     </div>
   </section>
   <aside class="panel" id="panel" aria-live="polite"></aside>
@@ -224,7 +239,8 @@ table.fields td:first-child{font-family:var(--f-mono);font-size:12px;overflow-wr
 
 <script>
 /* inside the DCO app (/data-model) the page follows the app's light theme */
-if (new URLSearchParams(location.search).has('embed')) document.documentElement.setAttribute('data-theme', 'light');
+const EMBED = new URLSearchParams(location.search).has('embed');
+if (EMBED) { document.documentElement.setAttribute('data-theme', 'light'); document.documentElement.classList.add('embed'); }
 /* ------------------------------------------------------------------ model */
 const DOMAINS = {
   loc:   { name: 'Location',     c: '--d-loc' },
@@ -384,9 +400,11 @@ const MAP_COLS = [['loc', ['region', 'state', 'site', 'floor', 'room']], ['space
 const $ = s => document.querySelector(s);
 const NS = 'http://www.w3.org/2000/svg';
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-const st = { view: 'ontology', e: 'rack', hops: 1, persona: 'neocloud', hidden: new Set(), trail: ['rack'], sel: 'rack' };
+const st = { view: 'ontology', e: 'rack', hops: 1, persona: 'neocloud', hidden: new Set(), trail: ['rack'], sel: 'rack', q: '' };
 try { const h = new URLSearchParams(location.hash.slice(1)); if (['ontology', 'map', 'tree'].includes(h.get('view'))) st.view = h.get('view'); if (E[h.get('e')]) { st.e = st.sel = h.get('e'); st.trail = [st.e]; } if (h.get('hops')) st.hops = +h.get('hops') || 1; if (COUNTS[h.get('persona')]) st.persona = h.get('persona'); } catch {}
-const saveHash = () => { try { history.replaceState(null, '', `#view=${st.view}&e=${st.sel}&hops=${st.hops}&persona=${st.persona}`); } catch {} };
+let quiet = false;   /* true while the app drives the page: only the user's own moves are reported back */
+const notify = () => { if (EMBED && !quiet) try { parent.postMessage({ dm: 'state', view: st.view, sel: st.sel, e: st.e, hops: st.hops }, location.origin); } catch {} };
+const saveHash = () => { notify(); try { history.replaceState(null, '', `#view=${st.view}&e=${st.sel}&hops=${st.hops}&persona=${st.persona}`); } catch {} };
 const fmt = n => (n ?? 0).toLocaleString('en-US');
 const count = id => COUNTS[st.persona]?.[id] ?? 0;
 const PERSONA_NAME = { neocloud: 'NeoCloud', network: 'network operator', colocation: 'colocation', cloud: 'cloud', enterprise: 'enterprise' };
@@ -435,6 +453,7 @@ function buildGraph(nodes, edges, opts) {
     g.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); opts.onClick(n.id); } });
     g.addEventListener('mouseenter', () => highlight(n.id, true)); g.addEventListener('mouseleave', () => highlight(opts.keepHot ?? null));
     g.style.opacity = n.op ?? 1;
+    if (st.q && !matches().has(n.id)) g.classList.add('miss');
     nodesEl.set(n.id, g);
   }
   curveMode = !!opts.map; svg.classList.toggle('is-map', !!opts.map); labelCenter = opts.center ?? null;
@@ -572,6 +591,21 @@ svg.addEventListener('wheel', e => { e.preventDefault(); const r = svg.getBoundi
 const mid = () => { const r = svg.getBoundingClientRect(); return [r.width / 2, r.height / 2]; };
 $('#zin').onclick = () => zoomAt(1.25, ...mid()); $('#zout').onclick = () => zoomAt(0.8, ...mid());
 $('#zfit').onclick = () => (st.view === 'map' ? fit(pos, true) : fit(pos));
+/* reset = the default view: Rack in the middle, direct links, every domain, no search, fitted */
+function resetView() {
+  st.e = st.sel = 'rack'; st.trail = ['rack']; st.hops = 1; st.hidden.clear(); st.q = ''; matchCache = null; closed.clear();
+  $('#hops').value = '1'; document.querySelectorAll('#legend button').forEach(b => b.setAttribute('aria-pressed', 'true'));
+  setView(st.view);
+}
+$('#zreset').onclick = () => { if (EMBED) { try { parent.postMessage({ dm: 'reset' }, location.origin); } catch {} } else resetView(); };
+/* full screen: inside the app the app expands its card (it owns the toolbar); standalone, the browser goes full screen */
+const setFull = on => { $('#zfull').setAttribute('aria-pressed', String(on)); $('#zfull').title = on ? 'Exit full screen (Esc)' : 'Full screen'; };
+$('#zfull').onclick = () => {
+  if (EMBED) { try { parent.postMessage({ dm: 'fullscreen' }, location.origin); } catch {} return; }
+  if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.();
+};
+document.addEventListener('fullscreenchange', () => { setFull(!!document.fullscreenElement); setTimeout(() => (st.view === 'map' ? fit(pos, true) : st.view === 'ontology' && fit(pos)), 120); });
+window.addEventListener('keydown', e => { if (e.key === 'Escape' && EMBED && $('#zfull').getAttribute('aria-pressed') === 'true') try { parent.postMessage({ dm: 'fullscreen', on: false }, location.origin); } catch {} });
 
 /* ------------------------------------------------------------------ hierarchy */
 const INV = { 'is a': 'kind of', 'connects A and Z': 'joined by', 'sits in': 'hosts', 'runs on': 'runs', 'backs up': 'backed by', 'leased by': 'leases', 'charged to': 'costed as',
@@ -595,7 +629,7 @@ function tree() {
       const [id, kids = []] = node; if (!visible(id)) return;
       const k = `${path}/${id}`, ent = E[id];
       const li = document.createElement('li'); li.dataset.k = k; if (closed.has(k)) li.classList.add('closed');
-      const row = document.createElement('div'); row.className = `row${st.sel === id ? ' sel' : ''}`; row.tabIndex = 0; row.setAttribute('role', 'treeitem');
+      const row = document.createElement('div'); row.className = `row${st.sel === id ? ' sel' : ''}${st.q && !matches().has(id) ? ' miss' : ''}`; row.tabIndex = 0; row.setAttribute('role', 'treeitem');
       const tw = document.createElement('button'); tw.className = `tw${kids.length ? '' : ' leaf'}`; tw.setAttribute('aria-label', 'Expand or collapse');
       tw.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transform:rotate(${closed.has(k) ? 0 : 90}deg);transition:transform .15s"><path d="m9 6 6 6-6 6"/></svg>`;
       tw.onclick = e => { e.stopPropagation(); closed.has(k) ? closed.delete(k) : closed.add(k); tree(); };
@@ -704,9 +738,41 @@ q.addEventListener('keydown', e => {
 qres.addEventListener('mousedown', e => { const li = e.target.closest('li[data-id]'); if (li) { e.preventDefault(); pick(li.dataset.id); } });
 q.addEventListener('blur', () => setTimeout(() => { qres.hidden = true; }, 120));
 
+/* search: entity name, code type, sheet, field or description */
+function searchHits(s) {
+  s = (s || '').trim().toLowerCase(); if (!s) return [];
+  return Object.entries(E).map(([id, e]) => {
+    const fieldHit = e.f.find(f => f[0].toLowerCase().includes(s));
+    const score = e.n.toLowerCase().startsWith(s) ? 0 : e.n.toLowerCase().includes(s) ? 1 : e.t.toLowerCase().includes(s) || e.sheet.toLowerCase().includes(s) ? 2 : fieldHit ? 3 : e.desc.toLowerCase().includes(s) ? 4 : 9;
+    return { id, score, why: score === 3 ? `field ${fieldHit[0]}` : score === 2 ? e.t : DOMAINS[e.d].name };
+  }).filter(h => h.score < 9).sort((a, b) => a.score - b.score);
+}
+let matchCache = null;
+const matches = () => (matchCache ??= new Set(searchHits(st.q).map(h => h.id)));
+/* control surface for the app screen (same origin): window.DM */
+const q_ = fn => (...a) => { quiet = true; try { return fn(...a); } finally { quiet = false; } };
+window.DM = {
+  model: { E, R, DOMAINS, COUNTS },
+  state: () => ({ view: st.view, sel: st.sel, e: st.e, hops: st.hops, hidden: [...st.hidden], q: st.q }),
+  setView: q_(v => setView(v)),
+  focus: q_(id => { if (st.view !== 'ontology') { st.e = id; st.trail = [id]; setView('ontology'); } else focus(id); }),
+  setHops: q_(n => { st.hops = n; if (st.view === 'ontology') ontology(false); saveHash(); }),
+  setPersona: q_(p => { if (COUNTS[p]) { st.persona = p; setView(st.view); } }),
+  setHidden: q_(list => { st.hidden = new Set(list); if (st.hidden.has(E[st.e].d)) st.hidden.delete(E[st.e].d); setView(st.view); }),
+  setQuery: q_(q => {
+    st.q = q || ''; matchCache = null;
+    const best = searchHits(st.q)[0];
+    if (best && st.view === 'ontology' && best.id !== st.e) focus(best.id); else setView(st.view);
+    return matches().size;
+  }),
+  hits: q => searchHits(q),
+  reset: q_(() => resetView()),
+  setFull: on => setFull(on),
+};
 let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (st.view === 'map') fit(pos, true); else if (st.view === 'ontology') fit(pos); }, 150); });
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => setView(st.view));
 setView(st.view);
+if (EMBED) try { parent.postMessage({ dm: 'ready' }, location.origin); } catch {}
 </script>
 </body>
 </html>

@@ -461,6 +461,14 @@ td .cell-2 small { font-size: 11.5px; color: var(--ink-500); }
 .info-pop.is-up { transform: translateY(-100%); }
 .dco-tile > .dco-l .info-tip, .sum-label .info-tip, .app-kpi-h .info-tip { margin-left: 4px; }
 
-/* Data model screen: the explorer page fills the content area under the top bar */
-.dm-frame { height: calc(100vh - var(--top-h)); min-height: 560px; display: flex; }
+/* Data model screen (screens/DataModel.tsx): toolbar card wrapping the explorer iframe */
+.dm-card { padding: 0; overflow: clip; display: flex; flex-direction: column; }
+.dm-frame { height: max(600px, calc(100vh - var(--top-h) - 150px)); display: flex; border-top: 0; }
 .dm-frame iframe { flex: 1; width: 100%; border: 0; display: block; background: var(--vw-color-white); }
+.dm-keys { display: inline-flex; align-items: center; gap: 14px; margin-left: 6px; font-size: 12.5px; color: var(--vw-color-gray-500); white-space: nowrap; }
+.dm-keys > span { display: inline-flex; align-items: center; gap: 6px; }
+.dm-keys path { stroke: var(--vw-color-slate-400); stroke-width: 1.6; fill: none; }
+@media (max-width: 1360px) { .dm-keys { display: none; } }
+.dm-card.is-full { position: fixed; z-index: 60; top: var(--top-h); left: var(--rail-w); right: 0; bottom: 0; border-radius: 0; border: 0; box-shadow: none; }
+.dm-card.is-full .dm-frame { height: auto; flex: 1; min-height: 0; }
+body.dm-noscroll { overflow: hidden; }

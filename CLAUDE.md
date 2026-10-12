@@ -320,7 +320,11 @@ the personas page and platform overview are served at `/datacenter-personas.html
 Known mock gaps the backup's checks flag: serials repeat across sites, GJ-DC-013 (planned) racks exceed its 10 kW, 115 GPU hosts lack GPU records.
 Data model explorer (12-Oct-2026, user): `docs/dco-data-model.html` (served at `/data-model.html`; copy to `app/public/` after editing).
 It is also in the side menu (group Reference · **Data model**, route `/data-model`, `screens/DataModel.tsx` = an iframe of `/data-model.html?embed=1`,
-which forces the light theme). 33 entities
+which forces the light theme). Top section redesigned 12-Oct-2026 (user: "look like our Datacenter screens"): PageHead + Import template / Opstral
+buttons, StatGrid of 6 tiles, Tabs (Ontology · Full map · Hierarchy, `?tab=map|tree`), ListToolbar card (search, Domain + Show quick filters, line key)
+around the iframe; the page hides its own header in embed mode and is driven through `window.DM` (it posts `{dm:'state'}` only for the user's own moves).
+Reset view + Full screen (user, 12-Oct-2026): toolbar icon buttons (ListToolbar `tools` slot) and the diagram's control stack; full screen = the card
+fills the content area under the top bar, Esc closes (standalone page uses browser full screen); reset = Rack in the middle, direct links, no filter / search. 33 entities
 (types.ts + template sheets) and 65 relationships in one `E` / `R` table; views Ontology (focus entity, 1 or 2 steps out), Full map (3 × 3 domain
 clusters) and Hierarchy (containment tree); details panel = fields marked Import / Live / Derived, sheet, example id, relationships. Counts per persona
 come from the mock (`COUNTS`, India); update E / R when types.ts gains an entity.
