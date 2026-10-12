@@ -204,11 +204,14 @@ const R = [
   ['/incidents', 'Incidents', 'Incident list with SLA clocks and revenue', [['view', 'open · sev1 · high · breaching · all', 'default open'], ['dc', 'datacenter ID', 'site'], ['q', 'text', 'search']], '?view=sev1'],
   ['/incidents/{id}', 'Incident', 'RCA, impact, revenue, action plan, closure checks', [], '', 'INC-0001'],
   ['/changes', 'Changes & maintenance', 'Changes, maintenance windows, impact preview', [['id', 'CHG-xxxx', 'open one change'], ['kind', 'all · change · maintenance', 'kind'], ['status', 'Draft · Pending approval · Approved · In progress · Completed · Rolled back', 'status'], ['new', 'change · maintenance', 'open the create form'], ['q', 'text', 'search']], '?id=CHG-2002'],
+  ['Reference'],
+  ['/data-model', 'Data model', 'Every entity and how it links: Ontology, Full map and Hierarchy views (counts follow the persona)', [], ''],
   ['Drill-downs'],
   ['/customers/{id}', 'Customer', 'Customer / tenant / account / business unit page', [], '', 'CUST-1202'],
   ['/services/{id}', 'Service', 'One service, its path and SLA', [], '', 'SVC-L3-1807', 'network'],
   ['Documents'],
   ['/demo-playbook.html', 'Demo playbook', 'The customer demo script ("The 13:20 call")', [], '', '', '', false, true],
+  ['/data-model.html', 'Data model (standalone)', 'The same explorer without the app shell; hash #view=ontology|map|tree&e=<entity>&persona=', [], '', '', '', false, true],
   ['/embed-guide.html', 'This guide', 'Routes and embedding', [], '', '', '', false, true]
 ];
 const DCS_US = [["VA-DC-001","Ashburn"],["VA-DC-002","Ashburn"],["VA-DC-003","Richmond"],["VA-DC-004","Sterling"],["TX-DC-005","Dallas"],["TX-DC-006","San Antonio"],["TX-DC-007","Austin"],["CA-DC-008","Santa Clara"],["IL-DC-009","Chicago"],["AZ-DC-010","Phoenix"],["GA-DC-011","Atlanta"],["NJ-DC-012","Secaucus"],["WA-DC-013","Quincy"],["OR-DC-014","Hillsboro"],["CO-DC-015","Denver"],["OH-DC-016","Columbus"],["OH-DC-017","Columbus"],["FL-DC-018","Miami"],["UT-DC-019","Salt Lake City"],["CA-DC-020","Los Angeles"],["CA-DC-021","San Jose"],["TX-DC-022","Houston"],["NC-DC-023","Charlotte"],["WA-DC-024","Seattle"]];

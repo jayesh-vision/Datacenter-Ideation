@@ -223,6 +223,8 @@ table.fields td:first-child{font-family:var(--f-mono);font-size:12px;overflow-wr
 </main>
 
 <script>
+/* inside the DCO app (/data-model) the page follows the app's light theme */
+if (new URLSearchParams(location.search).has('embed')) document.documentElement.setAttribute('data-theme', 'light');
 /* ------------------------------------------------------------------ model */
 const DOMAINS = {
   loc:   { name: 'Location',     c: '--d-loc' },
@@ -383,7 +385,7 @@ const $ = s => document.querySelector(s);
 const NS = 'http://www.w3.org/2000/svg';
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const st = { view: 'ontology', e: 'rack', hops: 1, persona: 'neocloud', hidden: new Set(), trail: ['rack'], sel: 'rack' };
-try { const h = new URLSearchParams(location.hash.slice(1)); if (h.get('view')) st.view = h.get('view'); if (E[h.get('e')]) { st.e = st.sel = h.get('e'); st.trail = [st.e]; } if (h.get('hops')) st.hops = +h.get('hops') || 1; if (COUNTS[h.get('persona')]) st.persona = h.get('persona'); } catch {}
+try { const h = new URLSearchParams(location.hash.slice(1)); if (['ontology', 'map', 'tree'].includes(h.get('view'))) st.view = h.get('view'); if (E[h.get('e')]) { st.e = st.sel = h.get('e'); st.trail = [st.e]; } if (h.get('hops')) st.hops = +h.get('hops') || 1; if (COUNTS[h.get('persona')]) st.persona = h.get('persona'); } catch {}
 const saveHash = () => { try { history.replaceState(null, '', `#view=${st.view}&e=${st.sel}&hops=${st.hops}&persona=${st.persona}`); } catch {} };
 const fmt = n => (n ?? 0).toLocaleString('en-US');
 const count = id => COUNTS[st.persona]?.[id] ?? 0;

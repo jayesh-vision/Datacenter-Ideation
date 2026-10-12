@@ -460,3 +460,7 @@ td .cell-2 small { font-size: 11.5px; color: var(--ink-500); }
 .info-pop { position: fixed; z-index: 4000; width: max-content; max-width: 280px; padding: 8px 10px; border-radius: 8px; background: var(--vw-color-gray-900); color: #fff; font-family: var(--fontFamily, inherit); font-size: 12px; font-weight: 400; line-height: 1.45; box-shadow: 0 8px 24px rgba(15, 23, 42, .18); pointer-events: none; white-space: normal; text-align: left; }
 .info-pop.is-up { transform: translateY(-100%); }
 .dco-tile > .dco-l .info-tip, .sum-label .info-tip, .app-kpi-h .info-tip { margin-left: 4px; }
+
+/* Data model screen: the explorer page fills the content area under the top bar */
+.dm-frame { height: calc(100vh - var(--top-h)); min-height: 560px; display: flex; }
+.dm-frame iframe { flex: 1; width: 100%; border: 0; display: block; background: var(--vw-color-white); }

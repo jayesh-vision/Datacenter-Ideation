@@ -14,6 +14,7 @@ import { Facilities } from './screens/Facilities';
 import { Revenue } from './screens/Revenue';
 import { GpuPage } from './screens/Gpu';
 import { NotFound } from './screens/NotFound';
+import { DataModel } from './screens/DataModel';
 
 /* Estate → Datacenter → Infrastructure → Connectivity → Services → Customers
    → Events → Impact → Diagnosis → Recommended action */
@@ -54,6 +55,8 @@ export default function App() {
           <Route path="gpu" element={<GpuPage />} />
           {/* Money view of operations: what each open issue costs (user, 05-Oct-2026) */}
           <Route path="revenue" element={<Revenue />} />
+          {/* Data model explorer: entities and relationships (user, 12-Oct-2026) */}
+          <Route path="data-model" element={<DataModel />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

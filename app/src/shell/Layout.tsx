@@ -27,6 +27,8 @@ const NAV: { group: string; items: { to: string; label: string; icon: I.LucideIc
     { to: '/incidents', label: 'Incidents', icon: I.Siren, badge: 'incidents' },
     { to: '/changes', label: 'Changes & maintenance', icon: I.ArrowLeftRight, badge: 'changes' }
   ] },
+  /* how every record links to the others (user, 12-Oct-2026) */
+  { group: 'Reference', items: [{ to: '/data-model', label: 'Data model', icon: I.Waypoints }] },
 ];
 /* Services and customers appear only as impact (incident, device, site pages);
    capacity planning lives in the separate Plan & Build section. */
