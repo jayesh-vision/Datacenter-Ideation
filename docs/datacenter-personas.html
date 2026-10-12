@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Datacenter Personas & Data Model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F8FAFC; --surface: #FFFFFF; --ink: #0F172A; --ink-2: #334155; --ink-3: #64748B;
+    --line: #E2E8F0; --soft: #F1F5F9; --brand: #1C81EF; --brand-50: #EFF6FF; --brand-700: #1D4ED8;
+    --amber-50: #FFFBEB; --amber-700: #B45309; --green-50: #ECFDF5; --green-700: #047857;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0B1220; --surface: #111A2B; --ink: #E5E7EB; --ink-2: #CBD5E1; --ink-3: #94A3B8;
+      --line: #1F2A3D; --soft: #162133; --brand: #60A5FA; --brand-50: #13233D; --brand-700: #93C5FD;
+      --amber-50: #2A2112; --amber-700: #FBBF24; --green-50: #0F2A22; --green-700: #34D399;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B1220; --surface: #111A2B; --ink: #E5E7EB; --ink-2: #CBD5E1; --ink-3: #94A3B8;
+    --line: #1F2A3D; --soft: #162133; --brand: #60A5FA; --brand-50: #13233D; --brand-700: #93C5FD;
+    --amber-50: #2A2112; --amber-700: #FBBF24; --green-50: #0F2A22; --green-700: #34D399;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink-2); font: 15px/1.6 Poppins, system-ui, sans-serif; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 16px 64px; }
+  header h1 { margin: 0 0 6px; color: var(--ink); font-size: 30px; font-weight: 600; letter-spacing: -.01em; }
+  .meta { color: var(--ink-3); font-size: 13px; }
+  .lead { margin: 18px 0 0; font-size: 17px; color: var(--ink); max-width: 860px; }
+  nav.toc { display: flex; flex-wrap: wrap; gap: 6px; margin: 22px 0 8px; }
+  nav.toc a { font-size: 12.5px; padding: 4px 12px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink-2); text-decoration: none; background: var(--surface); }
+  nav.toc a:hover { border-color: var(--brand); color: var(--brand-700); }
+  section { margin-top: 36px; }
+  h2 { color: var(--ink); font-size: 21px; font-weight: 600; margin: 0 0 10px; }
+  h3 { color: var(--ink); font-size: 16px; font-weight: 600; margin: 18px 0 6px; }
+  p { margin: 8px 0; max-width: 860px; }
+  ul, ol { margin: 8px 0; padding-left: 22px; max-width: 860px; }
+  li { margin: 3px 0; }
+  b, strong { color: var(--ink); font-weight: 600; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+  .tbl { width: 100%; overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  thead th { background: var(--soft); color: var(--ink); font-weight: 600; font-size: 12.5px; white-space: nowrap; }
+  tbody th { color: var(--ink); font-weight: 600; background: var(--soft); width: 150px; }
+  tr:last-child td, tr:last-child th { border-bottom: 0; }
+  .wide table { min-width: 960px; }
+  .tag { display: inline-block; font-size: 11.5px; padding: 1px 8px; border-radius: 999px; background: var(--brand-50); color: var(--brand-700); font-weight: 500; white-space: nowrap; }
+  .tag.now { background: var(--green-50); color: var(--green-700); }
+  .tag.next { background: var(--amber-50); color: var(--amber-700); }
+  /* layered model diagram */
+  .layers { display: grid; gap: 10px; }
+  .layer-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .pf { border: 1px solid var(--line); border-top: 3px solid var(--brand); border-radius: 10px; padding: 12px 14px; background: var(--surface); }
+  .pf b { display: block; font-size: 14px; }
+  .pf small { color: var(--ink-3); font-size: 12px; }
+  .core { border: 1px dashed var(--ink-3); border-radius: 10px; padding: 12px 14px; background: var(--soft); text-align: center; }
+  .core b { font-size: 14px; }
+  .core small { display: block; color: var(--ink-3); font-size: 12px; }
+  .arrow { text-align: center; color: var(--ink-3); font-size: 12px; }
+  .steps { counter-reset: s; list-style: none; padding: 0; display: grid; gap: 10px; }
+  .steps li { counter-increment: s; position: relative; padding: 14px 16px 14px 56px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; margin: 0; }
+  .steps li::before { content: counter(s); position: absolute; left: 16px; top: 14px; width: 26px; height: 26px; border-radius: 50%; background: var(--brand); color: #fff; display: grid; place-items: center; font-size: 13px; font-weight: 600; }
+  .q { display: grid; gap: 10px; }
+  .q div { background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--amber-700); border-radius: 10px; padding: 12px 16px; }
+  .q div b { display: block; }
+  footer { margin-top: 48px; color: var(--ink-3); font-size: 12.5px; }
+  @media (max-width: 760px) {
+    header h1 { font-size: 24px; }
+    .layer-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    tbody th { width: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Datacenter Personas &amp; Data Model</h1>
+    <div class="meta">DCO ideation prototype · analysis · 02 Oct 2026</div>
+    <p class="lead">The prototype models only a telco network datacenter. To cover colocation and cloud operators, each site gets a <b>datacenter profile</b>: the physical layer stays shared, and only what sits in the racks, who the customer is and how a fault becomes impact change.</p>
+    <nav class="toc">
+      <a href="#core">Core idea</a><a href="#profiles">Four profiles</a><a href="#mixed">Mixed sites</a><a href="#roles">User roles</a>
+      <a href="#taxonomy">Equipment categories</a><a href="#screens">Impact on the app</a><a href="#rollout">Rollout</a><a href="#decisions">Decisions needed</a>
+    </nav>
+  </header>
+
+  <section id="core">
+    <h2>Core idea</h2>
+    <p>The business model decides the data, not the building. Every datacenter shares one physical layer, and the current app already handles it for any operator. Four things change on top of it:</p>
+    <ul>
+      <li><b>What sits in the racks:</b> network gear, servers, or customer-owned equipment</li>
+      <li><b>Who the customer is:</b> circuit buyer, tenant, cloud account, internal business unit</li>
+      <li><b>What a service is:</b> L3VPN, cabinet lease, VM, business application</li>
+      <li><b>How a fault becomes impact:</b> link → service, power circuit → tenant, host → instances</li>
+    </ul>
+    <div class="card layers" style="margin-top:14px">
+      <div class="layer-row">
+        <div class="pf"><b>Network / Telco</b><small>connectivity services</small></div>
+        <div class="pf"><b>Colocation</b><small>space, power, interconnection</small></div>
+        <div class="pf"><b>Cloud</b><small>compute &amp; storage</small></div>
+        <div class="pf"><b>Enterprise / Private</b><small>own applications</small></div>
+      </div>
+      <div class="arrow">▼ profile layer: rack contents · customer · service · impact chain · KPIs ▼</div>
+      <div class="core"><b>Shared physical &amp; operations core</b><small>sites · floors · rooms · racks · power (UPS, DG, battery, PDU) · cooling · environment · alarms · incidents · changes · ops log</small></div>
+    </div>
+  </section>
+
+  <section id="profiles">
+    <h2>Four datacenter profiles</h2>
+    <p>The current prototype is profile 1. Colocation differs most, because the operator cannot see inside tenant equipment.</p>
+    <div class="tbl wide">
+      <table>
+        <thead><tr><th></th><th>1. Network / Telco <span class="tag now">current</span></th><th>2. Colocation</th><th>3. Cloud</th><th>4. Enterprise / Private</th></tr></thead>
+        <tbody>
+          <tr><th>Examples</th><td>Airtel, Jio, BSNL, Tata Comm network DCs</td><td>Equinix, NTT, STT GDC, CtrlS, Yotta, Nxtra</td><td>AWS, Azure, GCP, Yotta Shakti Cloud</td><td>Banks, government, large enterprises</td></tr>
+          <tr><th>What they sell</th><td>Connectivity</td><td>Space, power, cooling, interconnection</td><td>Compute, storage, managed services</td><td>Nothing; runs the firm's own applications</td></tr>
+          <tr><th>In the racks</th><td>Routers, switches, DWDM, firewalls, plus some servers (OSS/BSS, NFV, DNS/AAA, CDN cache)</td><td>Mostly <b>customer-owned gear the operator can't see inside</b>; operator's meet-me-room switches and cross-connect panels</td><td>Thousands of operator-owned <b>servers</b> (compute, storage, GPU), ToR and spine switches</td><td>Servers, storage arrays, SAN switches, network, security appliances</td></tr>
+          <tr><th>Customer</th><td>Enterprise buying a circuit</td><td><b>Tenant</b> leasing a cage, suite or cabinet</td><td><b>Cloud account</b></td><td>Internal business unit or application owner</td></tr>
+          <tr><th>Service</th><td>L3VPN, leased line, ILL</td><td>Cabinet lease, power circuit (contracted kW), cross-connect, remote hands</td><td>VM / instance, storage volume, managed database, GPU cluster</td><td>Business application (core banking, ERP, email)</td></tr>
+          <tr><th>Impact chain</th><td>Link or device → service → customer</td><td>Power circuit, PDU or CRAH → tenant cabinets → tenant SLA</td><td>Host, rack or PDU → instances → accounts</td><td>Server or VM → application → business unit</td></tr>
+          <tr><th>Key ops KPIs</th><td>Link and service SLA, edge redundancy</td><td><b>Contracted vs drawn kW per tenant</b>, space sold %, cross-connects, remote-hands tickets, power/cooling SLA</td><td>Host health, <b>vCPU / RAM / GPU capacity used</b>, failed hosts awaiting repair, instance availability</td><td>Application availability, DR readiness, RPO/RTO</td></tr>
+          <tr><th>Operator visibility</th><td>Full, down to the port</td><td><b>Up to the power circuit and environment only</b>; tenant gear is opaque</td><td>Full, down to host and VM</td><td>Full</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="mixed">
+    <h2>Mixed sites</h2>
+    <p>Real sites are often mixed. A telco DC frequently has a colocation floor (Airtel's Nxtra and Jio do this), and a colocation provider may run its own cloud in one hall.</p>
+    <ul>
+      <li><b>Profile per datacenter:</b> sets the default vocabulary, KPIs and tabs.</li>
+      <li><b>Owner per rack:</b> operator-owned or tenant-owned, so one site can hold both.</li>
+      <li><b>Optional profile per hall:</b> only if a site runs two business models at scale.</li>
+    </ul>
+  </section>
+
+  <section id="roles">
+    <h2>User roles</h2>
+    <p>These roles cut across all four profiles, and today's screens already map to them.</p>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Role</th><th>Daily question</th><th>Main screens</th><th>In scope</th></tr></thead>
+        <tbody>
+          <tr><td><b>NOC engineer</b></td><td>What is broken and who is affected?</td><td>Alerts, Incidents, Topology, impact panels</td><td><span class="tag now">Yes</span></td></tr>
+          <tr><td><b>Facility / critical-environment engineer</b></td><td>Are power, cooling and the room healthy?</td><td>Facilities, Digital twin, Metrics</td><td><span class="tag now">Yes</span></td></tr>
+          <tr><td><b>DC operations manager</b></td><td>Are we meeting SLAs, and where is the risk?</td><td>Command center, Changes &amp; maintenance, Customers/Tenants</td><td><span class="tag now">Yes</span></td></tr>
+          <tr><td><b>Tenant / customer</b></td><td>Is my equipment powered and connected?</td><td>Customer portal</td><td><span class="tag">Out of scope</span></td></tr>
+          <tr><td><b>Sales / capacity planner</b></td><td>What can we sell, and where do we expand?</td><td>Capacity, planning</td><td><span class="tag">Out of scope</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="taxonomy">
+    <h2>Unified equipment categories</h2>
+    <p>One category list serves every profile; each profile just has a different mix.</p>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Category</th><th>Types</th><th>Typical profile</th></tr></thead>
+        <tbody>
+          <tr><td><b>Network</b></td><td>Router, switch, firewall, load balancer, optical / DWDM</td><td>Network, all others (fabric)</td></tr>
+          <tr><td><b>Compute</b></td><td>Rack server, blade chassis, GPU server</td><td>Cloud, Enterprise, some in Network</td></tr>
+          <tr><td><b>Storage</b></td><td>Storage array, SAN switch, backup / tape</td><td>Cloud, Enterprise</td></tr>
+          <tr><td><b>Rack infrastructure</b></td><td>PDU, KVM, patch panel / ODF</td><td>All</td></tr>
+          <tr><td><b>Customer-owned</b></td><td>Opaque; known only by tenant, U space and power draw</td><td>Colocation</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="screens">
+    <h2>Impact on the DCO app</h2>
+    <p>Screens stay the same; their content follows the site's profile.</p>
+    <div class="tbl wide">
+      <table>
+        <thead><tr><th>Screen</th><th>Network (today)</th><th>Colocation</th><th>Cloud</th></tr></thead>
+        <tbody>
+          <tr><td><b>Assets tab</b></td><td>Network devices by role; adds servers</td><td>Cabinets by tenant, sold vs free space</td><td>Hosts by type (compute, storage, GPU)</td></tr>
+          <tr><td><b>Customers tab</b></td><td>Customers and their circuits</td><td>"Tenants": contracted vs drawn kW, cross-connects</td><td>"Accounts": instances, capacity used</td></tr>
+          <tr><td><b>Metrics tab</b></td><td>Thermal, power, backup, faults</td><td>+ per-tenant power against contract</td><td>+ vCPU / RAM / GPU capacity pool</td></tr>
+          <tr><td><b>Topology tab</b></td><td>Layered LLDP map</td><td>Cross-connects through the meet-me room</td><td>Fabric down to host racks</td></tr>
+          <tr><td><b>Digital twin</b></td><td>Racks by health; device list</td><td>Racks coloured by tenant; rack shows tenant, kW, circuits</td><td>Racks by host health; host list</td></tr>
+          <tr><td><b>Command center</b></td><td>"N customers affected"</td><td>"N tenants affected"</td><td>"N instances affected"</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="rollout">
+    <h2>Recommended rollout</h2>
+    <ol class="steps">
+      <li><b>Now, small: add servers to the network DCs.</b> OSS/BSS, NFV, DNS/AAA and CDN cache servers exist in real telco DCs. Model them as a separate asset class, so the agreed MH-DC-001 figures (179 / 103 / 21 / 76) still reconcile.</li>
+      <li><b>Next: add Colocation as the second profile.</b> It is the most common commercial model in India and the most different from today: tenants, contracted power, cross-connects and opaque customer gear. Convert 2–3 sites.</li>
+      <li><b>Then: Cloud.</b> Built around servers, capacity pools and instance impact. Enterprise is optional, because it overlaps heavily with Cloud.</li>
+    </ol>
+  </section>
+
+  <section id="decisions">
+    <h2>Decisions needed before building</h2>
+    <div class="q">
+      <div><b>Which profiles to support?</b>Suggestion: Network + Colocation first, Cloud later.</div>
+      <div><b>One profile per datacenter, or mixed sites?</b>Mixed means a profile per hall and an owner per rack.</div>
+      <div><b>Servers in telco DCs as a separate asset class?</b>Keeps today's network-element figures unchanged.</div>
+      <div><b>Tenant gear opaque in colocation?</b>Power and environment only, which matches how real colocation works.</div>
+    </div>
+  </section>
+
+  <footer>DCO ideation prototype · Data Center Operations · analysis for internal review</footer>
+</div>
+</body>
+</html>

@@ -308,3 +308,13 @@ together · Customer questions · Metrics & sources · Inventory · Flashcards. 
 containment chain (region → port and cable), six "why monitoring needs inventory" cards, a 10-step onboarding order, and a filterable catalogue
 of 84 inventory items in 11 domains (Core / Recommended / Optional, system of record, how it gets in, where the tool shows it); 14 glossary terms
 in the "Inventory" area. Docs only — the tool's inventory screens stay parked. Check: `node .qa/field-inv.mjs`.
+
+## Inventory import template and data backup (12-Oct-2026, user)
+`docs/dco-inventory-import-template.xlsx` = what a customer (e.g. RackBank) must send to onboard datacenters: one sheet per entity of
+`api/types.ts` (Sites → Floors → Rooms → Racks → power / cooling plant → Devices → Interfaces → Links → GPU → Customers → Services → Collectors),
+Field_Dictionary (system field per column), Lookups (dropdowns = system enums), Summary with formula checks, two illustrative RackBank sites.
+`docs/dco-data-backup/` = the whole mock estate in the same layout, one workbook per persona × geography, plus Snapshot_* sheets (alarms,
+incidents, changes; not imported). Rebuild: `npx tsx scripts/inventory/export_backup.ts <persona> <in|us> x.json` (from app/), then
+`python scripts/inventory/build_template.py out.xlsx [x.json]` (needs openpyxl; no json = the template). Served under `/downloads/`;
+the personas page and platform overview are served at `/datacenter-personas.html`, `/dco-platform-overview.pdf|.docx` (copy after editing docs/).
+Known mock gaps the backup's checks flag: serials repeat across sites, GJ-DC-013 (planned) racks exceed its 10 kW, 115 GPU hosts lack GPU records.
