@@ -412,7 +412,7 @@ export function cablePath(db: Db, linkId: string): CablePath | null {
   const optic = (it: Interface | undefined, ne: NetworkElement): CableHop[] => it?.optics ? [{ kind: 'optic', id: `${ne.id}:${it.name}:xcvr`, label: it.optics.model, sub: `Rx ${it.optics.rxDbm} dBm · Tx ${it.optics.txDbm} dBm · ${it.optics.tempC}°C`, neId: ne.id,
     state: it.optics.rxDbm < -10 ? 'bad' : it.optics.rxDbm < -8 ? 'warn' : 'ok', note: it.optics.rxDbm < -10 ? 'Receive power below the −10 dBm warning threshold' : undefined }] : [];
   const port = (it: Interface | undefined, ne: NetworkElement, ifn: string): CableHop => ({ kind: 'port', id: `${ne.id}:${ifn}`, label: `${ne.name} ${ifn}`, sub: it ? `${it.type} · ${it.state}` : undefined, where: `${rackN(ne.dcId === dcA.id ? dcA : dcZ, ne.rackId)} · U${ne.u}`, neId: ne.id, state: it?.state === 'down' ? 'bad' : it && it.flaps24h >= 3 ? 'warn' : 'ok' });
-  const side = (e: End, ne: NetworkElement, dc: Datacenter, outward: boolean): CableHop[] => {
+  const side = (e: End, _ne: NetworkElement, dc: Datacenter, outward: boolean): CableHop[] => {
     const hs: CableHop[] = [];
     hs.push({ kind: 'cord', id: e.cordId, label: copper ? 'Cat6A patch cord · 2 m' : e.panelId ? 'LC–LC OS2 patch cord · 3 m' : 'Patch cord · 3 m', where: rackN(dc, e.rackId), state: 'ok' });
     if (e.panelId) hs.push({ kind: 'panel', id: e.panelId, label: `${rackN(dc, e.rackId)} ${e.panelId.split('-').slice(-2).join('-')} · port ${e.panelPort}`, where: `${rackN(dc, e.rackId)} · top of rack`, state: 'ok' });

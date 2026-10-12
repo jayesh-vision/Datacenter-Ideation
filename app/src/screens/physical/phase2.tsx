@@ -12,7 +12,6 @@ import { ListToolbar } from '../../ui/ListToolbar';
 import { NeLink } from '../../ui/status';
 import { Loading } from '../../shell/page';
 import { fmtAgo, fmtDate, fmtNum } from '../../lib/format';
-import { STATE_TONE } from './parts';
 import '../../styles/physical.css';
 
 const DAY = 86_400_000;
