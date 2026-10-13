@@ -7,12 +7,13 @@ import type { CapacityHold, Datacenter, GpuCapacity, SiteEnergy } from '../api/t
 import type { Db } from './generate';
 import { dcimModel } from './dcim';
 import { activeGeo } from './geo';
+import { p2bStore } from './p2b';
 
 const r1 = (n: number) => Math.round(n * 10) / 10;
 /* grid emission factors (kg CO2 per kWh): India CEA CO2 baseline database v19 (FY 2022-23) 0.716; USA EPA eGRID 2022 national 0.371 */
 export const GRID = { in: { kg: 0.716, source: 'CEA CO₂ baseline database v19 (FY 2022-23), all-India grid' }, us: { kg: 0.371, source: 'EPA eGRID 2022, US national average' } } as const;
 
-export function capacityHolds(db: Db, dcs: Datacenter[]): CapacityHold[] {
+export function capacityHolds(db: Db, dcs: Datacenter[], withPlanner = true): CapacityHold[] {
   const ids = new Set(dcs.map(d => d.id));
   const dm = dcimModel(db);
   const out: CapacityHold[] = [];
@@ -28,6 +29,11 @@ export function capacityHolds(db: Db, dcs: Datacenter[]): CapacityHold[] {
     out.push({ id: `${r.id}:contract`, dcId: d.id, kind: 'Tenant contract', resource: 'Power', qty: r1(r.contractedKw - r.drawKw), unit: 'kW', state: 'Committed', label: `${cust.get(r.tenantId ?? '') ?? 'Tenant'} · ${r.name}: ${r.contractedKw} kW contracted, ${r.drawKw} kW drawn`, ref: r.id, to: `/dcim/racks/${encodeURIComponent(r.id)}` });
   for (const p of db.plans) if (ids.has(p.dcId) && p.status !== 'Delivered')
     out.push({ id: p.id, dcId: p.dcId, kind: 'Capacity plan', resource: p.dimension, qty: p.amount, unit: p.unit, state: p.status === 'Submitted' ? 'Requested' : 'Pipeline', label: `${p.title} (${p.status.toLowerCase()})`, ref: p.id, to: `/capacity?dc=${p.dcId}` });
+  /* holds an approved planner plan wrote (P2B port): Reserved at approval, Committed at execution, until consumed or released */
+  if (withPlanner) for (const h of p2bStore(db).getAllRaw('capacityReservations') as unknown as { id: string; plannerPlanId?: string; dataCenterId?: string; resourceType: string; quantity: number; unit: string; state: string; status: string; label?: string }[]) {
+    if (!h.plannerPlanId || !h.dataCenterId || !ids.has(h.dataCenterId) || h.status === 'Released' || h.state === 'Consumed' || h.state === 'Available') continue;
+    out.push({ id: h.id, dcId: h.dataCenterId, kind: 'Planner hold', resource: h.resourceType === 'Cooling' ? 'Cooling' : h.resourceType === 'Rack' ? 'Space' : h.resourceType === 'Subnet' || h.resourceType === 'VLAN' ? 'Ports' : 'Power', qty: h.quantity, unit: h.unit, state: h.state === 'Committed' ? 'Committed' : 'Reserved', label: h.label ?? h.id, ref: h.plannerPlanId, to: `/planning/plans/${h.plannerPlanId}` });
+  }
   if (db.gpu) {
     const idleJobs = new Set(db.gpu.jobs.filter(j => j.state === 'idle').map(j => j.id));
     const byJob = new Map<string, number>();

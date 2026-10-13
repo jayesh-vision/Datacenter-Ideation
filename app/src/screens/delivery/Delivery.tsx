@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { advanceWorkOrder, getDelivery, getPlanner, useQuery } from '../../api';
+import { advanceWorkOrder, getDelivery, getPlannerQueue, useQuery } from '../../api';
 import type { DeliveryProject, WorkOrder } from '../../api/types';
 import { usePage, PageHead, Loading } from '../../shell/page';
 import { Btn, Chip, Panel, Tabs } from '../../ui/kit';
@@ -13,7 +13,7 @@ import { Facts, SoftMeter, Split, StatGrid, StatTile } from '../../ui/Analytics'
 import { Meter, SevDot } from '../../ui/status';
 import { fmtDate, fmtMoney, fmtNum } from '../../lib/format';
 import { useToast } from '../ops/shared';
-import { SCOPE_ICON, SCOPE_LABEL } from '../planner/Planner';
+import { SCOPE_ICON, SCOPE_LABEL } from './scopes';
 import '../../styles/dcim.css';
 import '../../styles/planner.css';
 import '../../styles/ipam.css';
@@ -35,17 +35,18 @@ export function Delivery() {
   const setTab = (t: Tab) => set({ tab: t === 'overview' ? '' : t, q: '', f1: '', f2: '' });
   usePage([{ label: 'Plan & Build' }, { label: 'Delivery', to: '/delivery' }]);
   const { data: d } = useQuery(getDelivery, []);
-  const { data: pl } = useQuery(getPlanner, []);
+  const { data: queue } = useQuery(getPlannerQueue, []);
   const toast = useToast();
   const [busy, setBusy] = useState('');
   const pname = useMemo(() => new Map((d?.projects ?? []).map(p => [p.id, p.name])), [d]);
-  if (!d || !pl) return <Loading />;
+  if (!d || !queue) return <Loading />;
   const ps = d.projects, live = ps.filter(p => p.state !== 'Delivered');
   const budget = live.reduce((a, p) => a + p.budget, 0), earned = live.reduce((a, p) => a + p.earned, 0), actual = live.reduce((a, p) => a + p.actual, 0);
   const cpi = actual ? earned / actual : 1;
   const openWo = d.workOrders.filter(w => w.state !== 'Done');
   const latePo = d.pos.filter(o => o.state === 'Late');
-  const waitingApproval = pl.plans.filter(p => p.status === 'In review');
+  const waitingApproval = (queue ?? []).filter(p => p.status === 'In review');
+  const approvedQueue = (queue ?? []).filter(p => p.status === 'Approved');
   const advance = (w: WorkOrder) => { setBusy(w.id); advanceWorkOrder(w.id).then(st => toast.show(`${w.id} ${st === 'Done' ? 'completed' : 'started'}`, `${w.changeId} ${st === 'Done' ? 'implemented' : 'approved'}; the project's progress updates.`)).catch(e => toast.show('Not started', String(e.message ?? e))).finally(() => setBusy('')); };
 
   const woCols: Col<WorkOrder>[] = [
@@ -73,7 +74,7 @@ export function Delivery() {
   return (
     <div className="page dcim planner">
       <PageHead title="Delivery" sub="Approved plans become projects; projects raise work orders (each with its change request), place purchase orders, pass L1–L5 commissioning and hand over to operations"
-        actions={<Btn icon={I.DraftingCompass} onClick={() => nav('/planner')}>Open the planner</Btn>} />
+        actions={<Btn icon={I.DraftingCompass} onClick={() => nav('/planning')}>Open the planner</Btn>} />
       <StatGrid>
         <StatTile label="Projects" value={ps.length} sub={`${live.length} in delivery`} onClick={() => setTab('projects')} info="A project per approved, executing or delivered plan, by stage: mobilising (approved, not started) → in progress → commissioning → handover → delivered.">
           <Split parts={(['Mobilising', 'In progress', 'Commissioning', 'Delivered'] as const).map((s, i) => ({ key: s, label: s, n: ps.filter(p => p.state === s || (s === 'Commissioning' && p.state === 'Handover')).length, tone: (i === 1 ? 'info' : 'neutral') as 'info' | 'neutral' })).filter(x => x.n)} />
@@ -108,8 +109,8 @@ export function Delivery() {
           </ul>
         </Panel>
         <Panel title="Pipeline from the planner" icon={I.DraftingCompass} info="Plans that become projects once approved and executed; the ones in review wait for their approval chain.">
-          <ul className="ipam-find">{[...waitingApproval, ...pl.plans.filter(p => p.status === 'Approved')].map(p => <li key={p.id}><button type="button" onClick={() => nav(`/planner/${p.id}`)}><SevDot s="warning" /><span className="cell-2"><b>{p.name}</b><small>{p.status} · {fmtMoney(p.eval.capexTotal)} · {p.status === 'In review' ? `waiting for ${p.approvals.find(a => a.decision === 'Pending')?.role}` : 'ready to execute'}</small></span></button></li>)}
-            {!waitingApproval.length && !pl.plans.some(p => p.status === 'Approved') && <li><p className="vw-label" style={{ margin: 0 }}>Nothing waiting.</p></li>}</ul>
+          <ul className="ipam-find">{[...waitingApproval, ...approvedQueue].map(p => <li key={p.id}><button type="button" onClick={() => nav(`/planning/plans/${p.id}`)}><SevDot s="warning" /><span className="cell-2"><b>{p.name}</b><small>{p.status} · {fmtMoney(p.capex)} · {p.status === 'In review' ? `waiting for ${p.waitingFor ?? 'the next step'}` : 'ready to execute'}</small></span></button></li>)}
+            {!waitingApproval.length && !approvedQueue.length && <li><p className="vw-label" style={{ margin: 0 }}>Nothing waiting.</p></li>}</ul>
         </Panel>
         <Panel title="Projects" icon={I.FolderKanban} className="ipam-agg" flush><DataTable rows={ps} cols={projCols} pageSize={10} onRow={p => nav(`/delivery/projects/${p.id}`)} defaultSort={{ key: 'st', dir: 'asc' }} /></Panel>
       </div>}
@@ -150,7 +151,7 @@ export function Delivery() {
         </Panel>
         <Panel title="Approvals and permits" icon={I.Stamp}>
           <ul className="ipam-find">
-            {waitingApproval.map(p => <li key={p.id}><button type="button" onClick={() => nav(`/planner/${p.id}`)}><SevDot s="warning" /><span className="cell-2"><b>Approve {p.name}</b><small>{p.approvals.find(a => a.decision === 'Pending')?.role} · {fmtMoney(p.eval.capexTotal)}</small></span></button></li>)}
+            {waitingApproval.map(p => <li key={p.id}><button type="button" onClick={() => nav(`/planning/plans/${p.id}`)}><SevDot s="warning" /><span className="cell-2"><b>Approve {p.name}</b><small>{p.waitingFor ?? 'next step'} · {fmtMoney(p.capex)}</small></span></button></li>)}
             {d.permits.filter(p => p.state === 'To submit').map(p => <li key={p.id}><button type="button" onClick={() => nav(`/delivery/projects/${p.projectId}?tab=permits`)}><SevDot s="minor" /><span className="cell-2"><b>Submit: {p.name}</b><small>{p.authority} · needed by {fmtDate(p.due)}</small></span></button></li>)}
           </ul>
           <p className="vw-label" style={{ margin: '8px 0 0' }}>{fmtNum(waitingApproval.length)} approvals · {fmtNum(d.permits.filter(p => p.state === 'To submit').length)} permits to submit</p>

@@ -12,7 +12,7 @@ import { SummaryStrip } from '../site/SummaryStrip';
 import { fmtDate, fmtMoney } from '../../lib/format';
 import { useToast } from '../ops/shared';
 import { NotFound } from '../NotFound';
-import { SCOPE_ICON, SCOPE_LABEL } from '../planner/Planner';
+import { SCOPE_ICON, SCOPE_LABEL } from './scopes';
 import { HEALTH_TONE, STATE_TONE, WO_TONE } from './Delivery';
 import '../../styles/dcim.css';
 import '../../styles/planner.css';
@@ -38,7 +38,7 @@ export function ProjectPage() {
   return (
     <div className="page dcim planner">
       <PageHead title={p.name} icon={<span className="pl-icon"><Ic size={18} /></span>} chips={<><Chip tone={STATE_TONE[p.state]} dot>{p.state}</Chip><Chip tone={HEALTH_TONE[p.health]} dot>{p.health}</Chip></>}
-        sub={<><span className="mono">{p.id}</span> · {SCOPE_LABEL[p.scope]} · <DcLink id={p.dcId} /> · manager {p.manager} · from plan <Link className="ent-link mono" to={`/planner/${p.planId}`}>{p.planId}</Link></>}
+        sub={<><span className="mono">{p.id}</span> · {SCOPE_LABEL[p.scope]} · <DcLink id={p.dcId} /> · manager {p.manager} · from plan <Link className="ent-link mono" to={`/planning/plans/${p.planId}`}>{p.planId}</Link></>}
         actions={<>
           {nextTest && testReady && p.state !== 'Mobilising' && <Btn icon={I.ClipboardCheck} onClick={() => run(() => runCxTest(p.id, nextTest.level), `L${nextTest.level} passed`, nextTest.name)}>Run L{nextTest.level} test</Btn>}
           {data.canHandover && <Btn variant="filled" icon={I.Handshake} onClick={() => run(() => handoverProject(p.id), 'Handed over to operations', 'The plan and its capacity plans are now Delivered.')}>Hand over to operations</Btn>}

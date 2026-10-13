@@ -4,7 +4,7 @@
 import { sevLabel } from '../lib/vocab';
 import type {
   ActionStep, Alert, AlertScope, EdgeStatus, OpsState, AuditEntry, CapacityPlan, Change, ChangeStatus, Datacenter, DcSummary, Incident, IncidentStatus, Interface, Link, Location,
-  ImpactCause, NetworkElement, NeRole, Persona, PlanInput, PrefixRole, ReconTask, RevDomain, RevIssue, RevenueView, RolloutStatus, Service, Severity, TimelineEvent
+  ImpactCause, NetworkElement, NeRole, Persona, PrefixRole, ReconTask, RevDomain, RevIssue, RevenueView, RolloutStatus, Service, Severity, TimelineEvent
 } from '../api/types';
 import { NE_CATEGORY } from '../api/types';
 import { generate, finaliseHealth, type Db } from './generate';
@@ -26,7 +26,10 @@ import { cablePath as cablePath_, clearPhysical, devicePhysical as devicePhysica
 import { addCustomType, clearDcim, dcimCatalog as dcimCatalog_, dcimComponents as dcimComponents_, dcimModel, dcimRackView as dcimRackView_, freeSlots, resetDcimCustom } from './dcim';
 import { carvePrefix, clearIpam, ipamModel, reserveNextIp, resetIpamOverlay } from './ipam';
 import { capacityHolds, gpuCapacity, siteEnergy } from './capacity';
-import { benchmarks as planBench, chooseScenario as planChoose, createPlan as planCreate, decidePlan as planDecide, evaluate as planEval, executionLines, freePositions, planOf, plans as planList, resetPlanner, scenarios as planScenarios, submitPlan as planSubmit, TEMPLATES as PLAN_TEMPLATES, updatePlan as planUpdate } from './planner';
+import { setPlannerClock } from '../planner/compat/clock';
+import { registerPlannerStore } from '../planner/compat/registry';
+import { plannerQueue as queue_ } from './p2b/bridge';
+import { p2bStore, plannerStoreSerial as p2bSerial, resetPlanner2, subscribePlanner } from './p2b';
 import { advanceWorkOrder, deliveryProject as deliveryProject_, deliveryProjects, handover as handover_, receivePo, resetDelivery, runTest as runTest_ } from './delivery';
 import { approveStep, changeRegister, clearChangeMgmt, resetChangeMgmt, stepsApproved } from './changemgmt';
 import { clearCompliance, complianceView } from './compliance';
@@ -89,7 +92,7 @@ const listeners = new Set<() => void>();
 export const subscribe = (f: () => void) => { listeners.add(f); return () => { listeners.delete(f); }; };
 const changed = () => { version++; clearPhysical(); clearDcim(); clearIpam(); clearChangeMgmt(); clearCompliance(); clearSafety(); clearLifecycle(); clearMaintenance(); clearOps(); finaliseHealth(db); summaryCache.clear(); revModel = null; revViews.clear(); listeners.forEach(f => f()); };
 export const getVersion = () => version;
-const rebuild = () => { db = generate(persona); edgeCache.clear(); resetDcimCustom(); resetIpamOverlay(); resetPlanner(); resetDelivery(); resetChangeMgmt(); resetCustomization(); changed(); };
+const rebuild = () => { db = generate(persona); edgeCache.clear(); resetDcimCustom(); resetIpamOverlay(); resetPlanner2(); resetDelivery(); resetChangeMgmt(); resetCustomization(); changed(); };
 export const reset = () => rebuild();
 export const getPersona = () => persona;
 export function setPersona(p: Persona) {
@@ -1012,48 +1015,6 @@ export const ipamOfDevice = (neId: string) => { const m = ipamModel(db); return 
 export function ipamReserve(prefixId: string, note: string) { const a = reserveNextIp(db, prefixId, note); audit_({ actor: ME, object: a.address, field: 'ip', prev: '—', next: `reserved in ${a.vrf}${note ? ` (${note})` : ''}`, source: 'IPAM' }); changed(); return a; }
 export function ipamCarve(parentId: string, mask: number, role: PrefixRole, description: string) { const p = carvePrefix(db, parentId, mask, role, description); audit_({ actor: ME, object: p.prefix, field: 'prefix', prev: '—', next: `reserved in ${p.vrf} (${role})`, source: 'IPAM' }); changed(); return p; }
 
-/* ---- Planner (P2B merge, phase 4): design plans sized and checked against the estate (mock/planner.ts) */
-export function planner() {
-  const ps = planList(db);
-  return { plans: ps.map(p => ({ ...p, eval: planEval(db, p) })), templates: PLAN_TEMPLATES, benchmarks: planBench() };
-}
-export function plannerPlan(id: string) {
-  const p = planOf(db, id); if (!p) return null;
-  return { plan: p, eval: planEval(db, p), scenarios: planScenarios(db, p), template: PLAN_TEMPLATES.find(t => t.scope === p.scope)!, capacityPlans: db.plans.filter(c => p.capacityPlanIds.includes(c.id)) };
-}
-export const plannerPreview = (x: PlanInput) => planEval(db, x);
-export const plannerHalls = (dcId: string) => dcimModel(db).halls.filter(h => h.dcId === dcId).map(h => ({ ...h, free: freePositions(db, h.id) }));
-export function plannerCreate(x: PlanInput) { const p = planCreate(db, x, ME); audit_({ actor: ME, object: p.id, field: 'plan', prev: '—', next: `created: ${p.name}`, source: 'Planner' }); changed(); return p.id; }
-export function plannerUpdate(id: string, patch: Partial<PlanInput>) { planUpdate(db, id, patch, ME); changed(); }
-export function plannerChoose(id: string, scen: string) { planChoose(db, id, scen, ME); changed(); }
-export function plannerSubmit(id: string) { planSubmit(db, id, ME); audit_({ actor: ME, object: id, field: 'status', prev: 'Draft', next: 'In review', source: 'Planner' }); changed(); }
-export function plannerDecide(id: string, approve: boolean, comment: string) { const p = planDecide(db, id, approve, ME, comment); audit_({ actor: ME, object: id, field: 'approval', prev: 'In review', next: p.status, source: 'Planner' }); changed(); }
-export function plannerExecute(id: string) {
-  const p = planOf(db, id); if (!p) throw new Error('Unknown plan');
-  if (p.status !== 'Approved') throw new Error('Only an approved plan can be executed');
-  const target = p.target;
-  for (const l of executionLines(db, p)) {
-    const cid = `CAP-${String(++db.seq.plan).padStart(3, '0')}`;
-    db.plans.push({ id: cid, dcId: p.dcId, dimension: l.dimension, title: l.title, amount: l.amount, unit: l.unit, target, status: 'Executing', capex: l.capex });
-    p.capacityPlanIds.push(cid);
-  }
-  /* racks of a rack expansion / AI pod are created in DCIM as empty cabinets in the hall */
-  if ((p.scope === 'rack-expansion' || p.scope === 'ai-pod') && p.hallId) {
-    const dc = dcOf(p.dcId)!;
-    for (let i = 0; i < p.racks; i++) {
-      const taken = new Set(dc.racks.map(r => r.name));
-      let k = 0, name = '';
-      do { name = `RACK-P${String(++k).padStart(2, '0')}`; } while (taken.has(name));
-      const rid = dcimCreateRack({ dcId: p.dcId, hallId: p.hallId, name, heightU: 42, budgetKw: p.kwPerRack, role: p.scope === 'ai-pod' ? 'GPU' : 'Compute' });
-      const rk = dc.racks.find(r => r.id === rid)!; if (p.cooling !== 'Air') { rk.liquid = true; if (p.scope === 'ai-pod') rk.density = 'ai'; }
-      p.createdRacks.push(rid);
-    }
-  }
-  p.status = 'Executing'; p.updated = db.now;
-  p.history.push({ at: db.now, who: ME, text: `Execution started: ${p.capacityPlanIds.length} capacity plan${p.capacityPlanIds.length === 1 ? '' : 's'} raised${p.createdRacks.length ? `, ${p.createdRacks.length} racks created in DCIM` : ''}` });
-  audit_({ actor: ME, object: id, field: 'status', prev: 'Approved', next: 'Executing', source: 'Planner' });
-  changed();
-}
 
 /* ---- Delivery (P2B merge, phase 5): approved plans as projects (mock/delivery.ts) */
 export function delivery() {
@@ -1094,3 +1055,10 @@ export function addCustomField(f: Parameters<typeof addField_>[0]) { addField_(f
 export function addTagDef(t: Parameters<typeof addTag_>[0]) { addTag_(t); audit_({ actor: ME, object: t.slug, field: 'tag', prev: '—', next: 'added', source: 'Customization' }); changed(); }
 export const auditLog = () => [...db.audit].sort((a, b) => b.at - a.at);
 
+/* ---- Planner (P2B port, 13-Oct-2026): the planner's record store over our estate; its screens read and write it directly */
+setPlannerClock(() => now());
+registerPlannerStore({ store: () => p2bStore(db), serial: p2bSerial, subscribe: subscribePlanner });
+export const plannerStore = () => p2bStore(db);
+export const plannerQueue = () => queue_(db);
+export const onPlannerChange = subscribePlanner;
+export const plannerStoreSerial = p2bSerial;

@@ -21,9 +21,7 @@ import { RackPage } from './screens/dcim/RackPage';
 import { TypePage } from './screens/dcim/TypePage';
 import { Ipam } from './screens/ipam/Ipam';
 import { Capacity } from './screens/Capacity';
-import { Planner } from './screens/planner/Planner';
-import { PlanPage } from './screens/planner/PlanPage';
-import { PlanWizard } from './screens/planner/PlanWizard';
+import { lazy, Suspense, type ReactNode } from 'react';
 import { Delivery } from './screens/delivery/Delivery';
 import { ProjectPage } from './screens/delivery/ProjectPage';
 import { Compliance } from './screens/admin/Compliance';
@@ -33,6 +31,12 @@ import { Customization } from './screens/admin/Customization';
    → Events → Impact → Diagnosis → Recommended action */
 /* /topology?dc=X → that datacenter's Topology tab; without a site, the Datacenters list */
 function TopologyRedirect() { const dc = new URLSearchParams(useLocation().search).get('dc'); return <Navigate to={dc ? `/datacenters/${dc}?tab=topology` : '/datacenters'} replace />; }
+/* Planner = the P2B planner, ported as is (13-Oct-2026, user: "rebuild the planner like P2B"); its pages load on demand */
+const PlannerHub = lazy(() => import('./screens/planning/Planner').then(m => ({ default: m.Planner })));
+const PlannerWizard = lazy(() => import('./screens/planning/PlanWizard').then(m => ({ default: m.PlanWizard })));
+const PlannerPlan = lazy(() => import('./screens/planning/PlanPage').then(m => ({ default: m.PlanPage })));
+const lazyEl = (el: ReactNode) => <Suspense fallback={<div className="loading"><span className="spinner" />Loading…</div>}>{el}</Suspense>;
+function OldPlan() { const id = useLocation().pathname.split('/')[2]; return <Navigate to={id && id !== 'new' ? `/planning/plans/${id}` : id === 'new' ? '/planning/new' : '/planning'} replace />; }
 function Keep({ to }: { to: string }) { const l = useLocation(); return <Navigate to={`${to}${l.search}`} replace />; }
 
 export default function App() {
@@ -72,9 +76,15 @@ export default function App() {
           {/* Data model explorer: entities and relationships (user, 12-Oct-2026) */}
           <Route path="delivery" element={<Delivery />} />
           <Route path="delivery/projects/:id" element={<ProjectPage />} />
-          <Route path="planner" element={<Planner />} />
-          <Route path="planner/new" element={<PlanWizard />} />
-          <Route path="planner/:id" element={<PlanPage />} />
+          <Route path="planning" element={lazyEl(<PlannerHub />)} />
+          <Route path="planning/new" element={lazyEl(<PlannerWizard />)} />
+          <Route path="planning/plans/:planId/edit" element={lazyEl(<PlannerWizard />)} />
+          <Route path="planning/plans/:planId" element={lazyEl(<PlannerPlan />)} />
+          <Route path="planning/plans" element={<Navigate to="/planning?tab=plans" replace />} />
+          <Route path="planning/templates" element={<Navigate to="/planning?tab=templates" replace />} />
+          <Route path="planning/benchmarks" element={<Navigate to="/planning?tab=benchmarks" replace />} />
+          <Route path="planner" element={<Navigate to="/planning" replace />} />
+          <Route path="planner/*" element={<OldPlan />} />
           <Route path="ipam" element={<Ipam />} />
           <Route path="dcim" element={<Dcim />} />
           <Route path="dcim/racks/:id" element={<RackPage />} />

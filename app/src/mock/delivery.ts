@@ -10,7 +10,10 @@
 import type { CxTest, DeliveryMilestone, DeliveryProject, DeliveryProjectView, DesignDoc, Permit, PlannerPlan, PurchaseOrder, WorkOrder } from '../api/types';
 import type { Db } from './generate';
 import { activeGeo } from './geo';
-import { evaluate, plans as plannerPlans } from './planner';
+import { bridgedPlans, completeFromDelivery } from './p2b/bridge';
+/* plans past approval in the planner (P2B port), read in the delivery shape */
+const plannerPlans = (db: Db) => bridgedPlans(db).map(b => b.plan);
+const evaluate = (db: Db, p: PlannerPlan) => bridgedPlans(db).find(b => b.plan.id === p.id)!.eval;
 import { mulberry32, seedOf, between } from '../lib/rng';
 import { DAY } from './seed';
 
@@ -174,9 +177,8 @@ export function handover(db: Db, projectIdArg: string, who: string) {
   const v = deliveryProject(db, projectIdArg); if (!v) throw new Error('Unknown project');
   if (!v.canHandover) throw new Error('Handover needs every work order done and L1–L5 passed');
   overlay.handed.set(projectIdArg, db.now);
-  v.plan.status = 'Delivered'; v.plan.updated = db.now; v.plan.history.push({ at: db.now, who, text: 'Handed over to operations (HOTO): plan delivered' });
-  for (const c of db.plans) if (v.plan.capacityPlanIds.includes(c.id)) c.status = 'Delivered';
-  log(projectIdArg, who, 'Handover to operations signed: as-built issued, capacity plans delivered', db.now);
+  completeFromDelivery(db, v.plan.id, who);
+  log(projectIdArg, who, 'Handover to operations signed: as-built issued, the plan is completed in the planner', db.now);
 }
 /* goods receipt: the delivery is checked in on site (the kit of the work orders that need it becomes ready) */
 export function receivePo(db: Db, poId: string, who: string) {

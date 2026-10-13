@@ -350,13 +350,14 @@ function ReservationsTab({ cap }: { cap: Cap }) {
       { key: 'u', label: 'Space net available', value: `${fmtNum(Math.round(netU))} U`, sub: `after ${fmtNum(sumOf('Space', ['Reserved']))} U held`, info: 'Rack units free minus the units held by planned devices.' },
       { key: 'pd', label: 'Planned devices', value: fmtNum(cap.holds.filter(h => h.kind === 'Planned device' && h.resource === 'Space').length), sub: 'holding rack units', onClick: () => set('hk', 'Planned device'), active: kind === 'Planned device', info: 'Devices planned in DCIM: they hold their rack units now and their power once installed.' },
       { key: 'tc', label: 'Tenant contracts', value: fmtNum(cnt('Tenant contract')), sub: 'sold above draw', onClick: () => set('hk', 'Tenant contract'), active: kind === 'Tenant contract', info: 'Colocation cabinets whose contracted power is above what they draw: the difference is sold and cannot be offered again.' },
+      { key: 'ph', label: 'Planner holds', value: fmtNum(cnt('Planner hold')), sub: `${fmtKw(Math.round(cap.holds.filter(h => h.kind === 'Planner hold' && h.unit === 'kW').reduce((x, h) => x + h.qty, 0)))} held by approved plans`, onClick: () => set('hk', 'Planner hold'), active: kind === 'Planner hold', info: 'Capacity an approved planner plan holds at the site: written at final approval (Reserved), committed when the plan is executed, consumed at completion.' },
       { key: 'cp', label: 'Capacity plans', value: fmtNum(cnt('Capacity plan')), sub: `${cap.holds.filter(h => h.state === 'Requested').length} awaiting approval`, onClick: () => set('hk', 'Capacity plan'), active: kind === 'Capacity plan', info: 'Plans that add capacity: approved or executing ones are the pipeline, submitted ones are requested.' }
     ]} />
     <section className="vw-card-section dcl-table">
       <DataTable rows={rows} pageSize={30} defaultSort={{ key: 'q', dir: 'desc' }} onRow={h => h.to && nav(h.to)}
         toolbar={<ListToolbar shown={rows.length} total={cap.holds.length} noun="holds" onApply={apply} search={{ value: q, onChange: v => set('q', v), placeholder: 'Device, rack, tenant, plan' }}
           filters={[
-            { id: 'hk', label: 'Kind', quick: true, value: kind, anyLabel: 'Any kind', onChange: v => set('hk', v), options: ['Planned device', 'Tenant contract', 'Capacity plan', 'GPU allocation'].filter(cnt).map(k => ({ id: k, label: k, count: cnt(k) })) },
+            { id: 'hk', label: 'Kind', quick: true, value: kind, anyLabel: 'Any kind', onChange: v => set('hk', v), options: ['Planned device', 'Tenant contract', 'Planner hold', 'Capacity plan', 'GPU allocation'].filter(cnt).map(k => ({ id: k, label: k, count: cnt(k) })) },
             { id: 'hs', label: 'State', quick: true, value: st, anyLabel: 'Any state', onChange: v => set('hs', v), options: (['Reserved', 'Committed', 'Pipeline', 'Requested'] as const).map(x => ({ id: x, label: x, count: cap.holds.filter(h => h.state === x).length })).filter(x => x.count) }
           ]} />}
         cols={[

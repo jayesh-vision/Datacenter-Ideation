@@ -506,7 +506,7 @@ export interface IpamView {
 /* ---- Capacity additions (13-Oct-2026, P2B merge phase 3): what is held against capacity (mock/capacity.ts) */
 export type HoldState = 'Requested' | 'Reserved' | 'Committed' | 'Pipeline';
 export interface CapacityHold {
-  id: string; dcId: string; kind: 'Planned device' | 'Tenant contract' | 'Capacity plan' | 'GPU allocation'; resource: 'Power' | 'Space' | 'GPU' | 'Cooling' | 'Ports' | 'Bandwidth';
+  id: string; dcId: string; kind: 'Planned device' | 'Tenant contract' | 'Capacity plan' | 'Planner hold' | 'GPU allocation'; resource: 'Power' | 'Space' | 'GPU' | 'Cooling' | 'Ports' | 'Bandwidth';
   qty: number; unit: string; state: HoldState; label: string; ref?: string; to?: string;
 }
 export interface GpuCapacity { gpus: number; inJob: number; allocatedIdle: number; free: number; out: number; byModel: { model: string; gpus: number; inJob: number; free: number }[] }

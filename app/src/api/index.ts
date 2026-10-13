@@ -91,17 +91,13 @@ export const getDeviceIps = (neId: string) => wait(() => S.ipamOfDevice(neId)); 
 export const reserveIp = (prefixId: string, note: string) => mutate(() => S.ipamReserve(prefixId, note));                // POST /ipam/prefixes/:id/available-ips
 export const carvePrefix = (parentId: string, mask: number, role: Parameters<typeof S.ipamCarve>[2], description: string) => mutate(() => S.ipamCarve(parentId, mask, role, description)); // POST /ipam/prefixes/:id/available-prefixes
 
-/* ---- Planner (Plan & Build): design plans sized, checked and costed against the estate */
-export const getPlanner = () => wait(S.planner);                                                   // GET /planner/plans (+ templates, benchmarks)
-export const getPlannerPlan = (id: string) => wait(() => S.plannerPlan(id));                      // GET /planner/plans/:id (evaluation, scenarios)
-export const previewPlan = (x: Parameters<typeof S.plannerPreview>[0]) => wait(() => S.plannerPreview(x)); // POST /planner/evaluate
-export const getPlannerHalls = (dcId: string) => wait(() => S.plannerHalls(dcId));               // GET /datacenters/:id/halls?free-positions
-export const createPlannerPlan = (x: Parameters<typeof S.plannerCreate>[0]) => mutate(() => S.plannerCreate(x));  // POST /planner/plans
-export const updatePlannerPlan = (id: string, patch: Parameters<typeof S.plannerUpdate>[1]) => mutate(() => S.plannerUpdate(id, patch)); // PATCH /planner/plans/:id
-export const choosePlanScenario = (id: string, scen: string) => mutate(() => S.plannerChoose(id, scen)); // POST /planner/plans/:id/scenario
-export const submitPlannerPlan = (id: string) => mutate(() => S.plannerSubmit(id));              // POST /planner/plans/:id/submit
-export const decidePlannerPlan = (id: string, approve: boolean, comment: string) => mutate(() => S.plannerDecide(id, approve, comment)); // POST /planner/plans/:id/decision
-export const executePlannerPlan = (id: string) => mutate(() => S.plannerExecute(id));            // POST /planner/plans/:id/execute
+/* ---- Planner (P2B port): the planner's record store (templates, benchmarks, plans, scenarios, holds) over our estate.
+   The planner screens use it through planner/compat (P2B's entity hooks); a real backend would serve each collection. */
+export const plannerStore = S.plannerStore;
+export const getPlannerQueue = () => wait(S.plannerQueue);                                          // GET /planner/plans?status=In review,Approved                                                         // GET /planner/{collection}
+export const onPlannerChange = S.onPlannerChange;
+export const plannerStoreSerial = S.plannerStoreSerial;
+export type { MockDB } from '../mock/p2b/store';
 
 /* ---- Delivery (Plan & Build): projects from approved plans, work orders, POs, commissioning, permits, design */
 export const getDelivery = () => wait(S.delivery);                                                 // GET /delivery (projects, work orders, POs, tests, permits, docs)

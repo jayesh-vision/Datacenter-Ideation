@@ -436,19 +436,35 @@ screens are rebuilt in our kit (PageHead, StatGrid, ListToolbar, DataTable, NST 
   GPU nodes of an idle job, Reserved) with net available power and space; **PUE & energy** = PUE = facility ÷ IT from the site power split,
   energy/day, CO₂ with the national grid factor (India CEA v19 0.716, USA eGRID 2022 0.371 kg/kWh; renewables / WUE are not modelled, so not
   shown). Tab KPI rows are SummaryStrips now. Check: `node .qa/capacity.mjs <persona> <geo>` (W=1280).
-- **Phase 4 = Planner (done)**: P2B's engine is tied to its own record store, so the planner is rebuilt on our estate with the same method
-  (`mock/planner.ts`; types `Plan*` in api/types.ts). Scopes: rack expansion · AI / GPU pod · new hall · new datacenter · plant upgrade · equipment
-  refresh (`TEMPLATES`). `evaluate()` sizes the plant at the plan's redundancy (2N one side carries all; N+1 all but the largest; generators kVA × 0.8
-  + 10%; transformers / UPS pf 0.95) and CHECKS in-site plans against the real site (UPS usable at its redundancy vs its load, generator, running
-  cooling less the largest, CDU headroom, utility intake, free positions = the twin grid with at least two row pairs, rack feed ≤ 86 kW, cooling
-  method for the density) — unlike P2B, checks can fail and say what to add. CapEx lines from `benchmarks()` (sourced, money via `money()`),
-  compute bought where the business model sells it (cloud / neocloud / enterprise), OpEx with PUE at part load, 10-year cash flow, NPV (11% India,
-  8% USA), IRR, payback; colocation re-bills metered power. Schedule from lead times (long-lead items in parallel with the shell / after design).
-  Approval chain by CapEx (site lead · head of DC ops > ₹1 cr · CFO > ₹10 cr). Seed plans: one per facility capacity plan, the planned site's build,
-  drafts where the estate is tight (UPS, fullest site's new hall, GPU pod at the freest CDU, refresh of the model nearest end of support); dates
-  follow the schedule. Execute = Capacity plans (Executing) + empty racks in the hall (DCIM). Store is runtime (reset on regenerate).
-  Screens `/planner` (`Planner.tsx`: StatGrid, plans · templates · benchmarks), `/planner/new` (`PlanWizard.tsx`, live check), `/planner/:id`
-  (`PlanPage.tsx`). Styles `styles/planner.css`. Check: `node .qa/planner.mjs <persona> <geo>` (every plan × tab, wizard → execute; W=1280).
+- **Phase 4 = Planner (rebuilt 13-Oct-2026, user: "rebuild the planner like P2B", then "merge into our theme, UI/UX and data")**: P2B's
+  planner ENGINE and data are ported as they are, the SCREENS are ours. Logic lives in `src/planner/lib/*` (engine: template inheritance
+  `resolveTemplate`, `effectiveParams` with param sources, sizing, cost / NPV / IRR, schedule from lead-time benchmarks, rule checks, readiness;
+  `dimensions.ts` = the 12 wizard areas + `deriveFromRequirements`; `wizardModel.ts` = steps per template, validation, blockers; `governance.ts`
+  = approval path by template + CapEx band, decisions, conditions, delegations, revisions, baseline; `scopes/*` = the six plan families;
+  `usePlanner.ts` = hooks + `usePlannerActions`). The record store is P2B's MockDB (`mock/p2b/store.ts`) built per data version in
+  `mock/p2b/index.ts`: our estate adapted to the planner's records (`adapter.ts`: sites, halls/rows/racks/devices from `dcimModel`, UPS/feeds/
+  DG, cooling zones per floor, IPAM, holds, services, backhaul circuits; money in USD, `USD_RATE` 50 for India) + P2B's seed (`mock/p2b/seed/*`:
+  59 templates, 230 benchmarks, 15 demo plans placed on our sites by position `SITE_KEYS`, place names / customers / carriers localised;
+  `validate()` sends an approved demo plan back to Draft with the reason when it fails a hard rule on our estate). The planner finds the store
+  through `planner/compat/registry.ts` (registered by `mock/server.ts`, no import cycle); `compat/clock.ts` = the mock clock; `compat/people.ts`
+  = this geography's cast with two holders per approving role; `compat/auth.tsx` = the signed-in user (switchable in the decide modal).
+  Screens `screens/planning/`: hub `/planning` (`Planner.tsx`: StatGrid, tabs overview · plans · templates · benchmarks; `?tab=`), `Plans.tsx`
+  (ListToolbar + DataTable, `?status=&scope=&q=`), `Templates.tsx` (plan types · site types · modules; drawer: inheritance chain, wizard areas,
+  approval path, outputs, inputs with defaults editable on drafts, rules, plans using it, versions; Make a variant / Publish / Retire; a content
+  change bumps the version), `Benchmarks.tsx` (costs · efficiency · lead times · sizing & staffing · rules; add / edit drawer, versioned),
+  wizard `/planning/new` + `/planning/plans/:id/edit` (`PlanWizard.tsx` + `wizard/*`: Plan type cards → Requirements (name, needed-by with
+  lead-time check, where per family: site / two sites / campus / new site with candidate plots `Candidates.tsx` / region, affected devices for
+  refreshes, edge sites; how much, workload mix, tier; "the planner fills N inputs" with reasons) → one `DimensionStep` per area (inputs with
+  source chips + reset, result per area, checks; phases / permits / risks editors) → Scenarios (`Scenarios.tsx`, compare + prefer) → Review
+  (blockers with "fix" links, approval path by band, outputs); `LiveEstimate` rail on every step), plan page `/planning/plans/:id`
+  (`PlanPage.tsx` + `plan/*`: SummaryStrip, status actions, tabs overview · sizing · capacity · cost · schedule · rules · scenarios · risks &
+  permits · approvals (decide modal, conditions, delegations) · delivery · baseline · history). Styles `styles/planning.css`; shared helpers
+  `screens/planning/common.tsx` (money = planner USD → geography, `SourceChip`, `PlannerToasts` for `compat/notify.ts`).
+  Delivery reads the planner's approved / executing plans through `mock/p2b/bridge.ts` (`PRJ-n` = `PLN-n`; handover completes the plan);
+  Capacity → Reservations shows the holds approved plans write (`Planner hold`). Old `/planner…` URLs redirect.
+  Checks (NeoCloud + USA only, user 13-Oct-2026): `npx tsx .qa/p2b-check.ts neocloud us` (every demo plan evaluates; `V=1` lists fails),
+  `node .qa/p2b-smoke.mjs neocloud us <routes>`, `node .qa/p2b-wizard.mjs neocloud us "New datacenter"` (all 15 steps), `node .qa/p2b-plans.mjs
+  neocloud us` (every plan × tab), `node .qa/p2b-flow.mjs neocloud us PLN-0002` (decide → approve → start the build → Delivery → holds).
 - **Phase 5 = Delivery (done)**: `mock/delivery.ts` derives a project from every approved / executing / delivered planner plan (`PRJ-n` = `PLN-n`):
   milestones = the plan's schedule; work orders = the field-work milestones split into crew windows (own technicians or the geography's
   contractors), each with a delivery change request `CR-…` and a kit status from its purchase orders; purchase orders = the plan's CapEx lines
@@ -475,6 +491,6 @@ screens are rebuilt in our kit (PageHead, StatGrid, ListToolbar, DataTable, NST 
   ISO 27001 / ISO 22237 / TIA-942 / SOC 2 controls to the policies that actually evidence them (P2B's mappings were wrong); manual controls carry an
   attestation date. `mock/customization.ts`: custom fields (filled counts derived) and tags as rules over the estate (+ runtime additions).
   Screens `screens/admin/Compliance.tsx`, `Customization.tsx`. Check: `node .qa/admin.mjs`.
-- **Known gap (user, 13-Oct-2026)**: the Planner is a simplified rebuild; the user wants it aligned with P2B's template-driven planner (15-step
-  wizard per template, requirements that fill the design inputs, live estimate, template view / edit / duplicate with approval). Next step.
+- Not yet ported from P2B (planner): the family-specific editors (plant line-ups, network paths, replacement waves, placement grid, migration
+  dispositions / consents), the plan pack documents (BoD / BoM / IP plan / drawings), sourcing against stock and vendors, AI assist.
 
