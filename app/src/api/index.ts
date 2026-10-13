@@ -12,7 +12,7 @@ import { GEOS, GEO_BY_ID, type Geo, type GeoDef } from '../mock/geo';
 
 const LATENCY = 90;
 const wait = <T,>(f: () => T): Promise<T> => new Promise(res => setTimeout(() => res(structuredClone(f())), LATENCY));
-const mutate = <T,>(f: () => T): Promise<T> => new Promise(res => setTimeout(() => res(f()), 60));
+const mutate = <T,>(f: () => T): Promise<T> => new Promise((res, rej) => setTimeout(() => { try { res(f()); } catch (e) { rej(e); } }, 60));
 
 /* change feed: a real backend would push this over SSE / websocket */
 export const onDataChange = S.subscribe;
@@ -71,6 +71,53 @@ export const getResilienceTests = (dcId: string) => wait(() => S.resilienceTests
 export const getColocationOrders = (q: { dcId?: string; customerId?: string } = {}) => wait(() => S.colocationOrders(q)); // GET /colocation/orders?dcId&customerId
 export const getTopology = (dcId: string) => wait(() => S.topology(dcId));                         // GET /datacenters/:id/topology
 
+/* ---- DCIM (Plan & Build): the inventory record — sites, halls, rows, racks, devices, ports, cables, types, power distribution */
+export const getDcim = (q: { dcId?: string } = {}) => wait(() => S.dcim(q));                       // GET /dcim?dcId (sites, halls, rows, racks, power panels, feeds)
+export const getDcimDevices = (q: Parameters<typeof S.dcimDevices>[0] = {}) => wait(() => S.dcimDevices(q)); // GET /dcim/devices?dcId&rackId&typeId
+export const getDcimDevice = (id: string) => wait(() => S.dcimDevice(id));                         // GET /dcim/devices/:id (with ports, power ports, bays)
+export const getDcimCables = (q: Parameters<typeof S.dcimCables>[0] = {}) => wait(() => S.dcimCables(q)); // GET /dcim/cables?dcId&kind&deviceId
+export const getDcimTypes = () => wait(S.dcimTypes);                                               // GET /dcim/device-types (+ module types, manufacturers, roles, platforms)
+export const getDcimType = (id: string) => wait(() => S.dcimType(id));                             // GET /dcim/device-types/:id
+export const getDcimRack = (id: string) => wait(() => S.dcimRack(id));                             // GET /dcim/racks/:id (elevation, PDUs, cords, cables)
+export const getDcimFreeSlots = (rackId: string) => wait(() => S.dcimFreeSlots(rackId));           // GET /dcim/racks/:id/free-units
+export const createRack = (x: Parameters<typeof S.dcimCreateRack>[0]) => mutate(() => S.dcimCreateRack(x));         // POST /dcim/racks
+export const installDevice = (x: Parameters<typeof S.dcimInstallDevice>[0]) => mutate(() => S.dcimInstallDevice(x)); // POST /dcim/devices (planned)
+export const setDeviceStatus = (id: string, to: Parameters<typeof S.dcimSetDeviceStatus>[1]) => mutate(() => S.dcimSetDeviceStatus(id, to)); // PATCH /dcim/devices/:id
+export const addDeviceType = (x: Parameters<typeof S.dcimAddType>[0]) => mutate(() => S.dcimAddType(x));          // POST /dcim/device-types
+
+/* ---- IP & Network (Plan & Build): prefixes, addresses, VRFs, VLANs, ASNs, gateways, ranges, services, findings */
+export const getIpam = (q: { dcId?: string } = {}) => wait(() => S.ipam(q));                      // GET /ipam?dcId
+export const getDeviceIps = (neId: string) => wait(() => S.ipamOfDevice(neId));                  // GET /network-elements/:id/ip-addresses
+export const reserveIp = (prefixId: string, note: string) => mutate(() => S.ipamReserve(prefixId, note));                // POST /ipam/prefixes/:id/available-ips
+export const carvePrefix = (parentId: string, mask: number, role: Parameters<typeof S.ipamCarve>[2], description: string) => mutate(() => S.ipamCarve(parentId, mask, role, description)); // POST /ipam/prefixes/:id/available-prefixes
+
+/* ---- Planner (Plan & Build): design plans sized, checked and costed against the estate */
+export const getPlanner = () => wait(S.planner);                                                   // GET /planner/plans (+ templates, benchmarks)
+export const getPlannerPlan = (id: string) => wait(() => S.plannerPlan(id));                      // GET /planner/plans/:id (evaluation, scenarios)
+export const previewPlan = (x: Parameters<typeof S.plannerPreview>[0]) => wait(() => S.plannerPreview(x)); // POST /planner/evaluate
+export const getPlannerHalls = (dcId: string) => wait(() => S.plannerHalls(dcId));               // GET /datacenters/:id/halls?free-positions
+export const createPlannerPlan = (x: Parameters<typeof S.plannerCreate>[0]) => mutate(() => S.plannerCreate(x));  // POST /planner/plans
+export const updatePlannerPlan = (id: string, patch: Parameters<typeof S.plannerUpdate>[1]) => mutate(() => S.plannerUpdate(id, patch)); // PATCH /planner/plans/:id
+export const choosePlanScenario = (id: string, scen: string) => mutate(() => S.plannerChoose(id, scen)); // POST /planner/plans/:id/scenario
+export const submitPlannerPlan = (id: string) => mutate(() => S.plannerSubmit(id));              // POST /planner/plans/:id/submit
+export const decidePlannerPlan = (id: string, approve: boolean, comment: string) => mutate(() => S.plannerDecide(id, approve, comment)); // POST /planner/plans/:id/decision
+export const executePlannerPlan = (id: string) => mutate(() => S.plannerExecute(id));            // POST /planner/plans/:id/execute
+
+/* ---- Delivery (Plan & Build): projects from approved plans, work orders, POs, commissioning, permits, design */
+export const getDelivery = () => wait(S.delivery);                                                 // GET /delivery (projects, work orders, POs, tests, permits, docs)
+export const getDeliveryProject = (id: string) => wait(() => S.deliveryProject(id));              // GET /delivery/projects/:id
+export const advanceWorkOrder = (id: string) => mutate(() => S.deliveryAdvanceWo(id));           // POST /delivery/work-orders/:id/advance
+export const runCxTest = (projectId: string, level: number) => mutate(() => S.deliveryRunTest(projectId, level)); // POST /delivery/projects/:id/commissioning/:level
+export const receivePurchaseOrder = (id: string) => mutate(() => S.deliveryReceivePo(id));         // POST /delivery/purchase-orders/:id/receipt
+export const handoverProject = (projectId: string) => mutate(() => S.deliveryHandover(projectId)); // POST /delivery/projects/:id/handover
+
+/* ---- Compliance and Customization (Admin) */
+export const getCompliance = () => wait(S.compliance);                                             // GET /compliance (frameworks, controls, policies, violations)
+export const getCustomization = () => wait(S.customization);                                       // GET /customization (custom fields, tags)
+export const addCustomField = (f: Parameters<typeof S.addCustomField>[0]) => mutate(() => S.addCustomField(f)); // POST /customization/fields
+export const addTag = (t: Parameters<typeof S.addTagDef>[0]) => mutate(() => S.addTagDef(t));    // POST /customization/tags
+export const getAuditLog = () => wait(S.auditLog);                                                 // GET /audit
+
 /* ---- services & customers */
 export const getServices = (q: Parameters<typeof S.servicesOf>[0] = {}) => wait(() => S.servicesOf(q)); // GET /services?dcId&neId&customerId
 export const getService = (id: string) => wait(() => S.service(id));                               // GET /services/:id
@@ -82,6 +129,9 @@ export const getAlerts = (q: Parameters<typeof S.alerts>[0] = {}) => wait(() => 
 export const getIncidents = (q: Parameters<typeof S.incidents>[0] = {}) => wait(() => S.incidents(q)); // GET /incidents
 export const getIncident = (id: string) => wait(() => S.incident(id));                             // GET /incidents/:id
 export const getChanges = (q: Parameters<typeof S.changes>[0] = {}) => wait(() => S.changes(q));   // GET /changes
+export const getChangeRegister = () => wait(S.changeMgmt);                                         // GET /change-management (changes, freezes, templates, policies, weekly volume)
+export const getChangeRecord = (id: string) => wait(() => S.changeRecord(id));                     // GET /changes/:id (class, approvals, conflicts, policies, review)
+export const decideChange = (id: string, approve: boolean) => mutate(() => S.decideChange(id, approve)); // POST /changes/:id/decision
 export const previewChangeImpact = (scope: string[], dcId: string, excludeId?: string) => wait(() => S.changeImpact(scope, dcId, excludeId)); // POST /changes/impact-preview
 export const getReconciliation = (q: Parameters<typeof S.recon>[0] = {}) => wait(() => S.recon(q)); // GET /reconciliation
 export const getAudit = (object?: string) => wait(() => S.audit(object));                          // GET /audit?object

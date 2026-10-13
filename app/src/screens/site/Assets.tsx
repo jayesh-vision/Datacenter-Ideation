@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useMemo } from 'react';
 import * as I from 'lucide-react';
 import { getNetworkElements, useQuery, usePersona } from '../../api';
@@ -62,7 +63,7 @@ export function Assets({ data }: { data: SiteData }) {
       ]} />
 
       <div className="grid g-2 mx-row">
-        <Panel title="Space by room" icon={I.Building2} sub="Racks, U used / free and draw per room" flush info="Each room with its racks, U-space used out of total, installed devices and power draw (sum of its racks). Below: the fullest rack by U fill, the average draw per rack and how many planned devices hold reserved space.">
+        <Panel title="Space by room" icon={I.Building2} sub="Racks, U used / free and draw per room" flush actions={<Link className="ent-link" to={`/dcim?tab=floorplan&dc=${dc.id}`}>Floor plans in DCIM →</Link>} info="Each room with its racks, U-space used out of total, installed devices and power draw (sum of its racks). Below: the fullest rack by U fill, the average draw per rack and how many planned devices hold reserved space.">
           <table className="nst-table mx-table">
             <thead><tr><th>Floor · room</th><th className="is-right">Racks</th><th>U used / total</th><th className="is-right">Devices</th><th className="is-right">Draw</th></tr></thead>
             <tbody>{a.rooms.map(r => (

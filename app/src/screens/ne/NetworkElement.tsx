@@ -78,7 +78,7 @@ export function NetworkElement() {
             </div>
             <div className="vw-card-description ne-sub">
               <span><I.Building2 size={13} /><Link className="ent-link" to={`/datacenters/${ne.dcId}`}>{ne.dcId}</Link></span>
-              <span><I.Server size={13} /><Link className="ent-link" to={`/datacenters/${ne.dcId}?tab=details`}>{rackName} · U{ne.u}</Link></span>
+              <span><I.Server size={13} /><Link className="ent-link" to={`/dcim/racks/${encodeURIComponent(ne.rackId)}`} title="Open the rack in DCIM (elevation, PDUs, cables)">{rackName} · U{ne.u}</Link></span>
               <span className="mono">{ne.ip}</span>
               {!nd && ne.lastSeen && <span>polled {fmtDateTime(ne.lastSeen)} via {ne.collector}</span>}
             </div>

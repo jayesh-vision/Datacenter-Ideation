@@ -72,3 +72,7 @@
 .fac-eq > .panel .panel-body.is-flush { overflow: auto; }
 @media (max-width: 1400px) { .cap-2 { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 1180px) { .fam-grid, .gauges, .dim-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+/* GPU capacity bar (Capacity → Compute & GPU) */
+.gpu-cap-bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; gap: 2px; margin-bottom: 8px; }
+.gpu-cap-bar i { display: block; }

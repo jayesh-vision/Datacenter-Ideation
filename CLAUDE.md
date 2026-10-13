@@ -394,3 +394,87 @@ All read models, derived per site and cached per db; they raise no alarms and ne
   and the check-first marker. Power = the device, each PSU cord to its outlet, the PDU (A / B), the busway, the UPS (or −48 V plant) and the
   utility feed, the two sides as two rows seen from ~40° above. Camera fit is done by hand (camera-controls `fitToBox` snaps to a box face).
   Check: `node .qa/twin2-trace.mjs` (P= DC= W=).
+
+## P2B merge — Plan & Build (13-Oct-2026, user)
+The colleague's P2B prototype (github.com/Devendra921/DCOS, cloned at `P2B/`, untracked, never commit it) is being merged screen by screen:
+Planner · Capacity · IP & Network · DCIM · Delivery · Change Management · Compliance · Customization. Decisions: ONE estate (ours — P2B's demo
+estate, faker seed and its stale copy of our ops app are not brought over); P2B's Change Management will replace "Changes & maintenance";
+screens are rebuilt in our kit (PageHead, StatGrid, ListToolbar, DataTable, NST tokens), not antd. Menu group **Plan & Build**.
+- **Phase 0 + 1 = DCIM (done)**: read model `mock/dcim.ts` (derived per data version, cleared in `changed()`; nothing generated changes, every
+  fingerprint holds): site → floor → hall (= a room; kind from its name) → row (the twin's rule: `rowCols(n)` racks per row, rows paired face to
+  face around a cold aisle; keep in step with `twin/layout.ts`) → rack → device (= every NE; status Active / Planned / Maintenance / Decommissioning /
+  Tenant-owned) → components (ports, power ports with their PDU outlet, mgmt, console, module bays) → cables (data = every LLDP link with its
+  structured route from `physical.ts` ends, type from the port and route; power = every PSU cord). Device type = distinct vendor + model; module
+  type = distinct module name. Power: panel = a hall's A / B busway (one UPS module) or −48 V distribution; feed = a rack PDU. Types `Dcim*` in api/types.ts,
+  API `getDcim · getDcimDevices · getDcimDevice · getDcimCables · getDcimTypes · getDcimType · getDcimRack · getDcimFreeSlots`; mutations `createRack`,
+  `installDevice` (planned NE + reserved interfaces, U range validated), `setDeviceStatus`, `addDeviceType` (runtime only; a reload regenerates).
+  `mutate()` now rejects when the server function throws (forms show the message).
+- Screens `screens/dcim/`: `/dcim` (`Dcim.tsx`: scope select `?dc=`, StatGrid, tabs `?tab=` sites · floorplan · racks · devices · cabling · power ·
+  types · hierarchy), `/dcim/racks/:id` (`RackPage.tsx`: elevation, PDUs + cords, cables, panels), `/dcim/types/:id` (`TypePage.tsx`); device rows open
+  `DeviceDrawer` (no third device page: it links to `/ne/:id`); forms in `forms.tsx`. Styles `styles/dcim.css`. The device page's rack link and the
+  datacenter Assets tab link into DCIM.
+- Checks: `npx tsx .qa/dcim-check.ts` (sites/racks/devices = estate, Σ hall = site, rows partition racks, U = Σ devices + ODF block, no U clash,
+  Σ feeds = rack draw, Σ panel = Σ feeds, cables = LLDP links + cords, Σ type devices = devices; `GEO=us` too), `node .qa/dcim.mjs <persona> <geo>`
+  (`W=1280`; every tab, overflow, scope, rack/type pages, drawers, new rack + install flow).
+- **Phase 2 = IP & Network (done)**: read model `mock/ipam.ts` (usage = addresses actually bound; P2B's 92% padding is not copied). Management =
+  each device's own `ip` in a per-site VRF `MGMT-<site>` (the generator reuses 172.x ranges between sites, hence one VRF per site; the NOC
+  imports RT 64500:999); the /24s are those the addresses fall in, under one container; an address outside it is "Outside plan" (the hero
+  border router's 172.31.40.20 is the one finding per persona). Fabric (VRF DEFAULT) = 10.<site index>.0.0/16: loopbacks for routing speakers,
+  a /31 per routing adjacency (127 per /24), a production /22 per hall with hosts (VLAN 200+n, VRRP/HSRP gateway on two of the hall's switches,
+  a PXE range), storage /22 (VLAN 300); inter-site links = /31s in 10.255.0.0/16. L3VPN = a customer VRF + PE–CE /31 per service (100.64/10),
+  IRV = public /31s (documentation /24s), L2VPN / leased line / cross-connect = a VLAN per service. ASNs: operator 64500, site 65100+n,
+  one 32-bit private per BGP leaf. Overlay for "Reserve next IP" / "Carve a prefix" (cleared on regenerate). Screen `/ipam` (`screens/ipam/Ipam.tsx`,
+  styles `styles/ipam.css`), DCIM device drawer lists the device's addresses. Checks: `npx tsx .qa/ipam-check.ts` (every device's management
+  address, addresses inside their prefix + VRF, no duplicates in a VRF, used = bound, children inside parents, no sibling overlap, 2 link
+  addresses per adjacency / inter-site link, one host address per host, PE–CE and VLANs per service, VLAN ids unique per site; `GEO=us`),
+  `node .qa/ipam.mjs <persona> <geo>` (W=1280).
+- **Phase 3 = Capacity (done)**: our parked `/capacity` screen (`screens/Capacity.tsx`) is back in the menu (it was the screen P2B had copied as
+  "Plans & forecast") with P2B's additions, all derived (`mock/capacity.ts`, fields `holds · gpu · energy · halls` on `capacity()`): overview opens
+  with a StatGrid (one tile per dimension + holds); Space adds space & power by hall (→ DCIM floor plan); Compute & GPU adds GPU capacity (in a
+  job / allocated to an idle job / free / out of service, per model); **Reservations** = what is held against capacity (planned device = its U +
+  its type's typical draw, Reserved; colocation contract above draw, Committed; approved / executing plan, Pipeline; submitted plan, Requested;
+  GPU nodes of an idle job, Reserved) with net available power and space; **PUE & energy** = PUE = facility ÷ IT from the site power split,
+  energy/day, CO₂ with the national grid factor (India CEA v19 0.716, USA eGRID 2022 0.371 kg/kWh; renewables / WUE are not modelled, so not
+  shown). Tab KPI rows are SummaryStrips now. Check: `node .qa/capacity.mjs <persona> <geo>` (W=1280).
+- **Phase 4 = Planner (done)**: P2B's engine is tied to its own record store, so the planner is rebuilt on our estate with the same method
+  (`mock/planner.ts`; types `Plan*` in api/types.ts). Scopes: rack expansion · AI / GPU pod · new hall · new datacenter · plant upgrade · equipment
+  refresh (`TEMPLATES`). `evaluate()` sizes the plant at the plan's redundancy (2N one side carries all; N+1 all but the largest; generators kVA × 0.8
+  + 10%; transformers / UPS pf 0.95) and CHECKS in-site plans against the real site (UPS usable at its redundancy vs its load, generator, running
+  cooling less the largest, CDU headroom, utility intake, free positions = the twin grid with at least two row pairs, rack feed ≤ 86 kW, cooling
+  method for the density) — unlike P2B, checks can fail and say what to add. CapEx lines from `benchmarks()` (sourced, money via `money()`),
+  compute bought where the business model sells it (cloud / neocloud / enterprise), OpEx with PUE at part load, 10-year cash flow, NPV (11% India,
+  8% USA), IRR, payback; colocation re-bills metered power. Schedule from lead times (long-lead items in parallel with the shell / after design).
+  Approval chain by CapEx (site lead · head of DC ops > ₹1 cr · CFO > ₹10 cr). Seed plans: one per facility capacity plan, the planned site's build,
+  drafts where the estate is tight (UPS, fullest site's new hall, GPU pod at the freest CDU, refresh of the model nearest end of support); dates
+  follow the schedule. Execute = Capacity plans (Executing) + empty racks in the hall (DCIM). Store is runtime (reset on regenerate).
+  Screens `/planner` (`Planner.tsx`: StatGrid, plans · templates · benchmarks), `/planner/new` (`PlanWizard.tsx`, live check), `/planner/:id`
+  (`PlanPage.tsx`). Styles `styles/planner.css`. Check: `node .qa/planner.mjs <persona> <geo>` (every plan × tab, wizard → execute; W=1280).
+- **Phase 5 = Delivery (done)**: `mock/delivery.ts` derives a project from every approved / executing / delivered planner plan (`PRJ-n` = `PLN-n`):
+  milestones = the plan's schedule; work orders = the field-work milestones split into crew windows (own technicians or the geography's
+  contractors), each with a delivery change request `CR-…` and a kit status from its purchase orders; purchase orders = the plan's CapEx lines
+  (suppliers + lead times), ordered at approval; commissioning L1 factory witness → L2 site acceptance → L3 pre-functional → L4 functional → L5 IST;
+  permits by scope (Indian / US authorities); design documents; EV cost (earned = budget × progress, CPI, SPI); health late / at risk / on track.
+  Approved-not-executed plans start no earlier than today (so an approved plan whose lead times miss its target shows late). Two delivered
+  rack expansions per persona are seeded (the last racks of the two biggest halls). Overlay moves: receive a PO (goods receipt), start /
+  complete a work order (needs kit on site), run Lx in order (L3+ needs installation done), hand over (all WOs done + L5) → plan and its capacity
+  plans Delivered. Screens `/delivery` (`screens/delivery/Delivery.tsx`), `/delivery/projects/:id` (`ProjectPage.tsx`). Check:
+  `node .qa/delivery.mjs <persona> <geo>` (every project × tab + execute → receive → work orders → L1–L5 → handover; W=1280).
+  The new QA scripts save screenshots only on a failure (or `SHOTS=1`): the disk was full on 13-Oct-2026.
+- **Phase 6 = Change management (done; replaces "Changes & maintenance", menu label Change management)**: `mock/changemgmt.ts` = one register
+  over `db.changes` (operations + maintenance), the delivery change requests of every work order (`CR-…`) and the preventive maintenance done in
+  the last 12 weeks (`PMW-…`, from the plant PM plan). Class: emergency flag → Emergency; a low-risk title matching a standard template → Standard;
+  else Normal. Approval matrix (Standard pre-approved; Normal change manager, + site lead from Medium, + CAB at High; Emergency ECAB + review);
+  freezes = a site with an open Critical incident + the geography's peak / year-end freeze (live sites only, civil works exempt); conflicts =
+  overlapping windows on the same devices; policies POL-01…06 (rollback, freeze = Block; maintenance hours, SPOF, overlap, overdue review = Warn);
+  a completed change cited by an incident's leading RCA hypothesis = "Caused an incident" (counts as failed; CHG-2001 Re-patch ODF → INC-0001).
+  Screens `screens/changes/Changes.tsx` (tabs overview · changes · approvals · calendar · freezes · standard · policies; `?id=` redirects to the
+  page; `?dc=` / `?status=` open the list), `ChangePage.tsx` (`/changes/:id`), reusable form / impact parts in `parts.tsx`; styles `changes.css`.
+  Check: `node .qa/changes.mjs <persona>`.
+- **Phase 7 = Compliance + Customization (done, minimal redesign; menu group Admin)**: `mock/compliance.ts` evaluates policies CP-01…09 on the
+  estate (rack ≤ 80%, dual-fed, cooling N+1, UPS ≥ 10 min, addresses in plan, end of support, change policy, fire inspections, PM overdue) and maps
+  ISO 27001 / ISO 22237 / TIA-942 / SOC 2 controls to the policies that actually evidence them (P2B's mappings were wrong); manual controls carry an
+  attestation date. `mock/customization.ts`: custom fields (filled counts derived) and tags as rules over the estate (+ runtime additions).
+  Screens `screens/admin/Compliance.tsx`, `Customization.tsx`. Check: `node .qa/admin.mjs`.
+- **Known gap (user, 13-Oct-2026)**: the Planner is a simplified rebuild; the user wants it aligned with P2B's template-driven planner (15-step
+  wizard per template, requirements that fill the design inputs, live estimate, template view / edit / duplicate with approval). Next step.
+

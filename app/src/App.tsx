@@ -7,7 +7,8 @@ import { NetworkElement } from './screens/ne/NetworkElement';
 import { Alerts } from './screens/Alerts';
 import { Incidents } from './screens/Incidents';
 import { IncidentDetail } from './screens/IncidentDetail';
-import { Changes } from './screens/Changes';
+import { Changes } from './screens/changes/Changes';
+import { ChangePage } from './screens/changes/ChangePage';
 import { ServiceDetail } from './screens/ServiceDetail';
 import { CustomerDetail } from './screens/CustomerDetail';
 import { Facilities } from './screens/Facilities';
@@ -15,6 +16,18 @@ import { Revenue } from './screens/Revenue';
 import { GpuPage } from './screens/Gpu';
 import { NotFound } from './screens/NotFound';
 import { DataModel } from './screens/DataModel';
+import { Dcim } from './screens/dcim/Dcim';
+import { RackPage } from './screens/dcim/RackPage';
+import { TypePage } from './screens/dcim/TypePage';
+import { Ipam } from './screens/ipam/Ipam';
+import { Capacity } from './screens/Capacity';
+import { Planner } from './screens/planner/Planner';
+import { PlanPage } from './screens/planner/PlanPage';
+import { PlanWizard } from './screens/planner/PlanWizard';
+import { Delivery } from './screens/delivery/Delivery';
+import { ProjectPage } from './screens/delivery/ProjectPage';
+import { Compliance } from './screens/admin/Compliance';
+import { Customization } from './screens/admin/Customization';
 
 /* Estate → Datacenter → Infrastructure → Connectivity → Services → Customers
    → Events → Impact → Diagnosis → Recommended action */
@@ -41,6 +54,7 @@ export default function App() {
           <Route path="incidents" element={<Incidents />} />
           <Route path="incidents/:id" element={<IncidentDetail />} />
           <Route path="changes" element={<Changes />} />
+          <Route path="changes/:id" element={<ChangePage />} />
           {/* Topology lives only as a tab on the datacenter page (user, 05-Oct-2026); old links land on that tab */}
           <Route path="topology" element={<TopologyRedirect />} />
           {/* Service and customer catalogues are service operations; only impact drill-downs remain */}
@@ -48,14 +62,25 @@ export default function App() {
           <Route path="services/:id" element={<ServiceDetail />} />
           <Route path="customers" element={<Navigate to="/incidents" replace />} />
           <Route path="customers/:id" element={<CustomerDetail />} />
-          {/* Capacity planning is parked for Plan & Build; current pressure lives in Facilities */}
-          <Route path="capacity" element={<Navigate to="/facilities" replace />} />
+          {/* Capacity planning is back under Plan & Build (P2B merge, 13-Oct-2026); current pressure stays in Facilities */}
+          <Route path="capacity" element={<Capacity />} />
           <Route path="facilities" element={<Facilities />} />
           {/* AI & GPU operations (user, 05-Oct-2026) */}
           <Route path="gpu" element={<GpuPage />} />
           {/* Money view of operations: what each open issue costs (user, 05-Oct-2026) */}
           <Route path="revenue" element={<Revenue />} />
           {/* Data model explorer: entities and relationships (user, 12-Oct-2026) */}
+          <Route path="delivery" element={<Delivery />} />
+          <Route path="delivery/projects/:id" element={<ProjectPage />} />
+          <Route path="planner" element={<Planner />} />
+          <Route path="planner/new" element={<PlanWizard />} />
+          <Route path="planner/:id" element={<PlanPage />} />
+          <Route path="ipam" element={<Ipam />} />
+          <Route path="dcim" element={<Dcim />} />
+          <Route path="dcim/racks/:id" element={<RackPage />} />
+          <Route path="dcim/types/:id" element={<TypePage />} />
+          <Route path="compliance" element={<Compliance />} />
+          <Route path="customization" element={<Customization />} />
           <Route path="data-model" element={<DataModel />} />
           <Route path="*" element={<NotFound />} />
         </Route>

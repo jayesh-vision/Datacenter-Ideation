@@ -25,8 +25,17 @@ const NAV: { group: string; items: { to: string; label: string; icon: I.LucideIc
   { group: 'Operate', items: [
     { to: '/alerts', label: 'Alerts', icon: I.BellRing, badge: 'alerts' },
     { to: '/incidents', label: 'Incidents', icon: I.Siren, badge: 'incidents' },
-    { to: '/changes', label: 'Changes & maintenance', icon: I.ArrowLeftRight, badge: 'changes' }
+    { to: '/changes', label: 'Change management', icon: I.ArrowLeftRight, badge: 'changes', match: /^\/changes/ }
   ] },
+  /* the inventory record behind operations (P2B merge, 13-Oct-2026) */
+  { group: 'Plan & Build', items: [
+    { to: '/planner', label: 'Planner', icon: I.DraftingCompass, match: /^\/planner/ },
+    { to: '/capacity', label: 'Capacity', icon: I.Gauge },
+    { to: '/ipam', label: 'IP & Network', icon: I.Network },
+    { to: '/dcim', label: 'DCIM', icon: I.Server, match: /^\/dcim/ },
+    { to: '/delivery', label: 'Delivery', icon: I.FolderKanban, match: /^\/delivery/ }
+  ] },
+  { group: 'Admin', items: [{ to: '/compliance', label: 'Compliance', icon: I.ShieldCheck }, { to: '/customization', label: 'Customization', icon: I.SlidersHorizontal }] },
   /* how every record links to the others (user, 12-Oct-2026) */
   { group: 'Reference', items: [{ to: '/data-model', label: 'Data model', icon: I.Waypoints }] },
 ];

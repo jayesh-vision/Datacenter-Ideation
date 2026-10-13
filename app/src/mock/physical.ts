@@ -45,7 +45,7 @@ export interface SitePhys extends SitePhysical {
   cordsOf: Map<string, PowerCord[]>;
   pduById: Map<string, RackPdu>;
 }
-interface End { linkId: string; neId: string; rackId: string; ifName: string; inRack: boolean; panelId?: string; panelPort?: number; trunkId?: string; odfPanel?: string; odfPort?: number; ospCore?: number; ospStrand?: string; ospRack?: string; route: string; cordId: string }
+export interface End { linkId: string; neId: string; rackId: string; ifName: string; inRack: boolean; panelId?: string; panelPort?: number; trunkId?: string; odfPanel?: string; odfPort?: number; ospCore?: number; ospStrand?: string; ospRack?: string; route: string; cordId: string }
 
 const linkIdx = new WeakMap<Db, Map<string, Link>>();
 const linkOf = (db: Db, id: string) => { let m = linkIdx.get(db); if (!m) { m = new Map(db.links.map(l => [l.id, l])); linkIdx.set(db, m); } return m.get(id); };
@@ -301,7 +301,7 @@ function build(db: Db, dc: Datacenter): SitePhys {
 }
 
 /* power-supply slots a device has (from its modules; the record's two supplies when it has not reported yet; tenant gear = two feeds) */
-function psus(n: NetworkElement): string[] {
+export function psus(n: NetworkElement): string[] {
   const s = n.modules.filter(m => /^(PSU|PEM)/.test(m.slot)).map(m => m.slot);
   if (s.length) return s;
   if (isOpaque(n)) return ['Feed A', 'Feed B'];

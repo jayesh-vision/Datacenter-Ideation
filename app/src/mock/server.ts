@@ -4,7 +4,7 @@
 import { sevLabel } from '../lib/vocab';
 import type {
   ActionStep, Alert, AlertScope, EdgeStatus, OpsState, AuditEntry, CapacityPlan, Change, ChangeStatus, Datacenter, DcSummary, Incident, IncidentStatus, Interface, Link, Location,
-  ImpactCause, NetworkElement, Persona, ReconTask, RevDomain, RevIssue, RevenueView, RolloutStatus, Service, Severity, TimelineEvent
+  ImpactCause, NetworkElement, NeRole, Persona, PlanInput, PrefixRole, ReconTask, RevDomain, RevIssue, RevenueView, RolloutStatus, Service, Severity, TimelineEvent
 } from '../api/types';
 import { NE_CATEGORY } from '../api/types';
 import { generate, finaliseHealth, type Db } from './generate';
@@ -23,6 +23,14 @@ import { siteLifecycle as siteLifecycle_, clearLifecycle } from './lifecycle';
 import { sitePm as sitePm_, clearMaintenance } from './maintenance';
 import { clearOps, colocationOrders as colocationOrders_, incidentOps as incidentOps_, onCall as onCall_, problems as problems_, resilienceTests as resilienceTests_ } from './ops';
 import { cablePath as cablePath_, clearPhysical, devicePhysical as devicePhysical_, sitePhysicalPublic, whatIf as whatIf_ } from './physical';
+import { addCustomType, clearDcim, dcimCatalog as dcimCatalog_, dcimComponents as dcimComponents_, dcimModel, dcimRackView as dcimRackView_, freeSlots, resetDcimCustom } from './dcim';
+import { carvePrefix, clearIpam, ipamModel, reserveNextIp, resetIpamOverlay } from './ipam';
+import { capacityHolds, gpuCapacity, siteEnergy } from './capacity';
+import { benchmarks as planBench, chooseScenario as planChoose, createPlan as planCreate, decidePlan as planDecide, evaluate as planEval, executionLines, freePositions, planOf, plans as planList, resetPlanner, scenarios as planScenarios, submitPlan as planSubmit, TEMPLATES as PLAN_TEMPLATES, updatePlan as planUpdate } from './planner';
+import { advanceWorkOrder, deliveryProject as deliveryProject_, deliveryProjects, handover as handover_, receivePo, resetDelivery, runTest as runTest_ } from './delivery';
+import { approveStep, changeRegister, clearChangeMgmt, resetChangeMgmt, stepsApproved } from './changemgmt';
+import { clearCompliance, complianceView } from './compliance';
+import { addField as addField_, addTag as addTag_, customization as customization_, resetCustomization } from './customization';
 import { monthsTo, dateAfterMonths, WARN, CRIT } from '../lib/forecast';
 
 /* Persona: which business model the estate is generated as. Switching it rebuilds
@@ -79,9 +87,9 @@ let db: Db = generate(persona);
 let version = 0;
 const listeners = new Set<() => void>();
 export const subscribe = (f: () => void) => { listeners.add(f); return () => { listeners.delete(f); }; };
-const changed = () => { version++; clearPhysical(); clearSafety(); clearLifecycle(); clearMaintenance(); clearOps(); finaliseHealth(db); summaryCache.clear(); revModel = null; revViews.clear(); listeners.forEach(f => f()); };
+const changed = () => { version++; clearPhysical(); clearDcim(); clearIpam(); clearChangeMgmt(); clearCompliance(); clearSafety(); clearLifecycle(); clearMaintenance(); clearOps(); finaliseHealth(db); summaryCache.clear(); revModel = null; revViews.clear(); listeners.forEach(f => f()); };
 export const getVersion = () => version;
-const rebuild = () => { db = generate(persona); edgeCache.clear(); changed(); };
+const rebuild = () => { db = generate(persona); edgeCache.clear(); resetDcimCustom(); resetIpamOverlay(); resetPlanner(); resetDelivery(); resetChangeMgmt(); resetCustomization(); changed(); };
 export const reset = () => rebuild();
 export const getPersona = () => persona;
 export function setPersona(p: Persona) {
@@ -506,7 +514,10 @@ export function capacity(dcId?: string) {
     dims, compute: { cpu, mem, sto }, plans, racks, ups: dcs.flatMap(d => d.power.ups.map(u => ({ ...u, dcId: d.id }))), cooling: dcs.flatMap(d => d.cooling.units.map(u => ({ ...u, dcId: d.id }))),
     zones: dcs.flatMap(d => d.cooling.sensors.map(s => ({ ...s, dcId: d.id }))), hotLinks: bh.filter(l => l.utilPct >= 75).sort((a, b) => a.forecastMonths - b.forecastMonths),
     perDc: dcs.map(d => ({ id: d.id, s: summarize(d), power: d.power, coolPct: Math.round((d.cooling.loadKw / d.cooling.capacityKw) * 100) })),
-    powerHistory: Array.from({ length: 12 }, (_, i) => Math.round(dcs.reduce((a, d) => a + d.power.history12m[i], 0)))
+    powerHistory: Array.from({ length: 12 }, (_, i) => Math.round(dcs.reduce((a, d) => a + d.power.history12m[i], 0))),
+    /* P2B merge phase 3: holds against capacity, GPU headroom, energy (mock/capacity.ts); halls from DCIM */
+    holds: capacityHolds(db, dcs), gpu: gpuCapacity(db, dcs), energy: siteEnergy(dcs),
+    halls: dcimModel(db).halls.filter(h => dcs.some(d => d.id === h.dcId))
   };
 }
 
@@ -909,3 +920,177 @@ export const colocationOrders = (q: { dcId?: string; customerId?: string } = {})
 export function raw() { return db; }
 export { isOpen, impactOf };
 export type { Alert, Service };
+
+/* ---- DCIM (P2B merge, phase 1): the inventory record, derived from the same entities (mock/dcim.ts) */
+const dm = () => dcimModel(db);
+export function dcim(q: { dcId?: string } = {}) {
+  const m = dm(); const f = <T extends { dcId: string }>(xs: T[]) => (q.dcId ? xs.filter(x => x.dcId === q.dcId) : xs);
+  return { sites: q.dcId ? m.sites.filter(x => x.id === q.dcId) : m.sites, halls: f(m.halls), rows: f(m.rows), racks: f(m.racks), panels: f(m.panels), feeds: f(m.feeds) };
+}
+export const dcimDevices = (q: { dcId?: string; rackId?: string; typeId?: string } = {}) => dm().devices.filter(d => (!q.dcId || d.dcId === q.dcId) && (!q.rackId || d.rackId === q.rackId) && (!q.typeId || d.typeId === q.typeId));
+export const dcimCables = (q: { dcId?: string; kind?: 'Data' | 'Power'; deviceId?: string } = {}) => dm().cables.filter(c => (!q.dcId || c.dcId === q.dcId) && (!q.kind || c.kind === q.kind) && (!q.deviceId || c.aDevice === q.deviceId || c.zDevice === q.deviceId));
+export const dcimTypes = () => ({ types: dm().types, modules: dm().modules, catalog: dcimCatalog_(db) });
+export const dcimType = (id: string) => { const m = dm(); const t = m.typeById.get(id); if (!t) return null; const ne = db.nes.find(n => `${n.vendor} ${n.model}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') === id); return { type: t, devices: m.devices.filter(d => d.typeId === id), modules: m.modules.filter(x => ne && x.fits.includes(ne.model)), sample: ne ? dcimComponents_(db, ne.id) : [] }; };
+export const dcimRack = (id: string) => dcimRackView_(db, id);
+export const dcimDevice = (id: string) => { const d = dm().deviceById.get(id); return d ? { device: d, components: dcimComponents_(db, id) } : null; };
+export const dcimFreeSlots = (rackId: string) => freeSlots(db, rackId);
+
+export function dcimCreateRack(x: { dcId: string; hallId: string; name: string; heightU: number; budgetKw: number; role: string }) {
+  const dc = dcOf(x.dcId); const hall = dm().hallById.get(x.hallId);
+  if (!dc || !hall) throw new Error('Unknown datacenter or hall');
+  const name = x.name.trim().toUpperCase();
+  if (!name) throw new Error('Give the rack a name');
+  if (dc.racks.some(r => r.name === name)) throw new Error(`${name} already exists in ${dc.id}`);
+  if (x.heightU < 20 || x.heightU > 52) throw new Error('Height must be 20–52 U');
+  if (x.budgetKw <= 0 || x.budgetKw > 150) throw new Error('Power budget must be above 0 and at most 150 kW');
+  const id = `${dc.id}-${name}`;
+  dc.racks.push({ id, name, dcId: dc.id, floor: hall.floor, room: hall.name, role: x.role, heightU: x.heightU, usedU: 0, drawKw: 0, budgetKw: x.budgetKw, ports: 0, portsUsed: 0, tempC: dc.racks.find(r => r.room === hall.name)?.tempC ?? 23, owner: 'operator' });
+  audit_({ actor: ME, object: id, field: 'rack', prev: '—', next: `created in ${hall.name} (${x.heightU}U, ${x.budgetKw} kW)`, source: 'DCIM' });
+  changed();
+  return id;
+}
+
+let plannedSeq = 0;
+export function dcimInstallDevice(x: { rackId: string; typeId: string; name: string; u: number }) {
+  const dc = db.datacenters.find(d => d.racks.some(r => r.id === x.rackId)); if (!dc) throw new Error('Unknown rack');
+  const rk = dc.racks.find(r => r.id === x.rackId)!;
+  const t = dm().typeById.get(x.typeId); if (!t) throw new Error('Unknown device type');
+  const name = x.name.trim(); if (!name) throw new Error('Give the device a name');
+  const id = `${dc.id}-${name.toUpperCase().replace(/[^A-Z0-9-]+/g, '-')}`;
+  if (db.neById.has(id)) throw new Error(`${id} already exists`);
+  const top = x.u + t.uHeight - 1;
+  if (x.u < 1 || top > rk.heightU) throw new Error(`U${x.u}–U${top} does not fit a ${rk.heightU}U rack`);
+  const slot = freeSlots(db, rk.id).find(s => x.u >= s.from && top <= s.to);
+  if (!slot) throw new Error(`U${x.u}–U${top} is not free in ${rk.name}`);
+  const slug = (n: NetworkElement) => `${n.vendor} ${n.model}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const tpl = db.nes.find(n => slug(n) === x.typeId) ?? db.nes.find(n => n.role === t.role);
+  if (!tpl) throw new Error('No template device for this type');
+  const ne: NetworkElement = { ...structuredClone(tpl), id, name, dcId: dc.id, rackId: rk.id, u: x.u, uSize: t.uHeight, vendor: t.manufacturer, model: t.model,
+    serial: `PLN${String(++plannedSeq).padStart(6, '0')}`, ip: '', mac: '', lifecycle: 'Planned', discovery: 'not-discovered', ndReason: 'planned', drift: undefined, duplicateSerialOf: undefined,
+    lastSeen: undefined, collector: undefined, health: 'unknown', healthScore: 0, cpu: 0, mem: 0, tempC: 0, uptimeMin: 0, isPe: false, tenantId: undefined,
+    modules: (slug(tpl) === x.typeId ? tpl.modules : []).map(m => ({ ...m, serial: '', state: 'OK' as const, tempC: 0 })) };
+  db.nes.push(ne); db.neById.set(id, ne);
+  db.ifaces.set(id, (slug(tpl) === x.typeId ? db.ifaces.get(tpl.id) ?? [] : []).map(i => ({ ...i, id: `${id}:${i.name}`, neId: id, state: 'reserved' as const, utilPct: 0, inErrors: 0, crcErrors: 0, flaps24h: 0, peer: undefined, optics: undefined, description: 'Planned' })));
+  rk.usedU += t.uHeight;
+  audit_({ actor: ME, object: id, field: 'device', prev: '—', next: `planned in ${rk.name} U${x.u} (${t.manufacturer} ${t.model})`, source: 'DCIM' });
+  changed();
+  return id;
+}
+
+export function dcimSetDeviceStatus(id: string, to: 'Active' | 'Maintenance' | 'Decommissioning') {
+  const n = db.neById.get(id); if (!n) throw new Error('Unknown device');
+  if (n.role === 'Tenant gear') throw new Error('Tenant equipment is managed by the tenant');
+  const prev = n.lifecycle;
+  n.lifecycle = to === 'Active' ? 'Ready' : to;
+  audit_({ actor: ME, object: id, field: 'lifecycle', prev, next: n.lifecycle, source: 'DCIM' });
+  changed();
+}
+
+export function dcimAddType(x: { manufacturer: string; model: string; role: NeRole; uHeight: number; psus: number; ports: { type: string; speedMbps: number; count: number }[] }) {
+  const id = `${x.manufacturer} ${x.model}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  if (!x.manufacturer.trim() || !x.model.trim()) throw new Error('Manufacturer and model are required');
+  if (dm().typeById.has(id)) throw new Error('This device type already exists');
+  if (x.uHeight < 1 || x.uHeight > 20) throw new Error('Height must be 1–20 U');
+  addCustomType({ id, manufacturer: x.manufacturer.trim(), model: x.model.trim(), role: x.role, category: NE_CATEGORY[x.role], uHeight: x.uHeight, fullDepth: x.uHeight >= 2 || NE_CATEGORY[x.role] !== 'network',
+    airflow: 'Front to rear', weightKg: 0, typicalW: 0, psus: x.psus, platform: '—', ports: x.ports, mgmtPorts: 1, consolePorts: NE_CATEGORY[x.role] === 'network' ? 1 : 0, moduleBays: 0, devices: 0, sites: 0,
+    description: `${x.uHeight}U ${x.role.toLowerCase()} · added to the catalogue`, custom: true });
+  audit_({ actor: ME, object: id, field: 'device type', prev: '—', next: 'added', source: 'DCIM' });
+  changed();
+  return id;
+}
+
+/* ---- IP & Network (P2B merge, phase 2): the address plan derived from the estate (mock/ipam.ts) */
+export function ipam(q: { dcId?: string } = {}) {
+  const m = ipamModel(db);
+  if (!q.dcId) return m;
+  const f = <T extends { dcId?: string }>(xs: T[]) => xs.filter(x => x.dcId === q.dcId);
+  const vrfIds = new Set(f(m.addresses).map(a => a.vrf));
+  return { ...m, prefixes: f(m.prefixes), addresses: f(m.addresses), vrfs: m.vrfs.filter(v => v.dcId === q.dcId || (!v.dcId && vrfIds.has(v.id))), vlans: f(m.vlans), asns: m.asns.filter(a => !a.dcId || a.dcId === q.dcId),
+    ranges: f(m.ranges), fhrp: f(m.fhrp), services: f(m.services), findings: f(m.findings) };
+}
+export const ipamOfDevice = (neId: string) => { const m = ipamModel(db); return { addresses: m.addresses.filter(a => a.deviceId === neId), services: m.services.filter(s => s.deviceId === neId), vlans: m.vlans.filter(v => v.serviceId && db.services.find(s => s.id === v.serviceId)?.neId === neId) }; };
+export function ipamReserve(prefixId: string, note: string) { const a = reserveNextIp(db, prefixId, note); audit_({ actor: ME, object: a.address, field: 'ip', prev: '—', next: `reserved in ${a.vrf}${note ? ` (${note})` : ''}`, source: 'IPAM' }); changed(); return a; }
+export function ipamCarve(parentId: string, mask: number, role: PrefixRole, description: string) { const p = carvePrefix(db, parentId, mask, role, description); audit_({ actor: ME, object: p.prefix, field: 'prefix', prev: '—', next: `reserved in ${p.vrf} (${role})`, source: 'IPAM' }); changed(); return p; }
+
+/* ---- Planner (P2B merge, phase 4): design plans sized and checked against the estate (mock/planner.ts) */
+export function planner() {
+  const ps = planList(db);
+  return { plans: ps.map(p => ({ ...p, eval: planEval(db, p) })), templates: PLAN_TEMPLATES, benchmarks: planBench() };
+}
+export function plannerPlan(id: string) {
+  const p = planOf(db, id); if (!p) return null;
+  return { plan: p, eval: planEval(db, p), scenarios: planScenarios(db, p), template: PLAN_TEMPLATES.find(t => t.scope === p.scope)!, capacityPlans: db.plans.filter(c => p.capacityPlanIds.includes(c.id)) };
+}
+export const plannerPreview = (x: PlanInput) => planEval(db, x);
+export const plannerHalls = (dcId: string) => dcimModel(db).halls.filter(h => h.dcId === dcId).map(h => ({ ...h, free: freePositions(db, h.id) }));
+export function plannerCreate(x: PlanInput) { const p = planCreate(db, x, ME); audit_({ actor: ME, object: p.id, field: 'plan', prev: '—', next: `created: ${p.name}`, source: 'Planner' }); changed(); return p.id; }
+export function plannerUpdate(id: string, patch: Partial<PlanInput>) { planUpdate(db, id, patch, ME); changed(); }
+export function plannerChoose(id: string, scen: string) { planChoose(db, id, scen, ME); changed(); }
+export function plannerSubmit(id: string) { planSubmit(db, id, ME); audit_({ actor: ME, object: id, field: 'status', prev: 'Draft', next: 'In review', source: 'Planner' }); changed(); }
+export function plannerDecide(id: string, approve: boolean, comment: string) { const p = planDecide(db, id, approve, ME, comment); audit_({ actor: ME, object: id, field: 'approval', prev: 'In review', next: p.status, source: 'Planner' }); changed(); }
+export function plannerExecute(id: string) {
+  const p = planOf(db, id); if (!p) throw new Error('Unknown plan');
+  if (p.status !== 'Approved') throw new Error('Only an approved plan can be executed');
+  const target = p.target;
+  for (const l of executionLines(db, p)) {
+    const cid = `CAP-${String(++db.seq.plan).padStart(3, '0')}`;
+    db.plans.push({ id: cid, dcId: p.dcId, dimension: l.dimension, title: l.title, amount: l.amount, unit: l.unit, target, status: 'Executing', capex: l.capex });
+    p.capacityPlanIds.push(cid);
+  }
+  /* racks of a rack expansion / AI pod are created in DCIM as empty cabinets in the hall */
+  if ((p.scope === 'rack-expansion' || p.scope === 'ai-pod') && p.hallId) {
+    const dc = dcOf(p.dcId)!;
+    for (let i = 0; i < p.racks; i++) {
+      const taken = new Set(dc.racks.map(r => r.name));
+      let k = 0, name = '';
+      do { name = `RACK-P${String(++k).padStart(2, '0')}`; } while (taken.has(name));
+      const rid = dcimCreateRack({ dcId: p.dcId, hallId: p.hallId, name, heightU: 42, budgetKw: p.kwPerRack, role: p.scope === 'ai-pod' ? 'GPU' : 'Compute' });
+      const rk = dc.racks.find(r => r.id === rid)!; if (p.cooling !== 'Air') { rk.liquid = true; if (p.scope === 'ai-pod') rk.density = 'ai'; }
+      p.createdRacks.push(rid);
+    }
+  }
+  p.status = 'Executing'; p.updated = db.now;
+  p.history.push({ at: db.now, who: ME, text: `Execution started: ${p.capacityPlanIds.length} capacity plan${p.capacityPlanIds.length === 1 ? '' : 's'} raised${p.createdRacks.length ? `, ${p.createdRacks.length} racks created in DCIM` : ''}` });
+  audit_({ actor: ME, object: id, field: 'status', prev: 'Approved', next: 'Executing', source: 'Planner' });
+  changed();
+}
+
+/* ---- Delivery (P2B merge, phase 5): approved plans as projects (mock/delivery.ts) */
+export function delivery() {
+  const vs = deliveryProjects(db);
+  return { projects: vs.map(v => v.project), workOrders: vs.flatMap(v => v.workOrders), pos: vs.flatMap(v => v.pos), tests: vs.flatMap(v => v.tests.map(t => ({ ...t, projectId: v.project.id, dcId: v.project.dcId, projectName: v.project.name }))),
+    permits: vs.flatMap(v => v.permits), docs: vs.flatMap(v => v.docs), me: ME };
+}
+export const deliveryProject = (id: string) => deliveryProject_(db, id);
+export function deliveryAdvanceWo(id: string) { const st = advanceWorkOrder(db, id, ME); audit_({ actor: ME, object: id, field: 'work order', prev: '—', next: st, source: 'Delivery' }); changed(); return st; }
+export function deliveryRunTest(projectId: string, level: number) { runTest_(db, projectId, level, ME); audit_({ actor: ME, object: projectId, field: `L${level}`, prev: '—', next: 'Passed', source: 'Delivery' }); changed(); }
+export function deliveryHandover(projectId: string) { handover_(db, projectId, ME); audit_({ actor: ME, object: projectId, field: 'handover', prev: 'Handover', next: 'Delivered', source: 'Delivery' }); changed(); }
+export function deliveryReceivePo(id: string) { receivePo(db, id, ME); audit_({ actor: ME, object: id, field: 'goods receipt', prev: '—', next: 'Delivered', source: 'Delivery' }); changed(); }
+
+/* ---- Change management (P2B merge, phase 6): one register over operations changes, maintenance and delivery CRs (mock/changemgmt.ts) */
+export const changeMgmt = () => changeRegister(db);
+export function changeRecord(id: string) {
+  const r = changeRegister(db).changes.find(c => c.id === id); if (!r) return null;
+  return { change: r, related: changeRegister(db).changes.filter(c => r.conflicts.includes(c.id)), freeze: changeRegister(db).freezes.find(f => f.id === r.freeze) ?? null, audit: db.audit.filter(a => a.object === id).sort((a, b) => b.at - a.at) };
+}
+/* an approver's decision on the current matrix step; the last step approves the change (delivery CRs follow their work order) */
+export function decideChange(id: string, approve: boolean) {
+  const r = changeRegister(db).changes.find(c => c.id === id); if (!r) throw new Error('Unknown change');
+  if (r.source === 'Delivery') throw new Error('A delivery change request is approved through its work order in Delivery');
+  if (r.status !== 'Pending approval') throw new Error('The change is not waiting for approval');
+  if (approve && r.violations.some(v => v.enforcement === 'Block')) throw new Error(`Blocked by policy: ${r.violations.filter(v => v.enforcement === 'Block').map(v => v.text).join('; ')}`);
+  if (!approve) { setChangeStatus(id, 'Rejected'); return; }
+  const steps = r.approvals.filter(a => a.decision !== 'Pre-approved');
+  const step = steps[stepsApproved(id)];
+  approveStep(id);
+  audit_({ actor: ME, object: id, field: 'approval', prev: step?.role ?? '—', next: 'approved', source: 'Change management' });
+  if (stepsApproved(id) >= steps.length) setChangeStatus(id, 'Approved'); else changed();
+}
+
+/* ---- Compliance and Customization (P2B merge, phase 7) */
+export const compliance = () => complianceView(db);
+export const customization = () => customization_(db);
+export function addCustomField(f: Parameters<typeof addField_>[0]) { addField_(f); audit_({ actor: ME, object: f.key, field: 'custom field', prev: '—', next: 'added', source: 'Customization' }); changed(); }
+export function addTagDef(t: Parameters<typeof addTag_>[0]) { addTag_(t); audit_({ actor: ME, object: t.slug, field: 'tag', prev: '—', next: 'added', source: 'Customization' }); changed(); }
+export const auditLog = () => [...db.audit].sort((a, b) => b.at - a.at);
+

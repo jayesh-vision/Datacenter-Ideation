@@ -1,26 +1,30 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { clockNow, createCapacityPlan, getCapacity, getDatacenter, getDatacenters, getLinks, useQuery } from '../api';
+import { clockNow, createCapacityPlan, defaultDcId, getCapacity, getDatacenter, getDatacenters, getLinks, useQuery } from '../api';
 import type { CapacityPlan, Rack } from '../api/types';
 import { usePage, PageHead, Loading } from '../shell/page';
+import { SummaryStrip } from './site/SummaryStrip';
+import { moneyIcon } from '../ui/Money';
 import { DataTable, type Col } from '../ui/DataTable';
+import { ListToolbar, useParamPatch } from '../ui/ListToolbar';
 import { Btn, Chip, Kpi, Modal, Panel, Seg, Tabs, Field, Empty } from '../ui/kit';
 import { DcLink, Meter, NeLink, LinkStateChip, Legend } from '../ui/status';
 import { fmtDate, fmtMoney, fmtKw, fmtMonth, fmtNum, currencySymbol } from '../lib/format';
 import { dateAfterMonths, monthsTo, WARN } from '../lib/forecast';
-import { Gauge, ForecastChart } from './plan/charts';
+import { ForecastChart } from './plan/charts';
+import { Facts, SoftMeter, Split, StatGrid, StatTile } from '../ui/Analytics';
 import '../styles/plan.css';
 
 type Cap = NonNullable<Awaited<ReturnType<typeof getCapacity>>>;
 type Dim = Cap['dims'][number];
 type DimName = CapacityPlan['dimension'];
-type TabId = 'overview' | 'power' | 'space' | 'network' | 'compute' | 'financial';
+type TabId = 'overview' | 'power' | 'space' | 'network' | 'compute' | 'reservations' | 'energy' | 'financial';
 const TABS: { id: TabId; label: string; icon: I.LucideIcon }[] = [
   { id: 'overview', label: 'Overview & forecast', icon: I.Gauge }, { id: 'power', label: 'Power & cooling', icon: I.Zap }, { id: 'space', label: 'Space & racks', icon: I.Server },
-  { id: 'network', label: 'Network & bandwidth', icon: I.Cable }, { id: 'compute', label: 'Compute & storage', icon: I.Cpu }, { id: 'financial', label: 'Financial', icon: I.IndianRupee }
+  { id: 'network', label: 'Network & bandwidth', icon: I.Cable }, { id: 'compute', label: 'Compute & GPU', icon: I.Cpu }, { id: 'reservations', label: 'Reservations', icon: I.CalendarClock },
+  { id: 'energy', label: 'PUE & energy', icon: I.Leaf }, { id: 'financial', label: 'Financial', icon: I.IndianRupee }
 ];
-const DIM_ICON: Record<DimName, I.LucideIcon> = { Power: I.Zap, Cooling: I.Snowflake, Space: I.Server, Ports: I.Plug, Bandwidth: I.Cable };
 const DIM_TAB: Record<DimName, TabId> = { Power: 'power', Cooling: 'power', Space: 'space', Ports: 'space', Bandwidth: 'network' };
 /* CapEx rate card per delivered unit (mock, derived from the plan ledger) */
 export const RATE: Record<DimName, number> = { Power: 45_000, Cooling: 51_000, Space: 12_000, Ports: 29_000, Bandwidth: 42_000 };
@@ -38,7 +42,7 @@ export function Capacity() {
   const dc = sp.get('dc') ?? '';
   const set = (k: string, v: string) => { const n = new URLSearchParams(sp); v ? n.set(k, v) : n.delete(k); setSp(n, { replace: true }); };
   const [planOpen, setPlanOpen] = useState(false);
-  usePage([{ label: 'Plan' }, { label: 'Capacity & forecast', to: '/capacity' }, ...(dc ? [{ label: dc }] : [])], { dcId: dc || undefined });
+  usePage([{ label: 'Plan & Build' }, { label: 'Capacity', to: '/capacity' }, ...(dc ? [{ label: dc }] : [])], { dcId: dc || undefined });
   const { data: cap } = useQuery(() => getCapacity(dc || undefined), [dc]);
   const { data: dcs } = useQuery(getDatacenters, []);
   if (!cap || !dcs) return <Loading />;
@@ -46,19 +50,21 @@ export function Capacity() {
 
   return (
     <div className="page">
-      <PageHead title="Capacity & forecast" sub={`Power, cooling, space, ports and bandwidth headroom${dc ? ` for ${dc}` : ` across ${live.length} live datacenters`}, forecast against the 85% warning line, with the plans that will change it.`}
+      <PageHead title="Capacity" sub={`Power, cooling, space, ports and bandwidth headroom${dc ? ` for ${dc}` : ` across ${live.length} live datacenters`}, forecast against the 85% warning line, with the plans that will change it.`}
         actions={<>
           <select className="select" value={dc} onChange={e => set('dc', e.target.value)} aria-label="Datacenter"><option value="">All data centers ({live.length})</option>{live.map(d => <option key={d.id} value={d.id}>{d.id} · {d.city}</option>)}</select>
           <Btn variant="filled" icon={I.Zap} onClick={() => setPlanOpen(true)}>Raise capacity plan</Btn>
         </>} />
-      <Tabs tabs={TABS} value={tab} onChange={v => set('tab', v === 'overview' ? '' : v)} />
+      <Tabs tabs={TABS.map(t => (t.id === 'financial' ? { ...t, icon: moneyIcon() } : t))} value={tab} onChange={v => set('tab', v === 'overview' ? '' : v)} />
       {tab === 'overview' && <Overview cap={cap} go={t => set('tab', t)} />}
       {tab === 'power' && <PowerTab cap={cap} />}
       {tab === 'space' && <SpaceTab cap={cap} />}
       {tab === 'network' && <NetworkTab cap={cap} />}
       {tab === 'compute' && <ComputeTab cap={cap} />}
+      {tab === 'reservations' && <ReservationsTab cap={cap} />}
+      {tab === 'energy' && <EnergyTab cap={cap} />}
       {tab === 'financial' && <FinancialTab cap={cap} dc={dc} onDc={id => nav(`/capacity?tab=financial&dc=${id}`)} />}
-      <PlanModal open={planOpen} onClose={() => setPlanOpen(false)} dcs={live.map(d => ({ id: d.id, city: d.city }))} initialDc={dc || 'MH-DC-001'} />
+      <PlanModal open={planOpen} onClose={() => setPlanOpen(false)} dcs={live.map(d => ({ id: d.id, city: d.city }))} initialDc={dc || defaultDcId()} />
     </div>
   );
 }
@@ -90,29 +96,24 @@ function Overview({ cap, go }: { cap: Cap; go: (t: TabId) => void }) {
   const f = forecastFor(d, cap.powerHistory, now);
   const plans = cap.plans;
   const feeding = plans.filter(p => p.dimension === dim);
-  const backlog = plans.filter(p => p.status === 'Submitted');
-  const pw = cap.dims[0], cool = cap.dims[1], sp = cap.dims[2], pt = cap.dims[3], bw = cap.dims[4];
   return (
     <>
-      <div className="kpis kpis-5">
-        <Kpi label="Power headroom" value={fmtNum(Math.round(pw.headroom))} unit="kW" icon={I.Zap} tone="info" basis={`${fmtNum(Math.round(pw.use))} of ${fmtNum(pw.cap)} kW in use`} onClick={() => go('power')} />
-        <Kpi label="Cooling headroom" value={fmtNum(Math.round(cool.headroom))} unit="kW" icon={I.Snowflake} tone="cyan" basis={`${cool.pct}% of ${fmtNum(cool.cap)} kW`} onClick={() => go('power')} />
-        <Kpi label="Rack space free" value={fmtNum(Math.round(sp.headroom))} unit="U" icon={I.Server} tone="purple" basis={`${cap.racks.length} racks · ${sp.pct}% used`} onClick={() => go('space')} />
-        <Kpi label="Bandwidth headroom" value={fmtNum(Math.round(bw.headroom))} unit="Gbps" icon={I.Cable} tone="success" basis={`${cap.hotLinks.length} links ≥ 75% utilised`} onClick={() => go('network')} />
-        <Kpi label="Reserved (backlog)" value={backlog.length} icon={I.ClipboardList} tone="warning" basis={`${plans.length} plans · ${fmtMoney(backlog.reduce((a, p) => a + p.capex, 0))} awaiting approval`} />
-      </div>
-      <div className="gauges">
+      <StatGrid>
         {cap.dims.map(x => {
-          const Ic = DIM_ICON[x.name];
+          const res = cap.holds.filter(h => h.resource === x.name && (h.state === 'Reserved' || h.state === 'Committed')).reduce((a, h) => a + h.qty, 0);
           return (
-            <button key={x.name} type="button" className="card gauge-card" onClick={() => go(DIM_TAB[x.name])}>
-              <div className="gh"><span><Ic size={15} className="muted" />{x.name}</span><I.ArrowRight size={14} className="faint" /></div>
-              <Gauge pct={x.pct} size={132} label={x.name === 'Ports' ? `${fmtNum(pt.cap - pt.use)} free` : undefined} />
-              <small>{fmtNum(Math.round(x.use))} / {fmtU(x, x.cap)}</small>
-            </button>
+            <StatTile key={x.name} label={x.name} value={`${x.pct}%`} sub="used" subTone={x.pct >= WARN ? 'bad' : x.pct >= 75 ? 'warn' : undefined} onClick={() => go(DIM_TAB[x.name])}
+              info={`${x.name} capacity minus what is in use now, across the datacenters in scope. The bar is the share in use; the 85% line is the warning level the forecast tracks.${x.name === 'Power' || x.name === 'Space' ? ' Reserved = held by planned devices and tenant contracts.' : ''}`}>
+              <SoftMeter pct={x.pct} tone={x.pct >= WARN ? 'error' : x.pct >= 75 ? 'warning' : 'info'} />
+              <Facts items={[{ n: fmtNum(Math.round(x.headroom)), label: `${x.unit} free` }, ...(res ? [{ n: fmtNum(Math.round(res)), label: `${x.unit} reserved` }] : []), ...(x.pipeline ? [{ n: `+${fmtNum(x.pipeline)}`, label: `${x.unit} coming` }] : [])]} />
+            </StatTile>
           );
         })}
-      </div>
+        <StatTile label="Held & requested" value={cap.holds.filter(h => h.state === 'Reserved' || h.state === 'Committed').length} sub="holds against capacity" onClick={() => go('reservations')}
+          info="Capacity already spoken for but not yet in use: planned devices holding rack units and power, tenant contracts above what they draw, GPU nodes allocated to idle jobs. Requested = capacity plans awaiting approval.">
+          <Split parts={(['Reserved', 'Committed', 'Pipeline', 'Requested'] as const).map((st, i) => ({ key: st, label: st, n: cap.holds.filter(h => h.state === st).length, tone: (i === 0 ? 'info' : 'neutral') as 'info' | 'neutral' })).filter(x => x.n)} />
+        </StatTile>
+      </StatGrid>
       <div className="grid g-2">
         <Panel title="Capacity state (reservation ledger)" sub="Submitted → Approved → Executing → Delivered. Approved & executing plans are netted into the forecast." icon={I.BookOpen}>
           <div className="ledger-bar">{PLAN_STATUS.map(x => { const n = plans.filter(p => p.status === x.s).length; return n ? <i key={x.s} style={{ flex: n, background: x.color }} title={`${x.s} ${n}`} /> : null; })}</div>
@@ -196,12 +197,12 @@ function PowerTab({ cap }: { cap: Cap }) {
   ];
   return (
     <>
-      <div className="kpis">
-        <Kpi label="Feed capacity" value={fmtNum(pw.cap)} unit="kW" icon={I.Zap} tone="info" basis={`${cap.perDc.length} datacenters`} />
-        <Kpi label="Load (live)" value={fmtNum(Math.round(pw.use))} unit="kW" icon={I.Activity} tone="success" basis={`${pw.pct}% of capacity`} />
-        <Kpi label="UPS load (avg)" value={ups.length ? Math.round(ups.reduce((a, u) => a + u.loadPct, 0) / ups.length) : 0} unit="%" icon={I.BatteryCharging} tone="purple" basis={`${ups.filter(u => u.state !== 'Online').length} of ${ups.length} UPS not online`} />
-        <Kpi label="Racks over 85% of budget" value={cap.racks.filter(r => r.drawKw / r.budgetKw >= 0.85).length} icon={I.TriangleAlert} tone="error" basis={`of ${cap.racks.length} racks`} onClick={() => setBand('85')} />
-      </div>
+      <SummaryStrip items={[
+        { key: 'k0', label: 'Feed capacity', value: `${fmtNum(pw.cap)} kW`, sub: `${cap.perDc.length} datacenters` },
+        { key: 'k1', label: 'Load (live)', value: `${fmtNum(Math.round(pw.use))} kW`, sub: `${pw.pct}% of capacity` },
+        { key: 'k2', label: 'UPS load (avg)', value: `${ups.length ? Math.round(ups.reduce((a, u) => a + u.loadPct, 0) / ups.length) : 0}%`, sub: `${ups.filter(u => u.state !== 'Online').length} of ${ups.length} UPS not online` },
+        { key: 'k3', label: 'Racks over 85% of budget', value: cap.racks.filter(r => r.drawKw / r.budgetKw >= 0.85).length, sub: `of ${cap.racks.length} racks`, onClick: () => setBand('85') }
+      ]} />
       <div className="grid g-2 cap-2">
         <Panel title="UPS units" count={ups.length} icon={I.BatteryCharging} flush>
           <div className="dt-scroll" style={{ maxHeight: 380 }}>
@@ -235,11 +236,12 @@ function PowerTab({ cap }: { cap: Cap }) {
 /* --------------------------------------------------------------- space */
 
 function SpaceTab({ cap }: { cap: Cap }) {
+  const nav = useNavigate();
   type R = Rack & { dcName: string };
   const sp = cap.dims[2], pt = cap.dims[3];
   const cols: Col<R>[] = [
     { key: 'dc', header: 'Datacenter', render: r => <DcLink id={r.dcId} tab="details" />, sort: r => r.dcId },
-    { key: 'rack', header: 'Rack', render: r => <span className="cell-2"><b className="mono strong">{r.name}</b><small>{r.role}</small></span>, sort: r => r.name },
+    { key: 'rack', header: 'Rack', render: r => <span className="cell-2"><Link className="ent-link mono" to={`/dcim/racks/${encodeURIComponent(r.id)}`}>{r.name}</Link><small>{r.role}</small></span>, sort: r => r.name },
     { key: 'loc', header: 'Floor · room', render: r => `${r.floor} · ${r.room}`, sort: r => r.floor + r.room },
     { key: 'u', header: 'U-space', render: r => <Meter pct={(r.usedU / r.heightU) * 100} width={56} label={`${r.usedU} / ${r.heightU} U`} />, sort: r => r.usedU / r.heightU },
     { key: 'free', header: 'Free U', align: 'right', render: r => <span className="num">{r.heightU - r.usedU}</span>, sort: r => r.heightU - r.usedU },
@@ -249,12 +251,21 @@ function SpaceTab({ cap }: { cap: Cap }) {
   ];
   return (
     <>
-      <div className="kpis">
-        <Kpi label="Racks" value={fmtNum(cap.racks.length)} icon={I.Server} tone="info" basis={`${cap.racks.filter(r => r.usedU === 0).length} empty / reserved`} />
-        <Kpi label="U-space used" value={sp.pct} unit="%" icon={I.Rows3} tone="purple" basis={`${fmtNum(sp.use)} of ${fmtNum(sp.cap)} U · ${fmtNum(sp.headroom)} U free`} />
-        <Kpi label="Ports in use" value={pt.pct} unit="%" icon={I.Plug} tone="cyan" basis={`${fmtNum(pt.use)} of ${fmtNum(pt.cap)} ports`} />
-        <Kpi label="Racks ≥ 80% full" value={cap.racks.filter(r => r.usedU / r.heightU >= 0.8).length} icon={I.TriangleAlert} tone="warning" basis="candidates for the next build" />
-      </div>
+      <SummaryStrip items={[
+        { key: 'r', label: 'Racks', value: fmtNum(cap.racks.length), sub: `${cap.racks.filter(r => r.usedU === 0).length} empty`, info: 'Racks in the datacenters in scope; empty racks hold no devices yet.' },
+        { key: 'u', label: 'U-space used', value: `${sp.pct}%`, sub: `${fmtNum(sp.headroom)} U free`, tone: sp.pct >= WARN ? 'bad' : undefined, info: 'Rack units in use out of all rack units in scope.' },
+        { key: 'p', label: 'Ports in use', value: `${pt.pct}%`, sub: `${fmtNum(pt.use)} of ${fmtNum(pt.cap)}`, info: 'Network ports in use out of all ports on the devices in scope.' },
+        { key: 'f', label: 'Racks ≥ 80% full', value: cap.racks.filter(r => r.usedU / r.heightU >= 0.8).length, sub: 'candidates for the next build', info: 'Racks with 80% or more of their units used.' },
+        { key: 'h', label: 'Reserved', value: `${fmtNum(cap.holds.filter(h => h.resource === 'Space' && h.state === 'Reserved').reduce((a, h) => a + h.qty, 0))} U`, sub: 'held by planned devices', info: 'Rack units held by devices planned in DCIM but not yet installed.' }
+      ]} />
+      <Panel title="Space and power by hall" icon={I.LayoutGrid} flush info="Each hall's rack units and rack power, used against what its racks offer. Click a hall to open its floor plan in DCIM.">
+        <DataTable rows={cap.halls} pageSize={12} defaultSort={{ key: 'u', dir: 'desc' }} onRow={h => nav(`/dcim?tab=floorplan&dc=${h.dcId}&hall=${h.id}`)} cols={[
+          { key: 'h', header: 'Hall', sort: h => `${h.dcId}${h.name}`, render: h => <span className="cell-2"><b>{h.name}</b><small>{h.dcId} · {h.floor} · {h.kind}</small></span> },
+          { key: 'r', header: 'Racks', sort: h => h.racks, render: h => `${h.racks} in ${h.rows} row${h.rows === 1 ? '' : 's'}` },
+          { key: 'u', header: 'U-space', sort: h => (h.totalU ? h.usedU / h.totalU : 0), render: h => <Meter pct={h.totalU ? (h.usedU / h.totalU) * 100 : 0} width={56} label={`${fmtNum(h.usedU)} / ${fmtNum(h.totalU)} U`} /> },
+          { key: 'kw', header: 'Rack power', sort: h => (h.budgetKw ? h.drawKw / h.budgetKw : 0), render: h => <Meter pct={h.budgetKw ? (h.drawKw / h.budgetKw) * 100 : 0} width={56} label={`${fmtKw(h.drawKw)} of ${fmtKw(h.budgetKw)}`} /> },
+          { key: 'c', header: 'Cooling', sort: h => h.cooling, render: h => h.cooling }]} />
+      </Panel>
       <section className="card"><DataTable rows={cap.racks} cols={cols} defaultSort={{ key: 'u', dir: 'desc' }} pageSize={25} /></section>
     </>
   );
@@ -278,12 +289,12 @@ function NetworkTab({ cap }: { cap: Cap }) {
   ];
   return (
     <>
-      <div className="kpis">
-        <Kpi label="Backhaul & uplink capacity" value={fmtNum(bw.cap)} unit="Gbps" icon={I.Cable} tone="info" basis={`${bw.pct}% utilised · +${bw.growth}%/mo estate trend`} />
-        <Kpi label="Links ≥ 75%" value={cap.hotLinks.length} icon={I.Activity} tone="warning" basis="sorted below by time to the 85% line" />
-        <Kpi label="Crossing 85% ≤ 6 months" value={cap.hotLinks.filter(l => l.forecastMonths <= 6).length} icon={I.TriangleAlert} tone="error" basis={`${cap.hotLinks.filter(l => l.forecastMonths === 0).length} already above`} />
-        <Kpi label="Bandwidth plans" value={cap.plans.filter(p => p.dimension === 'Bandwidth').length} icon={I.ClipboardList} tone="purple" basis={`${fmtNum(bw.pipeline)} Gbps approved pipeline`} />
-      </div>
+      <SummaryStrip items={[
+        { key: 'k0', label: 'Backhaul & uplink capacity', value: `${fmtNum(bw.cap)} Gbps`, sub: `${bw.pct}% utilised · +${bw.growth}%/mo estate trend` },
+        { key: 'k1', label: 'Links ≥ 75%', value: cap.hotLinks.length, sub: 'sorted below by time to the 85% line' },
+        { key: 'k2', label: 'Crossing 85% ≤ 6 months', value: cap.hotLinks.filter(l => l.forecastMonths <= 6).length, sub: `${cap.hotLinks.filter(l => l.forecastMonths === 0).length} already above` },
+        { key: 'k3', label: 'Bandwidth plans', value: cap.plans.filter(p => p.dimension === 'Bandwidth').length, sub: `${fmtNum(bw.pipeline)} Gbps approved pipeline` }
+      ]} />
       <Panel title="Links in countdown" sub="Compound growth of the last six monthly peaks; open a link for its forecast chart on the network element." icon={I.TrendingUp} flush>
         <DataTable rows={cap.hotLinks} cols={cols} defaultSort={{ key: 'f', dir: 'asc' }} pageSize={20} onRow={l => nav(`/ne/${l.aNe}?tab=links&if=${encodeURIComponent(l.aIf)}`)} empty={<Empty icon={I.CheckCircle2} title="No link above 75% in scope" />} />
       </Panel>
@@ -297,9 +308,15 @@ function ComputeTab({ cap }: { cap: Cap }) {
   const pools: [string, number[], string, I.LucideIcon][] = [['CPU cores', cap.compute.cpu, 'cores', I.Cpu], ['Memory', cap.compute.mem, 'GB', I.MemoryStick], ['Storage', cap.compute.sto, 'TB', I.HardDrive]];
   return (
     <>
-      <div className="kpis kpis-3">
-        {pools.map(([l, [c, u], unit, Ic]) => <Kpi key={l} label={`${l} free`} value={fmtNum(Math.round(c - u))} unit={unit} icon={Ic} tone="info" basis={`${Math.round((u / c) * 100)}% of ${fmtNum(c)} ${unit} in use`} />)}
-      </div>
+      <SummaryStrip items={[...pools.map(([l, [c, u], unit]) => ({ key: l, label: `${l} free`, value: `${fmtNum(Math.round(c - u))} ${unit}`, sub: `${Math.round((u / c) * 100)}% of ${fmtNum(c)} in use`, info: `${l} left in the hosting and platform pools of the sites in scope.` })),
+        ...(cap.gpu ? [{ key: 'gpu', label: 'GPUs free', value: fmtNum(cap.gpu.free), sub: `of ${fmtNum(cap.gpu.gpus)} · ${fmtNum(cap.gpu.allocatedIdle)} allocated idle`, info: 'Accelerators on idle nodes not allocated to any job, ready to schedule.' }] : [])]} />
+      {cap.gpu && <Panel title="GPU capacity" icon={I.Cpu} sub={`${fmtNum(cap.gpu.gpus)} GPUs in scope`} info="Every accelerator in the GPU nodes in scope: running a job, allocated to a job that is idle (reserved), free to schedule, or out of service (failed, drained, in burn-in). Per model below.">
+        <div className="gpu-cap-bar">{([['In a job', cap.gpu.inJob, 'var(--primaryColor500)'], ['Allocated, idle', cap.gpu.allocatedIdle, 'var(--vw-color-amber-400)'], ['Free', cap.gpu.free, 'var(--vw-color-emerald-300)'], ['Out of service', cap.gpu.out, 'var(--vw-color-slate-300)']] as const).map(([l, n, c]) => n ? <i key={l} style={{ flex: n, background: c }} title={`${l}: ${fmtNum(n)}`} /> : null)}</div>
+        <Legend items={([['In a job', cap.gpu.inJob, 'var(--primaryColor500)'], ['Allocated, idle', cap.gpu.allocatedIdle, 'var(--vw-color-amber-400)'], ['Free', cap.gpu.free, 'var(--vw-color-emerald-300)'], ['Out of service', cap.gpu.out, 'var(--vw-color-slate-300)']] as const).map(([l, n, c]) => ({ label: <>{l} <b className="num" style={{ fontWeight: 500 }}>{fmtNum(n)}</b></>, color: c }))} />
+        <table className="nst-table dt-table" style={{ marginTop: 10 }}><thead><tr><th>Model</th><th className="is-right">GPUs</th><th className="is-right">In a job</th><th className="is-right">Free</th><th>Used</th></tr></thead>
+          <tbody>{cap.gpu.byModel.map(m => <tr key={m.model}><td>{m.model}</td><td className="is-right num">{fmtNum(m.gpus)}</td><td className="is-right num">{fmtNum(m.inJob)}</td><td className="is-right num">{fmtNum(m.free)}</td><td><Meter pct={(m.inJob / m.gpus) * 100} width={60} color="var(--primaryColor500)" /></td></tr>)}</tbody></table>
+        <p style={{ margin: '8px 0 0' }}><Link className="ent-link" to="/gpu">Jobs, telemetry and nodes in AI & GPU →</Link></p>
+      </Panel>}
       <Panel title="Estate compute pools" sub="Hosting and platform pools attached to the datacenters in scope" icon={I.Database}>
         {pools.map(([l, [c, u], unit]) => (
           <div key={l} className="pool">
@@ -311,6 +328,73 @@ function ComputeTab({ cap }: { cap: Cap }) {
       </Panel>
     </>
   );
+}
+
+/* -------------------------------------------------------- reservations */
+
+function ReservationsTab({ cap }: { cap: Cap }) {
+  const [sp, setSp] = useSearchParams();
+  const apply = useParamPatch();
+  const q = sp.get('q') ?? '', kind = sp.get('hk') ?? '', st = sp.get('hs') ?? '';
+  const set = (k: string, v: string) => { const n = new URLSearchParams(sp); v ? n.set(k, v) : n.delete(k); setSp(n, { replace: true }); };
+  const nav = useNavigate();
+  const rows = cap.holds.filter(h => (!kind || h.kind === kind) && (!st || h.state === st) && (!q || `${h.label} ${h.dcId} ${h.ref ?? ''}`.toLowerCase().includes(q.toLowerCase())));
+  const sumOf = (res: string, states: string[]) => cap.holds.filter(h => h.resource === res && states.includes(h.state)).reduce((a, h) => a + h.qty, 0);
+  const pw = cap.dims[0], spc = cap.dims[2];
+  const netKw = pw.cap - pw.use - sumOf('Power', ['Reserved', 'Committed']);
+  const netU = spc.cap - spc.use - sumOf('Space', ['Reserved']);
+  const cnt = (k: string) => cap.holds.filter(h => h.kind === k).length;
+  return (<>
+    <SummaryStrip items={[
+      { key: 'kw', label: 'Power net available', value: fmtKw(Math.round(netKw)), sub: `after ${fmtKw(Math.round(sumOf('Power', ['Reserved', 'Committed'])))} held`, info: 'Power capacity minus what is drawn now minus what is held: planned devices (their type\'s typical draw) and tenant contracts above what the cabinet draws.' },
+      { key: 'u', label: 'Space net available', value: `${fmtNum(Math.round(netU))} U`, sub: `after ${fmtNum(sumOf('Space', ['Reserved']))} U held`, info: 'Rack units free minus the units held by planned devices.' },
+      { key: 'pd', label: 'Planned devices', value: fmtNum(cap.holds.filter(h => h.kind === 'Planned device' && h.resource === 'Space').length), sub: 'holding rack units', onClick: () => set('hk', 'Planned device'), active: kind === 'Planned device', info: 'Devices planned in DCIM: they hold their rack units now and their power once installed.' },
+      { key: 'tc', label: 'Tenant contracts', value: fmtNum(cnt('Tenant contract')), sub: 'sold above draw', onClick: () => set('hk', 'Tenant contract'), active: kind === 'Tenant contract', info: 'Colocation cabinets whose contracted power is above what they draw: the difference is sold and cannot be offered again.' },
+      { key: 'cp', label: 'Capacity plans', value: fmtNum(cnt('Capacity plan')), sub: `${cap.holds.filter(h => h.state === 'Requested').length} awaiting approval`, onClick: () => set('hk', 'Capacity plan'), active: kind === 'Capacity plan', info: 'Plans that add capacity: approved or executing ones are the pipeline, submitted ones are requested.' }
+    ]} />
+    <section className="vw-card-section dcl-table">
+      <DataTable rows={rows} pageSize={30} defaultSort={{ key: 'q', dir: 'desc' }} onRow={h => h.to && nav(h.to)}
+        toolbar={<ListToolbar shown={rows.length} total={cap.holds.length} noun="holds" onApply={apply} search={{ value: q, onChange: v => set('q', v), placeholder: 'Device, rack, tenant, plan' }}
+          filters={[
+            { id: 'hk', label: 'Kind', quick: true, value: kind, anyLabel: 'Any kind', onChange: v => set('hk', v), options: ['Planned device', 'Tenant contract', 'Capacity plan', 'GPU allocation'].filter(cnt).map(k => ({ id: k, label: k, count: cnt(k) })) },
+            { id: 'hs', label: 'State', quick: true, value: st, anyLabel: 'Any state', onChange: v => set('hs', v), options: (['Reserved', 'Committed', 'Pipeline', 'Requested'] as const).map(x => ({ id: x, label: x, count: cap.holds.filter(h => h.state === x).length })).filter(x => x.count) }
+          ]} />}
+        cols={[
+          { key: 'l', header: 'Held by', sort: h => h.label, wrap: true, render: h => <span className="cell-2"><b>{h.label}</b><small>{h.kind} · {h.dcId}</small></span> },
+          { key: 'r', header: 'Resource', sort: h => h.resource, render: h => h.resource },
+          { key: 'q', header: 'Quantity', sort: h => (h.unit === 'kW' ? h.qty : h.qty / 10), render: h => <span className="num">{h.state === 'Pipeline' || h.state === 'Requested' ? '+' : ''}{fmtNum(h.qty)} {h.unit}</span> },
+          { key: 's', header: 'State', sort: h => h.state, render: h => <Chip tone={h.state === 'Reserved' ? 'info' : h.state === 'Committed' ? 'purple' : h.state === 'Pipeline' ? 'success' : 'neutral'} dot>{h.state}</Chip> }]} />
+    </section>
+  </>);
+}
+
+/* -------------------------------------------------------------- energy */
+
+function EnergyTab({ cap }: { cap: Cap }) {
+  const e = cap.energy;
+  const it = e.sites.reduce((a, x) => a + x.itKw, 0), fac = e.sites.reduce((a, x) => a + x.facilityKw, 0);
+  const pue = it ? fac / it : 0;
+  const mwh = e.sites.reduce((a, x) => a + x.mwhDay, 0), t = e.sites.reduce((a, x) => a + x.tco2Day, 0);
+  const best = [...e.sites].filter(x => x.pue).sort((a, b) => a.pue - b.pue)[0], worst = [...e.sites].filter(x => x.pue).sort((a, b) => b.pue - a.pue)[0];
+  return (<>
+    <SummaryStrip items={[
+      { key: 'p', label: 'PUE (estate)', value: pue.toFixed(2), sub: 'load-weighted · industry average 1.56', tone: pue > 1.6 ? 'warn' : undefined, info: 'Facility power ÷ IT power, weighted by load across the sites in scope. Reference: the Uptime Institute 2024 global survey average of 1.56.' },
+      { key: 'it', label: 'IT load', value: fmtKw(Math.round(it)), sub: `of ${fmtKw(Math.round(fac))} facility`, info: 'Power drawn by IT / network equipment, and the whole facility load including cooling, lighting and losses.' },
+      { key: 'e', label: 'Energy', value: `${fmtNum(Math.round(mwh))} MWh`, sub: 'per day at today\'s load', info: 'Facility load × 24 h.' },
+      { key: 'c', label: 'Carbon', value: `${fmtNum(Math.round(t))} t CO₂`, sub: `per day · ${e.kgPerKwh} kg/kWh`, info: `Facility energy × the national grid emission factor (${e.source}). Site-specific supply contracts or on-site renewables are not modelled.` },
+      { key: 'b', label: 'Best / worst PUE', value: best ? `${best.pue} / ${worst.pue}` : '—', sub: best ? `${best.id} · ${worst.id}` : '', info: 'The most and least efficient sites in scope.' }
+    ]} />
+    <section className="vw-card-section dcl-table">
+      <DataTable rows={e.sites} pageSize={30} defaultSort={{ key: 'p', dir: 'desc' }} cols={[
+        { key: 'd', header: 'Datacenter', sort: x => x.id, render: x => <span className="cell-2"><DcLink id={x.id} /><small>{x.city}</small></span> },
+        { key: 'p', header: 'PUE', sort: x => x.pue, render: x => <span className={`num ${x.pue > 1.6 ? 'bad' : ''}`}>{x.pue ? x.pue.toFixed(2) : '—'}</span> },
+        { key: 'it', header: 'IT load', sort: x => x.itKw, render: x => <span className="num">{fmtKw(x.itKw)}</span> },
+        { key: 'f', header: 'Facility load', sort: x => x.facilityKw, render: x => <Meter pct={x.facilityKw ? (x.itKw / x.facilityKw) * 100 : 0} width={56} label={fmtKw(x.facilityKw)} /> },
+        { key: 'c', header: 'Cooling', sort: x => x.coolingKw, render: x => <span className="cell-2"><span className="num">{fmtKw(x.coolingKw)}</span><small>{x.liquidRacks ? `${x.liquidRacks} liquid racks` : 'air'}</small></span> },
+        { key: 'm', header: 'Energy / day', sort: x => x.mwhDay, render: x => <span className="num">{fmtNum(x.mwhDay)} MWh</span> },
+        { key: 't', header: 'CO₂ / day', sort: x => x.tco2Day, render: x => <span className="num">{fmtNum(x.tco2Day)} t</span> }]} />
+    </section>
+  </>);
 }
 
 /* ----------------------------------------------------------- financial */
@@ -339,12 +423,12 @@ function FinancialTab({ cap, dc, onDc }: { cap: Cap; dc: string; onDc: (id: stri
   ];
   return (
     <>
-      <div className="kpis">
-        <Kpi label="CapEx approved" value={fmtMoney(tot.ap)} icon={I.BadgeCheck} tone="info" basis={`${rows.length} datacenters`} />
-        <Kpi label="CapEx committed" value={fmtMoney(tot.co)} icon={I.FileSignature} tone="purple" basis={`${tot.ap ? Math.round((tot.co / tot.ap) * 100) : 0}% of approved · ${fmtMoney(tot.ap - tot.co)} remaining`} />
-        <Kpi label="OpEx run rate" value={fmtMoney(tot.op)} unit="/ mo" icon={I.Repeat} tone="warning" basis={`${fmtMoney(tot.op * 12)} annualised`} />
-        <Kpi label="Plans awaiting funds" value={fmtMoney(cap.plans.filter(p => p.status === 'Submitted').reduce((a, p) => a + p.capex, 0))} icon={I.ClipboardList} tone="neutral" basis={`${cap.plans.filter(p => p.status === 'Submitted').length} submitted capacity plans`} />
-      </div>
+      <SummaryStrip items={[
+        { key: 'k0', label: 'CapEx approved', value: fmtMoney(tot.ap), sub: `${rows.length} datacenters` },
+        { key: 'k1', label: 'CapEx committed', value: fmtMoney(tot.co), sub: `${tot.ap ? Math.round((tot.co / tot.ap) * 100) : 0}% of approved · ${fmtMoney(tot.ap - tot.co)} remaining` },
+        { key: 'k2', label: 'OpEx run rate', value: `${fmtMoney(tot.op)} / mo`, sub: `${fmtMoney(tot.op * 12)} annualised` },
+        { key: 'k3', label: 'Plans awaiting funds', value: fmtMoney(cap.plans.filter(p => p.status === 'Submitted').reduce((a, p) => a + p.capex, 0)), sub: `${cap.plans.filter(p => p.status === 'Submitted').length} submitted capacity plans` }
+      ]} />
       {one && (
         <div className="grid g-2">
           <Panel title={`CapEx lines — ${one.dc.id}`} icon={I.BadgeCheck} flush>

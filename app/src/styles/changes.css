@@ -1,0 +1,26 @@
+/* Change management (screens/changes/*) */
+.cm-weeks { position: relative; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 8px; height: 200px; padding-bottom: 46px; align-items: end; }
+.cm-week { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+.cm-stack { display: flex; flex-direction: column; width: 70%; border-radius: 3px 3px 0 0; overflow: hidden; min-height: 2px; }
+.cm-stack i, .cm-legend i { display: block; }
+.cm-stack i.st, .cm-legend i.st { background: var(--vw-color-cyan-300); }
+.cm-stack i.no, .cm-legend i.no { background: var(--primaryColor400); }
+.cm-stack i.em, .cm-legend i.em { background: var(--vw-color-red-400); }
+.cm-week small { position: absolute; bottom: -20px; font-size: 10.5px; color: var(--ink-500); white-space: nowrap; }
+.cm-fail { position: absolute; top: -18px; font-size: 11px; color: var(--vw-color-red-600); font-weight: 600; }
+.cm-legend { position: absolute; left: 0; right: 0; bottom: -6px; display: flex; gap: 14px; justify-content: center; font-size: 12px; color: var(--ink-500); }
+.cm-legend span { display: inline-flex; gap: 5px; align-items: center; }
+.cm-legend i { width: 10px; height: 10px; border-radius: 2px; }
+.cm-legend .cm-fail { position: static; }
+.cm-cal { display: grid; border-top: 1px solid var(--vw-color-slate-200); border-left: 1px solid var(--vw-color-slate-200); }
+.cm-cal > span { border-right: 1px solid var(--vw-color-slate-200); border-bottom: 1px solid var(--vw-color-slate-200); padding: 6px; min-width: 0; }
+.cm-h { font-size: 12px; color: var(--ink-500); background: var(--vw-color-slate-50); }
+.cm-h.is-today { color: var(--primaryColor600); font-weight: 600; }
+.cm-site { font-size: 12.5px; }
+.cm-cell { display: flex; flex-direction: column; gap: 4px; min-height: 54px; }
+.cm-cell.is-frozen { background: var(--vw-color-amber-25); }
+.cm-ev { display: flex; flex-direction: column; text-align: left; border: 1px solid var(--vw-color-slate-200); border-left: 3px solid var(--primaryColor400); background: var(--vw-color-white); border-radius: 4px; padding: 3px 5px; cursor: pointer; font: inherit; min-width: 0; }
+.cm-ev.cls-standard { border-left-color: var(--vw-color-cyan-400); }
+.cm-ev.cls-emergency { border-left-color: var(--vw-color-red-500); }
+.cm-ev b { font-size: 11px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cm-ev small { font-size: 11px; color: var(--ink-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

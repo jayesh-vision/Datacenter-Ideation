@@ -416,3 +416,172 @@ export interface ResilienceTest {
 }
 export interface CrossConnectOrder { id: string; dcId: string; customerId: string; from: string; to: string; media: 'SMF LC' | 'MMF LC' | 'Cat6A'; state: 'Requested' | 'Approved' | 'Patched' | 'Tested' | 'Handed over'; ordered: number; due: number; serviceId?: string }
 export interface RemoteHandsTicket { id: string; dcId: string; customerId: string; task: string; state: 'Open' | 'In progress' | 'Done'; opened: number; minutes: number; engineer: string }
+
+/* ---- DCIM (13-Oct-2026, user: merge the P2B "Plan to Build" screens, phase 1). The inventory record of the estate: sites →
+   floors → halls → rows → racks → devices → ports → cables, the device / module type catalogue and the power distribution
+   (panel = a hall's A / B busway → feed = a rack PDU). Derived per data version from the same entities the operations screens
+   use (mock/dcim.ts), so every count matches the twin, Facilities and the device pages. */
+export type DcimStatus = 'Active' | 'Planned' | 'Reserved' | 'Maintenance' | 'Decommissioning' | 'Tenant-owned';
+export type HallKind = 'Data hall' | 'GPU hall' | 'Storage hall' | 'Network room' | 'Meet-me room';
+export interface DcimSite {
+  id: string; name: string; city: string; state: string; regionId: string; tier: Datacenter['tier']; status: RolloutStatus; type: string; operator: string;
+  floors: number; halls: number; rows: number; racks: number; devices: number; plannedDevices: number; cables: number; powerFeeds: number;
+  designKw: number; itKw: number; rackBudgetKw: number; usedU: number; totalU: number; coolingKw: number; commissionedOn?: number; lat: number; lng: number;
+}
+export interface DcimHall {
+  id: string; dcId: string; floor: string; floorIdx: number; name: string; kind: HallKind; cooling: 'Air' | 'Liquid' | 'Hybrid';
+  gridCols: number; gridRows: number; rows: number; racks: number; devices: number; usedU: number; totalU: number; drawKw: number; budgetKw: number;
+  busA: string; busB: string; coolingUnits: string[]; hotAisleContained: boolean;
+}
+export interface DcimRow { id: string; dcId: string; hallId: string; name: string; racks: string[]; containment: 'Cold aisle' | 'None'; facesRow?: string }
+export interface DcimRack {
+  id: string; name: string; dcId: string; hallId: string; hallName: string; rowId: string; rowName: string; floor: string; gridX: number; gridY: number;
+  role: string; heightU: number; usedU: number; freeU: number; devices: number; plannedDevices: number; drawKw: number; budgetKw: number; powerPct: number;
+  density: 'Standard' | 'High' | 'AI'; liquid: boolean; owner: 'operator' | 'tenant'; tenantId?: string; tenantName?: string; status: DcimStatus; tempC: number;
+  pdus: number; power: 'A + B' | 'A + B · one side down' | 'B only' | 'A only'; weightKg: number; maxWeightKg: number; ports: number; portsUsed: number;
+}
+export interface DcimDeviceType {
+  id: string; manufacturer: string; model: string; role: NeRole; category: NeCategory; uHeight: number; fullDepth: boolean; airflow: 'Front to rear' | 'Rear to front' | 'Side to side';
+  weightKg: number; typicalW: number; psus: number; platform: string; ports: { type: string; speedMbps: number; count: number }[]; mgmtPorts: number; consolePorts: number;
+  moduleBays: number; devices: number; sites: number; description: string; custom?: boolean;
+}
+export interface DcimModuleType { id: string; name: string; kind: 'Power supply' | 'Fan' | 'Line card' | 'Routing engine' | 'Accelerator' | 'Storage' | 'Other'; fits: string[]; installed: number; faulty: number }
+export interface DcimDevice {
+  id: string; name: string; dcId: string; rackId: string; rackName: string; hallId: string; hallName: string; u: number; uHeight: number; typeId: string;
+  manufacturer: string; model: string; role: NeRole; category: NeCategory; status: DcimStatus; serial: string; assetTag: string; ip: string; platform: string;
+  ports: number; portsUp: number; cables: number; psus: number; powerW: number; tenantId?: string; health: Health;
+}
+export type DcimComponentKind = 'Interface' | 'Power port' | 'Console' | 'Management' | 'Module bay';
+export interface DcimComponent {
+  id: string; deviceId: string; kind: DcimComponentKind; name: string; type: string; speedMbps?: number; state: 'Connected' | 'Free' | 'Down' | 'Disabled' | 'Failed' | 'Empty';
+  cableId?: string; peer?: { deviceId: string; deviceName: string; port: string }; detail?: string;
+}
+export interface DcimCable {
+  id: string; dcId: string; kind: 'Data' | 'Power'; type: string; aDevice: string; aName: string; aPort: string; aRack: string; zDevice: string; zName: string; zPort: string; zRack: string;
+  route: 'In-rack' | 'Structured' | 'Inter-site' | 'Power cord'; via: string; lengthM: number; status: 'Connected' | 'Link down' | 'No power' | 'PSU failed' | 'Planned'; linkId?: string;
+}
+export interface DcimPowerPanel {
+  id: string; dcId: string; hallId: string; hallName: string; name: string; side: PowerSide | 'DC'; source: string; sourceState: 'Online' | 'On battery' | 'Bypass' | 'Fault' | 'Rectifier';
+  utility: string; feeds: number; loadKw: number; capacityKw: number; state: 'ok' | 'warn' | 'bad';
+}
+export interface DcimPowerFeed {
+  id: string; dcId: string; panelId: string; rackId: string; rackName: string; hallName: string; name: string; side: PowerSide; kind: 'AC' | 'DC'; volts: number; phases: 1 | 3; amps: number;
+  capacityKw: number; loadKw: number; pct: number; outlets: number; cords: number; state: RackPdu['state']; note?: string;
+}
+export interface DcimRackView {
+  rack: DcimRack; devices: DcimDevice[]; reserved: { u: number; uHeight: number; label: string }[]; panels: PatchPanel[]; feeds: DcimPowerFeed[];
+  cords: (PowerCord & { deviceName: string; pduName: string })[]; cables: DcimCable[]; hall: DcimHall; neighbours: { id: string; name: string }[];
+}
+export interface DcimCatalog { manufacturers: { name: string; types: number; devices: number }[]; roles: { role: NeRole; category: NeCategory; types: number; devices: number }[]; platforms: { name: string; devices: number }[] }
+
+/* ---- IP & Network (13-Oct-2026, P2B merge phase 2): the address plan, derived from the estate (mock/ipam.ts). Management
+   addresses are the devices' own; loopbacks and point-to-point /31s follow the routing adjacencies; host production / storage
+   addresses follow the halls; per-service VLANs and customer VRFs follow the services. Usage = addresses actually bound. */
+export type PrefixRole = 'Management' | 'Loopback' | 'Point-to-point' | 'Production' | 'Storage' | 'Backbone' | 'Public' | 'Customer';
+export type PrefixStatus = 'Container' | 'Active' | 'Reserved';
+export interface IpPrefix {
+  id: string; prefix: string; dcId?: string; hallId?: string; vrf: string; role: PrefixRole; status: PrefixStatus; parentId?: string; vlan?: number; gateway?: string;
+  description: string; size: number; used: number; pct: number; children: number; aggregate: string;
+}
+export type IpAddrStatus = 'Active' | 'Reserved' | 'Gateway' | 'Conflict' | 'Outside plan';
+export interface IpAddr {
+  id: string; address: string; mask: number; prefixId: string | null; vrf: string; dcId?: string; status: IpAddrStatus;
+  use: 'Management' | 'Loopback' | 'Link' | 'Host' | 'Gateway (VIP)' | 'PE–CE' | 'Reserved';
+  deviceId?: string; deviceName?: string; iface?: string; dns: string; note?: string;
+}
+export interface IpVrf { id: string; name: string; rd: string; scope: 'Site' | 'Estate' | 'Customer'; dcId?: string; customerId?: string; importRt: string[]; exportRt: string[]; prefixes: number; addresses: number; enforceUnique: boolean; description: string }
+export interface IpVlan { id: string; vid: number; name: string; dcId: string; group: 'Management' | 'Fabric' | 'Storage' | 'Services'; role: string; prefix?: string; devices: number; status: 'Active' | 'Reserved' | 'Unused'; serviceId?: string; customerId?: string }
+export interface IpAsn { id: string; asn: number; kind: 'Public' | 'Private 16-bit' | 'Private 32-bit'; dcId?: string; description: string; devices: number; sessions: number; up: number }
+export interface IpAsnRange { id: string; name: string; start: number; end: number; used: number }
+export interface IpRange { id: string; dcId: string; prefixId: string; start: string; end: string; size: number; purpose: string; used: number }
+export interface IpFhrp { id: string; dcId: string; protocol: 'VRRP' | 'HSRP'; group: number; vip: string; prefixId: string; members: string[]; state: 'ok' | 'degraded' }
+export interface IpService { id: string; name: string; protocol: 'TCP' | 'UDP'; ports: number[]; deviceId: string; deviceName: string; dcId: string; address: string }
+export interface IpAggregate { id: string; prefix: string; rir: string; description: string; size: number; allocated: number; pct: number }
+export interface IpFinding { id: string; severity: Severity; kind: 'Prefix full' | 'Outside plan' | 'Conflict' | 'Unused VLAN' | 'Gateway degraded'; title: string; detail: string; dcId?: string; ref?: string }
+export interface IpamView {
+  prefixes: IpPrefix[]; addresses: IpAddr[]; vrfs: IpVrf[]; vlans: IpVlan[]; asns: IpAsn[]; asnRanges: IpAsnRange[]; ranges: IpRange[];
+  fhrp: IpFhrp[]; services: IpService[]; aggregates: IpAggregate[]; findings: IpFinding[];
+}
+
+/* ---- Capacity additions (13-Oct-2026, P2B merge phase 3): what is held against capacity (mock/capacity.ts) */
+export type HoldState = 'Requested' | 'Reserved' | 'Committed' | 'Pipeline';
+export interface CapacityHold {
+  id: string; dcId: string; kind: 'Planned device' | 'Tenant contract' | 'Capacity plan' | 'GPU allocation'; resource: 'Power' | 'Space' | 'GPU' | 'Cooling' | 'Ports' | 'Bandwidth';
+  qty: number; unit: string; state: HoldState; label: string; ref?: string; to?: string;
+}
+export interface GpuCapacity { gpus: number; inJob: number; allocatedIdle: number; free: number; out: number; byModel: { model: string; gpus: number; inJob: number; free: number }[] }
+export interface SiteEnergy { id: string; city: string; itKw: number; facilityKw: number; pue: number; coolingKw: number; mwhDay: number; tco2Day: number; liquidRacks: number }
+
+/* ---- Planner (13-Oct-2026, P2B merge phase 4): design plans sized and checked against the estate (mock/planner.ts) */
+export type PlanScope = 'rack-expansion' | 'ai-pod' | 'new-hall' | 'new-site' | 'plant-upgrade' | 'refresh';
+export type PlanStatus = 'Draft' | 'In review' | 'Approved' | 'Executing' | 'Delivered' | 'Rejected';
+export type PlanRedundancy = 'N' | 'N+1' | '2N';
+export type PlanCooling = 'Air' | 'Rear-door' | 'Liquid-to-chip';
+export interface PlanInput {
+  scope: PlanScope; name: string; dcId: string; hallId?: string; city?: string;
+  racks: number; kwPerRack: number; redundancy: PlanRedundancy; tier: Datacenter['tier']; cooling: PlanCooling;
+  plant?: 'UPS' | 'Cooling' | 'Generator'; plantKw?: number; refreshTypeId?: string; refreshToTypeId?: string; target: number; owner: string; notes?: string;
+}
+export interface PlanApproval { step: number; role: string; who: string; decision: 'Pending' | 'Approved' | 'Rejected' | 'Waiting'; at?: number; comment?: string }
+export interface PlannerPlan extends PlanInput {
+  id: string; status: PlanStatus; created: number; updated: number; approvals: PlanApproval[]; history: { at: number; who: string; text: string }[];
+  capacityPlanIds: string[]; createdRacks: string[]; scenario: string; source: 'Capacity plan' | 'Site pressure' | 'Build programme' | 'Planner';
+}
+export interface PlanCheck { key: string; label: string; need: number; have: number; unit: string; ok: boolean; basis: string; fix?: string }
+export interface PlanPlantLine { stage: string; units: number; unitSize: string; redundancy: string; capacity: string; note: string; cost: number }
+export interface PlanFinding { severity: Severity; title: string; detail: string }
+export interface PlanTask { name: string; weeks: number; start: number; end: number; longLead?: boolean; parallel?: boolean }
+export interface PlanEval {
+  itKw: number; facilityKw: number; pue: number; liquidKw: number; airKw: number;
+  checks: PlanCheck[]; plant: PlanPlantLine[]; space: { racks: number; rows: number; whiteM2: number; grossM2: number; halls: number; freePositions?: number; hallName?: string };
+  capex: { line: string; amount: number; basis: string }[]; capexTotal: number; opexYear: { line: string; amount: number; basis: string }[];
+  cash: { year: number; capex: number; opex: number; revenue: number; net: number; cum: number }[]; npv: number; irr: number | null; payback: number | null; revenueBasis: string; discount: number;
+  tasks: PlanTask[]; finish: number; lateDays: number; findings: PlanFinding[]; verdict: { state: 'ready' | 'warn' | 'blocked'; text: string };
+}
+export interface PlanScenarioRow { id: string; name: string; note: string; capex: number; pue: number; opex: number; npv: number; finish: number; blocked: number; chosen: boolean }
+export interface PlanBenchmark { key: string; group: 'Power' | 'Cooling' | 'Space' | 'Cost' | 'Energy' | 'Schedule' | 'Revenue'; label: string; value: string; source: string }
+export interface PlanTemplate { scope: PlanScope; name: string; group: 'Grow in place' | 'Build new' | 'Upgrade & refresh'; description: string; defaults: Partial<PlanInput>; checks: string[]; needsSite: boolean }
+
+/* ---- Delivery (13-Oct-2026, P2B merge phase 5): approved plans become projects (mock/delivery.ts) */
+export type DeliveryState = 'Mobilising' | 'In progress' | 'Commissioning' | 'Handover' | 'Delivered';
+export interface DeliveryProject {
+  id: string; planId: string; name: string; dcId: string; scope: PlanScope; state: DeliveryState; manager: string; start: number; finish: number; target: number;
+  progress: number; plannedProgress: number; budget: number; earned: number; actual: number; cpi: number; spi: number; health: 'on track' | 'at risk' | 'late';
+  workOrders: number; openWorkOrders: number; poOpen: number; permitsOpen: number; cxLevel: number; snags: number;
+}
+export interface DeliveryMilestone { name: string; start: number; end: number; state: 'done' | 'active' | 'next'; longLead?: boolean }
+export type WoState = 'Planned' | 'Awaiting change' | 'Ready' | 'In progress' | 'Done';
+export interface WorkOrder { id: string; projectId: string; dcId: string; title: string; kind: 'Install' | 'Cabling' | 'Electrical' | 'Mechanical' | 'Commissioning' | 'Migration' | 'Civil' | 'Decommission'; crew: string; crewKind: 'Own technicians' | 'Contractor'; start: number; end: number; state: WoState; changeId: string; changeState: 'Draft' | 'Pending approval' | 'Approved' | 'Implemented'; rackIds: string[]; kit: 'Ready' | 'Partial' | 'Not ordered' }
+export interface PurchaseOrder { id: string; projectId: string; supplier: string; item: string; qty: number; unitCost: number; total: number; ordered: number; due: number; state: 'Draft' | 'Ordered' | 'In transit' | 'Delivered' | 'Late'; leadWeeks: number }
+export interface CxTest { level: 1 | 2 | 3 | 4 | 5; name: string; scope: string; due: number; state: 'Passed' | 'Failed' | 'Scheduled' | 'Not started'; witness: string; snags: number }
+export interface Permit { id: string; projectId: string; name: string; authority: string; submitted?: number; due: number; state: 'Not needed' | 'To submit' | 'Submitted' | 'Granted' | 'Expired'; owner: string }
+export interface DesignDoc { id: string; projectId: string; title: string; kind: 'Design basis' | 'Single-line diagram' | 'Cooling P&ID' | 'Floor layout' | 'Cable schedule' | 'Method statement' | 'As-built'; rev: string; state: 'Draft' | 'In review' | 'Issued for construction' | 'As-built'; updated: number; author: string }
+export interface DeliveryProjectView {
+  project: DeliveryProject; milestones: DeliveryMilestone[]; workOrders: WorkOrder[]; pos: PurchaseOrder[]; tests: CxTest[]; permits: Permit[]; docs: DesignDoc[];
+  history: { at: number; who: string; text: string }[]; plan: PlannerPlan; canHandover: boolean;
+}
+
+/* ---- Change management (13-Oct-2026, P2B merge phase 6): one register over operations changes, maintenance and delivery change
+   requests, with class, approval matrix, freezes, conflicts, policy checks and post-implementation review (mock/changemgmt.ts) */
+export type ChangeClass = 'Standard' | 'Normal' | 'Emergency';
+export interface ChangeApprovalStep { role: string; who: string; decision: 'Approved' | 'Pending' | 'Waiting' | 'Rejected' | 'Pre-approved'; at?: number }
+export interface ChangeViolation { policy: string; enforcement: 'Block' | 'Warn'; text: string }
+export interface ChangeRecord {
+  id: string; source: 'Operations' | 'Maintenance' | 'Delivery'; cls: ChangeClass; kind: Change['kind']; title: string; dcId: string; scope: string[]; risk: Change['risk']; status: ChangeStatus;
+  windowStart: number; windowEnd: number; requester: string; approver?: string; rollback: string; created: number; incidentId?: string; projectId?: string; woId?: string;
+  template?: string; approvals: ChangeApprovalStep[]; conflicts: string[]; freeze?: string; violations: ChangeViolation[];
+  pir: { state: 'Not needed' | 'Due' | 'Done' | 'Overdue'; due?: number }; outcome?: 'Successful' | 'Rolled back' | 'Rejected' | 'Caused an incident'; causedIncident?: string;
+}
+export interface ChangeFreeze { id: string; scope: 'Estate' | 'Site'; dcId?: string; title: string; reason: string; from: number; to: number | null; allows: 'Emergency only' | 'Standard and emergency'; source: 'Incident' | 'Calendar' }
+export interface StandardTemplate { id: string; name: string; description: string; risk: 'Low'; checks: string; uses: number; lastUsed?: number; success: number }
+export interface ChangePolicy { id: string; name: string; rule: string; enforcement: 'Block' | 'Warn'; violations: number }
+export interface ChangeRegister { changes: ChangeRecord[]; freezes: ChangeFreeze[]; templates: StandardTemplate[]; policies: ChangePolicy[]; weeks: { start: number; standard: number; normal: number; emergency: number; failed: number }[] }
+
+/* ---- Compliance and Customization (13-Oct-2026, P2B merge phase 7; mock/compliance.ts, mock/customization.ts) */
+export interface CompliancePolicy { id: string; name: string; rule: string; area: 'Power' | 'Cooling' | 'Network' | 'Lifecycle' | 'Change' | 'Safety' | 'Maintenance'; enforcement: 'Block' | 'Warn'; evaluated: number; violations: number }
+export interface ComplianceViolation { id: string; policyId: string; resource: string; resourceName: string; dcId: string; message: string; to: string }
+export interface ComplianceControl { id: string; framework: string; ref: string; title: string; type: 'Automated' | 'Manual'; policyIds: string[]; status: 'Compliant' | 'Partial' | 'Non-compliant' | 'Evidence due'; evidence: string; owner: string; assessed: number }
+export interface ComplianceFramework { id: string; name: string; description: string; controls: number; compliant: number }
+export interface ComplianceView { frameworks: ComplianceFramework[]; controls: ComplianceControl[]; policies: CompliancePolicy[]; violations: ComplianceViolation[] }
+export interface CustomField { key: string; label: string; type: 'Text' | 'Number' | 'Date' | 'Select' | 'Boolean'; appliesTo: string[]; required: boolean; choices?: string[]; filled: number; total: number; description: string; custom?: boolean }
+export interface TagDef { slug: string; name: string; color: 'blue' | 'purple' | 'cyan' | 'amber' | 'red' | 'slate' | 'emerald'; description: string; rule: string; count: number; appliesTo: string; custom?: boolean }
