@@ -2,7 +2,7 @@
    one step per area the template covers → Scenarios → Review and submit. Leaving Requirements fills every design input the planner
    has not set themselves ("Fill the design") and creates the draft; the live estimate on the right is re-evaluated on every change.
    A plan past review opens read-only. Logic: src/planner/lib (wizardModel, dimensions, engine, governance). */
-import { useCallback, useMemo, useState } from 'react';
+import { Fragment, useCallback, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { usePage, PageHead, Loading } from '../../shell/page';
@@ -113,7 +113,8 @@ function Wizard() {
   const lock = existing ? G.lockReason(existing) : undefined;
   const groups = [...new Set(steps.map(s => s.group))];
 
-  const gi = groups.indexOf(cur.group);
+  const STAGES: string[] = ['Set up', 'Design', 'Delivery', 'Business', 'Decide'];
+  const shownGroups = template ? groups : [...STAGES, ...groups.filter(g => !STAGES.includes(g))].filter(g => STAGES.includes(g) || (groups as string[]).includes(g));
   const inGroup = steps.map((s, i) => ({ s, i })).filter(x => x.s.group === cur.group);
   const done = (i: number) => i < step || (i < maxVisited && i !== step);
   const pctDone = Math.round((step / Math.max(1, steps.length - 1)) * 100);
@@ -128,18 +129,19 @@ function Wizard() {
       {lock && <p className="note note--info"><I.Lock size={15} /><span>{lock} The wizard shows the plan as it was submitted.</span></p>}
       <nav className="pn-stepper vw-card-section" aria-label="Wizard steps">
         <div className="pn-stages">
-          {groups.map((g, k) => {
+          {shownGroups.map((g, k) => {
             const idx = steps.map((s, i) => (s.group === g ? i : -1)).filter(i => i >= 0);
-            const n = idx.filter(i => done(i)).length, first = idx.find(i => i <= maxVisited || readOnly);
             const GIco = GROUP_ICON[g] ?? I.Circle;
-            const state = k === gi ? ' is-on' : n === idx.length ? ' is-done' : '';
-            return <button key={g} type="button" className={`pn-stage${state}`} disabled={first === undefined} onClick={() => first !== undefined && goTo(first)}>
-              <span className="pn-stage-ico">{n === idx.length && k !== gi ? <I.Check size={14} /> : <GIco size={14} />}</span>
-              <span className="pn-stage-txt"><b>{g}</b><small>{n === idx.length ? 'Done' : `${n} of ${idx.length} done`}</small></span>
-              <span className="pn-stage-bar"><i style={{ width: `${(n / idx.length) * 100}%` }} /></span>
-            </button>;
+            if (!idx.length) return <Fragment key={g}>{k > 0 && <span className="pn-stage-line" />}<span className="pn-stage is-locked" title="Pick a plan type: it decides the steps in this stage"><span className="pn-stage-ico"><GIco size={15} /></span><span className="pn-stage-txt"><b>{g}</b><small>After plan type</small></span></span></Fragment>;
+            const n = idx.filter(i => done(i)).length, first = idx.find(i => i <= maxVisited || readOnly);
+            const on = g === cur.group, all = n === idx.length && !on;
+            return <Fragment key={g}>{k > 0 && <span className={`pn-stage-line${all || on || n ? ' is-done' : ''}`} />}
+              <button type="button" className={`pn-stage${on ? ' is-on' : all ? ' is-done' : ''}`} disabled={first === undefined} onClick={() => first !== undefined && goTo(first)}>
+                <span className="pn-stage-ico">{all ? <I.Check size={15} /> : <GIco size={15} />}</span>
+                <span className="pn-stage-txt"><b>{g}</b><small>{all ? 'Done' : `${n} of ${idx.length} done`}</small></span>
+              </button></Fragment>;
           })}
-          <span className="pn-stage-pct"><b className="num">{pctDone}%</b><small>complete</small></span>
+          <span className="pn-stage-pct"><span><b className="num">{pctDone}%</b> complete</span><i><em style={{ width: `${pctDone}%` }} /></i></span>
         </div>
         {inGroup.length > 1 && <div className="pn-substeps">{inGroup.map(({ s, i }) => <button key={s.key} type="button" className={`pn-pill${i === step ? ' is-on' : done(i) ? ' is-done' : ''}`} disabled={i > maxVisited && !readOnly} onClick={() => goTo(i)} title={s.hint}><i>{done(i) ? <I.Check size={11} /> : i + 1}</i>{s.label}</button>)}</div>}
       </nav>
