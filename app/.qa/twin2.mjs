@@ -27,16 +27,16 @@ ok('URL carries twin=realistic', p.url().includes('twin=realistic'));
 let r = await check('building'); ok('level building', r.level === 'building'); await shot('building');
 ok('floor labels in the scene', await p.locator('[data-twin2-floor]').count() === 2);
 ok('legend shown', await p.locator('[data-twin2-legend] span').count() >= 4);
-ok('overlay picker hidden at building level', await p.locator('.t2-overlay-left .seg').count() === 1);
+ok('overlay picker hidden at building level', await p.locator('.t2-dock .seg').count() === 0 && await p.locator('.t2-overlay-left .seg').count() === 1);
 // panel = same panel as the schematic twin
 const stripNe = (await p.locator('.pill', { hasText: 'Equipment' }).locator('.count').innerText()).replace(/,/g, '');
 const panelNe = (await p.locator('.twin-side .twin-stats > div').nth(3).locator('.vw-card-metric-md').innerText()).replace(/,/g, '');
 ok(`panel devices ${panelNe} = Equipment tab ${stripNe}`, panelNe === stripNe);
 // drill: floor via scene label, room via panel, rack, device
 await p.locator('[data-twin2-floor="0"]').click(); await settle(); r = await check('floor'); ok('level floor', r.level === 'floor'); await shot('floor');
-ok('overlay picker shown at floor level', await p.locator('.t2-overlay-left .seg').count() === 2);
-for (const l of ['Temperature', 'Rack power', 'Connectivity']) { await p.locator('.t2-overlay-left .seg button', { hasText: l }).click(); await settle(900); await shot('floor_' + l.toLowerCase().replace(/\s/g, '')); }
-await p.locator('.t2-overlay-left .seg button', { hasText: 'Health' }).click(); await settle(400);
+ok('overlay picker shown at floor level', await p.locator('.t2-dock .seg').count() === 1);
+for (const l of ['Temperature', 'Rack power', 'Connectivity']) { await p.locator('.t2-dock .seg button', { hasText: l }).click(); await settle(900); await shot('floor_' + l.toLowerCase().replace(/\s/g, '')); }
+await p.locator('.t2-dock .seg button', { hasText: 'Health' }).click(); await settle(400);
 await p.locator('[data-twin-room]').first().click(); await settle(); r = await check('room'); ok('level room', r.level === 'room'); await shot('room');
 ok('Whole floor button shown inside a room', await p.locator('[data-twin2="whole-floor"]').count() === 1);
 const rackCount = await p.locator('[data-twin-rack]').count(); ok(`room lists racks (${rackCount})`, rackCount > 0);

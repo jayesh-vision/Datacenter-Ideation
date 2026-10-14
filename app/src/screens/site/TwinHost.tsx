@@ -42,11 +42,14 @@ export function TwinHost({ dcId, view, onView }: { dcId: string; view: TwinView;
   return (
     <div className="twin-host">
       <div className="twin-host-bar">
-        <span className="vw-card-title-sm">Digital twin</span>
+        {/* heading (14-Oct-2026, user: "instead of Digital twin use a better heading"): what the operator sees is the live layout of
+            the datacenter, not a design or a plan (those words belong to Plan & Build / Facilities) */}
+        <span className="vw-card-title-sm">Datacenter layout</span>
+        <span className="twin-host-live" title="Health, temperature, power and cabling as the collectors report them now"><i />Live</span>
         <span className="vw-label twin-host-path">Building › Floor › Room › Rack › Equipment</span>
         <TwinViewSwitch value={view} onChange={onView} />
       </div>
-      <Suspense fallback={<Loading label="Loading Data center view" />}>
+      <Suspense fallback={<Loading label="Loading datacenter layout" />}>
         {view === 'realistic' ? <Twin2 key={dcId} dcId={dcId} /> : <Twin key={dcId} dcId={dcId} />}
       </Suspense>
     </div>

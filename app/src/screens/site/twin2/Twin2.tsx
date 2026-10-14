@@ -44,6 +44,9 @@ export default function Twin2({ dcId }: { dcId: string }) {
   /* device popup actions (13-Oct-2026, user): a focused trace of just this device's cables or power */
   const [trace, setTrace] = useState<TraceKind | null>(null);
   const [popup, setPopup] = useState(true);
+  /* legend open / folded: a per-viewer convenience */
+  const [legendOpen, setLegendOpen] = useState(() => { try { return localStorage.getItem('dco.twin2.legend') !== 'folded'; } catch { return true; } });
+  const toggleLegend = () => setLegendOpen(o => { try { localStorage.setItem('dco.twin2.legend', o ? 'folded' : 'open'); } catch { /* storage blocked */ } return !o; });
   useEffect(() => { setTrace(null); setPopup(true); }, [sel.ne]);
   const { data: phys } = useQuery(() => (showPower || showCables ? getSitePhysical(dcId) : Promise.resolve(null)), [dcId, showPower || showCables]);
   const { data: devPhys } = useQuery(() => (showCables && sel.ne ? getDevicePhysical(sel.ne) : Promise.resolve(null)), [showCables, sel.ne]);
@@ -96,7 +99,7 @@ export default function Twin2({ dcId }: { dcId: string }) {
   const posRef = useRef<PosMap>(new Map());
   const anchors = useMemo(() => (data && L ? [...buildAnchors2(L, data, sel, level, layer, att, unit), ...(level !== 'building' ? physAnchors(L, data, sel, pv) : [])] : []), [data, L, sel, level, layer, att, unit, pv]);
   useEffect(() => { document.body.style.cursor = hover ? 'pointer' : ''; return () => { document.body.style.cursor = ''; }; }, [hover]);
-  if (!data || !L) return <Loading label="Loading Data center view" />;
+  if (!data || !L) return <Loading label="Loading datacenter layout" />;
   const { dc } = data;
   const room = sel.room !== null ? L.rooms.find(r => r.id === sel.room) : undefined;
   const rk = sel.rack ? L.racks.find(r => r.rack.id === sel.rack) : undefined;
@@ -127,24 +130,35 @@ export default function Twin2({ dcId }: { dcId: string }) {
           {trace && ne ? null : gl ? <><TwinScene2 L={L} data={data} layer={layer} sel={sel} level={level} onPick={onPick} setHover={setHover} att={att} anchors={anchors} posRef={posRef} resetTick={resetTick} unit={unit} focusPose={unitView?.pose ?? ((showPower || showCables) ? pathPose(L, sel) : null)} hide={unitView?.hide} pv={level !== 'building' ? pv : undefined} walk={walk} onWalkTo={onWalkTo} /><Labels anchors={anchors} posRef={posRef} onPick={onPick} /></>
             : <div className="twin-nogl"><I.Box size={28} /><b>3D view unavailable</b><span>This browser has no WebGL. Use the lists on the right to navigate floors, rooms, racks and equipment.</span></div>}
           <div className="t2-overlay">
+            {/* top-left = where you are (floor picker) only; colour, paths and the key live in the dock at the bottom-left (14-Oct-2026, user) */}
             <div className="t2-overlay-left">
               <Seg size="sm" value={floorVal} onChange={v => go(v === 'B' ? EMPTY : { floor: Number(v), room: null, rack: null, ne: null })} options={floorOpts} />
-              {level !== 'building' && <Seg size="sm" value={layer} onChange={setLayer} options={LAYERS} />}
-              {level !== 'building' && <div className="t2-chips" role="group" aria-label="Show paths">
-                <button type="button" className={`t2-chip${showPower ? ' is-on' : ''}`} aria-pressed={showPower} data-twin2-chip="power" onClick={() => setShowPower(v => !v)} title="Draw the power path: UPS → busway → rack PDU, A side and B side"><I.PlugZap size={13} />Power path</button>
-                <button type="button" className={`t2-chip${showCables ? ' is-on' : ''}`} aria-pressed={showCables} data-twin2-chip="cables" onClick={() => setShowCables(v => !v)} title="Draw the cable paths: rack → trunk → ODF; select a device to trace its own cables"><I.Cable size={13} />Cable paths</button>
-              </div>}
-              {level !== 'building' && (showPower || showCables) && <div className="t2-legend" data-twin2-paths-legend>
-                {showPower && <><span><i style={{ background: SIDE_C.A }} />A side</span><span><i style={{ background: SIDE_C.B }} />B side</span>{phys?.pdus.some(p => p.kind === 'DC') && <span><i style={{ background: SIDE_C.DC }} />−48 V DC</span>}<span><i style={{ background: '#F5B82E' }} />On battery</span><span><i style={{ background: '#FF4D4F' }} />Tripped</span></>}
-                {showCables && <><span><i style={{ background: ROUTE_C[0] }} />Tray route 1</span><span><i style={{ background: ROUTE_C[1] }} />Tray route 2</span><span><i style={{ background: '#22D3EE' }} />Selected device</span></>}
-              </div>}
-              <div className="t2-legend" data-twin2-legend>{LEGENDS[level === 'building' ? 'health' : layer].map(x => <span key={x.l}><i style={{ background: x.c }} />{x.l}</span>)}</div>
             </div>
             <div className="t2-overlay-right">
               <button type="button" className={`nst-btn nst-btn--sm t2-whole t2-walk${walk ? ' is-on' : ''}`} data-twin2-walk aria-pressed={walking} title={walk ? 'Stop walking (Esc)' : 'Walk the floor at eye level, like street view'} onClick={toggleWalk}><I.Footprints size={14} />{walk ? 'Stop walking' : 'Walk'}</button>
               {(sel.room !== null || sel.rack || unit) && <button type="button" className="nst-btn nst-btn--sm t2-whole" data-twin2="whole-floor" onClick={() => go({ floor: sel.floor, room: null, rack: null, ne: null })}>Whole floor</button>}
               <button type="button" className="nst-icon-btn twin-reset" title={full ? 'Exit expanded view (Esc)' : 'Expand view'} aria-label={full ? 'Exit expanded view' : 'Expand view'} aria-pressed={full} data-twin="fullscreen" onClick={toggleFull}>{full ? <I.Minimize2 size={15} /> : <I.Maximize2 size={15} />}</button>
+              <span className="nst-icon-btn twin-reset t2-help" tabIndex={0} title={hint} aria-label={`How to move: ${hint}`} data-twin2-help><I.CircleHelp size={15} /></span>
               <button type="button" className="nst-icon-btn twin-reset" title="Reset view" aria-label="Reset view" data-twin="reset" onClick={() => { setWalk(null); go(EMPTY); setResetTick(t => t + 1); }}><I.RotateCcw size={15} /></button>
+            </div>
+          </div>
+          <div className={`t2-dock${legendOpen ? '' : ' is-folded'}`} data-twin2-dock>
+            {level !== 'building' && <div className="t2-dock-row">
+              <span className="t2-dock-l">Colour by</span>
+              <Seg size="sm" value={layer} onChange={setLayer} options={LAYERS} />
+              <span className="t2-dock-sep" aria-hidden />
+              <div className="t2-chips" role="group" aria-label="Show paths">
+                <button type="button" className={`t2-chip${showPower ? ' is-on' : ''}`} aria-pressed={showPower} data-twin2-chip="power" onClick={() => setShowPower(v => !v)} title="Draw the power path: UPS → busway → rack PDU, A side and B side"><I.PlugZap size={13} />Power<span className="t2-x"> path</span></button>
+                <button type="button" className={`t2-chip${showCables ? ' is-on' : ''}`} aria-pressed={showCables} data-twin2-chip="cables" onClick={() => setShowCables(v => !v)} title="Draw the cable paths: rack → trunk → ODF; select a device to trace its own cables"><I.Cable size={13} />Cable<span className="t2-x"> path</span>s</button>
+              </div>
+            </div>}
+            <div className="t2-dock-key">
+              <button type="button" className="t2-key-btn" aria-expanded={legendOpen} data-twin2-key onClick={toggleLegend} title={legendOpen ? 'Hide the legend' : 'Show the legend'}>{legendOpen ? <I.ChevronDown size={14} /> : <I.ChevronRight size={14} />}Legend</button>
+              {legendOpen && <>
+                <div className="t2-legend" data-twin2-legend><em>{LAYERS.find(l => l.id === (level === 'building' ? 'health' : layer))?.label}</em>{LEGENDS[level === 'building' ? 'health' : layer].map(x => <span key={x.l}><i style={{ background: x.c }} />{x.l}</span>)}</div>
+                {level !== 'building' && showPower && <div className="t2-legend" data-twin2-paths-legend><em>Power</em><span><i style={{ background: SIDE_C.A }} />A side</span><span><i style={{ background: SIDE_C.B }} />B side</span>{phys?.pdus.some(p => p.kind === 'DC') && <span><i style={{ background: SIDE_C.DC }} />−48 V DC</span>}<span><i style={{ background: '#F5B82E' }} />On battery</span><span><i style={{ background: '#FF4D4F' }} />Tripped</span></div>}
+                {level !== 'building' && showCables && <div className="t2-legend" data-twin2-paths-legend><em>Cables</em><span><i style={{ background: ROUTE_C[0] }} />Tray route 1</span><span><i style={{ background: ROUTE_C[1] }} />Tray route 2</span><span><i style={{ background: '#22D3EE' }} />Selected device</span></div>}
+              </>}
             </div>
           </div>
           {unitObj && (
@@ -157,7 +171,7 @@ export default function Twin2({ dcId }: { dcId: string }) {
           )}
           {!unitObj && !trace && !(ne && popup) && <PathCard L={L} data={data} sel={sel} pv={pv} />}
           {ne && popup && !trace && !walk && <DevicePopup ne={ne} dcId={dc.id} posRef={posRef} anchor={`e${ne.id}`} onTrace={setTrace} onClose={() => setPopup(false)} />}
-          {hover ? <div className="twin-tip" role="status"><b>{hover.title}</b><span>{hover.sub}</span></div> : <div className="t2-hint">{hint}</div>}
+          {hover ? <div className="twin-tip" role="status"><b>{hover.title}</b><span>{hover.sub}</span></div> : walk ? <div className="t2-hint">{hint}</div> : null}
         </div>
       </div>
       {trace && ne && <Trace kind={trace} me={ne} onKind={setTrace} onClose={() => setTrace(null)} />}
@@ -196,7 +210,9 @@ function Labels({ anchors, posRef, onPick }: { anchors: Anchor2[]; posRef: React
           const lw = (el.firstElementChild as HTMLElement | null)?.offsetWidth ?? 140;
           const leftAnchored = el.classList.contains('t2-eq') || el.classList.contains('t2-room');
           const x = leftAnchored ? Math.max(8, Math.min(W - lw - 8, p[0])) : Math.max(lw / 2 + 8, Math.min(W - lw / 2 - 8, p[0]));
-          let y = Math.max(topMin, Math.min(H - 16, p[1]));
+          const dock = root.parentElement?.querySelector<HTMLElement>('.t2-dock');
+          const botMax = dock && p[0] < dock.offsetLeft + dock.offsetWidth + 60 ? dock.offsetTop - 14 : H - 16;
+          let y = Math.max(topMin, Math.min(botMax, p[1]));
           /* never on top of another label: step up past whatever is already there */
           const lh = (el.firstElementChild as HTMLElement | null)?.offsetHeight ?? 22;
           const x0 = leftAnchored ? x : x - lw / 2;

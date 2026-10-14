@@ -187,6 +187,13 @@ room), racks / cabinets in the line of sight are hidden, and a card shows its fa
 (`twin2/walk.tsx`): eye-level camera, drag to look, click the floor to walk there (ring marks the spot), W A S D / arrows (Shift faster),
 scroll to zoom, racks and cabinets block the way, picking anything walks up to it, Esc stops. Check: `node .qa/twin2-walk.mjs`.
 
+Twin controls + heading (14-Oct-2026, user: "so many legends on the top-left … hiding the screen"; "use a better heading than Digital twin"):
+the Overview bar reads **Datacenter layout** · Live (not "design" / "plan": those words belong to Plan & Build / Facilities). Realistic twin:
+top-left = floor picker only; top-right = tools + a "?" holding the mouse / keyboard help (the hint line shows only while walking, under the
+picker, where the hover tip also sits); bottom-left = ONE dock (`.t2-dock`): Colour by (layer) · Power path / Cable paths, then a foldable
+grouped legend (Health · Power · Cables; `dco.twin2.legend`); the path card moved to the bottom-right. Labels keep clear of the dock. Narrow
+canvas (container query ≤720 px): no caption, chips read Power / Cables. Checks: `node .qa/twin2.mjs`, `W=1280 node .qa/twin2-paths.mjs`.
+
 ## Device digital twin (08-Oct-2026, user) — a pictorial, live view of one piece of equipment
 3D since the user rejected the 2D diagram version ("don't use the reference screenshots as is"): `screens/ne/twin3d/` (`kit.tsx` hardware primitives —
 chassis, port cages + link LEDs, spinning fans, finned heatsinks, PSUs, DIMMs, Pick (hover outline, fault halo), Ex (explode / lid motion), canvas
