@@ -139,3 +139,5 @@
 .wfm-legend i.is-done { background: #ECFDF5; border-color: #10B981; } .wfm-legend i.is-cur { background: #EFF6FF; border-color: #1C81EF; } .wfm-legend i.is-fail { background: #FEF2F2; border-color: #DC2626; }
 .wfm-legend .vw-label { margin-left: auto; }
 .wfm-err { position: absolute; top: 10px; left: 12px; margin: 0; font-size: 12px; color: #b21313; }
+/* full screen: the diagram fills the content area under the top bar (Esc closes) */
+.wfm.is-full { position: fixed; z-index: 60; top: calc(var(--top-h, 60px) + 12px); left: calc(var(--rail-w, 236px) + 12px); right: 12px; bottom: 12px; height: auto; min-height: 0; box-shadow: 0 24px 60px -20px rgba(15, 23, 42, .35); }

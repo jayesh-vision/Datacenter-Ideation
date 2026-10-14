@@ -21,6 +21,10 @@ export function BpmnView({ processKey, done = [], current, incident, counts, hei
   const [ready, setReady] = useState(0);
   const [err, setErr] = useState('');
   const touched = useRef(false);
+  const [full, setFull] = useState(false);
+  useEffect(() => { if (!full) return; const k = (e: KeyboardEvent) => { if (e.key === 'Escape') setFull(false); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [full]);
+  /* entering or leaving full screen refits the diagram to the new box */
+  useEffect(() => { touched.current = false; const t = setTimeout(() => { try { viewer.current?.get<Canvas>('canvas').zoom('fit-viewport', 'auto'); } catch { /* not imported yet */ } }, 60); return () => clearTimeout(t); }, [full]);
   const stopRo = useRef<(() => void) | null>(null);
 
   useEffect(() => {
@@ -67,14 +71,15 @@ export function BpmnView({ processKey, done = [], current, incident, counts, hei
 
   const zoom = (f: number | 'fit') => { const c = viewer.current?.get<Canvas>('canvas'); if (!c) return; if (f === 'fit') { touched.current = false; c.zoom('fit-viewport', 'auto'); } else { touched.current = true; c.zoom(c.zoom() * f); } };
   return (
-    <div className="wfm" style={{ height }}>
+    <div className={`wfm${full ? ' is-full' : ''}`} style={full ? undefined : { height }}>
       <div ref={host} className="wfm-canvas" onWheel={() => { touched.current = true; }} onMouseDown={() => { touched.current = true; }} />
       <div className="wfm-tools">
-        <button type="button" title="Fit to view" onClick={() => zoom('fit')}><I.Maximize2 size={14} /></button>
+        <button type="button" title={full ? 'Exit full screen (Esc)' : 'Full screen'} aria-pressed={full} onClick={() => setFull(f => !f)}>{full ? <I.Minimize2 size={14} /> : <I.Maximize2 size={14} />}</button>
+        <button type="button" title="Fit to view" onClick={() => zoom('fit')}><I.Scan size={14} /></button>
         <button type="button" title="Zoom in" onClick={() => zoom(1.2)}><I.Plus size={14} /></button>
         <button type="button" title="Zoom out" onClick={() => zoom(1 / 1.2)}><I.Minus size={14} /></button>
       </div>
-      <div className="wfm-legend"><span><i className="is-done" />Done</span><span><i className="is-cur" />Current step</span><span><i className="is-fail" />Failed step</span><span className="vw-label">drag to pan · scroll to zoom</span></div>
+      <div className="wfm-legend"><span><i className="is-done" />Done</span><span><i className="is-cur" />Current step</span><span><i className="is-fail" />Failed step</span><span className="vw-label">drag to pan · scroll to zoom{full ? ' · Esc to close' : ''}</span></div>
       {err && <p className="wfm-err">{err}</p>}
     </div>
   );
