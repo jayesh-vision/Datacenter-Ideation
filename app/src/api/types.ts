@@ -373,6 +373,34 @@ export interface SiteSafety {
   totals: { fireZones: number; armed: number; inspectionsDue: number; leakZones: number; dry: number; doors: number; secured: number; denied24h: number };
 }
 
+/* Physical access & security audit (14-Oct-2026, user): who came in and out of the building in the last 24 h, through which
+   door, on whose authority, and what the security team flagged. Derived from the site's access points (SiteSafety.access);
+   every door's events24h / denied24h / last is counted from this log. */
+export type AccessPersonType = 'Staff' | 'Security' | 'Contractor' | 'Visitor' | 'Tenant' | 'Delivery';
+export interface AccessVisit {
+  id: string; dcId: string; person: string; company: string; type: AccessPersonType; badge: string; badgeKind: 'Permanent' | 'Contractor' | 'Visitor';
+  purpose: string; ref?: string; host?: string; escort?: string; entered: number; exited?: number; zones: string[]; onSite: boolean; where: string;
+}
+export interface AccessEvent {
+  id: string; dcId: string; at: number; doorId: string; door: string; zone: string; dir: 'In' | 'Out'; visitId?: string; person: string; company: string;
+  type: AccessPersonType; badge: string; method: AccessPoint['reader']; result: 'Granted' | 'Denied'; reason?: string; ref?: string;
+}
+export type SecExceptionKind = 'Tailgating' | 'Door forced' | 'Door held open' | 'Anti-passback' | 'Repeated denials' | 'After-hours entry' | 'Unescorted visitor' | 'Overstay' | 'Badge not returned';
+export interface SecException {
+  id: string; dcId: string; at: number; kind: SecExceptionKind; severity: 'High' | 'Medium' | 'Low'; status: 'Open' | 'Under review' | 'Closed';
+  doorId?: string; door?: string; person?: string; company?: string; detail: string; evidence?: string; ref?: string; outcome?: string; owner: string;
+}
+export interface AccessReview {
+  badges: number; byType: { type: AccessPersonType; n: number }[]; unused90: number; expiredActive: number; lastReview: number; nextReview: number; reviewer: string;
+  cctvDays: number; logDays: number; findings: { text: string; tone: 'ok' | 'warn' | 'bad' }[];
+}
+export interface SiteAccess {
+  dcId: string; live: boolean; from: number; to: number; visits: AccessVisit[]; events: AccessEvent[]; exceptions: SecException[]; doors: AccessPoint[]; review: AccessReview;
+  hourly: { at: number; in: number; out: number; denied: number }[];
+  totals: { onSite: number; onSiteByType: Partial<Record<AccessPersonType, number>>; entries24h: number; exits24h: number; denied24h: number; deniedDoors: number; events24h: number;
+    open: number; high: number; visitors24h: number; unescorted: number; doors: number; secured: number; heldOpen: number };
+}
+
 export type LifeState = 'Covered' | 'Expiring' | 'Out of warranty' | 'End of support' | 'Tenant-owned' | 'Planned';
 export interface AssetLife {
   neId: string; dcId: string; vendor: string; model: string; installed: number; warrantyEnd: number; endOfSale: number; endOfSupport: number;
@@ -482,12 +510,15 @@ export type PrefixStatus = 'Container' | 'Active' | 'Reserved';
 export interface IpPrefix {
   id: string; prefix: string; dcId?: string; hallId?: string; vrf: string; role: PrefixRole; status: PrefixStatus; parentId?: string; vlan?: number; gateway?: string;
   description: string; size: number; used: number; pct: number; children: number; aggregate: string;
+  /* forecast (14-Oct-2026): growth = addresses of devices installed in the last 12 months ÷ 12; Consumed ≥ 90%, Committed ≥ 75% or full within 12 months */
+  state?: 'Available' | 'Committed' | 'Consumed'; growth?: number; exhaustAt?: number | null; pool?: boolean; manual?: boolean;
 }
 export type IpAddrStatus = 'Active' | 'Reserved' | 'Gateway' | 'Conflict' | 'Outside plan';
 export interface IpAddr {
   id: string; address: string; mask: number; prefixId: string | null; vrf: string; dcId?: string; status: IpAddrStatus;
   use: 'Management' | 'Loopback' | 'Link' | 'Host' | 'Gateway (VIP)' | 'PE–CE' | 'Reserved';
   deviceId?: string; deviceName?: string; iface?: string; dns: string; note?: string;
+  primary?: boolean; mac?: string;
 }
 export interface IpVrf { id: string; name: string; rd: string; scope: 'Site' | 'Estate' | 'Customer'; dcId?: string; customerId?: string; importRt: string[]; exportRt: string[]; prefixes: number; addresses: number; enforceUnique: boolean; description: string }
 export interface IpVlan { id: string; vid: number; name: string; dcId: string; group: 'Management' | 'Fabric' | 'Storage' | 'Services'; role: string; prefix?: string; devices: number; status: 'Active' | 'Reserved' | 'Unused'; serviceId?: string; customerId?: string }
@@ -500,8 +531,22 @@ export interface IpAggregate { id: string; prefix: string; rir: string; descript
 export interface IpFinding { id: string; severity: Severity; kind: 'Prefix full' | 'Outside plan' | 'Conflict' | 'Unused VLAN' | 'Gateway degraded'; title: string; detail: string; dcId?: string; ref?: string }
 export interface IpamView {
   prefixes: IpPrefix[]; addresses: IpAddr[]; vrfs: IpVrf[]; vlans: IpVlan[]; asns: IpAsn[]; asnRanges: IpAsnRange[]; ranges: IpRange[];
-  fhrp: IpFhrp[]; services: IpService[]; aggregates: IpAggregate[]; findings: IpFinding[];
+  fhrp: IpFhrp[]; services: IpService[]; aggregates: IpAggregate[]; findings: IpFinding[]; registers: IpRegisters;
 }
+/* reference registers (14-Oct-2026, from P2B's RIR / role / route target / VLAN group / service template pages, derived here) */
+export interface IpRegisters {
+  rirs: { id: string; name: string; private: boolean; description: string; aggregates: number; asns: number }[];
+  roles: { role: PrefixRole; weight: number; description: string; prefixes: number; addresses: number; vlans: number }[];
+  routeTargets: { rt: string; importedBy: string[]; exportedBy: string[] }[];
+  vlanGroups: { id: string; dcId: string; group: IpVlan['group']; min: number; max: number; used: number }[];
+  serviceTemplates: { id: string; name: string; protocol: 'TCP' | 'UDP'; ports: number[]; instances: number; devices: number }[];
+}
+export interface IpAddrDetail { addr: IpAddr; prefix?: IpPrefix; vlan?: IpVlan; fhrp?: IpFhrp; fhrpRole?: 'Virtual IP' | 'Member'; services: IpService[]; sameDevice: IpAddr[] }
+export interface IpIntegration {
+  id: string; name: string; system: 'DDI' | 'DNS' | 'DHCP' | 'ITSM'; direction: 'Import' | 'Export' | 'Both'; status: 'Connected' | 'Not connected' | 'Error';
+  objects: string; records: number; differences: number; lastSync: number | null; message?: string; history: { at: number; action: string; result: string }[];
+}
+export interface NewPrefixInput { prefix: string; vrf: string; parentId?: string; role: PrefixRole; dcId?: string; vlan?: number; pool: boolean; description: string }
 
 /* ---- Capacity additions (13-Oct-2026, P2B merge phase 3): what is held against capacity (mock/capacity.ts) */
 export type HoldState = 'Requested' | 'Reserved' | 'Committed' | 'Pipeline';

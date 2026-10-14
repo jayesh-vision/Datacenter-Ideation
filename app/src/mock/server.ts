@@ -2,7 +2,7 @@
    one in-memory estate. Only src/api/index.ts talks to this module. */
 
 import { sevLabel } from '../lib/vocab';
-import type {
+import type { NewPrefixInput,
   ActionStep, Alert, AlertScope, EdgeStatus, OpsState, AuditEntry, CapacityPlan, Change, ChangeStatus, Datacenter, DcSummary, Incident, IncidentStatus, Interface, Link, Location,
   ImpactCause, NetworkElement, NeRole, Persona, PrefixRole, ReconTask, RevDomain, RevIssue, RevenueView, RolloutStatus, Service, Severity, TimelineEvent
 } from '../api/types';
@@ -19,12 +19,13 @@ import { DAY, HOUR, MIN } from './seed';
 import { buildRevenue, customerHits, revenueView, type RevModel } from './revenue';
 import { gpuView, type GpuView } from './gpu-view';
 import { siteSafety as siteSafety_, clearSafety } from './safety';
+import { accessOf } from './access';
 import { siteLifecycle as siteLifecycle_, clearLifecycle } from './lifecycle';
 import { sitePm as sitePm_, clearMaintenance } from './maintenance';
 import { clearOps, colocationOrders as colocationOrders_, incidentOps as incidentOps_, onCall as onCall_, problems as problems_, resilienceTests as resilienceTests_ } from './ops';
 import { cablePath as cablePath_, clearPhysical, devicePhysical as devicePhysical_, sitePhysicalPublic, whatIf as whatIf_ } from './physical';
 import { addCustomType, clearDcim, dcimCatalog as dcimCatalog_, dcimComponents as dcimComponents_, dcimModel, dcimRackView as dcimRackView_, freeSlots, resetDcimCustom } from './dcim';
-import { carvePrefix, clearIpam, ipamModel, reserveNextIp, resetIpamOverlay } from './ipam';
+import { addressDetail, assignToDevice, carvePrefix, clearIpam, createPrefix, integrations, ipamModel, reserveNextIp, resetIpamOverlay, setPrimaryAddress, syncIntegration, unassignAddress } from './ipam';
 import { capacityHolds, gpuCapacity, siteEnergy } from './capacity';
 import { setPlannerClock } from '../planner/compat/clock';
 import { registerPlannerStore } from '../planner/compat/registry';
@@ -905,6 +906,8 @@ export const whatIf = (dcId: string, assetId: string) => whatIf_(db, dcId, asset
 
 /* Phase 2: environment & safety, asset lifecycle + RMA + spares, planned plant maintenance */
 export const siteSafety = (dcId: string) => siteSafety_(db, dcId);
+/* physical access & security audit: the 24 h badge log behind the doors siteSafety lists */
+export const siteAccess = (dcId: string) => (siteSafety_(db, dcId) ? accessOf(dcId) : null);
 export const siteLifecycle = (dcId: string) => siteLifecycle_(db, dcId);
 export const sitePm = (dcId: string) => sitePm_(db, dcId);
 export function deviceLifecycle(neId: string) {
@@ -1014,6 +1017,13 @@ export function ipam(q: { dcId?: string } = {}) {
 export const ipamOfDevice = (neId: string) => { const m = ipamModel(db); return { addresses: m.addresses.filter(a => a.deviceId === neId), services: m.services.filter(s => s.deviceId === neId), vlans: m.vlans.filter(v => v.serviceId && db.services.find(s => s.id === v.serviceId)?.neId === neId) }; };
 export function ipamReserve(prefixId: string, note: string) { const a = reserveNextIp(db, prefixId, note); audit_({ actor: ME, object: a.address, field: 'ip', prev: '—', next: `reserved in ${a.vrf}${note ? ` (${note})` : ''}`, source: 'IPAM' }); changed(); return a; }
 export function ipamCarve(parentId: string, mask: number, role: PrefixRole, description: string) { const p = carvePrefix(db, parentId, mask, role, description); audit_({ actor: ME, object: p.prefix, field: 'prefix', prev: '—', next: `reserved in ${p.vrf} (${role})`, source: 'IPAM' }); changed(); return p; }
+export const ipamAddress = (id: string) => addressDetail(db, id);
+export function ipamCreatePrefix(x: NewPrefixInput) { const p = createPrefix(db, x); audit_({ actor: ME, object: p.prefix, field: 'prefix', prev: '—', next: `entered in ${p.vrf} (${p.role}${p.pool ? ', pool' : ''})`, source: 'IPAM' }); changed(); return p; }
+export function ipamAssign(neId: string, prefixId: string, iface: string | undefined, primary: boolean) { const a = assignToDevice(db, neId, prefixId, iface, primary); audit_({ actor: ME, object: a.address, field: 'device', prev: '—', next: `${a.deviceName}${iface ? ` ${iface}` : ''}${primary ? ' (primary)' : ''}`, source: 'IPAM' }); changed(); return a; }
+export function ipamUnassign(id: string) { const a = unassignAddress(db, id); audit_({ actor: ME, object: a.address, field: 'device', prev: a.deviceName ?? '—', next: 'unassigned (held)', source: 'IPAM' }); changed(); return a; }
+export function ipamSetPrimary(neId: string, id: string) { setPrimaryAddress(db, neId, id); audit_({ actor: ME, object: db.neById.get(neId)?.name ?? neId, field: 'primary IPv4', prev: '—', next: id.split('|')[1] ?? id, source: 'IPAM' }); changed(); }
+export const ipamIntegrations = () => integrations(db);
+export function ipamSync(id: string, action: 'Sync' | 'Import' | 'Export' | 'Connect') { const c = syncIntegration(db, id, action); audit_({ actor: ME, object: c.name, field: 'sync', prev: '—', next: c.history[0]?.result ?? action, source: 'IPAM integrations' }); changed(); return c; }
 
 
 /* ---- Delivery (P2B merge, phase 5): approved plans as projects (mock/delivery.ts) */

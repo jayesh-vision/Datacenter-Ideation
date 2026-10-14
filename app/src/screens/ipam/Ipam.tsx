@@ -12,14 +12,15 @@ import { DataTable, type Col } from '../../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
 import { Facts, SoftMeter, Split, StatGrid, StatTile } from '../../ui/Analytics';
 import { Meter, NeLink, SevDot } from '../../ui/status';
-import { fmtNum } from '../../lib/format';
+import { fmtDate, fmtNum } from '../../lib/format';
 import { useToast } from '../ops/shared';
 import { ACCENT, loadColor } from '../dcim/common';
 import '../../styles/dcim.css';
 import '../../styles/ipam.css';
+import { AddressDrawer, FullBy, Integrations, NewPrefixModal, Registers, STATE_TONE } from './extras';
 
-type Tab = 'overview' | 'prefixes' | 'addresses' | 'vrfs' | 'vlans' | 'asns' | 'services';
-const TABS: { id: Tab; label: string }[] = [{ id: 'overview', label: 'Overview' }, { id: 'prefixes', label: 'Prefixes' }, { id: 'addresses', label: 'IP addresses' }, { id: 'vrfs', label: 'VRFs' }, { id: 'vlans', label: 'VLANs' }, { id: 'asns', label: 'ASNs' }, { id: 'services', label: 'Gateways & services' }];
+type Tab = 'overview' | 'prefixes' | 'addresses' | 'vrfs' | 'vlans' | 'asns' | 'services' | 'registers' | 'integrations';
+const TABS: { id: Tab; label: string }[] = [{ id: 'overview', label: 'Overview' }, { id: 'prefixes', label: 'Prefixes' }, { id: 'addresses', label: 'IP addresses' }, { id: 'vrfs', label: 'VRFs' }, { id: 'vlans', label: 'VLANs' }, { id: 'asns', label: 'ASNs' }, { id: 'services', label: 'Gateways & services' }, { id: 'registers', label: 'Registers' }, { id: 'integrations', label: 'Integrations' }];
 const ROLE_TONE: Record<PrefixRole, 'info' | 'neutral' | 'purple' | 'cyan' | 'orange'> = { Management: 'info', Loopback: 'neutral', 'Point-to-point': 'neutral', Production: 'purple', Storage: 'cyan', Backbone: 'neutral', Public: 'orange', Customer: 'orange' };
 const ST_TONE: Record<IpAddr['status'], 'success' | 'info' | 'neutral' | 'error' | 'warning'> = { Active: 'success', Reserved: 'info', Gateway: 'neutral', Conflict: 'error', 'Outside plan': 'warning' };
 const has = (s: string, q: string) => !q || s.toLowerCase().includes(q.toLowerCase());
@@ -40,6 +41,9 @@ export function Ipam() {
   const { data: sites } = useQuery(() => getDcim(), []);
   const { data: m } = useQuery(() => getIpam({ dcId: dcId || undefined }), [dcId]);
   const [prefix, setPrefix] = useState<string | null>(null);
+  const [addr, setAddr] = useState<string | null>(null);
+  const [newPfx, setNewPfx] = useState(false);
+  const toast = useToast();
   if (!m || !sites) return <Loading />;
   const leaf = m.prefixes.filter(p => p.status !== 'Container');
   const full = leaf.filter(p => p.pct >= 90 && p.size >= 8 && p.role !== 'Point-to-point');
@@ -84,13 +88,18 @@ export function Ipam() {
       </StatGrid>
       <Tabs value={tab} onChange={v => setTab(v)} tabs={TABS.map(t => ({ ...t, count: t.id === 'prefixes' ? leaf.length : t.id === 'vlans' ? m.vlans.length : undefined }))} />
       {tab === 'overview' && <Overview m={m} onPrefix={setPrefix} />}
-      {tab === 'prefixes' && <Prefixes m={m} onPrefix={setPrefix} />}
-      {tab === 'addresses' && <Addresses m={m} onPrefix={setPrefix} />}
+      {tab === 'prefixes' && <Prefixes m={m} onPrefix={setPrefix} onNew={() => setNewPfx(true)} />}
+      {tab === 'addresses' && <Addresses m={m} onAddress={setAddr} />}
       {tab === 'vrfs' && <Vrfs vrfs={m.vrfs} />}
       {tab === 'vlans' && <Vlans vlans={m.vlans} />}
       {tab === 'asns' && <Asns m={m} />}
       {tab === 'services' && <Services m={m} onPrefix={setPrefix} />}
-      <PrefixDrawer m={m} id={prefix} onClose={() => setPrefix(null)} onOpen={setPrefix} />
+      {tab === 'registers' && <Registers m={m} onFilter={(t, patch) => setTab(t as Tab, patch)} />}
+      {tab === 'integrations' && <Integrations />}
+      <AddressDrawer id={addr} onClose={() => setAddr(null)} onPrefix={id => { setAddr(null); setPrefix(id); }} onAddress={setAddr} toast={toast.show} />
+      <NewPrefixModal open={newPfx} m={m} dcId={dcId || undefined} onClose={() => setNewPfx(false)} onDone={id => { setNewPfx(false); setPrefix(id); toast.show('Prefix created', 'It starts as Reserved; carve or reserve addresses from it.'); }} />
+      {toast.node}
+      <PrefixDrawer m={m} id={prefix} onClose={() => setPrefix(null)} onOpen={setPrefix} onAddress={id => { setPrefix(null); setAddr(id); }} />
     </div>
   );
 }
@@ -150,12 +159,12 @@ function Overview({ m, onPrefix }: { m: IpamView; onPrefix: (id: string) => void
 
 /* ---------------------------------------------------------------- prefixes */
 
-function Prefixes({ m, onPrefix }: { m: IpamView; onPrefix: (id: string) => void }) {
+function Prefixes({ m, onPrefix, onNew }: { m: IpamView; onPrefix: (id: string) => void; onNew: () => void }) {
   const { get, set, apply } = useP();
-  const q = get('q'), role = get('role'), vrf = get('vrf'), pf = get('pf');
+  const q = get('q'), role = get('role'), vrf = get('vrf'), pf = get('pf'), pst = get('pst');
   const [closed, setClosed] = useState<Set<string>>(new Set());
-  const filtering = !!(q || role || vrf || pf);
-  const match = (p: IpPrefix) => (!role || p.role === role) && (!vrf || p.vrf === vrf) && (!pf || (p.pct >= 90 && p.status !== 'Container' && p.size >= 8 && p.role !== 'Point-to-point')) && has(`${p.prefix} ${p.description} ${p.vrf} ${p.dcId ?? ''} ${p.vlan ?? ''}`, q);
+  const filtering = !!(q || role || vrf || pf || pst);
+  const match = (p: IpPrefix) => (!pst || p.state === pst) && (!role || p.role === role) && (!vrf || p.vrf === vrf) && (!pf || (p.pct >= 90 && p.status !== 'Container' && p.size >= 8 && p.role !== 'Point-to-point')) && has(`${p.prefix} ${p.description} ${p.vrf} ${p.dcId ?? ''} ${p.vlan ?? ''}`, q);
   const tops = m.prefixes.filter(p => !p.parentId);
   const kids = (id: string) => m.prefixes.filter(p => p.parentId === id);
   const rows: { p: IpPrefix; depth: number }[] = [];
@@ -171,14 +180,15 @@ function Prefixes({ m, onPrefix }: { m: IpamView; onPrefix: (id: string) => void
   return (
     <section className="vw-card-section dcim-table">
       <div className="dt-toolbar"><ListToolbar shown={shown} total={m.prefixes.filter(p => p.status !== 'Container').length} noun="prefixes" onApply={apply} search={{ value: q, onChange: v => set('q', v), placeholder: 'Prefix, description, VRF, VLAN' }}
-        tools={<><Btn icon={I.ChevronsDownUp} onClick={() => setClosed(new Set(m.prefixes.filter(p => p.status === 'Container').map(p => p.id)))}>Collapse</Btn><Btn icon={I.ChevronsUpDown} onClick={() => setClosed(new Set())}>Expand</Btn></>}
+        tools={<><Btn variant="filled" icon={I.Plus} onClick={onNew}>New prefix</Btn><Btn icon={I.ChevronsDownUp} onClick={() => setClosed(new Set(m.prefixes.filter(p => p.status === 'Container').map(p => p.id)))}>Collapse</Btn><Btn icon={I.ChevronsUpDown} onClick={() => setClosed(new Set())}>Expand</Btn></>}
         filters={[
           { id: 'role', label: 'Role', quick: true, value: role, anyLabel: 'Any role', onChange: v => set('role', v), options: opts(m.prefixes, p => p.role) },
           { id: 'vrf', label: 'VRF', quick: true, value: vrf, anyLabel: 'Any VRF', onChange: v => set('vrf', v), options: opts(m.prefixes, p => p.vrf).slice(0, 60) },
+          { id: 'pst', label: 'Forecast', value: pst, anyLabel: 'Any state', onChange: v => set('pst', v), options: (['Consumed', 'Committed', 'Available'] as const).map(x => ({ id: x, label: x, count: m.prefixes.filter(p => p.state === x).length })) },
           { id: 'pf', label: 'Usage', value: pf, anyLabel: 'Any usage', onChange: v => set('pf', v), options: [{ id: 'full', label: '≥ 90% used', count: m.prefixes.filter(p => p.pct >= 90 && p.status !== 'Container' && p.size >= 8 && p.role !== 'Point-to-point').length }] }
         ]} /></div>
       <div className="dt-scroll"><table className="nst-table dt-table ipam-tree">
-        <thead><tr><th>Prefix</th><th>Description</th><th>VRF</th><th>Role</th><th>VLAN</th><th>Usage</th><th>Status</th></tr></thead>
+        <thead><tr><th>Prefix</th><th>Description</th><th>VRF</th><th>Role</th><th>VLAN</th><th>Usage</th><th>Forecast</th><th>Full by</th><th>Status</th></tr></thead>
         <tbody>{rows.slice(0, 600).map(({ p, depth }) => (
           <tr key={p.id} className="is-click" onClick={() => onPrefix(p.id)}>
             <td><span className="ipam-pfx" style={{ paddingLeft: depth * 20 }}>
@@ -189,7 +199,9 @@ function Prefixes({ m, onPrefix }: { m: IpamView; onPrefix: (id: string) => void
             <td><Chip tone={ROLE_TONE[p.role]} size="xs">{p.role}</Chip></td>
             <td className="mono">{p.vlan ?? '—'}</td>
             <td>{p.status === 'Container' ? <Meter pct={p.pct} width={60} color="var(--vw-color-slate-400)" label={`${p.children} block${p.children === 1 ? '' : 's'}`} /> : <Meter pct={p.pct} width={60} color={loadColor(p.pct)} label={`${fmtNum(p.used)}/${fmtNum(p.size)}`} />}</td>
-            <td><Chip tone={p.status === 'Active' ? 'success' : p.status === 'Reserved' ? 'info' : 'neutral'} dot>{p.status}</Chip></td>
+            <td>{p.state ? <Chip tone={STATE_TONE[p.state]} size="xs">{p.state}</Chip> : <span className="vw-label">—</span>}</td>
+            <td><FullBy p={p} compact /></td>
+            <td><Chip tone={p.status === 'Active' ? 'success' : p.status === 'Reserved' ? 'info' : 'neutral'} dot>{p.status}</Chip>{p.manual && <small className="vw-label"> by hand</small>}</td>
           </tr>
         ))}</tbody>
       </table>{rows.length > 600 && <p className="vw-label" style={{ padding: 12 }}>Showing the first 600 rows — search or filter to narrow down.</p>}</div>
@@ -211,7 +223,7 @@ function AddressMap({ p, addrs }: { p: IpPrefix; addrs: IpAddr[] }) {
   );
 }
 
-function PrefixDrawer({ m, id, onClose, onOpen }: { m: IpamView; id: string | null; onClose: () => void; onOpen: (id: string) => void }) {
+function PrefixDrawer({ m, id, onClose, onOpen, onAddress }: { m: IpamView; id: string | null; onClose: () => void; onOpen: (id: string) => void; onAddress: (id: string) => void }) {
   const toast = useToast();
   const [carve, setCarve] = useState(false);
   const [note, setNote] = useState('');
@@ -229,6 +241,10 @@ function PrefixDrawer({ m, id, onClose, onOpen }: { m: IpamView; id: string | nu
       <div className="row" style={{ gap: 8, marginBottom: 12, flexWrap: 'wrap' }}><Chip tone={ROLE_TONE[p.role]}>{p.role}</Chip><Chip tone={p.status === 'Active' ? 'success' : 'info'} dot>{p.status}</Chip>{p.vlan && <Chip tone="neutral">VLAN {p.vlan}</Chip>}</div>
       <KV cols={3} items={[['Site', p.dcId ?? 'Estate-wide'], ['VRF', <span className="mono">{p.vrf}</span>], ['Aggregate', <span className="mono">{p.aggregate}</span>],
         ['Usage', p.status === 'Container' ? `${p.children} blocks · ${p.pct}%` : `${p.used} of ${p.size} (${p.pct}%)`], ['Gateway', p.gateway ? <span className="mono">{p.gateway}</span> : '—'], ['Parent', parent ? <button type="button" className="ent-link mono" onClick={() => onOpen(parent.id)}>{parent.prefix}</button> : '—']]} />
+      {p.state && <div className={`ipam-fc is-${p.state.toLowerCase()}`}>
+        <span className="ipam-bind-ico"><I.TrendingUp size={16} /></span>
+        <span><b>{p.state}{p.exhaustAt ? (p.growth && (p.size - p.used) / p.growth > 120 ? ' · not full within 10 years' : ` · full by ${fmtDate(p.exhaustAt)}`) : ' · no growth'}</b><small>{p.growth ? `${p.growth} addresses a month (devices installed in the last 12 months); ${fmtNum(Math.max(0, p.size - p.used))} free` : `No device in it was installed in the last 12 months; ${fmtNum(Math.max(0, p.size - p.used))} addresses free`}</small></span>
+      </div>}
       {gw && <p className="ipam-gw"><I.Route size={14} />{gw.protocol} group {gw.group} · virtual IP <span className="mono">{gw.vip}</span> on {gw.members.map(x => <NeLink key={x} id={x}>{x.replace(`${p.dcId}-`, '')}</NeLink>)}{gw.state === 'degraded' && <Chip tone="error" size="xs">no redundancy</Chip>}</p>}
       {p.status === 'Container' ? <>
         <b className="dcim-sub-h">Blocks in this container</b>
@@ -239,7 +255,7 @@ function PrefixDrawer({ m, id, onClose, onOpen }: { m: IpamView; id: string | nu
         <div className="ipam-map-legend">{(['Active', 'Reserved', 'Gateway', 'Outside plan'] as const).map(s => <span key={s}><i className={`ipam-cell is-${s.replace(' ', '-').toLowerCase()}`} />{s}</span>)}<span><i className="ipam-cell" />Free</span></div>
         <b className="dcim-sub-h">Addresses ({addrs.length})</b>
         <table className="nst-table dt-table dcim-comp"><thead><tr><th>Address</th><th>Device · interface</th><th>Use</th><th>Status</th></tr></thead>
-          <tbody>{addrs.slice(0, 200).map(a => <tr key={a.id}><td className="mono">{a.address}/{a.mask}</td><td>{a.deviceId ? <span className="cell-2"><NeLink id={a.deviceId}>{a.deviceName}</NeLink><small className="mono">{a.iface ?? ''}{a.note ? ` · ${a.note}` : ''}</small></span> : <span className="cell-2"><span>{a.deviceName ?? '—'}</span>{a.note && <small>{a.note}</small>}</span>}</td><td>{a.use}</td><td><Chip tone={ST_TONE[a.status]} dot size="xs">{a.status}</Chip></td></tr>)}</tbody></table>
+          <tbody>{addrs.slice(0, 200).map(a => <tr key={a.id} className="is-click" onClick={() => onAddress(a.id)}><td className="mono">{a.address}/{a.mask}</td><td>{a.deviceId ? <span className="cell-2"><NeLink id={a.deviceId}>{a.deviceName}</NeLink><small className="mono">{a.iface ?? ''}{a.note ? ` · ${a.note}` : ''}</small></span> : <span className="cell-2"><span>{a.deviceName ?? '—'}</span>{a.note && <small>{a.note}</small>}</span>}</td><td>{a.use}</td><td><Chip tone={ST_TONE[a.status]} dot size="xs">{a.status}</Chip></td></tr>)}</tbody></table>
         {addrs.length > 200 && <p className="vw-label">First 200 of {addrs.length}; the IP addresses tab lists them all.</p>}
       </>}
     </Drawer>
@@ -270,12 +286,12 @@ function CarveModal({ open, parent, onClose, onDone }: { open: boolean; parent: 
 
 /* ---------------------------------------------------------------- lists */
 
-function Addresses({ m, onPrefix }: { m: IpamView; onPrefix: (id: string) => void }) {
+function Addresses({ m, onAddress }: { m: IpamView; onAddress: (id: string) => void }) {
   const { get, set, apply } = useP();
   const q = get('q'), use = get('use'), st = get('ast');
   const rows = useMemo(() => m.addresses.filter(a => (!use || a.use === use) && (!st || a.status === st) && has(`${a.address} ${a.deviceName ?? ''} ${a.iface ?? ''} ${a.dns} ${a.vrf}`, q)), [m, q, use, st]);
   const cols: Col<IpAddr>[] = [
-    { key: 'a', header: 'Address', sort: a => a.address.split('.').map(x => x.padStart(3, '0')).join('.'), render: a => <span className="mono">{a.address}/{a.mask}</span> },
+    { key: 'a', header: 'Address', sort: a => a.address.split('.').map(x => x.padStart(3, '0')).join('.'), render: a => <span className="row" style={{ gap: 6, flexWrap: 'nowrap' }}><span className="mono">{a.address}/{a.mask}</span>{a.primary && <Chip tone="info" size="xs">Primary</Chip>}</span> },
     { key: 'v', header: 'VRF', sort: a => a.vrf, render: a => <span className="mono">{a.vrf}</span> },
     { key: 'd', header: 'Device · interface', sort: a => a.deviceName ?? '', render: a => a.deviceId ? <span className="cell-2"><NeLink id={a.deviceId}>{a.deviceName}</NeLink><small className="mono">{a.iface}</small></span> : <span>{a.deviceName ?? '—'}</span> },
     { key: 'u', header: 'Use', sort: a => a.use, render: a => a.use },
@@ -284,7 +300,7 @@ function Addresses({ m, onPrefix }: { m: IpamView; onPrefix: (id: string) => voi
   ];
   return (
     <section className="vw-card-section dcim-table">
-      <DataTable rows={rows} cols={cols} pageSize={30} defaultSort={{ key: 'a', dir: 'asc' }} onRow={a => a.prefixId && onPrefix(a.prefixId)}
+      <DataTable rows={rows} cols={cols} pageSize={30} defaultSort={{ key: 'a', dir: 'asc' }} onRow={a => onAddress(a.id)}
         toolbar={<ListToolbar shown={rows.length} total={m.addresses.length} noun="addresses" onApply={apply} search={{ value: q, onChange: v => set('q', v), placeholder: 'Address, device, interface, DNS name' }}
           filters={[{ id: 'use', label: 'Use', quick: true, value: use, anyLabel: 'Any use', onChange: v => set('use', v), options: opts(m.addresses, a => a.use) },
             { id: 'ast', label: 'Status', quick: true, value: st, anyLabel: 'Any status', onChange: v => set('ast', v), options: opts(m.addresses, a => a.status) }]} />} />

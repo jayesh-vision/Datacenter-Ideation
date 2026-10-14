@@ -428,6 +428,13 @@ screens are rebuilt in our kit (PageHead, StatGrid, ListToolbar, DataTable, NST 
   address, addresses inside their prefix + VRF, no duplicates in a VRF, used = bound, children inside parents, no sibling overlap, 2 link
   addresses per adjacency / inter-site link, one host address per host, PE–CE and VLANs per service, VLAN ids unique per site; `GEO=us`),
   `node .qa/ipam.mjs <persona> <geo>` (W=1280).
+  P2B gap fill (14-Oct-2026, user; `screens/ipam/extras.tsx`, mock in `mock/ipam.ts`): address drawer (device → interface → prefix, DNS, MAC,
+  VLAN, gateway group, services, other addresses; set primary / unassign), exhaustion forecast per prefix (growth = addresses on devices
+  installed in the last 12 months ÷ 12, lifecycle install dates; Consumed ≥ 90%, Committed ≥ 75% or full within 12 months; Forecast + Full by
+  columns, prefix drawer card), New prefix form (boundary, inside its container, no overlap in the VRF; pool flag), DCIM device drawer
+  address actions (assign the next free address of a site prefix, set primary, unassign), Registers tab (registries, roles, route targets,
+  VLAN groups, service templates, all derived), Integrations tab (ServiceNow / Infoblox / BlueCat / AD DNS / Kea DHCP mock connectors:
+  records and differences from the plan, sync / import / export / connect, audited). Overlays reset on regenerate.
 - **Phase 3 = Capacity (done)**: our parked `/capacity` screen (`screens/Capacity.tsx`) is back in the menu (it was the screen P2B had copied as
   "Plans & forecast") with P2B's additions, all derived (`mock/capacity.ts`, fields `holds · gpu · energy · halls` on `capacity()`): overview opens
   with a StatGrid (one tile per dimension + holds); Space adds space & power by hall (→ DCIM floor plan); Compute & GPU adds GPU capacity (in a

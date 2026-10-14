@@ -9,10 +9,12 @@
      cross-connects = a VLAN per service on the handoff device.
    - ASNs: the operator's public ASN, a private ASN per site fabric and (leaf–spine fabrics) one 32-bit private ASN per BGP leaf.
    Cached per data version; runtime allocations (reserve the next IP, carve a prefix) live in an overlay cleared on regeneration. */
-import type { IpAddr, IpAggregate, IpAsn, IpAsnRange, IpFhrp, IpFinding, IpPrefix, IpRange, IpService, IpVlan, IpVrf, IpamView, Link, NetworkElement, PrefixRole } from '../api/types';
+import type { IpAddr, IpAddrDetail, IpIntegration, IpRegisters, NewPrefixInput, IpAggregate, IpAsn, IpAsnRange, IpFhrp, IpFinding, IpPrefix, IpRange, IpService, IpVlan, IpVrf, IpamView, Link, NetworkElement, PrefixRole } from '../api/types';
 import type { Db } from './generate';
 import { activeGeo } from './geo';
 import { dcimModel } from './dcim';
+import { siteLifecycle } from './lifecycle';
+import { fmtNum } from '../lib/format';
 
 export const toInt = (ip: string) => ip.split('.').reduce((a, o) => a * 256 + Number(o), 0);
 export const toIp = (n: number) => [Math.floor(n / 16777216) % 256, Math.floor(n / 65536) % 256, Math.floor(n / 256) % 256, n % 256].join('.');
@@ -26,9 +28,14 @@ const isPlanned = (n: NetworkElement) => n.discovery === 'not-discovered' && n.n
 const HOST = new Set(['Server', 'Storage', 'GPU']);
 const short = (dcId: string) => dcId.replace(/-DC-/, '');
 
-export interface IpamOverlay { addresses: IpAddr[]; prefixes: IpPrefix[] }
-const overlay: IpamOverlay = { addresses: [], prefixes: [] };
-export const resetIpamOverlay = () => { overlay.addresses.length = 0; overlay.prefixes.length = 0; cache = null; };
+export interface IpamOverlay {
+  addresses: IpAddr[]; prefixes: IpPrefix[];
+  /* device address moves (14-Oct-2026): bind an address to a device, unbind it, pick the primary IPv4 */
+  bound: Map<string, { deviceId: string; deviceName: string; iface?: string }>; unbound: Map<string, string>; primary: Map<string, string>;
+  sync: Map<string, Pick<IpIntegration, 'status' | 'lastSync' | 'message' | 'history'>>;
+}
+const overlay: IpamOverlay = { addresses: [], prefixes: [], bound: new Map(), unbound: new Map(), primary: new Map(), sync: new Map() };
+export const resetIpamOverlay = () => { overlay.addresses.length = 0; overlay.prefixes.length = 0; overlay.bound.clear(); overlay.unbound.clear(); overlay.primary.clear(); overlay.sync.clear(); cache = null; };
 let cacheDb: Db | null = null;
 let cache: IpamView | null = null;
 export const clearIpam = () => { cache = null; };
@@ -204,6 +211,20 @@ function build(db: Db): IpamView {
   /* ---- runtime overlay (reserved IPs, carved prefixes) */
   prefixes.push(...overlay.prefixes.filter(p => !prefixes.some(x => x.id === p.id)));
   addresses.push(...overlay.addresses.filter(a => !addresses.some(x => x.id === a.id)));
+  for (const a of addresses) {
+    const b = overlay.bound.get(a.id);
+    if (b) Object.assign(a, { deviceId: b.deviceId, deviceName: b.deviceName, iface: b.iface, status: 'Active', use: a.use === 'Reserved' ? 'Host' : a.use, note: `Assigned to ${b.deviceName} by hand` });
+    const was = overlay.unbound.get(a.id);
+    if (was) Object.assign(a, { deviceId: undefined, deviceName: undefined, iface: undefined, status: 'Reserved', use: 'Reserved', primary: false, note: `Unassigned from ${was}; held until it is released or re-used` });
+  }
+  /* primary IPv4 per device = its management address unless picked by hand; MAC for addresses on a real interface */
+  const firstMgmt = new Map<string, string>();
+  for (const a of addresses) if (a.deviceId && a.use === 'Management' && !firstMgmt.has(a.deviceId)) firstMgmt.set(a.deviceId, a.id);
+  for (const a of addresses) {
+    if (!a.deviceId) continue;
+    a.primary = (overlay.primary.get(a.deviceId) ?? firstMgmt.get(a.deviceId)) === a.id;
+    if (a.use !== 'Gateway (VIP)' && a.iface) { let h = 0; for (const c of `${a.deviceId}|${a.iface}`) h = (h * 31 + c.charCodeAt(0)) >>> 0; const b = [0x02, (h >>> 24) & 255, (h >>> 16) & 255, (h >>> 8) & 255, h & 255, (h * 7) & 255]; a.mac = b.map(x => x.toString(16).padStart(2, '0')).join(':'); }
+  }
 
   /* ---- roll-ups: used = addresses bound in the prefix; a container counts its children's size */
   const byPrefix = new Map<string, number>();
@@ -241,7 +262,38 @@ function build(db: Db): IpamView {
 
   const used16 = asns.filter(a => a.kind === 'Private 16-bit').length, used32 = asns.filter(a => a.kind === 'Private 32-bit').length;
   const asnRanges: IpAsnRange[] = [{ id: 'r16', name: 'Private 16-bit pool', start: 64512, end: 65534, used: used16 }, { id: 'r32', name: 'Private 32-bit pool', start: 4200000000, end: 4294967294, used: used32 }];
-  return { prefixes, addresses, vrfs, vlans, asns, asnRanges, ranges, fhrp, services, aggregates, findings };
+  /* ---- exhaustion forecast: growth = addresses on devices installed in the last 12 months ÷ 12 (lifecycle install dates) */
+  const installed = new Map<string, number>();
+  for (const dc of db.datacenters) for (const x of siteLifecycle(db, dc.id)?.assets ?? []) installed.set(x.neId, x.installed);
+  const MONTH = 30 * 86400000, yearAgo = db.now - 12 * MONTH;
+  for (const p of prefixes) {
+    if (p.status === 'Container' || p.role === 'Point-to-point' || p.size < 8) continue;
+    const mine = addresses.filter(a => a.prefixId === p.id);
+    const recent = mine.filter(a => a.deviceId && (installed.get(a.deviceId) ?? 0) > yearAgo).length;
+    p.growth = Math.round((recent / 12) * 10) / 10;
+    const free = Math.max(0, p.size - p.used);
+    p.exhaustAt = p.growth > 0 ? db.now + Math.round((free / p.growth) * MONTH) : null;
+    p.state = p.pct >= 90 || free === 0 ? 'Consumed' : p.pct >= 75 || (p.exhaustAt != null && p.exhaustAt - db.now < 12 * MONTH) ? 'Committed' : 'Available';
+  }
+
+  /* ---- reference registers, derived from what the plan actually uses */
+  const rirDefs: [string, string, boolean, string][] = [[rir, rir, false, `Regional internet registry for ${geo.id === 'us' ? 'North America' : 'Asia-Pacific'}: public prefixes and the operator ASN`], ['RFC 1918', 'RFC 1918', true, 'Private IPv4 space: management, fabrics, loopbacks, hosts'], ['RFC 6598', 'RFC 6598', true, 'Shared address space (100.64/10): customer PE–CE links'], ['RFC 6996', 'RFC 6996 / 7300', true, 'Private ASNs (16- and 32-bit) for sites and BGP leafs']];
+  const ROLE_INFO: Record<PrefixRole, [number, string]> = { Management: [100, 'Device management and out-of-band'], Loopback: [200, 'Router IDs and BGP / iBGP sources'], 'Point-to-point': [300, '/31 routing adjacencies and inter-site links'], Production: [400, 'Host and GPU node networks per hall'], Storage: [500, 'Storage fabric networks'], Backbone: [600, 'Inter-site backbone'], Customer: [700, 'Customer PE–CE links (L3VPN)'], Public: [800, 'Public addresses for internet customers'] };
+  const rtSet = new Map<string, { importedBy: string[]; exportedBy: string[] }>();
+  for (const v of vrfs) { for (const t of v.importRt) { const e = rtSet.get(t) ?? { importedBy: [], exportedBy: [] }; e.importedBy.push(v.name); rtSet.set(t, e); } for (const t of v.exportRt) { const e = rtSet.get(t) ?? { importedBy: [], exportedBy: [] }; e.exportedBy.push(v.name); rtSet.set(t, e); } }
+  const VID: Record<IpVlan['group'], [number, number]> = { Management: [10, 99], Fabric: [200, 299], Storage: [300, 399], Services: [1000, 3999] };
+  const vg = new Map<string, IpRegisters['vlanGroups'][number]>();
+  for (const v of vlans) { const k = `${v.dcId}|${v.group}`; const e = vg.get(k) ?? { id: k, dcId: v.dcId, group: v.group, min: VID[v.group][0], max: VID[v.group][1], used: 0 }; e.used++; vg.set(k, e); }
+  const st = new Map<string, IpRegisters['serviceTemplates'][number] & { devs: Set<string> }>();
+  for (const x of services) { const k = `${x.name}|${x.protocol}|${x.ports.join(',')}`; const e = st.get(k) ?? { id: k, name: x.name, protocol: x.protocol, ports: x.ports, instances: 0, devices: 0, devs: new Set<string>() }; e.instances++; e.devs.add(x.deviceId); st.set(k, e); }
+  const registers: IpRegisters = {
+    rirs: rirDefs.map(([id, name, priv, description]) => ({ id, name, private: priv, description, aggregates: aggregates.filter(a => a.rir === id).length, asns: id === rir ? asns.filter(a => a.kind === 'Public').length : id === 'RFC 6996' ? asns.filter(a => a.kind !== 'Public').length : 0 })),
+    roles: (Object.keys(ROLE_INFO) as PrefixRole[]).map(r => ({ role: r, weight: ROLE_INFO[r][0], description: ROLE_INFO[r][1], prefixes: prefixes.filter(p => p.role === r && p.status !== 'Container').length, addresses: addresses.filter(a => a.prefixId && prefixes.find(p => p.id === a.prefixId)?.role === r).length, vlans: vlans.filter(v => (r === 'Management' && v.group === 'Management') || (r === 'Production' && v.group === 'Fabric') || (r === 'Storage' && v.group === 'Storage') || (r === 'Customer' && v.group === 'Services')).length })).filter(r => r.prefixes || r.vlans),
+    routeTargets: [...rtSet].map(([rt, e]) => ({ rt, ...e })).sort((a, b) => a.rt.localeCompare(b.rt, undefined, { numeric: true })),
+    vlanGroups: [...vg.values()].sort((a, b) => a.dcId.localeCompare(b.dcId) || a.min - b.min),
+    serviceTemplates: [...st.values()].map(({ devs, ...e }) => ({ ...e, devices: devs.size })).sort((a, b) => b.instances - a.instances),
+  };
+  return { prefixes, addresses, vrfs, vlans, asns, asnRanges, ranges, fhrp, services, aggregates, findings, registers };
 }
 
 /* ---- runtime allocation */
@@ -274,4 +326,80 @@ export function carvePrefix(db: Db, parentId: string, mask: number, role: Prefix
     return p;
   }
   throw new Error(`No free /${mask} left in ${c.prefix}`);
+}
+
+/* ---- address detail: the reverse view (device, interface, gateway group, services, VLAN) */
+export function addressDetail(db: Db, id: string): IpAddrDetail | null {
+  const m = ipamModel(db);
+  const addr = m.addresses.find(a => a.id === id); if (!addr) return null;
+  const prefix = m.prefixes.find(p => p.id === addr.prefixId);
+  const vlan = prefix?.vlan != null ? m.vlans.find(v => v.dcId === prefix.dcId && v.vid === prefix.vlan) : undefined;
+  const asVip = m.fhrp.find(g => g.vip === addr.address && g.prefixId === addr.prefixId);
+  const asMember = !asVip && addr.deviceId ? m.fhrp.find(g => g.prefixId === addr.prefixId && g.members.includes(addr.deviceId!)) : undefined;
+  return { addr, prefix, vlan, fhrp: asVip ?? asMember, fhrpRole: asVip ? 'Virtual IP' : asMember ? 'Member' : undefined,
+    services: m.services.filter(x => x.address === addr.address && (!addr.deviceId || x.deviceId === addr.deviceId)),
+    sameDevice: addr.deviceId ? m.addresses.filter(a => a.deviceId === addr.deviceId && a.id !== addr.id) : [] };
+}
+
+/* ---- a prefix entered by hand: valid CIDR on its boundary, inside its parent (role inherited when blank), no overlap in the VRF */
+export function createPrefix(db: Db, x: NewPrefixInput): IpPrefix {
+  const m = ipamModel(db);
+  const ok = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\/(\d{1,2})$/.exec(x.prefix.trim());
+  if (!ok || ok.slice(1, 5).some(o => Number(o) > 255) || Number(ok[5]) > 30 || Number(ok[5]) < 8) throw new Error('Enter an IPv4 prefix from /8 to /30, e.g. 10.4.32.0/24');
+  const { base, mask } = parse(x.prefix.trim());
+  if (base % span(mask) !== 0) throw new Error(`${x.prefix} is not on a /${mask} boundary; did you mean ${toIp(base - (base % span(mask)))}/${mask}?`);
+  const parent = x.parentId ? m.prefixes.find(p => p.id === x.parentId) : undefined;
+  if (x.parentId && !parent) throw new Error('Unknown parent container');
+  if (parent) { const pp = parse(parent.prefix); if (mask <= pp.mask || base < pp.base || base + span(mask) > pp.base + span(pp.mask)) throw new Error(`${x.prefix} is not inside ${parent.prefix}`); }
+  const vrf = parent?.vrf ?? x.vrf;
+  /* overlap with anything in the VRF except a container that holds the new prefix */
+  const clash = m.prefixes.find(p => { if (p.vrf !== vrf) return false; const q = parse(p.prefix); const over = base < q.base + span(q.mask) && q.base < base + span(mask); const holds = q.mask < mask && q.base <= base && base + span(mask) <= q.base + span(q.mask); return over && !(holds && p.status === 'Container'); });
+  if (clash) throw new Error(`${x.prefix} overlaps ${clash.prefix} in ${vrf}`);
+  const agg = m.aggregates.find(a => inPrefix(toIp(base), a.prefix))?.prefix ?? parent?.aggregate ?? '—';
+  const p: IpPrefix = { id: `man:${vrf}:${toIp(base)}/${mask}`, prefix: `${toIp(base)}/${mask}`, dcId: parent?.dcId ?? x.dcId, vrf, role: x.role || parent?.role || 'Production', status: 'Reserved', parentId: parent?.id, vlan: x.vlan, description: x.description || 'Entered by hand', size: x.pool ? span(mask) : usable(mask), used: 0, pct: 0, children: 0, aggregate: agg, pool: x.pool, manual: true };
+  overlay.prefixes.push(p); cache = null;
+  return p;
+}
+
+/* ---- device addresses: assign the next free address of a prefix, unassign, set the primary IPv4 */
+export function assignToDevice(db: Db, neId: string, prefixId: string, iface: string | undefined, primary: boolean): IpAddr {
+  const ne = db.neById.get(neId); if (!ne) throw new Error('Unknown device');
+  const a = reserveNextIp(db, prefixId, `For ${ne.name}`);
+  overlay.unbound.delete(a.id); overlay.bound.set(a.id, { deviceId: ne.id, deviceName: ne.name, iface }); if (primary) overlay.primary.set(ne.id, a.id);
+  cache = null; return ipamModel(db).addresses.find(x => x.id === a.id)!;
+}
+export function unassignAddress(db: Db, id: string): IpAddr {
+  const a = ipamModel(db).addresses.find(x => x.id === id); if (!a?.deviceId) throw new Error('This address is not on a device');
+  if (a.use === 'Gateway (VIP)') throw new Error('A gateway virtual IP belongs to its VRRP / HSRP group; change the group instead');
+  overlay.bound.delete(id); overlay.unbound.set(id, a.deviceName ?? a.deviceId);
+  if (overlay.primary.get(a.deviceId) === id) overlay.primary.delete(a.deviceId);
+  cache = null; return a;
+}
+export function setPrimaryAddress(db: Db, neId: string, id: string) {
+  const a = ipamModel(db).addresses.find(x => x.id === id); if (!a || a.deviceId !== neId) throw new Error('The address is not on this device');
+  overlay.primary.set(neId, id); cache = null;
+}
+
+/* ---- integrations: the systems the address plan syncs with (mock connectors; records and differences come from the plan) */
+const CONNECTORS: Omit<IpIntegration, 'records' | 'differences' | 'status' | 'lastSync' | 'message' | 'history'>[] = [
+  { id: 'servicenow', name: 'ServiceNow CMDB', system: 'ITSM', direction: 'Both', objects: 'Addresses, prefixes, VRFs' },
+  { id: 'infoblox', name: 'Infoblox NIOS', system: 'DDI', direction: 'Both', objects: 'Prefixes, ranges, addresses' },
+  { id: 'bluecat', name: 'BlueCat Address Manager', system: 'DDI', direction: 'Import', objects: 'Aggregates, prefixes' },
+  { id: 'dns', name: 'Active Directory DNS', system: 'DNS', direction: 'Export', objects: 'A and PTR records' },
+  { id: 'dhcp', name: 'ISC Kea DHCP', system: 'DHCP', direction: 'Export', objects: 'DHCP ranges (pools)' },
+];
+export function integrations(db: Db): IpIntegration[] {
+  const m = ipamModel(db), H = 3600000;
+  const recs: Record<string, number> = { servicenow: m.addresses.length + m.prefixes.length + m.vrfs.length, infoblox: m.prefixes.length + m.ranges.length + m.addresses.length, bluecat: m.aggregates.length + m.prefixes.length, dns: m.addresses.filter(a => a.dns).length, dhcp: m.ranges.length };
+  const diffs: Record<string, number> = { servicenow: m.addresses.filter(a => a.status === 'Outside plan' || a.status === 'Conflict').length, infoblox: overlay.prefixes.length + overlay.addresses.length, bluecat: 0, dns: m.addresses.filter(a => a.deviceId && !a.dns).length, dhcp: 0 };
+  const base: Record<string, Pick<IpIntegration, 'status' | 'lastSync' | 'message'>> = {
+    servicenow: { status: 'Connected', lastSync: db.now - 1 * H }, infoblox: { status: 'Connected', lastSync: db.now - 0.5 * H }, bluecat: { status: 'Not connected', lastSync: null, message: 'No credentials stored' },
+    dns: { status: 'Connected', lastSync: db.now - 2 * H }, dhcp: { status: 'Error', lastSync: db.now - 26 * H, message: 'Kea control agent refused the connection (port 8000)' } };
+  return CONNECTORS.map(c => { const o = overlay.sync.get(c.id); return { ...c, records: recs[c.id], differences: o?.lastSync ? 0 : diffs[c.id], ...base[c.id], history: [], ...(o ?? {}) }; });
+}
+export function syncIntegration(db: Db, id: string, action: 'Sync' | 'Import' | 'Export' | 'Connect'): IpIntegration {
+  const c = integrations(db).find(x => x.id === id); if (!c) throw new Error('Unknown connector');
+  const result = `${action}: ${fmtNum(c.records)} records${c.differences ? `, ${c.differences} difference${c.differences === 1 ? '' : 's'} resolved` : ', no differences'}`;
+  overlay.sync.set(id, { status: 'Connected', lastSync: db.now, message: undefined, history: [{ at: db.now, action, result }, ...c.history].slice(0, 6) });
+  return integrations(db).find(x => x.id === id)!;
 }

@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { getDatacenter, getDcimDevice, getDeviceIps, setDeviceStatus, useQuery } from '../../api';
+import { getDatacenter, getDcimDevice, getDeviceIps, getIpam, setDeviceStatus, useQuery } from '../../api';
 import type { DcimCable, DcimDevice, DcimDeviceType, DcimModuleType, DcimPowerFeed, DcimPowerPanel, DcimRack, DcimCatalog } from '../../api/types';
 import { Loading } from '../../shell/page';
 import { Btn, Chip, Drawer, KV, Panel, Seg } from '../../ui/kit';
@@ -15,6 +15,7 @@ import { CablePathDrawer, RackPowerDrawer, STATE_TONE, pduState } from '../physi
 import { useToast } from '../ops/shared';
 import { ACCENT, BAD, CAT_COLOR, CAT_LABEL, DcimStatusChip, loadColor, pct } from './common';
 import { NewTypeModal } from './forms';
+import { DeviceAddresses } from '../ipam/extras';
 
 function useP() {
   const [sp, setSp] = useSearchParams();
@@ -94,6 +95,7 @@ export function DeviceDrawer({ id, onClose }: { id: string | null; onClose: () =
   const nav = useNavigate();
   const { data } = useQuery(() => (id ? getDcimDevice(id) : Promise.resolve(null)), [id]);
   const { data: ips } = useQuery(() => (id ? getDeviceIps(id) : Promise.resolve(null)), [id]);
+  const { data: sitePlan } = useQuery(() => (data?.device ? getIpam({ dcId: data.device.dcId }) : Promise.resolve(null)), [data?.device?.dcId]);
   const [kind, setKind] = useState<'Interface' | 'Power port' | 'other'>('Interface');
   const toast = useToast();
   if (!id) return null;
@@ -114,9 +116,9 @@ export function DeviceDrawer({ id, onClose }: { id: string | null; onClose: () =
         <div className="row" style={{ gap: 8, marginBottom: 12, flexWrap: 'wrap' }}><DcimStatusChip s={d.status} />{d.status !== 'Planned' && d.status !== 'Tenant-owned' && <HealthChip s={d.health} />}<Chip tone="neutral">{d.role}</Chip><Chip tone="neutral">{d.uHeight}U</Chip></div>
         <KV cols={3} items={[['Serial', <span className="mono">{d.serial || '—'}</span>], ['Asset tag', <span className="mono">{d.assetTag}</span>], ['Management IP', <span className="mono">{d.ip || '—'}</span>],
           ['Platform', d.platform], ['Hall', d.hallName], ['Draw', d.powerW ? `${fmtNum(d.powerW)} W` : '—']]} />
-        {ips && ips.addresses.length > 0 && <>
-          <b className="dcim-sub-h">IP addresses <Link className="ent-link" style={{ fontWeight: 400 }} to={`/ipam?tab=addresses&q=${encodeURIComponent(d.name)}`}>in IP & Network →</Link></b>
-          <div className="row wrap" style={{ gap: 6 }}>{ips.addresses.map(a => <Chip key={a.id} tone={a.status === 'Outside plan' ? 'warning' : 'neutral'} title={`${a.vrf} · ${a.dns}${a.note ? ` · ${a.note}` : ''}`}><span className="mono">{a.address}/{a.mask}</span> · {a.iface ?? a.use}</Chip>)}</div>
+        {ips && <>
+          <b className="dcim-sub-h">IP addresses ({ips.addresses.length}) <Link className="ent-link" style={{ fontWeight: 400 }} to={`/ipam?tab=addresses&q=${encodeURIComponent(d.name)}`}>in IP & Network →</Link></b>
+          <DeviceAddresses neId={d.id} name={d.name} dcId={d.dcId} addrs={ips.addresses} prefixes={sitePlan?.prefixes ?? []} ifaces={comps.filter(c => c.kind === 'Interface').map(c => c.name)} onChanged={toast.show} />
         </>}
         <div className="row" style={{ justifyContent: 'space-between', margin: '16px 0 8px' }}>
           <b>Components</b>

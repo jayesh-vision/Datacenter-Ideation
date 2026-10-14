@@ -61,6 +61,7 @@ export const getDevicePhysical = (neId: string) => wait(() => S.devicePhysical(n
 export const getCablePath = (linkId: string) => wait(() => S.cablePath(linkId));                   // GET /links/:id/cable-path
 export const getWhatIf = (dcId: string, assetId: string) => wait(() => S.whatIf(dcId, assetId));  // GET /datacenters/:id/what-if?asset
 export const getSiteSafety = (dcId: string) => wait(() => S.siteSafety(dcId));                   // GET /datacenters/:id/safety (fire, leak, access)
+export const getSiteAccess = (dcId: string) => wait(() => S.siteAccess(dcId));                   // GET /datacenters/:id/access-log (visits, badge events, security exceptions, access review)
 export const getSiteLifecycle = (dcId: string) => wait(() => S.siteLifecycle(dcId));             // GET /datacenters/:id/lifecycle (warranty, support, RMA, spares)
 export const getDeviceLifecycle = (neId: string) => wait(() => S.deviceLifecycle(neId));         // GET /network-elements/:id/lifecycle
 export const getSitePm = (dcId: string) => wait(() => S.sitePm(dcId));                           // GET /datacenters/:id/maintenance-plan
@@ -90,6 +91,13 @@ export const getIpam = (q: { dcId?: string } = {}) => wait(() => S.ipam(q));    
 export const getDeviceIps = (neId: string) => wait(() => S.ipamOfDevice(neId));                  // GET /network-elements/:id/ip-addresses
 export const reserveIp = (prefixId: string, note: string) => mutate(() => S.ipamReserve(prefixId, note));                // POST /ipam/prefixes/:id/available-ips
 export const carvePrefix = (parentId: string, mask: number, role: Parameters<typeof S.ipamCarve>[2], description: string) => mutate(() => S.ipamCarve(parentId, mask, role, description)); // POST /ipam/prefixes/:id/available-prefixes
+export const getIpAddress = (id: string) => wait(() => S.ipamAddress(id));                          // GET /ipam/ip-addresses/:id
+export const createPrefix = (x: Parameters<typeof S.ipamCreatePrefix>[0]) => mutate(() => S.ipamCreatePrefix(x));           // POST /ipam/prefixes
+export const assignDeviceIp = (neId: string, prefixId: string, iface: string | undefined, primary: boolean) => mutate(() => S.ipamAssign(neId, prefixId, iface, primary)); // POST /network-elements/:id/ip-addresses
+export const unassignIp = (id: string) => mutate(() => S.ipamUnassign(id));                         // DELETE /ipam/ip-addresses/:id/assignment
+export const setPrimaryIp = (neId: string, id: string) => mutate(() => S.ipamSetPrimary(neId, id)); // PATCH /network-elements/:id { primaryIp4 }
+export const getIpamIntegrations = () => wait(() => S.ipamIntegrations());                       // GET /ipam/integrations
+export const syncIpamIntegration = (id: string, action: 'Sync' | 'Import' | 'Export' | 'Connect') => mutate(() => S.ipamSync(id, action)); // POST /ipam/integrations/:id/sync
 
 /* ---- Planner (P2B port): the planner's record store (templates, benchmarks, plans, scenarios, holds) over our estate.
    The planner screens use it through planner/compat (P2B's entity hooks); a real backend would serve each collection. */

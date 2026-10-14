@@ -52,3 +52,82 @@
 .ipam-roles i { display: block; height: 5px; border-radius: 3px; background: var(--vw-color-slate-100); overflow: hidden; }
 .ipam-roles em { display: block; height: 100%; border-radius: 3px; background: var(--vw-color-blue-300); }
 .ipam-roles b { font-weight: 500; text-align: right; color: var(--ink-900); }
+
+/* ---- 14-Oct-2026 additions: address drawer, forecast, new prefix, device addresses, registers, integrations */
+.ipam-bind-ico { flex: none; width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; background: var(--primaryColor50); color: var(--primaryColor600); border: 1px solid var(--primaryColor100); }
+.ipam-bind { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; padding: 12px; border: 1px solid var(--vw-color-slate-200); border-radius: 12px; background: var(--vw-color-slate-50); }
+.ipam-bind-node { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ipam-bind-node > span:last-child { display: flex; flex-direction: column; min-width: 0; font-size: 13px; }
+.ipam-bind-node small { font-size: 11px; color: var(--ink-500); }
+.ipam-bind-node b, .ipam-bind-node a, .ipam-bind-node button { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; text-align: left; }
+.ipam-bind-arrow { color: var(--vw-color-slate-400); }
+.ipam-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 16px; margin: 14px 0 0; }
+.ipam-facts div { min-width: 0; }
+.ipam-facts dt { font-size: 11.5px; color: var(--ink-500); margin-bottom: 2px; }
+.ipam-facts dd { margin: 0; font-size: 13px; color: var(--ink-900); overflow-wrap: anywhere; }
+.ipam-note { display: flex; gap: 8px; align-items: flex-start; margin: 14px 0 0; padding: 8px 10px; border-radius: 8px; background: var(--vw-color-slate-50); font-size: 12.5px; color: var(--ink-600); }
+.ipam-note svg { flex: none; margin-top: 2px; color: var(--ink-500); }
+.ipam-gwcard { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--vw-color-slate-200); border-radius: 10px; }
+.ipam-gwcard > span:nth-child(2) { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 13px; }
+.ipam-gwcard b { font-weight: 500; }
+.ipam-gwcard small { font-size: 12px; color: var(--ink-500); }
+.ipam-mini { list-style: none; margin: 0; padding: 0; }
+.ipam-mini button { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--vw-color-slate-100); cursor: pointer; font-size: 13px; }
+.ipam-mini button:hover { background: var(--vw-color-slate-50); }
+.ipam-mini small { flex: 1; min-width: 0; color: var(--ink-500); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ipam-mini svg { color: var(--vw-color-slate-400); }
+
+.ipam-fullby { display: inline-flex; flex-direction: column; line-height: 1.3; white-space: nowrap; }
+.ipam-fullby b { font-weight: 500; font-size: 12.5px; color: var(--ink-800); }
+.ipam-fullby b.is-committed { color: #926e00; } .ipam-fullby b.is-consumed { color: #b21313; }
+.ipam-fullby small { font-size: 11.5px; color: var(--ink-500); }
+.ipam-fc { display: flex; align-items: center; gap: 10px; margin: 12px 0; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--vw-color-emerald-200); background: var(--vw-color-emerald-50, #ecfdf5); }
+.ipam-fc > span:last-child { display: flex; flex-direction: column; font-size: 13px; }
+.ipam-fc b { font-weight: 500; } .ipam-fc small { font-size: 12px; color: var(--ink-600); }
+.ipam-fc.is-committed { border-color: var(--vw-color-amber-200); background: var(--vw-color-amber-50, #fffbeb); }
+.ipam-fc.is-consumed { border-color: var(--vw-color-red-200, #fecaca); background: var(--vw-color-red-50, #fef2f2); }
+.ipam-check { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; color: var(--ink-700); cursor: pointer; padding-top: 6px; }
+.ipam-check input { margin-top: 2px; }
+
+.ipam-devaddr ul { list-style: none; margin: 0 0 8px; padding: 0; border: 1px solid var(--vw-color-slate-200); border-radius: 10px; overflow: hidden; }
+.ipam-devaddr li { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--vw-color-slate-100); }
+.ipam-devaddr li:last-child { border-bottom: 0; }
+.ipam-devaddr li.is-primary { background: var(--primaryColor50); }
+.ipam-devaddr-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.ipam-devaddr-main small { min-width: 0; color: var(--ink-500); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ipam-devaddr-act { display: flex; gap: 4px; }
+.ipam-devaddr-act button { all: unset; width: 26px; height: 26px; border-radius: 6px; display: grid; place-items: center; color: var(--ink-500); cursor: pointer; }
+.ipam-devaddr-act button:hover { background: var(--vw-color-slate-100); color: var(--primaryColor700); }
+.ipam-devaddr-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px; border: 1px dashed var(--primaryColor300); border-radius: 10px; }
+.ipam-devaddr-form .select { flex: 1 1 180px; min-width: 0; }
+.ipam-devaddr-form .ipam-check { padding-top: 0; }
+
+.ipam-reg .dcim-sub-bar { margin-bottom: 12px; }
+.ipam-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; padding: 0 2px 4px; }
+.ipam-card { all: unset; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 14px; border: 1px solid var(--vw-color-slate-200); border-radius: 12px; background: var(--surface); min-width: 0; }
+.ipam-card.is-click { cursor: pointer; } .ipam-card.is-click:hover { border-color: var(--primaryColor300); box-shadow: 0 2px 10px -6px var(--primaryColor300); }
+.ipam-card-top { display: flex; align-items: center; gap: 10px; }
+.ipam-card-top b { flex: 1; min-width: 0; font-weight: 500; font-size: 14px; color: var(--ink-900); }
+.ipam-card p { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--ink-600); }
+.ipam-card-figs, .ipam-conn-figs { display: flex; gap: 6px; margin-top: auto; }
+.ipam-card-figs > span, .ipam-conn-figs > span { flex: 1; display: flex; flex-direction: column; padding: 7px 9px; border-radius: 8px; background: var(--vw-color-slate-50); font-size: 11.5px; color: var(--ink-500); min-width: 0; }
+.ipam-card-figs b, .ipam-conn-figs b { font-size: 15px; font-weight: 400; color: var(--ink-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ipam-conn-figs b.is-warn { color: #926e00; }
+
+.ipam-conns { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
+.ipam-conn { display: flex; flex-direction: column; gap: 10px; padding: 16px; border: 1px solid var(--vw-color-slate-200); border-top: 3px solid var(--vw-color-emerald-400); border-radius: 12px; background: var(--surface); min-width: 0; }
+.ipam-conn.is-error { border-top-color: var(--vw-color-red-500); }
+.ipam-conn.is-not-connected { border-top-color: var(--vw-color-slate-300); }
+.ipam-conn-head { display: flex; align-items: center; gap: 10px; }
+.ipam-conn-head > span:nth-child(2) { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ipam-conn-head b { font-weight: 500; font-size: 14px; color: var(--ink-900); }
+.ipam-conn-head small { font-size: 12px; color: var(--ink-500); }
+.ipam-conn-obj { margin: 0; font-size: 12.5px; color: var(--ink-600); }
+.ipam-conn-figs b { font-size: 13px; }
+.ipam-conn-msg, .ipam-conn-hist { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 12px; }
+.ipam-conn-msg { color: #b21313; } .ipam-conn-hist { color: var(--ink-500); }
+.ipam-conn-act { display: flex; gap: 8px; justify-content: flex-end; margin-top: auto; padding-top: 4px; border-top: 1px solid var(--vw-color-slate-100); padding-top: 10px; }
+.ipam-bind { grid-template-columns: minmax(0, 1.3fr) auto minmax(0, .8fr) auto minmax(0, 1fr); }
+.ipam-bind-node b, .ipam-bind-node a, .ipam-bind-node button { white-space: normal; overflow-wrap: anywhere; line-height: 1.3; }
+.ipam-conn-figs > span.is-wide { flex: 1.7; }
+.ipam-conn-figs > span.is-wide b { white-space: normal; }
