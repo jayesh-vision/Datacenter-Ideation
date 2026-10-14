@@ -3,7 +3,10 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { advanceWorkOrder, getDelivery, getPlannerQueue, useQuery } from '../../api';
+import { advanceWorkOrder, getDelivery, getPlannerQueue, getProgrammes, useQuery } from '../../api';
+import { DeliveryOverview } from './Overview';
+import { NewProgrammeModal, NewProjectWizard, PROG_ICON, RAG_LABEL, RAG_TONE } from './parts';
+import '../../styles/delivery.css';
 import type { DeliveryProject, WorkOrder } from '../../api/types';
 import { usePage, PageHead, Loading } from '../../shell/page';
 import { Btn, Chip, Panel, Tabs } from '../../ui/kit';
@@ -18,7 +21,7 @@ import '../../styles/dcim.css';
 import '../../styles/planner.css';
 import '../../styles/ipam.css';
 
-type Tab = 'overview' | 'projects' | 'workorders' | 'commissioning' | 'permits' | 'design' | 'todo';
+type Tab = 'overview' | 'programmes' | 'projects' | 'workorders' | 'commissioning' | 'permits' | 'design' | 'todo';
 export const STATE_TONE: Record<DeliveryProject['state'], 'neutral' | 'info' | 'warning' | 'purple' | 'success'> = { Mobilising: 'neutral', 'In progress': 'info', Commissioning: 'warning', Handover: 'purple', Delivered: 'success' };
 export const HEALTH_TONE: Record<DeliveryProject['health'], 'success' | 'warning' | 'error'> = { 'on track': 'success', 'at risk': 'warning', late: 'error' };
 export const WO_TONE: Record<WorkOrder['state'], 'neutral' | 'warning' | 'info' | 'purple' | 'success'> = { Planned: 'neutral', 'Awaiting change': 'warning', Ready: 'info', 'In progress': 'purple', Done: 'success' };
@@ -38,15 +41,17 @@ export function Delivery() {
   const { data: queue } = useQuery(getPlannerQueue, []);
   const toast = useToast();
   const [busy, setBusy] = useState('');
+  const [form, setForm] = useState<'programme' | 'project' | null>(null);
+  const { data: progs } = useQuery(getProgrammes, []);
   const pname = useMemo(() => new Map((d?.projects ?? []).map(p => [p.id, p.name])), [d]);
-  if (!d || !queue) return <Loading />;
+  if (!d || !queue || !progs) return <Loading />;
+  const progOf = new Map(progs.flatMap(g => g.programme.projectIds.map(pid => [pid, g.programme] as const)));
   const ps = d.projects, live = ps.filter(p => p.state !== 'Delivered');
   const budget = live.reduce((a, p) => a + p.budget, 0), earned = live.reduce((a, p) => a + p.earned, 0), actual = live.reduce((a, p) => a + p.actual, 0);
   const cpi = actual ? earned / actual : 1;
   const openWo = d.workOrders.filter(w => w.state !== 'Done');
   const latePo = d.pos.filter(o => o.state === 'Late');
   const waitingApproval = (queue ?? []).filter(p => p.status === 'In review');
-  const approvedQueue = (queue ?? []).filter(p => p.status === 'Approved');
   const advance = (w: WorkOrder) => { setBusy(w.id); advanceWorkOrder(w.id).then(st => toast.show(`${w.id} ${st === 'Done' ? 'completed' : 'started'}`, `${w.changeId} ${st === 'Done' ? 'implemented' : 'approved'}; the project's progress updates.`)).catch(e => toast.show('Not started', String(e.message ?? e))).finally(() => setBusy('')); };
 
   const woCols: Col<WorkOrder>[] = [
@@ -60,7 +65,7 @@ export function Delivery() {
     { key: 'a', header: '', render: w => w.state !== 'Done' ? <Btn size="sm" disabled={busy === w.id} onClick={() => advance(w)}>{w.state === 'In progress' ? 'Complete' : 'Start'}</Btn> : null }
   ];
   const projCols: Col<DeliveryProject>[] = [
-    { key: 'n', header: 'Project', sort: p => p.id, wrap: true, render: p => <span className="cell-2"><b>{p.name}</b><small><span className="mono">{p.id}</span> · {p.manager}</small></span> },
+    { key: 'n', header: 'Project', sort: p => p.id, wrap: true, render: p => <span className="cell-2"><b>{p.name}</b><small><span className="mono">{p.id}</span> · {p.manager}{progOf.get(p.id) ? ` · ${progOf.get(p.id)!.name}` : ''}</small></span> },
     { key: 's', header: 'Scope', sort: p => p.scope, render: p => { const Ic = SCOPE_ICON[p.scope]; return <span className="row nowrap" style={{ gap: 6 }}><Ic size={14} className="muted" />{SCOPE_LABEL[p.scope]}</span>; } },
     { key: 'dc', header: 'Site', sort: p => p.dcId, render: p => <span className="mono">{p.dcId}</span> },
     { key: 'pr', header: 'Progress', sort: p => p.progress, render: p => <Meter pct={p.progress * 100} width={56} color="var(--primaryColor500)" label={`${Math.round(p.progress * 100)}%`} /> },
@@ -74,8 +79,8 @@ export function Delivery() {
   return (
     <div className="page dcim planner">
       <PageHead title="Delivery" sub="Approved plans become projects; projects raise work orders (each with its change request), place purchase orders, pass L1–L5 commissioning and hand over to operations"
-        actions={<Btn icon={I.DraftingCompass} onClick={() => nav('/planning')}>Open the planner</Btn>} />
-      <StatGrid>
+        actions={<><Btn icon={I.DraftingCompass} onClick={() => nav('/planning')}>Open the planner</Btn><Btn icon={I.FolderPlus} onClick={() => setForm('programme')}>New programme</Btn><Btn variant="filled" icon={I.Plus} onClick={() => setForm('project')}>New project</Btn></>} />
+      {tab !== 'overview' && <StatGrid>
         <StatTile label="Projects" value={ps.length} sub={`${live.length} in delivery`} onClick={() => setTab('projects')} info="A project per approved, executing or delivered plan, by stage: mobilising (approved, not started) → in progress → commissioning → handover → delivered.">
           <Split parts={(['Mobilising', 'In progress', 'Commissioning', 'Delivered'] as const).map((s, i) => ({ key: s, label: s, n: ps.filter(p => p.state === s || (s === 'Commissioning' && p.state === 'Handover')).length, tone: (i === 1 ? 'info' : 'neutral') as 'info' | 'neutral' })).filter(x => x.n)} />
         </StatTile>
@@ -96,23 +101,19 @@ export function Delivery() {
           <SoftMeter pct={d.tests.length ? (d.tests.filter(t => t.state === 'Passed').length / d.tests.length) * 100 : 0} tone="info" />
           <Facts items={[{ n: d.tests.filter(t => t.state === 'Scheduled').length, label: 'scheduled in 30 days' }]} />
         </StatTile>
-      </StatGrid>
-      <Tabs value={tab} onChange={setTab} tabs={[{ id: 'overview', label: 'Overview' }, { id: 'projects', label: 'Projects', count: ps.length }, { id: 'workorders', label: 'Work orders', count: openWo.length }, { id: 'commissioning', label: 'Commissioning' }, { id: 'permits', label: 'Permits', count: d.permits.filter(p => p.state !== 'Granted').length }, { id: 'design', label: 'Design' }, { id: 'todo', label: 'To do' }]} />
+      </StatGrid>}
+      <Tabs value={tab} onChange={setTab} tabs={[{ id: 'overview', label: 'Overview' }, { id: 'programmes', label: 'Programmes', count: progs.length }, { id: 'projects', label: 'Projects', count: ps.length }, { id: 'workorders', label: 'Work orders', count: openWo.length }, { id: 'commissioning', label: 'Commissioning' }, { id: 'permits', label: 'Permits', count: d.permits.filter(p => p.state !== 'Granted').length }, { id: 'design', label: 'Design' }, { id: 'todo', label: 'To do' }]} />
 
-      {tab === 'overview' && <div className="pl-ov">
-        <Panel title="Needs attention" icon={I.TriangleAlert} info="Late or at-risk projects, purchase orders that missed their date and work orders waiting on a change or on kit.">
-          <ul className="ipam-find">
-            {live.filter(p => p.health !== 'on track').map(p => <li key={p.id}><button type="button" onClick={() => nav(`/delivery/projects/${p.id}`)}><SevDot s={p.health === 'late' ? 'major' : 'minor'} /><span className="cell-2"><b>{p.name}</b><small>{p.health === 'late' ? `finishes ${fmtDate(p.finish)}, target ${fmtDate(p.target)}` : `CPI ${p.cpi} · SPI ${p.spi}`} · {p.id}</small></span></button></li>)}
-            {latePo.map(o => <li key={o.id}><button type="button" onClick={() => nav(`/delivery/projects/${o.projectId}?tab=procurement`)}><SevDot s="major" /><span className="cell-2"><b>{o.item} from {o.supplier} is late</b><small>{o.id} · now due {fmtDate(o.due)}</small></span></button></li>)}
-            {openWo.filter(w => w.state === 'Awaiting change').map(w => <li key={w.id}><button type="button" onClick={() => nav(`/delivery/projects/${w.projectId}?tab=workorders`)}><SevDot s="minor" /><span className="cell-2"><b>{w.id} waits for {w.kit !== 'Ready' ? 'its kit' : `change ${w.changeId}`}</b><small>{w.title} · starts {fmtDate(w.start)}</small></span></button></li>)}
-            {!live.some(p => p.health !== 'on track') && !latePo.length && !openWo.some(w => w.state === 'Awaiting change') && <li><p className="vw-label" style={{ margin: 0 }}>Every project is on track.</p></li>}
-          </ul>
-        </Panel>
-        <Panel title="Pipeline from the planner" icon={I.DraftingCompass} info="Plans that become projects once approved and executed; the ones in review wait for their approval chain.">
-          <ul className="ipam-find">{[...waitingApproval, ...approvedQueue].map(p => <li key={p.id}><button type="button" onClick={() => nav(`/planning/plans/${p.id}`)}><SevDot s="warning" /><span className="cell-2"><b>{p.name}</b><small>{p.status} · {fmtMoney(p.capex)} · {p.status === 'In review' ? `waiting for ${p.waitingFor ?? 'the next step'}` : 'ready to execute'}</small></span></button></li>)}
-            {!waitingApproval.length && !approvedQueue.length && <li><p className="vw-label" style={{ margin: 0 }}>Nothing waiting.</p></li>}</ul>
-        </Panel>
-        <Panel title="Projects" icon={I.FolderKanban} className="ipam-agg" flush><DataTable rows={ps} cols={projCols} pageSize={10} onRow={p => nav(`/delivery/projects/${p.id}`)} defaultSort={{ key: 'st', dir: 'asc' }} /></Panel>
+      {tab === 'overview' && <DeliveryOverview />}
+      {tab === 'programmes' && <div className="dl-progs">{progs.map(g => { const Ic = PROG_ICON[g.programme.type]; const slip = Math.round((g.forecastFinish - g.baselineFinish) / 864e5); return (
+        <button key={g.programme.id} type="button" className={`dl-pcard is-${g.rag}`} onClick={() => nav(`/delivery/programmes/${g.programme.id}`)}>
+          <span className="dl-pcard-top"><span className="dl-prog-ico"><Ic size={17} /></span><span className="cell-2"><b>{g.programme.name}</b><small>{g.programme.type} · <span className="mono">{g.programme.id}</span>{g.programme.status !== 'Active' ? ` · ${g.programme.status}` : ''}</small></span><Chip tone={RAG_TONE[g.rag]} size="xs" dot>{RAG_LABEL[g.rag]}</Chip></span>
+          <p>{g.programme.description}</p>
+          <span className="dl-pcard-bar"><i style={{ width: `${Math.round(g.completion * 100)}%` }} /><em>{Math.round(g.completion * 100)}%</em></span>
+          <span className="dl-pcard-figs"><span><b>{g.projects.length}</b>projects</span><span><b>{fmtMoney(g.budget)}</b>budget</span><span><b className={slip > 0 ? 'is-late' : ''}>{fmtDate(g.forecastFinish)}</b>{slip > 0 ? `${slip} d late` : 'on baseline'}</span></span>
+          <span className="dl-pcard-foot">{g.gates.some(x => x.waitsOn.length) ? <><I.DoorClosed size={13} />{g.gates.filter(x => x.waitsOn.length).length} at a gate</> : <><I.DoorOpen size={13} />all gates open</>} · {g.risks.length} risks · sponsor {g.programme.sponsor}</span>
+        </button>); })}
+        <button type="button" className="dl-pcard is-new" onClick={() => setForm('programme')}><I.FolderPlus size={20} /><b>New programme</b><small>Group projects, or start a greenfield build from the blueprint</small></button>
       </div>}
       {tab === 'projects' && (() => { const rows = ps.filter(p => (!f1 || p.state === f1) && (!f2 || p.health === f2) && has(`${p.id} ${p.name} ${p.dcId} ${p.manager}`, q)); return (
         <section className="vw-card-section dcim-table"><DataTable rows={rows} cols={projCols} pageSize={30} onRow={p => nav(`/delivery/projects/${p.id}`)} defaultSort={{ key: 'st', dir: 'asc' }}
@@ -157,6 +158,8 @@ export function Delivery() {
           <p className="vw-label" style={{ margin: '8px 0 0' }}>{fmtNum(waitingApproval.length)} approvals · {fmtNum(d.permits.filter(p => p.state === 'To submit').length)} permits to submit</p>
         </Panel>
       </div>}
+      <NewProgrammeModal open={form === 'programme'} onClose={() => setForm(null)} />
+      <NewProjectWizard open={form === 'project'} onClose={() => setForm(null)} />
       {toast.node}
     </div>
   );

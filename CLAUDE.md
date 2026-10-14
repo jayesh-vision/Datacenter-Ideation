@@ -517,6 +517,17 @@ screens are rebuilt in our kit (PageHead, StatGrid, ListToolbar, DataTable, NST 
   plans Delivered. Screens `/delivery` (`screens/delivery/Delivery.tsx`), `/delivery/projects/:id` (`ProjectPage.tsx`). Check:
   `node .qa/delivery.mjs <persona> <geo>` (every project × tab + execute → receive → work orders → L1–L5 → handover; W=1280).
   The new QA scripts save screenshots only on a failure (or `SHOTS=1`): the disk was full on 13-Oct-2026.
+- Delivery step A (14-Oct-2026, user; P2B gap fill): template projects (`mock/delivery-templates.ts`: rack install, network fabric, firmware
+  campaign, optics refresh, UPS battery, rack replacement, decommission, greenfield phases) become synthetic plans so the same engine gives them
+  work orders / POs / tests; a seeded portfolio of 8 template projects + 4 programmes (PGM-01…04) around the planner's projects; programmes with
+  dependency gates (a project waits until its predecessors are delivered; greenfield blueprint = 6 gated phases, MEP long-lead ordered at
+  kick-off), risks (derived + raised, likelihood × impact), change orders (≤5% PM, ≤15% sponsor, else investment committee; approved ones move
+  the approved budget and the finish), cost curves (PV / EV / AC, BAC / EAC). Screens are DASHBOARDS, not strip + tabs + list (user: "don't
+  design every screen in the same format"): `delivery/Overview.tsx` (sparkline KPIs, health matrix, programme progress, needs attention,
+  throughput, change outcomes, 14-day change calendar, cost curve, next 14 days, activity), `ProgrammePage.tsx` (/delivery/programmes/:id: hero,
+  phase roadmap, start gates, plan against today, budget, cost, risks, materials, change orders), `ProjectPage.tsx` Overview (stage tracker,
+  key dates, open work, blockers, milestones, materials, commissioning, cost, risks) + Schedule (Gantt) / Risks / Cost tabs. Widgets in
+  `delivery/dash.tsx`, `parts.tsx`; styles `styles/delivery.css`.
 - **Phase 6 = Change management (done; replaces "Changes & maintenance", menu label Change management)**: `mock/changemgmt.ts` = one register
   over `db.changes` (operations + maintenance), the delivery change requests of every work order (`CR-…`) and the preventive maintenance done in
   the last 12 weeks (`PMW-…`, from the plant PM plan). Class: emergency flag → Emergency; a low-risk title matching a standard template → Standard;

@@ -2,13 +2,15 @@
    purchase orders, commissioning L1–L5 (run in order), permits and design documents, history; Hand over once L5 passed. */
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { advanceWorkOrder, clockNow, getDeliveryProject, handoverProject, receivePurchaseOrder, runCxTest, useQuery } from '../../api';
-import type { DeliveryProjectView } from '../../api/types';
+import { advanceWorkOrder, getDeliveryProject, handoverProject, receivePurchaseOrder, runCxTest, setRiskState, startDeliveryProject, useQuery } from '../../api';
+import { useState } from 'react';
+import { ChangeOrderModal, CostTab, ProjectDashboard, ProjectHero, RiskModal, Schedule } from './project-tabs';
+import { RiskList } from './ProgrammePage';
+import '../../styles/delivery.css';
 import { usePage, PageHead, Loading } from '../../shell/page';
 import { Btn, Chip, Panel, Tabs } from '../../ui/kit';
 import { DataTable } from '../../ui/DataTable';
 import { DcLink } from '../../ui/status';
-import { SummaryStrip } from '../site/SummaryStrip';
 import { fmtDate, fmtMoney } from '../../lib/format';
 import { useToast } from '../ops/shared';
 import { NotFound } from '../NotFound';
@@ -18,13 +20,15 @@ import '../../styles/dcim.css';
 import '../../styles/planner.css';
 import '../../styles/ipam.css';
 
-type Tab = 'milestones' | 'workorders' | 'procurement' | 'commissioning' | 'permits' | 'history';
+type Tab = 'overview' | 'schedule' | 'workorders' | 'procurement' | 'commissioning' | 'risks' | 'cost' | 'permits' | 'history';
 
 export function ProjectPage() {
   const { id = '' } = useParams();
   const [sp, setSp] = useSearchParams();
-  const tab = (sp.get('tab') as Tab) || 'milestones';
-  const setTab = (t: Tab) => { const n = new URLSearchParams(sp); t === 'milestones' ? n.delete('tab') : n.set('tab', t); setSp(n, { replace: true }); };
+  const raw = sp.get('tab');
+  const tab = ((raw === 'milestones' ? 'schedule' : raw) as Tab) || 'overview';
+  const setTab = (t: Tab) => { const n = new URLSearchParams(sp); t === 'overview' ? n.delete('tab') : n.set('tab', t); setSp(n, { replace: true }); };
+  const [form, setForm] = useState<'co' | 'risk' | null>(null);
   const { data, loading } = useQuery(() => getDeliveryProject(id), [id]);
   const toast = useToast();
   usePage([{ label: 'Plan & Build' }, { label: 'Delivery', to: '/delivery' }, { label: id }], data ? { dcId: data.project.dcId } : {});
@@ -38,21 +42,24 @@ export function ProjectPage() {
   return (
     <div className="page dcim planner">
       <PageHead title={p.name} icon={<span className="pl-icon"><Ic size={18} /></span>} chips={<><Chip tone={STATE_TONE[p.state]} dot>{p.state}</Chip><Chip tone={HEALTH_TONE[p.health]} dot>{p.health}</Chip></>}
-        sub={<><span className="mono">{p.id}</span> · {SCOPE_LABEL[p.scope]} · <DcLink id={p.dcId} /> · manager {p.manager} · from plan <Link className="ent-link mono" to={`/planning/plans/${p.planId}`}>{p.planId}</Link></>}
+        sub={<><span className="mono">{p.id}</span> · {p.template ?? SCOPE_LABEL[p.scope]} · <DcLink id={p.dcId} /> · manager {p.manager}{p.planId ? <> · from plan <Link className="ent-link mono" to={`/planning/plans/${p.planId}`}>{p.planId}</Link></> : ' · template project'}{p.programmeId ? <> · <Link className="ent-link" to={`/delivery/programmes/${p.programmeId}`}>programme {p.programmeId}</Link></> : null}</>}
         actions={<>
+          {p.template && p.state === 'Mobilising' && !p.waitsOn?.length && <Btn icon={I.Play} onClick={() => run(() => startDeliveryProject(p.id), 'Project started', 'Crews are mobilised and its purchase orders placed.')}>Start project</Btn>}
           {nextTest && testReady && p.state !== 'Mobilising' && <Btn icon={I.ClipboardCheck} onClick={() => run(() => runCxTest(p.id, nextTest.level), `L${nextTest.level} passed`, nextTest.name)}>Run L{nextTest.level} test</Btn>}
           {data.canHandover && <Btn variant="filled" icon={I.Handshake} onClick={() => run(() => handoverProject(p.id), 'Handed over to operations', 'The plan and its capacity plans are now Delivered.')}>Hand over to operations</Btn>}
         </>} />
-      <SummaryStrip items={[
-        { key: 'p', label: 'Progress', value: `${Math.round(p.progress * 100)}%`, sub: `plan ${Math.round(p.plannedProgress * 100)}% by today`, tone: p.spi < 0.9 ? 'warn' : undefined, info: 'Work done against the schedule. Planned = elapsed share of the schedule today.' },
-        { key: 'b', label: 'Budget', value: fmtMoney(p.budget), sub: `${fmtMoney(p.earned)} earned · ${fmtMoney(p.actual)} spent`, info: 'The plan\'s CapEx; earned = budget × progress, spent = actual cost to date.' },
-        { key: 'c', label: 'CPI · SPI', value: `${p.cpi} · ${p.spi}`, sub: p.cpi < 0.95 ? 'over cost' : p.spi < 0.97 ? 'behind schedule' : 'on plan', tone: p.cpi < 0.95 || p.spi < 0.9 ? 'warn' : undefined, info: 'Cost performance = earned ÷ spent; schedule performance = progress ÷ planned progress. 1.00 = exactly on plan.' },
-        { key: 'f', label: 'Finish', value: fmtDate(p.finish), sub: `target ${fmtDate(p.target)}`, tone: p.finish > p.target ? 'bad' : undefined, info: 'End of the schedule from the lead times, against the plan\'s target date.' },
-        { key: 'w', label: 'Work orders', value: `${p.openWorkOrders} open`, sub: `of ${p.workOrders}`, onClick: () => setTab('workorders'), info: 'Field work; each carries its own change request (CR-…).' },
-        { key: 'x', label: 'Commissioning', value: p.cxLevel ? `L${p.cxLevel} passed` : 'not started', sub: `${p.snags} snags open`, onClick: () => setTab('commissioning'), info: 'L1 factory witness → L2 site acceptance → L3 pre-functional → L4 functional → L5 integrated systems test.' }
-      ]} />
-      <Tabs value={tab} onChange={setTab} tabs={[{ id: 'milestones', label: 'Milestones', count: data.milestones.length }, { id: 'workorders', label: 'Work orders', count: data.workOrders.length }, { id: 'procurement', label: 'Purchase orders', count: data.pos.length }, { id: 'commissioning', label: 'Commissioning' }, { id: 'permits', label: 'Permits & design' }, { id: 'history', label: 'History' }]} />
-      {tab === 'milestones' && <Milestones v={data} />}
+      {p.waitsOn?.length ? <p className="note note--info"><I.DoorClosed size={15} /><span>Waiting at its programme gate: work cannot start until {p.waitsOn.map((w, i) => <span key={w}>{i ? ', ' : ''}<Link className="ent-link" to={`/delivery/projects/${w}`}>{w}</Link></span>)} {p.waitsOn.length === 1 ? 'is' : 'are'} delivered.</span></p> : null}
+      <ProjectHero v={data} />
+      <Tabs value={tab} onChange={setTab} tabs={[{ id: 'overview', label: 'Overview' }, { id: 'schedule', label: 'Schedule' }, { id: 'workorders', label: 'Work orders', count: data.workOrders.length }, { id: 'procurement', label: 'Purchase orders', count: data.pos.length }, { id: 'commissioning', label: 'Commissioning' }, { id: 'risks', label: 'Risks', count: data.risks.filter(r => r.state !== 'Closed').length }, { id: 'cost', label: 'Cost', count: data.changeOrders.length || undefined }, { id: 'permits', label: 'Permits & design' }, { id: 'history', label: 'History' }]} />
+      {tab === 'overview' && <ProjectDashboard v={data} onTab={t => setTab(t as Tab)} run={run} />}
+      {tab === 'schedule' && <Schedule v={data} />}
+      {tab === 'risks' && <Panel title="Risk register" icon={I.ShieldAlert} count={data.risks.filter(r => r.state !== 'Closed').length} actions={<Btn size="sm" icon={I.Plus} onClick={() => setForm('risk')}>Raise a risk</Btn>}
+        info="Risks the delivery data flags by itself (late or long-lead orders, permits close to their date, cost or schedule slipping, open snags, contractor crews in live areas) and the ones raised by hand. Score = likelihood × impact (1–25).">
+        <RiskList risks={[...data.risks].sort((a, b) => (a.state === 'Closed' ? 1 : 0) - (b.state === 'Closed' ? 1 : 0) || b.likelihood * b.impact - a.likelihood * a.impact)} actions={(rid, st) => <span className="row" style={{ gap: 4 }}>
+          {st === 'Open' && <Btn size="sm" onClick={() => run(() => setRiskState(rid, 'Mitigating'), 'Risk being mitigated')}>Mitigate</Btn>}
+          {st !== 'Closed' ? <Btn size="sm" onClick={() => run(() => setRiskState(rid, 'Closed'), 'Risk closed')}>Close</Btn> : <Btn size="sm" onClick={() => run(() => setRiskState(rid, 'Open'), 'Risk reopened')}>Reopen</Btn>}</span>} />
+      </Panel>}
+      {tab === 'cost' && <CostTab v={data} onRaise={() => setForm('co')} run={run} />}
       {tab === 'workorders' && <section className="vw-card-section dcim-table"><DataTable rows={data.workOrders} pageSize={20} defaultSort={{ key: 'w', dir: 'asc' }} cols={[
         { key: 'id', header: 'Work order', wrap: true, render: w => <span className="cell-2"><b className="mono">{w.id}</b><small>{w.title}</small></span> },
         { key: 'c', header: 'Crew', render: w => <span className="cell-2"><span>{w.crew}</span><small>{w.kind}</small></span> },
@@ -84,26 +91,9 @@ export function ProjectPage() {
           { key: 's', header: 'State', render: x => <Chip tone={x.state === 'In review' ? 'info' : x.state === 'Draft' ? 'neutral' : 'success'} dot>{x.state}</Chip> }]} /></Panel>
       </div>}
       {tab === 'history' && <Panel title="History" icon={I.History}><ul className="pl-hist">{[...data.history].reverse().map((h, i) => <li key={i}><small>{fmtDate(h.at)}</small><span><b>{h.who}</b> — {h.text}</span></li>)}</ul></Panel>}
+      <ChangeOrderModal open={form === 'co'} pid={p.id} budget={p.budgetApproved} onClose={() => setForm(null)} onDone={t => { setForm(null); toast.show(t, 'It waits for its approver on the Cost tab.'); }} />
+      <RiskModal open={form === 'risk'} pid={p.id} onClose={() => setForm(null)} onDone={t => { setForm(null); toast.show(t); }} />
       {toast.node}
     </div>
-  );
-}
-
-function Milestones({ v }: { v: DeliveryProjectView }) {
-  const now = clockNow();
-  const t0 = Math.min(...v.milestones.map(m => m.start)), t1 = Math.max(v.project.finish, v.project.target, now);
-  const x = (t: number) => `${((t - t0) / Math.max(1, t1 - t0)) * 100}%`;
-  const right = (t: number) => (t - t0) / Math.max(1, t1 - t0) > 0.8;
-  return (
-    <Panel title="Milestones" icon={I.CalendarRange} info="The plan's schedule; the line is today. Long-lead items (amber) are ordered at approval.">
-      <div className="pl-gantt">
-        {v.milestones.map(m => <div key={m.name} className="pl-g-row"><span className="pl-g-l"><b>{m.name}</b><small>{m.state === 'done' ? 'done' : m.state === 'active' ? 'in progress' : 'upcoming'} · {fmtDate(m.start)} – {fmtDate(m.end)}</small></span>
-          <span className="pl-g-track"><i className={`${m.longLead ? 'is-ll' : ''}${m.state === 'done' ? ' is-done' : ''}`} style={{ left: x(m.start), width: `calc(${x(m.end)} - ${x(m.start)})` }} /><b className="pl-g-now" style={{ left: x(now) }} /></span></div>)}
-        <div className="pl-g-row pl-g-axis"><span className="pl-g-l" /><span className="pl-g-track">
-          <em style={{ left: x(now), transform: right(now) ? 'translateX(-100%)' : undefined }} className="pl-g-target">today</em>
-          <em style={{ left: x(v.project.finish), transform: right(v.project.finish) ? 'translateX(-100%)' : undefined }} className={`pl-g-finish${v.project.finish > v.project.target ? ' late' : ''}`}>finish {fmtDate(v.project.finish)}</em>
-        </span></div>
-      </div>
-    </Panel>
   );
 }

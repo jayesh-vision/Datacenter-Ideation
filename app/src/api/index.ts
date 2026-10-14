@@ -131,6 +131,17 @@ export const advanceWorkOrder = (id: string) => mutate(() => S.deliveryAdvanceWo
 export const runCxTest = (projectId: string, level: number) => mutate(() => S.deliveryRunTest(projectId, level)); // POST /delivery/projects/:id/commissioning/:level
 export const receivePurchaseOrder = (id: string) => mutate(() => S.deliveryReceivePo(id));         // POST /delivery/purchase-orders/:id/receipt
 export const handoverProject = (projectId: string) => mutate(() => S.deliveryHandover(projectId)); // POST /delivery/projects/:id/handover
+export const getProgrammes = () => wait(S.deliveryProgrammesList);                                   // GET /delivery/programmes
+export const getProgramme = (id: string) => wait(() => S.deliveryProgrammeOne(id));                // GET /delivery/programmes/:id
+export const getDeliveryTemplates = () => wait(S.deliveryTemplates);                               // GET /delivery/project-templates
+export const createProgramme = (x: Parameters<typeof S.deliveryCreateProgramme>[0]) => mutate(() => S.deliveryCreateProgramme(x)); // POST /delivery/programmes
+export const setProgrammeStatus = (id: string, to: 'Active' | 'On hold' | 'Closed') => mutate(() => S.deliveryProgrammeStatus(id, to)); // PATCH /delivery/programmes/:id
+export const createDeliveryProject = (x: Parameters<typeof S.deliveryCreateProject>[0]) => mutate(() => S.deliveryCreateProject(x)); // POST /delivery/projects
+export const startDeliveryProject = (id: string) => mutate(() => S.deliveryStartProject(id));       // POST /delivery/projects/:id/start
+export const raiseChangeOrder = (pid: string, x: Parameters<typeof S.deliveryRaiseCo>[1]) => mutate(() => S.deliveryRaiseCo(pid, x)); // POST /delivery/projects/:id/change-orders
+export const decideChangeOrder = (id: string, d: 'Approved' | 'Rejected', note: string) => mutate(() => S.deliveryDecideCo(id, d, note)); // POST /delivery/change-orders/:id/decision
+export const addProjectRisk = (pid: string, x: Parameters<typeof S.deliveryAddRisk>[1]) => mutate(() => S.deliveryAddRisk(pid, x)); // POST /delivery/projects/:id/risks
+export const setRiskState = (id: string, to: 'Open' | 'Mitigating' | 'Closed') => mutate(() => S.deliveryRiskState(id, to)); // PATCH /delivery/risks/:id
 
 /* ---- Compliance and Customization (Admin) */
 export const getCompliance = () => wait(S.compliance);                                             // GET /compliance (frameworks, controls, policies, violations)

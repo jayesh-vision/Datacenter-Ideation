@@ -594,7 +594,21 @@ export interface DeliveryProject {
   id: string; planId: string; name: string; dcId: string; scope: PlanScope; state: DeliveryState; manager: string; start: number; finish: number; target: number;
   progress: number; plannedProgress: number; budget: number; earned: number; actual: number; cpi: number; spi: number; health: 'on track' | 'at risk' | 'late';
   workOrders: number; openWorkOrders: number; poOpen: number; permitsOpen: number; cxLevel: number; snags: number;
+  /* 14-Oct-2026 (P2B gap fill): a template project (not from the planner), its programme and the projects it waits on; budget after approved change orders */
+  template?: string; programmeId?: string; waitsOn?: string[]; budgetApproved: number; baselineFinish: number;
 }
+export type RiskCategory = 'Supply' | 'Permit' | 'Cost' | 'Schedule' | 'Quality' | 'Safety' | 'Resource';
+export interface ProjectRisk { id: string; projectId: string; title: string; category: RiskCategory; likelihood: number; impact: number; mitigation: string; owner: string; state: 'Open' | 'Mitigating' | 'Closed'; derived: boolean; raised: number }
+export interface ChangeOrder { id: string; projectId: string; title: string; reason: string; budgetDelta: number; scheduleDays: number; state: 'Submitted' | 'Approved' | 'Rejected'; approver: string; raisedBy: string; raisedAt: number; decidedBy?: string; decidedAt?: number; note?: string }
+export interface CostPoint { t: number; pv: number; ev: number | null; ac: number | null }
+export type ProgrammeType = 'Site expansion' | 'Greenfield build' | 'Network modernisation' | 'Refresh wave' | 'Resilience';
+export interface Programme { id: string; name: string; type: ProgrammeType; description: string; sponsor: string; manager: string; status: 'Active' | 'On hold' | 'Closed'; created: number; projectIds: string[]; deps: Record<string, string[]>; blueprint?: string }
+export interface ProgrammeView {
+  programme: Programme; projects: DeliveryProject[]; rag: 'green' | 'amber' | 'red'; completion: number; budget: number; earned: number; actual: number; start: number; baselineFinish: number; forecastFinish: number;
+  gates: { projectId: string; waitsOn: string[]; permits: 'granted' | 'pending' | 'none'; design: 'issued' | 'in progress'; ready: boolean }[];
+  risks: ProjectRisk[]; materials: { projectId: string; open: number; late: number; inTransit: number; delivered: number; value: number }[]; openWorkOrders: number; changeOrders: ChangeOrder[]; history: { at: number; who: string; text: string }[]; costCurve: CostPoint[];
+}
+export interface DeliveryTemplate { key: string; name: string; description: string; scope: PlanScope; icon: string; weeks: number; unit?: string; defaultQty?: number; phases: string[]; budgetFrom: number }
 export interface DeliveryMilestone { name: string; start: number; end: number; state: 'done' | 'active' | 'next'; longLead?: boolean }
 export type WoState = 'Planned' | 'Awaiting change' | 'Ready' | 'In progress' | 'Done';
 export interface WorkOrder { id: string; projectId: string; dcId: string; title: string; kind: 'Install' | 'Cabling' | 'Electrical' | 'Mechanical' | 'Commissioning' | 'Migration' | 'Civil' | 'Decommission'; crew: string; crewKind: 'Own technicians' | 'Contractor'; start: number; end: number; state: WoState; changeId: string; changeState: 'Draft' | 'Pending approval' | 'Approved' | 'Implemented'; rackIds: string[]; kit: 'Ready' | 'Partial' | 'Not ordered' }
@@ -604,7 +618,8 @@ export interface Permit { id: string; projectId: string; name: string; authority
 export interface DesignDoc { id: string; projectId: string; title: string; kind: 'Design basis' | 'Single-line diagram' | 'Cooling P&ID' | 'Floor layout' | 'Cable schedule' | 'Method statement' | 'As-built'; rev: string; state: 'Draft' | 'In review' | 'Issued for construction' | 'As-built'; updated: number; author: string }
 export interface DeliveryProjectView {
   project: DeliveryProject; milestones: DeliveryMilestone[]; workOrders: WorkOrder[]; pos: PurchaseOrder[]; tests: CxTest[]; permits: Permit[]; docs: DesignDoc[];
-  history: { at: number; who: string; text: string }[]; plan: PlannerPlan; canHandover: boolean;
+  history: { at: number; who: string; text: string }[]; plan?: PlannerPlan; canHandover: boolean;
+  risks: ProjectRisk[]; changeOrders: ChangeOrder[]; costCurve: CostPoint[];
 }
 
 /* ---- Change management (13-Oct-2026, P2B merge phase 6): one register over operations changes, maintenance and delivery change

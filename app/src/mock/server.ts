@@ -31,7 +31,8 @@ import { setPlannerClock } from '../planner/compat/clock';
 import { registerPlannerStore } from '../planner/compat/registry';
 import { plannerQueue as queue_ } from './p2b/bridge';
 import { p2bStore, plannerStoreSerial as p2bSerial, resetPlanner2, subscribePlanner } from './p2b';
-import { advanceWorkOrder, deliveryProject as deliveryProject_, deliveryProjects, handover as handover_, receivePo, resetDelivery, runTest as runTest_ } from './delivery';
+import { addRisk, advanceWorkOrder, createProgramme, createTemplateProject, decideChangeOrder, deliveryProgramme as deliveryProgramme_, deliveryProgrammes, deliveryProject as deliveryProject_, deliveryProjects, handover as handover_, raiseChangeOrder, receivePo, resetDelivery, runTest as runTest_, setProgrammeStatus, setRiskState, startTemplateProject, sumCurves } from './delivery';
+import { templateInfo } from './delivery-templates';
 import { approveStep, changeRegister, clearChangeMgmt, resetChangeMgmt, stepsApproved } from './changemgmt';
 import { clearCompliance, complianceView } from './compliance';
 import { addField as addField_, addTag as addTag_, customization as customization_, resetCustomization } from './customization';
@@ -1245,13 +1246,27 @@ export function ipamSync(id: string, action: 'Sync' | 'Import' | 'Export' | 'Con
 export function delivery() {
   const vs = deliveryProjects(db);
   return { projects: vs.map(v => v.project), workOrders: vs.flatMap(v => v.workOrders), pos: vs.flatMap(v => v.pos), tests: vs.flatMap(v => v.tests.map(t => ({ ...t, projectId: v.project.id, dcId: v.project.dcId, projectName: v.project.name }))),
-    permits: vs.flatMap(v => v.permits), docs: vs.flatMap(v => v.docs), me: ME };
+    permits: vs.flatMap(v => v.permits), docs: vs.flatMap(v => v.docs), me: ME,
+    changeOrders: vs.flatMap(v => v.changeOrders), risks: vs.flatMap(v => v.risks.filter(r => r.state !== 'Closed')), costCurve: sumCurves(vs.filter(v => v.project.state !== 'Delivered').map(v => v.costCurve), db.now),
+    activity: vs.flatMap(v => v.history.map(h => ({ ...h, projectId: v.project.id, projectName: v.project.name }))).sort((x, y) => y.at - x.at).slice(0, 25) };
 }
 export const deliveryProject = (id: string) => deliveryProject_(db, id);
 export function deliveryAdvanceWo(id: string) { const st = advanceWorkOrder(db, id, ME); audit_({ actor: ME, object: id, field: 'work order', prev: '—', next: st, source: 'Delivery' }); changed(); return st; }
 export function deliveryRunTest(projectId: string, level: number) { runTest_(db, projectId, level, ME); audit_({ actor: ME, object: projectId, field: `L${level}`, prev: '—', next: 'Passed', source: 'Delivery' }); changed(); }
 export function deliveryHandover(projectId: string) { handover_(db, projectId, ME); audit_({ actor: ME, object: projectId, field: 'handover', prev: 'Handover', next: 'Delivered', source: 'Delivery' }); changed(); }
 export function deliveryReceivePo(id: string) { receivePo(db, id, ME); audit_({ actor: ME, object: id, field: 'goods receipt', prev: '—', next: 'Delivered', source: 'Delivery' }); changed(); }
+export const deliveryProgrammesList = () => deliveryProgrammes(db);
+export const deliveryProgrammeOne = (id: string) => deliveryProgramme_(db, id);
+export const deliveryTemplates = () => templateInfo();
+type ProgInput = Parameters<typeof createProgramme>[1];
+export function deliveryCreateProgramme(x: ProgInput) { const id = createProgramme(db, x, ME); audit_({ actor: ME, object: id, field: 'programme', prev: '—', next: `${x.name} (${x.type})${x.blueprint ? ' from the greenfield blueprint' : ''}`, source: 'Delivery' }); changed(); return id; }
+export function deliveryProgrammeStatus(id: string, to: 'Active' | 'On hold' | 'Closed') { setProgrammeStatus(db, id, to, ME); audit_({ actor: ME, object: id, field: 'programme status', prev: '—', next: to, source: 'Delivery' }); changed(); }
+export function deliveryCreateProject(x: Parameters<typeof createTemplateProject>[1]) { const id = createTemplateProject(db, x, ME); audit_({ actor: ME, object: id, field: 'project', prev: '—', next: `${x.name} from the ${x.template} template`, source: 'Delivery' }); changed(); return id; }
+export function deliveryStartProject(id: string) { startTemplateProject(db, id, ME); audit_({ actor: ME, object: id, field: 'project', prev: 'Mobilising', next: 'started', source: 'Delivery' }); changed(); }
+export function deliveryRaiseCo(pid: string, x: Parameters<typeof raiseChangeOrder>[2]) { const co = raiseChangeOrder(db, pid, x, ME); audit_({ actor: ME, object: co.id, field: 'change order', prev: '—', next: `raised for ${co.approver}`, source: 'Delivery' }); changed(); return co; }
+export function deliveryDecideCo(id: string, d: 'Approved' | 'Rejected', note: string) { decideChangeOrder(db, id, d, note, ME); audit_({ actor: ME, object: id, field: 'change order', prev: 'Submitted', next: d, source: 'Delivery' }); changed(); }
+export function deliveryAddRisk(pid: string, x: Parameters<typeof addRisk>[2]) { const id = addRisk(db, pid, x, ME); audit_({ actor: ME, object: id, field: 'risk', prev: '—', next: x.title, source: 'Delivery' }); changed(); return id; }
+export function deliveryRiskState(id: string, to: 'Open' | 'Mitigating' | 'Closed') { setRiskState(db, id, to, ME); audit_({ actor: ME, object: id, field: 'risk', prev: '—', next: to, source: 'Delivery' }); changed(); }
 
 /* ---- Change management (P2B merge, phase 6): one register over operations changes, maintenance and delivery CRs (mock/changemgmt.ts) */
 export const changeMgmt = () => changeRegister(db);

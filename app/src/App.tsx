@@ -24,6 +24,7 @@ import { Capacity } from './screens/Capacity';
 import { lazy, Suspense, type ReactNode } from 'react';
 import { Delivery } from './screens/delivery/Delivery';
 import { ProjectPage } from './screens/delivery/ProjectPage';
+import { ProgrammePage } from './screens/delivery/ProgrammePage';
 import { Compliance } from './screens/admin/Compliance';
 import { Customization } from './screens/admin/Customization';
 
@@ -76,6 +77,7 @@ export default function App() {
           {/* Data model explorer: entities and relationships (user, 12-Oct-2026) */}
           <Route path="delivery" element={<Delivery />} />
           <Route path="delivery/projects/:id" element={<ProjectPage />} />
+          <Route path="delivery/programmes/:id" element={<ProgrammePage />} />
           <Route path="planning" element={lazyEl(<PlannerHub />)} />
           <Route path="planning/new" element={lazyEl(<PlannerWizard />)} />
           <Route path="planning/plans/:planId/edit" element={lazyEl(<PlannerWizard />)} />
