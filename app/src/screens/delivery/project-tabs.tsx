@@ -158,7 +158,7 @@ export function ProjectDashboard({ v, onTab, run }: { v: DeliveryProjectView; on
         <ul className="dl-dates">{dates.filter(d => d[1]).map(([l, t, n]) => <li key={l} className={t! < now ? 'is-past' : ''}><small>{l}</small><b>{fmtDate(t!)}</b>{n && <em title={n}>{n}</em>}</li>)}</ul>
       </Panel>
       <Panel className="dl-span-6 dl-h-fill" title="Open work" icon={I.HardHat} count={open.length} actions={<button type="button" className="ent-link" onClick={() => onTab('workorders')}>All →</button>} info="The next work orders by window; start or complete them here.">
-        <ul className="dl-work">{open.slice(0, 6).map(w => <li key={w.id}><span className="cell-2"><b>{w.title}</b><small><span className="mono">{w.id}</span> · {w.crew} · {fmtDate(w.start)} – {fmtDate(w.end)}</small></span>
+        <ul className="dl-work">{open.slice(0, 6).map(w => <li key={w.id}><span className="cell-2"><Link className="ent-link" to={`/delivery/work-orders/${w.id}`}><b>{w.title}</b></Link><small><span className="mono">{w.id}</span> · {w.crew} · {fmtDate(w.start)} – {fmtDate(w.end)}</small></span>
           <Chip tone={WO_TONE[w.state]} size="xs" dot>{w.state}</Chip>
           {!p.waitsOn?.length && p.state !== 'Mobilising' && <Btn size="sm" onClick={() => run(() => advanceWorkOrder(w.id), `${w.id} ${w.state === 'In progress' ? 'completed' : 'started'}`)}>{w.state === 'In progress' ? 'Complete' : 'Start'}</Btn>}</li>)}
           {!open.length && <li><p className="vw-label" style={{ margin: 0 }}>All work orders are done.</p></li>}</ul>

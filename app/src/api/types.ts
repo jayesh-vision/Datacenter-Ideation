@@ -610,7 +610,7 @@ export interface ProgrammeView {
 }
 export interface DeliveryTemplate { key: string; name: string; description: string; scope: PlanScope; icon: string; weeks: number; unit?: string; defaultQty?: number; phases: string[]; budgetFrom: number }
 export interface DeliveryMilestone { name: string; start: number; end: number; state: 'done' | 'active' | 'next'; longLead?: boolean }
-export type WoState = 'Planned' | 'Awaiting change' | 'Ready' | 'In progress' | 'Done';
+export type WoState = 'Planned' | 'Awaiting change' | 'Ready' | 'In progress' | 'Done' | 'Failed';
 export interface WorkOrder { id: string; projectId: string; dcId: string; title: string; kind: 'Install' | 'Cabling' | 'Electrical' | 'Mechanical' | 'Commissioning' | 'Migration' | 'Civil' | 'Decommission'; crew: string; crewKind: 'Own technicians' | 'Contractor'; start: number; end: number; state: WoState; changeId: string; changeState: 'Draft' | 'Pending approval' | 'Approved' | 'Implemented'; rackIds: string[]; kit: 'Ready' | 'Partial' | 'Not ordered' }
 export interface PurchaseOrder { id: string; projectId: string; supplier: string; item: string; qty: number; unitCost: number; total: number; ordered: number; due: number; state: 'Draft' | 'Ordered' | 'In transit' | 'Delivered' | 'Late'; leadWeeks: number }
 export interface CxTest { level: 1 | 2 | 3 | 4 | 5; name: string; scope: string; due: number; state: 'Passed' | 'Failed' | 'Scheduled' | 'Not started'; witness: string; snags: number }
@@ -646,3 +646,26 @@ export interface ComplianceFramework { id: string; name: string; description: st
 export interface ComplianceView { frameworks: ComplianceFramework[]; controls: ComplianceControl[]; policies: CompliancePolicy[]; violations: ComplianceViolation[] }
 export interface CustomField { key: string; label: string; type: 'Text' | 'Number' | 'Date' | 'Select' | 'Boolean'; appliesTo: string[]; required: boolean; choices?: string[]; filled: number; total: number; description: string; custom?: boolean }
 export interface TagDef { slug: string; name: string; color: 'blue' | 'purple' | 'cyan' | 'amber' | 'red' | 'slate' | 'emerald'; description: string; rule: string; count: number; appliesTo: string; custom?: boolean }
+
+/* ---- Work orders and processes (14-Oct-2026, P2B gap fill step B; mock/workflow.ts): P2B's 12 process definitions run over our records */
+export interface WfStep { id: string; name: string; lane: string; kind: 'user' | 'auto' | 'decision'; hours: number; branch?: boolean; form?: WfField[] }
+export interface WfField { key: string; label: string; type: 'text' | 'select' | 'check' | 'number'; options?: string[]; required?: boolean }
+export interface WfProcess { pid: string; key: string; name: string; owner: string; description: string; lanes: string[]; steps: WfStep[]; running: number; completed: number; slaHours: number }
+export interface WfEvent { stepId: string; step: string; lane: string; who: string; at: number; tookHours: number; data?: Record<string, string | boolean | number> }
+export interface WfInstance {
+  id: string; pid: string; key: string; process: string; businessKey: string; title: string; dcId: string; started: number; due: number; ended?: number;
+  state: 'Running' | 'Completed' | 'Incident' | 'Cancelled'; stepIndex: number; stepId: string; step: string; lane: string; waitingSince: number; overdue: boolean;
+  history: WfEvent[]; link?: string; incidentText?: string;
+}
+export interface WfTask { id: string; instanceId: string; pid: string; process: string; title: string; step: string; stepId: string; lane: string; candidates: string[]; assignee?: string; created: number; due: number; overdue: boolean; dcId: string; businessKey: string; form: WfField[]; link?: string }
+export interface WfKpis {
+  perProcess: { pid: string; name: string; completed: number; running: number; avgCycleHours: number; slaPct: number; slaHours: number }[];
+  perTask: { pid: string; process: string; step: string; lane: string; n: number; avgWait: number; p90: number; onTimePct: number }[];
+  bySite: { dcId: string; running: number; completed: number }[];
+  heat: { pid: string; process: string; cells: { step: string; avgWait: number | null }[] }[];
+}
+export interface WorkOrderDetail {
+  wo: WorkOrder; project: DeliveryProject; checklist: { id: string; text: string; done: boolean; by?: string; at?: number }[]; backout: string; technician?: string;
+  access: { state: 'Not needed' | 'Not requested' | 'Requested' | 'Approved' | 'Checked in' | 'Checked out'; zones: string; instanceId?: string } ; signoff?: { doneBy: string; confirmedBy: string; witness: boolean; notes: string; at: number };
+  failure?: { reason: string; at: number; by: string }; pos: PurchaseOrder[]; process?: WfInstance; change?: { id: string; status: string; cls: string; risk: string } ; history: { at: number; who: string; text: string }[];
+}

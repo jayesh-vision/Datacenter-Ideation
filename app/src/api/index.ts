@@ -131,6 +131,19 @@ export const advanceWorkOrder = (id: string) => mutate(() => S.deliveryAdvanceWo
 export const runCxTest = (projectId: string, level: number) => mutate(() => S.deliveryRunTest(projectId, level)); // POST /delivery/projects/:id/commissioning/:level
 export const receivePurchaseOrder = (id: string) => mutate(() => S.deliveryReceivePo(id));         // POST /delivery/purchase-orders/:id/receipt
 export const handoverProject = (projectId: string) => mutate(() => S.deliveryHandover(projectId)); // POST /delivery/projects/:id/handover
+export const getWorkflow = () => wait(S.wfList);                                                      // GET /workorders (processes, instances, tasks)
+export const getWfInstance = (id: string) => wait(() => S.wfInstance(id));                         // GET /workorders/instances/:id
+export const getWfKpis = () => wait(S.wfKpiView);                                                  // GET /workorders/kpis
+export const claimWfTask = (id: string) => mutate(() => S.wfClaim(id));                            // POST /workorders/tasks/:id/claim
+export const completeWfTask = (id: string, data: Record<string, string | boolean | number>) => mutate(() => S.wfComplete(id, data)); // POST /workorders/tasks/:id/complete
+export const retryWfInstance = (id: string) => mutate(() => S.wfRetry(id));                        // POST /workorders/instances/:id/retry
+export const getWorkOrder = (id: string) => wait(() => S.workOrder(id));                           // GET /delivery/work-orders/:id
+export const assignWorkOrder = (id: string, x: Parameters<typeof S.woAssign>[1]) => mutate(() => S.woAssign(id, x)); // PATCH /delivery/work-orders/:id/assignment
+export const tickWorkOrderCheck = (id: string, item: string) => mutate(() => S.woTick(id, item));  // POST /delivery/work-orders/:id/checklist/:item
+export const requestWorkOrderAccess = (id: string, zones: string) => mutate(() => S.woAccess(id, zones)); // POST /delivery/work-orders/:id/access
+export const signOffWorkOrder = (id: string, x: Parameters<typeof S.woSignOff>[1]) => mutate(() => S.woSignOff(id, x)); // POST /delivery/work-orders/:id/sign-off
+export const failWorkOrder = (id: string, reason: string) => mutate(() => S.woFail(id, reason));   // POST /delivery/work-orders/:id/failure
+export const retryWorkOrder = (id: string) => mutate(() => S.woRetry(id));                         // POST /delivery/work-orders/:id/retry
 export const getProgrammes = () => wait(S.deliveryProgrammesList);                                   // GET /delivery/programmes
 export const getProgramme = (id: string) => wait(() => S.deliveryProgrammeOne(id));                // GET /delivery/programmes/:id
 export const getDeliveryTemplates = () => wait(S.deliveryTemplates);                               // GET /delivery/project-templates

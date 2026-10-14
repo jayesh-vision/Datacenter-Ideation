@@ -61,7 +61,7 @@ export function ProjectPage() {
       </Panel>}
       {tab === 'cost' && <CostTab v={data} onRaise={() => setForm('co')} run={run} />}
       {tab === 'workorders' && <section className="vw-card-section dcim-table"><DataTable rows={data.workOrders} pageSize={20} defaultSort={{ key: 'w', dir: 'asc' }} cols={[
-        { key: 'id', header: 'Work order', wrap: true, render: w => <span className="cell-2"><b className="mono">{w.id}</b><small>{w.title}</small></span> },
+        { key: 'id', header: 'Work order', wrap: true, render: w => <span className="cell-2"><Link className="ent-link mono" to={`/delivery/work-orders/${w.id}`} onClick={e => e.stopPropagation()}>{w.id}</Link><small>{w.title}</small></span> },
         { key: 'c', header: 'Crew', render: w => <span className="cell-2"><span>{w.crew}</span><small>{w.kind}</small></span> },
         { key: 'w', header: 'Window', sort: w => w.start, render: w => <span className="cell-2"><span className="nowrap">{fmtDate(w.start)}</span><small className="nowrap">to {fmtDate(w.end)}</small></span> },
         { key: 'r', header: 'Racks', render: w => w.rackIds.length ? <span className="row wrap" style={{ gap: 4 }}>{w.rackIds.map(r => <Link key={r} className="ent-link mono" to={`/dcim/racks/${encodeURIComponent(r)}`}>{r.split('-').slice(-2).join('-')}</Link>)}</span> : <span className="vw-label">—</span> },

@@ -25,6 +25,9 @@ import { lazy, Suspense, type ReactNode } from 'react';
 import { Delivery } from './screens/delivery/Delivery';
 import { ProjectPage } from './screens/delivery/ProjectPage';
 import { ProgrammePage } from './screens/delivery/ProgrammePage';
+import { WorkOrderPage } from './screens/delivery/WorkOrderPage';
+import { WorkOrders } from './screens/workorders/WorkOrders';
+import { InstancePage } from './screens/workorders/InstancePage';
 import { Compliance } from './screens/admin/Compliance';
 import { Customization } from './screens/admin/Customization';
 
@@ -78,6 +81,9 @@ export default function App() {
           <Route path="delivery" element={<Delivery />} />
           <Route path="delivery/projects/:id" element={<ProjectPage />} />
           <Route path="delivery/programmes/:id" element={<ProgrammePage />} />
+          <Route path="delivery/work-orders/:id" element={<WorkOrderPage />} />
+          <Route path="workorders" element={<WorkOrders />} />
+          <Route path="workorders/instances/:id" element={<InstancePage />} />
           <Route path="planning" element={lazyEl(<PlannerHub />)} />
           <Route path="planning/new" element={lazyEl(<PlannerWizard />)} />
           <Route path="planning/plans/:planId/edit" element={lazyEl(<PlannerWizard />)} />

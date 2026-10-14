@@ -33,6 +33,7 @@ import { plannerQueue as queue_ } from './p2b/bridge';
 import { p2bStore, plannerStoreSerial as p2bSerial, resetPlanner2, subscribePlanner } from './p2b';
 import { addRisk, advanceWorkOrder, createProgramme, createTemplateProject, decideChangeOrder, deliveryProgramme as deliveryProgramme_, deliveryProgrammes, deliveryProject as deliveryProject_, deliveryProjects, handover as handover_, raiseChangeOrder, receivePo, resetDelivery, runTest as runTest_, setProgrammeStatus, setRiskState, startTemplateProject, sumCurves } from './delivery';
 import { templateInfo } from './delivery-templates';
+import { assignWorkOrder, claimTask, completeTask, failWorkOrder, instances as wfInstances, kpis as wfKpis, processes as wfProcesses, requestAccess, resetWorkflow, retryInstance, retryWorkOrder, signOffWorkOrder, tasks as wfTasks, tickCheck, workOrderDetail } from './workflow';
 import { approveStep, changeRegister, clearChangeMgmt, resetChangeMgmt, stepsApproved } from './changemgmt';
 import { clearCompliance, complianceView } from './compliance';
 import { addField as addField_, addTag as addTag_, customization as customization_, resetCustomization } from './customization';
@@ -94,7 +95,7 @@ const listeners = new Set<() => void>();
 export const subscribe = (f: () => void) => { listeners.add(f); return () => { listeners.delete(f); }; };
 const changed = () => { version++; clearPhysical(); clearDcim(); clearIpam(); clearChangeMgmt(); clearCompliance(); clearSafety(); clearLifecycle(); clearMaintenance(); clearOps(); finaliseHealth(db); summaryCache.clear(); revModel = null; revViews.clear(); listeners.forEach(f => f()); };
 export const getVersion = () => version;
-const rebuild = () => { db = generate(persona); edgeCache.clear(); resetDcimCustom(); resetIpamOverlay(); resetPlanner2(); resetDelivery(); resetChangeMgmt(); resetCustomization(); changed(); };
+const rebuild = () => { db = generate(persona); edgeCache.clear(); resetDcimCustom(); resetIpamOverlay(); resetPlanner2(); resetDelivery(); resetWorkflow(); resetChangeMgmt(); resetCustomization(); changed(); };
 export const reset = () => rebuild();
 export const getPersona = () => persona;
 export function setPersona(p: Persona) {
@@ -1256,6 +1257,20 @@ export function deliveryRunTest(projectId: string, level: number) { runTest_(db,
 export function deliveryHandover(projectId: string) { handover_(db, projectId, ME); audit_({ actor: ME, object: projectId, field: 'handover', prev: 'Handover', next: 'Delivered', source: 'Delivery' }); changed(); }
 export function deliveryReceivePo(id: string) { receivePo(db, id, ME); audit_({ actor: ME, object: id, field: 'goods receipt', prev: '—', next: 'Delivered', source: 'Delivery' }); changed(); }
 export const deliveryProgrammesList = () => deliveryProgrammes(db);
+/* ---- Work orders and processes (14-Oct-2026, P2B gap fill step B; mock/workflow.ts) */
+export const wfList = () => ({ processes: wfProcesses(db), instances: wfInstances(db), tasks: wfTasks(db), me: ME });
+export const wfInstance = (id: string) => { const i = wfInstances(db).find(x => x.id === id); return i ? { instance: i, process: wfProcesses(db).find(p => p.pid === i.pid)!, tasks: wfTasks(db).filter(t => t.instanceId === id) } : null; };
+export const wfKpiView = () => wfKpis(db);
+export function wfClaim(id: string) { claimTask(db, id, ME); audit_({ actor: ME, object: id, field: 'task', prev: '—', next: 'claimed', source: 'Work orders' }); changed(); }
+export function wfComplete(id: string, data: Record<string, string | boolean | number>) { const i = completeTask(db, id, data, ME); audit_({ actor: ME, object: id, field: 'task', prev: 'open', next: `completed → ${i.step}`, source: 'Work orders' }); changed(); return i; }
+export function wfRetry(id: string) { retryInstance(db, id, ME); audit_({ actor: ME, object: id, field: 'process', prev: 'incident', next: 'retried', source: 'Work orders' }); changed(); }
+export const workOrder = (id: string) => workOrderDetail(db, id);
+export function woAssign(id: string, x: Parameters<typeof assignWorkOrder>[2]) { assignWorkOrder(db, id, x, ME); audit_({ actor: ME, object: id, field: 'assignment', prev: '—', next: x.crew, source: 'Work orders' }); changed(); }
+export function woTick(id: string, item: string) { tickCheck(db, id, item, ME); changed(); }
+export function woAccess(id: string, zones: string) { requestAccess(db, id, zones, ME); audit_({ actor: ME, object: id, field: 'site access', prev: '—', next: 'requested', source: 'Work orders' }); changed(); }
+export function woSignOff(id: string, x: Parameters<typeof signOffWorkOrder>[2]) { signOffWorkOrder(db, id, x, ME); audit_({ actor: ME, object: id, field: 'work order', prev: 'In progress', next: 'Done (signed off)', source: 'Work orders' }); changed(); }
+export function woFail(id: string, reason: string) { failWorkOrder(db, id, reason, ME); audit_({ actor: ME, object: id, field: 'work order', prev: 'In progress', next: `Failed: ${reason}`, source: 'Work orders' }); changed(); }
+export function woRetry(id: string) { retryWorkOrder(db, id, ME); audit_({ actor: ME, object: id, field: 'work order', prev: 'Failed', next: 'Ready', source: 'Work orders' }); changed(); }
 export const deliveryProgrammeOne = (id: string) => deliveryProgramme_(db, id);
 export const deliveryTemplates = () => templateInfo();
 type ProgInput = Parameters<typeof createProgramme>[1];

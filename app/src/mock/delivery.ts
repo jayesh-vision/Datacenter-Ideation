@@ -36,10 +36,10 @@ interface Overlay {
   po: Set<string>; wo: Map<string, WorkOrder['state']>; tests: Map<string, CxTest['state']>; handed: Map<string, number>; log: Map<string, { at: number; who: string; text: string }[]>;
   /* 14-Oct-2026: the user's projects and programmes, programme status, dependencies, change orders and risks */
   projects: TplProject[]; programmes: Programme[]; progStatus: Map<string, Programme['status']>; deps: Map<string, Record<string, string[]>>;
-  started: Map<string, number>; cos: Map<string, ChangeOrder[]>; coState: Map<string, Pick<ChangeOrder, 'state' | 'decidedBy' | 'decidedAt' | 'note'>>; risks: Map<string, ProjectRisk[]>; riskState: Map<string, ProjectRisk['state']>; seq: number;
+  started: Map<string, number>; assign: Map<string, { crewKind: WorkOrder['crewKind']; crew: string }>; cos: Map<string, ChangeOrder[]>; coState: Map<string, Pick<ChangeOrder, 'state' | 'decidedBy' | 'decidedAt' | 'note'>>; risks: Map<string, ProjectRisk[]>; riskState: Map<string, ProjectRisk['state']>; seq: number;
 }
-const overlay: Overlay = { po: new Set(), wo: new Map(), tests: new Map(), handed: new Map(), log: new Map(), projects: [], programmes: [], progStatus: new Map(), deps: new Map(), started: new Map(), cos: new Map(), coState: new Map(), risks: new Map(), riskState: new Map(), seq: 0 };
-export const resetDelivery = () => { overlay.po.clear(); overlay.wo.clear(); overlay.tests.clear(); overlay.handed.clear(); overlay.log.clear(); overlay.projects.length = 0; overlay.programmes.length = 0; overlay.progStatus.clear(); overlay.deps.clear(); overlay.started.clear(); overlay.cos.clear(); overlay.coState.clear(); overlay.risks.clear(); overlay.riskState.clear(); overlay.seq = 0; vCache = null; };
+const overlay: Overlay = { po: new Set(), wo: new Map(), tests: new Map(), handed: new Map(), log: new Map(), projects: [], programmes: [], progStatus: new Map(), deps: new Map(), started: new Map(), assign: new Map(), cos: new Map(), coState: new Map(), risks: new Map(), riskState: new Map(), seq: 0 };
+export const resetDelivery = () => { overlay.po.clear(); overlay.wo.clear(); overlay.tests.clear(); overlay.handed.clear(); overlay.log.clear(); overlay.projects.length = 0; overlay.programmes.length = 0; overlay.progStatus.clear(); overlay.deps.clear(); overlay.started.clear(); overlay.assign.clear(); overlay.cos.clear(); overlay.coState.clear(); overlay.risks.clear(); overlay.riskState.clear(); overlay.seq = 0; vCache = null; };
 let vCache: { key: string; list: DeliveryProjectView[] } | null = null;
 
 const crews = () => (activeGeo().id === 'in'
@@ -59,7 +59,7 @@ const log = (pid: string, who: string, text: string, at: number) => overlay.log.
 
 export function deliveryProjects(db: Db): DeliveryProjectView[] {
   const src = sources(db);
-  const key = `${db.now}|${src.map(x => `${x.plan.id}:${x.plan.status}:${x.plan.updated}`).join(',')}|${JSON.stringify([...overlay.wo, ...overlay.tests, ...overlay.handed, ...overlay.po, ...overlay.coState, ...overlay.riskState].map(String))}|${overlay.projects.length}|${[...overlay.cos.values(), ...overlay.risks.values()].flat().length}|${overlay.programmes.length}|${overlay.deps.size}`;
+  const key = `${db.now}|${src.map(x => `${x.plan.id}:${x.plan.status}:${x.plan.updated}`).join(',')}|${JSON.stringify([...overlay.wo, ...overlay.tests, ...overlay.handed, ...overlay.po, ...overlay.coState, ...overlay.riskState, ...overlay.assign].map(x => JSON.stringify(x)))}|${overlay.projects.length}|${[...overlay.cos.values(), ...overlay.risks.values()].flat().length}|${overlay.programmes.length}|${overlay.deps.size}`;
   if (vCache && vCache.key === key) return vCache.list;
   const views = src.filter(x => inDelivery(x.plan)).map(x => view(db, x));
   /* programme gates: a project waits until the projects it depends on are delivered */
@@ -120,10 +120,14 @@ function view(db: Db, src: Src): DeliveryProjectView {
       const crew = own ? 'Own technicians' : kind === 'Civil' ? cr.civil : kind === 'Electrical' ? cr.electrical : cr.mechanical;
       const needs = pos.filter(o => o.due <= s0 + WEEK || /Racks|UPS|CDU|CRAH|GPU|Server|Equipment|Manifold/.test(o.item));
       const kitReady = needs.every(o => o.due <= s0 || o.state === 'Delivered');
-      const derived: WorkOrder['state'] = delivered || e0 <= now ? 'Done' : s0 <= now ? 'In progress' : s0 - 14 * DAY <= now ? (kitReady ? 'Ready' : 'Awaiting change') : 'Planned';
+      /* nothing is under way before the build starts: an approved (mobilising) project's work is at most ready */
+      const notStarted = !delivered && p.status === 'Approved';
+      const derived: WorkOrder['state'] = notStarted ? (s0 - 14 * DAY <= now ? (kitReady ? 'Ready' : 'Awaiting change') : 'Planned')
+        : delivered || e0 <= now ? 'Done' : s0 <= now ? 'In progress' : s0 - 14 * DAY <= now ? (kitReady ? 'Ready' : 'Awaiting change') : 'Planned';
       const state = overlay.wo.get(id) ?? derived;
+      const asg = overlay.assign.get(id);
       const racks = p.createdRacks.length ? p.createdRacks.slice(i * 4, i * 4 + 4) : [];
-      wos.push({ id, projectId: pid, dcId: p.dcId, title: parts > 1 ? `${t.name} · part ${i + 1} of ${parts}` : t.name, kind, crew, crewKind: own ? 'Own technicians' : 'Contractor', start: s0, end: e0, state,
+      wos.push({ id, projectId: pid, dcId: p.dcId, title: parts > 1 ? `${t.name} · part ${i + 1} of ${parts}` : t.name, kind, crew: asg?.crew ?? crew, crewKind: asg?.crewKind ?? (own ? 'Own technicians' : 'Contractor'), start: s0, end: e0, state,
         changeId: `CR-${pid.slice(4)}${String(w).padStart(2, '0')}`, changeState: state === 'Done' ? 'Implemented' : state === 'In progress' || state === 'Ready' ? 'Approved' : state === 'Awaiting change' ? 'Pending approval' : 'Draft',
         rackIds: racks, kit: kitReady ? 'Ready' : needs.some(o => o.state === 'Delivered' || o.state === 'In transit') ? 'Partial' : 'Not ordered' });
     }
@@ -218,6 +222,7 @@ export function advanceWorkOrder(db: Db, woId: string, who: string): WorkOrder['
   if (pv.project.waitsOn?.length) throw new Error(`The project waits on ${pv.project.waitsOn.join(', ')}: its programme gate opens when they are delivered`);
   if (pv.project.state === 'Mobilising') throw new Error(pv.project.template ? 'The project has not started yet: start it first' : 'The project has not started: execute the plan first');
   if (wo.state === 'Done') throw new Error('Already done');
+  if (wo.state === 'Failed') throw new Error('The work order failed: re-plan it first');
   if (wo.state === 'Planned' || wo.state === 'Awaiting change') {
     if (wo.kit !== 'Ready') throw new Error(`Kit not on site (${wo.kit.toLowerCase()}): the work cannot start before its purchase orders land`);
   }
@@ -370,3 +375,10 @@ export function sumCurves(curves: CostPoint[][], now: number): CostPoint[] {
   for (const t of ticks.sort((a, b) => a - b)) out.push({ t, pv: curves.reduce((a, c) => a + at(c, t, 'pv'), 0), ev: t <= now ? curves.reduce((a, c) => a + at(c, t, 'ev'), 0) : null, ac: t <= now ? curves.reduce((a, c) => a + at(c, t, 'ac'), 0) : null });
   return out;
 }
+
+/* work-order moves from the work order page (mock/workflow.ts) */
+export function setWorkOrderState(db: Db, woId: string, to: WorkOrder['state'], who: string, text: string) {
+  const pv = deliveryProjects(db).find(v => v.workOrders.some(w => w.id === woId)); if (!pv) throw new Error('Unknown work order');
+  overlay.wo.set(woId, to); log(pv.project.id, who, text, db.now); vCache = null;
+}
+export function setWorkOrderAssignment(_db: Db, woId: string, a: { crewKind: WorkOrder['crewKind']; crew: string }) { overlay.assign.set(woId, a); vCache = null; }

@@ -24,7 +24,7 @@ import '../../styles/ipam.css';
 type Tab = 'overview' | 'programmes' | 'projects' | 'workorders' | 'commissioning' | 'permits' | 'design' | 'todo';
 export const STATE_TONE: Record<DeliveryProject['state'], 'neutral' | 'info' | 'warning' | 'purple' | 'success'> = { Mobilising: 'neutral', 'In progress': 'info', Commissioning: 'warning', Handover: 'purple', Delivered: 'success' };
 export const HEALTH_TONE: Record<DeliveryProject['health'], 'success' | 'warning' | 'error'> = { 'on track': 'success', 'at risk': 'warning', late: 'error' };
-export const WO_TONE: Record<WorkOrder['state'], 'neutral' | 'warning' | 'info' | 'purple' | 'success'> = { Planned: 'neutral', 'Awaiting change': 'warning', Ready: 'info', 'In progress': 'purple', Done: 'success' };
+export const WO_TONE: Record<WorkOrder['state'], 'neutral' | 'warning' | 'info' | 'purple' | 'success' | 'error'> = { Planned: 'neutral', 'Awaiting change': 'warning', Ready: 'info', 'In progress': 'purple', Done: 'success', Failed: 'error' };
 const has = (s: string, q: string) => !q || s.toLowerCase().includes(q.toLowerCase());
 const opts = <T,>(xs: T[], key: (x: T) => string) => { const m = new Map<string, number>(); xs.forEach(x => m.set(key(x), (m.get(key(x)) ?? 0) + 1)); return [...m].map(([id, count]) => ({ id, label: id, count })); };
 
@@ -55,7 +55,7 @@ export function Delivery() {
   const advance = (w: WorkOrder) => { setBusy(w.id); advanceWorkOrder(w.id).then(st => toast.show(`${w.id} ${st === 'Done' ? 'completed' : 'started'}`, `${w.changeId} ${st === 'Done' ? 'implemented' : 'approved'}; the project's progress updates.`)).catch(e => toast.show('Not started', String(e.message ?? e))).finally(() => setBusy('')); };
 
   const woCols: Col<WorkOrder>[] = [
-    { key: 'id', header: 'Work order', sort: w => w.id, wrap: true, render: w => <span className="cell-2"><b className="mono">{w.id}</b><small>{w.title}</small></span> },
+    { key: 'id', header: 'Work order', sort: w => w.id, wrap: true, render: w => <span className="cell-2"><Link className="ent-link mono" to={`/delivery/work-orders/${w.id}`} onClick={e => e.stopPropagation()}>{w.id}</Link><small>{w.title}</small></span> },
     { key: 'p', header: 'Project', sort: w => w.projectId, wrap: true, render: w => <span className="cell-2"><Link className="ent-link" to={`/delivery/projects/${w.projectId}`} onClick={e => e.stopPropagation()}>{pname.get(w.projectId)}</Link><small>{w.dcId}</small></span> },
     { key: 'c', header: 'Crew', sort: w => w.crew, render: w => <span className="cell-2"><span className="nowrap">{w.crew}</span><small>{w.kind}</small></span> },
     { key: 'w', header: 'Window', sort: w => w.start, render: w => <span className="cell-2"><span className="nowrap">{fmtDate(w.start)}</span><small className="nowrap">to {fmtDate(w.end)}</small></span> },

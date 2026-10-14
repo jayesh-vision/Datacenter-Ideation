@@ -528,6 +528,15 @@ screens are rebuilt in our kit (PageHead, StatGrid, ListToolbar, DataTable, NST 
   phase roadmap, start gates, plan against today, budget, cost, risks, materials, change orders), `ProjectPage.tsx` Overview (stage tracker,
   key dates, open work, blockers, milestones, materials, commissioning, cost, risks) + Schedule (Gantt) / Risks / Cost tabs. Widgets in
   `delivery/dash.tsx`, `parts.tsx`; styles `styles/delivery.css`.
+- Delivery step B (14-Oct-2026, user): work orders and processes (`mock/workflow.ts`): P2B's 12 process definitions (P01 site onboarding …
+  P12 access request; lanes, steps, targets, side branches) run over our records — every delivery work order is a P10 instance, contractor
+  visits P12, open changes P05, maintenance P11, critical / high incidents P04, the firmware / decommission / hall / cage projects P07 / P08 / P02
+  / P03, sites being built P01, plus closed runs of the last quarter for the KPIs. User steps are tasks (lane = candidate role; claim, complete
+  with the step's form; completing P10 "Start work" / "Complete with evidence" moves the delivery work order); failed automatic steps retry.
+  Screens: `/workorders` (`screens/workorders/WorkOrders.tsx`: My tasks inbox · Running work · Processes (swimlanes) · Process KPIs dashboard),
+  `/workorders/instances/:id` (`InstancePage.tsx`), work order page `/delivery/work-orders/:id` (`delivery/WorkOrderPage.tsx`: stage, what /
+  where, who and site access, checklist with back-out plan, sign-off or failure → re-plan, kit, change request, P10 process with its tasks).
+  Menu: Plan & Build → Work orders. An approved (mobilising) project's work orders are at most Ready (they were shown in progress by date).
 - **Phase 6 = Change management (done; replaces "Changes & maintenance", menu label Change management)**: `mock/changemgmt.ts` = one register
   over `db.changes` (operations + maintenance), the delivery change requests of every work order (`CR-…`) and the preventive maintenance done in
   the last 12 weeks (`PMW-…`, from the plant PM plan). Class: emergency flag → Emergency; a low-risk title matching a standard template → Standard;
