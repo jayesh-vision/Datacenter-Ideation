@@ -135,15 +135,22 @@ function Wizard() {
             if (!idx.length) return <Fragment key={g}>{k > 0 && <span className="pn-stage-line" />}<span className="pn-stage is-locked" title="Pick a plan type: it decides the steps in this stage"><span className="pn-stage-ico"><GIco size={15} /></span><span className="pn-stage-txt"><b>{g}</b><small>After plan type</small></span></span></Fragment>;
             const n = idx.filter(i => done(i)).length, first = idx.find(i => i <= maxVisited || readOnly);
             const on = g === cur.group, all = n === idx.length && !on;
-            return <Fragment key={g}>{k > 0 && <span className={`pn-stage-line${all || on || n ? ' is-done' : ''}`} />}
-              <button type="button" className={`pn-stage${on ? ' is-on' : all ? ' is-done' : ''}`} disabled={first === undefined} onClick={() => first !== undefined && goTo(first)}>
+            const line = k > 0 && <span className={`pn-stage-line${all || on || n ? ' is-done' : ''}`} />;
+            if (on) return <Fragment key={g}>{line}
+              <div className="pn-stage is-on">
+                <span className="pn-stage-ico"><GIco size={15} /></span>
+                <span className="pn-stage-txt"><b>{g}<em>{inGroup.findIndex(x => x.i === step) + 1} of {idx.length}</em></b><small title={cur.label}>{cur.label}</small>
+                  {idx.length > 1 && <span className="pn-stage-dots">{inGroup.map(({ s, i }) => <button key={s.key} type="button" aria-label={s.label} title={s.label} className={i === step ? 'is-on' : done(i) ? 'is-done' : ''} disabled={i > maxVisited && !readOnly} onClick={() => goTo(i)} />)}</span>}
+                </span>
+              </div></Fragment>;
+            return <Fragment key={g}>{line}
+              <button type="button" className={`pn-stage${all ? ' is-done' : ''}`} disabled={first === undefined} onClick={() => first !== undefined && goTo(first)}>
                 <span className="pn-stage-ico">{all ? <I.Check size={15} /> : <GIco size={15} />}</span>
                 <span className="pn-stage-txt"><b>{g}</b><small>{all ? 'Done' : `${n} of ${idx.length} done`}</small></span>
               </button></Fragment>;
           })}
           <span className="pn-stage-pct"><span><b className="num">{pctDone}%</b> complete</span><i><em style={{ width: `${pctDone}%` }} /></i></span>
         </div>
-        {inGroup.length > 1 && <div className="pn-substeps">{inGroup.map(({ s, i }) => <button key={s.key} type="button" className={`pn-pill${i === step ? ' is-on' : done(i) ? ' is-done' : ''}`} disabled={i > maxVisited && !readOnly} onClick={() => goTo(i)} title={s.hint}><i>{done(i) ? <I.Check size={11} /> : i + 1}</i>{s.label}</button>)}</div>}
       </nav>
       <div className={`pn-wiz${cur.key === 'type' ? ' is-full' : ''}`}>
         <div className="pn-main">

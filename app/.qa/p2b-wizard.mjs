@@ -31,7 +31,7 @@ for (let i = 2; i < 20; i++) {
   const next = p.getByRole('button', { name: /^(Next|Fill the design)/ }).last();
   if (!(await next.count()) || await next.isDisabled()) { const last = await p.getByRole('button', { name: /Submit|Create|Save draft/ }).count(); ok(true, `stopped at step ${i - 1} (no enabled Next; ${last} finish button(s))`); break; }
   await next.click(); await p.waitForTimeout(900);
-  const head = await p.locator('.pn-pill.is-on').first().innerText().catch(() => '');
+  const head = await p.locator('.pn-stage.is-on small').first().innerText().catch(() => '');
   await check(`${i}-${head || 'step'}`);
 }
 await b.close();

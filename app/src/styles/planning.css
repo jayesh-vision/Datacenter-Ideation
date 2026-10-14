@@ -303,3 +303,14 @@
 /* hub analytics strip: size the detail to its content (three rows in every tile) instead of the shared 118px box */
 .planning > .dco-card .dco-tile > .dco-detail { height: auto; gap: 8px; }
 .planning > .dco-card .dco-tile { padding-bottom: 14px; }
+/* active stage: current step name + one dot per step of the stage (replaces the step-pill row) */
+.pn-stage.is-on { cursor: default; padding-right: 16px; }
+.pn-stage.is-on .pn-stage-txt b { display: flex; align-items: baseline; gap: 8px; }
+.pn-stage.is-on .pn-stage-txt b em { font-style: normal; font-weight: 400; font-size: 11px; color: var(--primaryColor600); font-family: var(--num); }
+.pn-stage.is-on .pn-stage-txt small { color: var(--ink-700); max-width: 220px; }
+.pn-stage-dots { display: flex; gap: 4px; margin-top: 4px; }
+.pn-stage-dots button { all: unset; box-sizing: border-box; width: 14px; height: 5px; border-radius: 3px; background: var(--primaryColor100); cursor: pointer; }
+.pn-stage-dots button.is-done { background: var(--primaryColor300); }
+.pn-stage-dots button.is-on { width: 22px; background: var(--primaryColor600); }
+.pn-stage-dots button:disabled { cursor: default; background: var(--vw-color-slate-200); }
+.pn-stage-dots button:hover:not(:disabled):not(.is-on) { background: var(--primaryColor400); }
