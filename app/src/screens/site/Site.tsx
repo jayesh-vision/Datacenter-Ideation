@@ -16,6 +16,7 @@ import { SiteGpu } from './Gpu';
 import { Elements } from './Elements';
 import { Details } from './Details';
 import { Timeline } from './Timeline';
+import { Access } from './Access';
 import { FlagRow } from './FlagRow';
 import { TopologyView } from '../Topology';
 import { TwinHost, useTwinView } from './TwinHost';
@@ -25,16 +26,16 @@ import { OpstralBtn } from '../../ui/OpstralMark';
 export type SiteData = NonNullable<Awaited<ReturnType<typeof getDatacenter>>>;
 /* Operations tabs. Capex/Opex (finance) and discovery/reconciliation
    (inventory) belong to Plan & Build / Inventory, not here. */
-type Tab = 'overview' | 'attention' | 'topology' | 'metrics' | 'customers' | 'revenue' | 'gpu' | 'assets' | 'elements' | 'details' | 'timeline';
+type Tab = 'overview' | 'attention' | 'topology' | 'metrics' | 'customers' | 'revenue' | 'gpu' | 'assets' | 'elements' | 'details' | 'access' | 'timeline';
 const TABS: { id: Tab; label: string }[] = [
   /* Cabling ('equipment') is hidden per the user (02-Oct-2026); component kept, old ?tab=equipment links fall back to Overview */
   /* Order (08-Oct-2026, user asked for a sensible sequence) follows the operator's questions:
      how is the site and what needs me (Overview · Attention · Metrics) → the physical plant and what is installed
      (Power & space · AI & GPU · Equipment · Assets) → how it connects (Topology) → who and what money it affects
-     (Customers · Revenue) → what happened (Ops log). */
+     (Customers · Revenue) → who came in and out (Access & security, 14-Oct-2026) → what happened (Ops log). */
   { id: 'overview', label: 'Overview' }, { id: 'attention', label: 'Attention' }, { id: 'metrics', label: 'Metrics' },
   { id: 'details', label: 'Power & space' }, { id: 'gpu', label: 'AI & GPU' }, { id: 'elements', label: 'Equipment' }, { id: 'assets', label: 'Assets' },
-  { id: 'topology', label: 'Topology' }, { id: 'customers', label: 'Customers' }, { id: 'revenue', label: 'Revenue' }, { id: 'timeline', label: 'Ops log' }
+  { id: 'topology', label: 'Topology' }, { id: 'customers', label: 'Customers' }, { id: 'revenue', label: 'Revenue' }, { id: 'access', label: 'Access' }, { id: 'timeline', label: 'Ops log' }
 ];
 
 const FLAG_LABEL: Record<string, string> = { inc: 'incidents', alm: 'alarms', edge: 'edge', net: 'faults', pwr: 'power', cool: 'cooling', pue: 'PUE', svc: 'svc degraded' };
@@ -68,7 +69,7 @@ export function Site() {
   if (!data) return <NotFound what="Datacenter" />;
   const { dc, summary: s } = data;
   const tab: Tab = TABS.some(t => t.id === sp.get('tab')) && (sp.get('tab') !== 'gpu' || hasGpuNow(dc.id)) ? (sp.get('tab') as Tab) : 'overview';
-  const go = (t: Tab) => { const n = new URLSearchParams(sp); n.set('tab', t); ['role', 'disc', 'q', 'kind', 'view', 'cview', 'cause', 'layer', 'rview', 'dom', 'rdc', 'seg', 'gtab', 'gstate'].forEach(k => n.delete(k)); setSp(n, { replace: true }); };
+  const go = (t: Tab) => { const n = new URLSearchParams(sp); n.set('tab', t); ['role', 'disc', 'q', 'kind', 'view', 'cview', 'cause', 'layer', 'rview', 'dom', 'rdc', 'seg', 'gtab', 'gstate', 'aq', 'ares', 'atype', 'adoor', 'adir'].forEach(k => n.delete(k)); setSp(n, { replace: true }); };
   const now = clockNow();
   const staleCol = dc.collectors.filter(c => c.state !== 'up');
 
@@ -192,6 +193,7 @@ export function Site() {
       {tab === 'assets' && <Assets data={data} />}
       {tab === 'elements' && <Elements dcId={dc.id} />}
       {tab === 'details' && <Details data={data} />}
+      {tab === 'access' && <Access data={data} />}
       {tab === 'timeline' && <Timeline data={data} />}
     </div>
   );

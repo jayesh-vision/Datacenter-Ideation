@@ -52,7 +52,7 @@ export function SafetyPanels({ dcId }: { dcId: string }) {
           ) : <div className="panel-body"><Empty icon={I.Droplets} title="No leak-detection zones" /></div>}
         </Panel>
       </div>
-      <Panel title="Access control" icon={I.DoorClosed} count={data.access.length} flush sub={`${t.secured} of ${t.doors} doors secured · ${t.denied24h} denied badge reads in 24 h`}
+      <Panel title="Access control" actions={<Link className="panel-link" to={`/datacenters/${dcId}?tab=access`}>Access log &amp; security audit</Link>} icon={I.DoorClosed} count={data.access.length} flush sub={`${t.secured} of ${t.doors} doors secured · ${t.denied24h} denied badge reads in 24 h`}
         info="Every controlled door: the building mantrap, each room door and tenant cage doors, with the reader type, door state (Secured, Held open, Forced), badge events and denied reads in the last 24 hours and the last person through. A door held open for an approved maintenance window is amber.">
         <table className="nst-table dt-table" data-safety="access">
           <thead><tr><th>Door</th><th>Zone</th><th>Reader</th><th>State</th><th className="is-right">Events 24 h</th><th className="is-right">Denied</th><th>Last through</th></tr></thead>

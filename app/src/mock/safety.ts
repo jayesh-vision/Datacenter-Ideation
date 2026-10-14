@@ -8,13 +8,14 @@ import type { Db } from './generate';
 import { mulberry32, seedOf, intBetween, between, pick, chance } from '../lib/rng';
 import { activeGeo } from './geo';
 import { DAY, HOUR, MIN } from './seed';
+import { buildAccess, clearAccess, setAccess } from './access';
 
 const cache = new Map<string, SiteSafety>();
 let cacheDb: Db | null = null;
-export function clearSafety() { cache.clear(); cacheDb = null; }
+export function clearSafety() { cache.clear(); cacheDb = null; clearAccess(); }
 
 export function siteSafety(db: Db, dcId: string): SiteSafety | null {
-  if (cacheDb !== db) { cache.clear(); cacheDb = db; }
+  if (cacheDb !== db) { cache.clear(); clearAccess(); cacheDb = db; }
   const hit = cache.get(dcId); if (hit) return hit;
   const dc = db.datacenters.find(d => d.id === dcId); if (!dc) return null;
   const s = build(db, dc); cache.set(dcId, s); return s;
@@ -79,6 +80,8 @@ function build(db: Db, dc: Datacenter): SiteSafety {
     const door = unit && access.find(a => a.zone === unit.zone && a.kind !== 'Cage door');
     if (door) { door.state = 'Held open'; door.note = `Held open for ${c.id} (${c.title}) · approved, escorted`; door.last = { at: c.windowStart + 12 * MIN, who: c.requester, ok: true }; }
   }
+  /* the 24 h counts and last read of every door come from the access log (mock/access.ts), so both views agree */
+  setAccess(dc.id, buildAccess(db, dc, access));
   void HOUR;
   const st = (x: PhysState) => x;
   return {

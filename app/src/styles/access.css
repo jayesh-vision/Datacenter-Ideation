@@ -1,0 +1,76 @@
+/* Datacenter → Access & security (14-Oct-2026): layout only; panels, chips, tables come from base.css / NST */
+.acc-two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.acc-fixed { height: 440px; }
+.acc-fixed .panel-body { overflow-y: auto; }
+.acc-three { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
+.acc-three > .panel { height: 340px; }
+.acc-three .panel-body { overflow-y: auto; }
+@media (max-width: 1400px) {
+  .acc-three { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .acc-three > .acc-chart { grid-column: 1 / -1; height: auto; }
+}
+
+/* on site now */
+.acc-people, .acc-exc, .acc-door-list, .acc-find, .acc-trail { list-style: none; margin: 0; padding: 0; }
+.acc-people li + li, .acc-exc li + li { border-top: 1px solid var(--vw-color-slate-100); }
+.acc-people button, .acc-exc button, .acc-door-list button { display: grid; width: 100%; border: 0; background: transparent; font: inherit; color: inherit; text-align: left; cursor: pointer; border-radius: 8px; }
+.acc-people button:hover, .acc-exc button:hover, .acc-door-list button:hover { background: var(--vw-color-slate-50); }
+.acc-people button { grid-template-columns: 32px minmax(0, 1.3fr) minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 6px; }
+.acc-av { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--vw-color-slate-100); color: var(--vw-color-slate-600); }
+.acc-av.tone-info { background: var(--vw-color-blue-50); color: var(--vw-color-blue-600); }
+.acc-av.tone-purple { background: var(--vw-color-purple-50); color: var(--vw-color-purple-600); }
+.acc-av.tone-orange { background: var(--vw-color-orange-50); color: var(--vw-color-orange-600); }
+.acc-av.tone-cyan { background: var(--vw-color-cyan-50); color: var(--vw-color-cyan-600); }
+.acc-p-main, .acc-p-where, .acc-x-main, .acc-d-main { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.acc-p-main b, .acc-x-h b, .acc-d-main b { font-weight: 500; font-size: 13.5px; }
+.acc-people small, .acc-exc small, .acc-door-list small, .acc-trail small { font-size: 12px; color: var(--ink-500); }
+.acc-p-main small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acc-p-where > span { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acc-p-auth { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; white-space: nowrap; }
+.acc-ref { font-size: 12.5px; font-weight: 500; color: var(--primaryColor600); }
+.acc-ref.is-plain { color: var(--ink-600); }
+
+/* exceptions */
+.acc-exc button { grid-template-columns: 4px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 10px 6px; }
+.acc-sev { align-self: stretch; border-radius: 2px; background: var(--vw-color-slate-300); }
+.acc-sev.is-high { background: var(--vw-color-red-500); }
+.acc-sev.is-medium { background: var(--vw-color-amber-500); }
+.acc-x-h { display: flex; align-items: center; gap: 8px; }
+.acc-x-main small { white-space: normal; }
+
+/* doors */
+.acc-door-list { padding: 0 8px 8px; }
+.acc-door-list li + li { border-top: 1px solid var(--vw-color-slate-100); }
+.acc-door-list button { grid-template-columns: minmax(0, 1fr) auto 88px; gap: 10px; align-items: center; padding: 8px 8px; }
+.acc-door-list button.is-on { background: var(--primaryColor50); }
+.acc-door-list .vw-chip { justify-self: end; }
+.acc-d-main small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acc-d-n { display: flex; flex-direction: column; align-items: flex-end; font-size: 13.5px; }
+.acc-d-n .is-bad, .acc-trail .is-denied small { color: var(--vw-color-red-600); }
+
+/* access review */
+.acc-badges { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 12px; font-size: 12.5px; color: var(--ink-500); }
+.acc-badges b { font-size: 18px; font-weight: 400; color: var(--ink-900); margin-right: 4px; }
+.acc-find { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.acc-find li { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; line-height: 1.35; }
+.acc-find li svg { flex: none; margin-top: 1px; }
+.acc-find .is-ok svg { color: var(--vw-color-emerald-600); }
+.acc-find .is-warn svg { color: var(--vw-color-amber-600); }
+.acc-find .is-bad svg { color: var(--vw-color-red-600); }
+
+/* audit trail */
+.acc-log { scroll-margin-top: calc(var(--top-h, 64px) + var(--site-sticky-h, 0px) + 12px); }
+.acc-log-h { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; padding: 16px 18px 4px; }
+.acc-dir { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; }
+.acc-dir.is-in { color: var(--vw-color-emerald-700); }
+.acc-dir.is-out { color: var(--ink-600); }
+.acc .dt-table tr.acc-denied td { background: var(--vw-color-red-50); }
+
+/* drawers */
+.acc-dh { display: block; margin-bottom: 8px; }
+.acc-detail { margin: 0; font-size: 14px; line-height: 1.45; }
+.acc-dx { font-size: 13px; padding: 6px 0; border-top: 1px solid var(--vw-color-slate-100); }
+.acc-trail li { display: grid; grid-template-columns: 48px 56px minmax(0, 1fr); gap: 8px; padding: 7px 0; border-top: 1px solid var(--vw-color-slate-100); font-size: 13px; align-items: start; }
+.acc-trail li > span:last-child { display: flex; flex-direction: column; }
+.acc-trail li.is-denied { color: var(--vw-color-red-700); }
+.acc-p-where small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

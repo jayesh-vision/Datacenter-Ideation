@@ -359,6 +359,7 @@ div.att-row { cursor: default; }
 .page.site .dt-scroll:not([style*="max-height"]) .dt-table thead th { top: calc(var(--top-h) + var(--site-sticky-h, 0px)); }
 .page.site .dt:has(> .dt-toolbar) > .dt-scroll:not([style*="max-height"]) .dt-table thead th { top: calc(var(--top-h) + var(--site-sticky-h, 0px) + var(--dt-tb-h)); }
 /* pinned tabs stay on one row down to 1280: slightly tighter pills */
-.site-sticky .pills { gap: 6px; }
-.site-sticky .pill { height: 32px; padding: 0 12px; font-size: 13px; }
-@media (max-width: 1340px) { .site-sticky .pill { padding: 0 9px; font-size: 12.5px; gap: 5px; } .site-sticky .pill .count { padding: 1px 5px; } .site-sticky .pills { gap: 4px; } }
+/* (14-Oct-2026: one more tab, Access, so a little tighter again) */
+.site-sticky .pills { gap: 4px; }
+.site-sticky .pill { height: 32px; padding: 0 9px; font-size: 12.5px; gap: 5px; }
+@media (max-width: 1340px) { .site-sticky .pill { padding: 0 6px; font-size: 12px; gap: 4px; } .site-sticky .pill .count { padding: 1px 4px; } .site-sticky .pills { gap: 2px; } }

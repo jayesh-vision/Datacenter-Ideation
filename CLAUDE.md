@@ -52,7 +52,7 @@ Scope decisions 02-Oct-2026: the menu is Command center · Revenue impact (added
 Topology left the menu 05-Oct-2026 (user): it lives only as the datacenter page's Topology tab; `/topology?dc=X` redirects to that tab.
 Network services, Customers and Capacity & forecast are parked (code kept, routes redirect); services and customers appear only as
 impact on incidents, devices and sites. Revenue was hidden until 05-Oct-2026; the user then asked for it — see "Revenue impact" below. Site tab ORDER (08-Oct-2026, user): Overview · Attention · Metrics · Power & space · AI & GPU · Equipment · Assets · Topology · Customers ·
-Revenue · Ops log (health → plant & installed base → connectivity → impact → history). Site tabs: Overview (3D) · Attention · Topology (`TopologyView` from screens/Topology.tsx, same view as the /topology page) · Metrics (aggregated thermal/power/backup/fault KPIs)
+Revenue · Access (14-Oct-2026) · Ops log (health → plant & installed base → connectivity → impact → history). Site tabs: Overview (3D) · Attention · Topology (`TopologyView` from screens/Topology.tsx, same view as the /topology page) · Metrics (aggregated thermal/power/backup/fault KPIs)
 · Customers (customers served from the DC) · Revenue (`site/Revenue.tsx`) · Assets (floors/rooms/racks, equipment by category, facility plant) · Equipment
 (installed devices only; planned devices = reserved rack space) · Power & space · Ops log. Cabling tab hidden (02-Oct-2026; `site/Equipment.tsx` kept). No discovery/drift/reconciliation UI.
 
@@ -373,6 +373,18 @@ All read models, derived per site and cached per db; they raise no alarms and ne
 - Template / backups: + Fire_Systems, Leak_Detection, Access_Points, Support_Contracts, Asset_Lifecycle, Model_Lifecycle, Spares, PM_Plan,
   On_Call (35 data sheets, 15 checks); backups add Snapshot_RMA / Snapshot_Problems / Snapshot_Orders. Data model page = 51 entities /
   107 relationships (domain "Cooling & safety"); map rows grow with their fullest cluster.
+
+## Access & security tab (14-Oct-2026, user: "entry/exit inside the datacenter … the security audit")
+Datacenter tab **Access** (`?tab=access`, between Revenue and Ops log; `site/Access.tsx`, styles `styles/access.css`). Read model `mock/access.ts`,
+built from the doors `mock/safety.ts` lists (it calls `buildAccess` and the doors' `events24h / denied24h / last` now come from that log, so
+Facilities → Environment and this tab agree; API `getSiteAccess`). Last 24 h of visits + badge reads: guards (2 per 12 h shift), field techs per
+shift, site engineers on days, change crews (escorted, `ref` = CHG), the on-call engineer responding to an open incident (`ref` = INC), PM vendor,
+couriers, cleaners, visitors (host + escort), colocation tenants at their cage; denials with reasons. Exceptions `SEC-<site>-nnn`: tailgating,
+door forced / held open, anti-passback, repeated denials, after-hours entry, unescorted visitor, overstay, badge not returned. Quarterly
+access-rights review (badges by type, expired / unused badges, CCTV 90 d, log 1 y). Screen: SummaryStrip (on site · entries · denied · exceptions ·
+visitors · doors) → On site now | Security exceptions → 24 h chart | Doors and readers | Access rights review → audit trail (`aq · ares · atype ·
+adoor · adir`); person / exception drawers. Planned sites show an empty state. Site tabs got tighter pills so all five personas fit on one row at
+1280 (enterprise wrapped before). Checks: `npx tsx .qa/access-check.ts` (`GEO=us`), `node .qa/access.mjs <persona> <geo> <dc>` (W=1280).
 
 ## Power & cable paths in 3D (13-Oct-2026, user: "show which UPS feeds which rack PDU and which cable comes from which device on the digital twin and the 3D view, with quick chips")
 - Realistic twin (`site/twin2/paths.tsx`): chips **Power path** / **Cable paths** (floor level and below). Power = per room an A (blue) and B
