@@ -314,3 +314,22 @@
 .pn-stage-dots button.is-on { width: 22px; background: var(--primaryColor600); }
 .pn-stage-dots button:disabled { cursor: default; background: var(--vw-color-slate-200); }
 .pn-stage-dots button:hover:not(:disabled):not(.is-on) { background: var(--primaryColor400); }
+/* plan-type groups as an accordion: one open at a time; a closed group lists its plan types */
+.pn-acc { overflow: hidden; transition: border-color .15s; }
+.pn-acc-head { all: unset; box-sizing: border-box; width: 100%; display: flex; gap: 12px; align-items: center; padding: 14px 16px; cursor: pointer; }
+.pn-acc-head:hover { background: var(--vw-color-slate-50); }
+.pn-acc-head:focus-visible { outline: 2px solid var(--primaryColor400); outline-offset: -2px; }
+.pn-acc-t { display: block; font-size: 14.5px; font-weight: 500; color: var(--ink-900); }
+.pn-acc-p { display: block; margin-top: 2px; font-size: 12.5px; color: var(--ink-500); }
+.pn-acc-sum { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.pn-acc-sum > span { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px; border-radius: 12px; background: var(--vw-color-slate-50); border: 1px solid var(--vw-color-slate-200); font-size: 12px; color: var(--ink-700); white-space: nowrap; }
+.pn-acc-sum > span svg { color: var(--ink-500); }
+.pn-acc-sum > span.is-on { background: var(--primaryColor50); border-color: var(--primaryColor300); color: var(--primaryColor700); }
+.pn-acc-sum > span.is-more { background: transparent; border-style: dashed; color: var(--ink-500); }
+.pn-acc-side { display: flex; align-items: center; gap: 10px; flex-shrink: 0; align-self: flex-start; padding-top: 4px; }
+.pn-acc-chev { color: var(--ink-500); transition: transform .2s; }
+.pn-acc.is-open .pn-acc-chev { transform: rotate(180deg); }
+.pn-acc.is-open { border-color: var(--primaryColor200); }
+.pn-acc.is-open .pn-acc-head { border-bottom: 1px solid var(--vw-color-slate-100); }
+.pn-acc.is-open .pn-sec-ico { background: var(--primaryColor600); color: #fff; }
+.pn-acc-head { align-items: flex-start; } .pn-acc-head .pn-sec-ico { margin-top: 2px; }

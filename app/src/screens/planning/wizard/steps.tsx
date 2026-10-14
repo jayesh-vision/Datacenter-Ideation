@@ -46,12 +46,27 @@ export function TypeStep({ draft, patch, templates, template }: StepProps) {
     { g: 'Replace or refresh', icon: I.RefreshCw, text: 'Swap ageing or end-of-life equipment without losing service.' },
     { g: 'New capacity', icon: I.Sparkles, text: 'A new building, a new site or a programme across several sites.' },
   ] as const;
+  const pickedGroup = planTypes.find(t => t.id === draft.templateId)?.scope;
+  const [openGroup, setOpenGroup] = useState<string | null>(() => (pickedGroup && SCOPE_GROUP[pickedGroup]) || groups[0].g);
   const where: Record<string, string> = { existing: 'Inside a live site; its kind, tier and climate set the defaults.', 'two-sites': 'Between two live sites.', migration: 'From a live site to another, or a decommission.', campus: 'A new building on an existing campus.', new: 'A new site on new land.', region: 'Across the sites of a region.' };
   return (
     <div className="pn-stack">
       <StepHead title="What are you planning?" text="Pick a plan type. It decides which areas the wizard asks about, which inputs and rules apply, what the plan produces and who approves it." />
-      {groups.map(({ g, icon, text }) => { const ts = planTypes.filter(t => t.scope && SCOPE_GROUP[t.scope] === g); return ts.length ? (
-        <Sec key={g} icon={icon} title={g} sub={text} extra={<span className="vw-label">{ts.length} plan type{ts.length === 1 ? '' : 's'}</span>}>
+      {groups.map(({ g, icon: GIco, text }) => { const ts = planTypes.filter(t => t.scope && SCOPE_GROUP[t.scope] === g); if (!ts.length) return null;
+        const isOpen = openGroup === g, picked = ts.find(t => t.id === draft.templateId);
+        return (
+        <section key={g} className={`pn-sec pn-acc${isOpen ? ' is-open' : ''}${picked ? ' has-pick' : ''}`}>
+          <button type="button" className="pn-sec-head pn-acc-head" aria-expanded={isOpen} onClick={() => setOpenGroup(isOpen ? null : g)}>
+            <span className="pn-sec-ico"><GIco size={16} /></span>
+            <span className="pn-sec-title"><span className="pn-acc-t">{g}</span><span className="pn-acc-p">{text}</span>
+              {!isOpen && <span className="pn-acc-sum">{ts.slice(0, 5).map(t => { const Ico = (t.scope && SCOPE_ICON[t.scope]) || I.Layers; return <span key={t.id} className={t.id === draft.templateId ? 'is-on' : ''}><Ico size={12} />{t.name}</span>; })}{ts.length > 5 && <span className="is-more">+{ts.length - 5} more</span>}</span>}
+            </span>
+            <span className="pn-acc-side">
+              {picked ? <Chip tone="info" size="xs" dot>Selected: {picked.name}</Chip> : <span className="vw-label">{ts.length} plan type{ts.length === 1 ? '' : 's'}</span>}
+              <I.ChevronDown size={18} className="pn-acc-chev" />
+            </span>
+          </button>
+          {isOpen && <div className="pn-sec-body">
           <div className="pn-types">{ts.map(t => { const on = draft.templateId === t.id; const d = dimensionsFor(t); const Ico = (t.scope && SCOPE_ICON[t.scope]) || I.Layers; return (
             <button key={t.id} type="button" className={`pn-type${on ? ' is-on' : ''}`} onClick={() => choose(t)} aria-pressed={on} title={t.description}>
               <span className="pn-type-top"><span className="pn-type-ico"><Ico size={18} /></span>{on ? <span className="pn-type-check"><I.Check size={13} /></span> : t.inheritsFrom ? <Chip tone="purple" size="xs">Variant</Chip> : null}</span>
@@ -59,7 +74,8 @@ export function TypeStep({ draft, patch, templates, template }: StepProps) {
               <span className="pn-type-desc">{t.description}</span>
               <span className="pn-type-meta"><span><I.Layers size={12} />{d.length} areas</span><span><I.ShieldCheck size={12} />{t.approvalPath.length} approval{t.approvalPath.length === 1 ? '' : 's'}</span><span><I.ArrowRight size={12} />{t.executesAs ?? 'plan'}</span></span>
             </button>); })}</div>
-        </Sec>) : null; })}
+          </div>}
+        </section>); })}
       {template && (
         <Sec icon={I.Route} tone="info" title={`${template.name}: what happens next`} sub={`The wizard asks about ${dimensionsFor(template).length} areas, then you compare options and submit.`} className="pn-next">
           <div className="pn-next-grid">

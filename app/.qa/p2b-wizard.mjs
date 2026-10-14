@@ -15,6 +15,7 @@ const check = async (name) => {
   errs.length = 0;
 };
 await p.goto(`http://localhost:5181/planning/new?persona=${P}&geo=${G}`, { waitUntil: 'networkidle' }); await p.waitForTimeout(1200);
+await p.locator('.pn-acc').filter({ has: p.locator('.pn-acc-sum span', { hasText: new RegExp(`^${TYPE}$`) }) }).locator('.pn-acc-head').click().catch(() => {}); await p.waitForTimeout(200);
 await p.locator('.pn-type').filter({ has: p.locator('b', { hasText: new RegExp(`^${TYPE}$`) }) }).first().click(); await p.waitForTimeout(800);
 await check('1-type');
 /* fill what the Requirements step asks before it lets you on */
