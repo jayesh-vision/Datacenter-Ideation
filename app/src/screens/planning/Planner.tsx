@@ -11,7 +11,7 @@ import { useBenchmarks, useEstate, usePlans, useTemplates } from '../../planner/
 import { usePlannerData } from '../../planner/lib/plannerData';
 import { evaluate, type Evaluation } from '../../planner/lib/engine';
 import type * as T from '../../planner/p2b/types';
-import { PlanStatusChip, PlannerToasts, SCOPE_LABEL, date, kw, money, num } from './common';
+import { PlanStatusChip, PlannerToasts, SCOPE_LABEL, SCOPE_ICON, date, kw, money, num } from './common';
 import { PlansTab } from './Plans';
 import { TemplatesTab } from './Templates';
 import { BenchmarksTab } from './Benchmarks';
@@ -121,11 +121,20 @@ function Overview({ rows, failing, late }: { rows: PlanRow[]; failing: PlanRow[]
       </Panel>
       <Panel title="Recently updated plans" icon={I.Clock} sub="Latest changes first: status, IT power, CapEx and readiness" info="Every plan, most recently changed first. Click a plan to open it; All plans opens the full list with filters."
         foot={<Btn variant="ghost" size="sm" iconRight={I.ChevronRight} onClick={toPlans}>All {rows.length} plans</Btn>}>
-        <ul className="pn-list">{recent.map(r => <li key={r.plan.id}><button type="button" className="pn-rowbtn" onClick={() => nav(`/planning/plans/${r.plan.id}`)}>
-          <span className="cell-2"><span className="row between" style={{ gap: 8 }}><b>{r.plan.title}</b><PlanStatusChip s={r.plan.status} /></span>
-            <small><span className="mono">{r.plan.plnId}</span> · {SCOPE_LABEL[r.plan.scope]} · {r.site}</small>
-            <span className="pn-recent-figs"><span>{kw(r.plan.designPowerKw)}</span><span>{money(r.capex)}</span><span>{r.ev.readinessPct}% ready</span><span className="muted">{date(r.plan.updatedAt)}</span></span></span>
-        </button></li>)}</ul>
+        <div className="pn-recent">{recent.map(r => { const Ico = SCOPE_ICON[r.plan.scope]; const rp = r.ev.readinessPct; return (
+          <button key={r.plan.id} type="button" className="pn-recent-card" onClick={() => nav(`/planning/plans/${r.plan.id}`)}>
+            <span className="pn-recent-ico"><Ico size={16} /></span>
+            <span className="pn-recent-main">
+              <span className="pn-recent-top"><b title={r.plan.title}>{r.plan.title}</b><PlanStatusChip s={r.plan.status} /></span>
+              <small className="pn-recent-meta"><span className="mono">{r.plan.plnId}</span> · {SCOPE_LABEL[r.plan.scope]} · {r.site}</small>
+              <span className="pn-recent-figs">
+                <span><small>IT power</small><b>{kw(r.plan.designPowerKw)}</b></span>
+                <span><small>CapEx</small><b>{money(r.capex)}</b></span>
+                <span><small>Readiness</small><span className="pn-recent-ready"><i><em style={{ width: `${rp}%`, background: rp >= 80 ? 'var(--vw-color-emerald-500)' : rp >= 50 ? 'var(--vw-color-amber-500)' : 'var(--vw-color-red-500)' }} /></i><b>{rp}%</b></span></span>
+              </span>
+              <small className="pn-recent-upd"><I.Clock size={11} />Updated {date(r.plan.updatedAt)}</small>
+            </span>
+          </button>); })}</div>
       </Panel>
     </div>
   );
