@@ -1,0 +1,337 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_site_onboarding" targetNamespace="http://dcos.example.com/workorders" exporter="DCOS process generator" exporterVersion="1.0" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.6.0">
+  <bpmn:collaboration id="Collaboration_site_onboarding">
+    <bpmn:participant id="Participant_site_onboarding" name="P01 · Site onboarding" processRef="site-onboarding" />
+  </bpmn:collaboration>
+  <bpmn:process id="site-onboarding" name="Site onboarding" isExecutable="true">
+    <bpmn:documentation>Brings an existing or newly built site under DCOS management: the site is registered, legacy records are imported and validated, collectors are enrolled and discovery runs, discovered inventory is reconciled three ways (records vs discovery vs an audit walk), exceptions are resolved and the baseline is signed as the cut-over point.</bpmn:documentation>
+    <bpmn:extensionElements>
+      <zeebe:versionTag value="v1" />
+    </bpmn:extensionElements>
+    <bpmn:laneSet id="LaneSet_site_onboarding">
+      <bpmn:lane id="Lane_DCOS" name="DCOS">
+        <bpmn:flowNodeRef>start</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>register_site</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>validate_import</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>g_import_ok</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>reconcile</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>g_exceptions</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>resolve_exceptions</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>baseline</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>sign_cutover</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>end</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Platform_collectors" name="Platform collectors">
+        <bpmn:flowNodeRef>import_records</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>enrol_collectors</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>run_discovery</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>b_discovery_overdue</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>check_collectors</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Field" name="Field">
+        <bpmn:flowNodeRef>audit_walk</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="start" name="Site added">
+      <bpmn:outgoing>Flow_start_register_site</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="register_site" name="Register site">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="complete-with-evidence" />
+        <zeebe:assignmentDefinition candidateGroups="Platform Owner" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT4H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_start_register_site</bpmn:incoming>
+      <bpmn:outgoing>Flow_register_site_import_records</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="import_records" name="Import records">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dcos.import-records" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_register_site_import_records</bpmn:incoming>
+      <bpmn:incoming>Flow_g_import_ok_import_records</bpmn:incoming>
+      <bpmn:outgoing>Flow_import_records_validate_import</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="validate_import" name="Validate import">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="approve" />
+        <zeebe:assignmentDefinition candidateGroups="Platform Owner" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT8H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_import_records_validate_import</bpmn:incoming>
+      <bpmn:outgoing>Flow_validate_import_g_import_ok</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="g_import_ok" name="Import clean?" default="Flow_g_import_ok_enrol_collectors">
+      <bpmn:incoming>Flow_validate_import_g_import_ok</bpmn:incoming>
+      <bpmn:outgoing>Flow_g_import_ok_enrol_collectors</bpmn:outgoing>
+      <bpmn:outgoing>Flow_g_import_ok_import_records</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="enrol_collectors" name="Enrol collectors">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dcos.enrol-collectors" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_g_import_ok_enrol_collectors</bpmn:incoming>
+      <bpmn:outgoing>Flow_enrol_collectors_run_discovery</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="run_discovery" name="Run discovery">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dcos.discovery" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_enrol_collectors_run_discovery</bpmn:incoming>
+      <bpmn:incoming>Flow_check_collectors_run_discovery</bpmn:incoming>
+      <bpmn:outgoing>Flow_run_discovery_reconcile</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:boundaryEvent id="b_discovery_overdue" name="Discovery overdue" attachedToRef="run_discovery" cancelActivity="false">
+      <bpmn:outgoing>Flow_b_discovery_overdue_check_collectors</bpmn:outgoing>
+      <bpmn:timerEventDefinition id="TimerDef_b_discovery_overdue">
+        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT12H</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+    <bpmn:userTask id="check_collectors" name="Check collector health">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="run-checks" />
+        <zeebe:assignmentDefinition candidateGroups="Administrator" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT2H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_b_discovery_overdue_check_collectors</bpmn:incoming>
+      <bpmn:outgoing>Flow_check_collectors_run_discovery</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="reconcile" name="Three-way reconcile">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dcos.reconcile" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_run_discovery_reconcile</bpmn:incoming>
+      <bpmn:incoming>Flow_resolve_exceptions_reconcile</bpmn:incoming>
+      <bpmn:outgoing>Flow_reconcile_audit_walk</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="audit_walk" name="Audit walk">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="complete-with-evidence" />
+        <zeebe:assignmentDefinition candidateGroups="Field Technician" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT16H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_reconcile_audit_walk</bpmn:incoming>
+      <bpmn:outgoing>Flow_audit_walk_g_exceptions</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="g_exceptions" name="Exceptions?" default="Flow_g_exceptions_baseline">
+      <bpmn:incoming>Flow_audit_walk_g_exceptions</bpmn:incoming>
+      <bpmn:outgoing>Flow_g_exceptions_baseline</bpmn:outgoing>
+      <bpmn:outgoing>Flow_g_exceptions_resolve_exceptions</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="resolve_exceptions" name="Resolve exceptions">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="decide-reconciliation" />
+        <zeebe:assignmentDefinition candidateGroups="Platform Owner" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT8H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_g_exceptions_resolve_exceptions</bpmn:incoming>
+      <bpmn:outgoing>Flow_resolve_exceptions_reconcile</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="baseline" name="Baseline site">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dcos.baseline" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_g_exceptions_baseline</bpmn:incoming>
+      <bpmn:outgoing>Flow_baseline_sign_cutover</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="sign_cutover" name="Sign cut-over">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="sign-off" />
+        <zeebe:assignmentDefinition candidateGroups="Platform Owner" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT8H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_baseline_sign_cutover</bpmn:incoming>
+      <bpmn:outgoing>Flow_sign_cutover_end</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="end" name="Site live in DCOS">
+      <bpmn:incoming>Flow_sign_cutover_end</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_start_register_site" sourceRef="start" targetRef="register_site" />
+    <bpmn:sequenceFlow id="Flow_register_site_import_records" sourceRef="register_site" targetRef="import_records" />
+    <bpmn:sequenceFlow id="Flow_import_records_validate_import" sourceRef="import_records" targetRef="validate_import" />
+    <bpmn:sequenceFlow id="Flow_validate_import_g_import_ok" sourceRef="validate_import" targetRef="g_import_ok" />
+    <bpmn:sequenceFlow id="Flow_g_import_ok_enrol_collectors" name="clean" sourceRef="g_import_ok" targetRef="enrol_collectors">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=approved = true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_g_import_ok_import_records" name="re-import" sourceRef="g_import_ok" targetRef="import_records">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=approved = false</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_enrol_collectors_run_discovery" sourceRef="enrol_collectors" targetRef="run_discovery" />
+    <bpmn:sequenceFlow id="Flow_check_collectors_run_discovery" sourceRef="check_collectors" targetRef="run_discovery" />
+    <bpmn:sequenceFlow id="Flow_run_discovery_reconcile" sourceRef="run_discovery" targetRef="reconcile" />
+    <bpmn:sequenceFlow id="Flow_reconcile_audit_walk" sourceRef="reconcile" targetRef="audit_walk" />
+    <bpmn:sequenceFlow id="Flow_audit_walk_g_exceptions" sourceRef="audit_walk" targetRef="g_exceptions" />
+    <bpmn:sequenceFlow id="Flow_g_exceptions_baseline" name="none" sourceRef="g_exceptions" targetRef="baseline">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=exceptions = 0</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_g_exceptions_resolve_exceptions" name="found" sourceRef="g_exceptions" targetRef="resolve_exceptions">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=exceptions &gt; 0</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_resolve_exceptions_reconcile" sourceRef="resolve_exceptions" targetRef="reconcile" />
+    <bpmn:sequenceFlow id="Flow_baseline_sign_cutover" sourceRef="baseline" targetRef="sign_cutover" />
+    <bpmn:sequenceFlow id="Flow_sign_cutover_end" sourceRef="sign_cutover" targetRef="end" />
+    <bpmn:sequenceFlow id="Flow_b_discovery_overdue_check_collectors" sourceRef="b_discovery_overdue" targetRef="check_collectors" />
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_site_onboarding">
+    <bpmndi:BPMNPlane id="BPMNPlane_site_onboarding" bpmnElement="Collaboration_site_onboarding">
+      <bpmndi:BPMNShape id="Participant_site_onboarding_di" bpmnElement="Participant_site_onboarding" isHorizontal="true">
+        <dc:Bounds x="160" y="80" width="2300" height="660" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_DCOS_di" bpmnElement="Lane_DCOS" isHorizontal="true">
+        <dc:Bounds x="190" y="80" width="2270" height="255" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Platform_collectors_di" bpmnElement="Lane_Platform_collectors" isHorizontal="true">
+        <dc:Bounds x="190" y="335" width="2270" height="255" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Field_di" bpmnElement="Lane_Field" isHorizontal="true">
+        <dc:Bounds x="190" y="590" width="2270" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="start_di" bpmnElement="start">
+        <dc:Bounds x="272" y="137" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="register_site_di" bpmnElement="register_site">
+        <dc:Bounds x="400" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="import_records_di" bpmnElement="import_records">
+        <dc:Bounds x="570" y="370" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="validate_import_di" bpmnElement="validate_import">
+        <dc:Bounds x="740" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="g_import_ok_di" bpmnElement="g_import_ok">
+        <dc:Bounds x="945" y="130" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="enrol_collectors_di" bpmnElement="enrol_collectors">
+        <dc:Bounds x="1080" y="370" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="run_discovery_di" bpmnElement="run_discovery">
+        <dc:Bounds x="1250" y="370" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="b_discovery_overdue_di" bpmnElement="b_discovery_overdue">
+        <dc:Bounds x="1322" y="432" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="check_collectors_di" bpmnElement="check_collectors">
+        <dc:Bounds x="1420" y="475" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="reconcile_di" bpmnElement="reconcile">
+        <dc:Bounds x="1420" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="audit_walk_di" bpmnElement="audit_walk">
+        <dc:Bounds x="1590" y="625" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="g_exceptions_di" bpmnElement="g_exceptions">
+        <dc:Bounds x="1795" y="130" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="resolve_exceptions_di" bpmnElement="resolve_exceptions">
+        <dc:Bounds x="1930" y="220" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="baseline_di" bpmnElement="baseline">
+        <dc:Bounds x="1930" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="sign_cutover_di" bpmnElement="sign_cutover">
+        <dc:Bounds x="2100" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_di" bpmnElement="end">
+        <dc:Bounds x="2312" y="137" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_start_register_site_di" bpmnElement="Flow_start_register_site">
+        <di:waypoint x="308" y="155" />
+        <di:waypoint x="400" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_register_site_import_records_di" bpmnElement="Flow_register_site_import_records">
+        <di:waypoint x="520" y="155" />
+        <di:waypoint x="545" y="155" />
+        <di:waypoint x="545" y="410" />
+        <di:waypoint x="570" y="410" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_import_records_validate_import_di" bpmnElement="Flow_import_records_validate_import">
+        <di:waypoint x="690" y="410" />
+        <di:waypoint x="715" y="410" />
+        <di:waypoint x="715" y="155" />
+        <di:waypoint x="740" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_validate_import_g_import_ok_di" bpmnElement="Flow_validate_import_g_import_ok">
+        <di:waypoint x="860" y="155" />
+        <di:waypoint x="945" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_import_ok_enrol_collectors_di" bpmnElement="Flow_g_import_ok_enrol_collectors">
+        <di:waypoint x="995" y="155" />
+        <di:waypoint x="1055" y="155" />
+        <di:waypoint x="1055" y="410" />
+        <di:waypoint x="1080" y="410" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_import_ok_import_records_di" bpmnElement="Flow_g_import_ok_import_records">
+        <di:waypoint x="970" y="180" />
+        <di:waypoint x="970" y="467" />
+        <di:waypoint x="630" y="467" />
+        <di:waypoint x="630" y="450" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_enrol_collectors_run_discovery_di" bpmnElement="Flow_enrol_collectors_run_discovery">
+        <di:waypoint x="1200" y="410" />
+        <di:waypoint x="1250" y="410" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_check_collectors_run_discovery_di" bpmnElement="Flow_check_collectors_run_discovery">
+        <di:waypoint x="1480" y="555" />
+        <di:waypoint x="1480" y="467" />
+        <di:waypoint x="1310" y="467" />
+        <di:waypoint x="1310" y="450" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_run_discovery_reconcile_di" bpmnElement="Flow_run_discovery_reconcile">
+        <di:waypoint x="1370" y="410" />
+        <di:waypoint x="1395" y="410" />
+        <di:waypoint x="1395" y="155" />
+        <di:waypoint x="1420" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_reconcile_audit_walk_di" bpmnElement="Flow_reconcile_audit_walk">
+        <di:waypoint x="1540" y="155" />
+        <di:waypoint x="1565" y="155" />
+        <di:waypoint x="1565" y="665" />
+        <di:waypoint x="1590" y="665" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_audit_walk_g_exceptions_di" bpmnElement="Flow_audit_walk_g_exceptions">
+        <di:waypoint x="1710" y="665" />
+        <di:waypoint x="1735" y="665" />
+        <di:waypoint x="1735" y="155" />
+        <di:waypoint x="1795" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_exceptions_baseline_di" bpmnElement="Flow_g_exceptions_baseline">
+        <di:waypoint x="1845" y="155" />
+        <di:waypoint x="1930" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_exceptions_resolve_exceptions_di" bpmnElement="Flow_g_exceptions_resolve_exceptions">
+        <di:waypoint x="1845" y="155" />
+        <di:waypoint x="1905" y="155" />
+        <di:waypoint x="1905" y="260" />
+        <di:waypoint x="1930" y="260" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_resolve_exceptions_reconcile_di" bpmnElement="Flow_resolve_exceptions_reconcile">
+        <di:waypoint x="1990" y="300" />
+        <di:waypoint x="1990" y="212" />
+        <di:waypoint x="1480" y="212" />
+        <di:waypoint x="1480" y="195" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_baseline_sign_cutover_di" bpmnElement="Flow_baseline_sign_cutover">
+        <di:waypoint x="2050" y="155" />
+        <di:waypoint x="2100" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_sign_cutover_end_di" bpmnElement="Flow_sign_cutover_end">
+        <di:waypoint x="2220" y="155" />
+        <di:waypoint x="2312" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_b_discovery_overdue_check_collectors_di" bpmnElement="Flow_b_discovery_overdue_check_collectors">
+        <di:waypoint x="1340" y="468" />
+        <di:waypoint x="1340" y="478" />
+        <di:waypoint x="1395" y="478" />
+        <di:waypoint x="1395" y="515" />
+        <di:waypoint x="1420" y="515" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

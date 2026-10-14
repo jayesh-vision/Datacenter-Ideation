@@ -1,0 +1,311 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_hall_fitout" targetNamespace="http://dcos.example.com/workorders" exporter="DCOS process generator" exporterVersion="1.0" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.6.0">
+  <bpmn:collaboration id="Collaboration_hall_fitout">
+    <bpmn:participant id="Participant_hall_fitout" name="P02 · Hall fit-out" processRef="hall-fitout" />
+  </bpmn:collaboration>
+  <bpmn:process id="hall-fitout" name="Hall fit-out" isExecutable="true">
+    <bpmn:documentation>Takes a hall from approved design to released capacity: design review and PO approval, receipt and staging of kit, installation of racks, power and cabling, provisioning, the five commissioning levels (looping while defects remain), operations handover sign-off and finally the release of the new capacity to the planning pool.</bpmn:documentation>
+    <bpmn:extensionElements>
+      <zeebe:versionTag value="v1" />
+    </bpmn:extensionElements>
+    <bpmn:laneSet id="LaneSet_hall_fitout">
+      <bpmn:lane id="Lane_Design" name="Design">
+        <bpmn:flowNodeRef>start</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>design_review</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Procurement" name="Procurement">
+        <bpmn:flowNodeRef>approve_pos</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>expedite</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Field" name="Field">
+        <bpmn:flowNodeRef>receive_stage</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>b_delivery_delayed</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>install</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>fix_defects</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Commissioning" name="Commissioning">
+        <bpmn:flowNodeRef>commission</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>g_defects</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Operations" name="Operations">
+        <bpmn:flowNodeRef>provision</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>handover</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>release_capacity</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>end</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="start" name="Fit-out approved">
+      <bpmn:outgoing>Flow_start_design_review</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="design_review" name="Design review">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="design-review" />
+        <zeebe:assignmentDefinition candidateGroups="Project Manager" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT40H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_start_design_review</bpmn:incoming>
+      <bpmn:outgoing>Flow_design_review_approve_pos</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="approve_pos" name="Approve POs">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="commercial-approval" />
+        <zeebe:assignmentDefinition candidateGroups="Finance Manager" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;P1D&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_design_review_approve_pos</bpmn:incoming>
+      <bpmn:outgoing>Flow_approve_pos_receive_stage</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="receive_stage" name="Receive &amp; stage">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="receive-delivery" />
+        <zeebe:assignmentDefinition candidateGroups="Field Technician" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;P5D&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_approve_pos_receive_stage</bpmn:incoming>
+      <bpmn:incoming>Flow_expedite_receive_stage</bpmn:incoming>
+      <bpmn:outgoing>Flow_receive_stage_install</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:boundaryEvent id="b_delivery_delayed" name="Delivery delayed" attachedToRef="receive_stage" cancelActivity="false">
+      <bpmn:outgoing>Flow_b_delivery_delayed_expedite</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="MsgDef_b_delivery_delayed" messageRef="Message_b_delivery_delayed" />
+    </bpmn:boundaryEvent>
+    <bpmn:userTask id="expedite" name="Expedite with vendor">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="chase-up" />
+        <zeebe:assignmentDefinition candidateGroups="Finance Manager" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT8H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_b_delivery_delayed_expedite</bpmn:incoming>
+      <bpmn:outgoing>Flow_expedite_receive_stage</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="install" name="Install racks, power &amp; cabling">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="install-record" />
+        <zeebe:assignmentDefinition candidateGroups="Field Technician" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT160H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_receive_stage_install</bpmn:incoming>
+      <bpmn:outgoing>Flow_install_provision</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="provision" name="Provision devices">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dcos.provision" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_install_provision</bpmn:incoming>
+      <bpmn:outgoing>Flow_provision_commission</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="commission" name="Commissioning L1–L5">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="acceptance-tests" />
+        <zeebe:assignmentDefinition candidateGroups="Commissioning Engineer" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT80H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_provision_commission</bpmn:incoming>
+      <bpmn:incoming>Flow_fix_defects_commission</bpmn:incoming>
+      <bpmn:outgoing>Flow_commission_g_defects</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="g_defects" name="Defects?" default="Flow_g_defects_handover">
+      <bpmn:incoming>Flow_commission_g_defects</bpmn:incoming>
+      <bpmn:outgoing>Flow_g_defects_handover</bpmn:outgoing>
+      <bpmn:outgoing>Flow_g_defects_fix_defects</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="fix_defects" name="Fix defects">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="fix-findings" />
+        <zeebe:assignmentDefinition candidateGroups="Field Technician" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;P1D&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_g_defects_fix_defects</bpmn:incoming>
+      <bpmn:outgoing>Flow_fix_defects_commission</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="handover" name="Handover sign-off">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="handover" />
+        <zeebe:assignmentDefinition candidateGroups="Facilities Director" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT16H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_g_defects_handover</bpmn:incoming>
+      <bpmn:outgoing>Flow_handover_release_capacity</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="release_capacity" name="Release capacity">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dcos.release-capacity" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_handover_release_capacity</bpmn:incoming>
+      <bpmn:outgoing>Flow_release_capacity_end</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="end" name="Hall in service">
+      <bpmn:incoming>Flow_release_capacity_end</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_start_design_review" sourceRef="start" targetRef="design_review" />
+    <bpmn:sequenceFlow id="Flow_design_review_approve_pos" sourceRef="design_review" targetRef="approve_pos" />
+    <bpmn:sequenceFlow id="Flow_approve_pos_receive_stage" sourceRef="approve_pos" targetRef="receive_stage" />
+    <bpmn:sequenceFlow id="Flow_expedite_receive_stage" sourceRef="expedite" targetRef="receive_stage" />
+    <bpmn:sequenceFlow id="Flow_receive_stage_install" sourceRef="receive_stage" targetRef="install" />
+    <bpmn:sequenceFlow id="Flow_install_provision" sourceRef="install" targetRef="provision" />
+    <bpmn:sequenceFlow id="Flow_provision_commission" sourceRef="provision" targetRef="commission" />
+    <bpmn:sequenceFlow id="Flow_commission_g_defects" sourceRef="commission" targetRef="g_defects" />
+    <bpmn:sequenceFlow id="Flow_g_defects_handover" name="none" sourceRef="g_defects" targetRef="handover">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=defects = 0</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_g_defects_fix_defects" name="open defects" sourceRef="g_defects" targetRef="fix_defects">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=defects &gt; 0</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_fix_defects_commission" sourceRef="fix_defects" targetRef="commission" />
+    <bpmn:sequenceFlow id="Flow_handover_release_capacity" sourceRef="handover" targetRef="release_capacity" />
+    <bpmn:sequenceFlow id="Flow_release_capacity_end" sourceRef="release_capacity" targetRef="end" />
+    <bpmn:sequenceFlow id="Flow_b_delivery_delayed_expedite" sourceRef="b_delivery_delayed" targetRef="expedite" />
+  </bpmn:process>
+  <bpmn:message id="Message_b_delivery_delayed" name="delivery-delayed">
+    <bpmn:extensionElements>
+      <zeebe:subscription correlationKey="=businessKey" />
+    </bpmn:extensionElements>
+  </bpmn:message>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_hall_fitout">
+    <bpmndi:BPMNPlane id="BPMNPlane_hall_fitout" bpmnElement="Collaboration_hall_fitout">
+      <bpmndi:BPMNShape id="Participant_hall_fitout_di" bpmnElement="Participant_hall_fitout" isHorizontal="true">
+        <dc:Bounds x="160" y="80" width="1960" height="960" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Design_di" bpmnElement="Lane_Design" isHorizontal="true">
+        <dc:Bounds x="190" y="80" width="1930" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Procurement_di" bpmnElement="Lane_Procurement" isHorizontal="true">
+        <dc:Bounds x="190" y="230" width="1930" height="255" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Field_di" bpmnElement="Lane_Field" isHorizontal="true">
+        <dc:Bounds x="190" y="485" width="1930" height="255" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Commissioning_di" bpmnElement="Lane_Commissioning" isHorizontal="true">
+        <dc:Bounds x="190" y="740" width="1930" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Operations_di" bpmnElement="Lane_Operations" isHorizontal="true">
+        <dc:Bounds x="190" y="890" width="1930" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="start_di" bpmnElement="start">
+        <dc:Bounds x="272" y="137" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="design_review_di" bpmnElement="design_review">
+        <dc:Bounds x="400" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="approve_pos_di" bpmnElement="approve_pos">
+        <dc:Bounds x="570" y="265" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="receive_stage_di" bpmnElement="receive_stage">
+        <dc:Bounds x="740" y="520" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="b_delivery_delayed_di" bpmnElement="b_delivery_delayed">
+        <dc:Bounds x="812" y="582" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="expedite_di" bpmnElement="expedite">
+        <dc:Bounds x="910" y="370" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="install_di" bpmnElement="install">
+        <dc:Bounds x="910" y="520" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="provision_di" bpmnElement="provision">
+        <dc:Bounds x="1080" y="925" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="commission_di" bpmnElement="commission">
+        <dc:Bounds x="1250" y="775" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="g_defects_di" bpmnElement="g_defects">
+        <dc:Bounds x="1455" y="790" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="fix_defects_di" bpmnElement="fix_defects">
+        <dc:Bounds x="1590" y="625" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="handover_di" bpmnElement="handover">
+        <dc:Bounds x="1590" y="925" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="release_capacity_di" bpmnElement="release_capacity">
+        <dc:Bounds x="1760" y="925" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_di" bpmnElement="end">
+        <dc:Bounds x="1972" y="947" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_start_design_review_di" bpmnElement="Flow_start_design_review">
+        <di:waypoint x="308" y="155" />
+        <di:waypoint x="400" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_design_review_approve_pos_di" bpmnElement="Flow_design_review_approve_pos">
+        <di:waypoint x="520" y="155" />
+        <di:waypoint x="545" y="155" />
+        <di:waypoint x="545" y="305" />
+        <di:waypoint x="570" y="305" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_approve_pos_receive_stage_di" bpmnElement="Flow_approve_pos_receive_stage">
+        <di:waypoint x="690" y="305" />
+        <di:waypoint x="715" y="305" />
+        <di:waypoint x="715" y="560" />
+        <di:waypoint x="740" y="560" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_expedite_receive_stage_di" bpmnElement="Flow_expedite_receive_stage">
+        <di:waypoint x="970" y="450" />
+        <di:waypoint x="970" y="617" />
+        <di:waypoint x="800" y="617" />
+        <di:waypoint x="800" y="600" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_receive_stage_install_di" bpmnElement="Flow_receive_stage_install">
+        <di:waypoint x="860" y="560" />
+        <di:waypoint x="910" y="560" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_install_provision_di" bpmnElement="Flow_install_provision">
+        <di:waypoint x="1030" y="560" />
+        <di:waypoint x="1055" y="560" />
+        <di:waypoint x="1055" y="965" />
+        <di:waypoint x="1080" y="965" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_provision_commission_di" bpmnElement="Flow_provision_commission">
+        <di:waypoint x="1200" y="965" />
+        <di:waypoint x="1225" y="965" />
+        <di:waypoint x="1225" y="815" />
+        <di:waypoint x="1250" y="815" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_commission_g_defects_di" bpmnElement="Flow_commission_g_defects">
+        <di:waypoint x="1370" y="815" />
+        <di:waypoint x="1455" y="815" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_defects_handover_di" bpmnElement="Flow_g_defects_handover">
+        <di:waypoint x="1505" y="815" />
+        <di:waypoint x="1565" y="815" />
+        <di:waypoint x="1565" y="965" />
+        <di:waypoint x="1590" y="965" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_defects_fix_defects_di" bpmnElement="Flow_g_defects_fix_defects">
+        <di:waypoint x="1505" y="815" />
+        <di:waypoint x="1565" y="815" />
+        <di:waypoint x="1565" y="665" />
+        <di:waypoint x="1590" y="665" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_fix_defects_commission_di" bpmnElement="Flow_fix_defects_commission">
+        <di:waypoint x="1650" y="705" />
+        <di:waypoint x="1650" y="872" />
+        <di:waypoint x="1310" y="872" />
+        <di:waypoint x="1310" y="855" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_handover_release_capacity_di" bpmnElement="Flow_handover_release_capacity">
+        <di:waypoint x="1710" y="965" />
+        <di:waypoint x="1760" y="965" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_release_capacity_end_di" bpmnElement="Flow_release_capacity_end">
+        <di:waypoint x="1880" y="965" />
+        <di:waypoint x="1972" y="965" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_b_delivery_delayed_expedite_di" bpmnElement="Flow_b_delivery_delayed_expedite">
+        <di:waypoint x="830" y="618" />
+        <di:waypoint x="830" y="628" />
+        <di:waypoint x="885" y="628" />
+        <di:waypoint x="885" y="410" />
+        <di:waypoint x="910" y="410" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

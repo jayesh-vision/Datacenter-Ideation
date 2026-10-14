@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_reconciliation" targetNamespace="http://dcos.example.com/workorders" exporter="DCOS process generator" exporterVersion="1.0" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.6.0">
+  <bpmn:collaboration id="Collaboration_reconciliation">
+    <bpmn:participant id="Participant_reconciliation" name="P09 · Reconciliation" processRef="reconciliation" />
+  </bpmn:collaboration>
+  <bpmn:process id="reconciliation" name="Reconciliation" isExecutable="true">
+    <bpmn:documentation>Resolves one difference between the record of truth and discovery: the difference is classified, the hall owner decides to accept the discovered state, keep the record or send someone to look, a confirming walk updates the record, and every outcome is written to the audit trail.</bpmn:documentation>
+    <bpmn:extensionElements>
+      <zeebe:versionTag value="v1" />
+    </bpmn:extensionElements>
+    <bpmn:laneSet id="LaneSet_reconciliation">
+      <bpmn:lane id="Lane_DCOS" name="DCOS">
+        <bpmn:flowNodeRef>start</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>classify</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>update_record</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>audit</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>end</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Hall_owner" name="Hall owner">
+        <bpmn:flowNodeRef>decide</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>g_decision</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Field" name="Field">
+        <bpmn:flowNodeRef>walk</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="start" name="Discovery difference">
+      <bpmn:outgoing>Flow_start_classify</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="classify" name="Classify difference">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dcos.classify-diff" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_start_classify</bpmn:incoming>
+      <bpmn:outgoing>Flow_classify_decide</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="decide" name="Decide">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="decide-reconciliation" />
+        <zeebe:assignmentDefinition candidateGroups="Facilities Engineer" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;P1D&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_classify_decide</bpmn:incoming>
+      <bpmn:outgoing>Flow_decide_g_decision</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="g_decision" name="Decision" default="Flow_g_decision_audit">
+      <bpmn:incoming>Flow_decide_g_decision</bpmn:incoming>
+      <bpmn:outgoing>Flow_g_decision_update_record</bpmn:outgoing>
+      <bpmn:outgoing>Flow_g_decision_walk</bpmn:outgoing>
+      <bpmn:outgoing>Flow_g_decision_audit</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="walk" name="Confirm by walk">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="complete-with-evidence" />
+        <zeebe:assignmentDefinition candidateGroups="Site Technician" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT8H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_g_decision_walk</bpmn:incoming>
+      <bpmn:outgoing>Flow_walk_update_record</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="update_record" name="Update record">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dcos.update-record" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_g_decision_update_record</bpmn:incoming>
+      <bpmn:incoming>Flow_walk_update_record</bpmn:incoming>
+      <bpmn:outgoing>Flow_update_record_audit</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="audit" name="Write audit entry">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dcos.audit" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_g_decision_audit</bpmn:incoming>
+      <bpmn:incoming>Flow_update_record_audit</bpmn:incoming>
+      <bpmn:outgoing>Flow_audit_end</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="end" name="Reconciled">
+      <bpmn:incoming>Flow_audit_end</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_start_classify" sourceRef="start" targetRef="classify" />
+    <bpmn:sequenceFlow id="Flow_classify_decide" sourceRef="classify" targetRef="decide" />
+    <bpmn:sequenceFlow id="Flow_decide_g_decision" sourceRef="decide" targetRef="g_decision" />
+    <bpmn:sequenceFlow id="Flow_g_decision_update_record" name="accept discovered" sourceRef="g_decision" targetRef="update_record">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=decision = &quot;accept&quot;</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_g_decision_walk" name="confirm by walk" sourceRef="g_decision" targetRef="walk">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=decision = &quot;walk&quot;</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_g_decision_audit" name="keep record" sourceRef="g_decision" targetRef="audit">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=decision = &quot;keep&quot;</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_walk_update_record" sourceRef="walk" targetRef="update_record" />
+    <bpmn:sequenceFlow id="Flow_update_record_audit" sourceRef="update_record" targetRef="audit" />
+    <bpmn:sequenceFlow id="Flow_audit_end" sourceRef="audit" targetRef="end" />
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_reconciliation">
+    <bpmndi:BPMNPlane id="BPMNPlane_reconciliation" bpmnElement="Collaboration_reconciliation">
+      <bpmndi:BPMNShape id="Participant_reconciliation_di" bpmnElement="Participant_reconciliation" isHorizontal="true">
+        <dc:Bounds x="160" y="80" width="1450" height="450" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_DCOS_di" bpmnElement="Lane_DCOS" isHorizontal="true">
+        <dc:Bounds x="190" y="80" width="1420" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Hall_owner_di" bpmnElement="Lane_Hall_owner" isHorizontal="true">
+        <dc:Bounds x="190" y="230" width="1420" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Field_di" bpmnElement="Lane_Field" isHorizontal="true">
+        <dc:Bounds x="190" y="380" width="1420" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="start_di" bpmnElement="start">
+        <dc:Bounds x="272" y="137" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="classify_di" bpmnElement="classify">
+        <dc:Bounds x="400" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="decide_di" bpmnElement="decide">
+        <dc:Bounds x="570" y="265" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="g_decision_di" bpmnElement="g_decision">
+        <dc:Bounds x="775" y="280" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="walk_di" bpmnElement="walk">
+        <dc:Bounds x="910" y="415" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="update_record_di" bpmnElement="update_record">
+        <dc:Bounds x="1080" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="audit_di" bpmnElement="audit">
+        <dc:Bounds x="1250" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_di" bpmnElement="end">
+        <dc:Bounds x="1462" y="137" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_start_classify_di" bpmnElement="Flow_start_classify">
+        <di:waypoint x="308" y="155" />
+        <di:waypoint x="400" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_classify_decide_di" bpmnElement="Flow_classify_decide">
+        <di:waypoint x="520" y="155" />
+        <di:waypoint x="545" y="155" />
+        <di:waypoint x="545" y="305" />
+        <di:waypoint x="570" y="305" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_decide_g_decision_di" bpmnElement="Flow_decide_g_decision">
+        <di:waypoint x="690" y="305" />
+        <di:waypoint x="775" y="305" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_decision_update_record_di" bpmnElement="Flow_g_decision_update_record">
+        <di:waypoint x="825" y="305" />
+        <di:waypoint x="885" y="305" />
+        <di:waypoint x="885" y="155" />
+        <di:waypoint x="1080" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_decision_walk_di" bpmnElement="Flow_g_decision_walk">
+        <di:waypoint x="825" y="305" />
+        <di:waypoint x="885" y="305" />
+        <di:waypoint x="885" y="455" />
+        <di:waypoint x="910" y="455" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_decision_audit_di" bpmnElement="Flow_g_decision_audit">
+        <di:waypoint x="825" y="305" />
+        <di:waypoint x="1225" y="305" />
+        <di:waypoint x="1225" y="155" />
+        <di:waypoint x="1250" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_walk_update_record_di" bpmnElement="Flow_walk_update_record">
+        <di:waypoint x="1030" y="455" />
+        <di:waypoint x="1055" y="455" />
+        <di:waypoint x="1055" y="155" />
+        <di:waypoint x="1080" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_update_record_audit_di" bpmnElement="Flow_update_record_audit">
+        <di:waypoint x="1200" y="155" />
+        <di:waypoint x="1250" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_audit_end_di" bpmnElement="Flow_audit_end">
+        <di:waypoint x="1370" y="155" />
+        <di:waypoint x="1462" y="155" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_firmware_campaign" targetNamespace="http://dcos.example.com/workorders" exporter="DCOS process generator" exporterVersion="1.0" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.6.0">
+  <bpmn:collaboration id="Collaboration_firmware_campaign">
+    <bpmn:participant id="Participant_firmware_campaign" name="P07 · Firmware campaign" processRef="firmware-campaign" />
+  </bpmn:collaboration>
+  <bpmn:process id="firmware-campaign" name="Firmware campaign" isExecutable="true">
+    <bpmn:documentation>Remediates a posture finding across the fleet in waves: network plans the waves, change approves each wave, firmware is pushed, the field verifies the wave (recovering by hand if a push fails) and the loop repeats until no waves remain, closing the finding.</bpmn:documentation>
+    <bpmn:extensionElements>
+      <zeebe:versionTag value="v1" />
+    </bpmn:extensionElements>
+    <bpmn:laneSet id="LaneSet_firmware_campaign">
+      <bpmn:lane id="Lane_Network" name="Network">
+        <bpmn:flowNodeRef>start</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>plan_waves</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>push</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>b_push_failed</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>g_more</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>close</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>end</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Change" name="Change">
+        <bpmn:flowNodeRef>approve_wave</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>g_wave_ok</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Field" name="Field">
+        <bpmn:flowNodeRef>hands_on</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>verify</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="start" name="Posture finding">
+      <bpmn:outgoing>Flow_start_plan_waves</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="plan_waves" name="Plan waves">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="complete-with-evidence" />
+        <zeebe:assignmentDefinition candidateGroups="Network Engineer" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT8H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_start_plan_waves</bpmn:incoming>
+      <bpmn:incoming>Flow_g_wave_ok_plan_waves</bpmn:incoming>
+      <bpmn:outgoing>Flow_plan_waves_approve_wave</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="approve_wave" name="Approve wave">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="approve" />
+        <zeebe:assignmentDefinition candidateGroups="Facilities Director" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;P1D&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_plan_waves_approve_wave</bpmn:incoming>
+      <bpmn:incoming>Flow_g_more_approve_wave</bpmn:incoming>
+      <bpmn:outgoing>Flow_approve_wave_g_wave_ok</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="g_wave_ok" name="Approved?" default="Flow_g_wave_ok_push">
+      <bpmn:incoming>Flow_approve_wave_g_wave_ok</bpmn:incoming>
+      <bpmn:outgoing>Flow_g_wave_ok_push</bpmn:outgoing>
+      <bpmn:outgoing>Flow_g_wave_ok_plan_waves</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="push" name="Push firmware">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="nms.push-firmware" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_g_wave_ok_push</bpmn:incoming>
+      <bpmn:outgoing>Flow_push_verify</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:boundaryEvent id="b_push_failed" name="Push failed" attachedToRef="push">
+      <bpmn:outgoing>Flow_b_push_failed_hands_on</bpmn:outgoing>
+      <bpmn:errorEventDefinition id="ErrDef_b_push_failed" errorRef="Error_b_push_failed" />
+    </bpmn:boundaryEvent>
+    <bpmn:userTask id="hands_on" name="Hands-on recovery">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="remediation" />
+        <zeebe:assignmentDefinition candidateGroups="Site Technician" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT4H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_b_push_failed_hands_on</bpmn:incoming>
+      <bpmn:outgoing>Flow_hands_on_verify</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="verify" name="Verify wave">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="complete-with-evidence" />
+        <zeebe:assignmentDefinition candidateGroups="Site Technician" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT4H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_push_verify</bpmn:incoming>
+      <bpmn:incoming>Flow_hands_on_verify</bpmn:incoming>
+      <bpmn:outgoing>Flow_verify_g_more</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="g_more" name="More waves?" default="Flow_g_more_close">
+      <bpmn:incoming>Flow_verify_g_more</bpmn:incoming>
+      <bpmn:outgoing>Flow_g_more_approve_wave</bpmn:outgoing>
+      <bpmn:outgoing>Flow_g_more_close</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="close" name="Close finding">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dcos.close-finding" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_g_more_close</bpmn:incoming>
+      <bpmn:outgoing>Flow_close_end</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="end" name="Campaign closed">
+      <bpmn:incoming>Flow_close_end</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_start_plan_waves" sourceRef="start" targetRef="plan_waves" />
+    <bpmn:sequenceFlow id="Flow_plan_waves_approve_wave" sourceRef="plan_waves" targetRef="approve_wave" />
+    <bpmn:sequenceFlow id="Flow_approve_wave_g_wave_ok" sourceRef="approve_wave" targetRef="g_wave_ok" />
+    <bpmn:sequenceFlow id="Flow_g_wave_ok_push" name="approved" sourceRef="g_wave_ok" targetRef="push">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=approved = true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_g_wave_ok_plan_waves" name="replan" sourceRef="g_wave_ok" targetRef="plan_waves">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=approved = false</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_push_verify" sourceRef="push" targetRef="verify" />
+    <bpmn:sequenceFlow id="Flow_hands_on_verify" sourceRef="hands_on" targetRef="verify" />
+    <bpmn:sequenceFlow id="Flow_verify_g_more" sourceRef="verify" targetRef="g_more" />
+    <bpmn:sequenceFlow id="Flow_g_more_approve_wave" name="next wave" sourceRef="g_more" targetRef="approve_wave">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=remainingWaves &gt; 0</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_g_more_close" name="done" sourceRef="g_more" targetRef="close">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=remainingWaves = 0</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_close_end" sourceRef="close" targetRef="end" />
+    <bpmn:sequenceFlow id="Flow_b_push_failed_hands_on" sourceRef="b_push_failed" targetRef="hands_on" />
+  </bpmn:process>
+  <bpmn:error id="Error_b_push_failed" name="Push failed" errorCode="PUSH_FAILED" />
+  <bpmndi:BPMNDiagram id="BPMNDiagram_firmware_campaign">
+    <bpmndi:BPMNPlane id="BPMNPlane_firmware_campaign" bpmnElement="Collaboration_firmware_campaign">
+      <bpmndi:BPMNShape id="Participant_firmware_campaign_di" bpmnElement="Participant_firmware_campaign" isHorizontal="true">
+        <dc:Bounds x="160" y="80" width="1790" height="555" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Network_di" bpmnElement="Lane_Network" isHorizontal="true">
+        <dc:Bounds x="190" y="80" width="1760" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Change_di" bpmnElement="Lane_Change" isHorizontal="true">
+        <dc:Bounds x="190" y="230" width="1760" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Field_di" bpmnElement="Lane_Field" isHorizontal="true">
+        <dc:Bounds x="190" y="380" width="1760" height="255" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="start_di" bpmnElement="start">
+        <dc:Bounds x="272" y="137" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="plan_waves_di" bpmnElement="plan_waves">
+        <dc:Bounds x="400" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="approve_wave_di" bpmnElement="approve_wave">
+        <dc:Bounds x="570" y="265" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="g_wave_ok_di" bpmnElement="g_wave_ok">
+        <dc:Bounds x="775" y="280" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="push_di" bpmnElement="push">
+        <dc:Bounds x="910" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="b_push_failed_di" bpmnElement="b_push_failed">
+        <dc:Bounds x="982" y="177" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="hands_on_di" bpmnElement="hands_on">
+        <dc:Bounds x="1080" y="520" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="verify_di" bpmnElement="verify">
+        <dc:Bounds x="1250" y="415" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="g_more_di" bpmnElement="g_more">
+        <dc:Bounds x="1455" y="130" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="close_di" bpmnElement="close">
+        <dc:Bounds x="1590" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_di" bpmnElement="end">
+        <dc:Bounds x="1802" y="137" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_start_plan_waves_di" bpmnElement="Flow_start_plan_waves">
+        <di:waypoint x="308" y="155" />
+        <di:waypoint x="400" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_plan_waves_approve_wave_di" bpmnElement="Flow_plan_waves_approve_wave">
+        <di:waypoint x="520" y="155" />
+        <di:waypoint x="545" y="155" />
+        <di:waypoint x="545" y="305" />
+        <di:waypoint x="570" y="305" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_approve_wave_g_wave_ok_di" bpmnElement="Flow_approve_wave_g_wave_ok">
+        <di:waypoint x="690" y="305" />
+        <di:waypoint x="775" y="305" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_wave_ok_push_di" bpmnElement="Flow_g_wave_ok_push">
+        <di:waypoint x="825" y="305" />
+        <di:waypoint x="885" y="305" />
+        <di:waypoint x="885" y="155" />
+        <di:waypoint x="910" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_wave_ok_plan_waves_di" bpmnElement="Flow_g_wave_ok_plan_waves">
+        <di:waypoint x="800" y="280" />
+        <di:waypoint x="800" y="95" />
+        <di:waypoint x="460" y="95" />
+        <di:waypoint x="460" y="115" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_push_verify_di" bpmnElement="Flow_push_verify">
+        <di:waypoint x="1030" y="155" />
+        <di:waypoint x="1055" y="155" />
+        <di:waypoint x="1055" y="455" />
+        <di:waypoint x="1250" y="455" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_hands_on_verify_di" bpmnElement="Flow_hands_on_verify">
+        <di:waypoint x="1200" y="560" />
+        <di:waypoint x="1225" y="560" />
+        <di:waypoint x="1225" y="455" />
+        <di:waypoint x="1250" y="455" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_verify_g_more_di" bpmnElement="Flow_verify_g_more">
+        <di:waypoint x="1370" y="455" />
+        <di:waypoint x="1395" y="455" />
+        <di:waypoint x="1395" y="155" />
+        <di:waypoint x="1455" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_more_approve_wave_di" bpmnElement="Flow_g_more_approve_wave">
+        <di:waypoint x="1480" y="180" />
+        <di:waypoint x="1480" y="362" />
+        <di:waypoint x="630" y="362" />
+        <di:waypoint x="630" y="345" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_more_close_di" bpmnElement="Flow_g_more_close">
+        <di:waypoint x="1505" y="155" />
+        <di:waypoint x="1590" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_close_end_di" bpmnElement="Flow_close_end">
+        <di:waypoint x="1710" y="155" />
+        <di:waypoint x="1802" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_b_push_failed_hands_on_di" bpmnElement="Flow_b_push_failed_hands_on">
+        <di:waypoint x="1000" y="213" />
+        <di:waypoint x="1000" y="223" />
+        <di:waypoint x="1055" y="223" />
+        <di:waypoint x="1055" y="560" />
+        <di:waypoint x="1080" y="560" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

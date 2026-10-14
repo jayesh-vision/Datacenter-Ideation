@@ -9,7 +9,8 @@ import { DcLink } from '../../ui/status';
 import { fmtDateTime } from '../../lib/format';
 import { useToast } from '../ops/shared';
 import { NotFound } from '../NotFound';
-import { Swimlane, TaskCard, hrs } from './parts';
+import { TaskCard, hrs } from './parts';
+import { BpmnView } from './BpmnView';
 import '../../styles/delivery.css';
 import '../../styles/workorders.css';
 
@@ -36,8 +37,8 @@ export function InstancePage() {
       </section>
       {i.state === 'Incident' && <p className="note note--warning"><I.TriangleAlert size={15} /><span>{i.incidentText}</span></p>}
       <div className="dl-dash">
-        <Panel className="dl-span-12" title="Process" icon={I.Workflow} info="Lanes are the roles that act; steps run left to right. Done steps are filled, the current step is ringed, dashed steps only run when needed.">
-          <Swimlane p={p} inst={i} />
+        <Panel className="dl-span-12" title="Process" icon={I.Workflow} info="The BPMN process: pools and lanes are the roles that act, arrows the sequence, diamonds the decisions. Done steps are green, the current step blue (red when it failed).">
+          <BpmnView processKey={p.key} done={i.history.map(h => h.step.replace(' (retried)', ''))} current={i.state === 'Completed' ? undefined : i.step} incident={i.state === 'Incident'} height={440} />
         </Panel>
         <div className="dl-span-6 dl-stack">
           {tasks.map(t => <TaskCard key={t.id} t={t} me="Jayesh Verma" onDone={(m, err) => toast.show(err ? 'Not done' : m, err ? m : undefined)} />)}

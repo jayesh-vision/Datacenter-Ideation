@@ -1,0 +1,430 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_major_incident" targetNamespace="http://dcos.example.com/workorders" exporter="DCOS process generator" exporterVersion="1.0" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.6.0">
+  <bpmn:collaboration id="Collaboration_major_incident">
+    <bpmn:participant id="Participant_major_incident" name="P04 · Major incident" processRef="major-incident" />
+  </bpmn:collaboration>
+  <bpmn:process id="major-incident" name="Major incident" isExecutable="true">
+    <bpmn:documentation>Runs a facility or network incident from detection to closure: alarms are correlated, impact is assessed by the severity decision table, the NOC acknowledges within 15 minutes or the duty manager is escalated to, an ITSM ticket and customer notifications run in parallel, root cause is analysed, disruptive remediation needs approval, closure checks loop until green, and SEV1/2 incidents end with a post-incident review.</bpmn:documentation>
+    <bpmn:extensionElements>
+      <zeebe:versionTag value="v1" />
+    </bpmn:extensionElements>
+    <bpmn:laneSet id="LaneSet_major_incident">
+      <bpmn:lane id="Lane_NOC" name="NOC">
+        <bpmn:flowNodeRef>start</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>correlate</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>assess_impact</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>acknowledge</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>b_ack_timeout</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>escalate</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>pg_fork</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>pg_join</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>closure_checks</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>g_checks</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>g_sev</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>end</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Facility" name="Facility">
+        <bpmn:flowNodeRef>rca</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>g_disruptive</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>execute</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_ITSM" name="ITSM">
+        <bpmn:flowNodeRef>open_ticket</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>resolve</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Customer_management" name="Customer management">
+        <bpmn:flowNodeRef>notify_customers</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>approve_disruptive</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>pir</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>end_pir</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="start" name="Incident detected">
+      <bpmn:outgoing>Flow_start_correlate</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="correlate" name="Correlate alarms">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dcos.correlate" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_start_correlate</bpmn:incoming>
+      <bpmn:outgoing>Flow_correlate_assess_impact</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:businessRuleTask id="assess_impact" name="Assess impact">
+      <bpmn:extensionElements>
+        <zeebe:calledDecision decisionId="incident-severity" resultVariable="severityResult" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_correlate_assess_impact</bpmn:incoming>
+      <bpmn:outgoing>Flow_assess_impact_acknowledge</bpmn:outgoing>
+    </bpmn:businessRuleTask>
+    <bpmn:userTask id="acknowledge" name="Acknowledge incident">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="acknowledge" />
+        <zeebe:assignmentDefinition candidateGroups="NOC Lead" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT15M&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_assess_impact_acknowledge</bpmn:incoming>
+      <bpmn:incoming>Flow_escalate_acknowledge</bpmn:incoming>
+      <bpmn:outgoing>Flow_acknowledge_pg_fork</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:boundaryEvent id="b_ack_timeout" name="15 min" attachedToRef="acknowledge">
+      <bpmn:outgoing>Flow_b_ack_timeout_escalate</bpmn:outgoing>
+      <bpmn:timerEventDefinition id="TimerDef_b_ack_timeout">
+        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT15M</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+    <bpmn:userTask id="escalate" name="Escalate to duty manager">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="acknowledge" />
+        <zeebe:assignmentDefinition candidateGroups="NOC Lead" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT15M&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_b_ack_timeout_escalate</bpmn:incoming>
+      <bpmn:outgoing>Flow_escalate_acknowledge</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:parallelGateway id="pg_fork" name="Fork">
+      <bpmn:incoming>Flow_acknowledge_pg_fork</bpmn:incoming>
+      <bpmn:outgoing>Flow_pg_fork_open_ticket</bpmn:outgoing>
+      <bpmn:outgoing>Flow_pg_fork_notify_customers</bpmn:outgoing>
+    </bpmn:parallelGateway>
+    <bpmn:serviceTask id="open_ticket" name="Open ITSM ticket">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="itsm.open-ticket" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_pg_fork_open_ticket</bpmn:incoming>
+      <bpmn:outgoing>Flow_open_ticket_pg_join</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="notify_customers" name="Notify affected customers">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dcos.notify-customers" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_pg_fork_notify_customers</bpmn:incoming>
+      <bpmn:outgoing>Flow_notify_customers_pg_join</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:parallelGateway id="pg_join" name="Join">
+      <bpmn:incoming>Flow_open_ticket_pg_join</bpmn:incoming>
+      <bpmn:incoming>Flow_notify_customers_pg_join</bpmn:incoming>
+      <bpmn:outgoing>Flow_pg_join_rca</bpmn:outgoing>
+    </bpmn:parallelGateway>
+    <bpmn:userTask id="rca" name="Root cause analysis">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="root-cause" />
+        <zeebe:assignmentDefinition candidateGroups="Facilities Engineer" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT4H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_pg_join_rca</bpmn:incoming>
+      <bpmn:outgoing>Flow_rca_g_disruptive</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="g_disruptive" name="Disruptive step?" default="Flow_g_disruptive_execute">
+      <bpmn:incoming>Flow_rca_g_disruptive</bpmn:incoming>
+      <bpmn:outgoing>Flow_g_disruptive_approve_disruptive</bpmn:outgoing>
+      <bpmn:outgoing>Flow_g_disruptive_execute</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="approve_disruptive" name="Approve disruptive step">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="approve" />
+        <zeebe:assignmentDefinition candidateGroups="Program Manager" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT1H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_g_disruptive_approve_disruptive</bpmn:incoming>
+      <bpmn:outgoing>Flow_approve_disruptive_execute</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="execute" name="Execute remediation">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="remediation" />
+        <zeebe:assignmentDefinition candidateGroups="Facilities Engineer" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT3H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_g_disruptive_execute</bpmn:incoming>
+      <bpmn:incoming>Flow_approve_disruptive_execute</bpmn:incoming>
+      <bpmn:incoming>Flow_g_checks_execute</bpmn:incoming>
+      <bpmn:outgoing>Flow_execute_closure_checks</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="closure_checks" name="Closure checks">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="run-checks" />
+        <zeebe:assignmentDefinition candidateGroups="NOC Lead" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT1H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_execute_closure_checks</bpmn:incoming>
+      <bpmn:outgoing>Flow_closure_checks_g_checks</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="g_checks" name="All checks pass?" default="Flow_g_checks_resolve">
+      <bpmn:incoming>Flow_closure_checks_g_checks</bpmn:incoming>
+      <bpmn:outgoing>Flow_g_checks_resolve</bpmn:outgoing>
+      <bpmn:outgoing>Flow_g_checks_execute</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="resolve" name="Resolve &amp; update ticket">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="itsm.resolve" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_g_checks_resolve</bpmn:incoming>
+      <bpmn:outgoing>Flow_resolve_g_sev</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="g_sev" name="SEV1 / SEV2?" default="Flow_g_sev_end">
+      <bpmn:incoming>Flow_resolve_g_sev</bpmn:incoming>
+      <bpmn:outgoing>Flow_g_sev_pir</bpmn:outgoing>
+      <bpmn:outgoing>Flow_g_sev_end</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="pir" name="Post-incident review">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="post-incident-review" />
+        <zeebe:assignmentDefinition candidateGroups="Program Manager" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;P2D&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_g_sev_pir</bpmn:incoming>
+      <bpmn:outgoing>Flow_pir_end_pir</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="end" name="Incident closed">
+      <bpmn:incoming>Flow_g_sev_end</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="end_pir" name="Closed with review">
+      <bpmn:incoming>Flow_pir_end_pir</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_start_correlate" sourceRef="start" targetRef="correlate" />
+    <bpmn:sequenceFlow id="Flow_correlate_assess_impact" sourceRef="correlate" targetRef="assess_impact" />
+    <bpmn:sequenceFlow id="Flow_assess_impact_acknowledge" sourceRef="assess_impact" targetRef="acknowledge" />
+    <bpmn:sequenceFlow id="Flow_escalate_acknowledge" sourceRef="escalate" targetRef="acknowledge" />
+    <bpmn:sequenceFlow id="Flow_acknowledge_pg_fork" sourceRef="acknowledge" targetRef="pg_fork" />
+    <bpmn:sequenceFlow id="Flow_pg_fork_open_ticket" sourceRef="pg_fork" targetRef="open_ticket" />
+    <bpmn:sequenceFlow id="Flow_pg_fork_notify_customers" sourceRef="pg_fork" targetRef="notify_customers" />
+    <bpmn:sequenceFlow id="Flow_open_ticket_pg_join" sourceRef="open_ticket" targetRef="pg_join" />
+    <bpmn:sequenceFlow id="Flow_notify_customers_pg_join" sourceRef="notify_customers" targetRef="pg_join" />
+    <bpmn:sequenceFlow id="Flow_pg_join_rca" sourceRef="pg_join" targetRef="rca" />
+    <bpmn:sequenceFlow id="Flow_rca_g_disruptive" sourceRef="rca" targetRef="g_disruptive" />
+    <bpmn:sequenceFlow id="Flow_g_disruptive_approve_disruptive" name="yes" sourceRef="g_disruptive" targetRef="approve_disruptive">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=disruptive = true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_g_disruptive_execute" name="no" sourceRef="g_disruptive" targetRef="execute">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=disruptive = false</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_approve_disruptive_execute" sourceRef="approve_disruptive" targetRef="execute" />
+    <bpmn:sequenceFlow id="Flow_execute_closure_checks" sourceRef="execute" targetRef="closure_checks" />
+    <bpmn:sequenceFlow id="Flow_closure_checks_g_checks" sourceRef="closure_checks" targetRef="g_checks" />
+    <bpmn:sequenceFlow id="Flow_g_checks_resolve" name="pass" sourceRef="g_checks" targetRef="resolve">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=approved = true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_g_checks_execute" name="fail" sourceRef="g_checks" targetRef="execute">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=approved = false</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_resolve_g_sev" sourceRef="resolve" targetRef="g_sev" />
+    <bpmn:sequenceFlow id="Flow_g_sev_pir" name="SEV1/2" sourceRef="g_sev" targetRef="pir">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=severity = &quot;SEV1&quot; or severity = &quot;SEV2&quot;</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_g_sev_end" name="SEV3/4" sourceRef="g_sev" targetRef="end">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=severity = &quot;SEV3&quot; or severity = &quot;SEV4&quot;</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_pir_end_pir" sourceRef="pir" targetRef="end_pir" />
+    <bpmn:sequenceFlow id="Flow_b_ack_timeout_escalate" sourceRef="b_ack_timeout" targetRef="escalate" />
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_major_incident">
+    <bpmndi:BPMNPlane id="BPMNPlane_major_incident" bpmnElement="Collaboration_major_incident">
+      <bpmndi:BPMNShape id="Participant_major_incident_di" bpmnElement="Participant_major_incident" isHorizontal="true">
+        <dc:Bounds x="160" y="80" width="2980" height="705" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_NOC_di" bpmnElement="Lane_NOC" isHorizontal="true">
+        <dc:Bounds x="190" y="80" width="2950" height="255" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Facility_di" bpmnElement="Lane_Facility" isHorizontal="true">
+        <dc:Bounds x="190" y="335" width="2950" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_ITSM_di" bpmnElement="Lane_ITSM" isHorizontal="true">
+        <dc:Bounds x="190" y="485" width="2950" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Customer_management_di" bpmnElement="Lane_Customer_management" isHorizontal="true">
+        <dc:Bounds x="190" y="635" width="2950" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="start_di" bpmnElement="start">
+        <dc:Bounds x="272" y="137" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="correlate_di" bpmnElement="correlate">
+        <dc:Bounds x="400" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="assess_impact_di" bpmnElement="assess_impact">
+        <dc:Bounds x="570" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="acknowledge_di" bpmnElement="acknowledge">
+        <dc:Bounds x="740" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="b_ack_timeout_di" bpmnElement="b_ack_timeout">
+        <dc:Bounds x="812" y="177" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="escalate_di" bpmnElement="escalate">
+        <dc:Bounds x="910" y="220" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="pg_fork_di" bpmnElement="pg_fork">
+        <dc:Bounds x="945" y="130" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="open_ticket_di" bpmnElement="open_ticket">
+        <dc:Bounds x="1080" y="520" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="notify_customers_di" bpmnElement="notify_customers">
+        <dc:Bounds x="1080" y="670" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="pg_join_di" bpmnElement="pg_join">
+        <dc:Bounds x="1285" y="130" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="rca_di" bpmnElement="rca">
+        <dc:Bounds x="1420" y="370" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="g_disruptive_di" bpmnElement="g_disruptive">
+        <dc:Bounds x="1625" y="385" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="approve_disruptive_di" bpmnElement="approve_disruptive">
+        <dc:Bounds x="1760" y="670" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="execute_di" bpmnElement="execute">
+        <dc:Bounds x="1930" y="370" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="closure_checks_di" bpmnElement="closure_checks">
+        <dc:Bounds x="2100" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="g_checks_di" bpmnElement="g_checks">
+        <dc:Bounds x="2305" y="130" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="resolve_di" bpmnElement="resolve">
+        <dc:Bounds x="2440" y="520" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="g_sev_di" bpmnElement="g_sev">
+        <dc:Bounds x="2645" y="130" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="pir_di" bpmnElement="pir">
+        <dc:Bounds x="2780" y="670" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_di" bpmnElement="end">
+        <dc:Bounds x="2822" y="137" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_pir_di" bpmnElement="end_pir">
+        <dc:Bounds x="2992" y="692" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_start_correlate_di" bpmnElement="Flow_start_correlate">
+        <di:waypoint x="308" y="155" />
+        <di:waypoint x="400" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_correlate_assess_impact_di" bpmnElement="Flow_correlate_assess_impact">
+        <di:waypoint x="520" y="155" />
+        <di:waypoint x="570" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_assess_impact_acknowledge_di" bpmnElement="Flow_assess_impact_acknowledge">
+        <di:waypoint x="690" y="155" />
+        <di:waypoint x="740" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_escalate_acknowledge_di" bpmnElement="Flow_escalate_acknowledge">
+        <di:waypoint x="970" y="300" />
+        <di:waypoint x="970" y="212" />
+        <di:waypoint x="800" y="212" />
+        <di:waypoint x="800" y="195" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_acknowledge_pg_fork_di" bpmnElement="Flow_acknowledge_pg_fork">
+        <di:waypoint x="860" y="155" />
+        <di:waypoint x="945" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_pg_fork_open_ticket_di" bpmnElement="Flow_pg_fork_open_ticket">
+        <di:waypoint x="995" y="155" />
+        <di:waypoint x="1055" y="155" />
+        <di:waypoint x="1055" y="560" />
+        <di:waypoint x="1080" y="560" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_pg_fork_notify_customers_di" bpmnElement="Flow_pg_fork_notify_customers">
+        <di:waypoint x="995" y="155" />
+        <di:waypoint x="1055" y="155" />
+        <di:waypoint x="1055" y="710" />
+        <di:waypoint x="1080" y="710" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_open_ticket_pg_join_di" bpmnElement="Flow_open_ticket_pg_join">
+        <di:waypoint x="1200" y="560" />
+        <di:waypoint x="1225" y="560" />
+        <di:waypoint x="1225" y="155" />
+        <di:waypoint x="1285" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_notify_customers_pg_join_di" bpmnElement="Flow_notify_customers_pg_join">
+        <di:waypoint x="1200" y="710" />
+        <di:waypoint x="1225" y="710" />
+        <di:waypoint x="1225" y="155" />
+        <di:waypoint x="1285" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_pg_join_rca_di" bpmnElement="Flow_pg_join_rca">
+        <di:waypoint x="1335" y="155" />
+        <di:waypoint x="1395" y="155" />
+        <di:waypoint x="1395" y="410" />
+        <di:waypoint x="1420" y="410" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_rca_g_disruptive_di" bpmnElement="Flow_rca_g_disruptive">
+        <di:waypoint x="1540" y="410" />
+        <di:waypoint x="1625" y="410" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_disruptive_approve_disruptive_di" bpmnElement="Flow_g_disruptive_approve_disruptive">
+        <di:waypoint x="1675" y="410" />
+        <di:waypoint x="1735" y="410" />
+        <di:waypoint x="1735" y="710" />
+        <di:waypoint x="1760" y="710" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_disruptive_execute_di" bpmnElement="Flow_g_disruptive_execute">
+        <di:waypoint x="1675" y="410" />
+        <di:waypoint x="1930" y="410" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_approve_disruptive_execute_di" bpmnElement="Flow_approve_disruptive_execute">
+        <di:waypoint x="1880" y="710" />
+        <di:waypoint x="1905" y="710" />
+        <di:waypoint x="1905" y="410" />
+        <di:waypoint x="1930" y="410" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_execute_closure_checks_di" bpmnElement="Flow_execute_closure_checks">
+        <di:waypoint x="2050" y="410" />
+        <di:waypoint x="2075" y="410" />
+        <di:waypoint x="2075" y="155" />
+        <di:waypoint x="2100" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_closure_checks_g_checks_di" bpmnElement="Flow_closure_checks_g_checks">
+        <di:waypoint x="2220" y="155" />
+        <di:waypoint x="2305" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_checks_resolve_di" bpmnElement="Flow_g_checks_resolve">
+        <di:waypoint x="2355" y="155" />
+        <di:waypoint x="2415" y="155" />
+        <di:waypoint x="2415" y="560" />
+        <di:waypoint x="2440" y="560" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_checks_execute_di" bpmnElement="Flow_g_checks_execute">
+        <di:waypoint x="2330" y="180" />
+        <di:waypoint x="2330" y="467" />
+        <di:waypoint x="1990" y="467" />
+        <di:waypoint x="1990" y="450" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_resolve_g_sev_di" bpmnElement="Flow_resolve_g_sev">
+        <di:waypoint x="2560" y="560" />
+        <di:waypoint x="2585" y="560" />
+        <di:waypoint x="2585" y="155" />
+        <di:waypoint x="2645" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_sev_pir_di" bpmnElement="Flow_g_sev_pir">
+        <di:waypoint x="2695" y="155" />
+        <di:waypoint x="2755" y="155" />
+        <di:waypoint x="2755" y="710" />
+        <di:waypoint x="2780" y="710" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_sev_end_di" bpmnElement="Flow_g_sev_end">
+        <di:waypoint x="2695" y="155" />
+        <di:waypoint x="2822" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_pir_end_pir_di" bpmnElement="Flow_pir_end_pir">
+        <di:waypoint x="2900" y="710" />
+        <di:waypoint x="2992" y="710" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_b_ack_timeout_escalate_di" bpmnElement="Flow_b_ack_timeout_escalate">
+        <di:waypoint x="830" y="213" />
+        <di:waypoint x="830" y="223" />
+        <di:waypoint x="885" y="223" />
+        <di:waypoint x="885" y="260" />
+        <di:waypoint x="910" y="260" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

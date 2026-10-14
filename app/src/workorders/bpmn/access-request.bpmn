@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_access_request" targetNamespace="http://dcos.example.com/workorders" exporter="DCOS process generator" exporterVersion="1.0" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.6.0">
+  <bpmn:collaboration id="Collaboration_access_request">
+    <bpmn:participant id="Participant_access_request" name="P12 · Access request" processRef="access-request" />
+  </bpmn:collaboration>
+  <bpmn:process id="access-request" name="Access request" isExecutable="true">
+    <bpmn:documentation>Controls a physical visit: the tenant requests access, security approves the zones (or denies), the visitor checks in, the host escorts the visit — a long visit needs an extension approval — and the visitor checks out, closing the record.</bpmn:documentation>
+    <bpmn:extensionElements>
+      <zeebe:versionTag value="v1" />
+    </bpmn:extensionElements>
+    <bpmn:laneSet id="LaneSet_access_request">
+      <bpmn:lane id="Lane_Host" name="Host">
+        <bpmn:flowNodeRef>escorted</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>b_long_visit</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Security" name="Security">
+        <bpmn:flowNodeRef>approve_zones</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>g_zones</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>end_denied</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>check_in</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>extend</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>check_out</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>end</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Tenant" name="Tenant">
+        <bpmn:flowNodeRef>start</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>request</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="start" name="Access requested">
+      <bpmn:outgoing>Flow_start_request</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="request" name="Submit visit request">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="visit-request" />
+        <zeebe:assignmentDefinition candidateGroups="Program Manager" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT2H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_start_request</bpmn:incoming>
+      <bpmn:outgoing>Flow_request_approve_zones</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="approve_zones" name="Approve zones">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="approve" />
+        <zeebe:assignmentDefinition candidateGroups="Security Manager" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT8H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_request_approve_zones</bpmn:incoming>
+      <bpmn:outgoing>Flow_approve_zones_g_zones</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="g_zones" name="Approved?" default="Flow_g_zones_check_in">
+      <bpmn:incoming>Flow_approve_zones_g_zones</bpmn:incoming>
+      <bpmn:outgoing>Flow_g_zones_check_in</bpmn:outgoing>
+      <bpmn:outgoing>Flow_g_zones_end_denied</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="end_denied" name="Denied">
+      <bpmn:incoming>Flow_g_zones_end_denied</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:userTask id="check_in" name="Check in">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="visit-check-in" />
+        <zeebe:assignmentDefinition candidateGroups="Security Manager" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;P1D&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_g_zones_check_in</bpmn:incoming>
+      <bpmn:outgoing>Flow_check_in_escorted</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="escorted" name="Escorted visit">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="complete-with-evidence" />
+        <zeebe:assignmentDefinition candidateGroups="Site Technician" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT4H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_check_in_escorted</bpmn:incoming>
+      <bpmn:outgoing>Flow_escorted_check_out</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:boundaryEvent id="b_long_visit" name="Over 8 h" attachedToRef="escorted" cancelActivity="false">
+      <bpmn:outgoing>Flow_b_long_visit_extend</bpmn:outgoing>
+      <bpmn:timerEventDefinition id="TimerDef_b_long_visit">
+        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT8H</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+    <bpmn:userTask id="extend" name="Approve extension">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="approve" />
+        <zeebe:assignmentDefinition candidateGroups="Security Manager" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT1H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_b_long_visit_extend</bpmn:incoming>
+      <bpmn:outgoing>Flow_extend_check_out</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="check_out" name="Check out">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="visit-check-out" />
+        <zeebe:assignmentDefinition candidateGroups="Security Manager" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT1H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_escorted_check_out</bpmn:incoming>
+      <bpmn:incoming>Flow_extend_check_out</bpmn:incoming>
+      <bpmn:outgoing>Flow_check_out_end</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="end" name="Visit complete">
+      <bpmn:incoming>Flow_check_out_end</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_start_request" sourceRef="start" targetRef="request" />
+    <bpmn:sequenceFlow id="Flow_request_approve_zones" sourceRef="request" targetRef="approve_zones" />
+    <bpmn:sequenceFlow id="Flow_approve_zones_g_zones" sourceRef="approve_zones" targetRef="g_zones" />
+    <bpmn:sequenceFlow id="Flow_g_zones_check_in" name="approved" sourceRef="g_zones" targetRef="check_in">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=approved = true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_g_zones_end_denied" name="denied" sourceRef="g_zones" targetRef="end_denied">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=approved = false</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_check_in_escorted" sourceRef="check_in" targetRef="escorted" />
+    <bpmn:sequenceFlow id="Flow_escorted_check_out" sourceRef="escorted" targetRef="check_out" />
+    <bpmn:sequenceFlow id="Flow_extend_check_out" sourceRef="extend" targetRef="check_out" />
+    <bpmn:sequenceFlow id="Flow_check_out_end" sourceRef="check_out" targetRef="end" />
+    <bpmn:sequenceFlow id="Flow_b_long_visit_extend" sourceRef="b_long_visit" targetRef="extend" />
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_access_request">
+    <bpmndi:BPMNPlane id="BPMNPlane_access_request" bpmnElement="Collaboration_access_request">
+      <bpmndi:BPMNShape id="Participant_access_request_di" bpmnElement="Participant_access_request" isHorizontal="true">
+        <dc:Bounds x="160" y="80" width="1620" height="555" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Host_di" bpmnElement="Lane_Host" isHorizontal="true">
+        <dc:Bounds x="190" y="80" width="1590" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Security_di" bpmnElement="Lane_Security" isHorizontal="true">
+        <dc:Bounds x="190" y="230" width="1590" height="255" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Tenant_di" bpmnElement="Lane_Tenant" isHorizontal="true">
+        <dc:Bounds x="190" y="485" width="1590" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="start_di" bpmnElement="start">
+        <dc:Bounds x="272" y="542" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="request_di" bpmnElement="request">
+        <dc:Bounds x="400" y="520" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="approve_zones_di" bpmnElement="approve_zones">
+        <dc:Bounds x="570" y="265" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="g_zones_di" bpmnElement="g_zones">
+        <dc:Bounds x="775" y="280" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_denied_di" bpmnElement="end_denied">
+        <dc:Bounds x="952" y="392" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="check_in_di" bpmnElement="check_in">
+        <dc:Bounds x="910" y="265" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="escorted_di" bpmnElement="escorted">
+        <dc:Bounds x="1080" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="b_long_visit_di" bpmnElement="b_long_visit">
+        <dc:Bounds x="1152" y="177" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="extend_di" bpmnElement="extend">
+        <dc:Bounds x="1250" y="370" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="check_out_di" bpmnElement="check_out">
+        <dc:Bounds x="1420" y="265" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_di" bpmnElement="end">
+        <dc:Bounds x="1632" y="287" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_start_request_di" bpmnElement="Flow_start_request">
+        <di:waypoint x="308" y="560" />
+        <di:waypoint x="400" y="560" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_request_approve_zones_di" bpmnElement="Flow_request_approve_zones">
+        <di:waypoint x="520" y="560" />
+        <di:waypoint x="545" y="560" />
+        <di:waypoint x="545" y="305" />
+        <di:waypoint x="570" y="305" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_approve_zones_g_zones_di" bpmnElement="Flow_approve_zones_g_zones">
+        <di:waypoint x="690" y="305" />
+        <di:waypoint x="775" y="305" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_zones_check_in_di" bpmnElement="Flow_g_zones_check_in">
+        <di:waypoint x="825" y="305" />
+        <di:waypoint x="910" y="305" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_zones_end_denied_di" bpmnElement="Flow_g_zones_end_denied">
+        <di:waypoint x="825" y="305" />
+        <di:waypoint x="885" y="305" />
+        <di:waypoint x="885" y="410" />
+        <di:waypoint x="952" y="410" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_check_in_escorted_di" bpmnElement="Flow_check_in_escorted">
+        <di:waypoint x="1030" y="305" />
+        <di:waypoint x="1055" y="305" />
+        <di:waypoint x="1055" y="155" />
+        <di:waypoint x="1080" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_escorted_check_out_di" bpmnElement="Flow_escorted_check_out">
+        <di:waypoint x="1200" y="155" />
+        <di:waypoint x="1225" y="155" />
+        <di:waypoint x="1225" y="305" />
+        <di:waypoint x="1420" y="305" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_extend_check_out_di" bpmnElement="Flow_extend_check_out">
+        <di:waypoint x="1370" y="410" />
+        <di:waypoint x="1395" y="410" />
+        <di:waypoint x="1395" y="305" />
+        <di:waypoint x="1420" y="305" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_check_out_end_di" bpmnElement="Flow_check_out_end">
+        <di:waypoint x="1540" y="305" />
+        <di:waypoint x="1632" y="305" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_b_long_visit_extend_di" bpmnElement="Flow_b_long_visit_extend">
+        <di:waypoint x="1170" y="213" />
+        <di:waypoint x="1170" y="223" />
+        <di:waypoint x="1225" y="223" />
+        <di:waypoint x="1225" y="410" />
+        <di:waypoint x="1250" y="410" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

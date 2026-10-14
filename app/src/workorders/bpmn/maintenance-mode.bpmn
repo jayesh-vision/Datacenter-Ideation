@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_maintenance_mode" targetNamespace="http://dcos.example.com/workorders" exporter="DCOS process generator" exporterVersion="1.0" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.6.0">
+  <bpmn:collaboration id="Collaboration_maintenance_mode">
+    <bpmn:participant id="Participant_maintenance_mode" name="P11 · Maintenance mode" processRef="maintenance-mode" />
+  </bpmn:collaboration>
+  <bpmn:process id="maintenance-mode" name="Maintenance mode" isExecutable="true">
+    <bpmn:documentation>Planned plant maintenance: when a schedule falls due the redundancy impact is confirmed, approvers accept the window (or it is rescheduled), the equipment enters maintenance mode so alarms are suppressed and capacity is fenced, the vendor performs the work, maintenance mode is exited and the results are recorded against the asset.</bpmn:documentation>
+    <bpmn:extensionElements>
+      <zeebe:versionTag value="v1" />
+    </bpmn:extensionElements>
+    <bpmn:laneSet id="LaneSet_maintenance_mode">
+      <bpmn:lane id="Lane_Facility" name="Facility">
+        <bpmn:flowNodeRef>start</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>redundancy</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>reschedule</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>wait</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>enter_mm</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>exit_mm</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>record</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>end</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Approvers" name="Approvers">
+        <bpmn:flowNodeRef>approve_window</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>g_window</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Vendor" name="Vendor">
+        <bpmn:flowNodeRef>perform</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="start" name="Maintenance due">
+      <bpmn:outgoing>Flow_start_redundancy</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="redundancy" name="Confirm redundancy impact">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dcos.redundancy-impact" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_start_redundancy</bpmn:incoming>
+      <bpmn:incoming>Flow_reschedule_redundancy</bpmn:incoming>
+      <bpmn:outgoing>Flow_redundancy_approve_window</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="approve_window" name="Approve window">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="approve" />
+        <zeebe:assignmentDefinition candidateGroups="Facilities Director" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;P1D&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_redundancy_approve_window</bpmn:incoming>
+      <bpmn:outgoing>Flow_approve_window_g_window</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="g_window" name="Approved?" default="Flow_g_window_wait">
+      <bpmn:incoming>Flow_approve_window_g_window</bpmn:incoming>
+      <bpmn:outgoing>Flow_g_window_wait</bpmn:outgoing>
+      <bpmn:outgoing>Flow_g_window_reschedule</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="reschedule" name="Reschedule">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="complete-with-evidence" />
+        <zeebe:assignmentDefinition candidateGroups="Facilities Engineer" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT8H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_g_window_reschedule</bpmn:incoming>
+      <bpmn:outgoing>Flow_reschedule_redundancy</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:intermediateCatchEvent id="wait" name="Wait for window">
+      <bpmn:incoming>Flow_g_window_wait</bpmn:incoming>
+      <bpmn:outgoing>Flow_wait_enter_mm</bpmn:outgoing>
+      <bpmn:timerEventDefinition id="TimerDef_wait">
+        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">P2D</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:intermediateCatchEvent>
+    <bpmn:serviceTask id="enter_mm" name="Enter maintenance mode">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dcos.maintenance-mode-enter" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_wait_enter_mm</bpmn:incoming>
+      <bpmn:outgoing>Flow_enter_mm_perform</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="perform" name="Perform maintenance">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="complete-with-evidence" />
+        <zeebe:assignmentDefinition candidateGroups="Vendor Project Manager" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT6H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_enter_mm_perform</bpmn:incoming>
+      <bpmn:outgoing>Flow_perform_exit_mm</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="exit_mm" name="Exit maintenance mode">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dcos.maintenance-mode-exit" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_perform_exit_mm</bpmn:incoming>
+      <bpmn:outgoing>Flow_exit_mm_record</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="record" name="Record results">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="sign-off" />
+        <zeebe:assignmentDefinition candidateGroups="Facilities Engineer" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT4H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_exit_mm_record</bpmn:incoming>
+      <bpmn:outgoing>Flow_record_end</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="end" name="Maintenance recorded">
+      <bpmn:incoming>Flow_record_end</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_start_redundancy" sourceRef="start" targetRef="redundancy" />
+    <bpmn:sequenceFlow id="Flow_redundancy_approve_window" sourceRef="redundancy" targetRef="approve_window" />
+    <bpmn:sequenceFlow id="Flow_approve_window_g_window" sourceRef="approve_window" targetRef="g_window" />
+    <bpmn:sequenceFlow id="Flow_g_window_wait" name="approved" sourceRef="g_window" targetRef="wait">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=approved = true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_g_window_reschedule" name="rejected" sourceRef="g_window" targetRef="reschedule">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=approved = false</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_reschedule_redundancy" sourceRef="reschedule" targetRef="redundancy" />
+    <bpmn:sequenceFlow id="Flow_wait_enter_mm" sourceRef="wait" targetRef="enter_mm" />
+    <bpmn:sequenceFlow id="Flow_enter_mm_perform" sourceRef="enter_mm" targetRef="perform" />
+    <bpmn:sequenceFlow id="Flow_perform_exit_mm" sourceRef="perform" targetRef="exit_mm" />
+    <bpmn:sequenceFlow id="Flow_exit_mm_record" sourceRef="exit_mm" targetRef="record" />
+    <bpmn:sequenceFlow id="Flow_record_end" sourceRef="record" targetRef="end" />
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_maintenance_mode">
+    <bpmndi:BPMNPlane id="BPMNPlane_maintenance_mode" bpmnElement="Collaboration_maintenance_mode">
+      <bpmndi:BPMNShape id="Participant_maintenance_mode_di" bpmnElement="Participant_maintenance_mode" isHorizontal="true">
+        <dc:Bounds x="160" y="80" width="1790" height="555" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Facility_di" bpmnElement="Lane_Facility" isHorizontal="true">
+        <dc:Bounds x="190" y="80" width="1760" height="255" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Approvers_di" bpmnElement="Lane_Approvers" isHorizontal="true">
+        <dc:Bounds x="190" y="335" width="1760" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Vendor_di" bpmnElement="Lane_Vendor" isHorizontal="true">
+        <dc:Bounds x="190" y="485" width="1760" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="start_di" bpmnElement="start">
+        <dc:Bounds x="272" y="137" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="redundancy_di" bpmnElement="redundancy">
+        <dc:Bounds x="400" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="approve_window_di" bpmnElement="approve_window">
+        <dc:Bounds x="570" y="370" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="g_window_di" bpmnElement="g_window">
+        <dc:Bounds x="775" y="385" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="reschedule_di" bpmnElement="reschedule">
+        <dc:Bounds x="910" y="220" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="wait_di" bpmnElement="wait">
+        <dc:Bounds x="952" y="137" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="enter_mm_di" bpmnElement="enter_mm">
+        <dc:Bounds x="1080" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="perform_di" bpmnElement="perform">
+        <dc:Bounds x="1250" y="520" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="exit_mm_di" bpmnElement="exit_mm">
+        <dc:Bounds x="1420" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="record_di" bpmnElement="record">
+        <dc:Bounds x="1590" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_di" bpmnElement="end">
+        <dc:Bounds x="1802" y="137" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_start_redundancy_di" bpmnElement="Flow_start_redundancy">
+        <di:waypoint x="308" y="155" />
+        <di:waypoint x="400" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_redundancy_approve_window_di" bpmnElement="Flow_redundancy_approve_window">
+        <di:waypoint x="520" y="155" />
+        <di:waypoint x="545" y="155" />
+        <di:waypoint x="545" y="410" />
+        <di:waypoint x="570" y="410" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_approve_window_g_window_di" bpmnElement="Flow_approve_window_g_window">
+        <di:waypoint x="690" y="410" />
+        <di:waypoint x="775" y="410" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_window_wait_di" bpmnElement="Flow_g_window_wait">
+        <di:waypoint x="825" y="410" />
+        <di:waypoint x="885" y="410" />
+        <di:waypoint x="885" y="155" />
+        <di:waypoint x="952" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_window_reschedule_di" bpmnElement="Flow_g_window_reschedule">
+        <di:waypoint x="825" y="410" />
+        <di:waypoint x="885" y="410" />
+        <di:waypoint x="885" y="260" />
+        <di:waypoint x="910" y="260" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_reschedule_redundancy_di" bpmnElement="Flow_reschedule_redundancy">
+        <di:waypoint x="970" y="300" />
+        <di:waypoint x="970" y="212" />
+        <di:waypoint x="460" y="212" />
+        <di:waypoint x="460" y="195" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_wait_enter_mm_di" bpmnElement="Flow_wait_enter_mm">
+        <di:waypoint x="988" y="155" />
+        <di:waypoint x="1080" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_enter_mm_perform_di" bpmnElement="Flow_enter_mm_perform">
+        <di:waypoint x="1200" y="155" />
+        <di:waypoint x="1225" y="155" />
+        <di:waypoint x="1225" y="560" />
+        <di:waypoint x="1250" y="560" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_perform_exit_mm_di" bpmnElement="Flow_perform_exit_mm">
+        <di:waypoint x="1370" y="560" />
+        <di:waypoint x="1395" y="560" />
+        <di:waypoint x="1395" y="155" />
+        <di:waypoint x="1420" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_exit_mm_record_di" bpmnElement="Flow_exit_mm_record">
+        <di:waypoint x="1540" y="155" />
+        <di:waypoint x="1590" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_record_end_di" bpmnElement="Flow_record_end">
+        <di:waypoint x="1710" y="155" />
+        <di:waypoint x="1802" y="155" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

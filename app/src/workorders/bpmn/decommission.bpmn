@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_decommission" targetNamespace="http://dcos.example.com/workorders" exporter="DCOS process generator" exporterVersion="1.0" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.6.0">
+  <bpmn:collaboration id="Collaboration_decommission">
+    <bpmn:participant id="Participant_decommission" name="P08 · Decommission" processRef="decommission" />
+  </bpmn:collaboration>
+  <bpmn:process id="decommission" name="Decommission" isExecutable="true">
+    <bpmn:documentation>Retires equipment safely: the request is reviewed, blocking checks (live services, open changes, holds) must clear, the tenant ceases services, security wipes and certifies media, the field removes the kit under chain of custody, it is disposed of and finance closes the contracts.</bpmn:documentation>
+    <bpmn:extensionElements>
+      <zeebe:versionTag value="v1" />
+    </bpmn:extensionElements>
+    <bpmn:laneSet id="LaneSet_decommission">
+      <bpmn:lane id="Lane_Operations" name="Operations">
+        <bpmn:flowNodeRef>start</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>request</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>blocking_checks</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>g_blocked</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Tenant" name="Tenant">
+        <bpmn:flowNodeRef>resolve_blockers</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>cease</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Security" name="Security">
+        <bpmn:flowNodeRef>wipe</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Field" name="Field">
+        <bpmn:flowNodeRef>remove</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>dispose</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Finance" name="Finance">
+        <bpmn:flowNodeRef>close_contracts</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>end</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="start" name="Decommission requested">
+      <bpmn:outgoing>Flow_start_request</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="request" name="Review request">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="approve" />
+        <zeebe:assignmentDefinition candidateGroups="Facilities Director" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;P1D&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_start_request</bpmn:incoming>
+      <bpmn:outgoing>Flow_request_blocking_checks</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="blocking_checks" name="Blocking checks">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dcos.blocking-checks" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_request_blocking_checks</bpmn:incoming>
+      <bpmn:incoming>Flow_resolve_blockers_blocking_checks</bpmn:incoming>
+      <bpmn:outgoing>Flow_blocking_checks_g_blocked</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="g_blocked" name="Blocked?" default="Flow_g_blocked_cease">
+      <bpmn:incoming>Flow_blocking_checks_g_blocked</bpmn:incoming>
+      <bpmn:outgoing>Flow_g_blocked_resolve_blockers</bpmn:outgoing>
+      <bpmn:outgoing>Flow_g_blocked_cease</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="resolve_blockers" name="Resolve blockers">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="complete-with-evidence" />
+        <zeebe:assignmentDefinition candidateGroups="Program Manager" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;P2D&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_g_blocked_resolve_blockers</bpmn:incoming>
+      <bpmn:outgoing>Flow_resolve_blockers_blocking_checks</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="cease" name="Cease services">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="sign-off" />
+        <zeebe:assignmentDefinition candidateGroups="Program Manager" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;P1D&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_g_blocked_cease</bpmn:incoming>
+      <bpmn:outgoing>Flow_cease_wipe</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="wipe" name="Wipe &amp; certify">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="media-sanitisation" />
+        <zeebe:assignmentDefinition candidateGroups="Security Manager" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT16H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_cease_wipe</bpmn:incoming>
+      <bpmn:outgoing>Flow_wipe_remove</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="remove" name="Remove under custody">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="complete-with-evidence" />
+        <zeebe:assignmentDefinition candidateGroups="Field Technician" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT8H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_wipe_remove</bpmn:incoming>
+      <bpmn:outgoing>Flow_remove_dispose</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="dispose" name="Dispose / recycle">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dcos.dispose" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_remove_dispose</bpmn:incoming>
+      <bpmn:outgoing>Flow_dispose_close_contracts</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="close_contracts" name="Close contracts">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="sign-off" />
+        <zeebe:assignmentDefinition candidateGroups="Finance Manager" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;P1D&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_dispose_close_contracts</bpmn:incoming>
+      <bpmn:outgoing>Flow_close_contracts_end</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="end" name="Decommissioned">
+      <bpmn:incoming>Flow_close_contracts_end</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_start_request" sourceRef="start" targetRef="request" />
+    <bpmn:sequenceFlow id="Flow_request_blocking_checks" sourceRef="request" targetRef="blocking_checks" />
+    <bpmn:sequenceFlow id="Flow_blocking_checks_g_blocked" sourceRef="blocking_checks" targetRef="g_blocked" />
+    <bpmn:sequenceFlow id="Flow_g_blocked_resolve_blockers" name="blocked" sourceRef="g_blocked" targetRef="resolve_blockers">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=blocked = true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_g_blocked_cease" name="clear" sourceRef="g_blocked" targetRef="cease">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=blocked = false</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_resolve_blockers_blocking_checks" sourceRef="resolve_blockers" targetRef="blocking_checks" />
+    <bpmn:sequenceFlow id="Flow_cease_wipe" sourceRef="cease" targetRef="wipe" />
+    <bpmn:sequenceFlow id="Flow_wipe_remove" sourceRef="wipe" targetRef="remove" />
+    <bpmn:sequenceFlow id="Flow_remove_dispose" sourceRef="remove" targetRef="dispose" />
+    <bpmn:sequenceFlow id="Flow_dispose_close_contracts" sourceRef="dispose" targetRef="close_contracts" />
+    <bpmn:sequenceFlow id="Flow_close_contracts_end" sourceRef="close_contracts" targetRef="end" />
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_decommission">
+    <bpmndi:BPMNPlane id="BPMNPlane_decommission" bpmnElement="Collaboration_decommission">
+      <bpmndi:BPMNShape id="Participant_decommission_di" bpmnElement="Participant_decommission" isHorizontal="true">
+        <dc:Bounds x="160" y="80" width="1790" height="855" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Operations_di" bpmnElement="Lane_Operations" isHorizontal="true">
+        <dc:Bounds x="190" y="80" width="1760" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Tenant_di" bpmnElement="Lane_Tenant" isHorizontal="true">
+        <dc:Bounds x="190" y="230" width="1760" height="255" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Security_di" bpmnElement="Lane_Security" isHorizontal="true">
+        <dc:Bounds x="190" y="485" width="1760" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Field_di" bpmnElement="Lane_Field" isHorizontal="true">
+        <dc:Bounds x="190" y="635" width="1760" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Finance_di" bpmnElement="Lane_Finance" isHorizontal="true">
+        <dc:Bounds x="190" y="785" width="1760" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="start_di" bpmnElement="start">
+        <dc:Bounds x="272" y="137" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="request_di" bpmnElement="request">
+        <dc:Bounds x="400" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="blocking_checks_di" bpmnElement="blocking_checks">
+        <dc:Bounds x="570" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="g_blocked_di" bpmnElement="g_blocked">
+        <dc:Bounds x="775" y="130" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="resolve_blockers_di" bpmnElement="resolve_blockers">
+        <dc:Bounds x="910" y="265" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="cease_di" bpmnElement="cease">
+        <dc:Bounds x="910" y="370" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="wipe_di" bpmnElement="wipe">
+        <dc:Bounds x="1080" y="520" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="remove_di" bpmnElement="remove">
+        <dc:Bounds x="1250" y="670" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="dispose_di" bpmnElement="dispose">
+        <dc:Bounds x="1420" y="670" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="close_contracts_di" bpmnElement="close_contracts">
+        <dc:Bounds x="1590" y="820" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_di" bpmnElement="end">
+        <dc:Bounds x="1802" y="842" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_start_request_di" bpmnElement="Flow_start_request">
+        <di:waypoint x="308" y="155" />
+        <di:waypoint x="400" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_request_blocking_checks_di" bpmnElement="Flow_request_blocking_checks">
+        <di:waypoint x="520" y="155" />
+        <di:waypoint x="570" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_blocking_checks_g_blocked_di" bpmnElement="Flow_blocking_checks_g_blocked">
+        <di:waypoint x="690" y="155" />
+        <di:waypoint x="775" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_blocked_resolve_blockers_di" bpmnElement="Flow_g_blocked_resolve_blockers">
+        <di:waypoint x="825" y="155" />
+        <di:waypoint x="885" y="155" />
+        <di:waypoint x="885" y="305" />
+        <di:waypoint x="910" y="305" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_blocked_cease_di" bpmnElement="Flow_g_blocked_cease">
+        <di:waypoint x="825" y="155" />
+        <di:waypoint x="885" y="155" />
+        <di:waypoint x="885" y="410" />
+        <di:waypoint x="910" y="410" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_resolve_blockers_blocking_checks_di" bpmnElement="Flow_resolve_blockers_blocking_checks">
+        <di:waypoint x="970" y="265" />
+        <di:waypoint x="970" y="95" />
+        <di:waypoint x="630" y="95" />
+        <di:waypoint x="630" y="115" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_cease_wipe_di" bpmnElement="Flow_cease_wipe">
+        <di:waypoint x="1030" y="410" />
+        <di:waypoint x="1055" y="410" />
+        <di:waypoint x="1055" y="560" />
+        <di:waypoint x="1080" y="560" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_wipe_remove_di" bpmnElement="Flow_wipe_remove">
+        <di:waypoint x="1200" y="560" />
+        <di:waypoint x="1225" y="560" />
+        <di:waypoint x="1225" y="710" />
+        <di:waypoint x="1250" y="710" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_remove_dispose_di" bpmnElement="Flow_remove_dispose">
+        <di:waypoint x="1370" y="710" />
+        <di:waypoint x="1420" y="710" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_dispose_close_contracts_di" bpmnElement="Flow_dispose_close_contracts">
+        <di:waypoint x="1540" y="710" />
+        <di:waypoint x="1565" y="710" />
+        <di:waypoint x="1565" y="860" />
+        <di:waypoint x="1590" y="860" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_close_contracts_end_di" bpmnElement="Flow_close_contracts_end">
+        <di:waypoint x="1710" y="860" />
+        <di:waypoint x="1802" y="860" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

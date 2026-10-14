@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_customer_onboarding" targetNamespace="http://dcos.example.com/workorders" exporter="DCOS process generator" exporterVersion="1.0" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.6.0">
+  <bpmn:collaboration id="Collaboration_customer_onboarding">
+    <bpmn:participant id="Participant_customer_onboarding" name="P03 · Customer onboarding" processRef="customer-onboarding" />
+  </bpmn:collaboration>
+  <bpmn:process id="customer-onboarding" name="Customer onboarding" isExecutable="true">
+    <bpmn:documentation>Onboards a colocation customer from signed contract to billed service: placement is approved against capacity and policy, capacity is reserved, equipment is installed, physical access is granted, the customer signs go-live and metering starts the revenue clock.</bpmn:documentation>
+    <bpmn:extensionElements>
+      <zeebe:versionTag value="v1" />
+    </bpmn:extensionElements>
+    <bpmn:laneSet id="LaneSet_customer_onboarding">
+      <bpmn:lane id="Lane_Sales" name="Sales">
+        <bpmn:flowNodeRef>start</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>contract</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>revise_placement</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>go_live</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Capacity" name="Capacity">
+        <bpmn:flowNodeRef>placement_approval</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>g_placement</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>reserve_capacity</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Field" name="Field">
+        <bpmn:flowNodeRef>install</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Security" name="Security">
+        <bpmn:flowNodeRef>access_grant</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Billing" name="Billing">
+        <bpmn:flowNodeRef>metering</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>end</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="start" name="Contract signed">
+      <bpmn:outgoing>Flow_start_contract</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="contract" name="Confirm contract scope">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="sign-off" />
+        <zeebe:assignmentDefinition candidateGroups="Program Manager" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT8H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_start_contract</bpmn:incoming>
+      <bpmn:outgoing>Flow_contract_placement_approval</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="placement_approval" name="Placement approval">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="approve" />
+        <zeebe:assignmentDefinition candidateGroups="Capacity Planner" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;P1D&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_contract_placement_approval</bpmn:incoming>
+      <bpmn:incoming>Flow_revise_placement_placement_approval</bpmn:incoming>
+      <bpmn:outgoing>Flow_placement_approval_g_placement</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="g_placement" name="Approved?" default="Flow_g_placement_reserve_capacity">
+      <bpmn:incoming>Flow_placement_approval_g_placement</bpmn:incoming>
+      <bpmn:outgoing>Flow_g_placement_reserve_capacity</bpmn:outgoing>
+      <bpmn:outgoing>Flow_g_placement_revise_placement</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="revise_placement" name="Revise placement">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="complete-with-evidence" />
+        <zeebe:assignmentDefinition candidateGroups="Program Manager" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT16H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_g_placement_revise_placement</bpmn:incoming>
+      <bpmn:outgoing>Flow_revise_placement_placement_approval</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="reserve_capacity" name="Reserve capacity">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dcos.reserve-capacity" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_g_placement_reserve_capacity</bpmn:incoming>
+      <bpmn:outgoing>Flow_reserve_capacity_install</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="install" name="Install customer equipment">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="install-record" />
+        <zeebe:assignmentDefinition candidateGroups="Site Technician" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;P2D&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_reserve_capacity_install</bpmn:incoming>
+      <bpmn:outgoing>Flow_install_access_grant</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="access_grant" name="Grant access">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="approve" />
+        <zeebe:assignmentDefinition candidateGroups="Security Manager" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT8H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_install_access_grant</bpmn:incoming>
+      <bpmn:outgoing>Flow_access_grant_go_live</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="go_live" name="Go-live sign-off">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="sign-off" />
+        <zeebe:assignmentDefinition candidateGroups="Program Manager" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT8H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_access_grant_go_live</bpmn:incoming>
+      <bpmn:outgoing>Flow_go_live_metering</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="metering" name="Start metering">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dcos.start-metering" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_go_live_metering</bpmn:incoming>
+      <bpmn:outgoing>Flow_metering_end</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="end" name="Customer live">
+      <bpmn:incoming>Flow_metering_end</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_start_contract" sourceRef="start" targetRef="contract" />
+    <bpmn:sequenceFlow id="Flow_contract_placement_approval" sourceRef="contract" targetRef="placement_approval" />
+    <bpmn:sequenceFlow id="Flow_placement_approval_g_placement" sourceRef="placement_approval" targetRef="g_placement" />
+    <bpmn:sequenceFlow id="Flow_g_placement_reserve_capacity" name="approved" sourceRef="g_placement" targetRef="reserve_capacity">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=approved = true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_g_placement_revise_placement" name="rejected" sourceRef="g_placement" targetRef="revise_placement">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=approved = false</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_revise_placement_placement_approval" sourceRef="revise_placement" targetRef="placement_approval" />
+    <bpmn:sequenceFlow id="Flow_reserve_capacity_install" sourceRef="reserve_capacity" targetRef="install" />
+    <bpmn:sequenceFlow id="Flow_install_access_grant" sourceRef="install" targetRef="access_grant" />
+    <bpmn:sequenceFlow id="Flow_access_grant_go_live" sourceRef="access_grant" targetRef="go_live" />
+    <bpmn:sequenceFlow id="Flow_go_live_metering" sourceRef="go_live" targetRef="metering" />
+    <bpmn:sequenceFlow id="Flow_metering_end" sourceRef="metering" targetRef="end" />
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_customer_onboarding">
+    <bpmndi:BPMNPlane id="BPMNPlane_customer_onboarding" bpmnElement="Collaboration_customer_onboarding">
+      <bpmndi:BPMNShape id="Participant_customer_onboarding_di" bpmnElement="Participant_customer_onboarding" isHorizontal="true">
+        <dc:Bounds x="160" y="80" width="1790" height="855" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Sales_di" bpmnElement="Lane_Sales" isHorizontal="true">
+        <dc:Bounds x="190" y="80" width="1760" height="255" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Capacity_di" bpmnElement="Lane_Capacity" isHorizontal="true">
+        <dc:Bounds x="190" y="335" width="1760" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Field_di" bpmnElement="Lane_Field" isHorizontal="true">
+        <dc:Bounds x="190" y="485" width="1760" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Security_di" bpmnElement="Lane_Security" isHorizontal="true">
+        <dc:Bounds x="190" y="635" width="1760" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Billing_di" bpmnElement="Lane_Billing" isHorizontal="true">
+        <dc:Bounds x="190" y="785" width="1760" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="start_di" bpmnElement="start">
+        <dc:Bounds x="272" y="137" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="contract_di" bpmnElement="contract">
+        <dc:Bounds x="400" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="placement_approval_di" bpmnElement="placement_approval">
+        <dc:Bounds x="570" y="370" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="g_placement_di" bpmnElement="g_placement">
+        <dc:Bounds x="775" y="385" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="revise_placement_di" bpmnElement="revise_placement">
+        <dc:Bounds x="910" y="220" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="reserve_capacity_di" bpmnElement="reserve_capacity">
+        <dc:Bounds x="910" y="370" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="install_di" bpmnElement="install">
+        <dc:Bounds x="1080" y="520" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="access_grant_di" bpmnElement="access_grant">
+        <dc:Bounds x="1250" y="670" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="go_live_di" bpmnElement="go_live">
+        <dc:Bounds x="1420" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="metering_di" bpmnElement="metering">
+        <dc:Bounds x="1590" y="820" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_di" bpmnElement="end">
+        <dc:Bounds x="1802" y="842" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_start_contract_di" bpmnElement="Flow_start_contract">
+        <di:waypoint x="308" y="155" />
+        <di:waypoint x="400" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_contract_placement_approval_di" bpmnElement="Flow_contract_placement_approval">
+        <di:waypoint x="520" y="155" />
+        <di:waypoint x="545" y="155" />
+        <di:waypoint x="545" y="410" />
+        <di:waypoint x="570" y="410" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_placement_approval_g_placement_di" bpmnElement="Flow_placement_approval_g_placement">
+        <di:waypoint x="690" y="410" />
+        <di:waypoint x="775" y="410" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_placement_reserve_capacity_di" bpmnElement="Flow_g_placement_reserve_capacity">
+        <di:waypoint x="825" y="410" />
+        <di:waypoint x="910" y="410" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_placement_revise_placement_di" bpmnElement="Flow_g_placement_revise_placement">
+        <di:waypoint x="825" y="410" />
+        <di:waypoint x="885" y="410" />
+        <di:waypoint x="885" y="260" />
+        <di:waypoint x="910" y="260" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_revise_placement_placement_approval_di" bpmnElement="Flow_revise_placement_placement_approval">
+        <di:waypoint x="970" y="300" />
+        <di:waypoint x="970" y="467" />
+        <di:waypoint x="630" y="467" />
+        <di:waypoint x="630" y="450" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_reserve_capacity_install_di" bpmnElement="Flow_reserve_capacity_install">
+        <di:waypoint x="1030" y="410" />
+        <di:waypoint x="1055" y="410" />
+        <di:waypoint x="1055" y="560" />
+        <di:waypoint x="1080" y="560" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_install_access_grant_di" bpmnElement="Flow_install_access_grant">
+        <di:waypoint x="1200" y="560" />
+        <di:waypoint x="1225" y="560" />
+        <di:waypoint x="1225" y="710" />
+        <di:waypoint x="1250" y="710" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_access_grant_go_live_di" bpmnElement="Flow_access_grant_go_live">
+        <di:waypoint x="1370" y="710" />
+        <di:waypoint x="1395" y="710" />
+        <di:waypoint x="1395" y="155" />
+        <di:waypoint x="1420" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_go_live_metering_di" bpmnElement="Flow_go_live_metering">
+        <di:waypoint x="1540" y="155" />
+        <di:waypoint x="1565" y="155" />
+        <di:waypoint x="1565" y="860" />
+        <di:waypoint x="1590" y="860" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_metering_end_di" bpmnElement="Flow_metering_end">
+        <di:waypoint x="1710" y="860" />
+        <di:waypoint x="1802" y="860" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

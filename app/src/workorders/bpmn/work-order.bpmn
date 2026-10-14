@@ -1,0 +1,388 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_work_order" targetNamespace="http://dcos.example.com/workorders" exporter="DCOS process generator" exporterVersion="1.0" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.6.0">
+  <bpmn:collaboration id="Collaboration_work_order">
+    <bpmn:participant id="Participant_work_order" name="P10 · Work order" processRef="work-order" />
+  </bpmn:collaboration>
+  <bpmn:process id="work-order" name="Work order" isExecutable="true">
+    <bpmn:documentation>The field work-order loop: the work-type decision table sets the skill and permit required, the dispatcher assigns a technician who must accept within four hours or the order is reassigned. When the work order has materials, the kit is requested from the supply chain platform and the technician confirms it arrived (starting work confirms it too: materials never block the work). Work is started and completed with photo evidence; the technician records the serials and quantities used and returns unused or faulty parts (faulty serialised items go back by RMA); the requester verifies (sending it back if not accepted) and the order is closed.</bpmn:documentation>
+    <bpmn:extensionElements>
+      <zeebe:versionTag value="v1" />
+    </bpmn:extensionElements>
+    <bpmn:laneSet id="LaneSet_work_order">
+      <bpmn:lane id="Lane_Dispatcher" name="Dispatcher">
+        <bpmn:flowNodeRef>skill</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>assign</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>close</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>end</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Technician" name="Technician">
+        <bpmn:flowNodeRef>accept</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>b_not_accepted</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>g_kit</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>confirm_kit</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>start_work</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>complete</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>g_used</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>record_materials</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>return_parts</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Requester" name="Requester">
+        <bpmn:flowNodeRef>start</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>verify</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>g_ok</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Supply_chain" name="Supply chain">
+        <bpmn:flowNodeRef>request_kit</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="start" name="Work order created">
+      <bpmn:outgoing>Flow_start_skill</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:businessRuleTask id="skill" name="Required skill &amp; permit">
+      <bpmn:extensionElements>
+        <zeebe:calledDecision decisionId="work-type-skill" resultVariable="skillResult" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_start_skill</bpmn:incoming>
+      <bpmn:outgoing>Flow_skill_assign</bpmn:outgoing>
+    </bpmn:businessRuleTask>
+    <bpmn:userTask id="assign" name="Assign technician">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="approve" />
+        <zeebe:assignmentDefinition candidateGroups="Facilities Engineer" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT2H&#34;)" />
+        <zeebe:properties>
+          <zeebe:property name="completeOn" value="record" />
+        </zeebe:properties>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_skill_assign</bpmn:incoming>
+      <bpmn:incoming>Flow_b_not_accepted_assign</bpmn:incoming>
+      <bpmn:outgoing>Flow_assign_accept</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="accept" name="Accept">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="acknowledge" />
+        <zeebe:assignmentDefinition candidateGroups="Field Technician" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT4H&#34;)" />
+        <zeebe:properties>
+          <zeebe:property name="completeOn" value="record" />
+        </zeebe:properties>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_assign_accept</bpmn:incoming>
+      <bpmn:outgoing>Flow_accept_g_kit</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:boundaryEvent id="b_not_accepted" name="Not accepted in 4 h" attachedToRef="accept">
+      <bpmn:outgoing>Flow_b_not_accepted_assign</bpmn:outgoing>
+      <bpmn:timerEventDefinition id="TimerDef_b_not_accepted">
+        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT4H</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+    <bpmn:exclusiveGateway id="g_kit" name="Materials needed?" default="Flow_g_kit_start_work">
+      <bpmn:incoming>Flow_accept_g_kit</bpmn:incoming>
+      <bpmn:outgoing>Flow_g_kit_request_kit</bpmn:outgoing>
+      <bpmn:outgoing>Flow_g_kit_start_work</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="request_kit" name="Request kit">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dcos.request-kit" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_g_kit_request_kit</bpmn:incoming>
+      <bpmn:outgoing>Flow_request_kit_confirm_kit</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="confirm_kit" name="Confirm kit received">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="acknowledge" />
+        <zeebe:assignmentDefinition candidateGroups="Field Technician" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT4H&#34;)" />
+        <zeebe:properties>
+          <zeebe:property name="completeOn" value="record" />
+        </zeebe:properties>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_request_kit_confirm_kit</bpmn:incoming>
+      <bpmn:outgoing>Flow_confirm_kit_start_work</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="start_work" name="Start work">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="acknowledge" />
+        <zeebe:assignmentDefinition candidateGroups="Field Technician" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT8H&#34;)" />
+        <zeebe:properties>
+          <zeebe:property name="completeOn" value="record" />
+        </zeebe:properties>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_g_kit_start_work</bpmn:incoming>
+      <bpmn:incoming>Flow_confirm_kit_start_work</bpmn:incoming>
+      <bpmn:outgoing>Flow_start_work_complete</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="complete" name="Complete with evidence">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="complete-with-evidence" />
+        <zeebe:assignmentDefinition candidateGroups="Field Technician" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT6H&#34;)" />
+        <zeebe:properties>
+          <zeebe:property name="completeOn" value="record" />
+        </zeebe:properties>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_start_work_complete</bpmn:incoming>
+      <bpmn:incoming>Flow_g_ok_complete</bpmn:incoming>
+      <bpmn:outgoing>Flow_complete_g_used</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="g_used" name="Materials used?" default="Flow_g_used_verify">
+      <bpmn:incoming>Flow_complete_g_used</bpmn:incoming>
+      <bpmn:outgoing>Flow_g_used_record_materials</bpmn:outgoing>
+      <bpmn:outgoing>Flow_g_used_verify</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="record_materials" name="Record serials and quantities">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="complete-with-evidence" />
+        <zeebe:assignmentDefinition candidateGroups="Field Technician" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT1H&#34;)" />
+        <zeebe:properties>
+          <zeebe:property name="completeOn" value="record" />
+        </zeebe:properties>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_g_used_record_materials</bpmn:incoming>
+      <bpmn:outgoing>Flow_record_materials_return_parts</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="return_parts" name="Return unused or faulty parts">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="acknowledge" />
+        <zeebe:assignmentDefinition candidateGroups="Field Technician" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT2H&#34;)" />
+        <zeebe:properties>
+          <zeebe:property name="completeOn" value="record" />
+        </zeebe:properties>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_record_materials_return_parts</bpmn:incoming>
+      <bpmn:outgoing>Flow_return_parts_verify</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="verify" name="Verify work">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="approve" />
+        <zeebe:assignmentDefinition candidateGroups="Project Manager" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT8H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_g_used_verify</bpmn:incoming>
+      <bpmn:incoming>Flow_return_parts_verify</bpmn:incoming>
+      <bpmn:outgoing>Flow_verify_g_ok</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="g_ok" name="Accepted?" default="Flow_g_ok_close">
+      <bpmn:incoming>Flow_verify_g_ok</bpmn:incoming>
+      <bpmn:outgoing>Flow_g_ok_close</bpmn:outgoing>
+      <bpmn:outgoing>Flow_g_ok_complete</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="close" name="Close work order">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dcos.close-work-order" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_g_ok_close</bpmn:incoming>
+      <bpmn:outgoing>Flow_close_end</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="end" name="Work order closed">
+      <bpmn:incoming>Flow_close_end</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_start_skill" sourceRef="start" targetRef="skill" />
+    <bpmn:sequenceFlow id="Flow_skill_assign" sourceRef="skill" targetRef="assign" />
+    <bpmn:sequenceFlow id="Flow_assign_accept" sourceRef="assign" targetRef="accept" />
+    <bpmn:sequenceFlow id="Flow_accept_g_kit" sourceRef="accept" targetRef="g_kit" />
+    <bpmn:sequenceFlow id="Flow_g_kit_request_kit" name="materials" sourceRef="g_kit" targetRef="request_kit">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=hasMaterials = true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_g_kit_start_work" name="none" sourceRef="g_kit" targetRef="start_work">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=hasMaterials = false</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_request_kit_confirm_kit" sourceRef="request_kit" targetRef="confirm_kit" />
+    <bpmn:sequenceFlow id="Flow_confirm_kit_start_work" sourceRef="confirm_kit" targetRef="start_work" />
+    <bpmn:sequenceFlow id="Flow_start_work_complete" sourceRef="start_work" targetRef="complete" />
+    <bpmn:sequenceFlow id="Flow_complete_g_used" sourceRef="complete" targetRef="g_used" />
+    <bpmn:sequenceFlow id="Flow_g_used_record_materials" name="materials" sourceRef="g_used" targetRef="record_materials">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=hasMaterials = true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_g_used_verify" name="none" sourceRef="g_used" targetRef="verify">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=hasMaterials = false</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_record_materials_return_parts" sourceRef="record_materials" targetRef="return_parts" />
+    <bpmn:sequenceFlow id="Flow_return_parts_verify" sourceRef="return_parts" targetRef="verify" />
+    <bpmn:sequenceFlow id="Flow_verify_g_ok" sourceRef="verify" targetRef="g_ok" />
+    <bpmn:sequenceFlow id="Flow_g_ok_close" name="accepted" sourceRef="g_ok" targetRef="close">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=approved = true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_g_ok_complete" name="rework" sourceRef="g_ok" targetRef="complete">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=approved = false</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_close_end" sourceRef="close" targetRef="end" />
+    <bpmn:sequenceFlow id="Flow_b_not_accepted_assign" sourceRef="b_not_accepted" targetRef="assign" />
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_work_order">
+    <bpmndi:BPMNPlane id="BPMNPlane_work_order" bpmnElement="Collaboration_work_order">
+      <bpmndi:BPMNShape id="Participant_work_order_di" bpmnElement="Participant_work_order" isHorizontal="true">
+        <dc:Bounds x="160" y="80" width="2810" height="600" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Dispatcher_di" bpmnElement="Lane_Dispatcher" isHorizontal="true">
+        <dc:Bounds x="190" y="80" width="2780" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Technician_di" bpmnElement="Lane_Technician" isHorizontal="true">
+        <dc:Bounds x="190" y="230" width="2780" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Requester_di" bpmnElement="Lane_Requester" isHorizontal="true">
+        <dc:Bounds x="190" y="380" width="2780" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Supply_chain_di" bpmnElement="Lane_Supply_chain" isHorizontal="true">
+        <dc:Bounds x="190" y="530" width="2780" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="start_di" bpmnElement="start">
+        <dc:Bounds x="272" y="437" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="skill_di" bpmnElement="skill">
+        <dc:Bounds x="400" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="assign_di" bpmnElement="assign">
+        <dc:Bounds x="570" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="accept_di" bpmnElement="accept">
+        <dc:Bounds x="740" y="265" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="b_not_accepted_di" bpmnElement="b_not_accepted">
+        <dc:Bounds x="812" y="327" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="g_kit_di" bpmnElement="g_kit">
+        <dc:Bounds x="945" y="280" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="request_kit_di" bpmnElement="request_kit">
+        <dc:Bounds x="1080" y="565" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="confirm_kit_di" bpmnElement="confirm_kit">
+        <dc:Bounds x="1250" y="265" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="start_work_di" bpmnElement="start_work">
+        <dc:Bounds x="1420" y="265" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="complete_di" bpmnElement="complete">
+        <dc:Bounds x="1590" y="265" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="g_used_di" bpmnElement="g_used">
+        <dc:Bounds x="1795" y="280" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="record_materials_di" bpmnElement="record_materials">
+        <dc:Bounds x="1930" y="265" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="return_parts_di" bpmnElement="return_parts">
+        <dc:Bounds x="2100" y="265" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="verify_di" bpmnElement="verify">
+        <dc:Bounds x="2270" y="415" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="g_ok_di" bpmnElement="g_ok">
+        <dc:Bounds x="2475" y="430" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="close_di" bpmnElement="close">
+        <dc:Bounds x="2610" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_di" bpmnElement="end">
+        <dc:Bounds x="2822" y="137" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_start_skill_di" bpmnElement="Flow_start_skill">
+        <di:waypoint x="308" y="455" />
+        <di:waypoint x="375" y="455" />
+        <di:waypoint x="375" y="155" />
+        <di:waypoint x="400" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_skill_assign_di" bpmnElement="Flow_skill_assign">
+        <di:waypoint x="520" y="155" />
+        <di:waypoint x="570" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_assign_accept_di" bpmnElement="Flow_assign_accept">
+        <di:waypoint x="690" y="155" />
+        <di:waypoint x="715" y="155" />
+        <di:waypoint x="715" y="305" />
+        <di:waypoint x="740" y="305" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_accept_g_kit_di" bpmnElement="Flow_accept_g_kit">
+        <di:waypoint x="860" y="305" />
+        <di:waypoint x="945" y="305" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_kit_request_kit_di" bpmnElement="Flow_g_kit_request_kit">
+        <di:waypoint x="995" y="305" />
+        <di:waypoint x="1055" y="305" />
+        <di:waypoint x="1055" y="605" />
+        <di:waypoint x="1080" y="605" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_kit_start_work_di" bpmnElement="Flow_g_kit_start_work">
+        <di:waypoint x="995" y="305" />
+        <di:waypoint x="1420" y="305" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_request_kit_confirm_kit_di" bpmnElement="Flow_request_kit_confirm_kit">
+        <di:waypoint x="1200" y="605" />
+        <di:waypoint x="1225" y="605" />
+        <di:waypoint x="1225" y="305" />
+        <di:waypoint x="1250" y="305" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_confirm_kit_start_work_di" bpmnElement="Flow_confirm_kit_start_work">
+        <di:waypoint x="1370" y="305" />
+        <di:waypoint x="1420" y="305" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_start_work_complete_di" bpmnElement="Flow_start_work_complete">
+        <di:waypoint x="1540" y="305" />
+        <di:waypoint x="1590" y="305" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_complete_g_used_di" bpmnElement="Flow_complete_g_used">
+        <di:waypoint x="1710" y="305" />
+        <di:waypoint x="1795" y="305" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_used_record_materials_di" bpmnElement="Flow_g_used_record_materials">
+        <di:waypoint x="1845" y="305" />
+        <di:waypoint x="1930" y="305" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_used_verify_di" bpmnElement="Flow_g_used_verify">
+        <di:waypoint x="1845" y="305" />
+        <di:waypoint x="1905" y="305" />
+        <di:waypoint x="1905" y="455" />
+        <di:waypoint x="2270" y="455" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_record_materials_return_parts_di" bpmnElement="Flow_record_materials_return_parts">
+        <di:waypoint x="2050" y="305" />
+        <di:waypoint x="2100" y="305" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_return_parts_verify_di" bpmnElement="Flow_return_parts_verify">
+        <di:waypoint x="2220" y="305" />
+        <di:waypoint x="2245" y="305" />
+        <di:waypoint x="2245" y="455" />
+        <di:waypoint x="2270" y="455" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_verify_g_ok_di" bpmnElement="Flow_verify_g_ok">
+        <di:waypoint x="2390" y="455" />
+        <di:waypoint x="2475" y="455" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_ok_close_di" bpmnElement="Flow_g_ok_close">
+        <di:waypoint x="2525" y="455" />
+        <di:waypoint x="2585" y="455" />
+        <di:waypoint x="2585" y="155" />
+        <di:waypoint x="2610" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_ok_complete_di" bpmnElement="Flow_g_ok_complete">
+        <di:waypoint x="2500" y="430" />
+        <di:waypoint x="2500" y="245" />
+        <di:waypoint x="1650" y="245" />
+        <di:waypoint x="1650" y="265" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_close_end_di" bpmnElement="Flow_close_end">
+        <di:waypoint x="2730" y="155" />
+        <di:waypoint x="2822" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_b_not_accepted_assign_di" bpmnElement="Flow_b_not_accepted_assign">
+        <di:waypoint x="830" y="363" />
+        <di:waypoint x="830" y="373" />
+        <di:waypoint x="630" y="373" />
+        <di:waypoint x="630" y="195" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

@@ -14,7 +14,8 @@ import { BarList } from '../../charts/BarList';
 import { fmtDateTime } from '../../lib/format';
 import { useToast } from '../ops/shared';
 import { KpiTile } from '../delivery/dash';
-import { Swimlane, TaskCard, hrs } from './parts';
+import { TaskCard, hrs } from './parts';
+import { BpmnView } from './BpmnView';
 import '../../styles/delivery.css';
 import '../../styles/workorders.css';
 
@@ -79,7 +80,7 @@ function InstanceTrack({ id }: { id: string }) {
   const { data } = useQuery(getWorkflow, []);
   const inst = data?.instances.find(i => i.id === id), p = data?.processes.find(x => x.pid === inst?.pid);
   if (!inst || !p) return null;
-  return <Swimlane p={p} inst={inst} />;
+  return <BpmnView processKey={p.key} done={inst.history.map(h => h.step.replace(' (retried)', ''))} current={inst.state === 'Completed' ? undefined : inst.step} incident={inst.state === 'Incident'} height={320} />;
 }
 
 /* ---------------------------------------------------------------- running work */
@@ -120,7 +121,8 @@ function Catalogue({ processes, instances }: { processes: WfProcess[]; instances
       </button>))}</div>
     {p && <Drawer open onClose={() => setOpen(null)} width={960} title={`${p.pid} · ${p.name}`} sub={`${p.owner} · ${p.steps.filter(s => !s.branch).length} steps · target ${hrs(p.slaHours)} end to end`}>
       <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--ink-600)' }}>{p.description}</p>
-      <Swimlane p={p} />
+      <BpmnView processKey={p.key} height={420} counts={Object.fromEntries(p.steps.map(st => [st.name.toLowerCase(), instances.filter(i => i.pid === p.pid && i.state !== 'Completed' && i.stepId === st.id).length]))} />
+      <p className="vw-label" style={{ margin: '6px 0 0' }}>Badges = instances waiting on that step now.</p>
       <b className="dcim-sub-h">Steps</b>
       <table className="nst-table dt-table dcim-comp"><thead><tr><th>#</th><th>Step</th><th>Lane</th><th>Kind</th><th>Target</th><th>Form</th></tr></thead>
         <tbody>{p.steps.map((s, i) => <tr key={s.id}><td className="mono">{s.branch ? '↺' : i + 1}</td><td>{s.name}{s.branch && <small className="vw-label"> · only when needed</small>}</td><td>{s.lane}</td><td>{s.kind === 'user' ? 'Task' : s.kind === 'auto' ? 'Automatic' : 'Decision'}</td><td>{hrs(s.hours)}</td><td>{s.form?.map(f => f.label).join(', ') ?? '—'}</td></tr>)}</tbody></table>

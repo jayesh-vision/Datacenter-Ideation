@@ -14,7 +14,8 @@ import { fmtDate, fmtDateTime, fmtMoney } from '../../lib/format';
 import { useToast } from '../ops/shared';
 import { NotFound } from '../NotFound';
 import { WO_TONE } from './Delivery';
-import { StepTrack, TaskCard } from '../workorders/parts';
+import { TaskCard } from '../workorders/parts';
+import { BpmnView } from '../workorders/BpmnView';
 import '../../styles/delivery.css';
 import '../../styles/workorders.css';
 
@@ -94,7 +95,7 @@ export function WorkOrderPage() {
         </Panel>
         {proc && <Panel className="dl-span-12" title={`Process · ${proc.process.pid} ${proc.process.name}`} icon={I.Workflow} actions={<Link className="ent-link" to={`/workorders/instances/${encodeURIComponent(proc.instance.id)}`}>Open in the process console →</Link>}
           info="The field work-order process this work order runs through; the current step's task can be claimed and completed here.">
-          <StepTrack p={proc.process} inst={proc.instance} />
+          <BpmnView processKey={proc.process.key} done={proc.instance.history.map(h => h.step)} current={proc.instance.state === 'Completed' ? undefined : proc.instance.step} incident={proc.instance.state === 'Incident'} height={340} />
           {proc.instance.state === 'Incident' && <p className="note note--warning" style={{ marginTop: 12 }}><I.TriangleAlert size={15} /><span>{proc.instance.incidentText}</span></p>}
           {proc.tasks.map(t => <TaskCard key={t.id} t={t} me="Jayesh Verma" onDone={(m, err) => toast.show(err ? 'Not done' : m, err ? m : undefined)} />)}
         </Panel>}

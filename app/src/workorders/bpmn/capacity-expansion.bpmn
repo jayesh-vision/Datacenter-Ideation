@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_capacity_expansion" targetNamespace="http://dcos.example.com/workorders" exporter="DCOS process generator" exporterVersion="1.0" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.6.0">
+  <bpmn:collaboration id="Collaboration_capacity_expansion">
+    <bpmn:participant id="Participant_capacity_expansion" name="P06 · Capacity expansion" processRef="capacity-expansion" />
+  </bpmn:collaboration>
+  <bpmn:process id="capacity-expansion" name="Capacity expansion" isExecutable="true">
+    <bpmn:documentation>Starts when a forecast crosses a site threshold: what-if options are generated, the design authority chooses one, the approval-limit decision table routes the budget to the right approver, and an approved budget creates a delivery programme whose design is baselined.</bpmn:documentation>
+    <bpmn:extensionElements>
+      <zeebe:versionTag value="v1" />
+    </bpmn:extensionElements>
+    <bpmn:laneSet id="LaneSet_capacity_expansion">
+      <bpmn:lane id="Lane_Capacity" name="Capacity">
+        <bpmn:flowNodeRef>start</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>whatif</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>rework</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>create_programme</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Finance" name="Finance">
+        <bpmn:flowNodeRef>approval_limit</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>approve_budget</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>g_budget</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Design_authority" name="Design authority">
+        <bpmn:flowNodeRef>choose_option</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>baseline_design</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>end</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="start" name="Forecast crosses threshold">
+      <bpmn:outgoing>Flow_start_whatif</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="whatif" name="Options &amp; what-if">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dcos.what-if" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_start_whatif</bpmn:incoming>
+      <bpmn:incoming>Flow_rework_whatif</bpmn:incoming>
+      <bpmn:outgoing>Flow_whatif_choose_option</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="choose_option" name="Choose option">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="approve" />
+        <zeebe:assignmentDefinition candidateGroups="Executive" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT40H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_whatif_choose_option</bpmn:incoming>
+      <bpmn:outgoing>Flow_choose_option_approval_limit</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:businessRuleTask id="approval_limit" name="Approval limit">
+      <bpmn:extensionElements>
+        <zeebe:calledDecision decisionId="approval-limit" resultVariable="approverRole" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_choose_option_approval_limit</bpmn:incoming>
+      <bpmn:outgoing>Flow_approval_limit_approve_budget</bpmn:outgoing>
+    </bpmn:businessRuleTask>
+    <bpmn:userTask id="approve_budget" name="Approve budget">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="commercial-approval" />
+        <zeebe:assignmentDefinition candidateGroups="Finance Manager" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;P3D&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_approval_limit_approve_budget</bpmn:incoming>
+      <bpmn:outgoing>Flow_approve_budget_g_budget</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="g_budget" name="Approved?" default="Flow_g_budget_create_programme">
+      <bpmn:incoming>Flow_approve_budget_g_budget</bpmn:incoming>
+      <bpmn:outgoing>Flow_g_budget_create_programme</bpmn:outgoing>
+      <bpmn:outgoing>Flow_g_budget_rework</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="rework" name="Rework options">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="complete-with-evidence" />
+        <zeebe:assignmentDefinition candidateGroups="Capacity Planner" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;P1D&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_g_budget_rework</bpmn:incoming>
+      <bpmn:outgoing>Flow_rework_whatif</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="create_programme" name="Create programme">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dcos.create-programme" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_g_budget_create_programme</bpmn:incoming>
+      <bpmn:outgoing>Flow_create_programme_baseline_design</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="baseline_design" name="Baseline design">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formKey="sign-off" />
+        <zeebe:assignmentDefinition candidateGroups="Executive" />
+        <zeebe:taskSchedule dueDate="=now() + duration(&#34;PT16H&#34;)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_create_programme_baseline_design</bpmn:incoming>
+      <bpmn:outgoing>Flow_baseline_design_end</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="end" name="Programme created">
+      <bpmn:incoming>Flow_baseline_design_end</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_start_whatif" sourceRef="start" targetRef="whatif" />
+    <bpmn:sequenceFlow id="Flow_whatif_choose_option" sourceRef="whatif" targetRef="choose_option" />
+    <bpmn:sequenceFlow id="Flow_choose_option_approval_limit" sourceRef="choose_option" targetRef="approval_limit" />
+    <bpmn:sequenceFlow id="Flow_approval_limit_approve_budget" sourceRef="approval_limit" targetRef="approve_budget" />
+    <bpmn:sequenceFlow id="Flow_approve_budget_g_budget" sourceRef="approve_budget" targetRef="g_budget" />
+    <bpmn:sequenceFlow id="Flow_g_budget_create_programme" name="approved" sourceRef="g_budget" targetRef="create_programme">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=approved = true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_g_budget_rework" name="rejected" sourceRef="g_budget" targetRef="rework">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=approved = false</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_rework_whatif" sourceRef="rework" targetRef="whatif" />
+    <bpmn:sequenceFlow id="Flow_create_programme_baseline_design" sourceRef="create_programme" targetRef="baseline_design" />
+    <bpmn:sequenceFlow id="Flow_baseline_design_end" sourceRef="baseline_design" targetRef="end" />
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_capacity_expansion">
+    <bpmndi:BPMNPlane id="BPMNPlane_capacity_expansion" bpmnElement="Collaboration_capacity_expansion">
+      <bpmndi:BPMNShape id="Participant_capacity_expansion_di" bpmnElement="Participant_capacity_expansion" isHorizontal="true">
+        <dc:Bounds x="160" y="80" width="1620" height="555" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Capacity_di" bpmnElement="Lane_Capacity" isHorizontal="true">
+        <dc:Bounds x="190" y="80" width="1590" height="255" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Finance_di" bpmnElement="Lane_Finance" isHorizontal="true">
+        <dc:Bounds x="190" y="335" width="1590" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Design_authority_di" bpmnElement="Lane_Design_authority" isHorizontal="true">
+        <dc:Bounds x="190" y="485" width="1590" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="start_di" bpmnElement="start">
+        <dc:Bounds x="272" y="137" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="whatif_di" bpmnElement="whatif">
+        <dc:Bounds x="400" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="choose_option_di" bpmnElement="choose_option">
+        <dc:Bounds x="570" y="520" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="approval_limit_di" bpmnElement="approval_limit">
+        <dc:Bounds x="740" y="370" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="approve_budget_di" bpmnElement="approve_budget">
+        <dc:Bounds x="910" y="370" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="g_budget_di" bpmnElement="g_budget">
+        <dc:Bounds x="1115" y="385" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="rework_di" bpmnElement="rework">
+        <dc:Bounds x="1250" y="220" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="create_programme_di" bpmnElement="create_programme">
+        <dc:Bounds x="1250" y="115" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="baseline_design_di" bpmnElement="baseline_design">
+        <dc:Bounds x="1420" y="520" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_di" bpmnElement="end">
+        <dc:Bounds x="1632" y="542" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_start_whatif_di" bpmnElement="Flow_start_whatif">
+        <di:waypoint x="308" y="155" />
+        <di:waypoint x="400" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_whatif_choose_option_di" bpmnElement="Flow_whatif_choose_option">
+        <di:waypoint x="520" y="155" />
+        <di:waypoint x="545" y="155" />
+        <di:waypoint x="545" y="560" />
+        <di:waypoint x="570" y="560" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_choose_option_approval_limit_di" bpmnElement="Flow_choose_option_approval_limit">
+        <di:waypoint x="690" y="560" />
+        <di:waypoint x="715" y="560" />
+        <di:waypoint x="715" y="410" />
+        <di:waypoint x="740" y="410" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_approval_limit_approve_budget_di" bpmnElement="Flow_approval_limit_approve_budget">
+        <di:waypoint x="860" y="410" />
+        <di:waypoint x="910" y="410" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_approve_budget_g_budget_di" bpmnElement="Flow_approve_budget_g_budget">
+        <di:waypoint x="1030" y="410" />
+        <di:waypoint x="1115" y="410" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_budget_create_programme_di" bpmnElement="Flow_g_budget_create_programme">
+        <di:waypoint x="1165" y="410" />
+        <di:waypoint x="1225" y="410" />
+        <di:waypoint x="1225" y="155" />
+        <di:waypoint x="1250" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_g_budget_rework_di" bpmnElement="Flow_g_budget_rework">
+        <di:waypoint x="1165" y="410" />
+        <di:waypoint x="1225" y="410" />
+        <di:waypoint x="1225" y="260" />
+        <di:waypoint x="1250" y="260" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_rework_whatif_di" bpmnElement="Flow_rework_whatif">
+        <di:waypoint x="1310" y="300" />
+        <di:waypoint x="1310" y="212" />
+        <di:waypoint x="460" y="212" />
+        <di:waypoint x="460" y="195" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_create_programme_baseline_design_di" bpmnElement="Flow_create_programme_baseline_design">
+        <di:waypoint x="1370" y="155" />
+        <di:waypoint x="1395" y="155" />
+        <di:waypoint x="1395" y="560" />
+        <di:waypoint x="1420" y="560" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_baseline_design_end_di" bpmnElement="Flow_baseline_design_end">
+        <di:waypoint x="1540" y="560" />
+        <di:waypoint x="1632" y="560" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
