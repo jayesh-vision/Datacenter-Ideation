@@ -333,3 +333,27 @@
 .pn-acc.is-open .pn-acc-head { border-bottom: 1px solid var(--vw-color-slate-100); }
 .pn-acc.is-open .pn-sec-ico { background: var(--primaryColor600); color: #fff; }
 .pn-acc-head { align-items: flex-start; } .pn-acc-head .pn-sec-ico { margin-top: 2px; }
+/* plan-type step: groups on the left, the selected type's details in a sticky panel on the right */
+.pn-typegrid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: stretch; }
+@media (max-width: 1360px) { .pn-typegrid { grid-template-columns: minmax(0, 1fr) 300px; } }
+.pn-typeinfo { position: relative; padding: 0 !important; border-radius: 12px; border-color: var(--primaryColor200) !important; min-height: 240px; overflow: hidden; }
+/* the panel takes the height of the groups beside it; its content scrolls inside */
+.pn-typeinfo-in { position: absolute; inset: 0; padding: 16px; overflow-y: auto; }
+.pn-typeinfo-head { display: flex; gap: 10px; align-items: center; }
+.pn-typeinfo-head small { display: block; font-size: 11.5px; color: var(--ink-500); }
+.pn-typeinfo-head b { display: block; font-size: 15px; font-weight: 500; color: var(--ink-900); }
+.pn-typeinfo-desc { margin: 10px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--ink-600); }
+.pn-typeinfo-figs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 12px 0 2px; }
+.pn-typeinfo-figs span { display: flex; flex-direction: column; align-items: center; padding: 8px 4px; border-radius: 8px; background: var(--vw-color-slate-50); font-size: 11.5px; color: var(--ink-500); }
+.pn-typeinfo-figs b { font-size: 17px; font-weight: 400; color: var(--ink-900); font-family: var(--num); }
+.pn-typeinfo h5 { margin: 14px 0 6px; font-size: 11.5px; font-weight: 500; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-500); }
+.pn-typeinfo-in > p { margin: 0; font-size: 12.5px; color: var(--ink-700); }
+.pn-typeinfo-empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 24px 8px; }
+.pn-typeinfo-empty b { font-size: 14px; font-weight: 500; color: var(--ink-800); }
+.pn-typeinfo-empty p { margin: 0; font-size: 12.5px; color: var(--ink-500); }
+/* keep the action bar at the bottom of the window even when the step is short */
+.page.planning:has(> .pn-wiz) { min-height: calc(100vh - var(--top-h, 60px)); padding-bottom: 0; box-sizing: border-box; }
+.pn-wiz > .pn-main > .pn-actbar { border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom: 0; }
+.page.planning > .pn-wiz { flex: 1; align-items: stretch; }
+.pn-wiz > .pn-main > .pn-actbar { margin-top: auto; }
+.pn-wiz > aside, .pn-wiz > .pn-rail { align-self: start; }

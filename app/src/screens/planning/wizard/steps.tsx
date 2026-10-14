@@ -52,6 +52,8 @@ export function TypeStep({ draft, patch, templates, template }: StepProps) {
   return (
     <div className="pn-stack">
       <StepHead title="What are you planning?" text="Pick a plan type. It decides which areas the wizard asks about, which inputs and rules apply, what the plan produces and who approves it." />
+      <div className="pn-typegrid">
+      <div className="pn-stack">
       {groups.map(({ g, icon: GIco, text }) => { const ts = planTypes.filter(t => t.scope && SCOPE_GROUP[t.scope] === g); if (!ts.length) return null;
         const isOpen = openGroup === g, picked = ts.find(t => t.id === draft.templateId);
         return (
@@ -76,15 +78,19 @@ export function TypeStep({ draft, patch, templates, template }: StepProps) {
             </button>); })}</div>
           </div>}
         </section>); })}
-      {template && (
-        <Sec icon={I.Route} tone="info" title={`${template.name}: what happens next`} sub={`The wizard asks about ${dimensionsFor(template).length} areas, then you compare options and submit.`} className="pn-next">
-          <div className="pn-next-grid">
-            <div><h5>Areas the wizard covers</h5><div className="row wrap" style={{ gap: 6 }}>{dimensionsFor(template).map(({ dim, depth }) => <Chip key={dim.key} tone={depth === 'full' ? 'info' : 'neutral'} size="xs">{dim.label}{depth === 'summary' ? ' · brief' : ''}</Chip>)}</div></div>
-            <div><h5>Where</h5><p>{where[SITE_MODE[template.scope ?? draft.scope]]}</p><h5>Approved by</h5>{template.approvalPath.length ? <ol className="pn-chainlist">{template.approvalPath.map((a, i) => <li key={i}><i>{i + 1}</i>{a}</li>)}</ol> : <p>No approval step.</p>}</div>
-            <div><h5>Produces</h5><ul className="pn-outlist">{template.outputs.map(o => <li key={o}><I.FileText size={13} />{o}</li>)}</ul></div>
-          </div>
-        </Sec>
-      )}
+      </div>
+      <aside className="pn-typeinfo vw-card-section" aria-live="polite"><div className="pn-typeinfo-in">
+        {template ? (() => { const Ico = (template.scope && SCOPE_ICON[template.scope]) || I.Layers; const dims = dimensionsFor(template); return <>
+          <div className="pn-typeinfo-head"><span className="pn-type-ico"><Ico size={18} /></span><div><small>Selected plan type</small><b>{template.name}</b></div></div>
+          <p className="pn-typeinfo-desc">{template.description}</p>
+          <div className="pn-typeinfo-figs"><span><b>{dims.length}</b>areas</span><span><b>{template.approvalPath.length}</b>approval{template.approvalPath.length === 1 ? '' : 's'}</span><span><b>{template.outputs.length}</b>outputs</span></div>
+          <h5>Where</h5><p>{where[SITE_MODE[template.scope ?? draft.scope]]}</p>
+          <h5>Areas the wizard covers</h5><div className="row wrap" style={{ gap: 6 }}>{dims.map(({ dim, depth }) => <Chip key={dim.key} tone={depth === 'full' ? 'info' : 'neutral'} size="xs">{dim.label}{depth === 'summary' ? ' · brief' : ''}</Chip>)}</div>
+          <h5>Approved by</h5>{template.approvalPath.length ? <ol className="pn-chainlist">{template.approvalPath.map((a, i) => <li key={i}><i>{i + 1}</i>{a}</li>)}</ol> : <p>No approval step.</p>}
+          <h5>Produces</h5><ul className="pn-outlist">{template.outputs.map(o => <li key={o}><I.FileText size={13} />{o}</li>)}</ul>
+        </>; })() : <div className="pn-typeinfo-empty"><span className="pn-type-ico"><I.MousePointerClick size={18} /></span><b>Pick a plan type</b><p>Its areas, where it applies, who approves it and what it produces appear here.</p></div>}
+      </div></aside>
+      </div>
     </div>
   );
 }
