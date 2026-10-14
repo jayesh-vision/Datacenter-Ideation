@@ -1,0 +1,61 @@
+/* Compliance (14-Oct-2026 redesign) */
+.cp-ring { position: relative; display: inline-grid; place-items: center; flex: none; }
+.cp-ring svg { position: absolute; inset: 0; }
+.cp-ring b { position: relative; font-size: 17px; font-weight: 500; color: var(--ink-900); font-variant-numeric: tabular-nums; }
+.cp-ring-bg { fill: none; stroke: var(--vw-color-slate-100); stroke-width: 7; }
+.cp-ring-fg { fill: none; stroke-width: 7; stroke-linecap: round; }
+.cp-ring-fg.is-good { stroke: var(--vw-color-emerald-500); } .cp-ring-fg.is-warn { stroke: var(--vw-color-amber-500); } .cp-ring-fg.is-bad { stroke: var(--vw-color-red-500); }
+.cp-hero { display: grid; grid-template-columns: auto minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); background: var(--surface); border: 1px solid var(--vw-color-slate-200); border-radius: 14px; overflow: hidden; }
+.cp-hero-ring { display: flex; align-items: center; gap: 14px; padding: 16px 22px; background: linear-gradient(180deg, var(--primaryColor50), transparent); border-right: 1px solid var(--vw-color-slate-200); }
+.cp-hero-ring > span:last-child { display: flex; flex-direction: column; } .cp-hero-ring b { font-weight: 500; font-size: 14px; } .cp-hero-ring small { font-size: 12px; color: var(--ink-500); }
+.cp-hero-st { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; padding: 14px; align-content: center; }
+.cp-st { all: unset; box-sizing: border-box; display: flex; flex-direction: column; gap: 2px; padding: 9px 10px; border-radius: 10px; background: var(--vw-color-slate-50); border-left: 3px solid var(--vw-color-slate-300); cursor: pointer; min-width: 0; }
+.cp-st:hover { background: var(--vw-color-slate-100); }
+.cp-st b { font-size: 20px; font-weight: 400; color: var(--ink-900); font-variant-numeric: tabular-nums; } .cp-st span { font-size: 11.5px; color: var(--ink-600); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cp-st.is-success { border-left-color: var(--vw-color-emerald-500); } .cp-st.is-warning { border-left-color: var(--vw-color-amber-500); } .cp-st.is-error { border-left-color: var(--vw-color-red-500); } .cp-st.is-info { border-left-color: var(--primaryColor400); }
+.cp-hero-f { display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 14px 18px; border-left: 1px solid var(--vw-color-slate-100); min-width: 0; }
+.cp-hero-f small { font-size: 12px; color: var(--ink-500); } .cp-hero-f b { font-size: 18px; font-weight: 400; color: var(--ink-900); } .cp-hero-f b.is-bad { color: #b21313; } .cp-hero-f em { font-style: normal; font-size: 12px; color: var(--ink-500); }
+.cp-fws { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+.cp-fw { all: unset; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; padding: 16px; background: var(--surface); border: 1px solid var(--vw-color-slate-200); border-radius: 12px; cursor: pointer; min-width: 0; }
+.cp-fw:hover { border-color: var(--primaryColor300); box-shadow: 0 6px 18px -12px var(--primaryColor300); }
+.cp-fw-top { display: flex; align-items: center; gap: 12px; } .cp-fw-top .cell-2 { display: flex; flex-direction: column; min-width: 0; } .cp-fw-top b { font-weight: 500; font-size: 14px; } .cp-fw-top small { font-size: 12px; color: var(--ink-500); }
+.cp-fw p { margin: 0; font-size: 12.5px; color: var(--ink-600); line-height: 1.45; min-height: 36px; }
+.cp-fw-bar { display: flex; gap: 2px; height: 8px; border-radius: 4px; overflow: hidden; background: var(--vw-color-slate-100); }
+.cp-fw-bar i, .cp-fw-leg i { display: block; }
+.cp-fw-bar i.is-success, .cp-fw-leg i.is-success { background: var(--vw-color-emerald-500); } .cp-fw-bar i.is-warning, .cp-fw-leg i.is-warning { background: var(--vw-color-amber-500); }
+.cp-fw-bar i.is-error, .cp-fw-leg i.is-error { background: var(--vw-color-red-500); } .cp-fw-bar i.is-info, .cp-fw-leg i.is-info { background: var(--primaryColor400); } .cp-fw-bar i.is-neutral, .cp-fw-leg i.is-neutral { background: var(--vw-color-slate-300); }
+.cp-fw-leg { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; color: var(--ink-600); } .cp-fw-leg span { display: inline-flex; align-items: center; gap: 5px; } .cp-fw-leg i { width: 8px; height: 8px; border-radius: 50%; }
+.cp-pr { list-style: none; margin: 0; padding: 0; }
+.cp-pr button { all: unset; box-sizing: border-box; width: 100%; display: grid; grid-template-columns: 30px minmax(0, 1fr) 120px 76px; gap: 10px; align-items: center; padding: 9px 4px; border-bottom: 1px solid var(--vw-color-slate-100); cursor: pointer; }
+.cp-pr button:hover { background: var(--vw-color-slate-50); }
+.cp-pr-ico { width: 28px; height: 28px; border-radius: 8px; display: inline-grid; place-items: center; background: var(--primaryColor50); color: var(--primaryColor600); flex: none; }
+.cp-pr-m { display: flex; flex-direction: column; min-width: 0; } .cp-pr-m b { font-weight: 500; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .cp-pr-m small { font-size: 11.5px; color: var(--ink-500); }
+.cp-pr-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--vw-color-slate-100); }
+.cp-pr-bar i { display: block; height: 100%; } .cp-pr-bar i.is-ok { background: var(--vw-color-emerald-300, #6ee7b7); } .cp-pr-bar i.is-bad { background: var(--vw-color-red-500); } .cp-pr-bar i.is-warn { background: var(--vw-color-amber-500); }
+.cp-pr-n { font-size: 12px; color: var(--vw-color-emerald-700); text-align: right; white-space: nowrap; } .cp-pr-n.is-bad { color: #b21313; } .cp-pr-n.is-warn { color: #926e00; }
+.cp-ev, .cp-dec { list-style: none; margin: 0; padding: 0; }
+.cp-ev li { display: flex; align-items: center; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--vw-color-slate-100); }
+.cp-ev .cell-2, .cp-dec .cell-2 { flex: 1; min-width: 0; display: flex; flex-direction: column; } .cp-ev b, .cp-dec b { font-weight: 500; font-size: 13px; } .cp-ev small, .cp-dec small { font-size: 12px; color: var(--ink-500); }
+.cp-dec li { display: flex; align-items: flex-start; gap: 10px; padding: 8px 2px; border-bottom: 1px solid var(--vw-color-slate-100); }
+.cp-dec li > :first-child { margin-top: 2px; }
+.cp-polchip { all: unset; cursor: pointer; font-size: 11.5px; padding: 2px 8px; border-radius: 6px; background: var(--primaryColor50); color: var(--primaryColor700); white-space: nowrap; }
+.cp-polchip:hover { background: var(--primaryColor100); }
+.cp-code { margin: 0; padding: 12px 14px; border-radius: 10px; background: #0F172A; color: #E2E8F0; font: 12px/1.55 'JetBrains Mono', ui-monospace, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 360px; overflow: auto; }
+.cp-code-edit { width: 100%; min-height: 170px; font-size: 12px; line-height: 1.5; padding: 10px; box-sizing: border-box; resize: vertical; }
+.cp-toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-700); cursor: pointer; }
+.cp-dsearch { display: flex; align-items: center; gap: 6px; margin: 8px 10px; padding: 0 10px; height: 32px; border: 1px solid var(--vw-color-slate-200); border-radius: 8px; color: var(--ink-500); }
+.cp-dsearch input { border: 0; outline: 0; flex: 1; min-width: 0; font: inherit; font-size: 13px; background: transparent; }
+.wf-pd-sum b.is-bad { color: #b21313; }
+@media (max-width: 1360px) {
+  .cp-hero { grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr); } .cp-hero-st { grid-column: 1 / -1; grid-row: 2; border-top: 1px solid var(--vw-color-slate-100); }
+  .cp-hero-f:nth-of-type(3) { border-left: 1px solid var(--vw-color-slate-100); }
+}
+/* layout fixes: status tiles on their own row, 4 / 2 framework columns, drawer blocks never shrink */
+.cp-hero { grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) !important; }
+.cp-hero .cp-hero-st { grid-column: 1 / -1; grid-row: 2; border-top: 1px solid var(--vw-color-slate-100); }
+.cp-fws { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1360px) { .cp-fws { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.drawer-body > .cp-code, .drawer-body > .wf-pd-sum, .drawer-body > .cp-dec { flex-shrink: 0; }
+.cp-rego { max-height: none; }
+.cp-pr-m b { white-space: normal; line-height: 1.3; }
+@media (max-width: 1360px) { .cp-pr button { grid-template-columns: 30px minmax(0, 1fr) 80px 66px; } }

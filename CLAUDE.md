@@ -552,6 +552,11 @@ screens are rebuilt in our kit (PageHead, StatGrid, ListToolbar, DataTable, NST 
   ISO 27001 / ISO 22237 / TIA-942 / SOC 2 controls to the policies that actually evidence them (P2B's mappings were wrong); manual controls carry an
   attestation date. `mock/customization.ts`: custom fields (filled counts derived) and tags as rules over the estate (+ runtime additions).
   Screens `screens/admin/Compliance.tsx`, `Customization.tsx`. Check: `node .qa/admin.mjs`.
+  Compliance P2B gap fill + redesign (14-Oct-2026, user): policies as code (Rego package + source per policy, switch on / off — an off
+  policy's violations stop counting and controls it alone evidences become Not assessed), decision records (each finding = deny / warn,
+  passing resources = one allow per policy and site, with the OPA input), violation outcome Blocked / Warned + change link, attest manual
+  controls, New policy / control / framework. Overview is a posture dashboard (overall ring + status tiles, framework cards, controls that
+  need work, policy results, evidence due, latest decisions); styles `styles/compliance.css`.
 - Not yet ported from P2B (planner): the family-specific editors (plant line-ups, network paths, replacement waves, placement grid, migration
   dispositions / consents), the plan pack documents (BoD / BoM / IP plan / drawings), sourcing against stock and vendors, AI assist.
 

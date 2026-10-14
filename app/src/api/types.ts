@@ -639,11 +639,14 @@ export interface ChangePolicy { id: string; name: string; rule: string; enforcem
 export interface ChangeRegister { changes: ChangeRecord[]; freezes: ChangeFreeze[]; templates: StandardTemplate[]; policies: ChangePolicy[]; weeks: { start: number; standard: number; normal: number; emergency: number; failed: number }[] }
 
 /* ---- Compliance and Customization (13-Oct-2026, P2B merge phase 7; mock/compliance.ts, mock/customization.ts) */
-export interface CompliancePolicy { id: string; name: string; rule: string; area: 'Power' | 'Cooling' | 'Network' | 'Lifecycle' | 'Change' | 'Safety' | 'Maintenance'; enforcement: 'Block' | 'Warn'; evaluated: number; violations: number }
-export interface ComplianceViolation { id: string; policyId: string; resource: string; resourceName: string; dcId: string; message: string; to: string }
-export interface ComplianceControl { id: string; framework: string; ref: string; title: string; type: 'Automated' | 'Manual'; policyIds: string[]; status: 'Compliant' | 'Partial' | 'Non-compliant' | 'Evidence due'; evidence: string; owner: string; assessed: number }
-export interface ComplianceFramework { id: string; name: string; description: string; controls: number; compliant: number }
-export interface ComplianceView { frameworks: ComplianceFramework[]; controls: ComplianceControl[]; policies: CompliancePolicy[]; violations: ComplianceViolation[] }
+export interface CompliancePolicy { id: string; name: string; rule: string; area: 'Power' | 'Cooling' | 'Network' | 'Lifecycle' | 'Change' | 'Safety' | 'Maintenance'; enforcement: 'Block' | 'Warn'; evaluated: number; violations: number;
+  /* policy as code (14-Oct-2026, P2B gap fill): Rego package + source, on / off, the controls it evidences, hand-made ones not evaluated yet */
+  pkg: string; rego: string; active: boolean; controlIds: string[]; custom?: boolean; lastRun?: number; trigger: 'Nightly sweep' | 'On change' | 'Change gate' }
+export interface ComplianceViolation { id: string; policyId: string; resource: string; resourceName: string; dcId: string; message: string; to: string; outcome: 'Blocked' | 'Warned'; changeId?: string; raised: number }
+export interface ComplianceControl { id: string; framework: string; ref: string; title: string; type: 'Automated' | 'Manual'; policyIds: string[]; status: 'Compliant' | 'Partial' | 'Non-compliant' | 'Evidence due' | 'Not assessed'; evidence: string; owner: string; assessed: number; custom?: boolean }
+export interface ComplianceFramework { id: string; name: string; description: string; controls: number; compliant: number; version?: string; custom?: boolean }
+export interface PolicyDecision { id: string; policyId: string; policyName: string; resource: string; resourceName: string; resourceType: string; dcId: string; decision: 'allow' | 'deny' | 'warn'; at: number; by: ComplianceView['policies'][number]['trigger']; input: Record<string, unknown>; result: string }
+export interface ComplianceView { frameworks: ComplianceFramework[]; controls: ComplianceControl[]; policies: CompliancePolicy[]; violations: ComplianceViolation[]; decisions: PolicyDecision[] }
 export interface CustomField { key: string; label: string; type: 'Text' | 'Number' | 'Date' | 'Select' | 'Boolean'; appliesTo: string[]; required: boolean; choices?: string[]; filled: number; total: number; description: string; custom?: boolean }
 export interface TagDef { slug: string; name: string; color: 'blue' | 'purple' | 'cyan' | 'amber' | 'red' | 'slate' | 'emerald'; description: string; rule: string; count: number; appliesTo: string; custom?: boolean }
 

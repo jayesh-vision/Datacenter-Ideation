@@ -35,7 +35,7 @@ import { addRisk, advanceWorkOrder, createProgramme, createTemplateProject, deci
 import { templateInfo } from './delivery-templates';
 import { assignWorkOrder, claimTask, completeTask, failWorkOrder, instances as wfInstances, kpis as wfKpis, processes as wfProcesses, requestAccess, resetWorkflow, retryInstance, retryWorkOrder, signOffWorkOrder, tasks as wfTasks, tickCheck, workOrderDetail } from './workflow';
 import { approveStep, changeRegister, clearChangeMgmt, resetChangeMgmt, stepsApproved } from './changemgmt';
-import { clearCompliance, complianceView } from './compliance';
+import { addControl, addFramework, addPolicy, attestControl, clearCompliance, complianceView, resetCompliance, setPolicyActive } from './compliance';
 import { addField as addField_, addTag as addTag_, customization as customization_, resetCustomization } from './customization';
 import { monthsTo, dateAfterMonths, WARN, CRIT } from '../lib/forecast';
 
@@ -95,7 +95,7 @@ const listeners = new Set<() => void>();
 export const subscribe = (f: () => void) => { listeners.add(f); return () => { listeners.delete(f); }; };
 const changed = () => { version++; clearPhysical(); clearDcim(); clearIpam(); clearChangeMgmt(); clearCompliance(); clearSafety(); clearLifecycle(); clearMaintenance(); clearOps(); finaliseHealth(db); summaryCache.clear(); revModel = null; revViews.clear(); listeners.forEach(f => f()); };
 export const getVersion = () => version;
-const rebuild = () => { db = generate(persona); edgeCache.clear(); resetDcimCustom(); resetIpamOverlay(); resetPlanner2(); resetDelivery(); resetWorkflow(); resetChangeMgmt(); resetCustomization(); changed(); };
+const rebuild = () => { db = generate(persona); edgeCache.clear(); resetDcimCustom(); resetIpamOverlay(); resetPlanner2(); resetDelivery(); resetWorkflow(); resetCompliance(); resetChangeMgmt(); resetCustomization(); changed(); };
 export const reset = () => rebuild();
 export const getPersona = () => persona;
 export function setPersona(p: Persona) {
@@ -1305,6 +1305,11 @@ export function decideChange(id: string, approve: boolean) {
 
 /* ---- Compliance and Customization (P2B merge, phase 7) */
 export const compliance = () => complianceView(db);
+export function compPolicyActive(id: string, on: boolean) { setPolicyActive(db, id, on); audit_({ actor: ME, object: id, field: 'policy', prev: on ? 'inactive' : 'active', next: on ? 'active' : 'inactive', source: 'Compliance' }); changed(); }
+export function compAttest(id: string, note: string) { attestControl(db, id, note, ME); audit_({ actor: ME, object: id, field: 'attestation', prev: '—', next: note, source: 'Compliance' }); changed(); }
+export function compAddPolicy(x: Parameters<typeof addPolicy>[1]) { const id = addPolicy(db, x); audit_({ actor: ME, object: id, field: 'policy', prev: '—', next: `created: ${x.name}`, source: 'Compliance' }); changed(); return id; }
+export function compAddControl(x: Parameters<typeof addControl>[1]) { addControl(db, x); audit_({ actor: ME, object: `${x.framework} ${x.ref}`, field: 'control', prev: '—', next: x.title, source: 'Compliance' }); changed(); }
+export function compAddFramework(x: Parameters<typeof addFramework>[1]) { addFramework(db, x); audit_({ actor: ME, object: x.name, field: 'framework', prev: '—', next: 'created', source: 'Compliance' }); changed(); }
 export const customization = () => customization_(db);
 export function addCustomField(f: Parameters<typeof addField_>[0]) { addField_(f); audit_({ actor: ME, object: f.key, field: 'custom field', prev: '—', next: 'added', source: 'Customization' }); changed(); }
 export function addTagDef(t: Parameters<typeof addTag_>[0]) { addTag_(t); audit_({ actor: ME, object: t.slug, field: 'tag', prev: '—', next: 'added', source: 'Customization' }); changed(); }

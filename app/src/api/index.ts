@@ -158,6 +158,11 @@ export const setRiskState = (id: string, to: 'Open' | 'Mitigating' | 'Closed') =
 
 /* ---- Compliance and Customization (Admin) */
 export const getCompliance = () => wait(S.compliance);                                             // GET /compliance (frameworks, controls, policies, violations)
+export const setPolicyActive = (id: string, on: boolean) => mutate(() => S.compPolicyActive(id, on));  // PATCH /compliance/policies/:id { active }
+export const attestControl = (id: string, note: string) => mutate(() => S.compAttest(id, note));       // POST /compliance/controls/:id/attestation
+export const addCompliancePolicy = (x: Parameters<typeof S.compAddPolicy>[0]) => mutate(() => S.compAddPolicy(x)); // POST /compliance/policies
+export const addComplianceControl = (x: Parameters<typeof S.compAddControl>[0]) => mutate(() => S.compAddControl(x)); // POST /compliance/controls
+export const addComplianceFramework = (x: Parameters<typeof S.compAddFramework>[0]) => mutate(() => S.compAddFramework(x)); // POST /compliance/frameworks
 export const getCustomization = () => wait(S.customization);                                       // GET /customization (custom fields, tags)
 export const addCustomField = (f: Parameters<typeof S.addCustomField>[0]) => mutate(() => S.addCustomField(f)); // POST /customization/fields
 export const addTag = (t: Parameters<typeof S.addTagDef>[0]) => mutate(() => S.addTagDef(t));    // POST /customization/tags
