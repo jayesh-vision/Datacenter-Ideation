@@ -7,8 +7,6 @@ import { usePage, PageHead, Loading } from '../../shell/page';
 import { Btn, Panel, Tabs, Chip } from '../../ui/kit';
 import { Facts, SoftMeter, Split, StatGrid, StatTile, type Part } from '../../ui/Analytics';
 import { BarList } from '../../charts/BarList';
-import { DataTable, type Col } from '../../ui/DataTable';
-import { SoftMeterCell } from './parts';
 import { useBenchmarks, useEstate, usePlans, useTemplates } from '../../planner/lib/usePlanner';
 import { usePlannerData } from '../../planner/lib/plannerData';
 import { evaluate, type Evaluation } from '../../planner/lib/engine';
@@ -109,28 +107,25 @@ function Overview({ rows, failing, late }: { rows: PlanRow[]; failing: PlanRow[]
     ...failing.map(r => ({ r, tone: 'error' as const, head: 'Hard fail', text: `${r.ev.hardFails} hard rule(s) fail: ${r.ev.findings.filter(f => f.status === 'fail').slice(0, 2).map(f => f.rule.title).join('; ')}`, tab: 'rules' })),
     ...late.map(r => ({ r, tone: 'orange' as const, head: 'Late to order', text: `${r.ev.schedule.filter(s => s.late).length} item(s) cannot arrive by the need date`, tab: 'schedule' })),
   ];
-  const recent = [...rows].sort((a, b) => b.plan.updatedAt.localeCompare(a.plan.updatedAt)).slice(0, 8);
-  const cols: Col<PlanRow>[] = [
-    { key: 'id', header: 'Plan', render: r => <span className="cell-2"><b>{r.plan.title}</b><small className="mono">{r.plan.plnId} · {SCOPE_LABEL[r.plan.scope]}</small></span>, wrap: true },
-    { key: 'site', header: 'Site', render: r => r.site },
-    { key: 'status', header: 'Status', render: r => <PlanStatusChip s={r.plan.status} /> },
-    { key: 'kw', header: 'IT power', render: r => <span className="num">{kw(r.plan.designPowerKw)}</span> },
-    { key: 'capex', header: 'CapEx', render: r => <span className="num">{money(r.capex)}</span> },
-    { key: 'ready', header: 'Readiness', render: r => <SoftMeterCell pct={r.ev.readinessPct} /> },
-    { key: 'upd', header: 'Updated', render: r => date(r.plan.updatedAt) },
-  ];
+  const recent = [...rows].sort((a, b) => b.plan.updatedAt.localeCompare(a.plan.updatedAt));
+  const totalKw = rows.reduce((a, r) => a + r.plan.designPowerKw, 0);
+  const counts = { decide: attention.filter(a => a.head === 'Awaiting decision').length, fail: failing.length, late: late.length };
+  const toPlans = () => setSp(new URLSearchParams({ tab: 'plans' }), { replace: true });
   return (
-    <div className="col" style={{ gap: 14 }}>
-      <div className="pn-two">
-        <Panel title="Pipeline by plan type" icon={I.BarChart3} info="Plans of every status by plan type; the bar is the design IT power. Click a type to open the list filtered to it.">
-          <BarList items={[...byScope.entries()].sort((a, b) => b[1].kw - a[1].kw).map(([scope, c]) => ({ key: scope, label: SCOPE_LABEL[scope], value: c.kw, display: kw(c.kw), secondary: `${c.n} plan${c.n === 1 ? '' : 's'}`, onClick: () => setSp(new URLSearchParams({ tab: 'plans', scope }), { replace: true }) }))} />
-        </Panel>
-        <Panel title="Needs attention" icon={I.TriangleAlert} count={attention.length} info="Pending decisions, plans failing a hard rule and approved plans whose long-lead items are late. Click to open the plan at the right tab.">
-          {attention.length ? <ul className="pn-list">{attention.slice(0, 8).map((a, i) => <li key={i}><button type="button" className="pn-rowbtn" onClick={() => nav(`/planning/plans/${a.r.plan.id}${a.tab ? `?tab=${a.tab}` : ''}`)}><Chip tone={a.tone} size="xs" dot>{a.head}</Chip><span className="cell-2"><b>{a.r.plan.title}</b><small>{a.text}</small></span></button></li>)}</ul> : <p className="vw-label">Nothing waiting: no pending decisions, hard fails or late orders.</p>}
-        </Panel>
-      </div>
-      <Panel title="Recent plans" icon={I.Clock} flush actions={<Btn variant="ghost" size="sm" iconRight={I.ChevronRight} onClick={() => setSp(new URLSearchParams({ tab: 'plans' }), { replace: true })}>All plans</Btn>}>
-        <DataTable rows={recent} cols={cols} pageSize={8} onRow={r => nav(`/planning/plans/${r.plan.id}`)} />
+    <div className="pn-trio">
+      <Panel title="IT power in the pipeline" icon={I.BarChart3} sub={`${kw(totalKw)} of design IT power across all ${rows.length} plans (every status), by plan type`} info="Every plan of every status, grouped by plan type; the bar is the design IT power. Click a type to open the plan list filtered to it.">
+        <BarList items={[...byScope.entries()].sort((a, b) => b[1].kw - a[1].kw).map(([scope, c]) => ({ key: scope, label: SCOPE_LABEL[scope], value: c.kw, display: kw(c.kw), secondary: `${c.n} plan${c.n === 1 ? '' : 's'}`, onClick: () => setSp(new URLSearchParams({ tab: 'plans', scope }), { replace: true }) }))} />
+      </Panel>
+      <Panel title="Plans that need action" icon={I.TriangleAlert} count={attention.length} sub={`${counts.decide} awaiting a decision · ${counts.fail} failing a hard rule · ${counts.late} late to order`} info="Pending decisions, plans failing a hard rule and approved plans whose long-lead items are late. Click a row to open the plan at the right tab.">
+        {attention.length ? <ul className="pn-list">{attention.map((a, i) => <li key={i}><button type="button" className="pn-rowbtn" onClick={() => nav(`/planning/plans/${a.r.plan.id}${a.tab ? `?tab=${a.tab}` : ''}`)}><span className="cell-2"><span className="row" style={{ gap: 8 }}><Chip tone={a.tone} size="xs" dot>{a.head}</Chip><small className="mono">{a.r.plan.plnId}</small></span><b>{a.r.plan.title}</b><small>{a.text}</small></span><I.ChevronRight size={15} className="muted" /></button></li>)}</ul> : <p className="vw-label">Nothing waiting: no pending decisions, hard fails or late orders.</p>}
+      </Panel>
+      <Panel title="Recently updated plans" icon={I.Clock} sub="Latest changes first: status, IT power, CapEx and readiness" info="Every plan, most recently changed first. Click a plan to open it; All plans opens the full list with filters."
+        foot={<Btn variant="ghost" size="sm" iconRight={I.ChevronRight} onClick={toPlans}>All {rows.length} plans</Btn>}>
+        <ul className="pn-list">{recent.map(r => <li key={r.plan.id}><button type="button" className="pn-rowbtn" onClick={() => nav(`/planning/plans/${r.plan.id}`)}>
+          <span className="cell-2"><span className="row between" style={{ gap: 8 }}><b>{r.plan.title}</b><PlanStatusChip s={r.plan.status} /></span>
+            <small><span className="mono">{r.plan.plnId}</span> · {SCOPE_LABEL[r.plan.scope]} · {r.site}</small>
+            <span className="pn-recent-figs"><span>{kw(r.plan.designPowerKw)}</span><span>{money(r.capex)}</span><span>{r.ev.readinessPct}% ready</span><span className="muted">{date(r.plan.updatedAt)}</span></span></span>
+        </button></li>)}</ul>
       </Panel>
     </div>
   );

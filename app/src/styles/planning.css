@@ -272,3 +272,12 @@
 .pn-fix { all: unset; flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--primaryColor600); cursor: pointer; white-space: nowrap; }
 .pn-fix:hover { color: var(--primaryColor800); text-decoration: underline; }
 .pn-figs[style] .pn-fig > b { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* hub overview: three equal cards, fixed height, bodies scroll */
+.pn-trio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 520px; gap: 14px; }
+.pn-trio > .panel { height: 100%; min-height: 0; display: flex; flex-direction: column; min-width: 0; }
+.pn-trio > .panel > .panel-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.pn-trio .pn-list li { padding: 10px 2px; }
+.pn-trio .pn-rowbtn { align-items: center; }
+.pn-trio .pn-rowbtn b { font-weight: 500; }
+.pn-recent-figs { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 3px; font-size: 12.5px; font-family: var(--num); color: var(--ink-700); }
+.pn-trio > .panel > .panel-foot { flex-shrink: 0; display: flex; justify-content: flex-end; }
