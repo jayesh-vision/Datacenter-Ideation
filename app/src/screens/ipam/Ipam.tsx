@@ -43,6 +43,7 @@ export function Ipam() {
   if (!m || !sites) return <Loading />;
   const leaf = m.prefixes.filter(p => p.status !== 'Container');
   const full = leaf.filter(p => p.pct >= 90 && p.size >= 8 && p.role !== 'Point-to-point');
+  const hot = leaf.filter(p => p.pct >= 75 && p.pct < 90 && p.size >= 8 && p.role !== 'Point-to-point');
   const st = (s: string) => m.addresses.filter(a => a.status === s).length;
   const bgp = m.asns.reduce((a, x) => a + (x.kind === 'Private 32-bit' ? 0 : x.sessions), 0), bgpUp = m.asns.reduce((a, x) => a + (x.kind === 'Private 32-bit' ? 0 : x.up), 0);
   const setTab = (t: Tab, extra: Record<string, string> = {}) => go({ tab: t === 'overview' ? '' : t, ...extra });
@@ -53,8 +54,8 @@ export function Ipam() {
         actions={<select className="select" value={dcId} onChange={e => go({ dc: e.target.value })} aria-label="Datacenter scope">
           <option value="">All datacenters ({sites.sites.length})</option>{sites.sites.map(s => <option key={s.id} value={s.id}>{s.id} · {s.city}</option>)}
         </select>} />
-      <StatGrid>
-        <StatTile label="Prefixes" value={fmtNum(leaf.length)} sub={`active · ${m.prefixes.length - leaf.length} containers`} onClick={() => setTab('prefixes')} active={tab === 'prefixes'}
+      <StatGrid fit>
+        <StatTile label="Prefixes" value={fmtNum(leaf.length)} sub="active" onClick={() => setTab('prefixes')} active={tab === 'prefixes'}
           info="Prefixes in use (not counting the containers that hold them), by role. Click to open the prefix tree.">
           <Split parts={[{ key: 'm', label: 'Management', n: leaf.filter(p => p.role === 'Management').length, tone: 'info' as const }, { key: 'h', label: 'Hosts', n: leaf.filter(p => p.role === 'Production' || p.role === 'Storage').length, tone: 'neutral' as const }, { key: 'o', label: 'Links & other', n: leaf.filter(p => !['Management', 'Production', 'Storage'].includes(p.role)).length, tone: 'neutral' as const }].filter(x => x.n)} />
         </StatTile>
@@ -65,20 +66,20 @@ export function Ipam() {
         <StatTile label="Prefixes ≥ 90%" value={full.length} sub={`of ${fmtNum(leaf.length)} active`} subTone={full.length ? 'warn' : undefined} onClick={() => setTab('prefixes', { pf: 'full' })}
           info="Active prefixes (eight or more addresses, links excluded) with 90% or more of their addresses bound. Usage counts real bindings only.">
           <SoftMeter pct={leaf.length ? (full.length / leaf.length) * 100 : 0} tone={full.length ? 'warning' : 'success'} />
-          <Facts items={[{ n: m.findings.filter(f => f.kind === 'Outside plan' || f.kind === 'Conflict').length, label: 'address findings', tone: m.findings.some(f => f.kind === 'Outside plan' || f.kind === 'Conflict') ? 'warn' : undefined, onClick: () => setTab('overview') }]} />
+          <Facts items={[{ n: hot.length, label: 'between 75% and 90%' }, { n: m.findings.filter(f => f.kind === 'Outside plan' || f.kind === 'Conflict').length, label: 'address findings', tone: m.findings.some(f => f.kind === 'Outside plan' || f.kind === 'Conflict') ? 'warn' : undefined, onClick: () => setTab('overview') }, { n: m.fhrp.filter(g => g.state === 'degraded').length, label: 'degraded gateways', tone: m.fhrp.some(g => g.state === 'degraded') ? 'bad' : undefined }]} />
         </StatTile>
         <StatTile label="VRFs" value={m.vrfs.length} sub="routing tables" onClick={() => setTab('vrfs')} active={tab === 'vrfs'}
           info="Routing tables: one management VRF per site, the global table (DEFAULT) and customer VRFs (layer-3 VPNs, internet).">
-          <Split parts={[{ key: 's', label: 'Site', n: m.vrfs.filter(v => v.scope === 'Site').length, tone: 'info' as const }, { key: 'e', label: 'Estate', n: m.vrfs.filter(v => v.scope === 'Estate').length, tone: 'neutral' as const }, { key: 'c', label: 'Customer', n: m.vrfs.filter(v => v.scope === 'Customer').length, tone: 'neutral' as const }].filter(x => x.n)} />
+          <Split parts={[{ key: 's', label: 'Site', n: m.vrfs.filter(v => v.scope === 'Site').length, tone: 'info' as const }, { key: 'e', label: 'Estate', n: m.vrfs.filter(v => v.scope === 'Estate').length, tone: 'neutral' as const }, { key: 'c', label: 'Customer', n: m.vrfs.filter(v => v.scope === 'Customer').length, tone: 'neutral' as const }]} />
         </StatTile>
         <StatTile label="VLANs" value={fmtNum(m.vlans.length)} sub={`${m.vlans.filter(v => v.status === 'Unused').length} unused`} onClick={() => setTab('vlans')} active={tab === 'vlans'}
           info="VLANs per site: management, production per hall, storage, and one per layer-2 customer handoff (L2VPN, leased line, cross-connect).">
-          <Split parts={[{ key: 'f', label: 'Fabric & storage', n: m.vlans.filter(v => v.group === 'Fabric' || v.group === 'Storage').length, tone: 'info' as const }, { key: 'm', label: 'Management', n: m.vlans.filter(v => v.group === 'Management').length, tone: 'neutral' as const }, { key: 's', label: 'Service handoffs', n: m.vlans.filter(v => v.group === 'Services').length, tone: 'neutral' as const }].filter(x => x.n)} />
+          <Split parts={[{ key: 'f', label: 'Fabric & storage', n: m.vlans.filter(v => v.group === 'Fabric' || v.group === 'Storage').length, tone: 'info' as const }, { key: 'm', label: 'Management', n: m.vlans.filter(v => v.group === 'Management').length, tone: 'neutral' as const }, { key: 's', label: 'Service handoffs', n: m.vlans.filter(v => v.group === 'Services').length, tone: 'neutral' as const }]} />
         </StatTile>
-        <StatTile label="BGP" value={bgp ? `${Math.round((bgpUp / bgp) * 100)}%` : '—'} sub={`${fmtNum(bgpUp)} of ${fmtNum(bgp)} sessions up`} subTone={bgpUp < bgp ? 'warn' : undefined} onClick={() => setTab('asns')} active={tab === 'asns'}
+        <StatTile label="BGP" value={bgp ? `${Math.round((bgpUp / bgp) * 100)}%` : '—'} sub="sessions up" subTone={bgpUp < bgp ? 'warn' : undefined} onClick={() => setTab('asns')} active={tab === 'asns'}
           info="BGP sessions of the operator and site ASNs that are established. Click for every ASN and the private ASN pools.">
           <SoftMeter pct={bgp ? (bgpUp / bgp) * 100 : 0} tone={bgpUp < bgp ? 'warning' : 'success'} />
-          <Facts items={[{ n: m.asns.length, label: 'ASNs' }, { n: m.fhrp.length, label: 'gateways' }]} />
+          <Facts items={[{ n: fmtNum(bgp - bgpUp), label: `of ${fmtNum(bgp)} sessions down`, tone: bgpUp < bgp ? 'warn' : undefined }, { n: m.asns.length, label: 'ASNs' }, { n: m.fhrp.length, label: 'gateways (VRRP / HSRP)' }]} />
         </StatTile>
       </StatGrid>
       <Tabs value={tab} onChange={v => setTab(v)} tabs={TABS.map(t => ({ ...t, count: t.id === 'prefixes' ? leaf.length : t.id === 'vlans' ? m.vlans.length : undefined }))} />
@@ -96,27 +97,52 @@ export function Ipam() {
 
 /* ---------------------------------------------------------------- overview */
 
+const CHECKS: { kind: IpFinding['kind']; label: string; text: string }[] = [
+  { kind: 'Prefix full', label: 'Prefix 90% or fuller', text: 'active prefixes with 8+ addresses' },
+  { kind: 'Outside plan', label: 'Address outside its plan', text: "a device address outside its site's prefixes" },
+  { kind: 'Conflict', label: 'Duplicate address', text: 'the same address on two devices in a VRF' },
+  { kind: 'Unused VLAN', label: 'Unused VLAN', text: 'a VLAN with no interface or service on it' },
+  { kind: 'Gateway degraded', label: 'Gateway without redundancy', text: 'a VRRP / HSRP group that lost a router' },
+];
+
 function Overview({ m, onPrefix }: { m: IpamView; onPrefix: (id: string) => void }) {
-  const fullest = m.prefixes.filter(p => p.status === 'Active' && p.size >= 8 && p.role !== 'Point-to-point').sort((a, b) => b.pct - a.pct).slice(0, 8);
+  const fullest = m.prefixes.filter(p => p.status === 'Active' && p.size >= 8 && p.role !== 'Point-to-point').sort((a, b) => b.pct - a.pct).slice(0, 20);
+  const kinds = [...new Set(m.findings.map(f => f.kind))];
+  const roleN = new Map<string, number>(); m.prefixes.filter(p => p.status !== 'Container').forEach(p => roleN.set(p.role, (roleN.get(p.role) ?? 0) + 1));
+  const roles = [...roleN].sort((a, b) => b[1] - a[1]);
+  const findSub = kinds.map(k => `${m.findings.filter(f => f.kind === k).length} ${k.toLowerCase()}`).join(' · ');
   const open = (f: IpFinding) => { const p = m.prefixes.find(x => x.id === f.ref) ?? m.prefixes.find(x => x.id === m.addresses.find(a => a.id === f.ref)?.prefixId); if (p) onPrefix(p.id); };
   return (
     <div className="ipam-ov">
-      <Panel title="Needs attention" icon={I.TriangleAlert} count={m.findings.length} info="What the address plan itself flags: full prefixes, addresses outside their site's plan or on two devices, unused VLANs and gateways that lost a router. Click one to open its prefix.">
-        {m.findings.length ? <ul className="ipam-find">{m.findings.slice(0, 12).map(f => (
-          <li key={f.id}><button type="button" onClick={() => open(f)}><SevDot s={f.severity} /><span className="cell-2"><b>{f.title}</b><small>{f.kind}{f.dcId ? ` · ${f.dcId}` : ''} — {f.detail}</small></span></button></li>
+      <Panel title="Needs attention" icon={I.TriangleAlert} count={m.findings.length} sub={findSub || 'Nothing flagged in the address plan'} info="What the address plan itself flags: full prefixes, addresses outside their site's plan or on two devices, unused VLANs and gateways that lost a router. Click one to open its prefix.">
+        {m.findings.length ? <ul className="ipam-find">{m.findings.map(f => (
+          <li key={f.id}><button type="button" onClick={() => open(f)}><SevDot s={f.severity} /><span className="cell-2"><b>{f.title}</b><small>{f.kind}{f.dcId ? ` · ${f.dcId}` : ''} — {f.detail}</small></span><I.ChevronRight size={14} className="ipam-chev" /></button></li>
         ))}</ul> : <p className="vw-label">Nothing to fix: every address is inside its plan and no prefix is above 90%.</p>}
+        <h5 className="ipam-h5">Checks run on the plan</h5>
+        <ul className="ipam-checks">{CHECKS.map(c => { const n = m.findings.filter(f => f.kind === c.kind).length; return (
+          <li key={c.kind} className={n ? 'is-hit' : ''}>{n ? <I.CircleAlert size={14} /> : <I.CircleCheck size={14} />}<span><b>{c.label}</b><small>{c.text}</small></span><em className="num">{n ? n : 'OK'}</em></li>); })}</ul>
       </Panel>
-      <Panel title="Fullest prefixes" icon={I.Gauge} info="Active prefixes ranked by the share of their addresses bound (links excluded).">
-        <table className="nst-table dt-table dcim-comp"><tbody>{fullest.map(p => (
-          <tr key={p.id} className="is-click" onClick={() => onPrefix(p.id)}><td className="mono">{p.prefix}</td><td><span className="cell-2"><span>{p.description}</span><small>{p.vrf}</small></span></td><td><Meter pct={p.pct} width={60} color={loadColor(p.pct)} label={`${p.used}/${p.size}`} /></td></tr>
-        ))}</tbody></table>
+      <Panel title="Fullest prefixes" icon={I.Gauge} count={fullest.length} sub="Active prefixes by share of addresses bound (links excluded)" info="Active prefixes ranked by the share of their addresses bound (links excluded). Click one to open it.">
+        <ul className="ipam-rank">{fullest.map(p => (
+          <li key={p.id}><button type="button" onClick={() => onPrefix(p.id)}>
+            <span className="ipam-rank-top"><b className="mono">{p.prefix}</b><span className="num" style={{ color: loadColor(p.pct) }}>{p.pct}%</span></span>
+            <small title={p.description}>{p.description} · <span className="mono">{p.vrf}</span></small>
+            <span className="ipam-rank-bar"><i style={{ width: `${Math.min(100, p.pct)}%`, background: loadColor(p.pct) }} /></span>
+            <small className="ipam-rank-n">{fmtNum(p.used)} of {fmtNum(p.size)} addresses</small>
+          </button></li>
+        ))}</ul>
       </Panel>
-      <Panel title="Aggregates" icon={I.Network} className="ipam-agg" flush info="The top-level blocks the plan is carved from, who allocates them, and how much of each is given to site containers and prefixes.">
-        <DataTable rows={m.aggregates} pageSize={10} cols={[
-          { key: 'p', header: 'Aggregate', render: a => <span className="mono">{a.prefix}</span> },
-          { key: 'r', header: 'Registry', render: a => a.rir },
-          { key: 'd', header: 'Used for', wrap: true, render: a => a.description },
-          { key: 'u', header: 'Allocated', render: a => <Meter pct={Math.max(a.pct, a.allocated ? 1 : 0)} width={64} color={ACCENT} label={`${fmtNum(a.allocated)} of ${fmtNum(a.size)}`} /> }]} />
+      <Panel title="Aggregates" icon={I.Network} count={m.aggregates.length} sub="Top-level blocks the plan is carved from" info="The top-level blocks the plan is carved from, who allocates them, and how much of each is given to site containers and prefixes.">
+        <ul className="ipam-rank">{m.aggregates.map(a => (
+          <li key={a.id}><div>
+            <span className="ipam-rank-top"><b className="mono">{a.prefix}</b><Chip tone="neutral" size="xs">{a.rir}</Chip></span>
+            <small title={a.description}>{a.description}</small>
+            <span className="ipam-rank-bar"><i style={{ width: `${Math.max(a.pct, a.allocated ? 1 : 0)}%`, background: ACCENT }} /></span>
+            <small className="ipam-rank-n">{fmtNum(a.allocated)} of {fmtNum(a.size)} allocated · {a.pct}%</small>
+          </div></li>
+        ))}</ul>
+        <h5 className="ipam-h5">Active prefixes by role</h5>
+        <ul className="ipam-roles">{roles.map(([r, n]) => <li key={r}><span>{r}</span><i><em style={{ width: `${(n / roles[0][1]) * 100}%` }} /></i><b className="num">{fmtNum(n)}</b></li>)}</ul>
       </Panel>
     </div>
   );

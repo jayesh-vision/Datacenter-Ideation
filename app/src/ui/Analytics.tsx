@@ -12,8 +12,9 @@ export const SOFT: Record<Tone, string> = {
   neutral: 'var(--vw-color-slate-200)', info: 'var(--vw-color-blue-300)', purple: 'var(--vw-color-purple-200, #e9d5ff)', cyan: 'var(--vw-color-cyan-200, #a5f3fc)'
 };
 
-export function StatGrid({ children, cols = 6 }: { children: ReactNode; cols?: number }) {
-  return <section className={`vw-card-section dco-card dco-cols-${cols}`}>{children}</section>;
+/* `fit`: tiles size to their content instead of the fixed detail box (use when every tile carries the same number of rows) */
+export function StatGrid({ children, cols = 6, fit }: { children: ReactNode; cols?: number; fit?: boolean }) {
+  return <section className={`vw-card-section dco-card dco-cols-${cols}${fit ? ' is-fit' : ''}`}>{children}</section>;
 }
 
 export function StatTile({ label, value, sub, subTone, children, onClick, active, info }: { label: ReactNode; value: ReactNode; sub?: ReactNode; subTone?: 'bad' | 'warn'; children?: ReactNode; onClick?: () => void; active?: boolean; info?: string }) {

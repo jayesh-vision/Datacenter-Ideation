@@ -1,6 +1,21 @@
 /* IP & Network (screens/ipam/Ipam.tsx) */
-.ipam-ov { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 14px; align-items: start; }
-.ipam-ov .ipam-agg { grid-column: 1 / -1; }
+.ipam-ov { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 520px; gap: 14px; }
+.ipam-ov > .panel { height: 100%; min-height: 0; display: flex; flex-direction: column; min-width: 0; }
+.ipam-ov > .panel > .panel-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.ipam-find li button { align-items: center; }
+.ipam-find .cell-2 { flex: 1; min-width: 0; }
+.ipam-chev { flex: none; color: var(--ink-400, var(--vw-color-slate-400)); }
+.ipam-rank { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.ipam-rank li > button, .ipam-rank li > div { all: unset; box-sizing: border-box; width: 100%; display: flex; flex-direction: column; gap: 4px; padding: 10px 4px; border-bottom: 1px solid var(--vw-color-slate-100); }
+.ipam-rank li > button { cursor: pointer; }
+.ipam-rank li > button:hover { background: var(--vw-color-slate-50); }
+.ipam-rank-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ipam-rank-top b { font-weight: 500; font-size: 13px; color: var(--ink-900); }
+.ipam-rank-top .num { font-size: 13px; font-weight: 500; }
+.ipam-rank small { font-size: 12px; color: var(--ink-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ipam-rank-bar { display: block; height: 5px; border-radius: 3px; background: var(--vw-color-slate-100); overflow: hidden; margin-top: 2px; }
+.ipam-rank-bar i { display: block; height: 100%; border-radius: 3px; }
+.ipam-rank small.ipam-rank-n { font-size: 11.5px; font-family: var(--num); }
 .ipam-find { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .ipam-find li button { display: flex; gap: 10px; align-items: flex-start; width: 100%; text-align: left; border: 0; background: none; padding: 9px 4px; border-bottom: 1px solid var(--vw-color-slate-100); cursor: pointer; font: inherit; }
 .ipam-find li button:hover { background: var(--vw-color-slate-25); }
@@ -25,3 +40,15 @@
 .ipam-range { display: flex; align-items: center; gap: 14px; padding: 12px 16px; flex-wrap: wrap; }
 .ipam-range b { font-weight: 500; }
 .ipam-find .cell-2 { display: flex; flex-direction: column; gap: 2px; line-height: 1.35; }
+.ipam-h5 { margin: 16px 0 6px; font-size: 11.5px; font-weight: 500; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-500); }
+.ipam-checks, .ipam-roles { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.ipam-checks li { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--vw-color-slate-100); color: var(--vw-color-emerald-600); }
+.ipam-checks li.is-hit { color: #926e00; }
+.ipam-checks span { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.35; }
+.ipam-checks b { font-weight: 500; font-size: 13px; color: var(--ink-800); }
+.ipam-checks small { font-size: 11.5px; color: var(--ink-500); }
+.ipam-checks em { font-style: normal; font-size: 12px; color: inherit; }
+.ipam-roles li { display: grid; grid-template-columns: minmax(0, 1fr) 90px 40px; align-items: center; gap: 10px; padding: 7px 4px; font-size: 12.5px; color: var(--ink-700); border-bottom: 1px solid var(--vw-color-slate-100); }
+.ipam-roles i { display: block; height: 5px; border-radius: 3px; background: var(--vw-color-slate-100); overflow: hidden; }
+.ipam-roles em { display: block; height: 100%; border-radius: 3px; background: var(--vw-color-blue-300); }
+.ipam-roles b { font-weight: 500; text-align: right; color: var(--ink-900); }
