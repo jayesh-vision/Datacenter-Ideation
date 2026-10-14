@@ -2,7 +2,7 @@
    one in-memory estate. Only src/api/index.ts talks to this module. */
 
 import { sevLabel } from '../lib/vocab';
-import type { NewPrefixInput,
+import type { NewPrefixInput, DcimModuleType,
   ActionStep, Alert, AlertScope, EdgeStatus, OpsState, AuditEntry, CapacityPlan, Change, ChangeStatus, Datacenter, DcSummary, Incident, IncidentStatus, Interface, Link, Location,
   ImpactCause, NetworkElement, NeRole, Persona, PrefixRole, ReconTask, RevDomain, RevIssue, RevenueView, RolloutStatus, Service, Severity, TimelineEvent
 } from '../api/types';
@@ -24,7 +24,7 @@ import { siteLifecycle as siteLifecycle_, clearLifecycle } from './lifecycle';
 import { sitePm as sitePm_, clearMaintenance } from './maintenance';
 import { clearOps, colocationOrders as colocationOrders_, incidentOps as incidentOps_, onCall as onCall_, problems as problems_, resilienceTests as resilienceTests_ } from './ops';
 import { cablePath as cablePath_, clearPhysical, devicePhysical as devicePhysical_, sitePhysicalPublic, whatIf as whatIf_ } from './physical';
-import { addCustomType, clearDcim, dcimCatalog as dcimCatalog_, dcimComponents as dcimComponents_, dcimModel, dcimRackView as dcimRackView_, freeSlots, resetDcimCustom } from './dcim';
+import { addCustomType, clearDcim, customTypeById, dcimCatalog as dcimCatalog_, dcimComponents as dcimComponents_, dcimModel, dcimOverlay, dcimRackView as dcimRackView_, freeSlots, resetDcimCustom } from './dcim';
 import { addressDetail, assignToDevice, carvePrefix, clearIpam, createPrefix, integrations, ipamModel, reserveNextIp, resetIpamOverlay, setPrimaryAddress, syncIntegration, unassignAddress } from './ipam';
 import { capacityHolds, gpuCapacity, siteEnergy } from './capacity';
 import { setPlannerClock } from '../planner/compat/clock';
@@ -1004,6 +1004,221 @@ export function dcimAddType(x: { manufacturer: string; model: string; role: NeRo
   changed();
   return id;
 }
+
+type DcimModuleKind = DcimModuleType['kind'];
+/* ---- DCIM operations (14-Oct-2026, P2B gap fill) ------------------------------------------------------------------------ */
+const neOrThrow = (id: string) => { const n = db.neById.get(id); if (!n) throw new Error('Unknown device'); return n; };
+const ifOrThrow = (neId: string, name: string) => { const i = (db.ifaces.get(neId) ?? []).find(x => x.name === name); if (!i) throw new Error(`${name} is not a port of ${neId}`); return i; };
+const isPlannedNe = (n: NetworkElement) => n.discovery === 'not-discovered' && n.ndReason === 'planned';
+let cableSeq = 0;
+/* devices at a site with free, enabled ports of one speed (the connect form's far-end list) */
+export function dcimFreePorts(dcId: string, speedMbps: number, exceptNe: string) {
+  const out: { id: string; name: string; rack: string; u: number; ports: { name: string; type: string }[] }[] = [];
+  const rk = new Map((dcOf(dcId)?.racks ?? []).map(r => [r.id, r.name]));
+  for (const n of db.nes) {
+    if (n.dcId !== dcId || n.id === exceptNe || n.role === 'Tenant gear') continue;
+    const ports = (db.ifaces.get(n.id) ?? []).filter(i => !i.peer && i.state !== 'admin-down' && i.speedMbps === speedMbps).map(i => ({ name: i.name, type: i.type }));
+    if (ports.length) out.push({ id: n.id, name: n.name, rack: rk.get(n.rackId) ?? n.rackId, u: n.u, ports });
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name));
+}
+/* connect two free ports of the same speed at one site with a new cable (an LLDP adjacency once the devices are live) */
+export function dcimConnect(aNe: string, aIf: string, zNe: string, zIf: string) {
+  const a = neOrThrow(aNe), z = neOrThrow(zNe);
+  if (a.id === z.id) throw new Error('Pick a port on another device');
+  if (a.dcId !== z.dcId) throw new Error('Both ends must be in the same datacenter; inter-site links go through the backbone');
+  if (a.role === 'Tenant gear' || z.role === 'Tenant gear') throw new Error('Tenant equipment is cabled by the tenant');
+  const ai = ifOrThrow(a.id, aIf), zi = ifOrThrow(z.id, zIf);
+  for (const [n, i] of [[a, ai], [z, zi]] as const) { if (i.peer) throw new Error(`${n.name} ${i.name} already has a cable`); if (i.state === 'admin-down') throw new Error(`${n.name} ${i.name} is disabled; enable it first`); }
+  if (ai.speedMbps !== zi.speedMbps) throw new Error(`Speeds differ: ${ai.name} is ${ai.speedMbps / 1000}G, ${zi.name} is ${zi.speedMbps / 1000}G`);
+  const live = !isPlannedNe(a) && !isPlannedNe(z);
+  const id = `LLDP-M${++cableSeq}`;
+  db.links.push({ id, protocol: 'LLDP', aNe: a.id, aIf: ai.name, zNe: z.id, zIf: zi.name, dcId: a.dcId, capacityMbps: ai.speedMbps, utilPct: 0, state: live ? 'up' : 'idle', role: 'Fabric', sessions: 0, growthPct: 0, history: [], physical: null });
+  ai.peer = { neId: z.id, ifName: zi.name }; zi.peer = { neId: a.id, ifName: ai.name };
+  ai.state = zi.state = live ? 'up' : 'reserved';
+  audit_({ actor: ME, object: `${a.name} ${ai.name}`, field: 'cable', prev: '—', next: `${z.name} ${zi.name}${live ? '' : ' (planned)'}`, source: 'DCIM' });
+  changed();
+  return `CB-${id}`;
+}
+export function dcimDisconnect(neId: string, ifName: string) {
+  const n = neOrThrow(neId), i = ifOrThrow(neId, ifName);
+  if (!i.peer) throw new Error(`${n.name} ${ifName} has no cable`);
+  const far = db.neById.get(i.peer.neId), fi = far ? (db.ifaces.get(far.id) ?? []).find(x => x.name === i.peer!.ifName) : undefined;
+  const k = db.links.findIndex(l => l.protocol === 'LLDP' && ((l.aNe === n.id && l.aIf === ifName) || (l.zNe === n.id && l.zIf === ifName)));
+  if (k >= 0) db.links.splice(k, 1);
+  const to = `${far?.name ?? i.peer.neId} ${i.peer.ifName}`;
+  i.peer = undefined; i.state = 'down'; i.utilPct = 0;
+  if (fi) { fi.peer = undefined; fi.state = 'down'; fi.utilPct = 0; }
+  audit_({ actor: ME, object: `${n.name} ${ifName}`, field: 'cable', prev: to, next: 'removed', source: 'DCIM' });
+  changed();
+}
+export function dcimEditInterface(neId: string, ifName: string, x: { description: string; enabled: boolean }) {
+  const n = neOrThrow(neId), i = ifOrThrow(neId, ifName);
+  const prev = `${i.state}${i.description ? ` · ${i.description}` : ''}`;
+  i.description = x.description.trim();
+  if (!x.enabled) i.state = 'admin-down'; else if (i.state === 'admin-down') i.state = i.peer ? (isPlannedNe(n) ? 'reserved' : 'up') : 'down';
+  audit_({ actor: ME, object: `${n.name} ${ifName}`, field: 'interface', prev, next: `${i.state}${i.description ? ` · ${i.description}` : ''}`, source: 'DCIM' });
+  changed();
+}
+/* modules: fill an empty bay (a line card adds its ports), take one out, or swap a faulty one for a spare */
+export function dcimInstallModule(neId: string, slot: string, moduleTypeId: string) {
+  const n = neOrThrow(neId);
+  const mt = dm().modules.find(x => x.id === moduleTypeId); if (!mt) throw new Error('Unknown module type');
+  if (!mt.fits.includes(n.model)) throw new Error(`${mt.name} does not fit a ${n.model}`);
+  if (n.modules.some(x => x.slot === slot && x.state !== 'Empty')) throw new Error(`${slot} is not empty`);
+  const serial = `${n.serial}-${slot}-N${++cableSeq}`;
+  n.modules = [...n.modules.filter(x => x.slot !== slot), { slot, name: mt.name, serial, state: 'OK', tempC: n.tempC || 30 }];
+  let added = 0;
+  const ports = mt.ports ?? (mt.kind === 'Line card' ? (() => { const f = [...(db.ifaces.get(n.id) ?? [])].sort((p, q) => q.speedMbps - p.speedMbps)[0]; return f ? { type: f.type, speedMbps: f.speedMbps, count: 8 } : undefined; })() : undefined);
+  if (ports) {
+    const fpc = Number(slot.replace(/\D/g, '')) || 0, list = db.ifaces.get(n.id) ?? [];
+    for (let k = 0; k < ports.count; k++) list.push({ id: `${n.id}:et-${fpc}/0/${k}`, neId: n.id, name: `et-${fpc}/0/${k}`, type: ports.type, speedMbps: ports.speedMbps, state: 'down', utilPct: 0, inErrors: 0, crcErrors: 0, flaps24h: 0, description: `${mt.name} in ${slot}` });
+    db.ifaces.set(n.id, list); added = ports.count;
+  }
+  audit_({ actor: ME, object: n.name, field: `module ${slot}`, prev: 'empty', next: `${mt.name} S/N ${serial}${added ? ` (+${added} ports)` : ''}`, source: 'DCIM' });
+  changed();
+  return added;
+}
+export function dcimRemoveModule(neId: string, slot: string) {
+  const n = neOrThrow(neId); const m = n.modules.find(x => x.slot === slot); if (!m || m.state === 'Empty') throw new Error(`${slot} is empty`);
+  if (/^(PSU|PEM|FAN|RE)/.test(slot)) throw new Error(`${slot} is a fixed part; use Swap to replace it`);
+  const fpc = /^FPC/.test(slot) ? Number(slot.replace(/\D/g, '')) : null;
+  const list = db.ifaces.get(n.id) ?? [];
+  const mine = fpc == null ? [] : list.filter(i => i.description === `${m.name} in ${slot}`);
+  if (mine.some(i => i.peer)) throw new Error(`Disconnect the cables on ${mine.filter(i => i.peer).map(i => i.name).join(', ')} first`);
+  db.ifaces.set(n.id, list.filter(i => !mine.includes(i)));
+  n.modules = n.modules.filter(x => x.slot !== slot);
+  audit_({ actor: ME, object: n.name, field: `module ${slot}`, prev: `${m.name} S/N ${m.serial}`, next: 'removed', source: 'DCIM' });
+  changed();
+}
+export function dcimSwapModule(neId: string, slot: string) {
+  const n = neOrThrow(neId); const m = n.modules.find(x => x.slot === slot); if (!m || m.state === 'Empty') throw new Error(`${slot} is empty`);
+  const old = m.serial; m.serial = `${n.serial}-${slot}-R${++cableSeq}`; m.state = 'OK';
+  audit_({ actor: ME, object: n.name, field: `module ${slot}`, prev: `${m.name} S/N ${old}`, next: `replaced by S/N ${m.serial}`, source: 'DCIM' });
+  changed();
+}
+/* racks: edit, retire (empty racks only), move a device, reserve U space */
+const rackOrThrow = (id: string) => { const dc = db.datacenters.find(d => d.racks.some(r => r.id === id)); if (!dc) throw new Error('Unknown rack'); return { dc, rk: dc.racks.find(r => r.id === id)! }; };
+export function dcimEditRack(id: string, x: { role: string; heightU: number; budgetKw: number }) {
+  const { rk } = rackOrThrow(id);
+  const top = Math.max(0, ...db.nes.filter(n => n.rackId === id).map(n => n.u + (n.uSize ?? 1) - 1), ...dcimOverlay.reservations.filter(r => r.rackId === id).map(r => r.u + r.uHeight - 1));
+  if (x.heightU < 20 || x.heightU > 52) throw new Error('Height must be 20–52 U');
+  if (x.heightU < top) throw new Error(`Devices or reservations reach U${top}; the rack cannot be shorter`);
+  if (x.budgetKw <= 0 || x.budgetKw > 150) throw new Error('Power budget must be above 0 and at most 150 kW');
+  if (x.budgetKw < rk.drawKw) throw new Error(`The rack already draws ${rk.drawKw} kW`);
+  const prev = `${rk.role} · ${rk.heightU}U · ${rk.budgetKw} kW`;
+  rk.role = x.role; rk.heightU = x.heightU; rk.budgetKw = x.budgetKw;
+  audit_({ actor: ME, object: id, field: 'rack', prev, next: `${rk.role} · ${rk.heightU}U · ${rk.budgetKw} kW`, source: 'DCIM' });
+  changed();
+}
+export function dcimRetireRack(id: string) {
+  const { dc, rk } = rackOrThrow(id);
+  const n = db.nes.filter(x => x.rackId === id).length;
+  if (n) throw new Error(`${rk.name} still holds ${n} device${n === 1 ? '' : 's'}; move or remove them first`);
+  if (rk.usedU > 0) throw new Error(`${rk.name} still holds ${rk.usedU} U of patching; re-home it first`);
+  dc.racks = dc.racks.filter(r => r.id !== id);
+  dcimOverlay.reservations = dcimOverlay.reservations.filter(r => r.rackId !== id);
+  audit_({ actor: ME, object: id, field: 'rack', prev: `${rk.role} in ${rk.room}`, next: 'retired', source: 'DCIM' });
+  changed();
+}
+export function dcimMoveDevice(neId: string, rackId: string, u: number) {
+  const n = neOrThrow(neId); if (n.role === 'Tenant gear') throw new Error('Tenant equipment is moved by the tenant');
+  const from = rackOrThrow(n.rackId), to = rackOrThrow(rackId);
+  if (from.dc.id !== to.dc.id) throw new Error('Moves between datacenters are a migration plan, not a rack move');
+  const h = n.uSize ?? 1, top = u + h - 1;
+  if (u < 1 || top > to.rk.heightU) throw new Error(`U${u}–U${top} does not fit a ${to.rk.heightU}U rack`);
+  const prevU = n.u, prevRack = n.rackId;
+  /* check the target with the device lifted out (its own units free, the rack's used U without it) */
+  n.rackId = '__moving__'; from.rk.usedU -= h;
+  const ok = freeSlots(db, rackId).some(s => u >= s.from && top <= s.to);
+  n.rackId = prevRack; from.rk.usedU += h;
+  if (!ok) throw new Error(`U${u}–U${top} is not free in ${to.rk.name}`);
+  const w = dm().deviceById.get(n.id)?.powerW ?? 0;
+  if (to.rk.id !== from.rk.id) {
+    if (to.rk.drawKw + w / 1000 > to.rk.budgetKw) throw new Error(`${to.rk.name} would draw ${Math.round((to.rk.drawKw + w / 1000) * 10) / 10} kW of its ${to.rk.budgetKw} kW budget`);
+    from.rk.usedU -= h; to.rk.usedU += h; from.rk.drawKw = Math.round((from.rk.drawKw - w / 1000) * 10) / 10; to.rk.drawKw = Math.round((to.rk.drawKw + w / 1000) * 10) / 10;
+  }
+  n.rackId = rackId; n.u = u;
+  audit_({ actor: ME, object: n.name, field: 'position', prev: `${from.rk.name} U${prevU}`, next: `${to.rk.name} U${u}`, source: 'DCIM' });
+  changed();
+}
+export function dcimReserveU(rackId: string, x: { u: number; uHeight: number; label: string; until?: number }) {
+  const { rk } = rackOrThrow(rackId);
+  const top = x.u + x.uHeight - 1;
+  if (!x.label.trim()) throw new Error('Say what the space is held for');
+  if (x.uHeight < 1 || x.u < 1 || top > rk.heightU) throw new Error(`U${x.u}–U${top} does not fit a ${rk.heightU}U rack`);
+  if (!freeSlots(db, rackId).some(s => x.u >= s.from && top <= s.to)) throw new Error(`U${x.u}–U${top} is not free in ${rk.name}`);
+  const id = `URES-${++dcimOverlay.seq}`;
+  dcimOverlay.reservations.push({ id, rackId, u: x.u, uHeight: x.uHeight, label: x.label.trim(), by: ME, until: x.until });
+  audit_({ actor: ME, object: rackId, field: 'U reservation', prev: '—', next: `U${x.u}–U${top} for ${x.label.trim()}`, source: 'DCIM' });
+  changed(); return id;
+}
+export function dcimReleaseU(id: string) {
+  const r = dcimOverlay.reservations.find(x => x.id === id); if (!r) throw new Error('Unknown reservation');
+  dcimOverlay.reservations = dcimOverlay.reservations.filter(x => x.id !== id);
+  audit_({ actor: ME, object: r.rackId, field: 'U reservation', prev: `U${r.u}–U${r.u + r.uHeight - 1} for ${r.label}`, next: 'released', source: 'DCIM' });
+  changed();
+}
+/* power: a panel (busway / distribution board) on a hall, a feed (rack PDU circuit) from a panel to a rack */
+export function dcimCreatePanel(x: { hallId: string; name: string; side: 'A' | 'B' | 'DC'; sourceUps: string; capacityKw: number }) {
+  const hall = dm().hallById.get(x.hallId); if (!hall) throw new Error('Unknown hall');
+  const dc = dcOf(hall.dcId)!; const name = x.name.trim(); if (!name) throw new Error('Give the panel a name');
+  if (dm().panels.some(p => p.hallId === hall.id && p.name.toLowerCase() === name.toLowerCase())) throw new Error(`${name} already exists in ${hall.name}`);
+  if (x.capacityKw <= 0 || x.capacityKw > 5000) throw new Error('Capacity must be above 0 and at most 5,000 kW');
+  const ups = dc.power.ups.find(u => u.name === x.sourceUps);
+  const id = `${hall.id}-PNL-M${++dcimOverlay.seq}`;
+  dcimOverlay.panels.push({ id, dcId: hall.dcId, hallId: hall.id, hallName: hall.name, name, side: x.side, source: x.side === 'DC' ? 'Rectifier plant' : x.sourceUps, sourceState: x.side === 'DC' ? 'Rectifier' : ups?.state ?? 'Online', utility: dc.power.feeds[0]?.source ?? '—', feeds: 0, loadKw: 0, capacityKw: x.capacityKw, state: 'ok', manual: true });
+  audit_({ actor: ME, object: id, field: 'power panel', prev: '—', next: `${name} in ${hall.name} (${x.side}, ${x.capacityKw} kW from ${x.side === 'DC' ? 'rectifiers' : x.sourceUps})`, source: 'DCIM' });
+  changed(); return id;
+}
+export function dcimCreateFeed(x: { panelId: string; rackId: string; name: string; volts: number; phases: 1 | 3; amps: number }) {
+  const m = dm(); const pn = m.panels.find(p => p.id === x.panelId); if (!pn) throw new Error('Unknown panel');
+  const rk = m.rackById.get(x.rackId); if (!rk) throw new Error('Unknown rack');
+  if (rk.hallId !== pn.hallId) throw new Error(`${rk.name} is not in ${pn.hallName}`);
+  const name = x.name.trim() || `${rk.name}-PDU-${pn.side}`;
+  if (x.amps < 10 || x.amps > 125) throw new Error('Breaker rating must be 10–125 A');
+  const kw = Math.round(((x.volts * x.amps * (x.phases === 3 ? Math.sqrt(3) : 1) * 0.8) / 1000) * 10) / 10; /* 80% continuous rating */
+  const used = m.feeds.filter(f => f.panelId === pn.id).reduce((a, f) => a + f.capacityKw, 0);
+  if (used + kw > pn.capacityKw * 1.25) throw new Error(`${pn.name} would be over-subscribed: ${Math.round(used + kw)} kW of feeds on a ${pn.capacityKw} kW panel (limit 125%)`);
+  const id = `${rk.id}-FEED-M${++dcimOverlay.seq}`;
+  dcimOverlay.feeds.push({ id, dcId: rk.dcId, panelId: pn.id, rackId: rk.id, rackName: rk.name, hallName: rk.hallName, name, side: pn.side === 'DC' ? 'A' : pn.side, kind: pn.side === 'DC' ? 'DC' : 'AC', volts: x.volts, phases: x.phases, amps: x.amps, capacityKw: kw, loadKw: 0, pct: 0, outlets: x.phases === 3 ? 24 : 12, cords: 0, state: 'ok', note: 'Entered by hand · no cords yet', manual: true });
+  audit_({ actor: ME, object: rk.id, field: 'power feed', prev: '—', next: `${name} from ${pn.name} (${x.volts} V ${x.phases}-phase ${x.amps} A = ${kw} kW)`, source: 'DCIM' });
+  changed(); return { id, kw };
+}
+/* catalogue: module types, templates on hand-made device types, JSON import */
+export function dcimAddModuleType(x: { name: string; kind: DcimModuleKind; fits: string[]; ports?: { type: string; speedMbps: number; count: number } }) {
+  const name = x.name.trim(); if (!name) throw new Error('Give the module type a name');
+  const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  if (dm().modules.some(m => m.id === id)) throw new Error(`${name} already exists`);
+  if (!x.fits.length) throw new Error('Pick at least one device model it fits');
+  dcimOverlay.modules.push({ id, name, kind: x.kind, fits: x.fits, installed: 0, faulty: 0, ports: x.ports && x.ports.count > 0 ? x.ports : undefined, custom: true });
+  audit_({ actor: ME, object: id, field: 'module type', prev: '—', next: `${x.kind} for ${x.fits.length} model${x.fits.length === 1 ? '' : 's'}`, source: 'DCIM' });
+  changed(); return id;
+}
+export function dcimEditTemplates(typeId: string, x: { ports: { type: string; speedMbps: number; count: number }[]; psus: number; consolePorts: number; mgmtPorts: number; moduleBays: number }) {
+  const t = customTypeById(typeId); if (!t) throw new Error('Only device types added by hand can be edited; vendor types follow the installed devices');
+  if (x.ports.some(p => p.count < 1 || p.count > 128)) throw new Error('Each port group needs 1–128 ports');
+  if (x.psus < 0 || x.psus > 8) throw new Error('A device has 0–8 power supplies');
+  Object.assign(t, { ports: x.ports, psus: x.psus, consolePorts: x.consolePorts, mgmtPorts: x.mgmtPorts, moduleBays: x.moduleBays, description: `${t.uHeight}U ${t.role.toLowerCase()} · ${x.ports.map(p => `${p.count}× ${p.type}`).join(' + ') || 'no data ports'}` });
+  audit_({ actor: ME, object: typeId, field: 'component templates', prev: '—', next: `${x.ports.reduce((a, p) => a + p.count, 0)} ports · ${x.psus} PSU · ${x.moduleBays} bays`, source: 'DCIM' });
+  changed();
+}
+export function dcimImportTypes(json: string) {
+  let rows: unknown;
+  try { rows = JSON.parse(json); } catch (e) { throw new Error(`Not valid JSON: ${(e as Error).message}`); }
+  const list = Array.isArray(rows) ? rows : [rows];
+  const out: { model: string; ok: boolean; message: string }[] = [];
+  for (const r of list as Record<string, unknown>[]) {
+    const model = `${r.manufacturer ?? '?'} ${r.model ?? '?'}`;
+    try {
+      const ports = Array.isArray(r.ports) ? (r.ports as Record<string, unknown>[]).map(p => ({ type: String(p.type ?? 'Port'), speedMbps: Number(p.speedMbps ?? 10000), count: Number(p.count ?? 1) })) : [];
+      dcimAddType({ manufacturer: String(r.manufacturer ?? ''), model: String(r.model ?? ''), role: (r.role as NeRole) ?? 'Switch', uHeight: Number(r.uHeight ?? 1), psus: Number(r.psus ?? 2), ports });
+      out.push({ model, ok: true, message: 'Added' });
+    } catch (e) { out.push({ model, ok: false, message: (e as Error).message }); }
+  }
+  return out;
+}
+
 
 /* ---- IP & Network (P2B merge, phase 2): the address plan derived from the estate (mock/ipam.ts) */
 export function ipam(q: { dcId?: string } = {}) {

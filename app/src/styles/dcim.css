@@ -97,3 +97,70 @@
 .dcim .nowrap { white-space: nowrap; }
 .dcim .dt-table td .dcim-via { display: block; max-width: 320px; white-space: normal; overflow-wrap: anywhere; font-family: var(--num); }
 .dcim .dt-table td.is-wrap .mono { white-space: normal; overflow-wrap: anywhere; }
+
+/* ---- 14-Oct-2026 DCIM operations (P2B gap fill) */
+.dcim-acts { white-space: nowrap; text-align: right; }
+.dcim-acts button { all: unset; width: 26px; height: 26px; border-radius: 6px; display: inline-grid; place-items: center; color: var(--ink-500); cursor: pointer; }
+.dcim-acts button:hover { background: var(--vw-color-slate-100); color: var(--primaryColor700); }
+.dcim-pick { display: flex; flex-direction: column; gap: 8px; max-height: 340px; overflow-y: auto; }
+.dcim-pick-item { all: unset; box-sizing: border-box; display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid var(--vw-color-slate-200); border-radius: 10px; cursor: pointer; }
+.dcim-pick-item:hover { border-color: var(--primaryColor300); }
+.dcim-pick-item.is-on { border-color: var(--primaryColor500); background: var(--primaryColor50); box-shadow: 0 0 0 3px var(--primaryColor100); }
+.dcim-pick-item b { font-weight: 500; font-size: 13.5px; } .dcim-pick-item small { font-size: 12px; color: var(--ink-500); }
+.dcim-fits { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; max-height: 180px; overflow-y: auto; margin-top: 8px; padding: 8px; border: 1px solid var(--vw-color-slate-200); border-radius: 8px; }
+.dcim-fits label { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-700); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.dcim-fits label.is-on { color: var(--primaryColor700); }
+.dcim-json { width: 100%; min-height: 220px; resize: vertical; font-size: 12px; line-height: 1.5; padding: 10px; box-sizing: border-box; }
+.dcim-import { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.dcim-import li { display: flex; align-items: center; gap: 8px; font-size: 12.5px; padding: 6px 8px; border-radius: 6px; }
+.dcim-import li.is-ok { background: var(--vw-color-emerald-50, #ecfdf5); color: var(--vw-color-emerald-700); }
+.dcim-import li.is-bad { background: var(--vw-color-red-50, #fef2f2); color: #b21313; }
+.dcim-import li b { font-weight: 500; color: var(--ink-900); } .dcim-import li span { color: var(--ink-600); }
+.dcim-tpl { display: flex; flex-direction: column; gap: 8px; }
+.dcim-tpl-row { display: grid; grid-template-columns: minmax(0, 1fr) 90px auto 30px; gap: 8px; align-items: center; }
+.dcim-tpl-x { all: unset; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 6px; color: var(--ink-500); cursor: pointer; }
+.dcim-tpl-x:hover { background: var(--vw-color-red-50, #fef2f2); color: #b21313; }
+.dcim-tpl-sum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.dcim-tpl-sum > span { display: flex; flex-direction: column; gap: 2px; padding: 9px 10px; border-radius: 8px; background: var(--vw-color-slate-50); font-size: 12px; color: var(--ink-500); min-width: 0; }
+.dcim-tpl-sum svg { color: var(--primaryColor600); }
+.dcim-tpl-sum b { font-size: 16px; font-weight: 400; color: var(--ink-900); }
+.dcim-tpl-sum small { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dcim-dev.is-held { background: repeating-linear-gradient(135deg, var(--vw-color-amber-50, #fffbeb) 0 6px, var(--vw-color-amber-100, #fef3c7) 6px 12px); border: 1px dashed var(--vw-color-amber-400); color: #926e00; display: flex; align-items: center; justify-content: center; font-size: 11px; }
+.dcim-activity { list-style: none; margin: 0; padding: 0; }
+.dcim-activity li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 10px 2px; border-bottom: 1px solid var(--vw-color-slate-100); font-size: 13px; }
+.dcim-activity li > span:nth-child(2) { display: flex; flex-direction: column; min-width: 0; }
+.dcim-activity small { font-size: 12px; color: var(--ink-500); overflow-wrap: anywhere; }
+.dcim-activity b { font-weight: 500; text-transform: capitalize; }
+.dcim-activity-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primaryColor400); margin-top: 6px; }
+.dcim-activity-when { text-align: right; white-space: nowrap; }
+.dcim-rk.is-ghost { background: transparent !important; border: 1.5px dashed var(--vw-color-slate-300); color: var(--ink-500); display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer; }
+.dcim-rk.is-ghost:hover { border-color: var(--primaryColor400); color: var(--primaryColor700); background: var(--primaryColor50) !important; }
+.dcim-ex { display: flex; flex-direction: column; gap: 14px; }
+.dcim-ex-bar { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px !important; }
+.dcim-ex-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dcim-ex-search { display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px; border: 1px solid var(--vw-color-slate-200); border-radius: 8px; min-width: 240px; color: var(--ink-500); }
+.dcim-ex-search input { border: 0; outline: 0; font: inherit; font-size: 13px; flex: 1; min-width: 0; background: transparent; }
+.dcim-ex-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-top: 12px; border-top: 1px solid var(--vw-color-slate-100); }
+.dcim-ex-f { display: flex; align-items: center; gap: 0; border: 1px solid var(--vw-color-slate-200); border-radius: 8px; overflow: hidden; font-size: 12.5px; }
+.dcim-ex-f span { padding: 0 8px; color: var(--ink-500); background: var(--vw-color-slate-50); align-self: stretch; display: flex; align-items: center; border-right: 1px solid var(--vw-color-slate-200); }
+.dcim-ex-f .select { border: 0; height: 32px; min-width: 110px; }
+.dcim-ex-f.is-on { border-color: var(--primaryColor400); } .dcim-ex-f.is-on span { background: var(--primaryColor50); color: var(--primaryColor700); }
+.dcim-ex-views { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.dcim-ex-views > .vw-label { display: inline-flex; align-items: center; gap: 4px; }
+.dcim-ex-view { display: inline-flex; align-items: center; border: 1px solid var(--primaryColor200); border-radius: 14px; background: var(--primaryColor50); overflow: hidden; }
+.dcim-ex-view button { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 3px 6px 3px 10px; font-size: 12.5px; color: var(--primaryColor700); }
+.dcim-ex-view button + button { padding: 3px 8px 3px 4px; color: var(--ink-500); }
+.dcim-ex-view small { font-size: 11px; color: var(--ink-500); }
+.dcim-ex-name { display: inline-flex; gap: 6px; align-items: center; } .dcim-ex-name .input { height: 30px; width: 180px; }
+.dcim-ex-count { font-size: 13px; color: var(--ink-700); } .dcim-ex-count b { font-weight: 500; }
+.dcim-ex-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.dcim-ex-tile { all: unset; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid var(--vw-color-slate-200); border-top: 3px solid var(--vw-color-slate-300); border-radius: 10px; background: var(--surface); cursor: pointer; min-width: 0; }
+.dcim-ex-tile:hover { box-shadow: 0 4px 14px -8px var(--primaryColor300); border-color: var(--primaryColor300); }
+.dcim-ex-tile-top { display: flex; align-items: center; gap: 6px; } .dcim-ex-tile-top b { flex: 1; min-width: 0; font-weight: 500; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dcim-ex-tile small { font-size: 11.5px; color: var(--ink-500); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dcim-rk.is-ghost { min-width: 64px; }
+.dcim-pick-sm { max-height: 260px; margin-top: 8px; gap: 6px; } .dcim-pick-sm .dcim-pick-item { padding: 7px 10px; }
+.dcim-activity-t { display: block; }
+.dcim-activity b { text-transform: none; }
+.dcim-tpl-sum small { white-space: normal; }
+.dcim-rack-side .tabs .tab { padding: 0 9px; }

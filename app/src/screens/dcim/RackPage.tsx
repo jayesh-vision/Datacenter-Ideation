@@ -3,14 +3,16 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { getDatacenter, getDcimRack, useQuery } from '../../api';
+import { dcimReleaseU, dcimRetireRack, getDatacenter, getDcimRack, useQuery } from '../../api';
 import type { DcimDevice, DcimRackView } from '../../api/types';
 import { usePage, PageHead, Loading } from '../../shell/page';
-import { Btn, Chip, Info, Panel, Tabs } from '../../ui/kit';
+import { Btn, Chip, Info, Modal, Panel, Tabs } from '../../ui/kit';
+import { useToast } from '../ops/shared';
+import { RackEditModal, ReserveModal } from './ops';
 import { DataTable, type Col } from '../../ui/DataTable';
 import { Meter } from '../../ui/status';
 import { SummaryStrip } from '../site/SummaryStrip';
-import { fmtKw, fmtNum } from '../../lib/format';
+import { fmtDate, fmtDateTime, fmtKw, fmtNum } from '../../lib/format';
 import { CablePathDrawer, RackPowerDrawer, STATE_TONE, pduState } from '../physical/parts';
 import { NotFound } from '../NotFound';
 import { ACCENT, BAD, CAT_COLOR, CAT_LABEL, DcimStatusChip, loadColor, pct } from './common';
@@ -18,7 +20,7 @@ import { DeviceDrawer } from './lists';
 import { InstallDeviceModal } from './forms';
 import '../../styles/dcim.css';
 
-type Tab = 'devices' | 'power' | 'cables' | 'panels';
+type Tab = 'devices' | 'power' | 'cables' | 'panels' | 'reservations' | 'activity';
 const UPX = 15;
 
 export function RackPage() {
@@ -31,6 +33,9 @@ export function RackPage() {
   const [install, setInstall] = useState(false);
   const [power, setPower] = useState(false);
   const [path, setPath] = useState<string | null>(null);
+  const [form, setForm] = useState<'edit' | 'reserve' | 'retire' | null>(null);
+  const [err, setErr] = useState('');
+  const toast = useToast();
   usePage([{ label: 'Plan & Build' }, { label: 'DCIM', to: '/dcim' }, { label: data?.rack.dcId ?? '…', to: data ? `/dcim?tab=floorplan&dc=${data.rack.dcId}&hall=${data.rack.hallId}` : undefined }, { label: data?.rack.name ?? id }], data ? { dcId: data.rack.dcId } : {});
   const { data: dc } = useQuery(() => (data ? getDatacenter(data.rack.dcId) : Promise.resolve(null)), [data?.rack.dcId]);
   if (loading && !data) return <Loading />;
@@ -46,7 +51,12 @@ export function RackPage() {
         actions={<>
           <Btn icon={I.Zap} onClick={() => setPower(true)}>Outlet map</Btn>
           <Btn icon={I.Box} onClick={() => nav(`/datacenters/${r.dcId}?twin=realistic`)}>3D twin</Btn>
-          {r.owner !== 'tenant' && <Btn variant="filled" icon={I.HardDriveDownload} onClick={() => setInstall(true)} disabled={r.freeU < 1}>Install device</Btn>}
+          {r.owner !== 'tenant' && <>
+            <Btn icon={I.Pencil} onClick={() => setForm('edit')}>Edit</Btn>
+            <Btn icon={I.Bookmark} onClick={() => setForm('reserve')} disabled={r.freeU < 1}>Reserve space</Btn>
+            <Btn icon={I.Archive} onClick={() => { setErr(''); setForm('retire'); }}>Retire</Btn>
+            <Btn variant="filled" icon={I.HardDriveDownload} onClick={() => setInstall(true)} disabled={r.freeU < 1}>Install device</Btn>
+          </>}
         </>} />
 
       <SummaryStrip items={[
@@ -63,7 +73,7 @@ export function RackPage() {
           <Elevation v={data} onDevice={setDev} />
         </Panel>
         <div className="dcim-rack-side">
-          <Tabs value={tab} onChange={setTab} tabs={[{ id: 'devices', label: 'Devices', count: devices.length }, { id: 'power', label: 'Power', count: data.cords.length }, { id: 'cables', label: 'Cables', count: data.cables.length }, { id: 'panels', label: 'Patch panels', count: data.panels.length }]} />
+          <Tabs value={tab} onChange={setTab} tabs={[{ id: 'devices', label: 'Devices', count: devices.length }, { id: 'power', label: 'Power', count: data.cords.length }, { id: 'cables', label: 'Cables', count: data.cables.length }, { id: 'panels', label: 'Panels', count: data.panels.length }, { id: 'reservations', label: 'Reserved', count: data.reserved.filter(x => x.id).length }, { id: 'activity', label: 'Activity', count: data.activity.length }]} />
           {tab === 'devices' && <DeviceList devices={devices} onRow={d => setDev(d.id)} />}
           {tab === 'power' && <PowerCards v={data} />}
           {tab === 'cables' && <section className="vw-card-section dcim-table"><DataTable rows={data.cables} pageSize={15} onRow={c => c.linkId && setPath(c.linkId)} defaultSort={{ key: 'st', dir: 'desc' }} cols={[
@@ -75,10 +85,27 @@ export function RackPage() {
             { key: 'n', header: 'Panel', sort: p => p.name, render: p => <span className="cell-2"><span className="mono">{p.name}</span><small>{p.role === 'odf' ? 'ODF (main distribution)' : 'Cabinet panel, top of rack'}</small></span> },
             { key: 'k', header: 'Kind', sort: p => p.kind, render: p => p.kind },
             { key: 'u', header: 'Ports used', sort: p => p.used / p.ports, render: p => <Meter pct={pct(p.used, p.ports)} width={56} color={ACCENT} label={`${p.used}/${p.ports}`} /> }]} /></section>}
+          {tab === 'reservations' && <section className="vw-card-section dcim-table"><DataTable rows={data.reserved.filter(x => x.id).map(x => ({ ...x, id: x.id! }))} pageSize={15} defaultSort={{ key: 'u', dir: 'desc' }}
+            empty={<p className="vw-label" style={{ padding: 16 }}>No space held in this cabinet. “Reserve space” holds rack units for a planned install or a change.</p>} cols={[
+            { key: 'u', header: 'Units', sort: x => x.u, render: x => <span className="mono">U{x.u}–U{x.u + x.uHeight - 1}</span> },
+            { key: 'l', header: 'Held for', sort: x => x.label, wrap: true, render: x => <span className="cell-2"><span>{x.label}</span><small>by {x.by}</small></span> },
+            { key: 't', header: 'Until', sort: x => x.until ?? 0, render: x => (x.until ? fmtDate(x.until) : <span className="vw-label">open</span>) },
+            { key: 'a', header: '', render: x => <Btn size="sm" icon={I.X} onClick={() => dcimReleaseU(x.id).then(() => toast.show('Space released', `U${x.u}–U${x.u + x.uHeight - 1} is free again.`))}>Release</Btn> }]} /></section>}
+          {tab === 'activity' && <section className="vw-card-section"><ul className="dcim-activity">{data.activity.map(a => (
+            <li key={a.id}><span className="dcim-activity-dot" /><span><span className="dcim-activity-t"><b>{a.field}</b> · <span className="mono">{a.object.replace(`${r.dcId}-`, '')}</span></span><small>{a.prev !== '—' ? `${a.prev} → ` : ''}{a.next}</small></span><small className="dcim-activity-when">{fmtDateTime(a.at)}<br />{a.actor}</small></li>))}</ul>
+            {!data.activity.length && <p className="vw-label">No changes recorded for this cabinet or its devices in this session.</p>}</section>}
         </div>
       </div>
 
       <DeviceDrawer id={dev} onClose={() => setDev(null)} />
+      <RackEditModal rack={form === 'edit' ? r : null} onClose={() => setForm(null)} onDone={t => { setForm(null); toast.show(t); }} />
+      <ReserveModal rack={form === 'reserve' ? r : null} onClose={() => setForm(null)} onDone={t => { setForm(null); setTab('reservations'); toast.show(t, 'Install and Move skip this space until it is released.'); }} />
+      <Modal open={form === 'retire'} onClose={() => setForm(null)} title={`Retire ${r.name}?`} sub="The cabinet is removed from the hall, the floor plan and the twin. Only an empty rack can be retired."
+        foot={<><Btn onClick={() => setForm(null)}>Cancel</Btn><Btn variant="filled" icon={I.Archive} onClick={() => dcimRetireRack(r.id).then(() => { setForm(null); nav(`/dcim?tab=floorplan&dc=${r.dcId}&hall=${r.hallId}`); }).catch(e => setErr(String(e.message ?? e)))}>Retire rack</Btn></>}>
+        <p style={{ margin: 0 }}>{r.devices ? `${r.name} holds ${r.devices} device${r.devices === 1 ? '' : 's'}: move or remove them first.` : `${r.name} is empty and can be retired.`}</p>
+        {err && <p className="dcim-err">{err}</p>}
+      </Modal>
+      {toast.node}
       <InstallDeviceModal open={install} onClose={() => setInstall(false)} dcId={r.dcId} rackId={r.id} />
       {power && dc && <RackPowerDrawer dc={dc.dc} rackId={r.id} onClose={() => setPower(false)} />}
       <CablePathDrawer linkId={path} onClose={() => setPath(null)} />
@@ -102,7 +129,7 @@ function Elevation({ v, onDevice }: { v: DcimRackView; onDevice: (id: string) =>
             </button>
           ))}
           {v.reserved.map(x => (
-            <div key={x.label} className="dcim-dev is-odf" style={{ bottom: (x.u - 1) * UPX + 1, height: x.uHeight * UPX - 2 }}><span>{x.label} · {x.uHeight}U</span></div>
+            <div key={x.id ?? x.label} title={x.id ? `Held for ${x.label} by ${x.by}` : undefined} className={`dcim-dev ${x.id ? 'is-held' : 'is-odf'}`} style={{ bottom: (x.u - 1) * UPX + 1, height: x.uHeight * UPX - 2 }}><span>{x.label} · {x.uHeight}U</span></div>
           ))}
         </div>
       </div>

@@ -47,11 +47,12 @@ export interface SitePhys extends SitePhysical {
 }
 export interface End { linkId: string; neId: string; rackId: string; ifName: string; inRack: boolean; panelId?: string; panelPort?: number; trunkId?: string; odfPanel?: string; odfPort?: number; ospCore?: number; ospStrand?: string; ospRack?: string; route: string; cordId: string }
 
-const linkIdx = new WeakMap<Db, Map<string, Link>>();
-const linkOf = (db: Db, id: string) => { let m = linkIdx.get(db); if (!m) { m = new Map(db.links.map(l => [l.id, l])); linkIdx.set(db, m); } return m.get(id); };
+/* link index by id; rebuilt after any change (links can be added or removed by DCIM cable edits) */
+let linkIdx: { db: Db; m: Map<string, Link> } | null = null;
+const linkOf = (db: Db, id: string) => { if (!linkIdx || linkIdx.db !== db) linkIdx = { db, m: new Map(db.links.map(l => [l.id, l])) }; return linkIdx.m.get(id); };
 const cache = new Map<string, SitePhys>();
 let cacheDb: Db | null = null;
-export function clearPhysical() { cache.clear(); cacheDb = null; }
+export function clearPhysical() { cache.clear(); cacheDb = null; linkIdx = null; }
 export function sitePhys(db: Db, dcId: string): SitePhys | null {
   if (cacheDb !== db) { cache.clear(); cacheDb = db; }
   const hit = cache.get(dcId); if (hit) return hit;

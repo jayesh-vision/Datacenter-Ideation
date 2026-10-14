@@ -466,14 +466,14 @@ export interface DcimRack {
   id: string; name: string; dcId: string; hallId: string; hallName: string; rowId: string; rowName: string; floor: string; gridX: number; gridY: number;
   role: string; heightU: number; usedU: number; freeU: number; devices: number; plannedDevices: number; drawKw: number; budgetKw: number; powerPct: number;
   density: 'Standard' | 'High' | 'AI'; liquid: boolean; owner: 'operator' | 'tenant'; tenantId?: string; tenantName?: string; status: DcimStatus; tempC: number;
-  pdus: number; power: 'A + B' | 'A + B · one side down' | 'B only' | 'A only'; weightKg: number; maxWeightKg: number; ports: number; portsUsed: number;
+  pdus: number; power: 'A + B' | 'A + B · one side down' | 'B only' | 'A only'; weightKg: number; maxWeightKg: number; ports: number; portsUsed: number; contractedKw?: number;
 }
 export interface DcimDeviceType {
   id: string; manufacturer: string; model: string; role: NeRole; category: NeCategory; uHeight: number; fullDepth: boolean; airflow: 'Front to rear' | 'Rear to front' | 'Side to side';
   weightKg: number; typicalW: number; psus: number; platform: string; ports: { type: string; speedMbps: number; count: number }[]; mgmtPorts: number; consolePorts: number;
   moduleBays: number; devices: number; sites: number; description: string; custom?: boolean;
 }
-export interface DcimModuleType { id: string; name: string; kind: 'Power supply' | 'Fan' | 'Line card' | 'Routing engine' | 'Accelerator' | 'Storage' | 'Other'; fits: string[]; installed: number; faulty: number }
+export interface DcimModuleType { id: string; name: string; kind: 'Power supply' | 'Fan' | 'Line card' | 'Routing engine' | 'Accelerator' | 'Storage' | 'Other'; fits: string[]; installed: number; faulty: number; ports?: { type: string; speedMbps: number; count: number }; custom?: boolean }
 export interface DcimDevice {
   id: string; name: string; dcId: string; rackId: string; rackName: string; hallId: string; hallName: string; u: number; uHeight: number; typeId: string;
   manufacturer: string; model: string; role: NeRole; category: NeCategory; status: DcimStatus; serial: string; assetTag: string; ip: string; platform: string;
@@ -490,14 +490,15 @@ export interface DcimCable {
 }
 export interface DcimPowerPanel {
   id: string; dcId: string; hallId: string; hallName: string; name: string; side: PowerSide | 'DC'; source: string; sourceState: 'Online' | 'On battery' | 'Bypass' | 'Fault' | 'Rectifier';
-  utility: string; feeds: number; loadKw: number; capacityKw: number; state: 'ok' | 'warn' | 'bad';
+  utility: string; feeds: number; loadKw: number; capacityKw: number; state: 'ok' | 'warn' | 'bad'; manual?: boolean;
 }
 export interface DcimPowerFeed {
   id: string; dcId: string; panelId: string; rackId: string; rackName: string; hallName: string; name: string; side: PowerSide; kind: 'AC' | 'DC'; volts: number; phases: 1 | 3; amps: number;
-  capacityKw: number; loadKw: number; pct: number; outlets: number; cords: number; state: RackPdu['state']; note?: string;
+  capacityKw: number; loadKw: number; pct: number; outlets: number; cords: number; state: RackPdu['state']; note?: string; manual?: boolean;
 }
 export interface DcimRackView {
-  rack: DcimRack; devices: DcimDevice[]; reserved: { u: number; uHeight: number; label: string }[]; panels: PatchPanel[]; feeds: DcimPowerFeed[];
+  rack: DcimRack; devices: DcimDevice[]; reserved: { u: number; uHeight: number; label: string; id?: string; by?: string; until?: number }[];
+  activity: { id: string; at: number; actor: string; object: string; field: string; prev: string; next: string }[]; panels: PatchPanel[]; feeds: DcimPowerFeed[];
   cords: (PowerCord & { deviceName: string; pduName: string })[]; cables: DcimCable[]; hall: DcimHall; neighbours: { id: string; name: string }[];
 }
 export interface DcimCatalog { manufacturers: { name: string; types: number; devices: number }[]; roles: { role: NeRole; category: NeCategory; types: number; devices: number }[]; platforms: { name: string; devices: number }[] }

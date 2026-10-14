@@ -5,21 +5,26 @@ import * as I from 'lucide-react';
 import { getDcim, useQuery } from '../../api';
 import type { DcimHall, DcimRack } from '../../api/types';
 import { Loading } from '../../shell/page';
-import { Chip, Info, KV, Panel, Seg } from '../../ui/kit';
+import { useState } from 'react';
+import { Btn, Chip, Info, KV, Panel, Seg } from '../../ui/kit';
+import { NewRackModal } from './forms';
 import { Meter } from '../../ui/status';
 import { fmtKw, fmtNum } from '../../lib/format';
 import { ACCENT, loadColor, pct, rackFill, type PlanMeasure } from './common';
 
-const MEASURES: { id: PlanMeasure; label: string }[] = [{ id: 'power', label: 'Power' }, { id: 'space', label: 'Space' }, { id: 'temp', label: 'Inlet temp' }, { id: 'status', label: 'Status' }];
+const MEASURES: { id: PlanMeasure; label: string }[] = [{ id: 'power', label: 'Power' }, { id: 'space', label: 'Space' }, { id: 'temp', label: 'Thermal' }, { id: 'density', label: 'Density' }, { id: 'tenant', label: 'Tenant' }, { id: 'status', label: 'Status' }];
 const LEGEND: Record<PlanMeasure, { c: string; l: string }[]> = {
   power: [{ c: 'var(--vw-color-blue-50)', l: '< 50%' }, { c: 'var(--vw-color-blue-200)', l: '50–79%' }, { c: 'var(--vw-color-amber-200)', l: '80–89%' }, { c: 'var(--vw-color-red-200)', l: '≥ 90% of budget' }],
   space: [{ c: 'var(--vw-color-blue-50)', l: '< 50% U' }, { c: 'var(--vw-color-blue-200)', l: '50–89%' }, { c: 'var(--vw-color-amber-200)', l: '≥ 90% U used' }],
   temp: [{ c: 'var(--vw-color-green-100)', l: '≤ 25°C' }, { c: 'var(--vw-color-amber-200)', l: '25–27°C' }, { c: 'var(--vw-color-red-200)', l: '> 27°C inlet' }],
+  density: [{ c: 'var(--vw-color-slate-100)', l: 'Standard (< 15 kW)' }, { c: 'var(--vw-color-blue-200)', l: 'High (≥ 15 kW)' }, { c: 'var(--vw-color-purple-200, #e9d5ff)', l: 'AI / GPU' }],
+  tenant: [{ c: 'var(--vw-color-slate-50)', l: 'Operator' }, { c: 'var(--vw-color-cyan-100, #cffafe)', l: 'Tenant < 90% of contract' }, { c: 'var(--vw-color-amber-200)', l: '90–100%' }, { c: 'var(--vw-color-red-200)', l: 'Over contract' }],
   status: [{ c: 'var(--vw-color-green-100)', l: 'Active, A + B fed' }, { c: 'var(--vw-color-gray-100)', l: 'Tenant' }, { c: 'var(--vw-color-blue-50)', l: 'Planned' }, { c: 'var(--vw-color-red-200)', l: 'One power side down' }]
 };
 
 export function FloorPlans({ dcId, onSite }: { dcId: string; onSite: (id: string) => void }) {
   const [sp, setSp] = useSearchParams();
+  const [adding, setAdding] = useState(false);
   const nav = useNavigate();
   const { data: all } = useQuery(() => getDcim(), []);
   const { data } = useQuery(() => getDcim({ dcId }), [dcId]);
@@ -56,18 +61,19 @@ export function FloorPlans({ dcId, onSite }: { dcId: string; onSite: (id: string
         <div className="dcim-fp-grid">
           <Panel title={<>{hall.name}<span className="vw-label"> · {hall.floor} · {site?.id}</span></>} icon={I.LayoutGrid}
             info="The hall's racks on the twin's grid: rows in order, paired face to face around a cold aisle (fronts facing the aisle). Click a rack to open it."
-            actions={<span className="dcim-legend">{LEGEND[m].map(x => <span key={x.l}><i style={{ background: x.c }} />{x.l}</span>)}</span>}>
-            <Plan hall={hall} racks={data.racks.filter(r => r.hallId === hall.id)} rows={data.rows.filter(r => r.hallId === hall.id)} m={m} onRack={id => nav(`/dcim/racks/${encodeURIComponent(id)}`)} />
+            actions={<span className="row" style={{ gap: 10 }}><span className="dcim-legend">{LEGEND[m].map(x => <span key={x.l}><i style={{ background: x.c }} />{x.l}</span>)}</span>{site?.status !== 'planned' && <Btn size="sm" icon={I.Plus} onClick={() => setAdding(true)}>New rack</Btn>}</span>}>
+            <Plan hall={hall} racks={data.racks.filter(r => r.hallId === hall.id)} rows={data.rows.filter(r => r.hallId === hall.id)} m={m} onRack={id => nav(`/dcim/racks/${encodeURIComponent(id)}`)} onAdd={() => setAdding(true)} />
           </Panel>
           <HallFacts hall={hall} racks={data.racks.filter(r => r.hallId === hall.id)} />
         </div>
       )}
+      <NewRackModal open={adding} onClose={() => setAdding(false)} dcId={dcId} hallId={hall?.id} />
     </div>
   );
 }
 
-function Plan({ hall, racks, rows, m, onRack }: { hall: DcimHall; racks: DcimRack[]; rows: { id: string; name: string; racks: string[]; containment: string }[]; m: PlanMeasure; onRack: (id: string) => void }) {
-  if (!racks.length) return <p className="vw-label" style={{ padding: 16 }}>No racks in this room yet. Use “New rack” to add the first one.</p>;
+function Plan({ hall, racks, rows, m, onRack, onAdd }: { hall: DcimHall; racks: DcimRack[]; rows: { id: string; name: string; racks: string[]; containment: string }[]; m: PlanMeasure; onRack: (id: string) => void; onAdd: () => void }) {
+  if (!racks.length) return <div style={{ padding: 16 }}><p className="vw-label">No racks in this room yet.</p><button type="button" className="dcim-rk is-ghost" onClick={onAdd}><I.Plus size={14} /><small>New rack</small></button></div>;
   const byId = new Map(racks.map(r => [r.id, r]));
   /* rows come in pairs (A faces B across a cold aisle); a lone last row has no partner */
   const pairs: typeof rows[] = [];
@@ -88,6 +94,8 @@ function Plan({ hall, racks, rows, m, onRack }: { hall: DcimHall; racks: DcimRac
                     {r.liquid && <I.Droplets size={11} className="dcim-rk-liq" aria-label="Liquid cooled" />}
                   </button>
                 ); })}
+                {pi === pairs.length - 1 && k === pr.length - 1 && Array.from({ length: Math.max(0, hall.gridCols - row.racks.length) }, (_, g) => (
+                  <button key={`g${g}`} type="button" className="dcim-rk is-ghost" onClick={onAdd} title="Empty position: add a rack here (racks fill the row in order)"><I.Plus size={13} /><small>Free</small></button>))}
               </div>
             </div>
           ))}

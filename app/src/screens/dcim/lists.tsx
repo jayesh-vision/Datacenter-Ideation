@@ -3,8 +3,8 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { getDatacenter, getDcimDevice, getDeviceIps, getIpam, setDeviceStatus, useQuery } from '../../api';
-import type { DcimCable, DcimDevice, DcimDeviceType, DcimModuleType, DcimPowerFeed, DcimPowerPanel, DcimRack, DcimCatalog } from '../../api/types';
+import { dcimDisconnect, dcimRemoveModule, dcimSwapModule, getDatacenter, getDcimDevice, getDeviceIps, getIpam, setDeviceStatus, useQuery } from '../../api';
+import type { DcimCable, DcimComponent, DcimDevice, DcimDeviceType, DcimModuleType, DcimPowerFeed, DcimPowerPanel, DcimRack, DcimCatalog } from '../../api/types';
 import { Loading } from '../../shell/page';
 import { Btn, Chip, Drawer, KV, Panel, Seg } from '../../ui/kit';
 import { DataTable, type Col } from '../../ui/DataTable';
@@ -16,6 +16,7 @@ import { useToast } from '../ops/shared';
 import { ACCENT, BAD, CAT_COLOR, CAT_LABEL, DcimStatusChip, loadColor, pct } from './common';
 import { NewTypeModal } from './forms';
 import { DeviceAddresses } from '../ipam/extras';
+import { ConnectModal, FeedModal, ImportTypesModal, InterfaceModal, ModuleModal, ModuleTypeModal, MoveModal, PanelModal } from './ops';
 
 function useP() {
   const [sp, setSp] = useSearchParams();
@@ -96,18 +97,27 @@ export function DeviceDrawer({ id, onClose }: { id: string | null; onClose: () =
   const { data } = useQuery(() => (id ? getDcimDevice(id) : Promise.resolve(null)), [id]);
   const { data: ips } = useQuery(() => (id ? getDeviceIps(id) : Promise.resolve(null)), [id]);
   const { data: sitePlan } = useQuery(() => (data?.device ? getIpam({ dcId: data.device.dcId }) : Promise.resolve(null)), [data?.device?.dcId]);
-  const [kind, setKind] = useState<'Interface' | 'Power port' | 'other'>('Interface');
+  const [kind, setKind] = useState<'Interface' | 'Power port' | 'Module bay' | 'other'>('Interface');
   const toast = useToast();
+  const [conn, setConn] = useState<DcimComponent | null>(null);
+  const [edit, setEdit] = useState<DcimComponent | null>(null);
+  const [bay, setBay] = useState<string | null>(null);
+  const [move, setMove] = useState(false);
+  const [trace, setTrace] = useState<string | null>(null);
   if (!id) return null;
   const d = data?.device;
   const comps = data?.components ?? [];
-  const shown = comps.filter(c => (kind === 'other' ? c.kind !== 'Interface' && c.kind !== 'Power port' : c.kind === kind));
+  const shown = comps.filter(c => (kind === 'other' ? c.kind === 'Console' || c.kind === 'Management' : c.kind === kind));
+  const editable = !!d && d.status !== 'Tenant-owned';
+  const run = (p: Promise<unknown>, ok: string, body?: string) => p.then(() => toast.show(ok, body)).catch(e => toast.show('Not changed', String(e.message ?? e)));
+  const optics = comps.filter(c => c.kind === 'Interface' && c.detail && /dBm/.test(c.detail));
   const setSt = (to: 'Active' | 'Maintenance' | 'Decommissioning') => setDeviceStatus(id, to).then(() => toast.show(`${d?.name} set to ${to}`, 'The device page, the twin and the rack update with the new lifecycle state.')).catch(e => toast.show('Not changed', String(e.message ?? e)));
   return (
     <Drawer open onClose={onClose} width={640} title={d ? <span className="mono">{d.name}</span> : 'Device'} sub={d ? `${d.manufacturer} ${d.model} · ${d.dcId} · ${d.rackName} U${d.u}` : 'Loading'}
       foot={d && <>
         <Btn variant="filled" icon={I.Activity} onClick={() => nav(`/ne/${encodeURIComponent(d.id)}`)}>Open device page</Btn>
         <Btn icon={I.Server} onClick={() => nav(`/dcim/racks/${encodeURIComponent(d.rackId)}`)}>Open rack</Btn>
+        {editable && <Btn icon={I.MoveVertical} onClick={() => setMove(true)}>Move</Btn>}
         {d.status !== 'Tenant-owned' && d.status !== 'Planned' && <select className="select" aria-label="Lifecycle" value="" onChange={e => e.target.value && setSt(e.target.value as 'Active')}>
           <option value="">Set lifecycle…</option>{(['Active', 'Maintenance', 'Decommissioning'] as const).filter(x => x !== d.status).map(x => <option key={x} value={x}>{x}</option>)}
         </select>}
@@ -122,20 +132,44 @@ export function DeviceDrawer({ id, onClose }: { id: string | null; onClose: () =
         </>}
         <div className="row" style={{ justifyContent: 'space-between', margin: '16px 0 8px' }}>
           <b>Components</b>
-          <Seg size="sm" value={kind} onChange={setKind} options={[{ id: 'Interface', label: `Ports ${comps.filter(c => c.kind === 'Interface').length}` }, { id: 'Power port', label: `Power ${comps.filter(c => c.kind === 'Power port').length}` }, { id: 'other', label: `Other ${comps.filter(c => c.kind !== 'Interface' && c.kind !== 'Power port').length}` }]} />
+          <Seg size="sm" value={kind} onChange={setKind} options={[{ id: 'Interface', label: `Ports ${comps.filter(c => c.kind === 'Interface').length}` }, { id: 'Power port', label: `Power ${comps.filter(c => c.kind === 'Power port').length}` }, { id: 'Module bay', label: `Bays ${comps.filter(c => c.kind === 'Module bay').length}` }, { id: 'other', label: `Mgmt ${comps.filter(c => c.kind === 'Console' || c.kind === 'Management').length}` }]} />
         </div>
         <table className="nst-table dt-table dcim-comp">
-          <thead><tr><th>Name</th><th>Type</th><th>Connected to</th><th>State</th></tr></thead>
+          <thead><tr><th>Name</th><th>Type</th><th>{kind === 'Module bay' ? 'Module' : 'Connected to'}</th><th>State</th>{editable && (kind === 'Interface' || kind === 'Module bay') && <th aria-label="Actions" />}</tr></thead>
           <tbody>{shown.map(c => (
             <tr key={c.id}>
               <td className="mono">{c.name}</td>
               <td><span className="cell-2"><span>{c.type}</span>{c.speedMbps ? <small>{fmtBw(c.speedMbps)}</small> : c.detail && <small>{c.detail}</small>}</span></td>
               <td>{c.peer ? <span className="cell-2"><span className="mono">{c.peer.deviceName}</span><small>{c.peer.port}</small></span> : <span className="vw-label">—</span>}</td>
-              <td><Chip tone={c.state === 'Connected' ? 'success' : c.state === 'Down' || c.state === 'Failed' ? 'error' : 'neutral'} dot>{c.state}</Chip></td>
+              <td><Chip tone={c.state === 'Connected' ? 'success' : c.state === 'Down' || c.state === 'Failed' ? 'error' : 'neutral'} dot>{kind === 'Module bay' && c.state === 'Connected' ? 'Installed' : c.state}</Chip></td>
+              {editable && kind === 'Interface' && <td className="dcim-acts">
+                {c.peer ? <>
+                  {c.cableId?.startsWith('CB-') && <button type="button" title="Trace the cable" onClick={() => setTrace(c.cableId!.slice(3))}><I.Route size={14} /></button>}
+                  <button type="button" title="Disconnect" onClick={() => run(dcimDisconnect(d!.id, c.name), `${c.name} disconnected`, `The cable to ${c.peer!.deviceName} ${c.peer!.port} is removed; both ports are free.`)}><I.Unplug size={14} /></button>
+                </> : c.state !== 'Disabled' && <button type="button" title="Connect a cable" onClick={() => setConn(c)}><I.Cable size={14} /></button>}
+                <button type="button" title="Edit interface" onClick={() => setEdit(c)}><I.Pencil size={14} /></button>
+              </td>}
+              {editable && kind === 'Module bay' && <td className="dcim-acts">
+                {c.state === 'Empty' ? <button type="button" title="Install a module" onClick={() => setBay(c.name)}><I.Plus size={14} /></button> : <>
+                  <button type="button" title={c.state === 'Failed' ? 'Replace the faulty module' : 'Swap for a spare'} onClick={() => run(dcimSwapModule(d!.id, c.name), `${c.name} replaced`, 'The new serial is recorded; the old one goes to RMA.')}><I.RefreshCw size={14} /></button>
+                  {/^(FPC|DISK)/.test(c.name) && <button type="button" title="Remove the module" onClick={() => run(dcimRemoveModule(d!.id, c.name), `${c.name} removed`)}><I.Trash2 size={14} /></button>}
+                </>}
+              </td>}
             </tr>
           ))}</tbody>
         </table>
-        {!shown.length && <p className="vw-label">None recorded.</p>}
+        {!shown.length && <p className="vw-label">{kind === 'Module bay' ? 'No module bays on this device type.' : 'None recorded.'}</p>}
+        {kind === 'Module bay' && optics.length > 0 && <>
+          <b className="dcim-sub-h">Inventory items · optics ({optics.length})</b>
+          <div className="row wrap" style={{ gap: 6 }}>{optics.slice(0, 40).map(c => <Chip key={c.id} tone="neutral" title={c.detail}><span className="mono">{c.name}</span> · {c.detail!.split(' · ')[0]}</Chip>)}{optics.length > 40 && <span className="vw-label">+{optics.length - 40}</span>}</div>
+        </>}
+      </>}
+      {d && <>
+        <ConnectModal port={conn && { deviceId: d.id, deviceName: d.name, dcId: d.dcId, name: conn.name, speedMbps: conn.speedMbps }} onClose={() => setConn(null)} onDone={t => { setConn(null); toast.show(t, 'The cable appears in Cabling, on both devices and in the cable path view.'); }} />
+        <InterfaceModal port={edit && { deviceId: d.id, c: edit }} onClose={() => setEdit(null)} onDone={t => { setEdit(null); toast.show(t); }} />
+        <ModuleModal bay={bay ? { deviceId: d.id, model: d.model, slot: bay } : null} onClose={() => setBay(null)} onDone={t => { setBay(null); toast.show(t); }} />
+        <MoveModal dev={move ? { id: d.id, name: d.name, dcId: d.dcId, rackId: d.rackId, u: d.u, uHeight: d.uHeight, powerW: d.powerW } : null} onClose={() => setMove(false)} onDone={t => { setMove(false); toast.show(t, 'The rack, the floor plan and the twin show the new position.'); }} />
+        <CablePathDrawer linkId={trace} onClose={() => setTrace(null)} />
       </>}
       {toast.node}
     </Drawer>
@@ -185,21 +219,23 @@ function RackPower({ dcId, rackId, onClose }: { dcId: string; rackId: string; on
 
 /* ---------------------------------------------------------------- power */
 
-export function PowerTab({ panels, feeds }: { panels: DcimPowerPanel[]; feeds: DcimPowerFeed[] }) {
+export function PowerTab({ panels, feeds, dcId }: { panels: DcimPowerPanel[]; feeds: DcimPowerFeed[]; dcId: string }) {
   const { get, set, apply } = useP();
+  const toast = useToast();
+  const [form, setForm] = useState<'panel' | 'feed' | null>(null);
   const q = get('q'), side = get('side'), fst = get('fst');
   const [panel, setPanel] = useState('');
   const [rack, setRack] = useState<{ dcId: string; rackId: string } | null>(null);
   const fRows = useMemo(() => feeds.filter(f => (!panel || f.panelId === panel) && (!side || f.side === side) && (!fst || f.state === fst) && has(`${f.rackName} ${f.hallName} ${f.name} ${f.dcId}`, q)), [feeds, panel, side, fst, q]);
   const pCols: Col<DcimPowerPanel>[] = [
-    { key: 'p', header: 'Distribution', sort: p => `${p.dcId}${p.hallName}${p.side}`, render: p => <span className="cell-2"><span className="vw-card-activity-label">{p.name}</span><small>{p.dcId}</small></span> },
+    { key: 'p', header: 'Distribution', sort: p => `${p.dcId}${p.hallName}${p.side}`, render: p => <span className="cell-2"><span className="vw-card-activity-label">{p.name}{p.manual && <Chip tone="info" size="xs">New</Chip>}</span><small>{p.dcId}{p.hallName && !p.name.includes(p.hallName) ? ` · ${p.hallName}` : ''}</small></span> },
     { key: 'src', header: 'Fed from', sort: p => p.source, render: p => <span className="cell-2"><span>{p.source}</span><small style={{ color: p.sourceState === 'On battery' || p.sourceState === 'Fault' ? BAD : undefined }}>{p.sourceState === 'Rectifier' ? '−48 V plant' : p.sourceState} · {p.utility}</small></span> },
     { key: 'f', header: 'Rack PDUs', sort: p => p.feeds, render: p => fmtNum(p.feeds) },
     { key: 'load', header: 'Load', sort: p => p.loadKw / (p.capacityKw || 1), render: p => <Meter pct={pct(p.loadKw, p.capacityKw)} width={56} color={loadColor(pct(p.loadKw, p.capacityKw))} label={`${fmtKw(p.loadKw)} of ${fmtKw(p.capacityKw)}`} /> },
     { key: 'st', header: 'State', sort: p => p.state, render: p => <Chip tone={p.state === 'ok' ? 'success' : p.state === 'warn' ? 'warning' : 'error'} dot>{p.state === 'ok' ? 'Normal' : p.state === 'warn' ? 'Attention' : 'Fault'}</Chip> }
   ];
   const fCols: Col<DcimPowerFeed>[] = [
-    { key: 'r', header: 'Rack PDU', sort: f => `${f.dcId}${f.rackName}${f.name}`, render: f => <span className="cell-2"><span className="vw-card-activity-label">{f.rackName} · {f.name}</span><small>{f.dcId} · {f.hallName}</small></span> },
+    { key: 'r', header: 'Rack PDU', sort: f => `${f.dcId}${f.rackName}${f.name}`, render: f => <span className="cell-2"><span className="vw-card-activity-label">{f.rackName} · {f.name}{f.manual && <Chip tone="info" size="xs">New</Chip>}</span><small>{f.dcId} · {f.hallName}</small></span> },
     { key: 'e', header: 'Electrical', sort: f => f.capacityKw, render: f => <span className="cell-2"><span>{f.kind === 'DC' ? '−48 V DC' : `${f.volts} V · ${f.phases}-phase · ${f.amps} A`}</span><small>rated {fmtKw(f.capacityKw)}</small></span> },
     { key: 'load', header: 'Load', sort: f => f.pct, render: f => <Meter pct={f.pct} width={56} color={loadColor(f.pct)} label={fmtKw(f.loadKw)} /> },
     { key: 'o', header: 'Outlets', sort: f => f.cords / f.outlets, render: f => `${f.cords} of ${f.outlets}` },
@@ -207,7 +243,7 @@ export function PowerTab({ panels, feeds }: { panels: DcimPowerPanel[]; feeds: D
   ];
   return (
     <div className="dcim-power">
-      <Panel title="Distribution" icon={I.Zap} count={panels.length} flush info="Each hall has an A and a B busway; each hangs off one UPS module (or the −48 V plant for DC-powered telecom gear). Click one to list the rack PDUs it feeds.">
+      <Panel title="Distribution" icon={I.Zap} count={panels.length} flush actions={<span className="row" style={{ gap: 6 }}><Btn size="sm" icon={I.Plus} disabled={!dcId} title={dcId ? undefined : 'Pick a datacenter in the scope selector first'} onClick={() => setForm('panel')}>New panel</Btn><Btn size="sm" icon={I.PlugZap} disabled={!dcId} title={dcId ? undefined : 'Pick a datacenter in the scope selector first'} onClick={() => setForm('feed')}>New feed</Btn></span>} info="Each hall has an A and a B busway; each hangs off one UPS module (or the −48 V plant for DC-powered telecom gear). Click one to list the rack PDUs it feeds.">
         <DataTable rows={panels} cols={pCols} pageSize={12} onRow={p => setPanel(panel === p.id ? '' : p.id)} rowClass={p => (p.id === panel ? 'is-selected' : '')} defaultSort={{ key: 'p', dir: 'asc' }} />
       </Panel>
       <section className="vw-card-section dcim-table">
@@ -219,6 +255,9 @@ export function PowerTab({ panels, feeds }: { panels: DcimPowerPanel[]; feeds: D
             ]}>{panel && <Chip tone="info">{panels.find(p => p.id === panel)?.name}<button type="button" className="dcim-chip-x" onClick={() => setPanel('')} aria-label="Clear panel">×</button></Chip>}</ListToolbar>} />
       </section>
       {rack && <RackPower dcId={rack.dcId} rackId={rack.rackId} onClose={() => setRack(null)} />}
+      <PanelModal open={form === 'panel'} dcId={dcId} onClose={() => setForm(null)} onDone={t => { setForm(null); toast.show(t, 'It is listed under Distribution; add feeds to give racks a circuit from it.'); }} />
+      <FeedModal open={form === 'feed'} dcId={dcId} onClose={() => setForm(null)} onDone={t => { setForm(null); toast.show(t, 'The rack PDU appears in the feed list with no cords yet.'); }} />
+      {toast.node}
     </div>
   );
 }
@@ -231,6 +270,8 @@ export function TypesTab({ types, inScope }: { types: { types: DcimDeviceType[];
   const view = (get('cv') || 'types') as 'types' | 'modules' | 'mfr' | 'platforms';
   const q = get('q'), cat = get('cat');
   const [add, setAdd] = useState(false);
+  const [form, setForm] = useState<'module' | 'import' | null>(null);
+  const toast = useToast();
   const all = types.types;
   const rows = useMemo(() => all.filter(t => (!cat || t.category === cat) && has(`${t.manufacturer} ${t.model} ${t.role} ${t.platform}`, q)), [all, q, cat]);
   const tCols: Col<DcimDeviceType>[] = [
@@ -242,7 +283,7 @@ export function TypesTab({ types, inScope }: { types: { types: DcimDeviceType[];
     { key: 'n', header: 'In use', sort: t => t.devices, render: t => <span className="cell-2"><span className="dcl-num">{fmtNum(t.devices)}</span><small>{t.sites} site{t.sites === 1 ? '' : 's'}{inScope.has(t.id) ? '' : ' · not in scope'}</small></span> }
   ];
   const mCols: Col<DcimModuleType>[] = [
-    { key: 'n', header: 'Module', sort: m => m.name, render: m => <span className="vw-card-activity-label">{m.name}</span> },
+    { key: 'n', header: 'Module', sort: m => m.name, render: m => <span className="cell-2"><span className="vw-card-activity-label">{m.name}{m.custom && <Chip tone="info" size="xs">New</Chip>}</span>{m.ports && <small>adds {m.ports.count}× {m.ports.type}</small>}</span> },
     { key: 'k', header: 'Kind', sort: m => m.kind, render: m => m.kind },
     { key: 'f', header: 'Fits', wrap: true, render: m => m.fits.slice(0, 4).join(', ') + (m.fits.length > 4 ? ` +${m.fits.length - 4}` : '') },
     { key: 'i', header: 'Installed', sort: m => m.installed, render: m => fmtNum(m.installed) },
@@ -252,7 +293,8 @@ export function TypesTab({ types, inScope }: { types: { types: DcimDeviceType[];
     <section className="vw-card-section dcim-table">
       <div className="dcim-sub-bar">
         <Seg value={view} onChange={v => set('cv', v === 'types' ? '' : v)} options={[{ id: 'types', label: `Device types ${all.length}` }, { id: 'modules', label: `Module types ${types.modules.length}` }, { id: 'mfr', label: `Manufacturers ${types.catalog.manufacturers.length}` }, { id: 'platforms', label: `Platforms ${types.catalog.platforms.length}` }]} />
-        {view === 'types' && <Btn icon={I.Plus} onClick={() => setAdd(true)}>New device type</Btn>}
+        {view === 'types' && <span className="row" style={{ gap: 6 }}><Btn icon={I.Upload} onClick={() => setForm('import')}>Import JSON</Btn><Btn icon={I.Plus} onClick={() => setAdd(true)}>New device type</Btn></span>}
+        {view === 'modules' && <Btn icon={I.Plus} onClick={() => setForm('module')}>New module type</Btn>}
       </div>
       {view === 'types' && <DataTable rows={rows} cols={tCols} pageSize={30} defaultSort={{ key: 'n', dir: 'desc' }} onRow={t => nav(`/dcim/types/${encodeURIComponent(t.id)}`)}
         toolbar={<ListToolbar shown={rows.length} total={all.length} noun="device types" onApply={apply} search={{ value: q, onChange: v => set('q', v), placeholder: 'Manufacturer, model, role, platform' }}
@@ -266,6 +308,9 @@ export function TypesTab({ types, inScope }: { types: { types: DcimDeviceType[];
         { key: 'n', header: 'Platform / OS', sort: m => m.name, render: m => <span className="vw-card-activity-label">{m.name}</span> },
         { key: 'd', header: 'Devices', sort: m => m.devices, render: m => fmtNum(m.devices) }]} />}
       <NewTypeModal open={add} onClose={() => setAdd(false)} />
+      <ModuleTypeModal open={form === 'module'} types={all} onClose={() => setForm(null)} onDone={t => { setForm(null); toast.show(t, 'Install it from a device drawer → Bays.'); }} />
+      <ImportTypesModal open={form === 'import'} onClose={() => setForm(null)} onDone={t => toast.show(t)} />
+      {toast.node}
     </section>
   );
 }

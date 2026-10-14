@@ -75,8 +75,13 @@ let cache: DcimModel | null = null;
 /* device types added by hand in the catalogue (they have no devices yet); kept until the estate is regenerated */
 const customTypes: DcimDeviceType[] = [];
 export function clearDcim() { cache = null; }
-export function resetDcimCustom() { customTypes.length = 0; }
+export function resetDcimCustom() { customTypes.length = 0; resetDcimOverlay(); }
 export function addCustomType(t: DcimDeviceType) { customTypes.push(t); cache = null; }
+export const customTypeById = (id: string) => customTypes.find(t => t.id === id);
+/* runtime DCIM records (14-Oct-2026, P2B gap fill): U-space reservations, power panels / feeds and module types entered by hand */
+export interface UReservation { id: string; rackId: string; u: number; uHeight: number; label: string; by: string; until?: number }
+export const dcimOverlay = { reservations: [] as UReservation[], panels: [] as DcimPowerPanel[], feeds: [] as DcimPowerFeed[], modules: [] as DcimModuleType[], seq: 0 };
+export function resetDcimOverlay() { dcimOverlay.reservations.length = 0; dcimOverlay.panels.length = 0; dcimOverlay.feeds.length = 0; dcimOverlay.modules.length = 0; cache = null; }
 
 export function dcimModel(db: Db): DcimModel {
   if (cache && cacheDb === db) return cache;
@@ -151,7 +156,7 @@ function build(db: Db): DcimModel {
           density: ai ? 'AI' : rk.budgetKw >= 15 ? 'High' : 'Standard', liquid: !!rk.liquid, owner: rk.owner ?? 'operator', tenantId: rk.tenantId, tenantName: rk.tenantId ? custName.get(rk.tenantId) : undefined,
           status: dc.status === 'planned' || (all.length && !live.length) ? 'Planned' : rk.owner === 'tenant' ? 'Tenant-owned' : 'Active', tempC: rk.tempC,
           pdus: rp2.length, power: downSides.length === 0 ? 'A + B' : downSides.length === 2 ? 'A + B · one side down' : downSides.includes('A') ? 'B only' : 'A only',
-          weightKg: Math.round(RACK_KG + all.reduce((a, n) => a + deviceKg(n), 0) + (rk.role === 'ODF / patching' ? 60 : 0)), maxWeightKg: ai ? 1800 : 1360, ports, portsUsed: used
+          weightKg: Math.round(RACK_KG + all.reduce((a, n) => a + deviceKg(n), 0) + (rk.role === 'ODF / patching' ? 60 : 0)), maxWeightKg: ai ? 1800 : 1360, ports, portsUsed: used, contractedKw: rk.contractedKw
         });
       });
     }));
@@ -284,6 +289,10 @@ function build(db: Db): DcimModel {
     mods.set(id, x);
   }
 
+  for (const x of dcimOverlay.modules) if (!mods.has(x.id)) mods.set(x.id, { ...x });
+  /* hand-entered power panels and feeds (no load until devices are cabled to them) */
+  for (const p of dcimOverlay.panels) panels.push({ ...p, feeds: dcimOverlay.feeds.filter(f => f.panelId === p.id).length });
+  for (const f of dcimOverlay.feeds) { feeds.push({ ...f }); const pn = panels.find(p => p.id === f.panelId); if (pn && !pn.manual) pn.feeds++; }
   return {
     sites, halls, rows, racks, devices, types: allTypes, modules: [...mods.values()].sort((a, b) => b.installed - a.installed), cables, panels, feeds,
     rackById: new Map(racks.map(r => [r.id, r])), hallById: new Map(halls.map(h => [h.id, h])), deviceById: new Map(devices.map(d => [d.id, d])),
@@ -315,12 +324,16 @@ export function dcimRackView(db: Db, rackId: string): DcimRackView | null {
   const rk = dc.racks.find(r => r.id === rackId)!;
   /* U that the rack's usedU holds beyond its devices: the ODF patch-panel block in the patching rack */
   const devU = devs.reduce((a, d) => a + d.uHeight, 0);
-  const reserved = rk.usedU > devU ? [{ u: devs.length ? Math.max(...devs.map(d => d.u + d.uHeight)) : 2, uHeight: rk.usedU - devU, label: 'ODF patch panels' }] : [];
+  const reserved: DcimRackView['reserved'] = rk.usedU > devU ? [{ u: devs.length ? Math.max(...devs.map(d => d.u + d.uHeight)) : 2, uHeight: rk.usedU - devU, label: 'ODF patch panels' }] : [];
   const cords = (m.cordsByRack.get(rackId) ?? []).map(c => ({ ...c, deviceName: db.neById.get(c.neId)?.name ?? c.neId, pduName: phys?.pduById.get(c.pduId)?.name ?? c.pduId }));
   const ids = new Set(devs.map(d => d.id));
   const row = m.rows.find(r => r.id === rack.rowId);
+  for (const x of dcimOverlay.reservations.filter(r => r.rackId === rackId)) reserved.push({ u: x.u, uHeight: x.uHeight, label: x.label, id: x.id, by: x.by, until: x.until });
+  const names = new Set([rack.id, rack.name, ...devs.map(d => d.id), ...devs.map(d => d.name)]);
+  const activity = db.audit.filter(a => names.has(a.object) || a.object.startsWith(`${rack.id}`) || a.next.includes(rack.name)).slice(-40).reverse()
+    .map(a => ({ id: a.id, at: a.at, actor: a.actor, object: a.object, field: a.field, prev: a.prev, next: a.next }));
   return {
-    rack, devices: devs, reserved, panels: (phys?.panels ?? []).filter(p => p.rackId === rackId), feeds: m.feeds.filter(f => f.rackId === rackId), cords,
+    rack, devices: devs, reserved, activity, panels: (phys?.panels ?? []).filter(p => p.rackId === rackId), feeds: m.feeds.filter(f => f.rackId === rackId), cords,
     cables: m.cables.filter(c => c.kind === 'Data' && (ids.has(c.aDevice) || ids.has(c.zDevice))), hall,
     neighbours: (row?.racks ?? []).filter(id => id !== rackId).map(id => ({ id, name: m.rackById.get(id)?.name ?? id }))
   };
@@ -356,6 +369,10 @@ export function dcimComponents(db: Db, deviceId: string): DcimComponent[] {
     out.push({ id: `${n.id}:mgmt`, deviceId: n.id, kind: 'Management', name: NE_CATEGORY[n.role] === 'network' ? 'mgmt0' : 'BMC', type: '1G copper', state: 'Connected', detail: n.ip });
     if (NE_CATEGORY[n.role] === 'network') out.push({ id: `${n.id}:con`, deviceId: n.id, kind: 'Console', name: 'con0', type: 'RJ45 console', state: 'Connected', detail: 'Console server · out of band' });
   }
+  /* free bays: a router chassis has two line-card slots (FPC0–1), a server eight drive bays (DISK0–7) */
+  const has = new Set(n.modules.map(x => x.slot));
+  const spare = n.role === 'Router' && n.modules.some(x => /^FPC/.test(x.slot)) ? ['FPC0', 'FPC1'] : n.role === 'Server' && n.modules.some(x => /^DISK/.test(x.slot)) ? Array.from({ length: 8 }, (_, k) => `DISK${k}`) : [];
+  for (const slot of spare.filter(x => !has.has(x))) out.push({ id: `${n.id}:${slot}`, deviceId: n.id, kind: 'Module bay', name: slot, type: 'Empty bay', state: 'Empty', detail: /^FPC/.test(slot) ? 'Line-card slot' : 'Drive bay' });
   for (const x of n.modules.filter(y => !/^(PSU|PEM)/.test(y.slot))) {
     out.push({ id: `${n.id}:${x.slot}`, deviceId: n.id, kind: 'Module bay', name: x.slot, type: x.state === 'Empty' ? 'Empty bay' : x.name, state: x.state === 'Empty' ? 'Empty' : x.state === 'Fault' ? 'Failed' : 'Connected', detail: x.state === 'Empty' ? undefined : `S/N ${x.serial} · ${x.tempC}°C` });
   }
@@ -386,6 +403,7 @@ export function freeSlots(db: Db, rackId: string): { from: number; to: number }[
   for (const n of nes) for (let u = n.u; u < n.u + (n.uSize ?? 1); u++) taken[u] = true;
   const devU = nes.reduce((a, n) => a + (n.uSize ?? 1), 0);
   if (rk.usedU > devU) { const top = nes.length ? Math.max(...nes.map(n => n.u + (n.uSize ?? 1))) : 2; for (let u = top; u < top + rk.usedU - devU; u++) taken[u] = true; }
+  for (const x of dcimOverlay.reservations.filter(r => r.rackId === rackId)) for (let u = x.u; u < x.u + x.uHeight; u++) taken[u] = true;
   const out: { from: number; to: number }[] = [];
   let s = 0;
   for (let u = 1; u <= rk.heightU + 1; u++) {

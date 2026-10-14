@@ -17,13 +17,14 @@ import { ACCENT, BAD, loadColor, pct } from './common';
 import { FloorPlans } from './FloorPlan';
 import { RacksTab, DevicesTab, CablingTab, PowerTab, TypesTab } from './lists';
 import { Hierarchy } from './Hierarchy';
+import { Explorer } from './Explorer';
 import { NewRackModal, InstallDeviceModal } from './forms';
 import '../../styles/dcim.css';
 
-export type DcimTab = 'sites' | 'floorplan' | 'racks' | 'devices' | 'cabling' | 'power' | 'types' | 'hierarchy';
+export type DcimTab = 'sites' | 'floorplan' | 'racks' | 'devices' | 'cabling' | 'power' | 'types' | 'hierarchy' | 'explorer';
 const TABS: { id: DcimTab; label: string }[] = [
   { id: 'sites', label: 'Sites' }, { id: 'floorplan', label: 'Floor plans' }, { id: 'racks', label: 'Racks' }, { id: 'devices', label: 'Devices' },
-  { id: 'cabling', label: 'Cabling' }, { id: 'power', label: 'Power' }, { id: 'types', label: 'Device types' }, { id: 'hierarchy', label: 'Hierarchy' }
+  { id: 'cabling', label: 'Cabling' }, { id: 'power', label: 'Power' }, { id: 'types', label: 'Device types' }, { id: 'hierarchy', label: 'Hierarchy' }, { id: 'explorer', label: 'Explorer' }
 ];
 
 export function Dcim() {
@@ -103,9 +104,10 @@ export function Dcim() {
       {tab === 'racks' && <RacksTab racks={S.racks} />}
       {tab === 'devices' && <DevicesTab devices={devices} />}
       {tab === 'cabling' && <CablingTab cables={cables} />}
-      {tab === 'power' && <PowerTab panels={S.panels} feeds={S.feeds} />}
+      {tab === 'power' && <PowerTab panels={S.panels} feeds={S.feeds} dcId={dcId} />}
       {tab === 'types' && <TypesTab types={types} inScope={typeIds} />}
       {tab === 'hierarchy' && <Hierarchy dcId={dcId} />}
+      {tab === 'explorer' && <Explorer dcId={dcId} />}
 
       <NewRackModal open={modal === 'rack'} onClose={() => setModal(null)} dcId={dcId} />
       <InstallDeviceModal open={modal === 'device'} onClose={() => setModal(null)} dcId={dcId} />

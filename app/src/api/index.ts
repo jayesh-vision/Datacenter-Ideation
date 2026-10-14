@@ -85,6 +85,23 @@ export const createRack = (x: Parameters<typeof S.dcimCreateRack>[0]) => mutate(
 export const installDevice = (x: Parameters<typeof S.dcimInstallDevice>[0]) => mutate(() => S.dcimInstallDevice(x)); // POST /dcim/devices (planned)
 export const setDeviceStatus = (id: string, to: Parameters<typeof S.dcimSetDeviceStatus>[1]) => mutate(() => S.dcimSetDeviceStatus(id, to)); // PATCH /dcim/devices/:id
 export const addDeviceType = (x: Parameters<typeof S.dcimAddType>[0]) => mutate(() => S.dcimAddType(x));          // POST /dcim/device-types
+export const getDcimFreePorts = (dcId: string, speedMbps: number, exceptNe: string) => wait(() => S.dcimFreePorts(dcId, speedMbps, exceptNe)); // GET /dcim/interfaces?site&speed&cabled=false
+export const dcimConnect = (aNe: string, aIf: string, zNe: string, zIf: string) => mutate(() => S.dcimConnect(aNe, aIf, zNe, zIf));   // POST /dcim/cables
+export const dcimDisconnect = (neId: string, ifName: string) => mutate(() => S.dcimDisconnect(neId, ifName));                    // DELETE /dcim/cables/:id
+export const dcimEditInterface = (neId: string, ifName: string, x: { description: string; enabled: boolean }) => mutate(() => S.dcimEditInterface(neId, ifName, x)); // PATCH /dcim/interfaces/:id
+export const dcimInstallModule = (neId: string, slot: string, typeId: string) => mutate(() => S.dcimInstallModule(neId, slot, typeId)); // POST /dcim/devices/:id/modules
+export const dcimRemoveModule = (neId: string, slot: string) => mutate(() => S.dcimRemoveModule(neId, slot));                   // DELETE /dcim/devices/:id/modules/:slot
+export const dcimSwapModule = (neId: string, slot: string) => mutate(() => S.dcimSwapModule(neId, slot));                       // POST /dcim/devices/:id/modules/:slot/replace
+export const dcimEditRack = (id: string, x: Parameters<typeof S.dcimEditRack>[1]) => mutate(() => S.dcimEditRack(id, x));        // PATCH /dcim/racks/:id
+export const dcimRetireRack = (id: string) => mutate(() => S.dcimRetireRack(id));                                                // DELETE /dcim/racks/:id
+export const dcimMoveDevice = (neId: string, rackId: string, u: number) => mutate(() => S.dcimMoveDevice(neId, rackId, u));    // PATCH /dcim/devices/:id { rack, position }
+export const dcimReserveU = (rackId: string, x: Parameters<typeof S.dcimReserveU>[1]) => mutate(() => S.dcimReserveU(rackId, x)); // POST /dcim/racks/:id/reservations
+export const dcimReleaseU = (id: string) => mutate(() => S.dcimReleaseU(id));                                                    // DELETE /dcim/rack-reservations/:id
+export const dcimCreatePanel = (x: Parameters<typeof S.dcimCreatePanel>[0]) => mutate(() => S.dcimCreatePanel(x));              // POST /dcim/power-panels
+export const dcimCreateFeed = (x: Parameters<typeof S.dcimCreateFeed>[0]) => mutate(() => S.dcimCreateFeed(x));                 // POST /dcim/power-feeds
+export const dcimAddModuleType = (x: Parameters<typeof S.dcimAddModuleType>[0]) => mutate(() => S.dcimAddModuleType(x));        // POST /dcim/module-types
+export const dcimEditTemplates = (id: string, x: Parameters<typeof S.dcimEditTemplates>[1]) => mutate(() => S.dcimEditTemplates(id, x)); // PUT /dcim/device-types/:id/templates
+export const dcimImportTypes = (json: string) => mutate(() => S.dcimImportTypes(json));                                          // POST /dcim/device-types/import
 
 /* ---- IP & Network (Plan & Build): prefixes, addresses, VRFs, VLANs, ASNs, gateways, ranges, services, findings */
 export const getIpam = (q: { dcId?: string } = {}) => wait(() => S.ipam(q));                      // GET /ipam?dcId

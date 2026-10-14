@@ -435,6 +435,14 @@ screens are rebuilt in our kit (PageHead, StatGrid, ListToolbar, DataTable, NST 
 - Checks: `npx tsx .qa/dcim-check.ts` (sites/racks/devices = estate, Σ hall = site, rows partition racks, U = Σ devices + ODF block, no U clash,
   Σ feeds = rack draw, Σ panel = Σ feeds, cables = LLDP links + cords, Σ type devices = devices; `GEO=us` too), `node .qa/dcim.mjs <persona> <geo>`
   (`W=1280`; every tab, overflow, scope, rack/type pages, drawers, new rack + install flow).
+- DCIM P2B gap fill (14-Oct-2026, user; `screens/dcim/ops.tsx`, `Explorer.tsx`, server `dcim*` functions): device drawer per-port actions
+  (connect a free port to a free same-speed port at the site — `dcimFreePorts` lists only devices that have one; trace = cable path drawer;
+  disconnect; edit description / admin state), Bays (FPC0–1 on routers, DISK0–7 on servers with drives; install a fitting module — a line card
+  adds its ports —, swap a faulty one, remove), Move (another U or rack at the site, budget checked), inventory items (optics). Rack page: Edit,
+  Reserve space (U holds respected by Install / Move, Reserved tab, release), Retire (empty racks only), Activity (audit). Power: New panel /
+  New feed (V × A × √3 × 0.8). Catalogue: New module type, Import JSON, component templates on the type page (editable for hand-made types).
+  Explorer tab (racks / devices, filters, table / tiles, saved views in localStorage, CSV export). Floor plan: Thermal · Density · Tenant
+  (draw vs contracted) colourings and free grid cells that open New rack. `physical.ts` link index is now rebuilt on every change.
 - **Phase 2 = IP & Network (done)**: read model `mock/ipam.ts` (usage = addresses actually bound; P2B's 92% padding is not copied). Management =
   each device's own `ip` in a per-site VRF `MGMT-<site>` (the generator reuses 172.x ranges between sites, hence one VRF per site; the NOC
   imports RT 64500:999); the /24s are those the addresses fall in, under one container; an address outside it is "Outside plan" (the hero
