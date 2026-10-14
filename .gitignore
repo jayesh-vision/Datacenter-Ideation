@@ -7,4 +7,4 @@ app/.qa/out/
 app/.qa/dev.log
 *.tsbuildinfo
 .env*
-P2B/
+/P2B/
