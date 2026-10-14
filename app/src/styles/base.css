@@ -473,3 +473,7 @@ td .cell-2 small { font-size: 11.5px; color: var(--ink-500); }
 .dm-card.is-full .dm-frame { height: auto; flex: 1; min-height: 0; }
 body.dm-noscroll { overflow: hidden; }
 .dco-card.is-fit .dco-tile > .dco-detail { height: auto; gap: 8px; }
+/* tab rows never show a scrollbar (the active underline overhanging by 1px made a vertical one); they still scroll sideways when narrow */
+.tabs { overflow-y: hidden; scrollbar-width: none; -ms-overflow-style: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs .tab.is-active::after { bottom: 0; }
