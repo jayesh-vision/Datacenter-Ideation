@@ -66,23 +66,23 @@ export function Planner() {
         </StatTile>
         <StatTile label="In review" value={num(review.length)} sub={`${decisions} decision${decisions === 1 ? '' : 's'} pending`} subTone={decisions ? 'warn' : undefined} onClick={() => goPlans({ status: 'In review' })} info="Plans waiting for an approval step. The approval path comes from the plan's template; the finance step depends on the CapEx band.">
           <SoftMeter pct={rows.length ? (review.length / rows.length) * 100 : 0} tone="info" />
-          <Facts items={[{ n: num(review.filter(r => r.plan.approvals.some(a => a.decision === 'Approved')).length), label: 'past the first step' }, { n: num(review.filter(r => r.ev.hardFails).length), label: 'with a hard fail', tone: review.some(r => r.ev.hardFails) ? 'bad' : undefined }]} />
+          <Facts items={[{ n: num(review.filter(r => r.plan.approvals.some(a => a.decision === 'Approved')).length), label: 'past the first step' }, { n: num(review.filter(r => r.ev.hardFails).length), label: 'with a hard fail', tone: review.some(r => r.ev.hardFails) ? 'bad' : undefined }, { n: money(review.reduce((a, r) => a + r.capex, 0)), label: 'CapEx under review' }]} />
         </StatTile>
         <StatTile label="Approved" value={num(approved.length)} sub="ready to execute" onClick={() => goPlans({ status: 'Approved' })} info="Approved plans hold their capacity at the site; Start the build turns them into delivery projects.">
           <SoftMeter pct={rows.length ? (approved.length / rows.length) * 100 : 0} tone="success" />
-          <Facts items={[{ n: money(approved.reduce((a, r) => a + (r.plan.baseline?.capexTotal ?? r.capex), 0)), label: 'approved CapEx' }, { n: kw(approved.reduce((a, r) => a + r.plan.designPowerKw, 0)), label: 'IT power' }]} />
+          <Facts items={[{ n: money(approved.reduce((a, r) => a + (r.plan.baseline?.capexTotal ?? r.capex), 0)), label: 'approved CapEx' }, { n: kw(approved.reduce((a, r) => a + r.plan.designPowerKw, 0)), label: 'IT power' }, { n: num(late.filter(r => r.plan.status === 'Approved').length), label: 'late to order', tone: late.some(r => r.plan.status === 'Approved') ? 'warn' : undefined }]} />
         </StatTile>
         <StatTile label="Executing" value={num(executing.length)} sub="in delivery" onClick={() => goPlans({ status: 'Executing' })} info="Plans whose build has started: Delivery shows them as projects with work orders, purchase orders and commissioning.">
           <SoftMeter pct={rows.length ? (executing.length / rows.length) * 100 : 0} tone="warning" />
-          <Facts items={[{ n: num(late.length), label: 'with late items', tone: late.length ? 'warn' : undefined }, { n: num(by('Completed').length), label: 'completed' }]} />
+          <Facts items={[{ n: num(late.length), label: 'with late items', tone: late.length ? 'warn' : undefined }, { n: num(by('Completed').length), label: 'completed' }, { n: money(executing.reduce((a, r) => a + r.capex, 0)), label: 'CapEx in delivery' }]} />
         </StatTile>
-        <StatTile label="Planned IT load" value={kw(itKw)} sub="draft to executing" info="Design IT power of every active plan (draft, in review, approved, executing, on hold).">
+        <StatTile label="Planned IT load" value={kw(itKw)} sub="active plans" info="Design IT power of every active plan (draft, in review, approved, executing, on hold).">
           <SoftMeter pct={itKw ? Math.min(100, (executing.reduce((a, r) => a + r.plan.designPowerKw, 0) / itKw) * 100) : 0} tone="info" />
-          <Facts items={[{ n: kw(review.reduce((a, r) => a + r.plan.designPowerKw, 0)), label: 'in review' }, { n: kw(executing.reduce((a, r) => a + r.plan.designPowerKw, 0)), label: 'executing' }]} />
+          <Facts items={[{ n: kw(review.reduce((a, r) => a + r.plan.designPowerKw, 0)), label: 'in review' }, { n: kw(approved.reduce((a, r) => a + r.plan.designPowerKw, 0)), label: 'approved' }, { n: kw(executing.reduce((a, r) => a + r.plan.designPowerKw, 0)), label: 'executing' }]} />
         </StatTile>
-        <StatTile label="CapEx in pipeline" value={money(capex)} sub="base case, active plans" info="Base-case CapEx of every active plan: plant and fit-out from benchmarks or the bill of materials, plus owned IT where the business model buys it.">
+        <StatTile label="CapEx in pipeline" value={money(capex)} sub="active plans" info="Base-case CapEx of every active plan (committed = approved or executing): plant and fit-out from benchmarks or the bill of materials, plus owned IT where the business model buys it.">
           <SoftMeter pct={capex ? Math.min(100, ((approved.reduce((a, r) => a + r.capex, 0) + executing.reduce((a, r) => a + r.capex, 0)) / capex) * 100) : 0} tone="success" />
-          <Facts items={[{ n: money(approved.reduce((a, r) => a + r.capex, 0) + executing.reduce((a, r) => a + r.capex, 0)), label: 'approved or executing' }, { n: money(review.reduce((a, r) => a + r.capex, 0)), label: 'awaiting approval' }]} />
+          <Facts items={[{ n: money(approved.reduce((a, r) => a + r.capex, 0) + executing.reduce((a, r) => a + r.capex, 0)), label: 'committed' }, { n: money(review.reduce((a, r) => a + r.capex, 0)), label: 'awaiting approval' }, { n: money(by('Draft').reduce((a, r) => a + r.capex, 0)), label: 'in drafts' }]} />
         </StatTile>
       </StatGrid>
 
