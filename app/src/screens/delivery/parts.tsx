@@ -1,11 +1,13 @@
 /* Delivery shared parts (14-Oct-2026, P2B gap fill step A): Gantt, cost curve, RAG, programme / project forms. Our design, not P2B's. */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { clockNow, createDeliveryProject, createProgramme, getDcim, getDelivery, getDeliveryTemplates, getProgrammes, useQuery } from '../../api';
 import type { CostPoint, DeliveryTemplate, ProgrammeType, ProgrammeView } from '../../api/types';
 import { Btn, Chip, Field, Modal } from '../../ui/kit';
 import { fmtDate, fmtMoney } from '../../lib/format';
+import { TimeChart } from '../../charts/TimeChart';
+import { SERIES } from '../../charts/core';
 
 export const RAG_TONE = { green: 'success', amber: 'warning', red: 'error' } as const;
 export const RAG_LABEL = { green: 'On track', amber: 'At risk', red: 'Late' } as const;
@@ -51,32 +53,24 @@ export function Gantt({ rows, finish, target }: { rows: GanttRow[]; finish?: num
   );
 }
 
-/* ---------------------------------------------------------------- cost curve: planned value, earned value, actual cost */
-export function CostCurve({ pts, height = 200, bac, eac }: { pts: CostPoint[]; height?: number; bac?: number; eac?: number }) {
-  const now = clockNow();
-  const [W, setW] = useState(640);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => { const el = ref.current; if (!el) return; const ro = new ResizeObserver(e => setW(Math.max(280, Math.round(e[0].contentRect.width)))); ro.observe(el); return () => ro.disconnect(); }, []);
+/* ---------------------------------------------------------------- cost curve: planned value, earned value, actual cost (shared TimeChart) */
+export function CostCurve({ pts, height = 220, bac, eac }: { pts: CostPoint[]; height?: number; bac?: number; eac?: number }) {
   if (pts.length < 2) return <p className="vw-label">Not enough of the schedule has run yet.</p>;
-  const H = height, pad = 62;
-  const t0 = pts[0].t, t1 = pts[pts.length - 1].t, max = Math.max(1, bac ?? 0, eac ?? 0, ...pts.map(p => Math.max(p.pv, p.ev ?? 0, p.ac ?? 0))) * 1.04;
-  const X = (t: number) => pad + ((t - t0) / Math.max(1, t1 - t0)) * (W - pad - 8), Y = (v: number) => H - 22 - (v / max) * (H - 36);
-  const line = (k: 'pv' | 'ev' | 'ac') => pts.filter(p => p[k] != null).map((p, i) => `${i ? 'L' : 'M'}${X(p.t).toFixed(1)},${Y(p[k] as number).toFixed(1)}`).join(' ');
-  const last = [...pts].reverse().find(p => p.ev != null);
+  const lab = (t: number) => new Date(t).toLocaleString('en-US', { month: 'short', day: 'numeric' });
   return (
-    <div className="dl-curve" ref={ref}>
-      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Cost curve">
-        {[0, 0.5, 1].map(f => <g key={f}><line x1={pad} x2={W - 8} y1={Y(max * f)} y2={Y(max * f)} className="dl-c-grid" /><text x={pad - 6} y={Y(max * f) + 4} textAnchor="end" className="dl-c-ax">{fmtMoney(max * f)}</text></g>)}
-        {now > t0 && now < t1 && <line x1={X(now)} x2={X(now)} y1={8} y2={H - 22} className="dl-c-now" />}
-        {bac ? <g><line x1={pad} x2={W - 8} y1={Y(bac)} y2={Y(bac)} className="dl-c-bac" /><text x={pad + 6} y={Y(bac) - 4} textAnchor="start" className="dl-c-tag">Budget at completion {fmtMoney(bac)}</text></g> : null}
-        {eac && Math.abs(eac - (bac ?? 0)) > (bac ?? 1) * 0.005 ? <g><line x1={pad} x2={W - 8} y1={Y(eac)} y2={Y(eac)} className={`dl-c-eac${eac > (bac ?? 0) ? ' is-over' : ''}`} /><text x={W - 10} y={Y(eac) + (eac > (bac ?? 0) ? -4 : 12)} textAnchor="end" className={`dl-c-tag${eac > (bac ?? 0) ? ' is-over' : ''}`}>Forecast at completion {fmtMoney(eac)}</text></g> : null}
-        <path d={line('pv')} className="dl-c-pv" /><path d={line('ev')} className="dl-c-ev" /><path d={line('ac')} className="dl-c-ac" />
-        <text x={pad} y={H - 6} className="dl-c-ax">{fmtDate(t0)}</text><text x={W - 8} y={H - 6} textAnchor="end" className="dl-c-ax">{fmtDate(t1)}</text>
-      </svg>
-      <div className="dl-c-legend"><span><i className="dl-c-pv" />Planned value</span><span><i className="dl-c-ev" />Earned value{last?.ev != null ? ` ${fmtMoney(last.ev)}` : ''}</span><span><i className="dl-c-ac" />Actual cost{last?.ac != null ? ` ${fmtMoney(last.ac)}` : ''}</span></div>
+    <div className="dl-chart">
+      <TimeChart height={height} labels={pts.map(p => lab(p.t))} fullLabels={pts.map(p => fmtDate(p.t))} format={v => fmtMoney(v)} yMin={0}
+        target={bac ? { value: bac, label: 'Budget' } : undefined}
+        series={[
+          { key: 'pv', label: 'Planned value', color: '#94A3B8', kind: 'line', dashed: true, values: pts.map(p => p.pv) },
+          { key: 'ev', label: 'Earned value', color: SERIES[0], kind: 'line', values: pts.map(p => p.ev) },
+          { key: 'ac', label: 'Actual cost', color: '#F59E0B', kind: 'line', values: pts.map(p => p.ac) },
+        ]} />
+      {eac != null && bac != null && <p className={`dl-chart-note${eac > bac * 1.005 ? ' is-bad' : ''}`}>Forecast at completion <b>{fmtMoney(eac)}</b> · {eac > bac * 1.005 ? `${fmtMoney(eac - bac)} over the budget` : 'within the budget'}</p>}
     </div>
   );
 }
+
 /* ---------------------------------------------------------------- new programme (with the greenfield blueprint) */
 const TYPES: ProgrammeType[] = ['Site expansion', 'Greenfield build', 'Network modernisation', 'Refresh wave', 'Resilience'];
 export function NewProgrammeModal({ open, onClose }: { open: boolean; onClose: () => void }) {

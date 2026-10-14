@@ -10,7 +10,7 @@ import { Panel } from '../../ui/kit';
 import { SevDot } from '../../ui/status';
 import { fmtDate, fmtDateTime, fmtMoney } from '../../lib/format';
 import { CostCurve } from './parts';
-import { ChangeCalendar, ChangeOutcomes, HealthMatrix, KpiTile, ProgrammeProgress } from './dash';
+import { ChangeCalendar, ChangeOutcomes, HealthMatrix, KpiTile, ProgrammeProgress, Throughput } from './dash';
 
 const DAY = 864e5, WEEK = 7 * DAY;
 type Item = { key: string; sev: 'critical' | 'major' | 'minor' | 'warning'; title: string; sub: string; to: string };
@@ -37,7 +37,6 @@ export function DeliveryOverview() {
   const spiSpark = pastPts.slice(-10).map(p => (p.pv ? (p.ev as number) / p.pv : 1));
   const pv = pastPts.length ? pastPts[pastPts.length - 1].pv : 0, spi = pv ? (pastPts[pastPts.length - 1].ev as number) / pv : 1;
   const weeks = Array.from({ length: 12 }, (_, i) => { const s = now - (8 - i) * WEEK; return { s, done: wos.filter(w => w.state === 'Done' && w.end > s && w.end <= s + WEEK).length, plan: wos.filter(w => w.state !== 'Done' && w.end > s && w.end <= s + WEEK).length, future: s >= now - WEEK / 2 }; });
-  const wmax = Math.max(1, ...weeks.map(w => w.done + w.plan));
   const activeSpark = Array.from({ length: 8 }, (_, i) => { const t = now - (7 - i) * WEEK; return ps.filter(p => p.start <= t && p.finish >= t).length; });
   const regChanges = reg.changes.filter(c => !scope || (c.projectId && scope.has(c.projectId)) || (!c.projectId && !scope));
 
@@ -68,12 +67,12 @@ export function DeliveryOverview() {
       </div>
 
       <div className="dl-kpis dl-span-12">
-        <KpiTile label="Projects in delivery" value={live.length} sub={`${ps.filter(p => p.state === 'Delivered').length} delivered · ${ps.filter(p => p.state === 'Mobilising').length} mobilising`} spark={activeSpark} sparkKind="bars" onClick={() => nav('/delivery?tab=projects')} info="Projects not yet handed over; the bars show how many were active each of the last 8 weeks." />
-        <KpiTile label="Cost performance" value={cpi.toFixed(2)} sub={`CPI · ${fmtMoney(ac)} spent for ${fmtMoney(ev)} earned`} spark={cpiSpark} tone={cpi < 0.95 ? 'bad' : cpi < 1 ? 'warn' : 'good'} info="Earned value ÷ actual cost across the live projects, and its trend. Below 1 = paying more than the work is worth." />
-        <KpiTile label="Schedule performance" value={spi.toFixed(2)} sub={`SPI · ${live.filter(p => p.health === 'late').length} late project${live.filter(p => p.health === 'late').length === 1 ? '' : 's'}`} spark={spiSpark} tone={spi < 0.9 ? 'bad' : spi < 0.97 ? 'warn' : 'good'} info="Earned value ÷ planned value: below 1 = less work done than the schedule planned by now." />
-        <KpiTile label="Work orders finished" value={weeks.slice(0, 8).reduce((a, w) => a + w.done, 0)} sub={`last 8 weeks · ${wos.filter(w => w.state !== 'Done').length} open`} spark={weeks.slice(0, 9).map(w => w.done)} sparkKind="bars" onClick={() => nav('/delivery?tab=workorders')} info="Field work completed per week." />
-        <KpiTile label="Forecast at completion" value={fmtMoney(eac)} sub={`budget ${fmtMoney(bac)}${eac > bac ? ` · ${fmtMoney(eac - bac)} over` : ''}`} tone={eac > bac * 1.05 ? 'bad' : eac > bac ? 'warn' : 'good'} info="Budget at completion ÷ CPI: what the live projects will cost if spending carries on at today's rate." />
-        <KpiTile label="Change orders" value={cos.filter(c => c.state === 'Submitted').length} sub={`waiting · ${cos.filter(c => c.state === 'Approved').length} approved · ${cos.filter(c => c.state === 'Rejected').length} rejected`} tone={cos.some(c => c.state === 'Submitted') ? 'warn' : undefined} info="Scope changes that move a budget or a date, waiting for the project manager, the sponsor or the investment committee." />
+        <KpiTile label="Live projects" value={live.length} sub={`${ps.filter(p => p.state === 'Mobilising').length} mobilising · ${ps.filter(p => p.state === 'Delivered').length} delivered`} spark={activeSpark} sparkKind="bars" onClick={() => nav('/delivery?tab=projects')} info="Projects not yet handed over; the bars show how many were active each of the last 8 weeks." />
+        <KpiTile label="Cost (CPI)" value={cpi.toFixed(2)} sub={`${fmtMoney(ac)} spent`} spark={cpiSpark} tone={cpi < 0.95 ? 'bad' : cpi < 1 ? 'warn' : 'good'} info="Earned value ÷ actual cost across the live projects, and its trend. Below 1 = paying more than the work is worth." />
+        <KpiTile label="Schedule (SPI)" value={spi.toFixed(2)} sub={`${live.filter(p => p.health === 'late').length} late project${live.filter(p => p.health === 'late').length === 1 ? '' : 's'}`} spark={spiSpark} tone={spi < 0.9 ? 'bad' : spi < 0.97 ? 'warn' : 'good'} info="Earned value ÷ planned value: below 1 = less work done than the schedule planned by now." />
+        <KpiTile label="Work orders done" value={weeks.slice(0, 8).reduce((a, w) => a + w.done, 0)} sub={`8 weeks · ${wos.filter(w => w.state !== 'Done').length} open`} spark={weeks.slice(0, 9).map(w => w.done)} sparkKind="bars" onClick={() => nav('/delivery?tab=workorders')} info="Field work completed per week." />
+        <KpiTile label="Forecast cost" value={fmtMoney(eac)} sub={eac > bac ? `${fmtMoney(eac - bac)} over ${fmtMoney(bac)}` : `within ${fmtMoney(bac)}`} tone={eac > bac * 1.05 ? 'bad' : eac > bac ? 'warn' : 'good'} info="Budget at completion ÷ CPI: what the live projects will cost if spending carries on at today's rate." />
+        <KpiTile label="Change orders" value={cos.filter(c => c.state === 'Submitted').length} sub={`waiting · ${cos.filter(c => c.state === 'Approved').length} approved`} tone={cos.some(c => c.state === 'Submitted') ? 'warn' : undefined} info="Scope changes that move a budget or a date, waiting for the project manager, the sponsor or the investment committee." />
       </div>
 
       <Panel className="dl-span-4 dl-h-360" title="Project health" icon={I.Grid3x3} sub="Stage × on track / at risk / late" info="Every project placed by its stage and its health. Click a cell to list those projects.">
@@ -88,18 +87,14 @@ export function DeliveryOverview() {
       </Panel>
 
       <Panel className="dl-span-4" title="Work throughput" icon={I.BarChart3} sub="Finished per week · planned to finish" info="Work orders finished per week over the last 8 weeks (solid) and planned to finish over the next 4 (outlined).">
-        <div className="dl-tp">{weeks.map((w, wi) => (
-          <span key={w.s} className={`dl-tp-col${w.future ? ' is-future' : ''}`} title={`Week of ${fmtDate(w.s)}: ${w.done} done${w.plan ? ` · ${w.plan} planned` : ''}`}>
-            <span className="dl-tp-bars"><i className="is-plan" style={{ height: `${(w.plan / wmax) * 100}%` }} /><i className="is-done" style={{ height: `${(w.done / wmax) * 100}%` }} /></span>
-            <small>{wi % 2 === 0 ? new Date(w.s).toLocaleString('en-US', { month: 'short', day: 'numeric' }) : '\u00a0'}</small><b>{w.done + w.plan || ''}</b>
-          </span>))}</div>
+        <Throughput weeks={weeks} />
       </Panel>
       <Panel className="dl-span-4" title="Change outcomes" icon={I.GitPullRequestArrow} sub="Changes implemented per week, by class" info="Every change implemented per week (operations, maintenance and delivery) by class; the red number counts failed or rolled-back ones. From Change management.">
         <ChangeOutcomes weeks={reg.weeks} />
       </Panel>
       <Panel className="dl-span-4" title="Change calendar" icon={I.CalendarDays} sub="Next 14 days · windows and freezes" info="Change windows per day for the next two weeks (dots by class, ringed = delivery work) and freeze days (snowflake). Click a day to open Change management's calendar.">
         <ChangeCalendar changes={regChanges} freezes={reg.freezes} onDay={() => nav('/changes?tab=calendar')} />
-        <div className="dl-c-legend" style={{ marginTop: 10 }}><span><i className="dl-dot is-standard" />Standard</span><span><i className="dl-dot is-normal" />Normal</span><span><i className="dl-dot is-emergency" />Emergency</span><span><i className="dl-dot is-normal is-dl" />Delivery</span><span><I.Snowflake size={11} /> Freeze</span></div>
+        <div className="dl-c-legend" style={{ marginTop: 10 }}><span><i className="dl-sw is-s" />Standard</span><span><i className="dl-sw is-n" />Normal</span><span><i className="dl-sw is-e" />Emergency</span><span className="vw-label">number = change windows that day</span></div>
       </Panel>
 
       <Panel className="dl-span-8" title="Cost performance" icon={I.TrendingUp} sub={g ? g.programme.name : 'Live projects'} info="Planned value (budget spread over each schedule) against earned value and actual cost, with the budget at completion and the forecast at completion (budget ÷ CPI).">

@@ -6,46 +6,47 @@ import * as I from 'lucide-react';
 import { clockNow } from '../../api';
 import type { ChangeFreeze, ChangeRecord, DeliveryProject, ProgrammeView } from '../../api/types';
 import { Info } from '../../ui/kit';
+import { Sparkline } from '../../charts/Sparkline';
+import { TimeChart } from '../../charts/TimeChart';
 import { fmtDate } from '../../lib/format';
 
 const DAY = 864e5;
 
-/* ---------------------------------------------------------------- sparkline */
-export function Spark({ values, kind = 'line', tone = 'blue' }: { values: number[]; kind?: 'line' | 'bars'; tone?: 'blue' | 'red' | 'amber' | 'green' }) {
-  const W = 96, H = 34;
-  if (values.length < 2) return <svg width={W} height={H} />;
-  const max = Math.max(1, ...values), min = kind === 'bars' ? 0 : Math.min(...values);
-  const x = (i: number) => (i / (values.length - 1)) * (W - 4) + 2, y = (v: number) => H - 3 - ((v - min) / Math.max(1e-9, max - min)) * (H - 8);
-  return (
-    <svg width={W} height={H} className={`dl-spark is-${tone}`} aria-hidden>
-      {kind === 'bars' ? values.map((v, i) => <rect key={i} x={i * (W / values.length) + 1} width={W / values.length - 2} y={y(v)} height={H - 3 - y(v)} rx={1.5} />)
-        : <><path d={values.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')} /><circle cx={x(values.length - 1)} cy={y(values[values.length - 1])} r={2.5} /></>}
-    </svg>
-  );
+/* ---------------------------------------------------------------- KPI tile: our app-kpi card, with a trend line or bars underneath */
+function MiniBars({ values, color }: { values: number[]; color: string }) {
+  const max = Math.max(1, ...values);
+  return <span className="dl-minibars">{values.map((v, i) => <i key={i} style={{ height: `${Math.max(v ? 12 : 4, (v / max) * 100)}%`, background: i === values.length - 1 ? color : undefined }} />)}</span>;
 }
 export function KpiTile({ label, value, sub, spark, sparkKind, tone, onClick, info }: { label: string; value: ReactNode; sub?: ReactNode; spark?: number[]; sparkKind?: 'line' | 'bars'; tone?: 'bad' | 'warn' | 'good'; onClick?: () => void; info?: string }) {
   const T = onClick ? 'button' : 'div';
+  const color = tone === 'bad' ? '#DC2626' : tone === 'warn' ? '#D97706' : '#1C81EF';
   return (
-    <T type={onClick ? 'button' : undefined} className={`dl-kpi${tone ? ` is-${tone}` : ''}${onClick ? ' is-click' : ''}`} onClick={onClick}>
-      <span className="dl-kpi-l">{label}{info && <Info text={info} />}</span>
-      <span className="dl-kpi-row"><b>{value}</b>{spark && <Spark values={spark} kind={sparkKind} tone={tone === 'bad' ? 'red' : tone === 'warn' ? 'amber' : tone === 'good' ? 'green' : 'blue'} />}</span>
-      {sub && <small>{sub}</small>}
+    <T type={onClick ? 'button' : undefined} className={`vw-card-section app-kpi dl-kpi2${tone === 'bad' || tone === 'warn' ? ` is-${tone}` : ''}${onClick ? ' vw-card--clickable' : ''}`} onClick={onClick}>
+      <div className="app-kpi-h"><span className="vw-card-metric-label">{label}{info && <Info text={info} />}</span></div>
+      <div className="app-kpi-v"><span className="vw-card-metric-lg">{value}</span></div>
+      {sub && <div className={`vw-card-variance ${tone === 'bad' ? 'is-negative' : tone === 'good' ? 'is-positive' : 'is-neutral'} app-kpi-s`}>{sub}</div>}
+      <div className="dl-kpi2-spark">{spark && spark.length > 1 ? (sparkKind === 'bars' ? <MiniBars values={spark} color={color} /> : <Sparkline values={spark} color={color} height={30} />) : <span className="dl-kpi2-none" />}</div>
     </T>
   );
 }
 
-/* ---------------------------------------------------------------- health matrix: stage × RAG */
+/* ---------------------------------------------------------------- project health: one row per stage, a bar split on track / at risk / late */
 const STAGES: DeliveryProject['state'][] = ['Mobilising', 'In progress', 'Commissioning', 'Handover', 'Delivered'];
 const RAGS: DeliveryProject['health'][] = ['on track', 'at risk', 'late'];
 export function HealthMatrix({ projects, onCell }: { projects: DeliveryProject[]; onCell: (stage: string, health: string) => void }) {
+  const max = Math.max(1, ...STAGES.map(s => projects.filter(p => p.state === s).length));
+  const tot = (h: string) => projects.filter(p => p.state !== 'Delivered' && p.health === h).length;
   return (
-    <div className="dl-hm">
-      <span /> {RAGS.map(r => <span key={r} className="dl-hm-h">{r[0].toUpperCase() + r.slice(1)}</span>)}
-      {STAGES.map(s => <span key={s} className="dl-hm-row">
-        <span className="dl-hm-s">{s}</span>
-        {RAGS.map(r => { const ps = projects.filter(p => p.state === s && (s === 'Delivered' ? r === 'on track' : p.health === r)); const n = ps.length; return (
-          <button key={r} type="button" disabled={!n} className={`dl-hm-c is-${r.replace(' ', '-')}${n ? ' has' : ''}`} style={{ ['--a' as string]: Math.min(1, 0.25 + n / 4) }} title={ps.map(p => p.name).join('\n')} onClick={() => onCell(s, r)}>{n || ''}</button>); })}
-      </span>)}
+    <div className="dl-sh">
+      <div className="dl-sh-sum">{RAGS.map(r => <span key={r} className={`is-${r.replace(' ', '-')}`}><b>{tot(r)}</b>{r}</span>)}</div>
+      {STAGES.map(s => { const ps = projects.filter(p => p.state === s); return (
+        <div key={s} className="dl-sh-row">
+          <span className="dl-sh-l">{s}</span>
+          <span className="dl-sh-bar" style={{ width: `${(ps.length / max) * 100}%` }}>
+            {RAGS.map(r => { const n = ps.filter(p => (s === 'Delivered' ? r === 'on track' : p.health === r)).length; return n ? <button key={r} type="button" className={`is-${r.replace(' ', '-')}`} style={{ flex: n }} title={`${s} · ${r}: ${ps.filter(p => (s === 'Delivered' ? r === 'on track' : p.health === r)).map(p => p.name).join(', ')}`} onClick={() => onCell(s, r)}>{n}</button> : null; })}
+          </span>
+          <span className="dl-sh-n">{ps.length || '—'}</span>
+        </div>); })}
     </div>
   );
 }
@@ -58,40 +59,49 @@ export function ProgrammeProgress({ progs, onOpen }: { progs: ProgrammeView[]; o
       <li key={g.programme.id}><button type="button" onClick={() => onOpen(g.programme.id)}>
         <span className="dl-pp-top"><i className={`dl-rag is-${g.rag}`} /><b>{g.programme.name}</b><em>{Math.round(done * 100)}% done</em></span>
         <span className="dl-pp-track"><i className="dl-pp-done" style={{ width: `${done * 100}%` }} /><b className="dl-pp-time" style={{ left: `${elapsed * 100}%` }} title={`${Math.round(elapsed * 100)}% of the time used`} /></span>
-        <small className={behind ? 'is-late' : ''}>{Math.round(elapsed * 100)}% of the time used{behind ? ' · behind' : ' · in step'} · finish {fmtDate(g.forecastFinish)}</small>
+        <small>{Math.round(elapsed * 100)}% of the time used · finish {fmtDate(g.forecastFinish)}{behind && <span className="dl-pp-flag">behind</span>}</small>
       </button></li>); })}</ul>
   );
 }
 
-/* ---------------------------------------------------------------- change outcomes per week, by class, failed marked */
+/* ---------------------------------------------------------------- change outcomes per week, by class (shared TimeChart) */
 export function ChangeOutcomes({ weeks }: { weeks: { start: number; standard: number; normal: number; emergency: number; failed: number }[] }) {
   const w = weeks.slice(-10);
-  const max = Math.max(1, ...w.map(x => x.standard + x.normal + x.emergency));
-  return (
-    <div>
-      <div className="dl-co">{w.map(x => { const t = x.standard + x.normal + x.emergency; return (
-        <span key={x.start} className="dl-co-col" title={`Week of ${fmtDate(x.start)}: ${x.standard} standard · ${x.normal} normal · ${x.emergency} emergency${x.failed ? ` · ${x.failed} failed` : ''}`}>
-          <span className="dl-co-bars">{x.failed > 0 && <b className="dl-co-fail">{x.failed}</b>}<i className="is-e" style={{ height: `${(x.emergency / max) * 100}%` }} /><i className="is-n" style={{ height: `${(x.normal / max) * 100}%` }} /><i className="is-s" style={{ height: `${(x.standard / max) * 100}%` }} /></span>
-          <small>{new Date(x.start).toLocaleString('en-US', { month: 'short', day: 'numeric' })}</small><em>{t || ''}</em>
-        </span>); })}</div>
-      <div className="dl-c-legend"><span><i className="dl-sw is-s" />Standard</span><span><i className="dl-sw is-n" />Normal</span><span><i className="dl-sw is-e" />Emergency</span><span><i className="dl-sw is-f" />Failed or rolled back</span></div>
-    </div>
-  );
+  return <TimeChart height={210} labels={w.map(x => new Date(x.start).toLocaleString('en-US', { month: 'short', day: 'numeric' }))} fullLabels={w.map(x => `Week of ${fmtDate(x.start)}`)} yMin={0}
+    series={[
+      { key: 's', label: 'Standard', color: '#93C5FD', kind: 'bar', stack: 'c', values: w.map(x => x.standard) },
+      { key: 'n', label: 'Normal', color: '#1C81EF', kind: 'bar', stack: 'c', values: w.map(x => x.normal) },
+      { key: 'e', label: 'Emergency', color: '#F59E0B', kind: 'bar', stack: 'c', values: w.map(x => x.emergency) },
+      { key: 'f', label: 'Failed or rolled back', color: '#DC2626', kind: 'line', values: w.map(x => x.failed) },
+    ]} />;
+}
+export function Throughput({ weeks }: { weeks: { s: number; done: number; plan: number }[] }) {
+  return <TimeChart height={210} labels={weeks.map(x => new Date(x.s).toLocaleString('en-US', { month: 'short', day: 'numeric' }))} fullLabels={weeks.map(x => `Week of ${fmtDate(x.s)}`)} yMin={0}
+    series={[
+      { key: 'd', label: 'Finished', color: '#1C81EF', kind: 'bar', stack: 'w', values: weeks.map(x => x.done) },
+      { key: 'p', label: 'Planned to finish', color: '#BFDBFE', kind: 'bar', stack: 'w', values: weeks.map(x => x.plan) },
+    ]} />;
 }
 
-/* ---------------------------------------------------------------- change calendar: next 14 days, windows per day, freeze days */
+/* ---------------------------------------------------------------- change calendar: next 14 days, windows per day by class, freezes as a banner */
 export function ChangeCalendar({ changes, freezes, onDay }: { changes: ChangeRecord[]; freezes: ChangeFreeze[]; onDay?: (t: number) => void }) {
   const now = clockNow(); const d0 = new Date(now); d0.setHours(0, 0, 0, 0);
-  const days = Array.from({ length: 14 }, (_, i) => { const s = d0.getTime() + i * DAY, e = s + DAY; const cs = changes.filter(c => c.windowStart < e && c.windowEnd > s && c.status !== 'Rejected' && c.status !== 'Completed' && c.status !== 'Rolled back');
-    const fz = freezes.filter(f => f.from < e && (f.to == null || f.to > s)); return { s, cs, fz, dl: cs.filter(c => c.source === 'Delivery').length }; });
+  const end = d0.getTime() + 14 * DAY;
+  const days = Array.from({ length: 14 }, (_, i) => { const s = d0.getTime() + i * DAY, e = s + DAY; const cs = changes.filter(c => c.windowStart < e && c.windowEnd > s && !['Rejected', 'Completed', 'Rolled back'].includes(c.status));
+    return { s, cs, fz: freezes.filter(f => f.from < e && (f.to == null || f.to > s)).length }; });
+  const max = Math.max(1, ...days.map(d => d.cs.length));
+  const fzs = freezes.filter(f => f.from < end && (f.to == null || f.to > d0.getTime()));
   return (
-    <div className="dl-cal">{days.map((d, i) => { const dt = new Date(d.s); return (
-      <button key={d.s} type="button" className={`dl-cal-d${d.fz.length ? ' is-freeze' : ''}${i === 0 ? ' is-today' : ''}${dt.getDay() === 0 || dt.getDay() === 6 ? ' is-we' : ''}`} onClick={() => onDay?.(d.s)}
-        title={`${fmtDate(d.s)}: ${d.cs.length} change window${d.cs.length === 1 ? '' : 's'}${d.dl ? ` (${d.dl} delivery)` : ''}${d.fz.length ? ` · freeze: ${d.fz.map(f => f.title).join(', ')}` : ''}`}>
-        <small>{dt.toLocaleString('en-US', { weekday: 'short' }).slice(0, 2)}</small><b>{dt.getDate()}</b>
-        <span className="dl-cal-dots">{d.cs.slice(0, 4).map(c => <i key={c.id} className={`is-${c.cls.toLowerCase()}${c.source === 'Delivery' ? ' is-dl' : ''}`} />)}{d.cs.length > 4 && <em>+{d.cs.length - 4}</em>}</span>
-        {d.fz.length > 0 && <I.Snowflake size={11} className="dl-cal-fz" />}
-      </button>); })}</div>
+    <div className="dl-cal2">
+      {fzs.length > 0 && <div className="dl-cal2-fz"><I.Snowflake size={13} /><span><b>{fzs[0].title}</b>{fzs.length > 1 ? ` +${fzs.length - 1} more` : ''} · {fzs[0].allows.toLowerCase()} · {fzs[0].to ? `until ${fmtDate(fzs[0].to)}` : 'until lifted'}</span></div>}
+      <div className="dl-cal2-grid">{days.map((d, i) => { const dt = new Date(d.s); const n = d.cs.length; const by = (k: string) => d.cs.filter(c => c.cls === k).length; return (
+        <button key={d.s} type="button" className={`dl-cal2-d${i === 0 ? ' is-today' : ''}${dt.getDay() === 0 || dt.getDay() === 6 ? ' is-we' : ''}${d.fz ? ' is-fz' : ''}`} onClick={() => onDay?.(d.s)}
+          title={`${fmtDate(d.s)}: ${n} change window${n === 1 ? '' : 's'} (${by('Standard')} standard, ${by('Normal')} normal, ${by('Emergency')} emergency)${d.fz ? ' · in a freeze' : ''}`}>
+          <span className="dl-cal2-h"><small>{dt.toLocaleString('en-US', { weekday: 'short' }).slice(0, 2)}</small><b>{dt.getDate()}</b></span>
+          <span className="dl-cal2-n">{n || '–'}</span>
+          <span className="dl-cal2-bar" style={{ width: `${(n / max) * 100}%` }}><i className="is-s" style={{ flex: by('Standard') }} /><i className="is-n" style={{ flex: by('Normal') }} /><i className="is-e" style={{ flex: by('Emergency') }} /></span>
+        </button>); })}</div>
+    </div>
   );
 }
 
