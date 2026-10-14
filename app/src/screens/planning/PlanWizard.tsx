@@ -6,7 +6,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { usePage, PageHead, Loading } from '../../shell/page';
-import { Btn, Chip, Panel } from '../../ui/kit';
+import { Btn, Chip } from '../../ui/kit';
 import type * as T from '../../planner/p2b/types';
 import { evaluate, type ParamValue } from '../../planner/lib/engine';
 import { applyDerived, deriveFromRequirements, dimensionsFor } from '../../planner/lib/dimensions';
@@ -17,11 +17,18 @@ import { usePlannerData } from '../../planner/lib/plannerData';
 import { message } from '../../planner/compat/notify';
 import { clockMs } from '../../planner/compat/clock';
 import { PlanStatusChip, PlannerToasts } from './common';
-import { RequirementsStep, TypeStep, StepHead } from './wizard/steps';
+import { RequirementsStep, TypeStep, StepHead, StepMeta } from './wizard/steps';
+import { Sec } from './parts';
 import { DimensionStep } from './wizard/DimensionStep';
 import { ScenarioPanel } from './wizard/Scenarios';
 import { LiveEstimate, ReviewStep } from './wizard/Review';
 import '../../styles/planning.css';
+
+const GROUP_ICON: Record<string, I.LucideIcon> = { 'Set up': I.Flag, Design: I.LayoutGrid, Delivery: I.CalendarRange, Business: I.Wallet, Decide: I.Scale };
+const STEP_ICON: Record<string, I.LucideIcon> = {
+  type: I.Layers, requirements: I.ListChecks, space: I.LayoutGrid, power: I.Zap, cooling: I.Thermometer, network: I.Network, it: I.Cpu, firesec: I.Flame,
+  sustainability: I.Leaf, operations: I.Users, delivery: I.CalendarRange, migration: I.ArrowRightLeft, cost: I.Wallet, permits: I.FileCheck2, scenarios: I.GitCompareArrows, review: I.ClipboardCheck,
+};
 
 /** keyed by plan so moving between /planning/new and an edit never carries one draft into another */
 export function PlanWizard() {
@@ -106,37 +113,62 @@ function Wizard() {
   const lock = existing ? G.lockReason(existing) : undefined;
   const groups = [...new Set(steps.map(s => s.group))];
 
+  const gi = groups.indexOf(cur.group);
+  const inGroup = steps.map((s, i) => ({ s, i })).filter(x => x.s.group === cur.group);
+  const done = (i: number) => i < step || (i < maxVisited && i !== step);
+  const pctDone = Math.round((step / Math.max(1, steps.length - 1)) * 100);
+  const nextStep = steps[step + 1];
+  const meta = { icon: STEP_ICON[cur.key.replace('dim:', '')] ?? I.Circle, eyebrow: `Step ${step + 1} of ${steps.length} · ${cur.group}` };
+
   return (
     <div className="page planning">
-      <PageHead title={draft.title.trim() || 'New plan'} chips={<><PlanStatusChip s={draft.status} />{template && <Chip tone="neutral">{template.name}</Chip>}</>}
-        sub={<><span className="mono">{draft.plnId}</span> · {cur.label} · step {step + 1} of {steps.length}{draft.revision ? ` · revision ${draft.revision}` : ''}{dirty ? ' · unsaved changes' : ''}</>}
+      <PageHead title={draft.title.trim() || 'New plan'} chips={<><PlanStatusChip s={draft.status} />{template && <Chip tone="neutral">{template.name}</Chip>}{dirty && <Chip tone="warning" size="xs" dot>Unsaved changes</Chip>}</>}
+        sub={<><span className="mono">{draft.plnId}</span>{draft.revision ? ` · revision ${draft.revision}` : ''} · owner {draft.ownerName}</>}
         actions={readOnly ? <Btn icon={I.ArrowLeft} onClick={() => nav(`/planning/plans/${draft.id}`)}>Back to the plan</Btn> : <Btn icon={I.Save} disabled={!canSave} title={canSave ? undefined : 'Pick a plan type and give the plan a name first'} onClick={saveExit}>Save and exit</Btn>} />
       {lock && <p className="note note--info"><I.Lock size={15} /><span>{lock} The wizard shows the plan as it was submitted.</span></p>}
-      <div className="pn-wiz">
-        <Panel className="pn-steps" title="Steps" count={steps.length}>
-          {groups.map(g => <div key={g}><h4>{g}</h4>{steps.map((s, i) => s.group === g && <button key={s.key} type="button" className={`pn-step${i === step ? ' is-on' : i < step || (i <= maxVisited && i !== step) ? ' is-done' : ''}`} disabled={i > maxVisited && !readOnly} onClick={() => goTo(i)} title={s.hint}><i>{i < step || (i < maxVisited && i !== step) ? '✓' : i + 1}</i><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.label}</span></button>)}</div>)}
-        </Panel>
-        <Panel>
-          {cur.key === 'type' && <TypeStep {...stepProps} />}
-          {cur.key === 'requirements' && <RequirementsStep {...stepProps} />}
-          {dimUse && <DimensionStep {...stepProps} dim={dimUse.dim} depth={dimUse.depth} />}
-          {cur.key === 'scenarios' && <>
-            <StepHead title="Compare options" text="Scenarios change a few inputs against the base case; the preferred one is what approvers are shown. The plan is saved as a draft before a scenario is created." />
-            {ev && <ScenarioPanel plan={draft} base={ev} scenarios={scenarios.map(s => ({ scenario: s, ev: evaluate(draft, s, templates, benchmarks, actuals, data) }))} templates={templates} actions={actions} editable={!readOnly} onCreateNeedsSave={() => persist()} />}
-          </>}
-          {cur.key === 'review' && <ReviewStep {...stepProps} />}
-          <div className="pn-wiz-foot">
+      <nav className="pn-stepper vw-card-section" aria-label="Wizard steps">
+        <div className="pn-stages">
+          {groups.map((g, k) => {
+            const idx = steps.map((s, i) => (s.group === g ? i : -1)).filter(i => i >= 0);
+            const n = idx.filter(i => done(i)).length, first = idx.find(i => i <= maxVisited || readOnly);
+            const GIco = GROUP_ICON[g] ?? I.Circle;
+            const state = k === gi ? ' is-on' : n === idx.length ? ' is-done' : '';
+            return <button key={g} type="button" className={`pn-stage${state}`} disabled={first === undefined} onClick={() => first !== undefined && goTo(first)}>
+              <span className="pn-stage-ico">{n === idx.length && k !== gi ? <I.Check size={14} /> : <GIco size={14} />}</span>
+              <span className="pn-stage-txt"><b>{g}</b><small>{n === idx.length ? 'Done' : `${n} of ${idx.length} done`}</small></span>
+              <span className="pn-stage-bar"><i style={{ width: `${(n / idx.length) * 100}%` }} /></span>
+            </button>;
+          })}
+          <span className="pn-stage-pct"><b className="num">{pctDone}%</b><small>complete</small></span>
+        </div>
+        {inGroup.length > 1 && <div className="pn-substeps">{inGroup.map(({ s, i }) => <button key={s.key} type="button" className={`pn-pill${i === step ? ' is-on' : done(i) ? ' is-done' : ''}`} disabled={i > maxVisited && !readOnly} onClick={() => goTo(i)} title={s.hint}><i>{done(i) ? <I.Check size={11} /> : i + 1}</i>{s.label}</button>)}</div>}
+      </nav>
+      <div className={`pn-wiz${cur.key === 'type' ? ' is-full' : ''}`}>
+        <div className="pn-main">
+          <StepMeta.Provider value={meta}>
+            {cur.key === 'type' && <TypeStep {...stepProps} />}
+            {cur.key === 'requirements' && <RequirementsStep {...stepProps} />}
+            {dimUse && <DimensionStep {...stepProps} dim={dimUse.dim} depth={dimUse.depth} />}
+            {cur.key === 'scenarios' && <>
+              <StepHead title="Compare options" text="Scenarios change a few inputs against the base case; the preferred one is what approvers are shown. The plan is saved as a draft before a scenario is created." />
+              {ev && <Sec icon={I.GitCompareArrows} title="Scenarios" sub="Base case and the options you are weighing">
+                <ScenarioPanel plan={draft} base={ev} scenarios={scenarios.map(s => ({ scenario: s, ev: evaluate(draft, s, templates, benchmarks, actuals, data) }))} templates={templates} actions={actions} editable={!readOnly} onCreateNeedsSave={() => persist()} />
+              </Sec>}
+            </>}
+            {cur.key === 'review' && <ReviewStep {...stepProps} />}
+          </StepMeta.Provider>
+          <div className="pn-actbar">
             <Btn icon={I.ArrowLeft} disabled={step === 0} onClick={() => goTo(step - 1)}>Back</Btn>
+            <span className="pn-actbar-mid">{issues.length > 0 ? <span className="field-error"><I.CircleAlert size={14} />{issues[0].text}</span> : nextStep ? <span className="vw-label">Next: <b className="strong">{nextStep.label}</b></span> : <span className="vw-label">Last step</span>}</span>
             <span className="row" style={{ gap: 8 }}>
-              {issues.length > 0 && <span className="field-error">{issues[0].text}</span>}
               {!readOnly && !isLast && <Btn disabled={!canSave} onClick={() => { if (persist()) message.success('Draft saved'); }}>Save draft</Btn>}
               {!isLast && <Btn variant="filled" iconRight={I.ArrowRight} disabled={!readOnly && (issues.length > 0 || (cur.key === 'type' && !draft.templateId))} onClick={next}>{cur.key === 'requirements' && !readOnly ? 'Fill the design' : 'Next'}</Btn>}
               {isLast && !readOnly && <Btn variant="filled" icon={I.Send} disabled={bad > 0 || !canSave} title={bad ? `${bad} item(s) block submission` : undefined} onClick={submit}>{draft.status === 'Rejected' ? 'Resubmit for review' : 'Submit for review'}</Btn>}
               {isLast && readOnly && <Btn variant="filled" onClick={() => nav(`/planning/plans/${draft.id}`)}>Open the plan</Btn>}
             </span>
           </div>
-        </Panel>
-        <LiveEstimate draft={draft} ev={ev} />
+        </div>
+        {cur.key !== 'type' && <LiveEstimate draft={draft} ev={ev} />}
       </div>
       <PlannerToasts />
     </div>

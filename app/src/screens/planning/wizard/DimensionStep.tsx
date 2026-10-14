@@ -3,13 +3,13 @@
    editors are shared with the plan page. */
 import { useMemo, useState } from 'react';
 import * as I from 'lucide-react';
-import { Btn, Chip, KV } from '../../../ui/kit';
+import { Btn, Chip } from '../../../ui/kit';
 import type * as T from '../../../planner/p2b/types';
 import type { Dimension } from '../../../planner/lib/dimensions';
 import { requirementParamKeys } from '../../../planner/lib/dimensions';
 import { COOLING_LABEL, fmtParam, fromDateInput, paramDefsFor, phaseDerived, toDateInput, type StepProps } from '../../../planner/lib/wizardModel';
 import type { Evaluation } from '../../../planner/lib/engine';
-import { Sub, KvList } from '../parts';
+import { Sub, KvList, Sec, Figs } from '../parts';
 import { FindingList, NumInput, SelectInput, TextInput, date, kw, money, num, pct } from '../common';
 import { ParamInput } from './ParamInput';
 import { StepHead } from './steps';
@@ -26,18 +26,23 @@ export function DimensionStep(props: StepProps & { dim: Dimension; depth: 'full'
   const fromReq = inputs.filter(d => ev?.params[d.key]?.source === 'requirement').length;
   const visible = depth === 'summary' && !showAll ? inputs.slice(0, 3) : inputs;
   const fails = findings.filter(f => f.status === 'fail').length, warns = findings.filter(f => f.status === 'warn').length;
+  const passes = findings.filter(f => f.status === 'pass').length;
   return (
-    <div>
+    <div className="pn-stack">
       <StepHead title={dim.label} text={dim.question} extra={<span className="row" style={{ gap: 6 }}>{depth === 'summary' && <Chip tone="neutral">Brief for this plan type</Chip>}<Chip tone={fails ? 'error' : warns ? 'warning' : 'success'} dot>{fails ? `${fails} fail` : warns ? `${warns} warning${warns === 1 ? '' : 's'}` : 'Checks pass'}</Chip></span>} />
-      {fixed.length > 0 && <p className="vw-label" style={{ margin: '0 0 10px', fontSize: 12.5 }}>From Requirements: {fixed.map(d => <b key={d.key} className="strong" style={{ marginRight: 10 }}>{d.label} {fmtParam(d.key, ev?.params[d.key]?.value ?? d.default, d.unit)}</b>)}<button type="button" className="ent-link" onClick={() => goTo('requirements')}>change</button></p>}
-      {inputs.length > 0 && <>
-        <Sub extra={fromReq > 0 && <span className="vw-label" style={{ fontWeight: 400 }}>{fromReq} filled from your requirements — change only what differs</span>}>Inputs</Sub>
-        <div className="pn-grid-3">{visible.map(d => <ParamInput key={d.key} def={d} ev={ev} draft={draft} setParam={setParam} resetParam={resetParam} why={why[d.key]} disabled={readOnly} />)}</div>
-        {visible.length < inputs.length && <button type="button" className="ent-link" style={{ marginTop: 8, fontSize: 12.5 }} onClick={() => setShowAll(true)}>Show {inputs.length - visible.length} more input{inputs.length - visible.length === 1 ? '' : 's'}</button>}
-      </>}
-      <Sub>Result</Sub>
-      <Result {...props} />
-      {findings.length > 0 && <><Sub>Checks for {dim.label.toLowerCase()}</Sub><FindingList findings={findings} /></>}
+      {fixed.length > 0 && <div className="pn-fromreq"><I.ListChecks size={15} /><span className="vw-label">From your requirements</span>{fixed.map(d => <span key={d.key} className="pn-fromreq-item">{d.label} <b>{fmtParam(d.key, ev?.params[d.key]?.value ?? d.default, d.unit)}</b></span>)}<button type="button" className="ent-link" onClick={() => goTo('requirements')}>Change</button></div>}
+      {inputs.length > 0 && <Sec icon={I.SlidersHorizontal} title="Inputs" sub={fromReq > 0 ? `${fromReq} of ${inputs.length} filled from your requirements; change only what differs` : `${inputs.length} input${inputs.length === 1 ? '' : 's'} for ${dim.label.toLowerCase()}`}
+        extra={<span className="pn-legend"><span><i className="s-user" />Entered</span><span><i className="s-req" />Requirements</span><span><i className="s-def" />Default</span><span><i className="s-bm" />Benchmark</span></span>}>
+        <div className="pn-params">{visible.map(d => <ParamInput key={d.key} def={d} ev={ev} draft={draft} setParam={setParam} resetParam={resetParam} why={why[d.key]} disabled={readOnly} />)}</div>
+        {visible.length < inputs.length && <button type="button" className="ent-link" style={{ marginTop: 12, fontSize: 12.5 }} onClick={() => setShowAll(true)}>Show {inputs.length - visible.length} more input{inputs.length - visible.length === 1 ? '' : 's'}</button>}
+      </Sec>}
+      <Sec icon={I.Calculator} title="What the planner works out" sub="Recalculated from the inputs as you type">
+        <Result {...props} />
+      </Sec>
+      {findings.length > 0 && <Sec icon={I.ShieldCheck} title={`Checks for ${dim.label.toLowerCase()}`} sub="The template's rules for this area, evaluated on the plan as it is now" tone={fails ? 'bad' : warns ? 'warn' : 'ok'}
+        extra={<span className="row" style={{ gap: 6 }}>{passes > 0 && <Chip tone="success" size="xs" dot>{passes} pass</Chip>}{warns > 0 && <Chip tone="warning" size="xs" dot>{warns} warn</Chip>}{fails > 0 && <Chip tone="error" size="xs" dot>{fails} fail</Chip>}</span>}>
+        <FindingList findings={findings} />
+      </Sec>}
     </div>
   );
 }
@@ -49,29 +54,38 @@ function Result(props: StepProps & { dim: Dimension }) {
   const s = ev.sizing, e = ev.estimate;
   switch (dim.key) {
     case 'space': return <>
-      <KV cols={4} items={[['Racks', num(s.racks)], ['Halls', num(s.halls)], ['Buildings', num(s.buildings)], ['White space', `${num(s.whiteSpaceM2)} m²`], ['Gross area', `${num(s.grossAreaM2)} m²`], ['Racks per hall', num(s.building.racksPerHall)], ['Floors per building', num(s.building.floorsPerBuilding)], ['Halls per floor', num(s.building.hallsPerFloor)]]} />
+      <Figs items={[['Racks', num(s.racks)], ['Halls', num(s.halls)], ['Buildings', num(s.buildings)], ['White space', `${num(s.whiteSpaceM2)} m²`], ['Gross area', `${num(s.grossAreaM2)} m²`], ['Racks per hall', num(s.building.racksPerHall)], ['Floors per building', num(s.building.floorsPerBuilding)], ['Halls per floor', num(s.building.hallsPerFloor)]]} />
       {s.rackClasses.length > 0 && <table className="nst-table" style={{ width: '100%', marginTop: 10 }}><thead><tr><th>Rack class</th><th>kW per rack</th><th>Racks</th><th>Share</th><th>Cooling</th></tr></thead><tbody>{s.rackClasses.map(c => <tr key={c.name}><td>{c.name}</td><td className="num">{c.kw}</td><td className="num">{num(c.racks)}</td><td className="num">{pct(c.sharePct)}</td><td>{c.liquid ? `Liquid to chip (${c.capturePct}% captured)` : c.rearDoor ? 'Rear door' : 'Air'}</td></tr>)}</tbody></table>}
       {ev.ctx.site && <p className="vw-label" style={{ marginTop: 8 }}>At {ev.ctx.site.dc.name}: {ev.ctx.site.halls.reduce((a, h) => a + h.freePositions, 0)} free positions across {ev.ctx.site.halls.length} halls; {kw(ev.ctx.site.headroomItKw)} of IT headroom.</p>}
     </>;
     case 'power': return <>
-      {s.facility && <KV cols={4} items={[['IT load', kw(s.facility.itKw)], ['Facility load', `${kw(s.facility.facilityKw)} · ${s.facility.mva} MVA`], ['Peak PUE', String(s.facility.peakPue)], ['Power factor', String(s.facility.powerFactor)]]} />}
-      {s.power?.length ? <table className="nst-table" style={{ width: '100%', marginTop: 10 }}><thead><tr><th>Stage</th><th>Redundancy</th><th>Units</th><th>Usable at redundancy</th><th>Must carry</th><th>Check</th></tr></thead><tbody>{s.power.map(p => <tr key={p.key}><td><span className="cell-2"><b>{p.label}</b><small>{p.basis}</small></span></td><td>{p.redundancy}</td><td className="num">{p.count} × {p.unit}</td><td className="num">{kw(p.usableKw)}</td><td className="num">{kw(p.needKw)}</td><td><Chip tone={p.ok ? 'success' : 'error'} size="xs" dot>{p.ok ? 'OK' : 'Short'}</Chip></td></tr>)}</tbody></table> : null}
+      {s.facility && <Figs items={[['IT load', kw(s.facility.itKw)], ['Facility load', `${kw(s.facility.facilityKw)} · ${s.facility.mva} MVA`], ['Peak PUE', String(s.facility.peakPue)], ['Power factor', String(s.facility.powerFactor)]]} />}
+      {s.power?.length ? <><Sub>Power path, utility to rack</Sub><div className="pn-chain-cards">{s.power.map((p, i) => <div key={p.key} className={`pn-stagecard${p.ok ? '' : ' is-bad'}`}>
+        {i > 0 && <I.ChevronRight size={16} className="pn-stagecard-arrow" />}
+        <span className="row between"><b>{p.label}</b><Chip tone={p.ok ? 'success' : 'error'} size="xs" dot>{p.ok ? 'OK' : 'Short'}</Chip></span>
+        <span className="pn-stagecard-units num">{p.count} × {p.unit}</span>
+        <span className="pn-stagecard-red">{p.redundancy}</span>
+        <span className="pn-stagecard-kv"><span>Usable</span><b className="num">{kw(p.usableKw)}</b></span>
+        <span className="pn-stagecard-kv"><span>Must carry</span><b className="num">{kw(p.needKw)}</b></span>
+        <span className="pn-stagecard-meter"><i style={{ width: `${Math.min(100, (p.needKw / Math.max(1, p.usableKw)) * 100)}%` }} /></span>
+        <small title={p.basis}>{p.basis}</small>
+      </div>)}</div></> : null}
       {s.plant.length > 0 && <><Sub>Plant</Sub><table className="nst-table" style={{ width: '100%' }}><thead><tr><th>Item</th><th>Count</th><th>Rating</th><th>Redundancy</th><th>Note</th></tr></thead><tbody>{s.plant.filter(p => !/crah|cdu|chiller|cool|rear/i.test(p.kind)).map((p, i) => <tr key={`${p.name}-${i}`}><td>{p.name}{p.model ? <small className="vw-label"> · {p.model}</small> : null}</td><td className="num">{p.count}</td><td className="num">{p.unitKva ? `${num(p.unitKva)} kVA` : kw(p.capacityKw)}</td><td>{p.redundancy}</td><td className="vw-label">{p.note ?? ''}</td></tr>)}</tbody></table></>}
     </>;
     case 'cooling': { const c = s.cooling; return <>
-      <KV cols={4} items={[['Method', COOLING_LABEL[c.type as T.PlannerCoolingType] ?? c.type], ['Capacity', `${kw(c.capacityKw)} · ${c.redundancy}`], ['Heat to liquid', kw(c.liquidKw)], ['Heat to air', kw(c.airKw)], ['Air units', `${c.air.units} × ${kw(c.air.unitKw)} ${c.air.label}`], ['CDUs', c.cdu ? `${c.cdu.units} × ${kw(c.cdu.unitKw)}` : '—'], ['Rear doors', num(c.rearDoors)], ['PUE', `${s.pue.value} (${s.pue.source})`]]} />
+      <Figs items={[['Method', COOLING_LABEL[c.type as T.PlannerCoolingType] ?? c.type], ['Capacity', `${kw(c.capacityKw)} · ${c.redundancy}`], ['Heat to liquid', kw(c.liquidKw)], ['Heat to air', kw(c.airKw)], ['Air units', `${c.air.units} × ${kw(c.air.unitKw)} ${c.air.label}`], ['CDUs', c.cdu ? `${c.cdu.units} × ${kw(c.cdu.unitKw)}` : '—'], ['Rear doors', num(c.rearDoors)], ['PUE', `${s.pue.value} (${s.pue.source})`]]} />
       {c.liquidRequired && <p className="note note--warn" style={{ marginTop: 8 }}><I.Droplets size={15} />Liquid cooling is required at this density (above the liquid threshold benchmark).</p>}
       {c.heatRejection?.streams?.length ? <table className="nst-table" style={{ width: '100%', marginTop: 10 }}><thead><tr><th>Heat stream</th><th>Heat</th><th>Loop</th><th>Rejected by</th></tr></thead><tbody>{c.heatRejection.streams.map(h => <tr key={h.label}><td>{h.label}</td><td className="num">{kw(h.heatKw)}</td><td className="num">{h.loopC} °C</td><td>{h.method}{h.trimPct ? ` (+${h.trimPct}% trim)` : ''}</td></tr>)}</tbody></table> : null}
     </>; }
-    case 'network': { const n = s.network; return <KV cols={4} items={[['Leaf switches', num(n.leaves)], ['Spines', num(n.spines)], ['Core / border', num(n.cores)], ['Uplinks', `${num(n.uplinks)} × ${n.uplinkGbps}G`], ['Access ports', num(n.accessPorts)], ['Carriers', num(n.carriers)], ['Interconnect', n.dciGbps ? `${num(n.dciGbps)} Gbps${n.dciSource ? ` (${n.dciSource})` : ''}` : '—'], ['Oversubscription', String(ev.params.oversubscription?.value ?? '—')]]} />; }
+    case 'network': { const n = s.network; return <Figs items={[['Leaf switches', num(n.leaves)], ['Spines', num(n.spines)], ['Core / border', num(n.cores)], ['Uplinks', `${num(n.uplinks)} × ${n.uplinkGbps}G`], ['Access ports', num(n.accessPorts)], ['Carriers', num(n.carriers)], ['Interconnect', n.dciGbps ? `${num(n.dciGbps)} Gbps${n.dciSource ? ` (${n.dciSource})` : ''}` : '—'], ['Oversubscription', String(ev.params.oversubscription?.value ?? '—')]]} />; }
     case 'it': return <>
-      <KV cols={4} items={[['IT capacity', kw(s.itKw)], ['GPU share', pct(draft.demand.gpuPct)], ['Compute share', pct(draft.demand.computePct)], ['Storage share', pct(draft.demand.storagePct)], ['Operator owns the IT', ev.params.operatorOwnedIt?.value ? 'Yes' : 'No'], ['Owned IT CapEx', money(e.capex.filter(l => /IT|server|GPU|storage/i.test(l.category)).reduce((a, l) => a + l.amount, 0))], ['Spares', `${s.spares.lines} lines · ${money(s.spares.valueUsd)}`], ['Refresh cycle', `${ev.params.refreshYears?.value ?? '—'} years`]]} />
+      <Figs items={[['IT capacity', kw(s.itKw)], ['GPU share', pct(draft.demand.gpuPct)], ['Compute share', pct(draft.demand.computePct)], ['Storage share', pct(draft.demand.storagePct)], ['Operator owns the IT', ev.params.operatorOwnedIt?.value ? 'Yes' : 'No'], ['Owned IT CapEx', money(e.capex.filter(l => /IT|server|GPU|storage/i.test(l.category)).reduce((a, l) => a + l.amount, 0))], ['Spares', `${s.spares.lines} lines · ${money(s.spares.valueUsd)}`], ['Refresh cycle', `${ev.params.refreshYears?.value ?? '—'} years`]]} />
       {s.rackClasses.length > 0 && <div className="row wrap" style={{ gap: 6, marginTop: 10 }}>{s.rackClasses.map(c => <Chip key={c.name} tone="neutral">{c.name}: {num(c.racks)} racks at {c.kw} kW</Chip>)}</div>}
     </>;
-    case 'firesec': return <KV cols={4} items={[['Suppression', String(ev.params.suppressionType?.value ?? '—')], ['Detection', String(ev.params.detectionType?.value ?? 'VESDA')], ['Security zones', String(ev.params.securityZones?.value ?? '—')], ['Access control', String(ev.params.accessControl?.value ?? 'Two-factor into the hall')]]} />;
-    case 'sustainability': { const u = ev.sustainability; return <KV cols={4} items={[['PUE', String(u.pue)], ['WUE', `${u.wue} L/kWh`], ['Energy per year', `${num(u.energyMwhYear)} MWh`], ['Carbon per year', `${num(u.carbonTYear)} t CO₂`], ['Renewable share', pct(u.renewableSharePct)], ['Heat reuse', `${num(u.heatReuseMwhYear)} MWh`]]} />; }
+    case 'firesec': return <Figs items={[['Suppression', String(ev.params.suppressionType?.value ?? '—')], ['Detection', String(ev.params.detectionType?.value ?? 'VESDA')], ['Security zones', String(ev.params.securityZones?.value ?? '—')], ['Access control', String(ev.params.accessControl?.value ?? 'Two-factor into the hall')]]} />;
+    case 'sustainability': { const u = ev.sustainability; return <Figs items={[['PUE', String(u.pue)], ['WUE', `${u.wue} L/kWh`], ['Energy per year', `${num(u.energyMwhYear)} MWh`], ['Carbon per year', `${num(u.carbonTYear)} t CO₂`], ['Renewable share', pct(u.renewableSharePct)], ['Heat reuse', `${num(u.heatReuseMwhYear)} MWh`]]} />; }
     case 'operations': { const st = s.staffing; return <>
-      <KV cols={4} items={[['Operations staff', `${num(st.fte, 1)} FTE`], ['Per MW', `${st.perMw} FTE/MW (${st.source})`], ['Shifts', num(st.shifts)], ['Seats', st.seats ?? '—']]} />
+      <Figs items={[['Operations staff', `${num(st.fte, 1)} FTE`], ['Per MW', `${st.perMw} FTE/MW (${st.source})`], ['Shifts', num(st.shifts)], ['Seats', st.seats ?? '—']]} />
       {st.plan?.length ? <table className="nst-table" style={{ width: '100%', marginTop: 10 }}><thead><tr><th>Phase</th><th>Cumulative load</th><th>FTE</th><th>Key hires by</th><th>Technicians by</th></tr></thead><tbody>{st.plan.map(p => <tr key={p.phaseId}><td>{p.name}</td><td className="num">{kw(p.cumulativeKw)}</td><td className="num">{num(p.fte, 1)}</td><td>{date(p.keyHireBy)}</td><td>{date(p.techHireBy)}</td></tr>)}</tbody></table> : null}
       {st.basis && <p className="vw-label" style={{ marginTop: 8 }}>{st.basis}</p>}
     </>; }
@@ -82,7 +96,7 @@ function Result(props: StepProps & { dim: Dimension }) {
       <ScheduleGantt items={ev.schedule} target={draft.targetGoLive} />
     </>;
     case 'cost': return <>
-      <KV cols={4} items={[['CapEx', money(e.capexTotal)], ['Per kW', money(e.capexPerKw)], ['Per rack', money(e.capexPerRack)], ['Contingency', money(e.contingencyUsd ?? 0)], ['OpEx per month', money(e.opexMonthly)], ['Per kW-month', money(e.costPerKwMonth)], ['Payback', e.paybackMonths == null ? '—' : `${e.paybackMonths} months`], ['NPV / IRR', `${money(e.npvUsd)} / ${e.irrPct == null ? '—' : `${e.irrPct}%`}`]]} />
+      <Figs items={[['CapEx', money(e.capexTotal)], ['Per kW', money(e.capexPerKw)], ['Per rack', money(e.capexPerRack)], ['Contingency', money(e.contingencyUsd ?? 0)], ['OpEx per month', money(e.opexMonthly)], ['Per kW-month', money(e.costPerKwMonth)], ['Payback', e.paybackMonths == null ? '—' : `${e.paybackMonths} months`], ['NPV / IRR', `${money(e.npvUsd)} / ${e.irrPct == null ? '—' : `${e.irrPct}%`}`]]} />
       {e.benchmarkBand && <p className="vw-label" style={{ marginTop: 8 }}>Benchmark band {money(e.benchmarkBand.low)}–{money(e.benchmarkBand.high)} per kW ({e.benchmarkBand.source}){e.actualsCapexPerKw ? `; our last builds ${money(e.actualsCapexPerKw)} per kW` : ''}. {e.paybackBasis}</p>}
       <Sub>CapEx lines</Sub>
       <table className="nst-table" style={{ width: '100%' }}><thead><tr><th>Item</th><th>Basis</th><th>Amount</th></tr></thead><tbody>{e.capex.map((l, i) => <tr key={i}><td>{l.item}</td><td className="vw-label">{l.basis}</td><td className="num" style={{ whiteSpace: 'nowrap' }}>{money(l.amount)}</td></tr>)}<tr><td className="strong">Total</td><td /><td className="num strong" style={{ whiteSpace: 'nowrap' }}>{money(e.capexTotal)}</td></tr></tbody></table>

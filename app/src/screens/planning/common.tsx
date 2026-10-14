@@ -2,7 +2,8 @@
    helpers show them in the geography's money and date style, with the app's chips, inputs and toasts. */
 import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, TriangleAlert, X } from 'lucide-react';
+import { Check, TriangleAlert, X, type LucideIcon } from 'lucide-react';
+import * as Ic from 'lucide-react';
 import { geoNow } from '../../api';
 import type * as T from '../../planner/p2b/types';
 import type { Finding, ParamValue } from '../../planner/lib/engine';
@@ -33,6 +34,10 @@ export const SourceChip = ({ s, note, short }: { s?: T.PlannerParamSource; note?
 export const SCOPE_LABEL: Record<T.PlannerScope, string> = {
   rack: 'Rack placement', pod: 'Pod, row or cage', hall: 'Hall fit-out', retrofit: 'Liquid retrofit', plant: 'Plant upgrade', network: 'Network uplift', expansion: 'Site expansion', 'new-dc': 'New datacenter',
   portfolio: 'Regional portfolio', migration: 'Migration or decommission', edge: 'Edge rollout', 'server-refresh': 'Server refresh', 'network-refresh': 'Network device refresh', 'rack-replace': 'Rack replacement',
+};
+export const SCOPE_ICON: Record<T.PlannerScope, LucideIcon> = {
+  rack: Ic.Server, pod: Ic.Rows3, hall: Ic.Warehouse, retrofit: Ic.Droplets, plant: Ic.Zap, network: Ic.Network, migration: Ic.ArrowRightLeft,
+  'server-refresh': Ic.RefreshCw, 'network-refresh': Ic.Router, 'rack-replace': Ic.Replace, expansion: Ic.Building, 'new-dc': Ic.Building2, portfolio: Ic.Map, edge: Ic.RadioTower,
 };
 export const SCOPE_GROUP: Record<T.PlannerScope, 'On an existing site' | 'Replace or refresh' | 'New capacity'> = {
   rack: 'On an existing site', pod: 'On an existing site', hall: 'On an existing site', retrofit: 'On an existing site', plant: 'On an existing site', network: 'On an existing site', migration: 'On an existing site',

@@ -15,7 +15,7 @@ const check = async (name) => {
   errs.length = 0;
 };
 await p.goto(`http://localhost:5181/planning/new?persona=${P}&geo=${G}`, { waitUntil: 'networkidle' }); await p.waitForTimeout(1200);
-await p.locator('.pn-card').filter({ hasText: new RegExp(`^${TYPE}`) }).first().click(); await p.waitForTimeout(800);
+await p.locator('.pn-type').filter({ has: p.locator('b', { hasText: new RegExp(`^${TYPE}$`) }) }).first().click(); await p.waitForTimeout(800);
 await check('1-type');
 /* fill what the Requirements step asks before it lets you on */
 const fill = async () => {
@@ -31,7 +31,7 @@ for (let i = 2; i < 20; i++) {
   const next = p.getByRole('button', { name: /^(Next|Fill the design)/ }).last();
   if (!(await next.count()) || await next.isDisabled()) { const last = await p.getByRole('button', { name: /Submit|Create|Save draft/ }).count(); ok(true, `stopped at step ${i - 1} (no enabled Next; ${last} finish button(s))`); break; }
   await next.click(); await p.waitForTimeout(900);
-  const head = await p.locator('.pn-step.is-on').first().innerText().catch(() => '');
+  const head = await p.locator('.pn-pill.is-on').first().innerText().catch(() => '');
   await check(`${i}-${head || 'step'}`);
 }
 await b.close();

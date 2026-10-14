@@ -1,8 +1,8 @@
 /* Wizard steps 1 and 2: the plan type (which fixes every later step) and the requirements in the planner's own words — where, how
    much, what runs in the racks, how critical, needed by when — from which the planner fills the design inputs. */
-import { useMemo, useState } from 'react';
+import { createContext, useContext, useMemo, useState } from 'react';
 import * as I from 'lucide-react';
-import { Chip, Field, Panel, Seg, CheckBox, Btn, KV } from '../../../ui/kit';
+import { Chip, Field, Seg, CheckBox, Btn } from '../../../ui/kit';
 import { DataTable, type Col } from '../../../ui/DataTable';
 import type * as T from '../../../planner/p2b/types';
 import { DC_TYPE_CATALOG } from '../../../planner/p2b/dcTypes';
@@ -12,11 +12,16 @@ import { CLIMATES, CLIMATE_LABEL, SITE_MODE, climateFromHint, fmtParam, fromDate
 import { siteBaseline } from '../../../planner/lib/site';
 import { EDGE_VARIANTS } from '../../../planner/lib/buildEdge';
 import { byId } from '../../../planner/lib/plannerData';
-import { Sub } from '../parts';
-import { NumInput, SCOPE_GROUP, SCOPE_LABEL, SelectInput, TextArea, TextInput, kw, num } from '../common';
+import { Sub, Sec, Figs } from '../parts';
+import { NumInput, SCOPE_GROUP, SCOPE_ICON, SCOPE_LABEL, SelectInput, TextArea, TextInput, kw, num } from '../common';
 import { CandidatePlots } from './Candidates';
 
-export const StepHead = ({ title, text, extra }: { title: string; text: string; extra?: React.ReactNode }) => <div className="pn-step-head"><div><h2>{title}</h2><p>{text}</p></div>{extra}</div>;
+/** the step's icon and "Step n of N · group" line, provided by the wizard shell */
+export const StepMeta = createContext<{ icon: I.LucideIcon; eyebrow: string } | null>(null);
+export function StepHead({ title, text, extra }: { title: string; text: string; extra?: React.ReactNode }) {
+  const m = useContext(StepMeta); const Ico = m?.icon;
+  return <div className="pn-hero">{Ico && <span className="pn-hero-ico"><Ico size={22} /></span>}<div className="pn-hero-txt">{m && <small>{m.eyebrow}</small>}<h2>{title}</h2><p>{text}</p></div>{extra && <div className="pn-hero-extra">{extra}</div>}</div>;
+}
 
 /* ------------------------------------------------------------------ step 1: plan type */
 export function TypeStep({ draft, patch, templates, template }: StepProps) {
@@ -36,30 +41,33 @@ export function TypeStep({ draft, patch, templates, template }: StepProps) {
     const base: Partial<T.PlannerPlan> = { templateId: t.id, scope, params, paramSources, designPowerKw, ...(SITE_MODE[draft.scope] !== mode ? site : {}) };
     patch({ ...base, ...(modelFor(scope).seedDraft?.({ ...draft, ...base } as T.PlannerPlan) ?? {}) });
   };
-  const groups = ['On an existing site', 'Replace or refresh', 'New capacity'] as const;
+  const groups = [
+    { g: 'On an existing site', icon: I.Building2, text: 'Add or change capacity inside a site that is already live.' },
+    { g: 'Replace or refresh', icon: I.RefreshCw, text: 'Swap ageing or end-of-life equipment without losing service.' },
+    { g: 'New capacity', icon: I.Sparkles, text: 'A new building, a new site or a programme across several sites.' },
+  ] as const;
+  const where: Record<string, string> = { existing: 'Inside a live site; its kind, tier and climate set the defaults.', 'two-sites': 'Between two live sites.', migration: 'From a live site to another, or a decommission.', campus: 'A new building on an existing campus.', new: 'A new site on new land.', region: 'Across the sites of a region.' };
   return (
-    <div>
+    <div className="pn-stack">
       <StepHead title="What are you planning?" text="Pick a plan type. It decides which areas the wizard asks about, which inputs and rules apply, what the plan produces and who approves it." />
-      {groups.map(g => { const ts = planTypes.filter(t => t.scope && SCOPE_GROUP[t.scope] === g); return ts.length ? (
-        <div key={g}><Sub>{g}</Sub><div className="pn-cards">{ts.map(t => { const on = draft.templateId === t.id; const d = dimensionsFor(t); return (
-          <button key={t.id} type="button" className={`pn-card${on ? ' is-on' : ''}`} onClick={() => choose(t)} aria-pressed={on}>
-            <span className="row between"><b>{t.name}</b>{on ? <Chip tone="info" size="xs">Selected</Chip> : t.inheritsFrom ? <Chip tone="purple" size="xs">Variant</Chip> : null}</span>
-            <span className="vw-label">{t.description}</span>
-            <span className="vw-label" style={{ fontSize: 11.5 }}>{d.length} areas · becomes a {t.executesAs ?? 'plan'}{t.approvalPath.length ? ` · ${t.approvalPath.length} approval step${t.approvalPath.length === 1 ? '' : 's'}` : ''}</span>
-          </button>); })}</div></div>) : null; })}
+      {groups.map(({ g, icon, text }) => { const ts = planTypes.filter(t => t.scope && SCOPE_GROUP[t.scope] === g); return ts.length ? (
+        <Sec key={g} icon={icon} title={g} sub={text} extra={<span className="vw-label">{ts.length} plan type{ts.length === 1 ? '' : 's'}</span>}>
+          <div className="pn-types">{ts.map(t => { const on = draft.templateId === t.id; const d = dimensionsFor(t); const Ico = (t.scope && SCOPE_ICON[t.scope]) || I.Layers; return (
+            <button key={t.id} type="button" className={`pn-type${on ? ' is-on' : ''}`} onClick={() => choose(t)} aria-pressed={on} title={t.description}>
+              <span className="pn-type-top"><span className="pn-type-ico"><Ico size={18} /></span>{on ? <span className="pn-type-check"><I.Check size={13} /></span> : t.inheritsFrom ? <Chip tone="purple" size="xs">Variant</Chip> : null}</span>
+              <b>{t.name}</b>
+              <span className="pn-type-desc">{t.description}</span>
+              <span className="pn-type-meta"><span><I.Layers size={12} />{d.length} areas</span><span><I.ShieldCheck size={12} />{t.approvalPath.length} approval{t.approvalPath.length === 1 ? '' : 's'}</span><span><I.ArrowRight size={12} />{t.executesAs ?? 'plan'}</span></span>
+            </button>); })}</div>
+        </Sec>) : null; })}
       {template && (
-        <Panel icon={I.Route} title={`${template.name}: what happens next`} style={{ marginTop: 16 }}>
-          <div className="pn-two is-wide">
-            <div>
-              <div className="strong" style={{ fontSize: 12.5, marginBottom: 6 }}>The wizard asks about {dimensionsFor(template).length} areas, then you compare options and submit</div>
-              <div className="row wrap" style={{ gap: 4 }}>{dimensionsFor(template).map(({ dim, depth }) => <Chip key={dim.key} tone={depth === 'full' ? 'info' : 'neutral'} size="xs">{dim.label}{depth === 'summary' ? ' · brief' : ''}</Chip>)}</div>
-            </div>
-            <div className="vw-label" style={{ fontSize: 12.5 }}>
-              <b className="strong">Where:</b> {{ existing: 'inside a live site; its kind, tier and climate set the defaults.', 'two-sites': 'between two live sites.', migration: 'from a live site to another, or a decommission.', campus: 'a new building on an existing campus.', new: 'a new site on new land.', region: 'across the sites of a region.' }[SITE_MODE[template.scope ?? draft.scope]]}<br />
-              <b className="strong">Approved by:</b> {template.approvalPath.join(' → ') || 'no one'}.<br /><b className="strong">Produces:</b> {template.outputs.join(', ').toLowerCase() || '—'}.
-            </div>
+        <Sec icon={I.Route} tone="info" title={`${template.name}: what happens next`} sub={`The wizard asks about ${dimensionsFor(template).length} areas, then you compare options and submit.`} className="pn-next">
+          <div className="pn-next-grid">
+            <div><h5>Areas the wizard covers</h5><div className="row wrap" style={{ gap: 6 }}>{dimensionsFor(template).map(({ dim, depth }) => <Chip key={dim.key} tone={depth === 'full' ? 'info' : 'neutral'} size="xs">{dim.label}{depth === 'summary' ? ' · brief' : ''}</Chip>)}</div></div>
+            <div><h5>Where</h5><p>{where[SITE_MODE[template.scope ?? draft.scope]]}</p><h5>Approved by</h5>{template.approvalPath.length ? <ol className="pn-chainlist">{template.approvalPath.map((a, i) => <li key={i}><i>{i + 1}</i>{a}</li>)}</ol> : <p>No approval step.</p>}</div>
+            <div><h5>Produces</h5><ul className="pn-outlist">{template.outputs.map(o => <li key={o}><I.FileText size={13} />{o}</li>)}</ul></div>
           </div>
-        </Panel>
+        </Sec>
       )}
     </div>
   );
@@ -94,46 +102,53 @@ export function RequirementsStep(props: StepProps) {
   const sum = draft.demand.gpuPct + draft.demand.computePct + draft.demand.storagePct;
   const capLabel = draft.scope === 'migration' ? 'IT load moving' : draft.scope === 'plant' ? 'IT load the plant must carry' : draft.scope === 'expansion' ? 'Extra IT capacity needed' : 'IT capacity needed';
   const howMuch = fields.some(f => ['capacityKw', 'rackCount', 'densityKwPerRack', 'siteCount', 'kwPerSite', 'dciGbpsRequired', 'racksToMove', 'growth', 'tenancy'].includes(f));
+  const [allWhy, setAllWhy] = useState(false);
+  const shownWhy = allWhy ? preview : preview.slice(0, 8);
+  const tier = String(draft.params.tier ?? defs.get('tier')?.default ?? 'Tier III');
   return (
-    <div>
+    <div className="pn-stack">
       <StepHead title="What do you need?" text="Answer in your own terms. These answers fill the inputs of every following step; you only change what differs." />
-      <div className="pn-grid-3">
-        <Field label="Plan name" required error={err('title')} style={{ gridColumn: 'span 2' }}><TextInput value={draft.title} disabled={readOnly} placeholder="e.g. Los Angeles AI campus · 50 MW" onChange={v => patch({ title: v })} /></Field>
-        <Field label={draft.scope === 'migration' ? 'Finished by' : 'Needed by'} required error={err('targetGoLive')}><TextInput type="date" value={toDateInput(draft.targetGoLive)} disabled={readOnly} onChange={v => patch({ targetGoLive: fromDateInput(v, draft.targetGoLive) })} /></Field>
-        <Field label="What is this plan for?" style={{ gridColumn: 'span 3' }}><TextArea rows={2} value={draft.intent} disabled={readOnly} placeholder="The need in a sentence or two: who asked for it, why, and any constraint the reviewers should know." onChange={v => patch({ intent: v })} /></Field>
-      </div>
-      <Sub>Where</Sub>
-      {err('site') && <p className="field-error" style={{ margin: '0 0 8px' }}>{err('site')}</p>}
-      <SitePicker {...props} />
-      {has('affected') && <AffectedPicker {...props} />}
-      {draft.scope === 'edge' && <EdgeSites {...props} />}
-      {draft.scope === 'new-dc' && <CandidatePlots {...props} />}
-      {howMuch && <Sub>How much</Sub>}
-      <div className="pn-grid-4">
-        {has('capacityKw') && <Field label={capLabel} required error={err('capacity')} hint={draft.designPowerKw >= 1000 ? kw(draft.designPowerKw) : undefined}><NumInput value={draft.designPowerKw || undefined} min={0} unit="kW" disabled={readOnly} onChange={v => patch({ designPowerKw: v ?? 0 })} /></Field>}
-        {has('rackCount') && <Field label="Racks needed"><NumInput value={n('rackCount')} min={1} disabled={readOnly} onChange={v => v !== undefined && setReq('rackCount', v)} /></Field>}
-        {has('densityKwPerRack') && <Field label="Power per rack"><NumInput value={n('densityKwPerRack')} min={1} max={150} unit="kW" disabled={readOnly} onChange={v => v !== undefined && setReq('densityKwPerRack', v)} /></Field>}
-        {has('dciGbpsRequired') && <Field label="Interconnect capacity needed"><NumInput value={n('dciGbpsRequired')} min={100} step={100} unit="Gbps" disabled={readOnly} onChange={v => v !== undefined && setReq('dciGbpsRequired', v)} /></Field>}
-        {has('racksToMove') && <Field label="Racks to move"><NumInput value={n('racksToMove')} min={1} disabled={readOnly} onChange={v => v !== undefined && setReq('racksToMove', v)} /></Field>}
-        {has('growth') && <Field label="Demand growth per year" hint="when installed capacity runs out"><NumInput value={draft.demand.growthPctPerYear} min={0} max={100} unit="%" disabled={readOnly} onChange={v => v !== undefined && patch({ demand: { ...draft.demand, growthPctPerYear: v } })} /></Field>}
-        {has('tenancy') && <Field label="Who uses it"><Seg<T.PlannerDemand['tenancy']> size="sm" value={draft.demand.tenancy} onChange={v => patch({ demand: { ...draft.demand, tenancy: v } })} options={[{ id: 'single', label: 'Us' }, { id: 'multi', label: 'Several tenants' }]} /></Field>}
-        {(draft.scope === 'rack' || draft.scope === 'pod' || draft.scope === 'edge') && <Field label="Total IT load" error={err('capacity')}><div style={{ fontSize: 18, fontWeight: 500, paddingTop: 4 }} className="num">{kw(draft.designPowerKw)}</div></Field>}
-      </div>
-      {has('workload') && <>
-        <Sub extra={<Chip tone={sum === 100 ? 'success' : 'error'} dot>{sum}%</Chip>}>What runs in the racks</Sub>
+      <Sec icon={I.FileText} title="The plan" sub="A name the reviewers will recognise, the date it is needed by and why">
+        <div className="pn-grid-3">
+          <Field label="Plan name" required error={err('title')} style={{ gridColumn: 'span 2' }}><TextInput value={draft.title} disabled={readOnly} placeholder="e.g. Los Angeles AI campus · 50 MW" onChange={v => patch({ title: v })} /></Field>
+          <Field label={draft.scope === 'migration' ? 'Finished by' : 'Needed by'} required error={err('targetGoLive')}><TextInput type="date" value={toDateInput(draft.targetGoLive)} disabled={readOnly} onChange={v => patch({ targetGoLive: fromDateInput(v, draft.targetGoLive) })} /></Field>
+          <Field label="What is this plan for?" style={{ gridColumn: 'span 3' }}><TextArea rows={2} value={draft.intent} disabled={readOnly} placeholder="The need in a sentence or two: who asked for it, why, and any constraint the reviewers should know." onChange={v => patch({ intent: v })} /></Field>
+        </div>
+      </Sec>
+      <Sec icon={I.MapPin} title="Where" sub={{ existing: 'The live site (and hall) the work happens in', 'two-sites': 'The two live sites it connects', migration: 'Where the load leaves and where it goes', campus: 'The campus that gets a new building', new: 'The region, the new site and its candidate plots', region: 'The region and the sites to consider' }[SITE_MODE[draft.scope]]} tone={err('site') ? 'bad' : undefined}>
+        {err('site') && <p className="field-error" style={{ margin: '0 0 10px' }}>{err('site')}</p>}
+        <SitePicker {...props} />
+        {has('affected') && <AffectedPicker {...props} />}
+        {draft.scope === 'edge' && <EdgeSites {...props} />}
+        {draft.scope === 'new-dc' && <CandidatePlots {...props} />}
+      </Sec>
+      {(howMuch || (draft.scope === 'rack' || draft.scope === 'pod' || draft.scope === 'edge')) && <Sec icon={I.Gauge} title="How much" sub="The load to plan for; racks, halls and buildings follow from it">
+        <div className="pn-grid-4">
+          {has('capacityKw') && <Field label={capLabel} required error={err('capacity')} hint={draft.designPowerKw >= 1000 ? kw(draft.designPowerKw) : undefined}><NumInput value={draft.designPowerKw || undefined} min={0} unit="kW" disabled={readOnly} onChange={v => patch({ designPowerKw: v ?? 0 })} /></Field>}
+          {has('rackCount') && <Field label="Racks needed"><NumInput value={n('rackCount')} min={1} disabled={readOnly} onChange={v => v !== undefined && setReq('rackCount', v)} /></Field>}
+          {has('densityKwPerRack') && <Field label="Power per rack"><NumInput value={n('densityKwPerRack')} min={1} max={150} unit="kW" disabled={readOnly} onChange={v => v !== undefined && setReq('densityKwPerRack', v)} /></Field>}
+          {has('dciGbpsRequired') && <Field label="Interconnect capacity needed"><NumInput value={n('dciGbpsRequired')} min={100} step={100} unit="Gbps" disabled={readOnly} onChange={v => v !== undefined && setReq('dciGbpsRequired', v)} /></Field>}
+          {has('racksToMove') && <Field label="Racks to move"><NumInput value={n('racksToMove')} min={1} disabled={readOnly} onChange={v => v !== undefined && setReq('racksToMove', v)} /></Field>}
+          {has('growth') && <Field label="Demand growth per year" hint="when installed capacity runs out"><NumInput value={draft.demand.growthPctPerYear} min={0} max={100} unit="%" disabled={readOnly} onChange={v => v !== undefined && patch({ demand: { ...draft.demand, growthPctPerYear: v } })} /></Field>}
+          {has('tenancy') && <Field label="Who uses it"><Seg<T.PlannerDemand['tenancy']> size="sm" value={draft.demand.tenancy} onChange={v => patch({ demand: { ...draft.demand, tenancy: v } })} options={[{ id: 'single', label: 'Us' }, { id: 'multi', label: 'Several tenants' }]} /></Field>}
+          {(draft.scope === 'rack' || draft.scope === 'pod' || draft.scope === 'edge') && <Field label="Total IT load" error={err('capacity')}><div style={{ fontSize: 18, fontWeight: 500, paddingTop: 4 }} className="num">{kw(draft.designPowerKw)}</div></Field>}
+        </div>
+        {ev && draft.designPowerKw > 0 && <div style={{ marginTop: 14 }}><Figs items={[['IT capacity', kw(ev.sizing.itKw)], ['Racks', num(ev.sizing.racks)], ['Halls', num(ev.sizing.halls)], ['Buildings', num(ev.sizing.buildings)]]} /></div>}
+      </Sec>}
+      {has('workload') && <Sec icon={I.Cpu} title="What runs in the racks" sub="The workload mix sets rack density, cooling and the network" tone={sum === 100 ? undefined : 'bad'} extra={<Chip tone={sum === 100 ? 'success' : 'error'} dot>{sum}% allocated</Chip>}>
         {err('workload') && <p className="field-error" style={{ margin: '0 0 8px' }}>{err('workload')}</p>}
-        <div className="pn-mix">{MIX.map(m => <div key={m.key} className="tile"><div className="row between"><span className="strong" style={{ fontSize: 13 }}>{m.label}</span><b className="num">{draft.demand[m.key]}%</b></div><input type="range" min={0} max={100} value={draft.demand[m.key]} disabled={readOnly} onChange={e => patch({ demand: rebalance(draft.demand, m.key, Number(e.target.value)) })} /><span className="vw-label" style={{ fontSize: 11.5 }}>{m.hint}</span></div>)}</div>
-      </>}
-      {has('tier') && <>
-        <Sub>How critical is it?</Sub>
-        <div className="pn-tiers">{['Tier II', 'Tier III', 'Tier IV'].map(t => { const on = String(draft.params.tier ?? defs.get('tier')?.default ?? 'Tier III') === t; return <button key={t} type="button" className={`pn-card${on ? ' is-on' : ''}`} disabled={readOnly} aria-pressed={on} onClick={() => setReq('tier', t)}><b>{t}</b><span className="vw-label">{TIER_TEXT[t]}</span></button>; })}</div>
-      </>}
+        <div className="pn-mixbar">{MIX.map((m, i) => draft.demand[m.key] > 0 && <i key={m.key} className={`c${i}`} style={{ width: `${draft.demand[m.key]}%` }} title={`${m.label} ${draft.demand[m.key]}%`} />)}</div>
+        <div className="pn-mix">{MIX.map((m, i) => <div key={m.key} className="pn-mix-item"><div className="row between"><span className="row" style={{ gap: 8 }}><span className={`pn-dot c${i}`} /><span className="strong" style={{ fontSize: 13 }}>{m.label}</span></span><b className="num">{draft.demand[m.key]}%</b></div><input type="range" min={0} max={100} value={draft.demand[m.key]} disabled={readOnly} onChange={e => patch({ demand: rebalance(draft.demand, m.key, Number(e.target.value)) })} /><span className="vw-label" style={{ fontSize: 11.5 }}>{m.hint}</span></div>)}</div>
+      </Sec>}
+      {has('tier') && <Sec icon={I.ShieldCheck} title="How critical is it?" sub="The Uptime tier sets power and cooling redundancy and fuel autonomy">
+        <div className="pn-tiers">{['Tier II', 'Tier III', 'Tier IV'].map((t, k) => { const on = tier === t; return <button key={t} type="button" className={`pn-tier${on ? ' is-on' : ''}`} disabled={readOnly} aria-pressed={on} onClick={() => setReq('tier', t)}><span className="pn-tier-top"><b>{t}</b><span className="pn-tier-lvl">{[0, 1, 2].map(x => <i key={x} className={x <= k ? 'on' : ''} />)}</span></span><span className="vw-label">{TIER_TEXT[t]}</span>{on && <span className="pn-type-check"><I.Check size={13} /></span>}</button>; })}</div>
+      </Sec>}
       {preview.length > 0 && (
-        <Panel icon={I.Wand2} title={`From these answers the planner fills ${preview.length} inputs`} sub="You can change any of them on the next steps" style={{ marginTop: 16 }} info="Each design input the planner derives from the requirements (tier, density, workload mix, climate, site type), with the reason. Inputs you set yourself are never overwritten.">
-          <div className="pn-why">{preview.map(d => { const def = defs.get(d.key); return <div key={d.key}><span style={{ minWidth: 0 }}><span className="strong">{def?.label ?? d.key}</span> <span className="vw-label">· {d.why}</span></span><b>{fmtParam(d.key, d.value, def?.unit)}</b></div>; })}</div>
-        </Panel>
+        <Sec icon={I.Wand2} tone="info" title={`From these answers the planner fills ${preview.length} inputs`} sub="Inputs you set yourself are never overwritten; change any of them on the next steps." className="pn-derived"
+          extra={preview.length > 8 && <Btn size="sm" variant="ghost" iconRight={allWhy ? I.ChevronUp : I.ChevronDown} onClick={() => setAllWhy(v => !v)}>{allWhy ? 'Show fewer' : `Show all ${preview.length}`}</Btn>}>
+          <div className="pn-why">{shownWhy.map(d => { const def = defs.get(d.key); return <div key={d.key}><span className="pn-why-k"><span className="strong">{def?.label ?? d.key}</span><small>{d.why}</small></span><b>{fmtParam(d.key, d.value, def?.unit)}</b></div>; })}</div>
+        </Sec>
       )}
-      {ev && draft.designPowerKw > 0 && <div className="tile" style={{ marginTop: 12 }}><KV cols={4} items={[['IT capacity', <b className="num" style={{ fontSize: 18 }}>{kw(ev.sizing.itKw)}</b>], ['Racks', <b className="num" style={{ fontSize: 18 }}>{num(ev.sizing.racks)}</b>], ['Halls', <b className="num" style={{ fontSize: 18 }}>{num(ev.sizing.halls)}</b>], ['Buildings', <b className="num" style={{ fontSize: 18 }}>{num(ev.sizing.buildings)}</b>]]} /></div>}
     </div>
   );
 }
@@ -148,7 +163,11 @@ function SitePicker({ draft, patch, estate, data, readOnly }: StepProps) {
   const pickSite = (id: string) => { const d = estate.dataCenters.find(x => x.id === id); if (!d) return; const c = campusOf(d.campusId); const params = { ...draft.params }; delete params.targetHallId; patch({ dataCenterId: d.id, campusId: d.campusId, regionId: c?.regionId ?? draft.regionId, dcTypeKey: d.dcTypeKey ?? draft.dcTypeKey, climate: climateFromHint(c?.city) ?? draft.climate, newSiteName: undefined, params }); };
   const base = draft.dataCenterId && data.ready ? siteBaseline(data, draft.dataCenterId, { excludePlanId: draft.id }) : undefined;
   const facts = base && (
-    <div className="note note--info" style={{ marginTop: 8 }}><I.Building2 size={15} /><div><b>{base.dc.name}</b> · {kw(base.headroomItKw)} of IT headroom today ({base.binding?.label ?? 'no stage'} binds) · live draw {kw(base.itLoadKw)} · holds {kw(base.reservedKw)} · approved plans {kw(base.pipelineKw)} · {base.halls.reduce((a, h) => a + h.freePositions, 0)} free rack positions in {base.halls.length} halls{base.warnings.length ? ` · ${base.warnings.join('; ')}` : ''}</div></div>
+    <div className="pn-sitefacts">
+      <div className="pn-sitefacts-head"><I.Building2 size={15} /><b>{base.dc.name}</b><span className="vw-label">today · {base.binding?.label ?? 'no stage'} binds first</span></div>
+      <Figs items={[['IT headroom', kw(base.headroomItKw)], ['Live draw', kw(base.itLoadKw)], ['Held', kw(base.reservedKw)], ['Approved plans', kw(base.pipelineKw)], ['Free rack positions', `${num(base.halls.reduce((a, h) => a + h.freePositions, 0))} in ${base.halls.length} halls`]]} />
+      {base.warnings.length > 0 && <p className="note note--warn" style={{ margin: '8px 0 0' }}><I.TriangleAlert size={15} /><span>{base.warnings.join('; ')}</span></p>}
+    </div>
   );
   const kindField = <Field label="Kind of site" hint={profile ? `${profile.cooling} · ${profile.redundancy} · ${profile.defaultTier}` : undefined}><SelectInput value={draft.dcTypeKey} disabled={readOnly} options={DC_TYPE_CATALOG.map(p => ({ id: p.key, label: p.name }))} onChange={v => patch({ dcTypeKey: v })} /></Field>;
   const climateField = <Field label="Climate"><SelectInput value={draft.climate} disabled={readOnly} options={CLIMATES.map(c => ({ id: c, label: CLIMATE_LABEL[c] }))} onChange={v => patch({ climate: v as T.PlannerPlan['climate'] })} /></Field>;

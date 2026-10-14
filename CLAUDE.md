@@ -460,6 +460,10 @@ screens are rebuilt in our kit (PageHead, StatGrid, ListToolbar, DataTable, NST 
   (`PlanPage.tsx` + `plan/*`: SummaryStrip, status actions, tabs overview · sizing · capacity · cost · schedule · rules · scenarios · risks &
   permits · approvals (decide modal, conditions, delegations) · delivery · baseline · history). Styles `styles/planning.css`; shared helpers
   `screens/planning/common.tsx` (money = planner USD → geography, `SourceChip`, `PlannerToasts` for `compat/notify.ts`).
+  Wizard layout (14-Oct-2026, user: "New plan screen … make it more attractive, clean and professional"): no left steps rail — a stage
+  stepper card (Set up · Design · Delivery · Business · Decide with progress, the current stage's steps as pills), a step hero (icon,
+  "Step n of N · stage", question), the step as section cards (`Sec` / `Figs` in `planning/parts.tsx`), the live estimate rail (readiness
+  ring, CapEx / IT power tiles, source dots) hidden on the plan-type step, and a sticky action bar. Power stages render as a chain of cards.
   Delivery reads the planner's approved / executing plans through `mock/p2b/bridge.ts` (`PRJ-n` = `PLN-n`; handover completes the plan);
   Capacity → Reservations shows the holds approved plans write (`Planner hold`). Old `/planner…` URLs redirect.
   Checks (NeoCloud + USA only, user 13-Oct-2026): `npx tsx .qa/p2b-check.ts neocloud us` (every demo plan evaluates; `V=1` lists fails),
