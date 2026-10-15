@@ -23,9 +23,11 @@ import { NewRackModal, InstallDeviceModal } from './forms';
 import '../../styles/dcim.css';
 
 export type DcimTab = 'sites' | 'floorplan' | 'racks' | 'devices' | 'cabling' | 'power' | 'changes' | 'types' | 'hierarchy' | 'explorer';
+/* order (user, 15-Oct-2026): the estate top-down (site → hierarchy → hall → rack → device), what connects and powers it, the catalogue,
+   then the tools (explorer) and the change requests that act on all of it */
 const TABS: { id: DcimTab; label: string }[] = [
-  { id: 'sites', label: 'Sites' }, { id: 'floorplan', label: 'Floor plans' }, { id: 'racks', label: 'Racks' }, { id: 'devices', label: 'Devices' },
-  { id: 'cabling', label: 'Cabling' }, { id: 'power', label: 'Power' }, { id: 'changes', label: 'Change requests' }, { id: 'types', label: 'Device types' }, { id: 'hierarchy', label: 'Hierarchy' }, { id: 'explorer', label: 'Explorer' }
+  { id: 'sites', label: 'Sites' }, { id: 'hierarchy', label: 'Hierarchy' }, { id: 'floorplan', label: 'Floor plans' }, { id: 'racks', label: 'Racks' }, { id: 'devices', label: 'Devices' },
+  { id: 'cabling', label: 'Cabling' }, { id: 'power', label: 'Power' }, { id: 'types', label: 'Device types' }, { id: 'explorer', label: 'Explorer' }, { id: 'changes', label: 'Change requests' }
 ];
 
 export function Dcim() {
@@ -112,7 +114,7 @@ export function Dcim() {
         </StatTile>
       </StatGrid>
 
-      <Tabs value={tab} onChange={v => go(v)} tabs={TABS.map(t => ({ ...t, count: t.id === 'sites' ? sites.length : t.id === 'racks' ? S.racks.length : t.id === 'devices' ? devices.length : t.id === 'changes' ? board?.rows.filter(r => r.view !== 'done' && r.view !== 'closed').length || undefined : undefined }))} />
+      <Tabs value={tab} onChange={v => go(v)} tabs={TABS.map(t => ({ ...t, count: ({ sites: sites.length, racks: S.racks.length, devices: devices.length, types: typeIds.size, changes: board?.rows.filter(r => r.view !== 'done' && r.view !== 'closed').length || undefined } as Partial<Record<DcimTab, number | undefined>>)[t.id] }))} />
 
       {tab === 'sites' && <SitesTab sites={sites} onOpen={id => set({ tab: 'floorplan', dc: id, hall: '' })} />}
       {tab === 'floorplan' && <FloorPlans dcId={dcId || all.sites.find(s => s.status !== 'planned')?.id || all.sites[0].id} onSite={id => set({ dc: id, hall: '' })} />}
