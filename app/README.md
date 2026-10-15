@@ -20,7 +20,7 @@ Estate → Datacenter → Infrastructure → Connectivity → Services → Custo
    approval-gated action plan → closure checks → resolve.
 7. **Capacity** → raise a plan for the backhaul; **Ask Sentinel** anywhere ("what is at risk in Pune?").
 
-## Code map
+## Code mapi
 
 | Path | Role |
 |---|---|
