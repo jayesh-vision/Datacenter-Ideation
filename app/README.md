@@ -6,7 +6,7 @@ npm run dev        # http://localhost:5181
 npm run build      # typecheck + production build
 ```
 
-## Demo path (the operational flow1)
+## Demo path (the operational flow)
 
 Estate → Datacenter → Infrastructure → Connectivity → Services → Customers → Events → Impact → Diagnosis → Action
 
