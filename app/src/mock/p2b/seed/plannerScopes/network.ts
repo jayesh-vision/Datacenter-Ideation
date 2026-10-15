@@ -69,8 +69,8 @@ export const networkSeed: ScopeSeed = {
     { metric: 'leadWeeks:Coherent optics (ZR)', label: '400G ZR / ZR+ coherent optics', category: 'leadtime', unit: 'weeks', value: 12, low: 8, high: 16, source: 'Optics vendors 2026' },
   ],
   enrich(S: Seed, plans: T.PlannerPlan[]) {
-    // PLN-0009 · Ashburn DC-1 to Frankfurt COLO-1: the existing Lumen DCI circuit is upgraded to 400G and a second 400G path
-    // comes from a different carrier on a different subsea system; half of the 800G is protected.
+    // PLN-0009 · Ashburn DC-1 to Frankfurt COLO-1 (placed on two of our sites in one country): the existing DCI circuit is upgraded to
+    // 400G and a second 400G path comes from a different carrier on a diverse terrestrial route; half of the 800G is protected.
     const p = plans.find(x => x.plnId === 'PLN-0009');
     const a = S.dataCenters.find(d => d.id === p?.dataCenterId); const z = S.siteByKey('FRA-COLO1');
     if (!p || !a || !z) return;
@@ -82,19 +82,50 @@ export const networkSeed: ScopeSeed = {
     const termsOf = (cid: string) => S.circuitTerminations.filter(t => t.circuitId === cid);
     const dci = S.circuits.filter(c => c.purpose === 'DC Interconnect' && c.status !== 'Decommissioned' && termsOf(c.id).some(t => t.dataCenterId === a.id));
     const existing = dci.find(c => termsOf(c.id).some(t => t.dataCenterId === z.id)) ?? dci.find(c => termsOf(c.id).every(t => t.dataCenterId === a.id || !t.dataCenterId));
-    const p1 = existing ? S.providers.find(x => x.id === existing.providerId) ?? prov('Lumen') : prov('Lumen');
-    const p2 = [prov('Telia Carrier'), prov('Zayo'), ...S.providers].find(x => x && x.id !== p1?.id);
-    // Transatlantic waves take four to six months: the cut-over sits eight months out so the approved plan can still be ordered in time.
+    const p1 = (existing ? S.providers.find(x => x.id === existing.providerId) : undefined) ?? prov('Lumen') ?? S.providers[0];
+    const p2 = [prov('Telia Carrier'), prov('Zayo'), ...S.providers].find(x => x && x.id !== p1?.id); // a different carrier, always
+    // Our estate is one country, so the DCI is domestic: two leased long-haul waves on diverse terrestrial routes (no subsea system);
+    // each route passes through the POP cities of our other sites on its side of the A–Z line, so the two share no city.
     const cutover = S.daysAhead(240);
     p.targetGoLive = cutover;
     p.phases = [{ id: 'P1', name: 'Paths live and cut over', goLive: cutover, itKw: 0, racks: 0, halls: 0, status: 'Approved' }];
     const group = `${a.code}·${z.code}·DCI`;
+    const pos = (d: T.DataCenter) => { const c = S.campuses.find(x => x.id === d.campusId); return { lat: d.latitude ?? c?.latitude ?? 0, lng: d.longitude ?? c?.longitude ?? 0, city: c?.city ?? d.name }; };
+    const A = pos(a), Z = pos(z);
+    const km = (u: { lat: number; lng: number }, v: { lat: number; lng: number }) => { const R = 6371, r = Math.PI / 180, dLat = (v.lat - u.lat) * r, dLng = (v.lng - u.lng) * r; const h = Math.sin(dLat / 2) ** 2 + Math.cos(u.lat * r) * Math.cos(v.lat * r) * Math.sin(dLng / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); };
+    const gc = km(A, Z);
+    // POP cities: other sites' cities between the ends (projection 0.15–0.85 along A→Z), split by the side of the line they sit on
+    const dx = Z.lng - A.lng, dy = Z.lat - A.lat, L2 = dx * dx + dy * dy || 1;
+    const pops = [...new Map(S.dataCenters.filter(d => d.id !== a.id && d.id !== z.id).map(pos).filter(q => q.city !== A.city && q.city !== Z.city).map(q => [q.city, q])).values()]
+      .map(q => ({ ...q, t: ((q.lng - A.lng) * dx + (q.lat - A.lat) * dy) / L2, side: Math.sign(dx * (q.lat - A.lat) - dy * (q.lng - A.lng)) }))
+      .map(q => ({ ...q, off: Math.abs(dx * (q.lat - A.lat) - dy * (q.lng - A.lng)) / Math.sqrt(L2) }))
+      .filter(q => q.t > 0.15 && q.t < 0.85 && q.off <= Math.sqrt(L2) * 0.35).sort((u, v) => u.t - v.t); // near the corridor, not a detour
+    const eastWest = Math.abs(dx) >= Math.abs(dy);
+    const sideName = (sd: number) => (eastWest ? ((sd > 0) === (dx > 0) ? 'northern' : 'southern') : ((sd > 0) === (dy > 0) ? 'western' : 'eastern'));
+    const route = (sd: number, k: number) => {
+      const via = pops.filter(q => q.side === sd).slice(0, 3);
+      const legs = [A, ...via, Z]; let len = 0; for (let i = 1; i < legs.length; i++) len += km(legs[i - 1], legs[i]);
+      const distanceKm = Math.round(Math.max(len, gc) * 1.12); // fibre follows roads and rail: 12% over the POP-to-POP line
+      return { name: sideName(sd), via: via.map(q => q.city), distanceKm, latencyMs: Math.round((2 * distanceKm * 0.005 + 0.6) * 10) / 10, k };
+    };
+    const r1 = route(1, 1), r2 = route(-1, 2);
+    const us = S.geo === 'us';
+    const wave = (r: typeof r1) => ({
+      routeId: `LH-${r.name.replace(/ern$/, '').toUpperCase()}-0${r.k}`,
+      sharedRiskGroups: [`Route: ${r.name} long-haul${r.via.length ? ` via ${r.via.join(', ')}` : ''}`, ...r.via.map(c => `POP: ${c}`)],
+      linkType: 'Leased wavelength' as const, capacityGbps: 400, distanceKm: r.distanceKm, latencyMs: r.latencyMs,
+      routeNotes: `Carrier KMZ received; terrestrial long-haul on the ${r.name} route${r.via.length ? ` through ${r.via.join(', ')}` : ''}, no shared conduit or POP with the other path`,
+    });
     p.paths = [
-      { id: 'PATH-1', name: 'Path 1', providerId: p1?.id, providerName: p1?.name ?? 'Lumen', routeId: 'TA-MAREA-01', diversityGroup: group, sharedRiskGroups: ['Cable: MAREA', 'Landing: Virginia Beach', 'Landing: Bilbao'], linkType: 'Leased wavelength', capacityGbps: 400, latencyMs: 88, distanceKm: 7900, aDeviceId: ra[0]?.id, zDeviceId: rz[0]?.id, monthlyUsd: 32000, installUsd: 15000, termMonths: 36, replacesCircuitId: existing?.id, encryption: 'MACsec', routeNotes: 'Carrier KMZ received; terrestrial backhaul Ashburn–Virginia Beach and Bilbao–Frankfurt' },
-      { id: 'PATH-2', name: 'Path 2', providerId: p2?.id, providerName: p2?.name ?? 'Telia Carrier', routeId: 'TA-AEC1-02', diversityGroup: group, sharedRiskGroups: ['Cable: AEC-1', 'Landing: Shirley NY', 'Landing: Killala'], linkType: 'Leased wavelength', capacityGbps: 400, latencyMs: 92, distanceKm: 8300, aDeviceId: (ra[1] ?? ra[0])?.id, zDeviceId: (rz[1] ?? rz[0])?.id, monthlyUsd: 29500, installUsd: 12000, termMonths: 36, encryption: 'MACsec', routeNotes: 'Carrier KMZ received; northern route via New York and Ireland' },
+      { id: 'PATH-1', name: 'Path 1', providerId: p1?.id, providerName: p1?.name ?? 'Lumen', diversityGroup: group, ...wave(r1), aDeviceId: ra[0]?.id, zDeviceId: rz[0]?.id, monthlyUsd: us ? 21000 : 9500, installUsd: us ? 10000 : 4000, termMonths: 36, replacesCircuitId: existing?.id, encryption: 'MACsec' },
+      { id: 'PATH-2', name: 'Path 2', providerId: p2?.id, providerName: p2?.name ?? 'Telia Carrier', diversityGroup: group, ...wave(r2), aDeviceId: (ra[1] ?? ra[0])?.id, zDeviceId: (rz[1] ?? rz[0])?.id, monthlyUsd: us ? 19500 : 8800, installUsd: us ? 8000 : 3500, termMonths: 36, encryption: 'MACsec' },
     ];
+    p.intent = `Upgrade the DCI between ${a.name} and ${z.name} to 2 × 400G: the existing circuit renewed at 400G and a second carrier on a diverse long-haul route.`;
+    p.risks = p.risks.map(r => (/Third path shares a duct/.test(r.title) ? { ...r, title: 'Path 2 shares a duct with path 1 for 2 km near the A end', mitigation: 'Carrier to prove diversity with KMZ route files before acceptance; re-route the tail if it does not.' } : r));
+    p.conditions = p.conditions?.map(c => ({ ...c, text: c.text.replace('the third path is diverse from path A', 'path 2 is diverse from path 1') }));
+    const budget = Math.max(20, Math.ceil((Math.max(r1.latencyMs, r2.latencyMs) * 1.25) / 5) * 5);
     p.dispositions = existing ? [{ recordType: 'circuit', recordId: existing.id, label: existing.cid, disposition: 'renew', notes: 'Upgraded from 40G to 400G with the same carrier (Path 1)' }] : [];
-    p.params = { ...p.params, networkKind: 'DCI / WAN between two sites', dciGbpsRequired: 800, demandOverrideReason: 'EU private-cloud replication and backup moving to Frankfurt in 2027 (capacity review, September 2026)', demandYears: 3, protection: 'Protected share', protectedSharePct: 50, latencyBudgetMs: 95, encryptionRequired: true, dciP2pPool: 'Alternate A and Z', orgAsn: 64600, costContingencyPct: 10, ceaseSoakDays: 30, diversePaths: 2 };
+    p.params = { ...p.params, networkKind: 'DCI / WAN between two sites', dciGbpsRequired: 800, demandOverrideReason: 'EU private-cloud replication and backup moving to Frankfurt in 2027 (capacity review, September 2026)', demandYears: 3, protection: 'Protected share', protectedSharePct: 50, latencyBudgetMs: budget, encryptionRequired: true, dciP2pPool: 'Alternate A and Z', orgAsn: 64600, costContingencyPct: 10, ceaseSoakDays: 30, diversePaths: 2 };
     // The approved baseline records the same cut-over and scope.
     if (p.baseline) p.baseline = { ...p.baseline, targetGoLive: p.targetGoLive, phases: p.phases.map(ph => ({ ...ph })), params: { ...p.params } };
     p.paramSources = { ...p.paramSources, networkKind: 'user', dciGbpsRequired: 'user', demandOverrideReason: 'user', demandYears: 'template', protection: 'user', protectedSharePct: 'user', latencyBudgetMs: 'user', encryptionRequired: 'template', dciP2pPool: 'template', orgAsn: 'document', costContingencyPct: 'template', ceaseSoakDays: 'template', diversePaths: 'user' };

@@ -2,19 +2,20 @@
    much, what runs in the racks, how critical, needed by when — from which the planner fills the design inputs. */
 import { createContext, useContext, useMemo, useState } from 'react';
 import * as I from 'lucide-react';
-import { Chip, Field, Seg, CheckBox, Btn } from '../../../ui/kit';
-import { DataTable, type Col } from '../../../ui/DataTable';
+import { Chip, Field, Seg, Btn } from '../../../ui/kit';
 import type * as T from '../../../planner/p2b/types';
 import { DC_TYPE_CATALOG } from '../../../planner/p2b/dcTypes';
 import { modelFor } from '../../../planner/lib/scopes';
 import { capacityFromRequirements, deriveFromRequirements, dimensionsFor, REQUIREMENTS, requirementParamKeys, type RequirementField } from '../../../planner/lib/dimensions';
 import { CLIMATES, CLIMATE_LABEL, SITE_MODE, climateFromHint, fmtParam, fromDateInput, paramDefsFor, toDateInput, type StepProps } from '../../../planner/lib/wizardModel';
-import { siteBaseline } from '../../../planner/lib/site';
+import { siteBaseline, planAddedKw } from '../../../planner/lib/site';
 import { EDGE_VARIANTS } from '../../../planner/lib/buildEdge';
-import { byId } from '../../../planner/lib/plannerData';
 import { Sub, Sec, Figs } from '../parts';
-import { NumInput, SCOPE_GROUP, SCOPE_ICON, SCOPE_LABEL, SelectInput, TextArea, TextInput, kw, num } from '../common';
+import { CheckLabel, NumInput, SCOPE_GROUP, SCOPE_ICON, SCOPE_LABEL, SelectInput, TextArea, TextInput, kw, num } from '../common';
 import { CandidatePlots } from './Candidates';
+import { AffectedAssets } from './AffectedAssets';
+import { SiteCard, SiteList, useSiteRows } from './SiteList';
+import { uiFor } from '../scopes/registry';
 
 /** the step's icon and "Step n of N · group" line, provided by the wizard shell */
 export const StepMeta = createContext<{ icon: I.LucideIcon; eyebrow: string } | null>(null);
@@ -127,6 +128,8 @@ export function RequirementsStep(props: StepProps) {
   const [allWhy, setAllWhy] = useState(false);
   const shownWhy = allWhy ? preview : preview.slice(0, 8);
   const tier = String(draft.params.tier ?? defs.get('tier')?.default ?? 'Tier III');
+  // a plan family may bring its own site picker and extra blocks under the site (scopes/<family>/index.tsx)
+  const { sitePicker: FamilyPicker, requirements: FamilyExtra } = uiFor(draft.scope);
   return (
     <div className="pn-stack">
       <StepHead title="What do you need?" text="Answer in your own terms. These answers fill the inputs of every following step; you only change what differs." />
@@ -139,10 +142,11 @@ export function RequirementsStep(props: StepProps) {
       </Sec>
       <Sec icon={I.MapPin} title="Where" sub={{ existing: 'The live site (and hall) the work happens in', 'two-sites': 'The two live sites it connects', migration: 'Where the load leaves and where it goes', campus: 'The campus that gets a new building', new: 'The region, the new site and its candidate plots', region: 'The region and the sites to consider' }[SITE_MODE[draft.scope]]} tone={err('site') ? 'bad' : undefined}>
         {err('site') && <p className="field-error" style={{ margin: '0 0 10px' }}>{err('site')}</p>}
-        <SitePicker {...props} />
-        {has('affected') && <AffectedPicker {...props} />}
+        {FamilyPicker ? <FamilyPicker {...props} /> : <SitePicker {...props} />}
+        {has('affected') && <div style={{ marginTop: 14 }}><AffectedAssets {...props} /></div>}
         {draft.scope === 'edge' && <EdgeSites {...props} />}
         {draft.scope === 'new-dc' && <CandidatePlots {...props} />}
+        {FamilyExtra && <div style={{ marginTop: 14 }}><FamilyExtra {...props} /></div>}
       </Sec>
       {(howMuch || (draft.scope === 'rack' || draft.scope === 'pod' || draft.scope === 'edge')) && <Sec icon={I.Gauge} title="How much" sub="The load to plan for; racks, halls and buildings follow from it">
         <div className="pn-grid-4">
@@ -176,7 +180,7 @@ export function RequirementsStep(props: StepProps) {
 }
 
 /* ---- where: the site picker per plan family */
-function SitePicker({ draft, patch, estate, data, readOnly }: StepProps) {
+export function SitePicker({ draft, patch, estate, data, readOnly }: StepProps) {
   const mode = SITE_MODE[draft.scope];
   const live = estate.dataCenters.filter(d => d.status === 'Operational' || d.id === draft.dataCenterId || d.id === draft.peerDataCenterId);
   const campusOf = (id?: string) => estate.campuses.find(c => c.id === id);
@@ -184,6 +188,9 @@ function SitePicker({ draft, patch, estate, data, readOnly }: StepProps) {
   const profile = DC_TYPE_CATALOG.find(p => p.key === draft.dcTypeKey);
   const pickSite = (id: string) => { const d = estate.dataCenters.find(x => x.id === id); if (!d) return; const c = campusOf(d.campusId); const params = { ...draft.params }; delete params.targetHallId; patch({ dataCenterId: d.id, campusId: d.campusId, regionId: c?.regionId ?? draft.regionId, dcTypeKey: d.dcTypeKey ?? draft.dcTypeKey, climate: climateFromHint(c?.city) ?? draft.climate, newSiteName: undefined, params }); };
   const base = draft.dataCenterId && data.ready ? siteBaseline(data, draft.dataCenterId, { excludePlanId: draft.id }) : undefined;
+  const rows = useSiteRows(estate, data, draft.id);
+  const rowOf = (id?: string) => rows.find(r => r.dc.id === id);
+  const listRows = rows.filter(r => r.dc.status === 'Operational' || r.dc.id === draft.dataCenterId);
   const facts = base && (
     <div className="pn-sitefacts">
       <div className="pn-sitefacts-head"><I.Building2 size={15} /><b>{base.dc.name}</b><span className="vw-label">today · {base.binding?.label ?? 'no stage'} binds first</span></div>
@@ -195,17 +202,23 @@ function SitePicker({ draft, patch, estate, data, readOnly }: StepProps) {
   const climateField = <Field label="Climate"><SelectInput value={draft.climate} disabled={readOnly} options={CLIMATES.map(c => ({ id: c, label: CLIMATE_LABEL[c] }))} onChange={v => patch({ climate: v as T.PlannerPlan['climate'] })} /></Field>;
   if (mode === 'existing') {
     const halls = estate.halls.filter(h => h.dataCenterId === draft.dataCenterId);
+    const need = planAddedKw(draft), sel = rowOf(draft.dataCenterId);
     return <>
-      <div className="pn-grid-3">
-        <Field label="Data centre" required><SelectInput value={draft.dataCenterId} placeholder="Pick a site" disabled={readOnly} options={opts} onChange={pickSite} /></Field>
-        {draft.scope === 'hall' && <Field label="Hall" required hint="A shell hall for a full fit-out, or a partly used hall to fill"><SelectInput value={String(draft.params.targetHallId ?? '')} placeholder="Pick the hall" disabled={readOnly} options={halls.map(h => { const b = base?.halls.find(x => x.hall.id === h.id); return { id: h.id, label: `${h.name} · ${h.status ?? 'Live'} · ${b ? `${b.freePositions} free positions, ${kw(b.headroomKw)} left` : `${h.rackCount}/${h.rackCapacity} racks`}` }; })} onChange={v => patch({ params: { ...draft.params, targetHallId: v }, paramSources: { ...draft.paramSources, targetHallId: 'user' } })} /></Field>}
-      </div>{facts}</>;
+      {sel ? <SiteCard row={sel} needKw={need} label="Selected site" /> : facts}
+      {!readOnly && <div style={{ marginTop: sel ? 12 : 0 }}><SiteList rows={listRows} value={draft.dataCenterId} onPick={pickSite} needKw={need} /></div>}
+      {draft.scope === 'hall' && <div className="pn-grid-3" style={{ marginTop: 12 }}>
+        <Field label="Hall" required hint="A shell hall for a full fit-out, or a partly used hall to fill"><SelectInput value={String(draft.params.targetHallId ?? '')} placeholder="Pick the hall" disabled={readOnly} options={halls.map(h => { const b = base?.halls.find(x => x.hall.id === h.id); return { id: h.id, label: `${h.name} · ${h.status ?? 'Live'} · ${b ? `${b.freePositions} free positions, ${kw(b.headroomKw)} left` : `${h.rackCount}/${h.rackCapacity} racks`}` }; })} onChange={v => patch({ params: { ...draft.params, targetHallId: v }, paramSources: { ...draft.paramSources, targetHallId: 'user' } })} /></Field>
+      </div>}</>;
   }
   if (mode === 'two-sites' || mode === 'migration') return <>
     <div className="pn-grid-3">
       <Field label={mode === 'migration' ? 'Site being emptied' : 'Site A'} required><SelectInput value={draft.dataCenterId} placeholder="Pick a site" disabled={readOnly} options={opts.filter(o => o.id !== draft.peerDataCenterId)} onChange={pickSite} /></Field>
-      <Field label={mode === 'migration' ? 'Where the load goes' : 'Site B'} required={mode !== 'migration'} hint={mode === 'migration' ? 'Leave empty for a decommission' : undefined}><SelectInput value={draft.peerDataCenterId ?? ''} placeholder={mode === 'migration' ? 'Decommission only' : 'Pick a site'} disabled={readOnly} options={opts.filter(o => o.id !== draft.dataCenterId)} onChange={v => patch({ peerDataCenterId: v || undefined })} /></Field>
-    </div>{facts}</>;
+      <Field label={mode === 'migration' ? 'Where the load goes' : 'Site B'} required={mode !== 'migration'} hint={mode === 'migration' ? 'Leave empty for a decommission' : undefined}><SelectInput value={draft.peerDataCenterId ?? ''} placeholder={mode === 'migration' ? 'Decommission only' : 'Pick a site'} disabled={readOnly} options={[...(mode === 'migration' ? [{ id: '', label: 'Decommission only' }] : []), ...opts.filter(o => o.id !== draft.dataCenterId)]} onChange={v => patch({ peerDataCenterId: v || undefined })} /></Field>
+    </div>
+    {(rowOf(draft.dataCenterId) || rowOf(draft.peerDataCenterId)) && <div className="pn-sitecards">
+      {rowOf(draft.dataCenterId) ? <SiteCard compact row={rowOf(draft.dataCenterId)!} needKw={0} label={mode === 'migration' ? 'Site being emptied' : 'Site A'} /> : <span />}
+      {rowOf(draft.peerDataCenterId) ? <SiteCard compact row={rowOf(draft.peerDataCenterId)!} needKw={mode === 'migration' ? draft.designPowerKw : 0} label={mode === 'migration' ? 'Where the load goes' : 'Site B'} /> : mode === 'migration' ? <div className="pn-sitecard is-empty"><I.Trash2 size={16} /><span>Decommission only: the load is retired, not moved.</span></div> : <span />}
+    </div>}</>;
   if (mode === 'campus') {
     const campuses = estate.campuses.filter(c => estate.dataCenters.some(d => d.campusId === c.id));
     return <div className="pn-grid-3">
@@ -219,45 +232,8 @@ function SitePicker({ draft, patch, estate, data, readOnly }: StepProps) {
     <Field label="Region" required><SelectInput value={draft.regionId} placeholder="Pick a region" disabled={readOnly} options={estate.regions.map(r => ({ id: r.id, label: r.name }))} onChange={v => patch({ regionId: v, campusId: undefined, dataCenterId: undefined })} /></Field>
     {mode === 'new' && <Field label="Nearest campus (optional)" hint="for shared spares, staff and network"><SelectInput value={draft.campusId ?? ''} placeholder="None" disabled={readOnly} options={estate.campuses.filter(c => !draft.regionId || c.regionId === draft.regionId).map(c => ({ id: c.id, label: c.name }))} onChange={v => patch({ campusId: v || undefined })} /></Field>}
     {mode === 'new' && <Field label={draft.scope === 'edge' ? 'Rollout name' : 'New site name'} required><TextInput value={draft.newSiteName ?? ''} disabled={readOnly} placeholder={draft.scope === 'edge' ? 'e.g. West edge wave 1' : 'e.g. CA-AI-01'} onChange={v => patch({ newSiteName: v })} /></Field>}
-    {mode === 'region' && <Field label="Sites to consider" hint="empty = every live site in the region" style={{ gridColumn: 'span 2' }}><div className="row wrap" style={{ gap: 10 }}>{live.filter(d => !draft.regionId || campusOf(d.campusId)?.regionId === draft.regionId).map(d => <CheckBox key={d.id} on={candidates.includes(d.id)} label={d.name} onChange={on => { const next = on ? [...candidates, d.id] : candidates.filter(x => x !== d.id); patch({ params: { ...draft.params, candidateSiteIds: next.join(',') }, paramSources: { ...draft.paramSources, candidateSiteIds: 'user' } }); }} />)}</div></Field>}
+    {mode === 'region' && <Field label="Sites to consider" hint="empty = every live site in the region" style={{ gridColumn: 'span 2' }}><div className="row wrap" style={{ gap: 10 }}>{live.filter(d => !draft.regionId || campusOf(d.campusId)?.regionId === draft.regionId).map(d => <CheckLabel key={d.id} on={candidates.includes(d.id)} label={d.name} onChange={on => { const next = on ? [...candidates, d.id] : candidates.filter(x => x !== d.id); patch({ params: { ...draft.params, candidateSiteIds: next.join(',') }, paramSources: { ...draft.paramSources, candidateSiteIds: 'user' } }); }} />)}</div></Field>}
     {climateField}{kindField}
-  </div>;
-}
-
-/* ---- replacements: what is being replaced (devices at the site, by model) */
-function AffectedPicker({ draft, patch, data, readOnly }: StepProps) {
-  const [model, setModel] = useState('');
-  const devices = useMemo(() => data.devices.filter(d => d.dataCenterId === draft.dataCenterId && d.rackId && d.lifecycleState !== 'Retired' && d.lifecycleState !== 'Disposed' && (draft.scope === 'rack-replace' || (draft.scope === 'server-refresh' ? ['Server', 'Storage', 'GPU-Node'] : ['Switch', 'Router', 'Firewall']).includes(d.category ?? ''))), [data.devices, draft.dataCenterId, draft.scope]);
-  const models = [...new Set(devices.map(d => d.model ?? ''))].filter(Boolean).sort();
-  const selected = new Set(String(draft.params.affectedIds ?? '').split(',').filter(Boolean));
-  const commit = (ids: Set<string>) => {
-    const chosen = devices.filter(d => ids.has(d.id));
-    const racks = [...new Set(chosen.map(d => d.rackId!))];
-    patch({ params: { ...draft.params, affectedIds: [...ids].join(','), affectedCount: draft.scope === 'rack-replace' ? racks.length : chosen.length, affectedDevices: chosen.length, affectedRacks: racks.length, affectedKw: Math.round(chosen.reduce((a, d) => a + (d.powerDrawW ?? 400), 0) / 1000 * 10) / 10, affectedSiteId: draft.dataCenterId ?? '' }, paramSources: { ...draft.paramSources, affectedIds: 'user', affectedCount: 'user' } });
-  };
-  const shown = devices.filter(d => !model || d.model === model);
-  const cols: Col<typeof devices[number]>[] = [
-    { key: 's', header: '', render: d => <CheckBox on={selected.has(d.id)} onChange={on => { const n = new Set(selected); on ? n.add(d.id) : n.delete(d.id); commit(n); }} /> },
-    { key: 'n', header: 'Device', render: d => <span className="mono">{d.name}</span> },
-    { key: 'm', header: 'Model', render: d => `${d.manufacturer ?? ''} ${d.model ?? ''}` },
-    { key: 'r', header: 'Rack', render: d => byId(data, 'racks', d.rackId)?.name ?? d.rackId ?? '—' },
-    { key: 'w', header: 'Draw', render: d => <span className="num">{d.powerDrawW ? `${d.powerDrawW} W` : '—'}</span> },
-    { key: 'st', header: 'State', render: d => d.lifecycleState ?? d.status },
-  ];
-  if (!draft.dataCenterId) return null;
-  const modelOpts = models.map(m => ({ id: m, label: `${m} (${devices.filter(d => d.model === m).length})` }));
-  const selectShown = () => commit(new Set([...selected, ...shown.map(d => d.id)]));
-  const tools = (
-    <span className="row" style={{ gap: 8 }}>
-      <span className="vw-label">{selected.size} selected</span>
-      <SelectInput value={model} placeholder="Every model" options={modelOpts} onChange={setModel} style={{ height: 32, minWidth: 220 }} />
-      {!readOnly && <Btn size="sm" onClick={selectShown}>Select shown</Btn>}
-      {!readOnly && <Btn size="sm" variant="ghost" onClick={() => commit(new Set())}>Clear</Btn>}
-    </span>
-  );
-  return <div style={{ marginTop: 12 }}>
-    <Sub extra={tools}>What is being replaced</Sub>
-    <DataTable rows={shown} cols={cols} pageSize={8} compact />
   </div>;
 }
 

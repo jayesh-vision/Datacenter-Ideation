@@ -1,6 +1,9 @@
 /* Asset lifecycle, support and spares (Phase 2, 12-Oct-2026, user). A read model derived per site:
-   - every installed device gets an install date (after the site was commissioned), a warranty end, the vendor's end-of-sale /
-     end-of-support dates for its model (one date per model, so every device of a model agrees) and a support contract;
+   - every installed device gets a purchase / install date, a warranty end (3 or 5 years from purchase), the vendor's end-of-sale /
+     end-of-support dates for its model (one date per model, so every device of a model agrees) and a support contract. The estate's
+     age (previous-generation models, purchase dates up to eight years back, kit moved in from older sites, lapsed contracts on old kit,
+     old and damaged racks) comes from mock/vintage.ts (15-Oct-2026);
+   - every rack gets its type, purchase date and condition (old 600 × 1000 racks, racks marked damaged at audit);
    - every module in Fault (PSU, disk, controller, GPU) and every GPU node already marked for RMA gets an RMA case;
    - spares on site per part family, with what is reserved for open RMAs.
    Nothing in the generated estate changes. */
@@ -8,6 +11,7 @@ import type { AssetLife, Datacenter, NetworkElement, RmaCase, SiteLifecycle, Spa
 import type { Db } from './generate';
 import { mulberry32, seedOf, intBetween, chance } from '../lib/rng';
 import { dcAt } from './geo';
+import { LEGACY_MODELS, contractLapsed, purchasedAt, rackVintage, warrantyYears } from './vintage';
 import { DAY, HOUR } from './seed';
 
 const cache = new Map<string, SiteLifecycle>();
@@ -21,12 +25,15 @@ export function siteLifecycle(db: Db, dcId: string): SiteLifecycle | null {
 }
 
 const YEAR = 365 * DAY;
-/* vendor lifecycle per model. Current platforms are years from end of sale; two older ones are not:
-   the FortiGate 3700F is past end of support, the ASR 9006 leaves support within a year. */
+/* vendor lifecycle per model. Current platforms are years from end of sale (1000–1800 days); older ones are not:
+   the FortiGate 3700F is past end of support, the ASR 9006 leaves support within a year, and every previous-generation model
+   (mock/vintage.ts) is past end of sale, the old switch families also past end of support. */
 const CATALOGUE: Record<string, number> = { 'FortiGate 3700F': -2010, 'ASR 9006': -1500 };
 export function modelDates(model: string, now: number) {
+  const old = LEGACY_MODELS[model];
+  if (old) return { endOfSale: now + old.eosDays * DAY, endOfSupport: now + old.supportDays * DAY };
   const r = mulberry32(seedOf(`eol:${model}`));
-  const eos = now + (CATALOGUE[model] ?? intBetween(r, 420, 1800)) * DAY;
+  const eos = now + (CATALOGUE[model] ?? intBetween(r, 1000, 1800)) * DAY;
   return { endOfSale: eos, endOfSupport: eos + 5 * YEAR };
 }
 const optic = (n: { speedMbps: number; optics?: { model: string } }) => n.optics?.model;
@@ -46,23 +53,22 @@ function build(db: Db, dc: Datacenter): SiteLifecycle {
     return contracts.get(key)!;
   };
   const assets: AssetLife[] = nes.map(n => {
-    const r = mulberry32(seedOf(`${n.id}:life`));
     const md = modelDates(n.model, now);
     const isPlanned = n.discovery === 'not-discovered' && n.ndReason === 'planned';
     const tenant = n.role === 'Tenant gear';
-    const span = Math.max(0, Math.floor((now - 30 * DAY - commissioned) / DAY));
-    const installed = commissioned + intBetween(r, 0, Math.min(900, span)) * DAY;
-    const warrantyEnd = installed + (n.role === 'GPU' || n.role === 'Storage' ? 3 : chance(r, 0.4) ? 5 : 3) * YEAR;
+    const installed = isPlanned ? now : purchasedAt(n, commissioned, now);
+    const warrantyEnd = installed + warrantyYears(n) * YEAR;
     const base = { neId: n.id, dcId: dc.id, vendor: n.vendor, model: n.model, installed, warrantyEnd, endOfSale: md.endOfSale, endOfSupport: md.endOfSupport };
     if (isPlanned) return { ...base, contract: null, state: 'Planned' as const, note: 'Not installed yet' };
     if (tenant) return { ...base, contract: null, state: 'Tenant-owned' as const, note: 'Support is the tenant\'s' };
-    const c = contractOf(n.vendor, n);
+    /* no vendor contract on a model the vendor no longer supports, nor on old kit whose contract was not renewed */
+    const c = contractLapsed(n) || md.endOfSupport < now ? null : contractOf(n.vendor, n);
     const covered = (c && c.expires > now) || warrantyEnd > now;
     const state: AssetLife['state'] = md.endOfSupport < now ? 'End of support'
       : !covered ? 'Out of warranty'
       : (c && c.expires > now && c.expires - now < 90 * DAY) || md.endOfSupport - now < YEAR ? 'Expiring' : 'Covered';
     const note = state === 'End of support' ? `Vendor support ended ${new Date(md.endOfSupport).toISOString().slice(0, 10)}`
-      : state === 'Out of warranty' ? `Warranty ended and ${c && c.expires <= now ? `contract ${c.id} lapsed` : 'no contract'}`
+      : state === 'Out of warranty' ? `Warranty ended ${new Date(warrantyEnd).toISOString().slice(0, 10)} and ${c && c.expires <= now ? `contract ${c.id} lapsed` : contractLapsed(n) ? 'the support contract was not renewed (previous generation)' : 'no contract'}`
       : state === 'Expiring' ? (c && c.expires - now < 90 * DAY ? `Contract ${c.id} ends in ${Math.max(0, Math.round((c.expires - now) / DAY))} days` : `End of support in ${Math.round((md.endOfSupport - now) / DAY)} days`)
       : `${c?.level ?? 'Warranty'} cover`;
     return { ...base, contract: c, state, note };
@@ -115,9 +121,13 @@ function build(db: Db, dc: Datacenter): SiteLifecycle {
   for (const s of spares) s.state = s.onHand - s.reserved <= 0 ? 'out' : s.onHand - s.reserved < s.min ? 'low' : 'ok';
   spares.sort((a, b) => ({ out: 0, low: 1, ok: 2 })[a.state] - ({ out: 0, low: 1, ok: 2 })[b.state] || a.part.localeCompare(b.part));
   const live = assets.filter(a => a.state !== 'Planned');
+  /* racks: type, purchase date and condition (GPU / liquid / storage racks are never the old shallow type) */
+  const deep = new Set(nes.filter(n => n.role === 'GPU' || n.role === 'Storage').map(n => n.rackId));
+  const racks = rackVintage(dc, now, rk => deep.has(rk.id));
   return {
-    dcId: dc.id, assets, rmas, spares,
+    dcId: dc.id, assets, rmas, spares, racks,
     totals: { devices: live.length, covered: live.filter(a => a.state === 'Covered').length, expiring: live.filter(a => a.state === 'Expiring').length, outOfWarranty: live.filter(a => a.state === 'Out of warranty').length,
-      endOfSupport: live.filter(a => a.state === 'End of support').length, tenant: live.filter(a => a.state === 'Tenant-owned').length, openRma: rmas.filter(r => r.status !== 'Replaced · verifying').length, sparesLow: spares.filter(s => s.state !== 'ok').length }
+      endOfSupport: live.filter(a => a.state === 'End of support').length, tenant: live.filter(a => a.state === 'Tenant-owned').length, openRma: rmas.filter(r => r.status !== 'Replaced · verifying').length, sparesLow: spares.filter(s => s.state !== 'ok').length,
+      oldRacks: racks.filter(r => r.old).length, damagedRacks: racks.filter(r => r.condition === 'Damaged').length }
   };
 }

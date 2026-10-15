@@ -81,7 +81,8 @@ function build(db: Db, dc: Datacenter): SitePhys {
   const outletTrip = new Map(live.filter(a => a.neId && a.title === 'Host Power Lost').map(a => [a.neId!, Number(/outlet (\d+)/.exec(a.description)?.[1] ?? 14)]));
   /* one cabinet per site may have a device with both cords on the A side (found at audit): seeded, never on a story device */
   const rrSite = mulberry32(seedOf(`${dc.id}:cords`));
-  const candidates = nes.filter(n => !planned(n) && !isOpaque(n) && psus(n).length === 2 && !outletTrip.has(n.id) && n.id !== edgeId(db.persona, dcAt(1), 1) && !n.isPe);
+  /* (operator servers, added 15-Oct-2026, are left out so the seeded pick stays where it was) */
+  const candidates = nes.filter(n => !planned(n) && !isOpaque(n) && psus(n).length === 2 && !outletTrip.has(n.id) && n.id !== edgeId(db.persona, dcAt(1), 1) && !n.isPe && !n.purpose);
   const miswired = dc.status !== 'planned' && candidates.length && rrSite() < 0.3 ? candidates[intBetween(rrSite, 0, candidates.length - 1)].id : null;
 
   const roomKeys = dc.floors.flatMap(f => f.rooms.map(r => `${f.name}|${r}`));

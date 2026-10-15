@@ -49,14 +49,14 @@ const DCI_SERVICE_TYPES = ['L2VPN', 'L3VPN', 'Leased Line', 'Backup & DR', 'IRV'
 const LIVE_DEV = (d: T.Device) => d.lifecycleState !== 'Retired' && d.lifecycleState !== 'Disposed';
 
 /* ================================================================== ends */
-export interface EndInfo { side: 'A' | 'Z'; dc?: T.DataCenter; colo: boolean; routers: T.Device[]; transitPools: T.Subnet[]; regionId?: string }
+export interface EndInfo { side: 'A' | 'Z'; dc?: T.DataCenter; colo: boolean; routers: T.Device[]; transitPools: T.Subnet[]; regionId?: string; country?: string }
 export function endInfo(data: PlannerData, dcId: string | undefined, side: 'A' | 'Z'): EndInfo {
   const dc = byId(data, 'dataCenters', dcId);
   if (!dc) return { side, colo: false, routers: [], transitPools: [] };
   const devs = (groupBy(data, 'devices', 'dataCenterId').get(dc.id) ?? []).filter(LIVE_DEV);
   const routers = devs.filter(d => d.category === 'Router' || /(^|-)(core|border|edge|dci|wan)(-|\d|$)/i.test(d.name ?? '')).sort((a, b) => (a.category === 'Router' ? -1 : 1) - (b.category === 'Router' ? -1 : 1) || (a.name ?? '').localeCompare(b.name ?? ''));
   const pools = data.subnets.filter(s => s.dataCenterId === dc.id && s.purpose === 'Transit' && s.status !== 'Container' && !s.plannerPlanId).sort((a, b) => (/transit/i.test(b.name) ? 1 : 0) - (/transit/i.test(a.name) ? 1 : 0) || (a.cidr.startsWith('10.') ? -1 : 1));
-  return { side, dc, colo: COLO_TYPES.includes(dc.dcTypeKey ?? ''), routers, transitPools: pools, regionId: byId(data, 'campuses', dc.campusId)?.regionId };
+  return { side, dc, colo: COLO_TYPES.includes(dc.dcTypeKey ?? ''), routers, transitPools: pools, regionId: byId(data, 'campuses', dc.campusId)?.regionId, country: byId(data, 'campuses', dc.campusId)?.country };
 }
 
 /* ================================================================== ports */
@@ -204,7 +204,8 @@ function portCheck(data: PlannerData, end: EndInfo, deviceId: string | undefined
 }
 export function analysePaths(data: PlannerData, plan: T.PlannerPlan, a: EndInfo, z: EndInfo, p: Params): PathResult[] {
   const gc = greatCircleKm(a.dc, z.dc);
-  const subsea = !!a.regionId && !!z.regionId && a.regionId !== z.regionId;
+  // across a sea = the two ends in different countries (a domestic DCI between regions is terrestrial long-haul); region only when no country is recorded
+  const subsea = a.country && z.country ? a.country !== z.country : !!a.regionId && !!z.regionId && a.regionId !== z.regionId;
   const usedA = new Map<string, number>(), usedZ = new Map<string, number>();
   const demarc = num(p, 'demarcSpanKm', 0.5);
   return (plan.paths ?? []).map(path => {

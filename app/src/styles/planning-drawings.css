@@ -1,0 +1,11 @@
+/* Family drawing sheets (pack/familyDrawings.tsx, scopes/<family>/drawings.tsx): notes block and the inner layout. Colours come
+   from NST tokens; the frame, legend and tooltip are the planner chart ones (planning-charts.css). */
+.fd-draw { display: flex; flex-direction: column; gap: 2px; }
+.fd-draw svg text { font-family: var(--num, inherit); }
+.fd-notes { margin: 8px 0 0; padding: 8px 0 0 18px; border-top: 1px dashed var(--vw-color-slate-300); font-size: 11.5px; line-height: 1.5; color: var(--ink-600); display: grid; gap: 1px; }
+.fd-notes li::marker { color: var(--ink-500); font-variant-numeric: tabular-nums; }
+.fd-sub { margin: 10px 0 4px; font-size: 11px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; color: var(--ink-500); }
+.fd-sub:first-child { margin-top: 0; }
+.fd-scroll { overflow-x: auto; overflow-y: hidden; }
+.fd-draw-tab { padding: 4px 0; }
+@media print { .fd-notes { font-size: 10px; } }

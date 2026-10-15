@@ -41,6 +41,8 @@ const PlannerWizard = lazy(() => import('./screens/planning/PlanWizard').then(m 
 const PlannerPlan = lazy(() => import('./screens/planning/PlanPage').then(m => ({ default: m.PlanPage })));
 const lazyEl = (el: ReactNode) => <Suspense fallback={<div className="loading"><span className="spinner" />Loading…</div>}>{el}</Suspense>;
 function OldPlan() { const id = useLocation().pathname.split('/')[2]; return <Navigate to={id && id !== 'new' ? `/planning/plans/${id}` : id === 'new' ? '/planning/new' : '/planning'} replace />; }
+/* /planning/templates/:id deep link → the Templates tab with that template's drawer open */
+function TemplateLink() { const id = useLocation().pathname.split('/')[3]; return <Navigate to={`/planning?tab=templates&template=${encodeURIComponent(id ?? '')}`} replace />; }
 function Keep({ to }: { to: string }) { const l = useLocation(); return <Navigate to={`${to}${l.search}`} replace />; }
 
 export default function App() {
@@ -90,6 +92,7 @@ export default function App() {
           <Route path="planning/plans/:planId" element={lazyEl(<PlannerPlan />)} />
           <Route path="planning/plans" element={<Navigate to="/planning?tab=plans" replace />} />
           <Route path="planning/templates" element={<Navigate to="/planning?tab=templates" replace />} />
+          <Route path="planning/templates/:templateId" element={<TemplateLink />} />
           <Route path="planning/benchmarks" element={<Navigate to="/planning?tab=benchmarks" replace />} />
           <Route path="planner" element={<Navigate to="/planning" replace />} />
           <Route path="planner/*" element={<OldPlan />} />

@@ -22,6 +22,7 @@ import type * as T from '../../../planner/p2b/types';
 import type * as E from '../../../planner/p2b/enums';
 import { PEOPLE, type Person, type Seed } from './ctx';
 import { metaAt } from './realism';
+import { plannerMoney } from '../../../planner/compat/registry';
 
 /** Approval-limit bands for the finance step (the approval DMN). */
 export const APPROVAL_BANDS: { max: number; role: string; label: string }[] = [
@@ -33,7 +34,9 @@ export const APPROVAL_BANDS: { max: number; role: string; label: string }[] = [
 /** Which job role decides each named step of a template's approval path. */
 const STEP_ROLE: Record<string, string> = { 'Capacity planner': 'Capacity Planner', 'Facility manager': 'Facilities Director', 'Design authority': 'Facilities Director', 'Network architect': 'Network Engineer', 'Operations lead': 'NOC Lead', Executive: 'Executive' };
 const FINANCE_STEP = /finance/i;
-const usd = (n: number) => n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : `$${Math.round(n / 1000)}k`;
+/* money in the geography's form (the app's registered formatter), short USD without one */
+const usd = (n: number) => plannerMoney()?.(n) ?? (n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : `$${Math.round(n / 1000)}k`);
+const bandText = (b: { max: number }) => { const i = APPROVAL_BANDS.indexOf(b as typeof APPROVAL_BANDS[number]), lo = APPROVAL_BANDS[i - 1]?.max; return !Number.isFinite(b.max) ? `above ${usd(lo ?? 0)}` : lo === undefined ? `up to ${usd(b.max)}` : `${usd(lo)} to ${usd(b.max)}`; };
 
 /** CapEx the approvers were asked to sign, from the plan's own parameters (seed approximation). */
 export function approvalAmount(p: T.PlannerPlan): number {
@@ -61,8 +64,8 @@ export function seedPlanGovernance(S: Seed, draws: Map<string, number[]>): void 
     return path.map(step => {
       if (!FINANCE_STEP.test(step)) return { step, person: personFor(step, p), basis: 'Template approval path' };
       const band = APPROVAL_BANDS.find(b => amount <= b.max) ?? APPROVAL_BANDS[APPROVAL_BANDS.length - 1];
-      if (band.role === 'Executive' && path.includes('Executive')) return { step, person: S.byRole('Finance Manager'), basis: `CapEx ${usd(amount)} is ${band.label}: the Finance Manager reviews and the Executive step approves` };
-      return { step, person: S.byRole(band.role), basis: `CapEx ${usd(amount)} is ${band.label}: approved by the ${band.role}` };
+      if (band.role === 'Executive' && path.includes('Executive')) return { step, person: S.byRole('Finance Manager'), basis: `CapEx ${usd(amount)} is ${bandText(band)}: the Finance Manager reviews and the Executive step approves` };
+      return { step, person: S.byRole(band.role), basis: `CapEx ${usd(amount)} is ${bandText(band)}: approved by the ${band.role}` };
     });
   };
   const decided = (steps: ReturnType<typeof pathOf>, startDaysAgo: number, overrides: Partial<Record<number, Partial<T.PlannerApproval>>> = {}, upTo = steps.length): T.PlannerApproval[] =>

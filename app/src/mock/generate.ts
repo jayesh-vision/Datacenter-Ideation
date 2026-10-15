@@ -10,6 +10,7 @@ import { NE_CATEGORY } from '../api/types';
 import { BLOCKERS, DAY, HOUR, MIN, NOW, POP_STATUS, SITE_STATUS } from './seed';
 import { activeGeo, dcAt, money, placeCustomer, type DcRow } from './geo';
 import { buildIncidents, impactOf, RESOLVE_SLA, RESPONSE_SLA } from './incidents';
+import { agePreviousGeneration, ageOperatorServers, isLegacyModel } from './vintage';
 import { addGpuChange, addGpuServices, buildGpuFleet, buildGpuHistory, buildGpuIncidents, injectGpuFaults, LIQUID_SITES, type GpuState } from './gpu';
 import { PERSONA_BY_ID, edgeId } from './personas';
 
@@ -219,6 +220,9 @@ function buildNes(dcRow: DcRow, r: Rnd, persona: Persona) {
     ? [...Array(48).fill('planned'), ...Array(22).fill('no-collector'), ...Array(4).fill('collector-unavailable'), ...Array(2).fill('not-applicable')]
     : dcStatus === 'planned' ? Array(notDisc).fill('planned') : nd.map(() => pick(r, ['planned', 'planned', 'no-collector', 'collector-unavailable']));
   nd.forEach((d, i) => { d.ne.discovery = 'not-discovered'; d.ne.ndReason = reasonBag[i] as NetworkElement['ndReason']; d.ne.lifecycle = d.ne.ndReason === 'planned' ? 'Planned' : 'Ready'; });
+  /* equipment vintage (15-Oct-2026): part of the installed servers and switches are the previous generation (mock/vintage.ts; own seed,
+     model + OS only, so counts, slots, draw and ports are unchanged) */
+  agePreviousGeneration(dcId, dcStatus, drafts.map(d => d.ne));
   const disc = drafts.filter(d => d.ne.discovery !== 'not-discovered' && d.ne.id !== edgeId(persona, dcId, 1));
   const dr = shuffle(r, disc).slice(0, drifted);
   const DRIFTS: (() => { attr: string; record: string; observed: string })[] = [
@@ -236,13 +240,111 @@ function buildNes(dcRow: DcRow, r: Rnd, persona: Persona) {
     if (os) { os.record = d.ne.os; if (os.observed === os.record) os.observed = d.ne.vendor === 'JUNIPER' ? '23.2R1-S1' : `${d.ne.os} (patched)`; }
     d.ne.drift = items;
   });
+  /* the operator's own servers (telco / colocation, 15-Oct-2026): after everything above, on their own seed */
+  if ((persona === 'network' || persona === 'colocation') && dcStatus !== 'planned') addOperatorServers(dcRow, persona, drafts);
   return drafts;
+}
+
+/* ------------------------------------------------------- operator servers */
+/* 15-Oct-2026 (user: "the operator has NO servers in the Network and Colocation personas, so a server refresh finds nothing"):
+   - telco: NFV infrastructure hosts (5GC user plane / UPF, 5GC control plane and vEPC, vRAN central units), OSS / BSS and IMS application
+     servers, and the site's management servers (NMS collectors, AAA, DNS / NTP, jump hosts, backup), sized to the site: hubs (≥ 140 network
+     elements in the site row) hold the OSS / BSS / IMS stacks and the most NFV capacity, mid-size sites a share, small sites a handful;
+   - colocation: the operator's own management servers (DCIM, BMS / EPMS, access control, CCTV recording, monitoring collectors, backup,
+     jump hosts) in an operator rack in the meet-me room. Tenant equipment stays opaque and unpolled.
+   Live sites only (a planned site has no build yet). They are ordinary `Server` hosts (host telemetry, modules, BMC, previous-generation mix,
+   lifecycle, RMAs) carrying `purpose`; they get their own racks, dual-home to a ToR pair and raise their alarms after the incidents are built.
+   Everything here is seeded on the site / device id and appended after the existing entities (devices, racks, links, alarm codes), so the
+   rest of the estate — and the random stream that built it — does not move. */
+const OPS_MODELS = SERVER_MODELS;   // Dell R760 / HPE DL380 Gen11 / Supermicro SYS-121H (previous generation via mock/vintage.ts)
+export const isOpServer = (n: Pick<NetworkElement, 'purpose'>) => !!n.purpose;
+interface OpSpec { tag: string; n: number; u: number; kw: number; purpose: string }
+function operatorServerPlan(persona: Persona, total0: number, r: Rnd): OpSpec[] {
+  const size = total0 >= 140 ? 'hub' : total0 >= 90 ? 'mid' : 'small';
+  const S = (tag: string, n: number, u: number, kw: number, purpose: string): OpSpec => ({ tag, n, u, kw, purpose });
+  const k = (a: number, b: number, c: number) => (size === 'hub' ? a : size === 'mid' ? b : c);
+  if (persona === 'colocation') return [
+    /* build order = age order (mock/vintage.ts ageOperatorServers): the operator's own systems of the first fit-out first */
+    S('BMS', k(2, 2, 1), 1, 0.35, 'BMS / EPMS · building management and electrical power monitoring (BACnet / Modbus)'),
+    S('ACS', 1, 1, 0.3, 'Access control · badge readers, mantraps and cage doors'),
+    S('NVR', k(2, 1, 1), 2, 0.55, 'CCTV recording (NVR) · 90-day retention'),
+    S('JMP', k(2, 1, 1), 1, 0.3, 'Jump host · privileged access to operator systems'),
+    S('BKP', 1, 2, 0.6, 'Backup · operator systems and configuration archives'),
+    S('DCIM', k(2, 2, 1), 1, 0.4, 'DCIM · assets, capacity, power and environment'),
+    S('MON', k(2, 2, 1), 1, 0.35, 'Monitoring collectors · SNMP / Redfish / Modbus polling'),
+  ].filter(s => s.n > 0);
+  /* telco: management and application servers first (the first build-out), then the NFV hosts, the newest last */
+  const nfv = (f: number, min: number) => Math.max(min, Math.round(total0 * f) + intBetween(r, -1, 1));
+  return [
+    S('NMS', k(2, 2, 1), 1, 0.4, 'Network management · fault and performance collectors'),
+    S('AAA', k(2, 2, 0), 1, 0.35, 'AAA · RADIUS / TACACS+ for device logins'),
+    S('DNS', k(2, 2, 1), 1, 0.3, 'DNS / NTP · site resolvers and stratum-2 time'),
+    S('JMP', k(2, 1, 1), 1, 0.3, 'Jump host · privileged access to network elements'),
+    S('BKP', k(2, 1, 1), 2, 0.65, 'Backup · configuration archives and VM snapshots'),
+    S('OSS', k(4, 2, 0), 2, 0.6, 'OSS · inventory, provisioning and service assurance'),
+    S('BSS', k(4, 0, 0), 2, 0.6, 'BSS · charging and billing mediation'),
+    S('IMS', k(4, 2, 0), 2, 0.65, 'IMS core · CSCF / TAS for VoLTE and VoNR'),
+    S('NFVI-CP', k(nfv(0.05, 6), nfv(0.04, 3), 2), 1, 0.55, 'NFVI · 5GC control plane and vEPC (AMF / SMF / MME)'),
+    S('NFVI-UP', k(nfv(0.08, 8), nfv(0.07, 4), nfv(0.05, 3)), 2, 0.8, 'NFVI · 5GC user plane (UPF / SPGW-U, SR-IOV)'),
+    S('VRAN-CU', k(nfv(0.03, 3), nfv(0.03, 2), 2), 2, 0.75, 'NFVI · vRAN central unit (CU-CP / CU-UP)'),
+  ].filter(s => s.n > 0);
+}
+function addOperatorServers(dcRow: DcRow, persona: Persona, drafts: NeDraft[]) {
+  const [dcId, , , , dcStatus, total0] = dcRow;
+  const r = mulberry32(seedOf(`${dcId}:op-servers`));
+  /* one platform vendor per site for the NFV cloud, any of the three for the rest */
+  const main = pick(r, OPS_MODELS);
+  const servers: NetworkElement[] = [];
+  for (const s of operatorServerPlan(persona, total0, r)) for (let i = 1; i <= s.n; i++) {
+    const name = `${dcId}-${s.tag}-${String(i).padStart(2, '0')}`;
+    const rr = mulberry32(seedOf(`${name}:op`));
+    const m = /^NFVI|^VRAN/.test(s.tag) ? main : pick(rr, OPS_MODELS);
+    const idx = drafts.length, serialNo = 11000 + idx * 7 + intBetween(rr, 0, 6);
+    const ne: NetworkElement = {
+      id: name, dcId, name, role: 'Server', layer: 'access', vendor: m[0], model: m[1], os: m[2], serial: `${m[3]}00${serialNo}`,
+      ip: `172.${16 + (seedOf(dcId) % 16)}.${40 + Math.floor(idx / 200)}.${(idx % 200) + 20}`,
+      mac: `A4:5E:60:${hex2(rr)}:${hex2(rr)}:${hex2(rr)}`, rackId: '', u: 0, lifecycle: 'Ready', discovery: 'verified', health: 'healthy', healthScore: 100, cpu: 0, mem: 0, tempC: 0, uptimeMin: 0, lastReboot: 0,
+      icmp: { lossPct: 0, latencyMs: 0, jitterMs: 0, availability: 100, state: 'healthy', hourly: [] }, ntp: { offsetMs: 0, delayMs: 0, jitterMs: 0, stratum: 3, state: 'Synchronised', primary: '10.16.16.10', secondary: '10.16.16.11', lastSync: 0, hourly: [] },
+      radius: { successPct: 100, failures24h: 0, primary: 'Reachable', secondary: 'Reachable', lastAuth: 0, state: 'healthy', pri: '10.25.25.5', sec: '10.25.25.6' }, modules: [], isPe: false,
+      uSize: s.u, purpose: s.purpose
+    };
+    drafts.push({ ne, uSize: s.u, drawKw: r2(s.kw * between(rr, 0.9, 1.1)), plan: [{ kind: 'xe', n: 2 }] });
+    servers.push(ne);
+  }
+  ageOperatorServers(dcId, dcStatus, servers);
+}
+
+/* the operator-server racks of a site: 42U cabinets in the equipment room (telco) or the meet-me room (colocation), filled in build order
+   up to 30 U and ~9 kW each; own seed, appended after the site's existing racks */
+function placeOperatorServers(dcId: string, servers: NeDraft[], racks: Rack[], floors: { name: string; rooms: string[] }[], persona: Persona): Rack[] {
+  if (!servers.length) return [];
+  const r = mulberry32(seedOf(`${dcId}:op-racks`));
+  const rooms = floors.flatMap(f => f.rooms.map(rm => ({ floor: f.name, room: rm })));
+  const loc = persona === 'colocation' ? rooms.find(x => /meet-me/i.test(x.room)) ?? rooms[0] : rooms.find(x => /equipment room/i.test(x.room)) ?? rooms[rooms.length - 1];
+  const out: Rack[] = [];
+  const open = () => {
+    const i = racks.length + out.length;
+    const name = `RACK-${String.fromCharCode(65 + (i % 26))}${i >= 26 ? Math.floor(i / 26) : ''}`;
+    const rk: Rack = { id: `${dcId}-${name}`, name, dcId, floor: loc.floor, room: loc.room, role: persona === 'colocation' ? 'Operator servers' : 'Compute', heightU: 42, usedU: 0, drawKw: 0, budgetKw: 0, ports: 0, portsUsed: 0, tempC: 0, ...(persona === 'colocation' ? { owner: 'operator' as const } : {}), opServers: true };
+    out.push(rk); return rk;
+  };
+  let rk = open(), kw = 0;
+  for (const d of servers) {
+    if (rk.usedU + d.uSize > 30 || kw + d.drawKw > 9) { rk = open(); kw = 0; }
+    d.ne.rackId = rk.id; d.ne.u = rk.usedU + 2;
+    rk.usedU += d.uSize; kw += d.drawKw;
+    rk.drawKw += d.drawKw * between(r, 0.92, 1.08);
+  }
+  out.forEach(x => { x.drawKw = r1(x.drawKw); x.budgetKw = Math.max(8, Math.ceil(x.drawKw / between(r, 0.55, 0.75))); });
+  return out;
 }
 
 /* -------------------------------------------------------------- facility */
 
-function placeInRacks(dcId: string, drafts: NeDraft[], r: Rnd, persona: Persona, customers: Customer[]) {
+function placeInRacks(dcId: string, all: NeDraft[], r: Rnd, persona: Persona, customers: Customer[]) {
   const def = PERSONA_BY_ID[persona];
+  /* the operator's own servers (telco / colocation) go in racks of their own, placed after the rest on their own seed */
+  const drafts = all.filter(d => !isOpServer(d.ne)), servers = all.filter(d => isOpServer(d.ne));
   const totalU = drafts.reduce((a, d) => a + d.uSize, 0) + 0;
   const tall = dcAt(def.tall.dcIndex) === dcId;
   /* a multi-storey site spreads the same equipment over more rooms: at least 3 racks per room */
@@ -291,6 +393,7 @@ function placeInRacks(dcId: string, drafts: NeDraft[], r: Rnd, persona: Persona,
       rk.role = top === 'compute' ? (count(d => d.ne.role === 'GPU') > count(d => d.ne.role === 'Server') ? 'GPU' : 'Compute') : top === 'storage' ? 'Storage' : persona === 'colocation' ? (i === 0 ? 'Core' : 'Meet-me room') : (i === 0 ? 'Core' : 'Network');
     });
   }
+  racks.push(...placeOperatorServers(dcId, servers, racks, floors, persona));
   return { racks, floors };
 }
 
@@ -359,7 +462,7 @@ export function generate(persona: Persona = 'network'): Db {
   for (const row of activeGeo().dcs) {
     const dcId = row[0];
     const rr = mulberry32(seedOf(dcId) ^ 0x11);
-    const live = draftsByDc.get(dcId)!.map(d => d.ne).filter(n => n.discovery !== 'not-discovered');
+    const live = draftsByDc.get(dcId)!.map(d => d.ne).filter(n => n.discovery !== 'not-discovered' && !isOpServer(n));
     const core = live.filter(n => n.isPe), spine = live.filter(n => n.layer === 'spine'), leaf = live.filter(n => n.layer === 'leaf');
     const fw = live.filter(n => n.role === 'Firewall'), dw = live.filter(n => n.role === 'DWDM');
     const accR = live.filter(n => n.layer === 'access' && n.role === 'Router'), tor = live.filter(n => n.layer === 'access' && n.role === 'Switch');
@@ -460,7 +563,7 @@ export function generate(persona: Persona = 'network'): Db {
   for (const l of links) if (l.protocol !== 'LLDP' && lldpByIf.get(`${l.aNe}:${l.aIf}`)?.state === 'down') l.state = l.protocol === 'BGP' ? 'idle' : 'down';
 
   /* interface state + utilisation follow the physical link */
-  for (const l of links) if (l.protocol === 'LLDP') {
+  const followLink = (l: Link) => {
     for (const [ne, ifn] of [[l.aNe, l.aIf], [l.zNe, l.zIf]] as const) {
       const it = ifaces.get(ne)!.find(i => i.name === ifn)!;
       it.state = l.state === 'down' ? 'down' : 'up'; it.utilPct = l.state === 'down' ? 0 : l.utilPct;
@@ -468,7 +571,8 @@ export function generate(persona: Persona = 'network'): Db {
       it.inErrors = l.state === 'down' ? intBetween(rr, 40, 400) : chance(rr, 0.08) ? intBetween(rr, 1, 30) : 0;
       if (it.speedMbps >= 10000) it.optics = { model: it.speedMbps >= 400000 ? 'OSFP-400G-SR4 (NDR)' : it.speedMbps === 100000 ? 'QSFP28-100G-LR4' : 'SFP-10G-LR', rxDbm: r1(between(rr, -6.5, -2.2)), txDbm: r1(between(rr, -2.4, 0.8)), tempC: intBetween(rr, 34, 48) };
     }
-  }
+  };
+  for (const l of links) if (l.protocol === 'LLDP') followLink(l);
   /* server- and CPE-facing ports on access gear are in use too */
   for (const n of nes) {
     if (n.discovery === 'not-discovered' || n.isPe || n.layer === 'core' || n.layer === 'spine' || isHost(n) || isTenantGear(n)) continue;
@@ -477,6 +581,35 @@ export function generate(persona: Persona = 'network'): Db {
       it.state = chance(rr, 0.04) ? 'down' : 'up'; it.utilPct = it.state === 'up' ? r1(between(rr, 4, 58)) : 0; it.description = n.role === 'Switch' ? 'Server NIC' : 'Customer CPE';
     }
     const pool = freeIf.get(n.id)!; freeIf.set(n.id, pool.filter(i => i.state === 'admin-down'));
+  }
+  /* operator servers (telco / colocation) dual-home to a ToR pair (TOR-001/002, then 003/004 … as a pair runs out of free 10G ports);
+     their links come after every other link (ids, cable numbers), so nothing else moves */
+  for (const row of activeGeo().dcs) {
+    const dcId = row[0];
+    const servers = draftsByDc.get(dcId)!.map(d => d.ne).filter(isOpServer);
+    if (!servers.length) continue;
+    /* discovered ToRs first; a site still being built (its ToRs not discovered yet) uses its leaf pairs */
+    const sw = draftsByDc.get(dcId)!.map(d => d.ne).filter(n => n.role === 'Switch' && n.discovery !== 'not-discovered');
+    const pairsOf = (xs: NetworkElement[]) => Array.from({ length: Math.floor(xs.length / 2) }, (_, k) => xs.slice(2 * k, 2 * k + 2));
+    const pairs = [...pairsOf(sw.filter(n => n.layer === 'access')), ...pairsOf(sw.filter(n => n.layer === 'leaf'))];
+    if (!pairs.length) continue;
+    const free = (t: NetworkElement) => freeIf.get(t.id)!.filter(i => i.speedMbps === 10000).length;
+    /* a free 10G port, else one of the generic "Server NIC" ports the switch already shows in use (that NIC is now a modelled server) */
+    const port = (t: NetworkElement) => take(t.id, ['10G']) ?? ifaces.get(t.id)!.find(i => i.description === 'Server NIC' && !i.peer && i.speedMbps === 10000) ?? null;
+    let pi = 0;
+    for (const h of servers) {
+      const rr = mulberry32(seedOf(`${h.id}:uplinks`));
+      /* move on to the next pair when either switch of this one has no free 10G port */
+      while (pi < pairs.length - 1 && pairs[pi].some(t => free(t) === 0)) pi++;
+      const pair = pairs[pi];
+      for (const t of pair) {
+        const ia = take(h.id, ['10G']), ib = port(t);
+        if (!ia || !ib) { if (ia) freeIf.get(h.id)!.unshift(ia); continue; }
+        ia.peer = { neId: t.id, ifName: ib.name }; ib.peer = { neId: h.id, ifName: ia.name };
+        ia.description = `Access to ${t.name}`; ib.description = `Access to ${h.name}`;
+        followLink(mkLink('LLDP', ia, ib, 'Access', dcId, rr));
+      }
+    }
   }
   for (const list of ifaces.values()) for (const it of list) if (it.state === 'admin-down' && mulberry32(seedOf(it.id))() < 0.06) it.state = 'reserved';
   const heroX3 = ifaces.get(HERO)!.find(i => i.name === 'xe-0/0/3')!;
@@ -546,7 +679,7 @@ export function generate(persona: Persona = 'network'): Db {
   for (const n of nes) {
     const rr = mulberry32(seedOf(n.id) ^ 0x7e);
     if (n.discovery === 'not-discovered' || isTenantGear(n)) { n.health = 'unknown'; n.healthScore = 0; continue; }
-    if (isHost(n)) { hostTelemetry(n, rr); continue; }
+    if (isHost(n)) { hostTelemetry(n, rr, isOpServer(n)); continue; }
     n.cpu = intBetween(rr, 12, 58); n.mem = intBetween(rr, 30, 72); n.tempC = intBetween(rr, 33, 47);
     n.uptimeMin = intBetween(rr, 3 * 1440, 220 * 1440); n.lastReboot = NOW - n.uptimeMin * MIN; n.lastSeen = NOW - intBetween(rr, 1, 9) * MIN; n.collector = `COL-${n.dcId}-${(seedOf(n.id) % 2) + 1}`;
     n.icmp = { lossPct: r2(between(rr, 0, 0.12)), latencyMs: r2(between(rr, 0.4, 1.6)), jitterMs: r2(between(rr, 0.1, 0.6)), availability: 99.99, state: 'healthy', hourly: hours(rr, 0.995) };
@@ -566,6 +699,21 @@ export function generate(persona: Persona = 'network'): Db {
   hero.radius = { ...hero.radius, successPct: 99.8, failures24h: 2, lastAuth: NOW - 88 * MIN };
   hero.modules = hero.modules.map(m => ({ ...m, serial: m.serial.replace(/^[A-Z]{2}\d+/, 'JU0011000') }));
   hero.modules[1].tempC = 58;
+  /* operator servers: one failed part per site (two at the big hubs) — a predicted disk failure or a dead PSU, more often on old kit — so
+     every live telco / colocation site has an open RMA on a server (mock/lifecycle.ts) */
+  for (const row of activeGeo().dcs) {
+    const servers = draftsByDc.get(row[0])!.map(d => d.ne).filter(isOpServer);
+    if (!servers.length) continue;
+    const rr = mulberry32(seedOf(`${row[0]}:op-faults`));
+    const old = servers.filter(n => isLegacyModel(n.model));
+    for (let k = 0; k < (servers.length >= 24 ? 2 : 1); k++) {
+      const pool = (chance(rr, 0.7) && old.length ? old : servers).filter(n => !n.modules.some(m => m.state === 'Fault'));
+      if (!pool.length) continue;
+      const n = pool[intBetween(rr, 0, pool.length - 1)];
+      const slot = chance(rr, 0.6) ? `DISK${intBetween(rr, 0, 3)}` : 'PSU2';
+      n.modules = n.modules.map(m => (m.slot === slot ? { ...m, state: 'Fault' as const } : m));
+    }
+  }
 
   /* -------- datacenter records */
   for (const row of activeGeo().dcs) {
@@ -575,6 +723,9 @@ export function generate(persona: Persona = 'network'): Db {
     const drafts = draftsByDc.get(id)!;
     const { racks, floors } = placeInRacks(id, drafts, rr, persona, customers);
     const dcNes = drafts.map(d => d.ne);
+    /* the site as it was before its operator servers were modelled (15-Oct-2026): the facility's design figures (plant capacity class,
+       outside-plant cable, capex / opex, the telco compute estimate) keep their sizes; the servers add load, racks, ports and devices */
+    const baseNes = dcNes.filter(n => !isOpServer(n));
     const hostN = { cmp: dcNes.filter(n => n.role === 'Server').length, sto: dcNes.filter(n => n.role === 'Storage').length, gpu: dcNes.filter(n => n.role === 'GPU').length };
     for (const rk of racks) {
       const inRack = dcNes.filter(n => n.rackId === rk.id);
@@ -582,15 +733,19 @@ export function generate(persona: Persona = 'network'): Db {
       rk.ports = ifs.length; rk.portsUsed = ifs.filter(i => i.state !== 'admin-down').length;
     }
     const itKw = r1(racks.reduce((a, rk) => a + rk.drawKw, 0));
+    const baseItKw = r1(racks.filter(rk => !rk.opServers).reduce((a, rk) => a + rk.drawKw, 0));
     const pue = id === dcAt(1) ? 1.52 : r2(between(rr, 1.38, 1.68));
     const totalKw = r1(itKw * pue);
-    const capacityKw = Math.ceil((totalKw / between(rr, 0.42, 0.66)) / 10) * 10;
+    const headroom = between(rr, 0.42, 0.66);
+    const capacityKw = Math.ceil((totalKw / headroom) / 10) * 10;
+    /* the UPS line-up (2 or 4 modules) follows the site's design class, not the servers added to it */
+    const baseCapacityKw = Math.ceil((r1(baseItKw * pue) / headroom) / 10) * 10;
     const acKw = r1(totalKw * 0.7), dcKw = r1(totalKw - acKw);
     const load24h = Array.from({ length: 24 }, (_, h) => r1(totalKw * (0.84 + 0.1 * Math.sin(((h - 6) / 24) * Math.PI * 2 - Math.PI / 2) * -1 + between(rr, -0.02, 0.02))));
     { const k = totalKw / load24h[23]; for (let h = 0; h < 24; h++) load24h[h] = r1(load24h[h] * k); }
     const peakKw = r1(Math.max(...load24h) * 1.06);
     const coolKw = r1(itKw * (pue - 1) * 0.78);
-    const upsN = capacityKw > 300 ? 4 : 2;
+    const upsN = baseCapacityKw > 300 ? 4 : 2;
     const ups: UpsUnit[] = Array.from({ length: upsN }, (_, i) => ({ id: `${id}-UPS-${i + 1}`, name: `UPS-${i + 1}`, capacityKw: Math.round(capacityKw / (upsN - 1) / 10) * 10, loadPct: intBetween(rr, 34, 64), redundancy: 'N+1', batteryMin: intBetween(rr, 12, 28), state: 'Online' }));
     /* thermal: capacity vs IT heat to remove (coolKw above is the plant's electrical draw) */
     const heatKw = r1(itKw * 1.03);
@@ -598,19 +753,20 @@ export function generate(persona: Persona = 'network'): Db {
     const zones = floors.flatMap(f => f.rooms.map(rm => `${f.name} · ${rm}`));
     const units: CoolingUnit[] = Array.from({ length: Math.max(3, zones.length * 2) }, (_, i) => ({ id: `${id}-CRAH-${11 + i}`, name: `CRAH-${11 + i}`, type: i % 5 === 4 ? 'CRAC' : 'CRAH', zone: zones[i % zones.length], capacityKw: Math.round(coolCap / Math.max(3, zones.length * 2)), loadPct: intBetween(rr, 38, 72), supplyC: intBetween(rr, 17, 20), returnC: intBetween(rr, 28, 32), status: 'Operational' }));
     const sensors: EnvSensor[] = zones.map((z, i) => ({ id: `${id}-ENV-${i + 1}`, zone: z, tempC: r1(between(rr, 22.5, 25.8)), humidity: intBetween(rr, 42, 55), smoke: false, leak: false }));
-    racks.forEach(rk => { const s = sensors.find(x => x.zone === `${rk.floor} · ${rk.room}`); rk.tempC = r1((s?.tempC ?? 24) + between(rr, 0, 1.2)); });
+    racks.forEach(rk => { if (rk.opServers) return; const s = sensors.find(x => x.zone === `${rk.floor} · ${rk.room}`); rk.tempC = r1((s?.tempC ?? 24) + between(rr, 0, 1.2)); });
+    racks.forEach(rk => { if (!rk.opServers) return; const s = sensors.find(x => x.zone === `${rk.floor} · ${rk.room}`); rk.tempC = r1((s?.tempC ?? 24) + between(mulberry32(seedOf(`${rk.id}:inlet`)), 0, 1.2)); });
     const portCls = new Map<string, { total: number; used: number }>();
     for (const n of dcNes) for (const it of ifaces.get(n.id)!) {
       const k = it.type === '1G copper' ? '1G copper' : it.type === '10G SFP+' ? '10G SFP+' : it.type === '400G OSFP' ? '400G OSFP' : '100G QSFP28';
       const e = portCls.get(k) ?? { total: 0, used: 0 }; e.total++; if (it.state !== 'admin-down') e.used++; portCls.set(k, e);
     }
-    const cores = 24 + (dcNes.length > 120 ? 24 : 0);
+    const cores = 24 + (baseNes.length > 120 ? 24 : 0);
     const odfUsed = Math.round(cores * between(rr, 0.45, 0.62));
     portCls.set('Optical (ODF)', { total: cores * 4, used: odfUsed * 4 - intBetween(rr, 0, 6) });
     /* cabling ledger: the first cores of the incoming cable land on PE / ACC ports */
     const hasIf = (n: NetworkElement) => (ifaces.get(n.id)?.length ?? 0) >= 6;
-    const pe1 = dcNes.find(n => n.id === edgeId(persona, id, 1))!, acc1 = dcNes.find(n => n.id === `${id}-ACC-01`) ?? (persona === 'network' ? dcNes[dcNes.length - 1] : dcNes.find(n => !n.isPe && hasIf(n)) ?? pe1);
-    const ledgerPool = persona === 'network' ? dcNes : dcNes.filter(hasIf);
+    const pe1 = dcNes.find(n => n.id === edgeId(persona, id, 1))!, acc1 = baseNes.find(n => n.id === `${id}-ACC-01`) ?? (persona === 'network' ? baseNes[baseNes.length - 1] : baseNes.find(n => !n.isPe && hasIf(n)) ?? pe1);
+    const ledgerPool = persona === 'network' ? baseNes : baseNes.filter(hasIf);
     const peIf = ifaces.get(pe1.id)!, accIf = ifaces.get(acc1.id)!;
     const ledger: CableCore[] = Array.from({ length: cores }, (_, i) => ({ port: i + 1, state: 'free' as const }));
     const patch = (port: number, ne: NetworkElement, inIf: string, outPort: number, outIf: string, strand: string) => { ledger[port - 1] = { port, state: 'connected', neId: ne.id, inIf, outPort, outIf, strand }; };
@@ -622,7 +778,7 @@ export function generate(persona: Persona = 'network'): Db {
     ledger[8] = { port: 9, state: 'direct', outPort: 9, strand: 'Red' };
     for (let i = 10; i < Math.min(cores, 10 + Math.round(cores * 0.25)); i++) if (i !== 8) ledger[i] = { port: i + 1, state: 'connected', neId: ledgerPool[(i * 5) % ledgerPool.length].id, inIf: ifaces.get(ledgerPool[(i * 5) % ledgerPool.length].id)![0].name, outPort: i + 1, outIf: ifaces.get(ledgerPool[(i * 5) % ledgerPool.length].id)![1]?.name ?? '', strand: STRANDS[i % STRANDS.length] };
 
-    const nScale = dcNes.length / 179;
+    const nScale = baseNes.length / 179;
     const capexApproved = money(id === dcAt(1) ? 9.56e7 : Math.round(9.56e7 * nScale * between(rr, 0.8, 1.2) / 1e5) * 1e5);
     const capexCommitted = id === dcAt(1) ? money(8.77e7) : status === 'planned' ? Math.round(capexApproved * 0.22) : Math.round(capexApproved * between(rr, 0.86, 0.99) / 1e5) * 1e5;
     const opexMonthly = money(id === dcAt(1) ? 98.88e5 : status === 'planned' ? 0 : Math.round(98.88e5 * nScale * between(rr, 0.8, 1.15) / 1e3) * 1e3);
@@ -641,7 +797,7 @@ export function generate(persona: Persona = 'network'): Db {
         { item: 'Electricity', monthly: Math.round(opexMonthly * 0.41) }, { item: 'Facility lease', monthly: Math.round(opexMonthly * 0.24) }, { item: 'AMC & support', monthly: Math.round(opexMonthly * 0.17) },
         { item: persona === 'neocloud' ? 'DCI & internet transit' : 'Backhaul bandwidth', monthly: Math.round(opexMonthly * 0.12) }, { item: 'Field operations', monthly: opexMonthly - Math.round(opexMonthly * 0.41) - Math.round(opexMonthly * 0.24) - Math.round(opexMonthly * 0.17) - Math.round(opexMonthly * 0.12) }
       ] },
-      power: { capacityKw, acKw, dcKw, peakKw, pue, load24h, split: [{ label: persona === 'network' ? 'Network equipment' : persona === 'colocation' ? 'Tenant & operator equipment' : 'IT equipment', kw: itKw }, { label: 'Cooling', kw: coolKw }, { label: 'Lighting & other', kw: r1(Math.max(0, totalKw - itKw - coolKw)) }],
+      power: { capacityKw, acKw, dcKw, peakKw, pue, load24h, split: [{ label: persona === 'network' ? 'Network & IT equipment' : persona === 'colocation' ? 'Tenant & operator equipment' : 'IT equipment', kw: itKw }, { label: 'Cooling', kw: coolKw }, { label: 'Lighting & other', kw: r1(Math.max(0, totalKw - itKw - coolKw)) }],
         feeds: [{ id: 'AC-1', type: 'AC', source: 'Utility feed A', rating: `${Math.round(capacityKw * 0.7 * 1000 / 415 / 1.732)} A · 415 V`, loadKw: acKw, capacityKw: Math.round(capacityKw * 0.7), status: 'Normal' },
           ...(tier !== 'Tier II' ? [{ id: 'AC-2', type: 'AC' as const, source: 'Utility feed B', rating: `${Math.round(capacityKw * 0.7 * 1000 / 415 / 1.732)} A · 415 V`, loadKw: 0, capacityKw: Math.round(capacityKw * 0.7), status: 'Normal' as const }] : []),
           { id: 'DC-1', type: 'DC', source: 'Rectifier RECT-01', rating: `48 V · ${Math.round(capacityKw * 0.3 * 1000 / 48 / 10) * 10} A`, loadKw: dcKw, capacityKw: Math.round(capacityKw * 0.3), status: 'Normal' }],
@@ -651,7 +807,7 @@ export function generate(persona: Persona = 'network'): Db {
       cooling: { capacityKw: coolCap, loadKw: heatKw, redundancy: 'N+1', units, sensors },
       floors, racks, ports: [...portCls.entries()].map(([cls, v]) => ({ cls, ...v })), cabling: { cable: `G.652D Single Mode · ${cores} Core`, cores, ledger },
       compute: persona === 'network' || persona === 'colocation'
-        ? { cpuCores: Math.round(dcNes.length * 96), cpuUsed: Math.round(dcNes.length * 96 * between(rr, 0.5, 0.72)), memGb: dcNes.length * 512, memUsed: Math.round(dcNes.length * 512 * between(rr, 0.45, 0.66)), storageTb: dcNes.length * 18, storageUsed: Math.round(dcNes.length * 18 * between(rr, 0.42, 0.7)) }
+        ? { cpuCores: Math.round(baseNes.length * 96), cpuUsed: Math.round(baseNes.length * 96 * between(rr, 0.5, 0.72)), memGb: baseNes.length * 512, memUsed: Math.round(baseNes.length * 512 * between(rr, 0.45, 0.66)), storageTb: baseNes.length * 18, storageUsed: Math.round(baseNes.length * 18 * between(rr, 0.42, 0.7)) }
         : (() => { const cores = hostN.cmp * 64 + hostN.gpu * 112, mem = hostN.cmp * 512 + hostN.gpu * 2048, tb = hostN.sto * 400 + hostN.cmp * 8; return { cpuCores: cores, cpuUsed: Math.round(cores * between(rr, 0.55, 0.82)), memGb: mem, memUsed: Math.round(mem * between(rr, 0.5, 0.78)), storageTb: tb, storageUsed: Math.round(tb * between(rr, 0.48, 0.8)) }; })(),
       risks: [], readiness: []
     };
@@ -671,14 +827,19 @@ export function generate(persona: Persona = 'network'): Db {
     if (fa) { if (fb) fb.loadKw = fa.loadKw; fa.status = 'Alarm'; fa.loadKw = 0; } }
   const dc20 = datacenters.find(d => d.id === dcAt(20))!; dc20.racks.slice(2, 5).forEach((rk, i) => { rk.drawKw = r1(rk.budgetKw * (0.91 + i * 0.03)); });
   const dc1 = datacenters.find(d => d.id === dcAt(1))!;
+  /* discovery progress as the entities say (the operator servers made the telco / colocation sites bigger on 15-Oct-2026) */
+  const discNote = (dcId: string) => { const xs = nes.filter(n => n.dcId === dcId), d = xs.filter(n => n.discovery !== 'not-discovered').length; return { d, t: xs.length }; };
+  /* (the other personas keep the original wording, so their data stays byte-identical) */
+  const withServers = persona === 'network' || persona === 'colocation';
+  const d1 = withServers ? discNote(dcAt(1)) : { d: 103, t: 179 }, d24 = withServers ? discNote(dcAt(24)) : { d: 40, t: 72 };
   dc1.readiness = [
     { step: 'Site created & planned inventory loaded', done: true }, { step: 'Collectors assigned', done: true, note: 'Collector Pune B stale since 10:08' },
-    { step: 'Assets discovered', done: false, note: '103 of 179 NE discovered (58%)' }, { step: 'Inventory reconciled', done: false, note: '21 drifted records open' },
+    { step: 'Assets discovered', done: false, note: `${d1.d} of ${d1.t} NE discovered (${Math.round((d1.d / d1.t) * 100)}%)` }, { step: 'Inventory reconciled', done: false, note: '21 drifted records open' },
     { step: 'Power, racks & ports validated', done: true }, { step: 'Connectivity mapped', done: true, note: 'Cable ledger 6 of 24 cores patched' },
     { step: 'Services commissioned', done: false, note: 'Enterprise Corp L3VPN pending acceptance' }, { step: 'Move to on-air', done: false }
   ];
   const dc24 = datacenters.find(d => d.id === dcAt(24))!;
-  dc24.readiness = [{ step: 'Site created & planned inventory loaded', done: true }, { step: 'Collectors assigned', done: true }, { step: 'Assets discovered', done: false, note: '40 of 72 NE discovered' }, { step: 'Inventory reconciled', done: false },
+  dc24.readiness = [{ step: 'Site created & planned inventory loaded', done: true }, { step: 'Collectors assigned', done: true }, { step: 'Assets discovered', done: false, note: `${d24.d} of ${d24.t} NE discovered` }, { step: 'Inventory reconciled', done: false },
     { step: 'Power, racks & ports validated', done: false, note: 'DG load-bank test scheduled 06-Oct' }, { step: 'Connectivity mapped', done: false }, { step: 'Services commissioned', done: false }, { step: 'Move to on-air', done: false }];
   const dc13 = datacenters.find(d => d.id === dcAt(13))!;
   dc13.readiness = [{ step: 'Site created & planned inventory loaded', done: true }, { step: 'Collectors assigned', done: false, note: 'Awaiting rack & power handover' }, { step: 'Assets discovered', done: false }, { step: 'Inventory reconciled', done: false },
@@ -699,6 +860,7 @@ export function generate(persona: Persona = 'network'): Db {
   addGpuChange(db, persona);
   buildIncidents(db, def.incidentTitles, persona);
   buildGpuIncidents(db, persona, { impactOf: sc => impactOf(db, sc), responseSla: RESPONSE_SLA, resolveSla: RESOLVE_SLA });
+  raiseOperatorServerAlerts(db);
   buildRecon(db);
   buildPlans(db);
   finaliseHealth(db);
@@ -710,7 +872,7 @@ export function generate(persona: Persona = 'network'): Db {
 /* ------------------------------------------------- hosts & persona services */
 
 /* compute / storage / GPU nodes report like any monitored device, with their own module set */
-function hostTelemetry(n: NetworkElement, rr: Rnd) {
+function hostTelemetry(n: NetworkElement, rr: Rnd, alwaysReachable = false) {
   const gpu = n.role === 'GPU';
   n.cpu = gpu ? intBetween(rr, 40, 95) : intBetween(rr, 15, 85); n.mem = intBetween(rr, 35, 88); n.tempC = intBetween(rr, 28, 45);
   n.uptimeMin = intBetween(rr, 3 * 1440, 220 * 1440); n.lastReboot = NOW - n.uptimeMin * MIN; n.lastSeen = NOW - intBetween(rr, 1, 9) * MIN; n.collector = `COL-${n.dcId}-${(seedOf(n.id) % 2) + 1}`;
@@ -721,7 +883,8 @@ function hostTelemetry(n: NetworkElement, rr: Rnd) {
   if (n.role === 'Server') n.modules = [psu(1), psu(2), { slot: 'FAN', name: 'Fan module', serial: `${n.serial}-FN`, state: 'OK', tempC: n.tempC - 3 }, ...[0, 1, 2, 3].map(k => ({ slot: `DISK${k}`, name: 'NVMe 3.84 TB', serial: `${n.serial}-D${k}`, state: (chance(rr, 0.005) ? 'Fault' : 'OK') as 'OK' | 'Fault', tempC: n.tempC + 6 }))];
   else if (n.role === 'Storage') n.modules = [{ slot: 'CTRL-A', name: 'Controller A', serial: `${n.serial}-CA`, state: 'OK', tempC: n.tempC + 8 }, { slot: 'CTRL-B', name: 'Controller B', serial: `${n.serial}-CB`, state: chance(rr, 0.012) ? 'Fault' : 'OK', tempC: n.tempC + 8 }, psu(1), psu(2), { slot: 'FAN', name: 'Fan module', serial: `${n.serial}-FN`, state: 'OK', tempC: n.tempC - 3 }, { slot: 'SHELF-1', name: 'Disk shelf 24 × 7.68 TB', serial: `${n.serial}-S1`, state: 'OK', tempC: n.tempC + 5 }];
   else n.modules = [psu(1), psu(2), psu(3), psu(4), { slot: 'FAN', name: 'Fan module', serial: `${n.serial}-FN`, state: 'OK', tempC: n.tempC - 3 }, ...[0, 1, 2, 3, 4, 5, 6, 7].map(k => ({ slot: `GPU${k}`, name: 'H100 80 GB', serial: `${n.serial}-G${k}`, state: (chance(rr, 0.003) ? 'Fault' : 'OK') as 'OK' | 'Fault', tempC: intBetween(rr, 55, 79) }))];
-  if (chance(rr, 0.006)) { n.icmp.lossPct = 100; n.icmp.availability = r2(between(rr, 62, 88)); n.icmp.state = 'critical'; n.icmp.hourly = n.icmp.hourly.map((h, i) => (i > 18 ? false : h)); }
+  /* an operator server never rolls "unreachable": its alarms are raised after the incidents (see raiseOperatorServerAlerts) */
+  if (!alwaysReachable && chance(rr, 0.006)) { n.icmp.lossPct = 100; n.icmp.availability = r2(between(rr, 62, 88)); n.icmp.state = 'critical'; n.icmp.hourly = n.icmp.hourly.map((h, i) => (i > 18 ? false : h)); }
 }
 
 /* colocation contracts (cabinet lease, power circuit, cross-connect, remote hands) sit on
@@ -889,19 +1052,8 @@ function buildAlerts(db: Db) {
     else if (l.protocol === 'LLDP' && l.utilPct >= 82 && l.role !== 'Access') addAlert(db, { neId: l.aNe, dcId: l.dcId, ifName: l.aIf, linkId: l.id, severity: l.utilPct >= 90 ? 'major' : 'warning', title: 'Link Utilisation High', description: `${Math.round(l.utilPct)}% of ${l.capacityMbps / 1000} Gbps; growing ${l.growthPct}%/mo`, source: 'Link', type: 'Capacity', start: now - intBetween(rr, 60, 4000) * MIN, state: 'active' });
   }
   for (const n of db.nes) {
-    if (n.id === HERO || n.discovery === 'not-discovered' || isTenantGear(n)) continue;
-    const rr = mulberry32(seedOf(n.id) ^ 0xa2);
-    if (n.icmp.state === 'critical') addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'critical', title: 'Device Unreachable', description: isHost(n) ? 'Host not responding to ICMP or the hypervisor agent for 5 consecutive probes' : 'ICMP 100% loss for 5 consecutive probes; SNMP timeouts', source: 'Interface', type: 'Reachability', start: now - intBetween(rr, 15, 240) * MIN, state: 'active' });
-    if (isHost(n)) {
-      if (n.modules.some(m => /^DISK/.test(m.slot) && m.state === 'Fault')) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'minor', title: 'Disk Failure Predicted', description: `${n.modules.find(m => /^DISK/.test(m.slot) && m.state === 'Fault')!.slot} SMART reallocated-sector count rising; replace within 7 days`, source: 'Environment', type: 'Hardware', start: now - intBetween(rr, 60, 4000) * MIN, state: 'active' });
-      if (n.modules.some(m => /^CTRL/.test(m.slot) && m.state === 'Fault')) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'major', title: 'Storage Controller Failover', description: 'Controller B faulted; array running on controller A without redundancy', source: 'Environment', type: 'Hardware', start: now - intBetween(rr, 30, 900) * MIN, state: 'active' });
-      /* GPU health (thermal, ECC, Xid, NVLink) comes from the GPU layer — mock/gpu.ts */
-      if (chance(rr, 0.006)) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'minor', title: 'Memory ECC Errors', description: 'Correctable ECC errors above threshold on DIMM A3', source: 'Environment', type: 'Hardware', start: now - intBetween(rr, 60, 3000) * MIN, state: 'active' });
-    }
-    if (chance(rr, 0.012)) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'minor', title: 'High Memory Utilization', description: `Memory at ${n.mem + 18}% for 30 minutes`, source: 'CPU', type: 'Memory', start: now - intBetween(rr, 20, 2000) * MIN, state: chance(rr, 0.4) ? 'acknowledged' : 'active' });
-    if (chance(rr, 0.008)) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'warning', title: 'NTP Offset Drift', description: 'Clock offset above 50 ms against primary', source: 'Protocol', type: 'NTP', start: now - intBetween(rr, 20, 2000) * MIN, state: 'active' });
-    if (n.modules.some(m => /^(PSU|PEM)/.test(m.slot) && m.state === 'Fault')) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'major', title: 'Power Supply Fault', description: 'PSU2 reports output failure; running on single PSU', source: 'Power', type: 'Hardware', start: now - intBetween(rr, 60, 3000) * MIN, state: 'active' });
-    if (n.discovery === 'drifted' && chance(rr, 0.35)) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'warning', title: 'Configuration Drift', description: `${n.drift![0].attr} differs from inventory record`, source: 'Discovery', type: 'Drift', start: now - intBetween(rr, 600, 9000) * MIN, state: 'active' });
+    if (n.id === HERO || n.discovery === 'not-discovered' || isTenantGear(n) || isOpServer(n)) continue;
+    deviceAlerts(db, n);
   }
   for (const dc of db.datacenters) {
     for (const u of dc.cooling.units) if (u.status === 'Failed') addAlert(db, { dcId: dc.id, severity: 'critical', title: `${u.name} Cooling Unit Failed`, description: `Compressor trip; ${u.zone} running on remaining units`, source: 'Cooling', type: 'Cooling', start: now - 3 * HOUR - 40 * MIN, state: 'active' });
@@ -910,6 +1062,28 @@ function buildAlerts(db: Db) {
     for (const rk of dc.racks) if (rk.drawKw / rk.budgetKw >= 0.9) addAlert(db, { dcId: dc.id, severity: 'major', title: 'Rack Over Power Budget', description: rk.owner === 'tenant' ? `${rk.name} (${db.customers.find(c => c.id === rk.tenantId)?.name ?? 'tenant'}) drawing ${rk.drawKw} kW of ${rk.contractedKw ?? rk.budgetKw} kW contracted` : `${rk.name} drawing ${rk.drawKw} kW of ${rk.budgetKw} kW budget`, source: 'Power', type: 'Rack', start: now - 7 * HOUR, state: 'active', rackId: rk.id });
     for (const c of dc.collectors) if (c.state !== 'up') addAlert(db, { dcId: dc.id, severity: 'major', title: 'Collector Stale', description: `${c.name} last reported ${Math.round((now - c.lastSeen) / MIN)} min ago; discovery paused`, source: 'Discovery', type: 'Collector', start: c.lastSeen, state: 'active' });
   }
+}
+
+/* one device's own alarms (reachability, hardware, memory, NTP, power supplies, drift) — seeded on the device */
+function deviceAlerts(db: Db, n: NetworkElement) {
+  const now = db.now;
+  const rr = mulberry32(seedOf(n.id) ^ 0xa2);
+  if (n.icmp.state === 'critical') addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'critical', title: 'Device Unreachable', description: isHost(n) ? 'Host not responding to ICMP or the hypervisor agent for 5 consecutive probes' : 'ICMP 100% loss for 5 consecutive probes; SNMP timeouts', source: 'Interface', type: 'Reachability', start: now - intBetween(rr, 15, 240) * MIN, state: 'active' });
+  if (isHost(n)) {
+    if (n.modules.some(m => /^DISK/.test(m.slot) && m.state === 'Fault')) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'minor', title: 'Disk Failure Predicted', description: `${n.modules.find(m => /^DISK/.test(m.slot) && m.state === 'Fault')!.slot} SMART reallocated-sector count rising; replace within 7 days`, source: 'Environment', type: 'Hardware', start: now - intBetween(rr, 60, 4000) * MIN, state: 'active' });
+    if (n.modules.some(m => /^CTRL/.test(m.slot) && m.state === 'Fault')) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'major', title: 'Storage Controller Failover', description: 'Controller B faulted; array running on controller A without redundancy', source: 'Environment', type: 'Hardware', start: now - intBetween(rr, 30, 900) * MIN, state: 'active' });
+    /* GPU health (thermal, ECC, Xid, NVLink) comes from the GPU layer — mock/gpu.ts */
+    if (chance(rr, 0.006)) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'minor', title: 'Memory ECC Errors', description: 'Correctable ECC errors above threshold on DIMM A3', source: 'Environment', type: 'Hardware', start: now - intBetween(rr, 60, 3000) * MIN, state: 'active' });
+  }
+  if (chance(rr, 0.012)) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'minor', title: 'High Memory Utilization', description: `Memory at ${n.mem + 18}% for 30 minutes`, source: 'CPU', type: 'Memory', start: now - intBetween(rr, 20, 2000) * MIN, state: chance(rr, 0.4) ? 'acknowledged' : 'active' });
+  if (chance(rr, 0.008)) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'warning', title: 'NTP Offset Drift', description: 'Clock offset above 50 ms against primary', source: 'Protocol', type: 'NTP', start: now - intBetween(rr, 20, 2000) * MIN, state: 'active' });
+  if (n.modules.some(m => /^(PSU|PEM)/.test(m.slot) && m.state === 'Fault')) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'major', title: 'Power Supply Fault', description: 'PSU2 reports output failure; running on single PSU', source: 'Power', type: 'Hardware', start: now - intBetween(rr, 60, 3000) * MIN, state: 'active' });
+  if (n.discovery === 'drifted' && chance(rr, 0.35)) addAlert(db, { neId: n.id, dcId: n.dcId, severity: 'warning', title: 'Configuration Drift', description: `${n.drift![0].attr} differs from inventory record`, source: 'Discovery', type: 'Drift', start: now - intBetween(rr, 600, 9000) * MIN, state: 'active' });
+}
+/* operator servers raise their alarms after every other alarm and incident exists (fresh ALM codes at the end, no incident of their own),
+   so the alarm codes and incidents of the rest of the estate do not move */
+function raiseOperatorServerAlerts(db: Db) {
+  for (const n of db.nes) if (isOpServer(n) && n.discovery !== 'not-discovered') deviceAlerts(db, n);
 }
 
 /* ------------------------------------------------------------ scenarios */

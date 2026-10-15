@@ -12,7 +12,8 @@ Customers → Events → Impact → Diagnosis → Recommended action.
 - Mock data only. No production DB, backend APIs, collectors, auth or final data model.
 - Don't invent major capabilities that aren't in the blueprint; keep any necessary gap-fillers minimal and isolated.
 - AI (Sentinel, RCA, recommendations, forecasts) is deterministic mock logic grounded in the mock data.
-- Data must reconcile everywhere (e.g. MH-DC-001 = 179 NE, 103 discovered, 21 drifted, 76 not discovered).
+- Data must reconcile everywhere (e.g. network persona, India: MH-DC-001 = 229 NE (179 network elements + 50 operator servers), 153 discovered,
+  21 drifted, 76 not discovered — 179/103/21/76 before the operator servers of 15-Oct-2026).
 
 ## Architecture (`app/`)
 - Vite · React 19 · TS · react-router 7 · lucide-react · leaflet. Dev: `npm run dev` → http://localhost:5181
@@ -61,8 +62,8 @@ Top-bar dropdown (`shell/Layout.tsx` PersonaSwitch) sets `Persona` = network | c
 `mock/server.ts` regenerates the whole mock (`generate(persona)`) and notifies subscribers, so every screen refetches. Sites, power,
 cooling, alarms and incidents are shared; `mock/personas.ts` holds per-persona vocabulary (customer/service/premium words, capacity
 unit), customers, service types (`Service.qty` + `unit`), room names and incident titles. Rack contents: telco = routers/switches/DWDM
-(unchanged, byte-identical to before — MH-DC-001 179/103/21/76 holds ONLY in the network persona); colocation = operator MMR + opaque
-`Tenant gear` blocks (role, `Rack.owner/tenantId/contractedKw`, OpsState `tenant-owned`, never polled); cloud/enterprise = leaf–spine
++ the operator's own servers (MH-DC-001 229/153/21/76 holds ONLY in the network persona; see "Operator servers" below); colocation = operator
+MMR + an operator server rack + opaque `Tenant gear` blocks (role, `Rack.owner/tenantId/contractedKw`, OpsState `tenant-owned`, never polled); cloud/enterprise = leaf–spine
 fabric + Server/Storage/GPU hosts (telemetry, modules, host alerts). `NE_CATEGORY` maps role → network/compute/storage/tenant.
 Screens read words via `usePersona()` / `vocabNow()`; topology draws network devices only (hosts counted per ToR).
 QA: `node .qa/persona.mjs` (all screens × 4 personas + dropdown) and `.qa/persona-twin.mjs`.
@@ -369,6 +370,47 @@ All read models, derived per site and cached per db; they raise no alarms and ne
   Expiring / Out of warranty / End of support. RMA cases from modules in Fault (never past "Engineer booked" while the fault is live) +
   GPU nodes with `rma`; spares per part family (the hero SFP spare exists). Shown on device Hardware (`DeviceLifecycle`) and datacenter
   Assets (`SiteLifecycle`: RMA, spares, warranty & support).
+  **Estate vintage (15-Oct-2026, user: "for the server refresh scenario no equipment is matching in any data center")** — `mock/vintage.ts`
+  ages the estate, deterministic and seeded per site / device (never the generator's stream): at every live site 15–30% of the servers and
+  10–20% of the switches (leaf / ToR / front-end Ethernet; DC spines, InfiniBand, OOB stay current) are the previous generation of the same
+  family, the lowest-numbered devices of the role (R740 / R640, DL380 / DL360 Gen10, SYS-220U / 120U-TNR, Nexus 9372PX / 3172PQ, Arista
+  7050QX / 7050SX-64, QFX5100-48S, SN4600C, 7260CX3-64). `agePreviousGeneration` runs inside `buildNes` and changes ONLY `model` + `os`
+  (slot, U, draw, ports unchanged): every collection except `nes` keeps its fingerprint and all count invariants hold (MH-DC-001 then 179/103/21/76;
+  229/153/21/76 since the operator servers, which `ageOperatorServers` ages the same way, in build order).
+  Purchase dates (`purchasedAt`): old kit 5–8 years (older than most sites — moved in from older sites), current kit since commissioning or
+  moved in (≤4.5 y), GPU ≤2.8 y; warranty 3 or 5 years from purchase; half the old kit has no support contract, nothing past vendor end of
+  support has one. Vendor dates: every previous-generation model is past end of sale, the old switch families past end of support; current
+  models 1000–1800 days from end of sale. Racks (`rackVintage`, `SiteLifecycle.racks`): ~1 in 10 live, non-GPU racks is the old Rittal TS8
+  600 × 1000 type (shallow, 7–10 y), about half the sites have 1–2 racks marked Damaged at audit (note). DCIM racks / rack page show type,
+  purchase date and condition; the DCIM device drawer shows installed / warranty / vendor support from the same read model. The planner
+  adapter copies install date, warranty end (`Device.warrantyEndDate`), Faulty (open RMA), model end of sale (`eolDate`) / support, rack type
+  (legacy `RT-TS8-<U>-1000`), condition and `PDU.rackId` — no planner-only overlay (the old ASH R760→R740 rename is gone).
+  Replace wizard list (`wizard/AffectedAssets.tsx`): every eligible item at the site, paged (50) and searchable; reasons are quick filters
+  (none on by default, any-of), badges per row, sort selected → severity → rack. Demo plans: server refresh = every past-end-of-sale server at
+  ASH, leaf refresh = every old leaf / ToR at DUB, rack replacement = old / damaged racks at FRA, titles from what was selected; every persona
+  has servers since 15-Oct-2026, so PLN-0013/0014/0015 = server / leaf / rack everywhere (network, colocation: the old operator servers at
+  dcAt(1); naming pairs such as NMS-01/02 are split over waves like service-path pairs).
+  Checks: `npx tsx .qa/fingerprint.ts <persona>` (only `nes` moves vs before vintage), `node .qa/p2b-affected.mjs <persona> <geo> dc,dc,dc`
+  (`W=1280`, `PLANS=PLN-0013,…`, `BASE=` if vite is not on 5181).
+- **Operator servers (15-Oct-2026, user: "the Network and Colocation operators have no servers, so a server refresh finds nothing")** —
+  `mock/generate.ts` `addOperatorServers` / `placeOperatorServers`, live sites only (none at the planned site), ordinary `Server` hosts carrying
+  `NetworkElement.purpose` (`isOpServer`). Telco, sized by the site row's NE count (hub ≥ 140, mid ≥ 90, small): management NMS / AAA / DNS-NTP /
+  jump / backup, OSS / BSS / IMS application servers (hubs; OSS + IMS at mid sites), NFV hosts NFVI-CP (5GC control plane / vEPC), NFVI-UP
+  (UPF, 2U), VRAN-CU — e.g. MH-DC-001 50, KA-DC-008 44, MH-DC-002 26, MH-DC-004 12 (614 in India, 618 USA). Colocation: BMS/EPMS, ACS (access
+  control), NVR (CCTV), JMP, BKP, DCIM, MON — 12 / 10 / 7 per site (215), in one operator rack (`Rack.opServers`, role "Operator servers") in the
+  meet-me room; telco servers fill 42U `Compute` racks (≤ 30 U, ≤ 9 kW) in the equipment room. Models R760 / DL380 Gen11 / SYS-121H (one NFV vendor
+  per site), 15–30% previous generation (`ageOperatorServers`, build order: management first), one or two failed parts per site (disk / PSU2,
+  mostly on old kit → open RMA, "Faulty" in the planner). Each dual-homes to a ToR pair (TOR-001/002, then 003/004 …; leaf pairs where the ToRs are
+  not discovered yet, e.g. MH-DC-001; a generic "Server NIC" ToR port is taken when no free 10G port is left). Management address continues the
+  site's 172.x sequence (MGMT VRF), a production /22 per hall with hosts (HSRP), BMC. Planner owner teams from `purpose` (Telco cloud (NFVI), IT
+  applications, Core network, Network / Facility operations, Physical security, Operations IT); the migration demo retires them with the site.
+  Stability: everything is seeded on site / device ids and appended (devices after each site's own, racks after the ODF rack, links / cables after
+  every other link, alarms raised after the incidents by `raiseOperatorServerAlerts`, never "unreachable"); racks' temperatures, the UPS line-up
+  (from the pre-server design capacity), cable ledger, capex / opex and the telco compute estimate use the site without its servers. So in
+  network / colocation only `datacenters` (IT load, capacity, rack list), `nes`, `links`, `alerts` (+ new codes at the end) move; services,
+  customers, changes and revenue are identical; colocation incidents move only because INC-0003 lists the hot meet-me-room operator rack.
+  Cloud / enterprise / neocloud are byte-identical. Guards moved: `.qa/revenue-check.ts` anchor 229/153/21/76, `.qa/site-interact.mjs` 181
+  installed of 229, `.qa/dcim.mjs` waits for the rack power cards (the bigger telco estate missed the fixed 600 ms).
 - **Planned maintenance** (`mock/maintenance.ts`): PM plan per plant asset (UPS, battery, DG, CRAH/CRAC, CDU, fire, LV/ATS, PDUs), reusing
   DG / battery / fire dates, booked by a Maintenance change naming the asset; impact = the what-if. Facilities → Maintenance (`PmPlan`).
 - **Operations process** (`mock/ops.ts`): on-call rota per region (weekly rotation, day/night), incident paging chain + next escalation,
@@ -557,6 +599,42 @@ screens are rebuilt in our kit (PageHead, StatGrid, ListToolbar, DataTable, NST 
   passing resources = one allow per policy and site, with the OPA input), violation outcome Blocked / Warned + change link, attest manual
   controls, New policy / control / framework. Overview is a posture dashboard (overall ring + status tiles, framework cards, controls that
   need work, policy results, evidence due, latest decisions); styles `styles/compliance.css`.
-- Not yet ported from P2B (planner): the family-specific editors (plant line-ups, network paths, replacement waves, placement grid, migration
-  dispositions / consents), the plan pack documents (BoD / BoM / IP plan / drawings), sourcing against stock and vendors, AI assist.
+- **Planner gaps ported (14-Oct-2026, branch planner-gaps)**: plan page tab **Plan pack** (`screens/planning/pack/*`, `styles/planning-pack.css`:
+  "What this plan creates" with links into Delivery / IP & Network / DCIM, plan document (basis of design), bill of materials with sourcing,
+  IP and network plan, drawings, build initiation, CSV exports). **Sourcing**: each BoM line from spare site capacity, then unheld stock, then
+  the catalogue vendor under its contract (`planner/lib/sourcing.ts`; stock, vendors, contracts and catalogue from `mock/p2b/adapter.ts`
+  `stockAndSuppliers`; `useSourcingContext` / `actions.sourcing`). **Delivery is the source of truth** for the build: "Start the build"
+  (`planner/lib/execute.ts`) hands the plan to Delivery and records the sourced BoM with its vendor orders, stock / rack holds, IP and the plan
+  type's records; Delivery's POs = those vendor orders (one per vendor and phase; before execution the same sourcing as Draft orders, so the pack
+  and Delivery agree before and after); the planner reads Delivery through `planner/compat/delivery/handoff.ts`; completing the plan signs the
+  handover and a handover in Delivery completes the plan (`planner/lib/closeout.ts`). Wave close, disposal certificates, the migration meter
+  reading and site retirement go through the audited `applyRecordChanges` action (allowed on executing / completed plans). **Family UIs**
+  (`screens/planning/scopes/{inSite,plant,network,build,replace,migration}`, registered via `scopes/registry.ts`): wizard panels, site pickers,
+  requirements, pack sections and plan-page tabs (site fit, plant line-ups, paths and circuits, edge sites / portfolio, old to new and waves,
+  migration inventory / consents / exit plan, "Waves and closure"); generic wizard placement / phasing / cut-over steps (`wizard/*`). **Entry
+  points**: "Plan" on the datacenter page and from Capacity (`/planning/new?dc=&template=`), delivery change requests link to their plan.
+  **Data refresh**: `planner/compat/query.ts` re-runs every mounted query on any planner or Delivery change; `mock/server.ts` re-reads Delivery,
+  Change management and Capacity on planner writes. Demo seed on our estate: PLN-0007's 12 edge sites come from the estate's planned /
+  in-progress edge locations (plan region first); approved demo baselines are re-frozen from their parameters as placed (`mock/p2b/index.ts`).
+  Not ported: AI assist. Typecheck with `npx tsc --noEmit -p tsconfig.app.json` (not `-p .`). Checks: `node .qa/p2b-pack.mjs <persona> <geo>`
+  (every plan × pack section, CSVs, record links), `node .qa/p2b-families.mjs <persona> <geo> [ids]` (family wizard steps and plan-page tabs);
+  the scripts honour `PW_CHROME` (or point `PLAYWRIGHT_BROWSERS_PATH` at a folder aliasing the cached browser build).
+- **Planner round 2 (14-Oct-2026, branch planner-gaps)**: the best of DCOS and ours, visuals first. Hub + library (`Planner.tsx`, `Plans.tsx`,
+  `Templates.tsx`, `Benchmarks.tsx`, `charts/library.tsx`: bar rows, PUE matrix, lead bars, range / stack bars); Command center **Plan & build**
+  (`screens/command/{pbModel.ts,PlanBuild.tsx}`, `styles/command-plan.css`): a strip above the hero (one slim row by default so the hero stays
+  above the fold at 1280 × 800; "More" opens the full strip, remembered in localStorage), plan approvals in Recommendations, and the `?lens=build`
+  lens (capacity pipeline planned → approved → in build → commissioning → live, decisions, week ahead, projects). Shared charts in
+  `screens/planning/charts/` (`chartKit.ts` tokens / ticks / `useTip`, `ChartTip.tsx` floating tooltip, `Cashflow`, `CostBreakdown`,
+  `BenchmarkBand`, `ScenarioCompare`) and `pack/drawings.tsx` (no native `<title>`; drawings measure their width). Wizard: drawings on the
+  Space / Power / Network steps, phasing Gantt (`LeadTimes`), cost charts, scenario compare, affected-assets picker, site list with capacity
+  bars, jump-to-step list, unsaved-changes guard. Plan page: **Schedule redesign** (`plan/schedule.tsx`: attention tiles, one collapsible group
+  per phase with gates as milestones, "order in N wk" / "N wk late", filters, Timeline view, Delivery PO numbers), Overview deliverables with
+  their created state (`PackDeliverables`, the pack's own manifest + records). **Family drawing sheets** (`pack/{familyDrawings,familyKit,
+  familyDrawKit}`, `scopes/*/drawings.tsx`, `packModel.drawingSheets`): plant as-is / to-be single-line + cut-in sequence, DCI paths
+  (domestic DCI = terrestrial long-haul routes through carrier POPs; subsea only between countries), hall grid / rack elevations before and
+  after, wave plans; drawings print on landscape A4 (named page `planner-sheet`, drawings only). Engine text money (`fmtUsd`) uses the
+  geography's formatter registered by the mock server (`compat/registry.registerPlannerMoney`); `fmtMoney` groups the top unit (₹14,284 Cr).
+  **Plan page tab bar** (`plan/tabbar.tsx`, the tabs that fit + "More"): every tab button carries `data-id` (its `?tab=` id) and "More" lists
+  the hidden ids in `data-more`, so QA visits tabs by id, never by label. New checks: `node .qa/cc-plan.mjs [persona geo …]` (strip, hero height, trio, lens pairs, stage switch, decision links),
+  `node .qa/p2b-drawings.mjs <persona> <geo> [ids]` (every sheet: empty, NaN, overlapping or out-of-sheet SVG text).
 

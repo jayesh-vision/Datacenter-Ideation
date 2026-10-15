@@ -10,7 +10,8 @@ ok('header shows 8 operations KPIs', await p.locator('.dch-kpi').count() === 8);
 { const acts = (await p.locator('.dch-actions .nst-btn').allInnerTexts()).map(t => t.trim()); ok(`header actions as 2x2 grid, no kebab (${acts.join(' | ')})`, acts.join('|') === 'Topology|Facilities|Changes|Opstral AI' && await p.locator('.dch-actions button[aria-label="More actions"]').count() === 0); ok('no Run discovery action', !acts.some(a => /discovery/i.test(a))); }
 ok('no Capex / Opex tabs', await p.locator('.pill', { hasText: /^Capex|^Opex/ }).count() === 0);
 const eqCount = Number((await p.locator('.pill', { hasText: 'Equipment' }).locator('.count').innerText()).replace(/,/g, ''));
-ok(`equipment tab counts installed devices (${eqCount} of 179)`, eqCount === 131);
+// 15-Oct-2026: 179 network elements − 48 planned + 50 operator servers (was 131 of 179)
+ok(`equipment tab counts installed devices (${eqCount} of 229)`, eqCount === 181);
 await p.locator('.pill', { hasText: 'Attention' }).click(); await p.waitForTimeout(800);
 ok('attention has no inventory widgets', await p.locator('text=/Record vs network|Why not discovered|Configuration drift|Commissioning readiness/').count() === 0);
 { const hs = (await p.locator('.panel h3').allInnerTexts()).map(t => t.split('\n')[0]); ok(`attention shows ops panels (${hs.join(', ')})`, ['Open incidents', 'Alarms in datacenter scope', 'Facility', 'Edge links', 'Monitoring gaps', 'Changes & maintenance', 'Operational risks'].every(h => hs.includes(h))); }

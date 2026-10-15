@@ -114,9 +114,11 @@ const svcOf = (S: Seed, ids: string[]) => S.services.filter(s => s.status !== 'D
 const rackName = (S: Seed, id?: string) => S.racks.find(r => r.id === id)?.name ?? '';
 
 function enrichReplace(S: Seed, plans: T.PlannerPlan[]) {
-  const sr = plans.find(p => p.plnId === 'PLN-0013' && p.scope === SR);
-  const nr = plans.find(p => p.plnId === 'PLN-0014' && p.scope === NR);
-  const rr = plans.find(p => p.plnId === 'PLN-0015' && p.scope === RR);
+  /* the demo plans of each family (PLN-0013…0015; every persona has servers since 15-Oct-2026 — the telco and colocation operators'
+     own servers — so every persona has the server refresh. A site without previous-generation servers would have none, and the
+     network and rack plans would move up one number) */
+  const demo = (scope: Scope) => plans.find(p => p.scope === scope && !!p.params.affectedIds);
+  const sr = demo(SR), nr = demo(NR), rr = demo(RR);
   /** When the n-th unit of a model can be on site: free stock first (about a week), then a purchase at the benchmark's longest lead, plus a week to stage. */
   const ready = (model: string, n: number, leadItem: string) => {
     const free = S.devices.filter(d => d.model === model && !d.rackId && (d.lifecycleState === 'Staged' || d.lifecycleState === 'Received') && !String(d.notes ?? '').startsWith('Reserved for')).length;
@@ -129,22 +131,43 @@ function enrichReplace(S: Seed, plans: T.PlannerPlan[]) {
   if (sr && sr.dataCenterId) {
     const ids = String(sr.params.affectedIds).split(',');
     const devs = ids.map(id => S.devices.find(d => d.id === id)).filter((d): d is T.Device => !!d);
-    const am = model('PowerEdge R760'); const ratio = 2;
+    const ratio = 2;
+    /* one mapping row per old model (the estate's previous generation), all consolidated onto the R760 */
+    const newOf = (_d: T.Device) => 'PowerEdge R760';
+    const groups = new Map<string, T.Device[]>(); for (const d of devs) groups.set(d.model ?? 'Unknown model', [...(groups.get(d.model ?? 'Unknown model') ?? []), d]);
+    sr.mapping = [...groups.entries()].sort((a, b) => b[1].length - a[1].length).map(([oldModel, ds]) => {
+      const nm = newOf(ds[0]); const am = model(nm); const units = Math.ceil(ds.length / ratio);
+      return { id: `${oldModel}|server`, oldModel, role: 'Server', count: ds.length, newModel: nm, ratio, disposition: 'dispose' as const, newUnits: units, newKw: Math.round((units * (am?.typicalPowerW ?? 800)) / 100) / 10, oldKw: Math.round(ds.reduce((a, d) => a + (d.powerDrawW ?? 420), 0) / 100) / 10 };
+    });
     const oldKw = Math.round(devs.reduce((a, d) => a + (d.powerDrawW ?? 420), 0) / 100) / 10;
-    const units = Math.ceil(devs.length / ratio); const newKw = Math.round((units * (am?.typicalPowerW ?? 800)) / 100) / 10;
-    sr.mapping = [{ id: 'PowerEdge R740|server', oldModel: 'PowerEdge R740', role: 'Server', count: devs.length, newModel: 'PowerEdge R760', ratio, disposition: 'dispose', newUnits: units, newKw, oldKw }];
-    set(sr, { selectionCriteria: JSON.stringify({ reasons: ['eol', 'warranty', 'faulty'], years: 5, models: ['PowerEdge R740'] }), affectedSiteId: sr.dataCenterId, affectedKw: Math.round(oldKw), crewDevicesPerHour: 4, cutoverWindowHours: 6, pilotWave: true, racksPerWave: 4, licenceDeltaAnnualUsd: 0, migrationApproach: 'Rolling, rack by rack' });
+    const newKw = Math.round(sr.mapping.reduce((a, m) => a + m.newKw, 0) * 10) / 10;
+    set(sr, { selectionCriteria: JSON.stringify({ reasons: ['eol'], years: 5 }), affectedSiteId: sr.dataCenterId, affectedKw: Math.round(oldKw), crewDevicesPerHour: 4, cutoverWindowHours: 6, pilotWave: true, racksPerWave: 4, licenceDeltaAnnualUsd: 0, migrationApproach: 'Rolling, rack by rack' });
     // Waves by rack: a pilot of one rack, then up to four racks or 24 servers per window (4 per hour × 6 h).
     const crit = critOf(S, ids);
     const byRack = new Map<string, T.Device[]>(); for (const d of devs) byRack.set(d.rackId!, [...(byRack.get(d.rackId!) ?? []), d]);
     const racks = [...byRack.keys()].sort((a, b) => rackName(S, a).localeCompare(rackName(S, b)));
-    const bins: string[][] = []; let cur: string[] = []; let work = 0;
-    for (const r of racks) { const n = byRack.get(r)!.length; const cap = bins.length === 0 ? 8 : 24; if (cur.length && (work + n > cap || cur.length >= (bins.length === 0 ? 1 : 4))) { bins.push(cur); cur = []; work = 0; } cur.push(r); work += n; }
-    if (cur.length) bins.push(cur);
-    let from = S.now + 14 * DAY; const taken: number[] = []; let need = 0;
-    sr.waves = bins.map((rs, i) => {
-      const dids = rs.flatMap(r => byRack.get(r)!.map(d => d.id)); const par = dids.some(d => crit.has(d));
-      need += Math.ceil(dids.length / ratio); from = Math.max(from, ready('PowerEdge R760', need, 'General servers'));
+    /* device bins rack by rack: a pilot of at most 8 servers in one rack, then at most 24 servers (4 per hour × 6 h) in at most 4 racks;
+       a rack holding more old servers than a window takes is split over consecutive waves */
+    /* the two halves of a redundant pair (two selected servers on one service path) never share a wave */
+    const partner = new Map<string, Set<string>>();
+    for (const sv of S.services) { const on = (sv.pathDeviceIds ?? []).filter(d => ids.includes(d)); for (const x of on) for (const y of on) if (x !== y) partner.set(x, (partner.get(x) ?? new Set()).add(y)); }
+    /* … nor do the two halves of a naming pair (NMS-01 / NMS-02, as rule R-RPL-06 reads them: the telco and colocation operator servers carry no
+       customer service, so their pairs show only in their names) */
+    const stem = (n: string) => n.replace(/[-_]?(0?1|0?2|a|b)$/i, '');
+    const named = new Map<string, string[]>();
+    for (const d of devs) if (/[-_](0?[12]|[ab])$/i.test(d.name ?? '')) { const k = `${d.category}|${stem(d.name!)}`; named.set(k, [...(named.get(k) ?? []), d.id]); }
+    for (const [x, y] of [...named.values()].filter(m => m.length === 2)) { partner.set(x, (partner.get(x) ?? new Set()).add(y)); partner.set(y, (partner.get(y) ?? new Set()).add(x)); }
+    const bins: { ids: string[]; racks: string[] }[] = [];
+    const capOf = (i: number) => (i === 0 ? 8 : 24), maxRacks = (i: number) => (i === 0 ? 1 : 4);
+    for (const r of racks) for (const d of byRack.get(r)!) {
+      let i = bins.findIndex((b, k) => b.ids.length < capOf(k) && (b.racks.includes(r) || b.racks.length < maxRacks(k)) && !b.ids.some(x => partner.get(d.id)?.has(x)));
+      if (i < 0) { bins.push({ ids: [], racks: [] }); i = bins.length - 1; }
+      bins[i].ids.push(d.id); if (!bins[i].racks.includes(r)) bins[i].racks.push(r);
+    }
+    let from = S.now + 14 * DAY; const taken: number[] = []; const need = new Map<string, number>();
+    sr.waves = bins.map(({ ids: dids, racks: rs }, i) => {
+      const par = dids.some(d => crit.has(d));
+      for (const d of dids) { const nm = newOf(devs.find(x => x.id === d)!); need.set(nm, (need.get(nm) ?? 0) + 1 / ratio); from = Math.max(from, ready(nm, Math.ceil(need.get(nm)!), 'General servers')); }
       const win = nextNight(S, sr.dataCenterId!, dids, from, 6, taken); taken.push(win.at); from = win.at + (i === 0 ? 7 : 2) * DAY;
       return { id: `W-${i + 1}`, name: i === 0 ? 'Pilot wave' : `Wave ${i + 1}`, order: i + 1, kind: i === 0 ? 'pilot' : 'wave', deviceIds: dids, rackIds: rs, serviceIds: svcOf(S, dids), targetRackIds: rs, method: par ? PARALLEL : 'Rolling, rack by rack', windowStart: win.start, windowEnd: win.end, crewHours: Math.min(6, Math.ceil(dids.length / 4)), rollback: rollbackText(SR, { parallel: par }), acceptance: acceptanceText(SR), status: 'Planned', itKw: Math.round((newKw * dids.length / devs.length) * 10) / 10 } satisfies T.PlannerWave;
     });
@@ -156,8 +179,10 @@ function enrichReplace(S: Seed, plans: T.PlannerPlan[]) {
     const devs = ids.map(id => S.devices.find(d => d.id === id)).filter((d): d is T.Device => !!d).sort((a, b) => a.name.localeCompare(b.name));
     const am = model('7050X3-48YC8');
     const oldKw = Math.round(devs.reduce((a, d) => a + (d.powerDrawW ?? 180), 0) / 100) / 10; const newKw = Math.round((devs.length * (am?.typicalPowerW ?? 450)) / 100) / 10;
-    nr.mapping = [{ id: 'Nexus 3172PQ|leaf', oldModel: 'Nexus 3172PQ', role: 'Leaf / ToR switch', count: devs.length, newModel: '7050X3-48YC8', ratio: 1, disposition: 'dispose', newUnits: devs.length, newKw, oldKw }];
-    set(nr, { selectionCriteria: JSON.stringify({ reasons: ['eol', 'warranty'], years: 5, models: ['Nexus 3172PQ'] }), affectedSiteId: nr.dataCenterId, affectedKw: Math.round(oldKw), crewDevicesPerHour: 2, cutoverWindowHours: 4, soakDays: 7, pilotWave: true, racksPerWave: 6, upgradeUplinks: true, opticsReusePct: 90 });
+    /* one mapping row per old model (the estate's previous-generation leaf / ToR switches), all onto the Arista 7050X3 */
+    const groups = new Map<string, T.Device[]>(); for (const d of devs) groups.set(d.model ?? 'Unknown model', [...(groups.get(d.model ?? 'Unknown model') ?? []), d]);
+    nr.mapping = [...groups.entries()].sort((a, b) => b[1].length - a[1].length).map(([oldModel, ds]) => ({ id: `${oldModel}|leaf`, oldModel, role: 'Leaf / ToR switch', count: ds.length, newModel: '7050X3-48YC8', ratio: 1, disposition: 'dispose' as const, newUnits: ds.length, newKw: Math.round((ds.length * (am?.typicalPowerW ?? 450)) / 100) / 10, oldKw: Math.round(ds.reduce((a, d) => a + (d.powerDrawW ?? 180), 0) / 100) / 10 }));
+    set(nr, { selectionCriteria: JSON.stringify({ reasons: ['eol'], years: 5 }), affectedSiteId: nr.dataCenterId, affectedKw: Math.round(oldKw), crewDevicesPerHour: 2, cutoverWindowHours: 4, soakDays: 7, pilotWave: true, racksPerWave: 6, upgradeUplinks: true, opticsReusePct: 90 });
     // Pairs: two switches of the model in one rack. A sides first, a 7-day soak, then B sides.
     const side = new Map<string, 'A' | 'B'>();
     const byRack = new Map<string, T.Device[]>(); for (const d of devs) byRack.set(d.rackId!, [...(byRack.get(d.rackId!) ?? []), d]);
@@ -182,7 +207,7 @@ function enrichReplace(S: Seed, plans: T.PlannerPlan[]) {
     const used = new Set<string>(); const methods: Record<string, SwapMethodName> = {};
     for (const r of racks) { const f = freeInRow(r).find(x => !used.has(x.id)); if (f) { used.add(f.id); methods[r.id] = 'Next free position in the row'; } else methods[r.id] = 'Temporary rack'; }
     const kw = Math.round(racks.reduce((a, r) => a + r.currentPowerKw, 0));
-    set(rr, { selectionCriteria: JSON.stringify({ reasons: [], years: 5, rackReasons: ['over-power', 'unmetered', 'shallow'], rackTypes: ['VR3300 42U'] }), affectedSiteId: rr.dataCenterId, affectedKw: kw, affectedDevices: racks.reduce((a, r) => a + live(r.id).length, 0), crewDevicesPerHour: 6, cutoverWindowHours: 6, pilotWave: true, racksPerWave: 2, swapMethod: 'Next free position in the row', tenantNoticeDays: 30, ...Object.fromEntries(Object.entries(methods).filter(([, m]) => m !== 'Next free position in the row').map(([id, m]) => [`swap:${id}`, m])) });
+    set(rr, { selectionCriteria: JSON.stringify({ reasons: [], years: 5, rackReasons: ['old-type', 'damaged'] }), affectedSiteId: rr.dataCenterId, affectedKw: kw, affectedDevices: racks.reduce((a, r) => a + live(r.id).length, 0), crewDevicesPerHour: 6, cutoverWindowHours: 6, pilotWave: true, racksPerWave: 2, swapMethod: 'Next free position in the row', tenantNoticeDays: 30, ...Object.fromEntries(Object.entries(methods).filter(([, m]) => m !== 'Next free position in the row').map(([id, m]) => [`swap:${id}`, m])) });
     // Tenants: rack owners and the customers of services in the racks; the first two notified, none consented yet.
     const owners = new Map<string, { name: string; cust?: T.Customer; svc: string[] }>();
     for (const r of racks) {

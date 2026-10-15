@@ -12,7 +12,7 @@ import { RackEditModal, ReserveModal } from './ops';
 import { DataTable, type Col } from '../../ui/DataTable';
 import { Meter } from '../../ui/status';
 import { SummaryStrip } from '../site/SummaryStrip';
-import { fmtDate, fmtDateTime, fmtKw, fmtNum } from '../../lib/format';
+import { fmtDate, fmtDateTime, fmtKw, fmtMonth, fmtNum } from '../../lib/format';
 import { CablePathDrawer, RackPowerDrawer, STATE_TONE, pduState } from '../physical/parts';
 import { NotFound } from '../NotFound';
 import { ACCENT, BAD, CAT_COLOR, CAT_LABEL, DcimStatusChip, loadColor, pct } from './common';
@@ -46,8 +46,8 @@ export function RackPage() {
 
   return (
     <div className="page dcim">
-      <PageHead title={r.name} chips={<><DcimStatusChip s={r.status} /><Chip tone="neutral">{r.role}</Chip>{r.density !== 'Standard' && <Chip tone="purple">{r.density} density</Chip>}{r.liquid && <Chip tone="cyan">Liquid cooled</Chip>}{r.tenantName && <Chip tone="neutral">{r.tenantName}</Chip>}</>}
-        sub={<>{r.dcId} · {r.floor} · <Link className="ent-link" to={`/dcim?tab=floorplan&dc=${r.dcId}&hall=${r.hallId}`}>{r.hallName}</Link> · {r.rowName}{data.neighbours.length ? ` · next to ${data.neighbours.slice(0, 3).map(n => n.name).join(', ')}` : ''}</>}
+      <PageHead title={r.name} chips={<><DcimStatusChip s={r.status} /><Chip tone="neutral">{r.role}</Chip>{r.density !== 'Standard' && <Chip tone="purple">{r.density} density</Chip>}{r.liquid && <Chip tone="cyan">Liquid cooled</Chip>}{r.tenantName && <Chip tone="neutral">{r.tenantName}</Chip>}{r.condition === 'Damaged' && <Chip tone="error" title={r.conditionNote}>Damaged</Chip>}{r.old && <Chip tone="warning" title="An old cabinet type: shallower (1000 mm) than the current 1200 mm standard">Old type</Chip>}</>}
+        sub={<>{r.dcId} · {r.floor} · <Link className="ent-link" to={`/dcim?tab=floorplan&dc=${r.dcId}&hall=${r.hallId}`}>{r.hallName}</Link> · {r.rowName}{r.model ? ` · ${r.model}${r.installed ? `, bought ${fmtMonth(r.installed)}` : ''}` : ''}{r.condition === 'Damaged' && r.conditionNote ? ` · ${r.conditionNote}` : ''}{data.neighbours.length ? ` · next to ${data.neighbours.slice(0, 3).map(n => n.name).join(', ')}` : ''}</>}
         actions={<>
           <Btn icon={I.Zap} onClick={() => setPower(true)}>Outlet map</Btn>
           <Btn icon={I.Box} onClick={() => nav(`/datacenters/${r.dcId}?twin=realistic`)}>3D twin</Btn>

@@ -15,6 +15,8 @@ import { activeGeo } from '../geo';
 import { dcimModel } from '../dcim';
 import { capacityHolds } from '../capacity';
 import { ipamModel } from '../ipam';
+import { siteLifecycle } from '../lifecycle';
+import { CATALOGUE, type CatalogueOption, type ItemKind } from '../../planner/lib/catalogue';
 
 export const USD_RATE = 50;
 /** a local amount (₹ in India, $ in the USA) in the planner's dollars */
@@ -114,15 +116,18 @@ export function adaptEstate(db: Db): Record<string, Record<string, unknown>[]> {
       liquidCoolingReady: r.liquid, owner: r.tenantName ?? 'Operator', rackTypeId: rtId([42, 45, 48].includes(r.heightU) ? r.heightU : 42),
     });
     for (const p of dm.pduByRack.get(r.id) ?? []) {
-      push('pdus', { id: p.id, pduId: p.id, upsId: p.kind === 'AC' ? `${r.dcId}-${p.upstreamName}` : undefined, hallId: r.hallId, name: `${r.name} ${p.name}`, capacityKw: p.capacityKw, loadKw: p.loadKw, loadPct: p.capacityKw ? Math.round((p.loadKw / p.capacityKw) * 100) : 0, outletCount: p.outlets, outletsUsed: (dm.cordsByRack.get(r.id) ?? []).filter(c => c.pduId === p.id).length });
+      push('pdus', { id: p.id, pduId: p.id, rackId: r.id, upsId: p.kind === 'AC' ? `${r.dcId}-${p.upstreamName}` : undefined, hallId: r.hallId, name: `${r.name} ${p.name}`, capacityKw: p.capacityKw, loadKw: p.loadKw, loadPct: p.capacityKw ? Math.round((p.loadKw / p.capacityKw) * 100) : 0, outletCount: p.outlets, outletsUsed: (dm.cordsByRack.get(r.id) ?? []).filter(c => c.pduId === p.id).length });
     }
   }
   const CAT: Record<string, T.Device['category']> = { Router: 'Router', Switch: 'Switch', DWDM: 'Other', Firewall: 'Firewall', Access: 'Switch', Server: 'Server', Storage: 'Storage', GPU: 'GPU-Node', 'Tenant gear': 'Other' };
   for (const t of dm.types) push('assetModels', { id: t.id, amodelId: t.id, manufacturer: t.manufacturer, model: t.model, category: CAT[t.role] ?? 'Other', heightU: t.uHeight, typicalPowerW: t.typicalW, maxPowerW: Math.round(t.typicalW * 1.35), weightKg: t.weightKg, formFactor: 'Rack' });
+  /* the team that owns an operator server (telco / colocation, 15-Oct-2026), from what it runs */
+  const opTeam = (purpose: string) => /^NFVI/.test(purpose) ? 'Telco cloud (NFVI)' : /^(OSS|BSS)/.test(purpose) ? 'IT applications' : /^IMS/.test(purpose) ? 'Core network'
+    : /^(DCIM|BMS|Monitoring)/.test(purpose) ? 'Facility operations' : /^(Access control|CCTV)/.test(purpose) ? 'Physical security' : /^(Network management|AAA|DNS)/.test(purpose) ? 'Network operations' : 'Operations IT';
   for (const d of dm.devices) push('devices', {
     id: d.id, devcId: d.id, name: d.name, deviceTypeId: d.typeId, rackId: d.rackId, dataCenterId: d.dcId, position: d.u, status: d.status === 'Planned' ? 'Planned' : d.status === 'Decommissioning' ? 'Decommissioning' : 'Active',
     serial: d.serial, assetTag: d.assetTag, primaryIp4: d.ip, assetModelId: d.typeId, hostname: d.name, manufacturer: d.manufacturer, model: d.model, category: CAT[d.role] ?? 'Other', heightU: d.uHeight, powerDrawW: d.powerW,
-    lifecycleState: d.status === 'Planned' ? 'Ordered' : 'Active', ownerTeam: d.tenantId ? 'Tenant' : d.category === 'network' ? 'Network engineering' : 'Platform engineering',
+    lifecycleState: d.status === 'Planned' ? 'Ordered' : 'Active', ownerTeam: d.tenantId ? 'Tenant' : d.purpose ? opTeam(d.purpose) : d.category === 'network' ? 'Network engineering' : 'Platform engineering',
   });
 
   /* holds that are not plans */
@@ -161,10 +166,122 @@ export function adaptEstate(db: Db): Record<string, Record<string, unknown>[]> {
   /* change calendar (conflicts with plan cut-overs) */
   for (const c of db.changes) push('changeRequests', { id: c.id, chgId: c.id, title: c.title, type: c.kind === 'Maintenance' ? 'Maintenance' : c.emergency ? 'Emergency' : 'Normal', description: c.title, risk: c.risk, status: c.status, priority: c.risk === 'High' ? 'High' : 'Medium', affectedResourceType: 'Asset', affectedResourceIds: c.scope, dataCenterId: c.dcId, requestedBy: c.requester, requestedById: c.requester, scheduledStart: iso(c.windowStart), scheduledEnd: iso(c.windowEnd), policyViolations: [], rollbackPlan: c.rollback });
 
+  stockAndSuppliers(db, dm, push);
+  lifecycleAndLegacy(db, out, push);
+
   /* edge locations: PoPs and remote sites */
   for (const l of db.locations.filter(x => x.kind === 'pop' || x.kind === 'site')) {
     const near = db.datacenters.filter(d => d.regionId === l.regionId)[0] ?? db.datacenters[0];
     push('edgeLocations', { id: l.id, locId: l.id, kind: l.kind, name: l.name, campusId: `CMP-${near.id}`, regionId: l.regionId, city: l.city, country: G.country, latitude: l.lat, longitude: l.lng, status: l.status, category: l.category === 'Central' ? 'Regional' : l.category, neCount: l.neCount, discovered: l.discovered, roles: l.roles, blocker: l.blocker, blockerNote: l.blockerNote, passive: l.passive });
   }
   return out;
+}
+
+/* ------------------------------------------------------------------ stock and suppliers (14-Oct-2026, planner sourcing)
+   What a plan can take before it buys, all derived from the estate (nothing here changes what the other screens show):
+   - Spares in a site store: unracked units of the standard models a site runs at least ten of, one per 50 installed (rounded up).
+   - The geography's central depot (no site; the planner calls it the depot): spares of the standard models the planner buys, sized
+     from the installed base across the estate (switches 1% leaf / 0.25% spine, servers, storage and GPU nodes 0.5%, rack power strips
+     one per 100 racks, console servers one per 4 sites).
+   - Vendors: every vendor the planner catalogue buys from. Contracts: a supply contract with each plant / facility supplier, a framework
+     agreement with each IT maker whose equipment the estate already runs; anyone else is bought on a one-off order. */
+const FACILITY_KINDS: ItemKind[] = ['ups', 'ups-small', 'generator', 'generator-small', 'transformer', 'hv-transformer', 'switchgear', 'pdu', 'crah', 'fanwall', 'cdu', 'inrow', 'reardoor', 'chiller', 'dry-cooler', 'cooling-small', 'sfn', 'floor',
+  'rack', 'containment', 'cage', 'enclosure', 'suppression', 'vesda', 'access', 'bms', 'fitout', 'install', 'move', 'disposal', 'fibre', 'patch'];
+const slug = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '');
+type Push = (k: string, r: Record<string, unknown>) => void;
+/* What the replace planner selects on (14-Oct-2026; estate vintage 15-Oct-2026), all copied from the asset lifecycle read model
+   (mock/lifecycle.ts, which reads mock/vintage.ts), so the planner, DCIM, the device pages and the lifecycle views agree:
+   each device's install date and warranty end (an expired warranty record when the lifecycle says the warranty and support contract
+   have lapsed), Faulty when it has an open RMA; each model's end of sale (`eolDate`, "past end of life") and end of support; each
+   rack's type (the old 600 × 1000 racks get their own rack type, marked legacy), purchase date and audit condition. */
+function lifecycleAndLegacy(db: Db, out: Record<string, Record<string, unknown>[]>, push: Push) {
+  const DAY = 864e5, now = db.now;
+  const devices = (out.devices ?? []) as unknown as (T.Device & Record<string, unknown>)[];
+  const models = (out.assetModels ?? []) as unknown as (T.AssetModel & Record<string, unknown>)[];
+  const racks = new Map(((out.racks ?? []) as unknown as (T.Rack & Record<string, unknown>)[]).map(r => [r.id, r]));
+  const vendorOf = (m: string) => `VEN-${slug(m)}`;
+  const expired = new Map<string, string>();
+  const warranty = (dcId: string, maker: string, end: number) => {
+    const key = `${dcId}|${maker}`; let id = expired.get(key);
+    if (!id) { id = `CTR-WTY-${dcId}-${slug(maker)}`; expired.set(key, id); push('contracts', { id, ctrId: `WTY-${dcId}-${slug(maker).slice(0, 8)}`, vendorId: vendorOf(maker), type: 'Warranty', startDate: iso(end - 3 * 365 * DAY), endDate: iso(end), value: 0, status: 'Expired', dataCenterId: dcId, description: `${maker} warranty and support at ${dcId}, lapsed` }); }
+    return id;
+  };
+  const byId = new Map(devices.map(d => [d.id, d]));
+  const datesByModel = new Map<string, { eos: number; support: number }>();
+  const OLD_RACK = (u: number) => `RT-TS8-${u}-1000`;
+  const oldRacks = new Set<number>();
+  for (const dc of db.datacenters.filter(d => d.status !== 'planned')) {
+    const lc = siteLifecycle(db, dc.id); if (!lc) continue;
+    const rma = new Set(lc.rmas.filter(r => r.status !== 'Replaced · verifying').map(r => r.neId));
+    for (const a of lc.assets) {
+      const d = byId.get(a.neId); if (!d || a.state === 'Planned') continue;
+      d.commissionedDate = iso(a.installed);
+      d.warrantyEndDate = iso(a.warrantyEnd);
+      if (!datesByModel.has(a.model)) datesByModel.set(a.model, { eos: a.endOfSale, support: a.endOfSupport });
+      if (a.state === 'Out of warranty' || a.state === 'End of support') d.warrantyContractId = warranty(dc.id, a.vendor, Math.min(a.warrantyEnd, now - DAY));
+      if (rma.has(a.neId)) d.status = 'Faulty';
+    }
+    for (const v of lc.racks) {
+      const r = racks.get(v.rackId); if (!r) continue;
+      Object.assign(r, { installedDate: iso(v.installed), condition: v.condition, conditionNote: v.note });
+      if (v.old) { oldRacks.add(v.heightU); Object.assign(r, { rackTypeId: OLD_RACK(v.heightU), depthMm: v.depthMm, outerDepthMm: v.depthMm, mountingDepthMm: v.mountingDepthMm }); }
+    }
+  }
+  for (const m of models) { const e = datesByModel.get(m.model); if (e) { m.eolDate = iso(e.eos); m.supportEndDate = iso(e.support); } }
+  for (const u of [...oldRacks].sort()) push('rackTypes', { id: OLD_RACK(u), rtypeId: OLD_RACK(u), manufacturer: 'Rittal', model: `TS8 ${u}U 600 × 1000`, uHeight: u, widthIn: 19, outerWidthMm: 600, outerDepthMm: 1000, mountingDepthMm: 860, legacy: true });
+}
+
+function stockAndSuppliers(db: Db, dm: ReturnType<typeof dcimModel>, push: Push) {
+  const DAY = 864e5;
+  const iso = (t: number) => new Date(t).toISOString();
+  const CAT: Partial<Record<ItemKind, T.Device['category']>> = { 'gpu-server': 'GPU-Node', server: 'Server', storage: 'Storage', leaf: 'Switch', spine: 'Switch', core: 'Router', firewall: 'Firewall', oob: 'Other', 'rack-pdu': 'Other' };
+  const deviceKinds = (Object.keys(CATALOGUE) as ItemKind[]).filter(k => CATALOGUE[k].options.some(o => o.device));
+  /* the catalogue model an installed device is (its base model: "PowerEdge XE9680 (8×H200)" is a PowerEdge XE9680) */
+  const optionFor = (model: string): { kind: ItemKind; o: CatalogueOption } | undefined => {
+    for (const kind of deviceKinds) { const o = CATALOGUE[kind].options.find(x => x.device && (model === x.model || model.startsWith(`${x.model} `))); if (o) return { kind, o }; }
+    return undefined;
+  };
+  const unit = (id: string, kind: ItemKind, o: CatalogueOption, dcId: string | undefined, where: string) => push('devices', {
+    id, devcId: id, name: `${o.model} spare`, deviceTypeId: '', dataCenterId: dcId, status: 'Inventory', manufacturer: o.manufacturer, model: o.model, category: CAT[kind] ?? 'Other',
+    heightU: o.heightU ?? 1, powerDrawW: o.typicalW ?? 0, lifecycleState: 'Received', ownerTeam: dcId ? 'Site store' : 'Central depot', notes: where,
+  });
+  const live = db.datacenters.filter(d => d.status !== 'planned');
+  /* spares in each site store */
+  for (const dc of live) {
+    const byModel = new Map<string, { kind: ItemKind; o: CatalogueOption; n: number }>();
+    for (const d of dm.devices) {
+      if (d.dcId !== dc.id || d.status !== 'Active' || d.tenantId) continue;
+      const m = optionFor(d.model); if (!m) continue;
+      const cur = byModel.get(m.o.model) ?? { ...m, n: 0 }; cur.n++; byModel.set(m.o.model, cur);
+    }
+    for (const { kind, o, n } of byModel.values()) for (let i = 0; i < (n >= 10 ? Math.ceil(n / 50) : 0); i++) unit(`${dc.id}-SPR-${slug(o.model)}-${i + 1}`, kind, o, dc.id, `Spare in the ${dc.city} site store`);
+  }
+  /* the central depot */
+  const own = dm.devices.filter(d => d.status === 'Active' && !d.tenantId);
+  const count = (f: (d: typeof own[number]) => boolean) => own.filter(f).length;
+  const switches = count(d => d.role === 'Switch' || d.role === 'Access'), servers = count(d => d.role === 'Server'), storage = count(d => d.role === 'Storage'), gpus = count(d => d.role === 'GPU');
+  const depot: [ItemKind, number][] = [['leaf', Math.ceil(switches * 0.01)], ['spine', Math.ceil(switches * 0.0025)], ['server', Math.ceil(servers * 0.005)], ['storage', Math.ceil(storage * 0.005)],
+    ['gpu-server', Math.ceil(gpus * 0.005)], ['rack-pdu', Math.ceil(dm.racks.length / 100)], ['oob', Math.ceil(live.length / 4)]];
+  const hub = live[0]?.city ?? activeGeo().short;
+  for (const [kind, n] of depot) { const o = CATALOGUE[kind].options[0]; for (let i = 0; i < n; i++) unit(`DEPOT-${slug(o.model)}-${i + 1}`, kind, o, undefined, `Central depot near ${hub}`); }
+
+  /* vendors and their purchase contracts */
+  const makers = new Set(own.map(d => d.manufacturer.toLowerCase().split(/\s+/)[0]));
+  const vendors = new Map<string, { facility: boolean; it: boolean }>();
+  for (const k of Object.values(CATALOGUE)) if (!k.agreement) for (const o of k.options) {
+    const v = vendors.get(o.vendor) ?? { facility: false, it: false };
+    if (FACILITY_KINDS.includes(k.kind)) v.facility = true; else v.it = true;
+    vendors.set(o.vendor, v);
+  }
+  let c = 0;
+  for (const [name, v] of [...vendors].sort((a, b) => a[0].localeCompare(b[0]))) {
+    const id = `VEN-${slug(name)}`;
+    push('vendors', { id, vendId: id, name, category: v.facility ? 'Facility and plant' : 'IT equipment', contactName: 'Account team', slaTier: v.facility ? 'Gold' : 'Standard', rating: 4, status: 'Active' });
+    const framework = v.it && makers.has(name.toLowerCase().split(/\s+/)[0]);
+    if (!v.facility && !framework) continue;
+    c++;
+    const cid = `CTR-${slug(name)}`;
+    push('contracts', { id: cid, ctrId: `${framework ? 'FA' : 'SA'}-${String(c).padStart(3, '0')}`, vendorId: id, type: framework ? 'Framework' : 'Supply', startDate: iso(db.now - (300 + (c % 4) * 90) * DAY), endDate: iso(db.now + (540 + (c % 3) * 180) * DAY), value: 0, status: 'Active',
+      description: framework ? `Framework agreement: ${name} equipment at price-book rates` : `Supply contract: ${name} equipment and services` });
+  }
 }

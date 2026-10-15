@@ -13,3 +13,9 @@ export function registerPlannerStore(r: { store: () => MockDB; serial: () => num
 export const plannerStore = (): MockDB => { if (!storeFn) throw new Error('planner store not registered'); return storeFn(); };
 export const plannerStoreSerial = () => serialFn();
 export const onPlannerChange = (f: () => void): (() => void) => { if (subscribeFn) return subscribeFn(f); pending.add(f); return () => { pending.delete(f); }; };
+
+/* How planner text shows money. The engine keeps every figure in USD; the mock server registers the geography's formatter (USD →
+   ₹ / $, the app's short form) so notes, rule details and audit lines read in the same money as the figures beside them. */
+let moneyFn: ((usd: number) => string) | null = null;
+export function registerPlannerMoney(f: (usd: number) => string) { moneyFn = f; }
+export const plannerMoney = () => moneyFn;

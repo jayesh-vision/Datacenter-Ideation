@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { clockNow, createCapacityPlan, defaultDcId, getCapacity, getDatacenter, getDatacenters, getLinks, useQuery } from '../api';
+import { clockNow, defaultDcId, getCapacity, getDatacenter, getDatacenters, getLinks, useQuery } from '../api';
 import type { CapacityPlan, Rack } from '../api/types';
 import { usePage, PageHead, Loading } from '../shell/page';
 import { SummaryStrip } from './site/SummaryStrip';
@@ -450,6 +450,8 @@ function FinancialTab({ cap, dc, onDc }: { cap: Cap; dc: string; onDc: (id: stri
 }
 
 /* --------------------------------------------- raise plan with what-if */
+/* the planner's plan type for each dimension: power and cooling are plant upgrades, space is a pod of racks, ports and bandwidth are network */
+const PLAN_SCOPE: Record<DimName, 'plant' | 'pod' | 'network'> = { Power: 'plant', Cooling: 'plant', Space: 'pod', Ports: 'network', Bandwidth: 'network' };
 
 function PlanModal({ open, onClose, dcs, initialDc }: { open: boolean; onClose: () => void; dcs: { id: string; city: string }[]; initialDc: string }) {
   const nav = useNavigate();
@@ -470,10 +472,12 @@ function PlanModal({ open, onClose, dcs, initialDc }: { open: boolean; onClose: 
   const target = now + months * 30.4 * 86_400_000;
   const def = `Add ${fmtNum(amount)} ${unit} ${dim.toLowerCase()} capacity at ${dcId}`;
   const exh = (m: number) => (m === 0 ? 'already above 85%' : Number.isFinite(m) ? `85% ≈ ${fmtMonth(dateAfterMonths(now, m))}` : 'no exhaustion');
-  const submit = () => { createCapacityPlan({ dcId, dimension: dim, title: title.trim() || def, amount, unit, target, capex }).then(() => { onClose(); setTitle(''); nav(`/capacity?dc=${dcId}`); }); };
+  /* the what-if above is a sketch; the plan itself is made in the planner (sizing, cost, approvals, then Delivery), opened prefilled */
+  const scope = PLAN_SCOPE[dim];
+  const plan = () => { onClose(); const q = new URLSearchParams({ template: `TPL-PLAN-${scope}`, scope, dc: dcId, title: title.trim() || def }); setTitle(''); nav(`/planning/new?${q}`); };
   return (
-    <Modal open={open} onClose={onClose} width={620} title="Raise capacity plan" sub="Model the expansion first: before/after utilisation, new exhaustion date and CapEx estimate (DC-CAP-005)."
-      foot={<><Btn onClick={onClose}>Cancel</Btn><Btn variant="filled" icon={I.Send} onClick={submit} disabled={!d || amount <= 0}>Submit plan</Btn></>}>
+    <Modal open={open} onClose={onClose} width={620} title="Raise capacity plan" sub="Sketch the expansion first (before and after utilisation, new exhaustion date, rough CapEx), then plan it in the planner, which opens with the site and title filled in."
+      foot={<><Btn onClick={onClose}>Cancel</Btn><Btn variant="filled" icon={I.DraftingCompass} onClick={plan} disabled={!d || amount <= 0}>Plan it in the planner</Btn></>}>
       <div className="col" style={{ gap: 14 }}>
         <div className="whatif">
           <Field label="Datacenter"><select className="select" value={dcId} onChange={e => setDc(e.target.value)}>{dcs.map(x => <option key={x.id} value={x.id}>{x.id} · {x.city}</option>)}</select></Field>

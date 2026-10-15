@@ -3,14 +3,14 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { dcimDisconnect, dcimRemoveModule, dcimSwapModule, getDatacenter, getDcimDevice, getDeviceIps, getIpam, setDeviceStatus, useQuery } from '../../api';
+import { clockNow, dcimDisconnect, dcimRemoveModule, dcimSwapModule, getDatacenter, getDcimDevice, getDeviceIps, getDeviceLifecycle, getIpam, setDeviceStatus, useQuery } from '../../api';
 import type { DcimCable, DcimComponent, DcimDevice, DcimDeviceType, DcimModuleType, DcimPowerFeed, DcimPowerPanel, DcimRack, DcimCatalog } from '../../api/types';
 import { Loading } from '../../shell/page';
 import { Btn, Chip, Drawer, KV, Panel, Seg } from '../../ui/kit';
 import { DataTable, type Col } from '../../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
 import { HealthChip, Meter } from '../../ui/status';
-import { fmtBw, fmtKw, fmtNum } from '../../lib/format';
+import { fmtBw, fmtDate, fmtKw, fmtNum } from '../../lib/format';
 import { CablePathDrawer, RackPowerDrawer, STATE_TONE, pduState } from '../physical/parts';
 import { useToast } from '../ops/shared';
 import { ACCENT, BAD, CAT_COLOR, CAT_LABEL, DcimStatusChip, loadColor, pct } from './common';
@@ -96,6 +96,7 @@ export function DeviceDrawer({ id, onClose }: { id: string | null; onClose: () =
   const nav = useNavigate();
   const { data } = useQuery(() => (id ? getDcimDevice(id) : Promise.resolve(null)), [id]);
   const { data: ips } = useQuery(() => (id ? getDeviceIps(id) : Promise.resolve(null)), [id]);
+  const { data: lc } = useQuery(() => (id ? getDeviceLifecycle(id) : Promise.resolve(null)), [id]);
   const { data: sitePlan } = useQuery(() => (data?.device ? getIpam({ dcId: data.device.dcId }) : Promise.resolve(null)), [data?.device?.dcId]);
   const [kind, setKind] = useState<'Interface' | 'Power port' | 'Module bay' | 'other'>('Interface');
   const toast = useToast();
@@ -123,9 +124,13 @@ export function DeviceDrawer({ id, onClose }: { id: string | null; onClose: () =
         </select>}
       </>}>
       {!d ? <Loading /> : <>
-        <div className="row" style={{ gap: 8, marginBottom: 12, flexWrap: 'wrap' }}><DcimStatusChip s={d.status} />{d.status !== 'Planned' && d.status !== 'Tenant-owned' && <HealthChip s={d.health} />}<Chip tone="neutral">{d.role}</Chip><Chip tone="neutral">{d.uHeight}U</Chip></div>
+        <div className="row" style={{ gap: 8, marginBottom: 12, flexWrap: 'wrap' }}><DcimStatusChip s={d.status} />{d.status !== 'Planned' && d.status !== 'Tenant-owned' && <HealthChip s={d.health} />}<Chip tone="neutral">{d.role}</Chip><Chip tone="neutral">{d.uHeight}U</Chip>{d.purpose && <span className="vw-label" data-purpose>{d.purpose}</span>}</div>
         <KV cols={3} items={[['Serial', <span className="mono">{d.serial || '—'}</span>], ['Asset tag', <span className="mono">{d.assetTag}</span>], ['Management IP', <span className="mono">{d.ip || '—'}</span>],
-          ['Platform', d.platform], ['Hall', d.hallName], ['Draw', d.powerW ? `${fmtNum(d.powerW)} W` : '—']]} />
+          ['Platform', d.platform], ['Hall', d.hallName], ['Draw', d.powerW ? `${fmtNum(d.powerW)} W` : '—'],
+          ...(lc?.life && lc.life.state !== 'Planned' && lc.life.state !== 'Tenant-owned' ? [
+            ['Installed', fmtDate(lc.life.installed)],
+            ['Warranty', <span className={lc.life.warrantyEnd < clockNow() ? 'warn' : undefined} data-warranty>{lc.life.warrantyEnd < clockNow() ? 'Ended' : 'Until'} {fmtDate(lc.life.warrantyEnd)}</span>],
+            ['Vendor support', <span title={`End of sale ${fmtDate(lc.life.endOfSale)}`} data-eos>{lc.life.endOfSupport < clockNow() ? 'Ended' : 'Until'} {fmtDate(lc.life.endOfSupport)}{lc.life.endOfSale < clockNow() ? ' · end of sale passed' : ''}</span>]] as [string, React.ReactNode][] : [])]} />
         {ips && <>
           <b className="dcim-sub-h">IP addresses ({ips.addresses.length}) <Link className="ent-link" style={{ fontWeight: 400 }} to={`/ipam?tab=addresses&q=${encodeURIComponent(d.name)}`}>in IP & Network →</Link></b>
           <DeviceAddresses neId={d.id} name={d.name} dcId={d.dcId} addrs={ips.addresses} prefixes={sitePlan?.prefixes ?? []} ifaces={comps.filter(c => c.kind === 'Interface').map(c => c.name)} onChanged={toast.show} />

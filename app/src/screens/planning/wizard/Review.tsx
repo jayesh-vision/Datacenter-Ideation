@@ -1,20 +1,46 @@
 /* The last step (what blocks submission, what the plan produces, who approves it) and the live estimate rail shown beside every step. */
+import { useMemo } from 'react';
 import * as I from 'lucide-react';
 import { Chip, Info } from '../../../ui/kit';
 import type * as T from '../../../planner/p2b/types';
 import type { Evaluation } from '../../../planner/lib/engine';
-import { blockers, type StepKey, type StepProps } from '../../../planner/lib/wizardModel';
+import { blockers, fmtParam, paramDefsFor, type StepKey, type StepProps } from '../../../planner/lib/wizardModel';
 import * as G from '../../../planner/lib/governance';
-import { ASPECT_LABEL, SCOPE_LABEL, SOURCE_LABEL, date, kw, money, num } from '../common';
+import { buildPack, sourcingReady, sourcingSplit, vendorOrders, VEHICLE_LABEL, type PlanPackData } from '../../../planner/lib/packModel';
+import { useSourcingContext } from '../../../planner/lib/usePlanner';
+import { ASPECT_LABEL, SCOPE_LABEL, SOURCE_LABEL, SourceChip, date, kw, money, num } from '../common';
+import { Tbl } from './panelKit';
 import { Sub, Sec, Figs, KvList, SoftMeterCell } from '../parts';
 import { StepHead } from './steps';
 
-export function ReviewStep({ draft, ev, template, data, goTo, estate }: StepProps) {
+const plural = (n: number, w: string) => `${num(n)} ${w}${n === 1 ? '' : 's'}`;
+/** What the plan pack holds, counted (the wizard's preview of the plan page's Plan pack). Money in the geography's currency. */
+function packRows(pack: PlanPackData): { label: string; detail: string; applies: boolean; icon: I.LucideIcon }[] {
+  const { bom, ip, bod, init, applies, sheets, sourced } = pack;
+  const orders = sourced ? vendorOrders(sourced).length : init.orders.length;
+  const split = sourced ? sourcingSplit(sourced) : [];
+  const src = split.filter(x => x.lines).map(x => `${x.lines} ${x.source === 'site' ? 'from spare site capacity' : x.source === 'stock' ? `from stock (${money(x.value)})` : `to buy (${money(x.value)})`}`);
+  return [
+    { label: 'Plan document', detail: plural(bod.length, 'section'), applies: true, icon: I.FileText },
+    { label: 'Bill of materials', detail: bom.lines.length ? `${plural(bom.lines.length, 'line')} · ${money(sourced?.total ?? bom.total)}` : 'no items for this plan', applies: bom.lines.length > 0, icon: I.ListTree },
+    ...(sourced && src.length ? [{ label: 'Sourcing', detail: src.join(' · '), applies: true, icon: I.Boxes }] : []),
+    { label: 'IP and network plan', detail: applies.ip && ip.items.length ? `${plural(ip.items.length, 'prefix')} in ${ip.aggregate} · ${plural(ip.vlans.length, 'VLAN')}` : applies.ip ? ip.aggregate : 'not part of this plan type', applies: applies.ip && ip.items.length > 0, icon: I.Network },
+    { label: 'Drawings', detail: sheets.length ? plural(sheets.length, 'sheet') : 'nothing to draw', applies: sheets.length > 0, icon: I.DraftingCompass },
+    { label: 'Build initiation', detail: [VEHICLE_LABEL[init.vehicle], init.projects.length ? plural(init.projects.length, 'project') : '', init.childPlans ? plural(init.childPlans.length, 'child plan') : plural(orders, 'purchase order'), init.atps?.length ? plural(init.atps.length, 'acceptance test') : ''].filter(Boolean).join(' · '), applies: true, icon: I.Rocket },
+  ];
+}
+
+export function ReviewStep({ draft, ev, template, data, goTo, estate, templates, benchmarks, actions }: StepProps) {
+  const defs = useMemo(() => paramDefsFor(ev, templates, draft.dcTypeKey), [ev, templates, draft.dcTypeKey]);
+  const departures = useMemo(() => Object.entries(ev?.params ?? {}).filter(([k, v]) => (v.source === 'user' || v.source === 'ai' || v.source === 'document') && defs.has(k)), [ev, defs]);
+  const sourcingCtx = useSourcingContext();
+  const sourcing = sourcingReady(sourcingCtx) ? sourcingCtx : undefined;
   const list = blockers(draft, ev, template, data);
   const bad = list.filter(b => b.level === 'bad'), warn = list.filter(b => b.level === 'warn');
   const amt = ev ? G.approvalAmount(ev) : { amountUsd: 0, itUsd: 0 };
   const path = G.buildApprovalPath(template, amt.amountUsd, amt.itUsd);
   const site = estate.dataCenters.find(d => d.id === draft.dataCenterId)?.name ?? draft.newSiteName ?? estate.campuses.find(c => c.id === draft.campusId)?.name ?? estate.regions.find(r => r.id === draft.regionId)?.name ?? '—';
+  const produces = useMemo(() => (ev ? packRows(buildPack(draft, ev, template, benchmarks, site, sourcing)) : []), [draft, ev, template, benchmarks, site, sourcing]);
   const step = (k: StepKey) => <button type="button" className="pn-fix" onClick={() => goTo(k)}>Go to step<I.ArrowRight size={13} /></button>;
   const verdict = bad.length ? 'is-blocked' : warn.length ? 'is-warn' : 'is-ready';
   return (
@@ -27,15 +53,24 @@ export function ReviewStep({ draft, ev, template, data, goTo, estate }: StepProp
       {list.length > 0 && <Sec icon={I.ListChecks} title="Checklist" sub="What blocks submission, then what approvers will see as notes" tone={bad.length ? 'bad' : 'warn'}>
         <ul className="pn-list">{list.map((b, i) => <li key={i}><Chip tone={b.level === 'bad' ? 'error' : 'warning'} size="xs" dot>{b.level === 'bad' ? 'Blocks' : 'Note'}</Chip><span className="cell-2"><b style={{ fontWeight: 400 }}>{b.text}</b></span>{step(b.step)}</li>)}</ul>
       </Sec>}
-      {ev && <Figs items={[['CapEx', money(ev.estimate.capexTotal)], ['OpEx per month', money(ev.estimate.opexMonthly)], ['IT capacity', kw(draft.designPowerKw)], ['PUE', String(ev.sizing.pue.value)], ['Payback', ev.estimate.paybackMonths == null ? '—' : `${ev.estimate.paybackMonths} months`], ['Readiness', `${ev.readinessPct}%`]]} cols={6} />}
+      {ev && <div className="pn-reviewfigs"><Figs items={[['CapEx', money(ev.estimate.capexTotal)], ['OpEx per month', money(ev.estimate.opexMonthly)], ['IT capacity', kw(draft.designPowerKw)], ['PUE', String(ev.sizing.pue.value)], ['Payback', ev.estimate.paybackMonths == null ? '—' : `${ev.estimate.paybackMonths} months`], ['Readiness', `${ev.readinessPct}%`]]} /></div>}
       <div className="pn-two">
         <Sec title="The plan" icon={I.FileText}>
           <KvList one items={[['Plan type', SCOPE_LABEL[draft.scope]], ['Template', `${template?.name ?? '—'}${template ? ` v${template.version}` : ''}`], ['Where', site], ['Needed by', date(draft.targetGoLive)], ['Phases', String(draft.phases.length)], ['Racks / halls', ev ? `${num(ev.sizing.racks)} / ${num(ev.sizing.halls)}` : '—'], ['Workload', `${draft.demand.gpuPct}% GPU · ${draft.demand.computePct}% compute · ${draft.demand.storagePct}% storage`], ['Owner', draft.ownerName]]} />
         </Sec>
         <Sec title="Who approves it" icon={I.ShieldCheck} sub={`Routed on ${money(amt.amountUsd)}${amt.itUsd ? ` (incl. ${money(amt.itUsd)} owned IT)` : ''} · band ${path.band.label}${path.band.businessCaseRequired ? ' · business case required' : ''}`}>
-          {path.approvals.length ? <ol className="pn-chainlist is-tall">{path.approvals.map((a, i) => <li key={i}><i>{i + 1}</i><span className="cell-2"><b>{a.step} · {a.role}</b><small>{a.basis}</small></span></li>)}</ol> : <p className="vw-label">No approval step for this plan type.</p>}
-          <Sub>Produces</Sub>
-          <div className="row wrap" style={{ gap: 6 }}>{(template?.outputs ?? []).map(o => <Chip key={o} tone="neutral">{o}</Chip>)}{template?.executesAs && <Chip tone="info">becomes a {template.executesAs}</Chip>}</div>
+          {path.approvals.length ? <ol className="pn-chainlist is-tall">{path.approvals.map((a, i) => { const who = G.peopleWithRole(a.role); const own = who.some(p => p.name === draft.requestedBy || p.name === actions.actor); return <li key={i}><i>{i + 1}</i><span className="cell-2"><b>{a.step} · {a.role}</b><small>{a.basis}</small><small className="pn-approvers"><I.Users size={12} />{who.length ? `Can approve: ${who.map(p => p.name).join(', ')}` : 'Nobody holds this role yet'}{own ? ' (not you or the requester: segregation of duties)' : ''}</small></span></li>; })}</ol> : <p className="vw-label">No approval step for this plan type.</p>}
+          {template?.executesAs && <p className="vw-label" style={{ margin: '10px 0 0', fontSize: 12.5 }}>Once approved it runs as a <b className="strong">{template.executesAs}</b> in Delivery.</p>}
+        </Sec>
+      </div>
+      <div className="pn-two">
+        <Sec title="Departures from the template" icon={I.GitCompareArrows} sub={departures.length ? `${departures.length} input${departures.length === 1 ? '' : 's'} set differently from ${template?.name ?? 'the template'}` : 'Every input is the template default or comes from your requirements'}>
+          {departures.length > 0 ? <div className="pn-departs"><Tbl head={['Input', 'This plan', 'Source']} maxHeight={330}>{departures.map(([k, v]) => { const d = defs.get(k)!; return <tr key={k}><td>{d.label}</td><td><span className="cell-2"><b className="strong" style={{ fontWeight: 500 }}>{fmtParam(k, v.value, d.unit)}</b><small>template {fmtParam(k, d.default, d.unit)}</small></span></td><td><SourceChip s={v.source} note={v.note} /></td></tr>; })}</Tbl></div>
+            : <p className="vw-label" style={{ margin: 0 }}>Nothing departs from the standard design.</p>}
+        </Sec>
+        <Sec title="What the plan produces" icon={I.PackageOpen} sub="The plan pack on the plan page, as it stands now">
+          <ul className="pn-produces">{produces.map(o => { const Ico = o.icon; return <li key={o.label} className={o.applies ? '' : 'is-off'}><Ico size={14} /><b>{o.label}</b><span>{o.detail}</span></li>; })}</ul>
+          {(template?.outputs ?? []).length > 0 && <><Sub>Outputs named by the plan type</Sub><div className="row wrap" style={{ gap: 6 }}>{template!.outputs.map(o => <Chip key={o} tone="neutral" size="xs">{o}</Chip>)}</div></>}
         </Sec>
       </div>
       {ev && <Sec icon={I.LayoutGrid} title="Inputs by area" sub="How much of each area is confirmed rather than left on the template default">

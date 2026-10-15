@@ -1,0 +1,105 @@
+/* Planner wizard result panels and the in-site / plant / network family views (screens/planning/wizard/panelKit.tsx,
+   screens/planning/scopes/{inSite,plant,network}). Layout only; colours are NST tokens. */
+.pn-fig > small { font-size: 11.5px; color: var(--ink-500); line-height: 1.35; overflow-wrap: anywhere; }
+.pn-fig.is-bad > b { color: var(--vw-color-red-600); }
+.pn-fig.is-warn > b { color: var(--vw-color-amber-700); }
+.pn-fig.is-ok > b { color: var(--vw-color-emerald-700); }
+.pn-fig.is-bad { border-top: 3px solid var(--vw-color-red-400); }
+.pn-fig.is-warn { border-top: 3px solid var(--vw-color-amber-400); }
+.pn-figs.is-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.pn-figs.is-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 1100px) { .pn-figs.is-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.pn-tbl { overflow: auto; min-width: 0; border: 1px solid var(--vw-color-slate-100); border-radius: 10px; }
+.pn-tbl > table { width: 100%; }
+.pn-tbl > table th { position: sticky; top: 0; z-index: 1; }
+/* Lists pin their header under the top bar (base.css: top = --top-h). Inside a planner frame that scrolls on its own (a section body,
+   a table frame, a panel that scrolls inside) that offset pushes the header down into the rows, so it pins to the frame's top instead. */
+:is(.pn-sec-body, .pn-tbl, .pn-trio .panel-body, .pn-typeinfo-in) .dt .dt-scroll:not([style*="max-height"]) .dt-table.dt-table thead th { top: 0; }
+:is(.pn-sec-body, .pn-tbl, .pn-trio .panel-body, .pn-typeinfo-in) .dt > .dt-toolbar { top: 0; }
+.pn-tbl > table th { background: var(--vw-color-slate-50); }
+.pn-tbl tr.is-pick { cursor: pointer; }
+.pn-tbl tr.is-pick:hover td { background: var(--vw-color-slate-50); }
+.pn-tbl tr.is-on td { background: var(--primaryColor50); }
+.pn-tbl tr.is-off td { opacity: 0.62; }
+.pn-tbl tfoot td { font-weight: 500; border-top: 1px solid var(--vw-color-slate-200); }
+.pn-tbl td .input, .pn-tbl td .select { height: 30px; min-width: 0; }
+.pn-tbl td.is-wrap { white-space: normal; min-width: 180px; }
+.pn-tbl .nst-table th, .pn-tbl .nst-table td { padding: 9px 10px; font-size: 13px; }
+.pn-tbl .nst-table th { font-size: 12.5px; }
+.pn-tbl td.num, .pn-tbl td.nowrap { white-space: nowrap; }
+.pn-tbl td .cell-2 { display: flex; flex-direction: column; gap: 2px; }
+.pn-tbl td .cell-2 small { font-size: 12px; color: var(--ink-500); }
+
+.pn-note { margin: 8px 0 0; font-size: 12.5px; color: var(--ink-500); line-height: 1.5; }
+.pn-bad { color: var(--vw-color-red-600); }
+.pn-warn { color: var(--vw-color-amber-700); }
+.pn-ok { color: var(--vw-color-emerald-700); }
+.pn-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.pn-row.is-top { align-items: flex-start; }
+.pn-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.pn-grid-2b { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.pn-grid-4b { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.pn-grid-5b { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 1200px) { .pn-grid-4b, .pn-grid-5b { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* checks of a step, read from the plan's analysis */
+.pn-checks { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; }
+.pn-checks li { display: grid; grid-template-columns: 96px 150px minmax(0, 1fr); gap: 10px; align-items: baseline; padding: 7px 2px; border-bottom: 1px solid var(--vw-color-slate-100); font-size: 13px; }
+.pn-checks li > span:last-child { color: var(--ink-500); font-size: 12.5px; }
+
+/* banner: the site cannot take the plan */
+.pn-short { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 10px; background: var(--vw-color-red-50); border: 1px solid var(--vw-color-red-100); margin: 12px 0 0; }
+.pn-short > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--vw-color-red-700); }
+.pn-short b { font-weight: 500; color: var(--ink-900); }
+
+/* drawings: hall grid, rack elevation, plant lanes, demand bars, capacity ladder */
+.pn-draw { overflow-x: auto; min-width: 0; }
+.pn-draw svg { display: block; }
+.pn-draw-title { font-size: 12.5px; font-weight: 500; color: var(--ink-800); margin-bottom: 6px; }
+.pn-legend2 { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 6px; font-size: 12px; color: var(--ink-500); align-items: center; }
+.pn-legend2 i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; border: 1px solid var(--vw-color-slate-300); }
+.pn-legend2 i.is-dash { border-style: dashed; background: transparent; }
+.pn-legend2 i.is-line { height: 3px; border: 0; border-radius: 2px; vertical-align: 3px; width: 14px; }
+.pn-elevs { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+
+/* editors as cards (paths, cut-in steps) */
+.pn-card2 { border: 1px solid var(--vw-color-slate-200); border-radius: 10px; padding: 12px 14px; background: var(--surface); min-width: 0; }
+.pn-card2 + .pn-card2 { margin-top: 10px; }
+.pn-card2-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.pn-card2-head > .grow { flex: 1; }
+.pn-card2-body { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; margin-top: 10px; }
+.pn-card2-body.is-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1200px) { .pn-card2-body.is-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.pn-card2-foot { margin-top: 8px; font-size: 12.5px; color: var(--ink-500); line-height: 1.5; }
+.pn-card2-foot.is-bad { color: var(--vw-color-red-600); }
+.pn-inline { display: flex; gap: 6px; min-width: 0; }
+.pn-inline > * { min-width: 0; }
+.pn-inline > .grow { flex: 1; }
+.pn-picks { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; min-height: 32px; }
+.pn-picks .pn-pick { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 8px; border-radius: 999px; background: var(--vw-color-slate-100); font-size: 12px; }
+.pn-picks .pn-pick button { all: unset; cursor: pointer; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; color: var(--ink-500); }
+.pn-picks .pn-pick button:hover { background: var(--vw-color-slate-200); color: var(--ink-900); }
+.pn-picks .select { height: 28px; max-width: 200px; }
+
+/* end cards of an interconnect */
+.pn-end { border: 1px solid var(--vw-color-slate-200); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.pn-end-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+.pn-end-head b { font-weight: 500; }
+.pn-end small { font-size: 12px; color: var(--ink-500); }
+.pn-tbl tr.pn-main-row td { border-bottom: 0; padding-bottom: 4px; }
+.pn-tbl tr.pn-sub-row td { padding-top: 0; }
+.pn-card2-head > span > .select, .pn-card2-head > span > .input, .pn-card2-head > span > .pn-unit, .pn-card2-head > span > span > .pn-unit { width: 100%; min-width: 0; }
+.pn-card2 .select, .pn-card2 .input { min-width: 0; max-width: 100%; }
+.pn-inline .select, .pn-inline .input, .pn-inline .pn-unit { flex: 1; min-width: 0; }
+.pn-card2-body.is-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* permits and risks editors: fixed columns so the inputs shrink with the step instead of scrolling */
+table.pn-permits, table.pn-risks { table-layout: fixed; }
+table.pn-permits .input, table.pn-permits .select, table.pn-permits .pn-unit, table.pn-risks .input, table.pn-risks .select { width: 100%; min-width: 0; }
+table.pn-permits th, table.pn-permits td, table.pn-risks th, table.pn-risks td { padding-left: 6px; padding-right: 6px; }
+table.pn-permits th:nth-child(1) { width: 26%; } table.pn-permits th:nth-child(2) { width: 22%; } table.pn-permits th:nth-child(3) { width: 14%; }
+table.pn-permits th:nth-child(4) { width: 19%; } table.pn-permits th:nth-child(5) { width: 15%; } table.pn-permits th:last-child { width: 40px; }
+table.pn-risks th:nth-child(1) { width: 25%; } table.pn-risks th:nth-child(2) { width: 14%; } table.pn-risks th:nth-child(3) { width: 12%; }
+table.pn-risks th:nth-child(4) { width: 17%; } table.pn-risks th:nth-child(5) { width: 12%; } table.pn-risks th:last-child { width: 40px; }
+table.pn-risks td:nth-child(4) .row { flex-wrap: wrap; }

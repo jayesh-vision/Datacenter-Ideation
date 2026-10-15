@@ -44,10 +44,12 @@ export const fmtKm = (k: number) => (k < 10 ? `${k.toFixed(1)} km` : `${Math.rou
 export const plural = (n: number, one: string, many = `${one}s`) => `${fmtNum(n)} ${n === 1 ? one : many}`;
 
 /* money in the geography's units: ₹8.77 Cr / ₹98.88 L / ₹5,993 — or $1.75M / $340.5K / $5,993 */
+/* the top unit (₹ Cr, $B) has no ceiling: 1,000 and more is shown whole with grouping (₹14,284 Cr, not ₹14283.68 Cr) */
+const top = (v: number, digits: number, locale: string) => (v >= 1000 ? Math.round(v).toLocaleString(locale) : v.toFixed(digits));
 export function fmtMoney(n: number, digits = 2): string {
   const a = Math.abs(n), sign = n < 0 ? '-' : '';
-  if (ML.currency === 'USD') return a >= 1e9 ? `${sign}$${(a / 1e9).toFixed(digits)}B` : a >= 1e6 ? `${sign}$${(a / 1e6).toFixed(digits)}M` : a >= 1e4 ? `${sign}$${(a / 1e3).toFixed(1)}K` : a < 100 && a !== Math.round(a) ? `${sign}$${a.toFixed(2)}` : `${sign}$${Math.round(a).toLocaleString('en-US')}`;
-  return a >= 1e7 ? `${sign}₹${(a / 1e7).toFixed(digits)} Cr` : a >= 1e5 ? `${sign}₹${(a / 1e5).toFixed(digits)} L` : `${sign}₹${Math.round(a).toLocaleString('en-IN')}`;
+  if (ML.currency === 'USD') return a >= 1e9 ? `${sign}$${top(a / 1e9, digits, 'en-US')}B` : a >= 1e6 ? `${sign}$${(a / 1e6).toFixed(digits)}M` : a >= 1e4 ? `${sign}$${(a / 1e3).toFixed(1)}K` : a < 100 && a !== Math.round(a) ? `${sign}$${a.toFixed(2)}` : `${sign}$${Math.round(a).toLocaleString('en-US')}`;
+  return a >= 1e7 ? `${sign}₹${top(a / 1e7, digits, 'en-IN')} Cr` : a >= 1e5 ? `${sign}₹${(a / 1e5).toFixed(digits)} L` : `${sign}₹${Math.round(a).toLocaleString('en-IN')}`;
 }
 export const fmtBw = (mbps: number) => (mbps >= 1000 ? `${+(mbps / 1000).toFixed(1)} Gbps` : `${mbps} Mbps`);
 /* a service quantity in its own unit (Mbps, kW, vCPU, TB, users…) */

@@ -1,8 +1,8 @@
 /* Planner seed · build family (see src/modules/planner/lib/scopes/build.ts).
    Inputs, rules and benchmarks for new data centres, site expansions, regional portfolios and edge
    rollouts; commissioning checklist templates; and the scope data of the demo plans:
-   PLN-0001 (Frankfurt new site: feasibility and three candidate plots), PLN-0007 (EU edge: twelve
-   real edge locations in Germany and Ireland with power variants and waves), PLN-0010 and PLN-0012
+   PLN-0001 (Frankfurt new site: feasibility and three candidate plots), PLN-0007 (edge rollout: twelve
+   real edge locations of our estate with power variants and waves), PLN-0010 and PLN-0012
    (campus expansions with their uprates and building names) and PLN-0011 (LATAM allocation). */
 import type * as T from '../../../../planner/p2b/types';
 import type { Seed } from '../ctx';
@@ -169,12 +169,16 @@ export const buildSeed: ScopeSeed = {
       S.plannerScenarios.push({ id, scnId: id, ...S.meta(S.byRole('Capacity Planner')), planId: fra.id, name: 'D · Candidate B, Hanau', description: 'The Hanau plot: cheaper land and a larger grid offer, but energised two years out, so phase 1 needs interim generation or a later date.', overrides: { candidateId: 'C2', tariffUsdPerKwh: 0.155 }, preferred: false });
     }
 
-    // ── PLN-0007 · EU edge: twelve planned or in-progress access sites in Germany and Ireland.
+    // ── PLN-0007 · edge rollout: twelve planned or in-progress edge locations of our estate (P2B picked six in Germany and six in
+    //    Ireland from its own estate; ours are drawn from the plan's region first, then the nearest others, so both geographies have 12).
     const eu = byPln('PLN-0007');
     if (eu) {
-      const pick = (country: string) => S.edgeLocations.filter(l => l.country === country && (l.status === 'planned' || l.status === 'in-progress'))
-        .sort((a, b) => Number(b.kind === 'site') - Number(a.kind === 'site') || Number(b.status === 'planned') - Number(a.status === 'planned') || a.id.localeCompare(b.id)).slice(0, 6);
-      const locs = [...pick('Germany'), ...pick('Ireland')];
+      const open = S.edgeLocations.filter(l => l.status === 'planned' || l.status === 'in-progress');
+      const regions = [eu.regionId, ...[...new Set(open.map(l => l.regionId))].filter(r => r !== eu.regionId).sort()];
+      /* within a region, take the states in turn (the id's prefix), so the rollout spreads over the region */
+      const spread = (ls: T.EdgeLocation[]) => { const by = new Map<string, T.EdgeLocation[]>(); for (const l of ls) by.set(l.id.split('-')[0], [...(by.get(l.id.split('-')[0]) ?? []), l]); const qs = [...by.values()]; const out: T.EdgeLocation[] = []; for (let i = 0; out.length < ls.length; i++) for (const q of qs) if (q[i]) out.push(q[i]); return out; };
+      const locs = regions.flatMap(r => spread(open.filter(l => l.regionId === r)
+        .sort((a, b) => Number(b.kind === 'site') - Number(a.kind === 'site') || Number(b.status === 'planned') - Number(a.status === 'planned') || a.id.localeCompare(b.id)))).slice(0, 12);
       const waveDates = [months(9), months(11), months(13)];
       // Three sites have single-phase supply only (survey); two may not have a generator (planning).
       const single = new Set([2, 7, 10]); const noGen = new Set([4, 9]);

@@ -37,6 +37,12 @@ export function siliconOf(ne: NetworkElement): { asic: string; asicSub: string; 
   const pick = (asic: string, asicSub: string, cpu = 'Control-plane CPU') => ({ asic, asicSub, cpu });
   if (/QM9700|Quantum-2/.test(m)) return pick('NVIDIA Quantum-2', '25.6 Tb/s · 64 × 400G NDR', 'Intel Atom C3758 (management)');
   if (/SN5600|Spectrum-4/.test(m)) return pick('NVIDIA Spectrum-4', '51.2 Tb/s · 64 × 800G', 'Intel Xeon D (Cumulus)');
+  if (/SN4600C|Spectrum-3/.test(m)) return pick('NVIDIA Spectrum-3', '6.4 Tb/s · 64 × 100G', 'Intel Atom (Cumulus)');
+  if (/7260CX3/.test(m)) return pick('Broadcom Tomahawk 2', '6.4 Tb/s · 64 × 100G', 'Intel Atom (EOS)');
+  if (/7050QX|7050SX-64/.test(m)) return pick('Broadcom Trident 2', '1.28 Tb/s · 48 × 10G + 4 × 40G', 'AMD G-series (EOS)');
+  if (/9372PX/.test(m)) return pick('Cisco ALE + Broadcom Trident 2', '1.44 Tb/s · 48 × 10G + 6 × 40G', 'Intel Xeon (NX-OS)');
+  if (/3172PQ/.test(m)) return pick('Broadcom Trident 2', '1.44 Tb/s · 48 × 10G + 6 × 40G', 'Intel Celeron (NX-OS)');
+  if (/QFX5100/.test(m)) return pick('Broadcom Trident 2', '1.44 Tb/s · 48 × 10G + 6 × 40G', 'Intel Xeon (Junos)');
   if (/SN2201/.test(m)) return pick('NVIDIA Spectrum', '1G / 100G management fabric', 'Intel Atom (Cumulus)');
   if (/7060DX5/.test(m)) return pick('Broadcom Tomahawk 4', '25.6 Tb/s · 64 × 400G', 'AMD Ryzen embedded (EOS)');
   if (/7800R3/.test(m)) return pick('Broadcom Jericho2', 'deep-buffer · 9.6 Tb/s per line card', 'Supervisor CPU (EOS)');
@@ -59,6 +65,7 @@ export function hostCpuOf(model: string): string {
   if (/DGX H/.test(model)) return 'Intel Xeon Platinum 8480C';
   if (/DGX A100|AS-4124|XE8545/.test(model)) return 'AMD EPYC 7763';
   if (/Gaudi|Max 1550|XE9640|SYS-821GV|SYS-822GA/.test(model)) return 'Intel Xeon Platinum 8480+';
+  if (/R740|R640|Gen10|SYS-120U|SYS-220U/.test(model)) return 'Intel Xeon Gold 6248R';
   if (/R760|SYS-121H|DL380/.test(model)) return 'Intel Xeon Gold 6430';
   return 'Intel Xeon Platinum 8468';
 }

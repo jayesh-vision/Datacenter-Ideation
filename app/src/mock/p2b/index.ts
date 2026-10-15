@@ -10,9 +10,12 @@ import { adaptEstate } from './adapter';
 import { Seed, SITE_KEYS } from './seed/ctx';
 import { setRealism } from './seed/realism';
 import { seedPlanner } from './seed/planner';
+import { planAuditTrail } from './seed/plannerAudit';
 import { castPeople } from '../../planner/compat/people';
 import type * as T from '../../planner/p2b/types';
 import { evaluate } from '../../planner/lib/engine';
+import { baselineScenario } from '../../planner/lib/governance';
+import { buildBom } from '../../planner/lib/outputs';
 import { plannerDataFromSnapshot } from '../../planner/lib/plannerData';
 
 let store: MockDB | null = null;
@@ -22,6 +25,10 @@ const listeners = new Set<() => void>();
 /** any write to any planner store (and a rebuild) */
 export const subscribePlanner = (f: () => void) => { listeners.add(f); return () => { listeners.delete(f); }; };
 export const plannerStoreSerial = () => serial;
+/** The estate the planner store was built from (Delivery's handle for the planner reads it). */
+export const plannerDb = (): Db | null => builtFor;
+/** Something the planner reads changed outside its store (Delivery's moves): planner screens re-read. */
+export const notifyPlanner = () => { queueMicrotask(() => listeners.forEach(f => f())); };
 export function resetPlanner2() { store = null; builtFor = null; }
 
 export function p2bStore(db: Db): MockDB {
@@ -65,6 +72,7 @@ function build(db: Db): MockDB {
   for (const k of ['approvalDelegations', 'auditEvents', 'rackReservations', 'milestones', 'atps', 'hotos', 'demandRequests', 'contracts', 'vendors', 'cidrBlocks', 'ipAddresses', 'interfaces', 'cables', 'deviceComponents', 'virtualChassis', 'configBackups', 'powerPanels', 'powerFeeds', 'approvalMatrixRules', 'tasks', 'projectActivities', 'bomLines', 'purchaseOrderLines', 'processInstances', 'materials'])
     snap[k] ??= [];
   validate(snap, db.now);
+  snap.auditEvents = [...snap.auditEvents, ...planAuditTrail(snap.plannerPlans as unknown as T.PlannerPlan[], snap.auditEvents as { id: string }[])];
   out.hydrate(snap);
   return out;
 }
@@ -78,6 +86,7 @@ function validate(snap: Record<string, Record<string, unknown>[]>, now: number) 
   const tpls = snap.plannerTemplates as unknown as T.PlannerTemplate[], bms = snap.plannerBenchmarks as unknown as T.PlannerBenchmark[];
   const scns = snap.plannerScenarios as unknown as T.PlannerScenario[];
   const past = ['Approved', 'Executing', 'Completed'];
+  const refreeze = refreezeWith(tpls, bms, scns, plannerDataFromSnapshot(snap));
   const run = (p: T.PlannerPlan) => evaluate(p, scns.find(x => x.id === (p.approvedScenarioId ?? p.preferredScenarioId)) ?? null, tpls, bms, undefined, plannerDataFromSnapshot(snap));
   for (const p of plans.filter(x => past.includes(x.status))) {
     let ev = run(p);
@@ -88,11 +97,28 @@ function validate(snap: Record<string, Record<string, unknown>[]>, now: number) 
       shiftDates(p, shortDays, now);
       ev = run(p);
     }
-    if (!fails().length) continue;
+    if (!fails().length) { refreeze(p); continue; }
     const reason = fails().map(f => `${f.rule.title}: ${f.detail}`).join(' · ');
     p.status = 'Draft'; p.approvals = []; p.approvalHistory = []; p.programId = undefined; p.processInstanceId = undefined; p.artefacts = undefined; p.baseline = undefined; p.conditions = undefined;
     p.risks = [...p.risks, { id: `R${p.risks.length + 1}`, title: 'Fails hard rules on the site as it is today', domain: 'Facility', probability: 'High', impact: 'High', owner: p.ownerName, mitigation: reason.slice(0, 600), source: 'actual', evidence: 'Evaluated against the estate records' }];
   }
+}
+
+/* The demo plans carry P2B's baseline figures, frozen on its estate. A plan that stays approved on ours is re-frozen on our estate
+   (14-Oct-2026): its parameters as placed here (target hall, hall mode, density… set by the scope seeds) with the approved scenario, then
+   the approved money from them, so the baseline, the plan pack, the bill of materials and Delivery's orders and budget agree. */
+function refreezeWith(tpls: T.PlannerTemplate[], bms: T.PlannerBenchmark[], scns: T.PlannerScenario[], data: ReturnType<typeof plannerDataFromSnapshot>) {
+  return (p: T.PlannerPlan) => {
+    if (!p.baseline) return;
+    const approved = scns.find(x => x.id === (p.approvedScenarioId ?? p.preferredScenarioId)) ?? null;
+    const placed = evaluate(p, approved, tpls, bms, undefined, data);
+    // the scope as placed too (PLN-0002 is the free positions of a hall, not P2B's 2 MW): design power, phases and go-live
+    const phasesMoved = (p.baseline.phases ?? []).map(x => x.name).join('|') !== p.phases.map(x => x.name).join('|');
+    p.baseline = { ...p.baseline, params: Object.fromEntries(Object.entries(placed.params).map(([k, v]) => [k, v.value])), designPowerKw: p.designPowerKw, targetGoLive: p.targetGoLive, phases: p.phases.map(x => ({ ...x })), ...(phasesMoved ? { schedule: [] } : {}) };
+    const ev = evaluate(p, baselineScenario(p), tpls, bms, undefined, data);
+    const contingency = ev.estimate.contingencyUsd ?? ev.estimate.capex.filter(l => /contingency/i.test(l.item)).reduce((a, l) => a + l.amount, 0);
+    p.baseline = { ...p.baseline, capexTotal: ev.estimate.capexTotal, contingencyUsd: contingency, opexMonthly: ev.estimate.opexMonthly, bomTotal: buildBom(p, ev, bms).total, hardFails: ev.hardFails, softWarns: ev.softWarns, readinessPct: ev.readinessPct, schedule: p.baseline.schedule?.length ? p.baseline.schedule : ev.schedule.map(x => ({ item: x.item, orderBy: x.orderBy, needBy: x.needBy, phase: x.phase })) };
+  };
 }
 
 /* ------------------------------------------------------------------ place names, customers and carriers for our estate */
@@ -107,14 +133,13 @@ function localize(S: Seed, db: Db) {
   const custAt = (k: string, i = 0) => { const ids = new Set(db.services.filter(s => s.dcId === id(k)).map(s => s.customerId)); const cs = db.customers.filter(c => ids.has(c.id)); return (cs.filter(c => c.premium)[i] ?? cs[i] ?? db.customers[i])?.name ?? 'Customer'; };
   const neighbour = (k: string) => db.datacenters.find(d => d.regionId === ours(k)?.regionId && d.id !== id(k) && d.status !== 'planned')?.city ?? city('ASH');
   const carriers = us ? ['Lumen', 'Zayo', 'AT&T'] : ['Tata Communications', 'Airtel Business', 'Jio Enterprise'];
-  const otherRegions = db.regions.filter(r => r.name !== regionName('FRA')).slice(0, 2).map(r => r.name).join(' and ');
   /* longest first, so "Dublin CO-1" is rewritten before "Dublin" */
   const pairs: [string, string][] = ([
     ['Frankfurt AI campus', `${city('FRA')} AI campus`], ['FRA-AI1', `${id('FRA').split('-')[0]}-AI-01`],
     ['Ashburn to Frankfurt DCI', `${id('ASH')} to ${id('FRA')} DCI`], ['Ashburn DC-1', id('ASH')], ['Ashburn campus', `${city('ASH')} campus`], ['ASH-DC2', `${id('ASH').split('-')[0]}-DC-0B`],
     ['Dallas HDC-1', id('DAL')], ['Singapore NC-1', id('SIN')], ['Dublin SR-1', id('DUB')], ['Dublin CO-1', id('DUB-CO1')], ['Dublin CO', id('DUB-CO1')],
     ['Sydney MTSO-1', id('SYD')], ['Frankfurt COLO-1', id('FRA')], ['Frankfurt Colo', id('FRA')], ['Frankfurt standard', `${city('FRA')} standard`], ['Frankfurt campus', `${city('FRA')} campus`],
-    ['EU edge rollout', `${regionName('FRA')} edge rollout`], ['EU-EDGE-01…12', 'EDGE-01…12'], ['across Germany and Ireland', `across ${otherRegions || regionName('FRA')}`],
+    ['EU edge rollout', `${regionName('FRA')} edge rollout`], ['EU-EDGE-01…12', 'EDGE-01…12'], ['across Germany and Ireland', `across the ${regionName('FRA')} region`],
     ['EU private-cloud replication', 'Private-cloud replication'], ['LATAM capacity portfolio', `${regionName('GRU')} capacity portfolio`], ['in LATAM', `in ${regionName('GRU')}`],
     ['São Paulo', city('GRU')], ['Santiago', neighbour('GRU')], ['Chile and Argentina', 'the neighbouring states'],
     ['Quanta AI Labs (anchor customer)', `${custAt('FRA')} (anchor customer)`], ['Acme Financial', custAt('FRA', 1)],
@@ -124,7 +149,8 @@ function localize(S: Seed, db: Db) {
   ] as [string, string][]).sort((a, b) => b[0].length - a[0].length);
   const fix = (s: string) => { let t = s; for (const [a, b] of pairs) if (t.includes(a)) t = t.split(a).join(b); return t; };
   const walk = (v: unknown, key = ''): unknown => {
-    if (typeof v === 'string') return /id$|Id$|^id$/.test(key) ? v : fix(v);
+    // ids, and the DCI route text the network seed builds from OUR site cities (a POP named Dallas must stay Dallas), are not rewritten
+    if (typeof v === 'string') return /id$|Id$|^id$/.test(key) || key === 'sharedRiskGroups' || key === 'routeNotes' || key === 'providerName' ? v : fix(v);
     if (Array.isArray(v)) return v.map(x => walk(x, key));
     if (v && typeof v === 'object') { const o = v as Record<string, unknown>; for (const k of Object.keys(o)) o[k] = walk(o[k], k); return o; }
     return v;

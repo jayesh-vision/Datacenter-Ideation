@@ -80,6 +80,7 @@ export function NetworkElement() {
               <span><I.Building2 size={13} /><Link className="ent-link" to={`/datacenters/${ne.dcId}`}>{ne.dcId}</Link></span>
               <span><I.Server size={13} /><Link className="ent-link" to={`/dcim/racks/${encodeURIComponent(ne.rackId)}`} title="Open the rack in DCIM (elevation, PDUs, cables)">{rackName} · U{ne.u}</Link></span>
               <span className="mono">{ne.ip}</span>
+              {ne.purpose && <span data-purpose><I.Workflow size={13} />{ne.purpose}</span>}
               {!nd && ne.lastSeen && <span>polled {fmtDateTime(ne.lastSeen)} via {ne.collector}</span>}
             </div>
           </div>

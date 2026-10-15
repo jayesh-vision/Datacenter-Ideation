@@ -1,0 +1,132 @@
+/* Command center — plan and build (14-Oct-2026): the slim strip above the operations hero and the Plan & build lens.
+   NST tokens only; layout here, visuals from vw-card-* and the shared panel rhythm. */
+
+/* lens switch in the page head */
+.cmd-title-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.cmd-lens .seg button { white-space: nowrap; }
+
+/* ---- strip: one card, three segments (Plan · Build · Capacity pipeline) */
+.pb-strip { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.15fr); gap: 0; padding: 0 !important; }
+.pb-seg { display: grid; grid-template-rows: 26px 18px 8px 20px; row-gap: 7px; padding: 12px var(--vw-space-md) 11px; min-width: 0; }
+.pb-seg + .pb-seg { border-left: 1px solid var(--vw-color-slate-200); }
+/* ops view: collapsible; slim = one row per segment (bar and attention flag in the row) so the hero stays above the fold */
+.pb-strip.is-collapsible { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.15fr) auto; }
+.pb-strip.is-slim { margin-bottom: -6px; }
+.pb-seg.is-slim { grid-template-rows: 26px; padding: 6px var(--vw-space-md); }
+.pb-seg.is-slim .pb-seg-head { gap: 6px; }
+.pb-seg.is-slim .pb-seg-metric { margin-left: 4px; flex: 0 1 auto; }
+.pb-seg.is-slim .pb-seg-n { font-size: 19px; }
+.pb-seg-minibar { margin-left: auto; flex: 0 1 64px; min-width: 32px; display: flex; }
+.pb-seg-minibar .pb-bar { height: 8px !important; }
+.pb-seg-flag { position: relative; display: grid; place-items: center; flex-shrink: 0; }
+.pb-seg-flag.is-warn { color: var(--vw-color-amber-600); }
+.pb-seg-flag.is-bad { color: var(--vw-color-red-600); }
+.pb-strip-toggle { display: flex; align-items: center; gap: 4px; position: relative; padding: 0 12px; border: 0; border-left: 1px solid var(--vw-color-slate-200); background: none; font: inherit; font-size: var(--vw-font-label-sm); color: var(--vw-color-gray-600); cursor: pointer; border-radius: 0 var(--vw-radius-md, 8px) var(--vw-radius-md, 8px) 0; }
+.pb-strip-toggle:hover { color: var(--primaryColor700); background: var(--vw-color-slate-50); }
+.pb-seg-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.pb-seg-ic { width: 22px; height: 22px; border-radius: var(--vw-radius-sm); display: grid; place-items: center; background: var(--vw-color-slate-100); color: var(--vw-color-gray-700); flex-shrink: 0; }
+.pb-seg-name { font-size: var(--vw-font-label-md); font-weight: 600; color: var(--vw-color-gray-900); text-decoration: none; white-space: nowrap; }
+.pb-seg-name:hover { color: var(--primaryColor700); }
+.pb-seg-go { color: var(--vw-color-gray-400); display: grid; place-items: center; }
+.pb-seg-go:hover { color: var(--primaryColor600); }
+.pb-seg-metric { margin-left: auto; display: flex; align-items: baseline; gap: 5px; min-width: 0; white-space: nowrap; overflow: hidden; }
+.pb-seg-n { font-family: var(--fontFamily); font-size: 22px; font-weight: 300; line-height: 26px; color: var(--vw-color-gray-900); font-variant-numeric: tabular-nums; }
+.pb-seg-unit { font-size: var(--vw-font-label-sm); color: var(--vw-color-gray-500); overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.pb-seg-go { margin-left: 2px !important; }
+.pb-seg-sub { font-size: var(--vw-font-label-sm); color: var(--vw-color-gray-600); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; line-height: 18px; }
+.pb-seg-sub b { font-weight: 600; color: var(--vw-color-gray-900); }
+.pb-seg-sub b.pb-warn { color: var(--vw-color-amber-700); }
+.pb-seg-sub b.pb-hot { color: var(--vw-color-red-600); }
+.pb-seg-att { display: flex; align-items: center; gap: 6px; font-size: var(--vw-font-label-sm); line-height: 20px; color: var(--vw-color-gray-700); min-width: 0; text-decoration: none; }
+.pb-seg-att > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+a.pb-seg-att:hover > span { color: var(--primaryColor700); text-decoration: underline; text-underline-offset: 2px; }
+.pb-seg-att svg { flex-shrink: 0; color: var(--vw-color-emerald-600); }
+.pb-seg-att.is-warn svg { color: var(--vw-color-amber-600); }
+.pb-seg-att.is-bad svg { color: var(--vw-color-red-600); }
+
+/* ---- proportion bar with a floating tip (no native title) */
+.pb-bar { position: relative; display: flex; gap: 2px; width: 100%; border-radius: 4px; background: var(--vw-color-slate-100); }
+.pb-bar > i { position: relative; display: block; min-width: 4px; height: 100%; border-radius: 3px; }
+.pb-bar > i[data-tip]:hover::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); z-index: 20; white-space: nowrap; pointer-events: none;
+  font: 500 11.5px/1.3 var(--fontFamily); color: #fff; background: var(--vw-color-gray-900); padding: 4px 8px; border-radius: 6px; box-shadow: 0 4px 12px rgb(15 23 42 / .18); }
+.pb-bar > i[data-tip]:hover { filter: brightness(.94); }
+
+/* ---- lens: two rows of equal-height pairs, bodies scroll */
+.pb-pair { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) !important; grid-auto-rows: 430px; align-items: stretch; }
+.pb-pair-b { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; grid-auto-rows: 470px; }
+.pb-pair.is-quiet { grid-auto-rows: auto; }
+.pb-pair > .panel { height: 100%; min-height: 0; display: flex; flex-direction: column; }
+.pb-pair > .panel .panel-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.pb-pair .panel-foot { flex-shrink: 0; font-size: 12px; }
+
+/* capacity pipeline */
+.pb-cap .panel-body { display: grid; grid-template-columns: minmax(170px, 0.8fr) minmax(0, 2fr); grid-template-rows: auto minmax(0, 1fr); gap: 12px 16px; overflow: hidden !important; }
+.pb-cap .panel-body > .pb-bar { grid-column: 1 / -1; }
+.pb-cap-detail { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.pb-cap-detail .pb-items { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.pb-cap .pb-bar { flex-shrink: 0; }
+.pb-stages { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.pb-stage { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "l l" "v n"; gap: 1px 8px; align-items: baseline; padding: 6px 10px; border: 1px solid var(--vw-color-slate-200); border-radius: var(--vw-radius-sm); background: var(--surface, #fff); text-align: left; font: inherit; color: inherit; cursor: pointer; min-width: 0; }
+.pb-stage:hover { border-color: var(--vw-color-slate-300); }
+.pb-stage.is-active { border-color: var(--primaryColor400); box-shadow: inset 3px 0 0 var(--primaryColor500); background: var(--vw-color-slate-50); }
+.pb-stage-l { grid-area: l; display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--vw-color-gray-600); white-space: nowrap; min-width: 0; }
+.pb-stage-l i { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.pb-stage-v { grid-area: v; font-family: var(--num); font-variant-numeric: tabular-nums; font-size: 15px; font-weight: 600; color: var(--vw-color-gray-900); white-space: nowrap; }
+.pb-stage-n { grid-area: n; text-align: right; font-size: 11px; color: var(--vw-color-gray-500); white-space: nowrap; }
+.pb-list-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--vw-color-slate-200); padding-bottom: 6px; flex-shrink: 0; }
+.pb-items { display: flex; flex-direction: column; }
+.pb-item { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 7px 4px; border-bottom: 1px solid var(--line-soft); color: inherit; text-decoration: none; }
+.pb-item:hover { background: var(--vw-color-slate-50); }
+.pb-item:hover b { color: var(--primaryColor700); }
+.pb-item-ic { width: 26px; height: 26px; border-radius: var(--vw-radius-sm); display: grid; place-items: center; background: var(--vw-color-slate-100); color: var(--vw-color-gray-600); }
+.pb-item-main { display: flex; flex-direction: column; min-width: 0; }
+.pb-item-main b, .pb-ev-main b, .pb-row-main b { font-size: 13px; font-weight: 500; color: var(--vw-color-gray-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.pb-item-main small, .pb-ev-main small, .pb-row-main small { font-size: 11.5px; color: var(--vw-color-gray-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pb-num { font-family: var(--num); font-variant-numeric: tabular-nums; font-size: 12.5px; font-weight: 500; color: var(--vw-color-gray-700); white-space: nowrap; text-align: right; }
+
+/* rows (decisions, projects) */
+.pb-rows { display: flex; flex-direction: column; }
+.pb-row { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 12px; align-items: center; min-height: 54px; padding: 8px 6px; border-top: 1px solid var(--line-soft); color: inherit; text-decoration: none; }
+.pb-row:first-child { border-top: 0; }
+.pb-row:hover { background: var(--vw-color-slate-50); }
+.pb-row:hover .pb-row-main b { color: var(--primaryColor700); }
+.pb-row-ic { width: 30px; height: 30px; border-radius: var(--vw-radius-sm); display: grid; place-items: center; background: var(--vw-color-slate-100); color: var(--vw-color-gray-600); }
+.pb-row-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pb-row-when { font-family: var(--num); font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 500; color: var(--vw-color-gray-600); white-space: nowrap; text-align: right; min-width: 44px; }
+.pb-row-when.is-hot { color: var(--vw-color-red-600); }
+.pb-prow { grid-template-columns: minmax(0, 1fr) 132px; }
+.pb-prow-t { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.pb-prow-t .vw-chip { flex-shrink: 0; }
+.pb-prog { display: grid; grid-template-columns: minmax(0, 1fr) 38px; align-items: center; gap: 8px; }
+.pb-prog-bar { position: relative; height: 6px; border-radius: 3px; background: var(--vw-color-slate-200); }
+.pb-prog-bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--primaryColor500); }
+.pb-prog-bar em { position: absolute; top: -3px; width: 2px; height: 12px; margin-left: -1px; background: var(--vw-color-gray-500); border-radius: 1px; }
+
+/* week ahead */
+.pb-agenda { display: flex; flex-direction: column; gap: 12px; }
+.pb-day { display: flex; flex-direction: column; }
+.pb-day-h { display: flex; align-items: baseline; gap: 8px; font-size: 12px; color: var(--vw-color-gray-500); padding-bottom: 5px; border-bottom: 1px solid var(--vw-color-slate-200); font-variant-numeric: tabular-nums; }
+.pb-day-h b { font-weight: 600; color: var(--vw-color-gray-800); }
+.pb-day.is-today .pb-day-h { border-bottom-color: var(--primaryColor400); }
+.pb-ev { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; align-items: center; min-height: 44px; padding: 5px 4px; border-bottom: 1px solid var(--line-soft); color: inherit; text-decoration: none; }
+.pb-ev:hover { background: var(--vw-color-slate-50); }
+.pb-ev:hover .pb-ev-main b { color: var(--primaryColor700); }
+.pb-ev-ic { display: grid; place-items: center; color: var(--vw-color-gray-400); }
+.pb-ev-ic.is-warn { color: var(--vw-color-amber-600); }
+.pb-ev-main { display: flex; flex-direction: column; min-width: 0; }
+.pb-later-h { margin-top: 4px; }
+.pb-more { align-self: flex-start; margin-top: 4px; background: none; border: 0; padding: 2px 4px; font: inherit; font-size: 12px; color: var(--primaryColor600); cursor: pointer; }
+.pb-empty { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--vw-color-gray-500); padding: 10px 4px; }
+.pb-empty svg { color: var(--vw-color-emerald-600); flex-shrink: 0; }
+
+/* the Recommendations list: plan decisions after Opstral's ranked actions */
+.rec-sep { margin: 12px 0 2px; padding-top: 10px; border-top: 1px solid var(--vw-color-slate-200); }
+.rec .ico.is-plan { background: var(--vw-color-slate-100); color: var(--vw-color-gray-700); }
+.rec .rank.is-hot { color: var(--vw-color-red-600); }
+
+@media (max-width: 1100px) {
+  .pb-strip, .pb-strip.is-collapsible { grid-template-columns: minmax(0, 1fr); }
+  .pb-strip-toggle { border-left: 0; border-top: 1px solid var(--vw-color-slate-200); padding: 6px 12px; justify-content: center; }
+  .pb-seg + .pb-seg { border-left: 0; border-top: 1px solid var(--vw-color-slate-200); }
+  .pb-pair, .pb-pair-b { grid-template-columns: minmax(0, 1fr) !important; }
+}

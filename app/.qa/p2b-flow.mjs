@@ -25,7 +25,7 @@ ok((await body()).includes('Approved'), 'approval path complete → Approved');
 const run = p.getByRole('button', { name: 'Start the build' });
 ok(await run.count() === 1 && !(await run.isDisabled()), 'Start the build enabled');
 if (await run.count()) { await run.click(); await p.waitForTimeout(2500); ok((await body()).includes('Executing'), 'executing'); }
-await p.evaluate(u => { history.pushState({}, '', u); dispatchEvent(new PopStateEvent('popstate')); }, '/delivery'); await p.waitForTimeout(1200);
+await p.evaluate(u => { history.pushState({}, '', u); dispatchEvent(new PopStateEvent('popstate')); }, '/delivery?tab=projects'); await p.waitForTimeout(1200);
 ok((await p.innerText('body')).includes(ID.replace('PLN-', 'PRJ-')), `project ${ID.replace('PLN-', 'PRJ-')} in Delivery`);
 await p.evaluate(u => { history.pushState({}, '', u); dispatchEvent(new PopStateEvent('popstate')); }, '/capacity?tab=reservations'); await p.waitForTimeout(1200);
 ok((await p.innerText('body')).includes('Planner hold'), 'planner holds on Capacity');

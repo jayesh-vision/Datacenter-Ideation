@@ -198,7 +198,7 @@ export function newUnits(line: T.PlannerPlantLine, unitKw: number, target: Plant
   const qty = Math.max(0, Math.round(line.qty));
   return Array.from({ length: line.action === 'uprate' ? 0 : qty }, (_, i) => {
     const side = line.side ?? target?.side ?? (system === 'ups' || system === 'transformer' ? ((startIndex + i) % 2 === 0 ? 'A' : 'B') : undefined);
-    return { id: `NEW-${line.id}-${i + 1}`, name: `${line.system === 'CRAH' || line.system === 'CDU' ? line.system : line.system} ${line.model ? `${line.model} ` : ''}#${i + 1} (new)`, system, capacityKw: unitKw, ratingKva: line.ratingKva, loadKw: 0, side, zoneId: line.zoneId ?? target?.zoneId, feedId: target?.feedId, lineId: line.id, isNew: true, stage: line.stage ?? 1, model: line.model };
+    return { id: `NEW-${line.id}-${i + 1}`, name: `${line.model && line.model.toLowerCase().startsWith(line.system.toLowerCase()) ? '' : `${line.system} `}${line.model ? `${line.model} ` : ''}#${i + 1} (new)`, system, capacityKw: unitKw, ratingKva: line.ratingKva, loadKw: 0, side, zoneId: line.zoneId ?? target?.zoneId, feedId: target?.feedId, lineId: line.id, isNew: true, stage: line.stage ?? 1, model: line.model };
   });
 }
 

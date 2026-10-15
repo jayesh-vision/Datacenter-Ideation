@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { clockNow, getCommandCenter, useQuery, vocabNow } from '../api';
 import { usePage, Loading, useSentinel } from '../shell/page';
@@ -12,6 +12,8 @@ import { fmtAgo, fmtDow, fmtDur, fmtNum, fmtShortDate, fmtTime } from '../lib/fo
 import '../styles/command.css';
 import { DcCard } from './ops/DcCard';
 import { OpstralBadge, OpstralBtn } from '../ui/OpstralMark';
+import { PlanBuildLens, PlanBuildStrip, planDecisionRecs, usePlanBuild, type PlanRec } from './command/PlanBuild';
+import type { PlanBuild } from './command/pbModel';
 
 /* One restrained palette (NST): neutral structure, brand blue as the only
    accent, red/amber reserved for things that need attention. */
@@ -21,19 +23,30 @@ type CC = NonNullable<ReturnType<typeof useQuery<Awaited<ReturnType<typeof getCo
 
 /* The command center answers, in order: what is happening, where, who is
    affected, why, what is left, what happens next, what to do (blueprint §1). */
+/* Lenses (14-Oct-2026): Operations (the default) and Plan & build (?lens=build). The operations lens carries a slim plan-and-build
+   strip above the hero, and plan approvals / late long-lead orders follow Opstral's actions in Recommendations. */
+type Lens = 'ops' | 'build';
 export function CommandCenter() {
   usePage([{ label: 'Command center' }]);
+  const [sp, setSp] = useSearchParams();
+  const lens: Lens = sp.get('lens') === 'build' ? 'build' : 'ops';
+  const setLens = (l: Lens) => { const n = new URLSearchParams(sp); if (l === 'ops') n.delete('lens'); else n.set('lens', l); setSp(n, { replace: true }); };
   const { data } = useQuery(getCommandCenter, []);
+  const pb = usePlanBuild();
   if (!data) return <Loading label="Correlating the estate" />;
   return (
     <div className="page cmd">
-      <Situation d={data} />
-      {/* what · who · what to do — three equal columns */}
-      <div className="grid cmd-trio">
-        <ImpactBoard d={data} />
-        <Exposure d={data} />
-        <Recommendations d={data} />
-      </div>
+      <Situation d={data} lens={lens} setLens={setLens} pb={pb} />
+      {lens === 'build'
+        ? (pb ? <PlanBuildLens pb={pb} /> : <Loading label="Reading plans and projects" />)
+        : (
+          /* what · who · what to do — three equal columns */
+          <div className="grid cmd-trio">
+            <ImpactBoard d={data} />
+            <Exposure d={data} />
+            <Recommendations d={data} plan={planDecisionRecs(pb)} />
+          </div>
+        )}
     </div>
   );
 }
@@ -61,7 +74,7 @@ function HealthGauge({ value, band }: { value: number; band: string }) {
 
 const AREA_ICON: Record<string, I.LucideIcon> = { response: I.Siren, network: I.Network, power: I.Zap, cooling: I.Thermometer };
 
-function Situation({ d }: { d: CC }) {
+function Situation({ d, lens, setLens, pb }: { d: CC; lens: Lens; setLens: (l: Lens) => void; pb?: PlanBuild }) {
   const nav = useNavigate();
   const ask = useSentinel();
   const now = clockNow();
@@ -78,7 +91,10 @@ function Situation({ d }: { d: CC }) {
     <>
       <div className="vw-flex vw-justify-between vw-items-center vw-gap-sm cmd-head">
         <div className="vw-flex vw-flex-col">
-          <h1 className="vw-page-title">Command center</h1>
+          <span className="cmd-title-row">
+            <h1 className="vw-page-title">Command center</h1>
+            <span className="cmd-lens"><Seg size="sm" value={lens} onChange={setLens} options={[{ id: 'ops', label: 'Operations', icon: I.Activity, title: 'Live operations: health, incidents, who is affected, what to do' }, { id: 'build', label: 'Plan & build', icon: I.DraftingCompass, title: 'Plans, approvals, delivery projects, the capacity pipeline and the week ahead' }]} /></span>
+          </span>
           <p className="vw-page-description cmd-fresh"><i className="live-dot" />{fmtDow(now)} {fmtShortDate(now)} · {fmtTime(now)} · {p.liveDcs} live datacenters · snapshot 1 min ago</p>
         </div>
         <div className="vw-flex vw-gap-sm">
@@ -87,8 +103,10 @@ function Situation({ d }: { d: CC }) {
         </div>
       </div>
 
+      {lens === 'ops' && pb && <PlanBuildStrip pb={pb} lensTo="/?lens=build" collapsible />}
+
       {/* hero: health verdict + the live estate map — one surface */}
-      <section className="vw-card-section hero">
+      {lens === 'ops' && <section className="vw-card-section hero">
         <div className="hero-left">
           <div className="hero-verdict">
             <HealthGauge value={d.shi} band={s.band} />
@@ -166,7 +184,7 @@ function Situation({ d }: { d: CC }) {
           </div>
         </div>
         <DcColumn d={d} now={now} />
-      </section>
+      </section>}
 
 
       <EstateWall d={d} open={wall} onClose={() => setWall(false)} />
@@ -285,11 +303,11 @@ const REC_ICON: Record<string, { icon: I.LucideIcon; tone: string; cta: string }
   approve: { icon: I.ShieldCheck, tone: 'tone-neutral', cta: 'Review & approve' }, run: { icon: I.Play, tone: 'tone-neutral', cta: 'Open action plan' }, change: { icon: I.ArrowLeftRight, tone: 'tone-neutral', cta: 'Open change' },
   rma: { icon: I.PackageSearch, tone: 'tone-neutral', cta: 'Open incident' }, discover: { icon: I.Radar, tone: 'tone-neutral', cta: 'Open site' }, plan: { icon: I.TrendingUp, tone: 'tone-neutral', cta: 'Open capacity' }
 };
-function Recommendations({ d }: { d: CC }) {
+function Recommendations({ d, plan }: { d: CC; plan: PlanRec[] }) {
   const ask = useSentinel();
   return (
     <Panel title="Recommendations" sub="Opstral AI's ranked actions — disruptive steps stay approval-gated (DC-AI-006/007)" icon={OpstralBadge}
-      info="Opstral AI ranks the next best action across all open incidents by severity, customer impact and time to SLA, and says why and what it buys. Steps that disrupt service wait for an operator's approval; the others open an action plan or change."
+      info="Opstral AI ranks the next best action across all open incidents by severity, customer impact and time to SLA, and says why and what it buys. Steps that disrupt service wait for an operator's approval; the others open an action plan or change. Below them: plan approval steps waiting (oldest first) and late long-lead orders, which open the plan's approvals or the project's orders."
 
       actions={<button type="button" className="panel-link" onClick={() => ask('What should we do first?')}>Ask why<I.ChevronRight size={14} /></button>}>
       <div>
@@ -308,6 +326,20 @@ function Recommendations({ d }: { d: CC }) {
             </div>
           );
         })}
+        {plan.length > 0 && <>
+          <div className="cmd-label rec-sep">Plan & build decisions <span className="n">{plan.length}</span></div>
+          {plan.map(r => (
+            <div className="rec" key={r.key}>
+              <span className="ico is-plan">{r.kind === 'plan' ? <I.Stamp size={16} /> : <I.PackageX size={16} />}</span>
+              <div style={{ minWidth: 0 }}>
+                <div className={`rank${r.hot ? ' is-hot' : ''}`}>{r.rank}</div>
+                <div className="t">{r.title}</div>
+                <div className="w">{r.why}</div>
+              </div>
+              <Link to={r.to} className="nst-btn nst-btn--xs">{r.cta}</Link>
+            </div>
+          ))}
+        </>}
       </div>
     </Panel>
   );

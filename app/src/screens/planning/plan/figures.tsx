@@ -1,34 +1,32 @@
-/* Figures shared by the wizard and the plan page: the order-by / need-by bars of the long-lead items and the cash-flow bars. */
-import { Chip } from '../../../ui/kit';
-import type { CashflowYear, ScheduleItem } from '../../../planner/lib/engine';
-import { clockMs } from '../../../planner/compat/clock';
-import { date, money } from '../common';
+/* Small figures of the plan page tabs: a compact tile strip (sub-line under the number, no empty detail box), a value with its source
+   chip, a panel of template inputs with their sources. (The old CSS order bars and cash-flow bars were replaced by schedule.tsx,
+   pack/drawings LeadTimes and charts/Cashflow.) */
+import type { ReactNode } from 'react';
+import * as I from 'lucide-react';
+import { Panel } from '../../../ui/kit';
+import { StatGrid } from '../../../ui/Analytics';
+import type { Evaluation, ParamValue, Sourced } from '../../../planner/lib/engine';
+import { SourceChip, fmtValue } from '../common';
 
-export function ScheduleGantt({ items, target }: { items: ScheduleItem[]; target: string }) {
-  const rows = items.filter(i => i.kind === 'equipment' || i.late).sort((a, b) => a.orderBy.localeCompare(b.orderBy));
-  if (!rows.length) return <p className="vw-label">Nothing to order for this plan.</p>;
-  const now = clockMs();
-  const t0 = Math.min(now, ...rows.map(r => new Date(r.orderBy).getTime()));
-  const t1 = Math.max(new Date(target).getTime(), ...rows.map(r => new Date(r.needBy).getTime()));
-  const x = (t: number) => `${Math.max(0, Math.min(100, ((t - t0) / Math.max(1, t1 - t0)) * 100))}%`;
+/** StatGrid of compact tiles: the qualifier wraps under the number and the tile is only as tall as its content. */
+export function TileStrip({ cols, children }: { cols: number; children: ReactNode }) {
+  return <div className={`pn-tstrip is-${cols}`}><StatGrid cols={cols} fit>{children}</StatGrid></div>;
+}
+
+/** A derived value with the chip saying where it came from. */
+export function SourcedValue({ s, unit }: { s?: Sourced<ParamValue>; unit?: string }) {
+  if (!s) return <span className="vw-label">—</span>;
+  return <span className="pn-sv"><span>{fmtValue(s.value, unit)}</span><SourceChip s={s.source} note={s.note} short /></span>;
+}
+
+/** The template inputs behind a figure, with their values and sources (only the ones the template defines). */
+export function ParamPanel({ ev, keys, title, icon = I.SlidersHorizontal, info }: { ev: Evaluation; keys: string[]; title: string; icon?: I.LucideIcon; info?: string }) {
+  const rows = keys.map(k => ({ k, def: ev.resolved?.params.find(p => p.key === k), s: ev.params[k] })).filter(r => r.def && r.s && r.s.value !== '' && r.s.value !== undefined);
+  if (!rows.length) return null;
   return (
-    <div className="pn-gantt">
-      <div className="pn-g-row vw-label" style={{ fontSize: 11.5 }}><span>Item · order by → need by</span><span className="row" style={{ justifyContent: 'space-between' }}><span>{date(new Date(t0).toISOString())}</span><span>{date(new Date(t1).toISOString())}</span></span><span style={{ textAlign: 'right' }}>Lead time</span></div>
-      {rows.map((r, i) => { const a = new Date(r.orderBy).getTime(), b = new Date(r.needBy).getTime(); return (
-        <div key={i} className="pn-g-row" title={`${r.item}: order by ${date(r.orderBy)}, needed ${date(r.needBy)} (${r.phase})${r.note ? ` · ${r.note}` : ''}`}>
-          <span>{r.late && <Chip tone="error" size="xs">Late</Chip>} {r.item}<small className="vw-label"> · {r.phase}</small></span>
-          <span className="pn-g-track"><i className={r.late ? 'late' : r.source === 'stock' || r.source === 'site' ? 'stock' : ''} style={{ left: x(a), width: `calc(${x(b)} - ${x(a)})` }} /><em className="today" style={{ left: x(now) }} /><em style={{ left: x(new Date(target).getTime()) }} /></span>
-          <b>{r.leadWeeks} wk{r.bufferWeeks ? ` +${r.bufferWeeks}` : ''}</b>
-        </div>); })}
-      <div className="row wrap vw-label" style={{ gap: 12, fontSize: 11.5, marginTop: 4 }}><span><i style={{ display: 'inline-block', width: 10, height: 8, background: 'var(--primaryColor400)', borderRadius: 2, marginRight: 4 }} />to buy</span><span><i style={{ display: 'inline-block', width: 10, height: 8, background: 'var(--vw-color-emerald-400)', borderRadius: 2, marginRight: 4 }} />from stock or site</span><span><i style={{ display: 'inline-block', width: 10, height: 8, background: 'var(--vw-color-red-400)', borderRadius: 2, marginRight: 4 }} />late: the order date has passed</span><span>| today · | go-live</span></div>
-    </div>
+    <Panel title={title} icon={icon} count={rows.length} info={info ?? 'The inputs behind these figures: entered, from the requirements, a benchmark, an estate actual, or the template default.'}>
+      <div className="pn-pvals">{rows.map(r => <div key={r.k}><span>{r.def?.label ?? r.k}</span><SourcedValue s={r.s} unit={r.def?.unit} /></div>)}</div>
+    </Panel>
   );
 }
 
-export function CashflowBars({ years }: { years: CashflowYear[] }) {
-  const rows = years.slice(0, 11);
-  const max = Math.max(1, ...rows.map(y => Math.abs(y.net)));
-  return (
-    <div className="pn-cash">{rows.map(y => <div key={y.year} title={`${y.label}: CapEx ${money(y.capex)}, OpEx ${money(y.opex)}, revenue ${money(y.revenue)}${y.benefit ? `, benefit ${money(y.benefit)}` : ''} → net ${money(y.net)}, cumulative ${money(y.cumulative)}`}><i className={y.net >= 0 ? 'up' : 'down'} style={{ height: `${(Math.abs(y.net) / max) * 50}%` }} /><small>{y.label.replace(/^Year\s*/i, 'Y')}</small></div>)}</div>
-  );
-}

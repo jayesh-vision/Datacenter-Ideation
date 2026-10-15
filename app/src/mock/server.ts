@@ -12,7 +12,7 @@ import { edgeId, isPersona } from './personas';
 import { PLANE_SHORT, planeOf, type Plane } from '../lib/fabric';
 import { GEO_BY_ID, dcAt, isGeo, setActiveGeo, type Geo } from './geo';
 import { defaultPersona, overrideGeo, overridePersona } from './override';
-import { fmtNum, setMoneyLocale } from '../lib/format';
+import { fmtMoney, fmtNum, moneyLocale, setMoneyLocale } from '../lib/format';
 import { mulberry32 } from '../lib/rng';
 import { impactOf, isOpen, RESOLVE_SLA, RESPONSE_SLA } from './incidents';
 import { DAY, HOUR, MIN } from './seed';
@@ -28,7 +28,8 @@ import { addCustomType, clearDcim, customTypeById, dcimCatalog as dcimCatalog_, 
 import { addressDetail, assignToDevice, carvePrefix, clearIpam, createPrefix, integrations, ipamModel, reserveNextIp, resetIpamOverlay, setPrimaryAddress, syncIntegration, unassignAddress } from './ipam';
 import { capacityHolds, gpuCapacity, siteEnergy } from './capacity';
 import { setPlannerClock } from '../planner/compat/clock';
-import { registerPlannerStore } from '../planner/compat/registry';
+import { registerPlannerMoney, registerPlannerStore } from '../planner/compat/registry';
+import { USD_RATE } from './p2b/adapter';
 import { plannerQueue as queue_ } from './p2b/bridge';
 import { p2bStore, plannerStoreSerial as p2bSerial, resetPlanner2, subscribePlanner } from './p2b';
 import { addRisk, advanceWorkOrder, createProgramme, createTemplateProject, decideChangeOrder, deliveryProgramme as deliveryProgramme_, deliveryProgrammes, deliveryProject as deliveryProject_, deliveryProjects, handover as handover_, raiseChangeOrder, receivePo, resetDelivery, runTest as runTest_, setProgrammeStatus, setRiskState, startTemplateProject, sumCurves } from './delivery';
@@ -1318,6 +1319,9 @@ export const auditLog = () => [...db.audit].sort((a, b) => b.at - a.at);
 /* ---- Planner (P2B port, 13-Oct-2026): the planner's record store over our estate; its screens read and write it directly */
 setPlannerClock(() => now());
 registerPlannerStore({ store: () => p2bStore(db), serial: p2bSerial, subscribe: subscribePlanner });
+registerPlannerMoney(usd => fmtMoney(moneyLocale().currency === 'USD' ? usd : usd * USD_RATE));
+/* a planner write (approve, start the build, holds) or a Delivery move changes what Delivery, Change management and Capacity show */
+subscribePlanner(() => { clearChangeMgmt(); listeners.forEach(f => f()); });
 export const plannerStore = () => p2bStore(db);
 export const plannerQueue = () => queue_(db);
 export const onPlannerChange = subscribePlanner;

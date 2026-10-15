@@ -2,7 +2,7 @@
 import type * as T from '../p2b/types';
 import { fmtUsd, type Evaluation } from './engine';
 import { buildBasisOfDesign, buildBom, buildInitiation, buildIpPlan, toCsv, type Bom, type BodSection, type Initiation, type IpPlan } from './outputs';
-import { sourceBom, type SourceKind, type SourcedBom, type SourcingContext, type VendorOrder } from './sourcing';
+import { sourceBom, type SourceKind, type SourcedBom, type SourcedLine, type SourcingContext, type VendorOrder } from './sourcing';
 
 export type PackSection = 'document' | 'bom' | 'ip' | 'drawings' | 'initiation';
 export const PACK_SECTIONS: { value: PackSection; label: string }[] = [
@@ -22,43 +22,89 @@ export function covers(template: T.PlannerTemplate | undefined, aspect: T.Planne
 }
 
 import { REPLACE_SCOPES } from './outputs';
+import type { PlantAnalysis } from './plantModel';
+import type { NetworkAnalysis } from './networkModel';
+import type { InSiteAnalysis } from './inSiteAnalysis';
+import { replaceOf } from './replaceAnalysis';
 const BUILDING_SCOPES: T.PlannerScope[] = ['new-dc', 'expansion', 'portfolio'];
+const MIGRATION_SCOPES: T.PlannerScope[] = ['migration'];
+const validDate = (s?: string) => !!s && !Number.isNaN(new Date(s).getTime());
 
-/** Which parts of the pack apply to this plan type. */
+/** Which parts of the pack apply to this plan type. A drawing applies only when it has something to draw (the same tests the
+ *  drawings use for their empty state), so the pack never shows an empty sheet. Families add their own drawings and may replace a
+ *  generic one: the plant single-line replaces the generic chain, the DCI path diagram the switching fabric, the real hall grid or
+ *  rack elevation the typical hall. */
 export function packApplicability(plan: T.PlannerPlan, ev: Evaluation, template: T.PlannerTemplate | undefined) {
   const s = ev.sizing;
   // Replacement plans keep the existing addresses, fabric and plant; they produce an old-to-new list instead.
   const replace = REPLACE_SCOPES.includes(plan.scope);
-  const network = !replace && covers(template, 'network') && (s.network.leaves + s.network.spines + s.network.cores > 0 || plan.scope === 'network');
+  const fabric = s.network.leaves + s.network.spines + s.network.cores > 0;
+  const network = !replace && covers(template, 'network') && (fabric || plan.scope === 'network');
+  const plant = ev.scope?.plant as PlantAnalysis | undefined;
+  const net = ev.scope?.network as NetworkAnalysis | undefined;
+  const ins = ev.scope?.inSite as InSiteAnalysis | undefined;
+  const rep = replace && ev.ctx?.data ? replaceOf(ev) : undefined;
+  const plantReady = plan.scope === 'plant' && !!plant?.baseline;
+  const dci = plan.scope === 'network' && net?.kind === 'dci' && net.ready && net.paths.length > 0;
+  const rackElev = (ins?.type === 'rack' && !!ins.rack && (ins.rack.accepted.length > 0 || ins.rack.candidates.some(c => !c.blocked.length && !!c.block)))
+    || (!!rep && rep.scope !== 'rack-replace' && rep.rackRows.some(r => !!r.rb && (r.out.length > 0 || r.inn.length > 0)));
+  const hallGrid = (ins?.type === 'hall' && !!ins.hall?.grid && ins.hall.positions.length > 0)
+    || (ins?.type === 'pod' && !!(ins.pod?.chosen ?? ins.pod?.options.find(o => o.fits)))
+    || (ins?.type === 'retrofit' && !!ins.retrofit?.hall && ins.retrofit.rows.length > 0);
+  const waves = (replace || MIGRATION_SCOPES.includes(plan.scope)) ? (plan.waves ?? []).some(w => validDate(w.windowStart)) : ins?.type === 'retrofit' ? (ins.retrofit?.waves ?? []).some(w => validDate(w.windowStart)) : false;
+  const b = s.building;
   return {
     ip: network,
-    building: BUILDING_SCOPES.includes(plan.scope) && s.halls > 0,
-    hall: !replace && covers(template, 'space') && s.racks > 0 && plan.scope !== 'network' && plan.scope !== 'migration',
-    singleLine: !replace && covers(template, 'power') && s.plant.length > 0,
-    topology: network,
-    phasing: ev.ladder.length > 0,
-    leadTimes: ev.schedule.length > 0,
+    building: BUILDING_SCOPES.includes(plan.scope) && s.halls > 0 && s.buildings > 0 && b.floorsPerBuilding > 0 && b.hallsPerFloor > 0,
+    hall: !replace && covers(template, 'space') && s.racks > 0 && s.halls > 0 && plan.scope !== 'network' && plan.scope !== 'migration' && plan.scope !== 'rack' && plan.scope !== 'retrofit' && !hallGrid,
+    singleLine: !replace && !plantReady && covers(template, 'power') && s.itKw > 0 && s.plant.some(x => x.kind === 'feed' || x.kind === 'ups'),
+    topology: network && fabric && !dci,
+    phasing: ev.ladder.some(r => validDate(r.phase.goLive)),
+    leadTimes: ev.schedule.some(it => validDate(it.orderBy) && validDate(it.needBy)),
+    plantAsIs: plantReady,
+    plantToBe: plantReady && (plan.plantLines ?? []).length > 0,
+    cutIns: plantReady && (plant?.cutIns.length ?? 0) > 0,
+    dciPaths: dci,
+    dciCutover: dci && validDate(net?.cutover),
+    rackElevation: rackElev,
+    hallGrid,
+    hallMep: ins?.type === 'hall' && !!ins.hall && ins.hall.positions.length > 0 && (ins.hall.pduPerSide > 0 || ins.hall.crah.units > 0 || ins.hall.existingPduHeadroom.A > 0),
+    liquid: ins?.type === 'retrofit' && (ins.retrofit?.cdu.loops.length ?? 0) > 0,
+    waves,
   };
 }
 export type PackApplicability = ReturnType<typeof packApplicability>;
 
 /* ------------------------------------------------------------------ drawings */
-export type SheetKind = 'building' | 'hall' | 'single-line' | 'topology' | 'phasing' | 'lead-times';
-export interface DrawingSheet { kind: SheetKind; number: string; title: string }
+export type SheetKind = 'building' | 'hall' | 'single-line' | 'topology' | 'phasing' | 'lead-times'
+  | 'plant-as-is' | 'plant-to-be' | 'cut-ins' | 'dci-paths' | 'dci-cutover' | 'rack-elevation' | 'hall-grid' | 'hall-mep' | 'liquid' | 'waves';
+/** A numbered sheet; `outputs` matches the template outputs it delivers (so the pack manifest points them at Drawings). */
+export interface DrawingSheet { kind: SheetKind; number: string; title: string; outputs?: RegExp }
 
 export function drawingSheets(plan: T.PlannerPlan, applies: PackApplicability): DrawingSheet[] {
-  const list: { kind: SheetKind; disc: 'A' | 'E' | 'N' | 'G'; title: string; on: boolean }[] = [
+  const refresh = REPLACE_SCOPES.includes(plan.scope);
+  const list: { kind: SheetKind; disc: 'A' | 'E' | 'M' | 'N' | 'G'; title: string; on: boolean; outputs?: RegExp }[] = [
     { kind: 'building', disc: 'A', title: 'Building and floor plan', on: applies.building },
+    { kind: 'hall-grid', disc: 'A', title: plan.scope === 'retrofit' ? 'Hall grid, racks converted to liquid' : 'Hall grid, before and after', on: applies.hallGrid, outputs: /hall layout|placement/i },
     { kind: 'hall', disc: 'A', title: 'Typical data hall layout', on: applies.hall },
+    { kind: 'rack-elevation', disc: 'A', title: refresh ? 'Rack elevations, before and after the swap' : 'Rack elevation, before and after', on: applies.rackElevation, outputs: /rack elevation|rack power and space/i },
+    { kind: 'plant-as-is', disc: 'E', title: 'Plant single-line, as-is', on: applies.plantAsIs, outputs: /single-line/i },
+    { kind: 'plant-to-be', disc: 'E', title: 'Plant single-line, to-be', on: applies.plantToBe, outputs: /single-line/i },
     { kind: 'single-line', disc: 'E', title: 'Electrical single-line', on: applies.singleLine },
+    { kind: 'hall-mep', disc: 'E', title: 'Hall power and cooling', on: applies.hallMep, outputs: /electrical and cooling design/i },
+    { kind: 'liquid', disc: 'M', title: 'Liquid cooling schematic', on: applies.liquid, outputs: /liquid cooling design/i },
+    { kind: 'dci-paths', disc: 'N', title: 'Interconnect paths and diversity', on: applies.dciPaths, outputs: /path and diversity/i },
     { kind: 'topology', disc: 'N', title: 'Network topology', on: applies.topology },
+    { kind: 'cut-ins', disc: 'G', title: 'Cut-in sequence', on: applies.cutIns, outputs: /cut-in sequence/i },
+    { kind: 'dci-cutover', disc: 'G', title: 'Cut-over and cease plan', on: applies.dciCutover, outputs: /cut-over and cease/i },
+    { kind: 'waves', disc: 'G', title: 'Wave plan', on: applies.waves, outputs: /wave plan/i },
     { kind: 'phasing', disc: 'G', title: 'Phasing', on: applies.phasing },
     { kind: 'lead-times', disc: 'G', title: 'Lead times', on: applies.leadTimes },
   ];
   const seq: Record<string, number> = {};
   return list.filter(d => d.on).map(d => {
     seq[d.disc] = (seq[d.disc] ?? 0) + 1;
-    return { kind: d.kind, title: d.title, number: `${plan.plnId}-${d.disc}-${String(seq[d.disc]).padStart(3, '0')}` };
+    return { kind: d.kind, title: d.title, number: `${plan.plnId}-${d.disc}-${String(seq[d.disc]).padStart(3, '0')}`, outputs: d.outputs };
   });
 }
 
@@ -69,7 +115,7 @@ export function sourcingReady(ctx: SourcingContext | undefined): ctx is Sourcing
 }
 
 /** Devices this plan already reserved count as available to it again, so an executed plan shows the same split. */
-function contextForPlan(plan: T.PlannerPlan, ctx: SourcingContext): SourcingContext {
+export function contextForPlan(plan: T.PlannerPlan, ctx: SourcingContext): SourcingContext {
   const mine = new Set(plan.artefacts?.reservedDeviceIds ?? []);
   const tag = `Reserved for ${plan.plnId}`;
   if (!mine.size && !ctx.devices.some(d => String(d.notes ?? '').startsWith(tag))) return ctx;
@@ -90,6 +136,16 @@ export function sourcingSplit(s: SourcedBom): SourcingSplit[] {
 }
 /** Purchase orders execution raises: one per vendor with something to pay for. */
 export const vendorOrders = (s: SourcedBom): VendorOrder[] => s.vendors.filter(v => v.value > 0);
+
+/** The sourcing decision as Delivery reads it: one order per vendor and phase, under its contract. Execution records these on the bill
+ *  of materials; before execution Delivery derives the same orders (as drafts), so both show the same purchase orders. */
+export interface VendorOrderRecord { vendorId?: string; vendorName: string; contractId?: string; contractLabel?: string; valueUsd: number; leadWeeks: number; phaseName?: string; needBy?: string; orderBy?: string; lines: { item: string; model?: string; qty: number }[] }
+/** The orders execution recorded, in the pack's shape (only the line count is shown), so an executed plan lists what Delivery holds. */
+export const recordedVendorOrders = (recs: VendorOrderRecord[]): VendorOrder[] => recs.map(r => ({ vendorId: r.vendorId, vendorName: r.vendorName, contractId: r.contractId, contractLabel: r.contractLabel ?? '', lines: r.lines as unknown as SourcedLine[], value: r.valueUsd, leadWeeks: r.leadWeeks, phaseName: r.phaseName, needBy: r.needBy, orderBy: r.orderBy }));
+export const vendorOrderRecords = (s: SourcedBom): VendorOrderRecord[] => vendorOrders(s).map(v => ({
+  vendorId: v.vendorId, vendorName: v.vendorName, contractId: v.contractId, contractLabel: v.contractId ? v.contractLabel : undefined, valueUsd: Math.round(v.value), leadWeeks: v.leadWeeks, phaseName: v.phaseName, needBy: v.needBy, orderBy: v.orderBy,
+  lines: v.lines.map(l => ({ item: l.item, model: l.model, qty: l.allocations.filter(a => a.source === 'procure' && !a.agreement && a.vendorName === v.vendorName && (!v.phaseId || a.phaseId === v.phaseId)).reduce((n, a) => n + a.qty, 0) || l.toBuy })).filter(l => l.qty > 0),
+}));
 export const avoidedCost = (s: SourcedBom) => s.lines.reduce((a, l) => a + l.avoidedCost, 0);
 
 /** Bill-of-materials view of the sourced lines (models and prices resolved), with category totals. */
@@ -166,13 +222,23 @@ const OUTPUT_SECTION: [RegExp, string][] = [
   [/drawing|layout/i, 'drawings'],
   [/basis of design|business case|capacity plan|risk|permit register|placement note|runbook/i, 'document'],
 ];
+/** Template outputs a family pack section holds (by the family's section key); used only when the family registers that section. */
+const FAMILY_OUTPUT: [RegExp, string][] = [
+  [/inventory and disposition/i, 'inventory'], [/customer consent register/i, 'consents'], [/exit plan/i, 'exit'], [/^compliance/i, 'compliance'],
+  [/closure checklist/i, 'closure'], [/old-to-new|swap list/i, 'oldnew'], [/port map|patch list|optics and far-end/i, 'ports'], [/notification list|tenant consent/i, 'people'],
+  [/retrofit rack list/i, 'insite-placement'], [/live cut-ins/i, 'insite-schedules'], [/wave schedule/i, 'waves'],
+];
 export interface ManifestLine { output: string; section?: string; sectionLabel?: string; family: boolean }
 /** The template's pack manifest, each output with the section that holds it (or none yet). Families add sections. */
-export function packManifest(template: T.PlannerTemplate | undefined, extra: { key: string; label: string }[]): ManifestLine[] {
+export function packManifest(template: T.PlannerTemplate | undefined, extra: { key: string; label: string }[], sheets?: DrawingSheet[]): ManifestLine[] {
   const builtIn = new Map<string, string>(PACK_SECTIONS.map(x => [x.value, x.label]));
   const fam = new Map(extra.map(x => [x.key, x.label]));
   return (template?.outputs ?? []).map(output => {
-    const key = OUTPUT_SECTION.find(([re]) => re.test(output))?.[1];
+    // An output a drawing sheet delivers opens the drawings, the rest by name.
+    const key = OUTPUT_SECTION.find(([re]) => re.test(output))?.[1] ?? (sheets?.some(sh => sh.outputs?.test(output)) ? 'drawings' : undefined)
+      ?? FAMILY_OUTPUT.find(([re, k]) => re.test(output) && fam.has(k))?.[1];
+    // A drawing output points at Drawings only when a sheet draws it.
+    if (key === 'drawings' && sheets && (!sheets.length || (/hall grid|layout/i.test(output) && !sheets.some(sh => sh.kind === 'hall' || sh.kind === 'hall-grid' || sh.kind === 'building')))) return { output, family: false };
     const label = key ? fam.get(key) ?? builtIn.get(key) : undefined;
     return { output, section: label ? key : undefined, sectionLabel: label, family: !!key && fam.has(key) };
   });
@@ -192,27 +258,26 @@ export function artefactLines(plan: T.PlannerPlan, pack: PlanPackData): Artefact
   const { bom, ip, init, applies, sourced } = pack;
   const ids = (list: string[] | undefined, to: string, what: string) => (list && list.length ? { status: 'created' as const, links: [{ label: list.length === 1 ? list[0] : `${plural(list.length, what)}`, to }] } : { status: (a ? 'none' : pre) as ArtefactStatus, links: [] });
 
-  const programId = a?.programId ?? plan.programId;
-  const instanceId = a?.processInstanceId ?? plan.processInstanceId;
-  const vehicleLine: ArtefactLine = init.vehicle === 'change'
-    ? { key: 'vehicle', label: 'Change request', detail: init.change ? `${init.change.title}` : init.name, ...(a?.changeRequestId ? { status: 'created', links: [{ label: a.changeRequestId, to: `/changes?id=${encodeURIComponent(a.changeRequestId)}` }] } : { status: a ? 'none' : pre, links: [] }) }
-    : { key: 'vehicle', label: VEHICLE_LABEL[init.vehicle], detail: `${init.vehicle === 'project' && init.projects[0]?.template ? `${init.projects[0].template} template · ` : init.blueprintName ? `${init.blueprintName} blueprint · ` : ''}${plural(init.projects.length, 'project')} · ${fmtUsd(init.budget)}`, ...(programId ? { status: 'created', links: [{ label: programId, to: `/delivery/programs/${programId}` }] } : { status: a ? 'none' : pre, links: [] }) };
+  /* Delivery builds the plan (its project PRJ-n, orders, work orders, permits, commissioning); links go to its records. */
+  const prj = a?.deliveryProjectId ?? plan.plnId.replace(/^PLN-/, 'PRJ-');
+  const dl = (tab?: string) => `/delivery/projects/${prj}${tab ? `?tab=${tab}` : ''}`;
+  const vehicleLine: ArtefactLine = { key: 'vehicle', label: 'Delivery project', detail: `${VEHICLE_LABEL[init.vehicle]} in Delivery · ${plural(init.projects.length || 1, 'stage')} · ${fmtUsd(init.budget)}`, ...(a?.deliveryProjectId ? { status: 'created', links: [{ label: a.deliveryProjectId, to: dl() }] } : { status: a ? 'none' : pre, links: [] }) };
 
   const ipLine: ArtefactLine = applies.ip && !ip.items.length
     ? { key: 'ip', label: 'Subnets and VLANs', detail: ip.aggregate, status: 'na', links: [] }
     : applies.ip
     ? (() => {
       const created = (a?.subnetIds.length ?? 0) + (a?.vlanIds.length ?? 0) > 0;
-      return { key: 'ip', label: 'Subnets and VLANs', detail: `${plural(ip.items.length, 'prefix', 'prefixes')} in ${ip.aggregate} · ${plural(ip.vlans.length, 'VLAN')}`, status: created ? 'created' : a ? 'none' : pre, links: created ? [{ label: `${plural(a!.subnetIds.length, 'subnet')}, ${plural(a!.vlanIds.length, 'VLAN')}`, to: '/ipam/subnets' }] : [] };
+      return { key: 'ip', label: 'Subnets and VLANs', detail: `${plural(ip.items.length, 'prefix', 'prefixes')} in ${ip.aggregate} · ${plural(ip.vlans.length, 'VLAN')}`, status: created ? 'created' : a ? 'none' : pre, links: created ? [{ label: `${plural(a!.subnetIds.length, 'subnet')}, ${plural(a!.vlanIds.length, 'VLAN')}`, to: '/ipam' }] : [] };
     })()
     : { key: 'ip', label: 'Subnets and VLANs', detail: 'Not part of this plan type', status: 'na', links: [] };
 
   const poLine: ArtefactLine = sourced
     ? (() => {
       const orders = vendorOrders(sourced);
-      return { key: 'po', label: 'Purchase orders', detail: orders.length ? `${plural(orders.length, 'vendor order')} · ${fmtUsd(orders.reduce((s, o) => s + o.value, 0))}${orders.some(o => !o.contractId) ? ` · ${orders.filter(o => !o.contractId).length} without contract` : ''}` : 'Nothing to buy', ...(orders.length || a?.purchaseOrderIds.length ? ids(a?.purchaseOrderIds, '/procurement', 'purchase order') : { status: 'na' as const, links: [] }) };
+      return { key: 'po', label: 'Purchase orders', detail: orders.length ? `${plural(orders.length, 'vendor order')} · ${fmtUsd(orders.reduce((s, o) => s + o.value, 0))}${orders.some(o => !o.contractId) ? ` · ${orders.filter(o => !o.contractId).length} without contract` : ''}` : 'Nothing to buy', ...(orders.length || a?.purchaseOrderIds.length ? ids(a?.purchaseOrderIds, dl('procurement'), 'purchase order') : { status: 'na' as const, links: [] }) };
     })()
-    : { key: 'po', label: 'Long-lead purchase orders', detail: init.orders.length ? `${plural(init.orders.length, 'order')} · ${fmtUsd(init.orders.reduce((s, o) => s + o.value, 0))}` : 'No long-lead items', ...(init.orders.length || a?.purchaseOrderIds.length ? ids(a?.purchaseOrderIds, '/procurement', 'purchase order') : { status: 'na' as const, links: [] }) };
+    : { key: 'po', label: 'Long-lead purchase orders', detail: init.orders.length ? `${plural(init.orders.length, 'order')} · ${fmtUsd(init.orders.reduce((s, o) => s + o.value, 0))}` : 'No long-lead items', ...(init.orders.length || a?.purchaseOrderIds.length ? ids(a?.purchaseOrderIds, dl('procurement'), 'purchase order') : { status: 'na' as const, links: [] }) };
 
   // Stock and rack positions: what sourcing would take before execution, what was reserved after.
   const stockIds = a?.reservedDeviceIds ?? [];
@@ -225,14 +290,14 @@ export function artefactLines(plan: T.PlannerPlan, pack: PlanPackData): Artefact
     reservedLines.push({
       key: 'stock', label: 'Stock reserved',
       detail: n ? `${plural(n, 'device')}${sourced ? ` · ${fmtUsd(sourced.stockValue)}` : ''}` : 'Nothing in stock matches',
-      ...(stockIds.length ? { status: 'created' as const, links: [{ label: stockIds.length === 1 ? stockIds[0] : plural(stockIds.length, 'device'), to: stockIds.length === 1 ? `/facility/devices/${stockIds[0]}` : '/facility/devices' }] } : { status: (n ? (a ? 'none' : pre) : 'na') as ArtefactStatus, links: [] }),
+      ...(stockIds.length ? { status: 'created' as const, links: [{ label: stockIds.length === 1 ? stockIds[0] : plural(stockIds.length, 'device'), to: `/planning/plans/${plan.id}?tab=delivery` }] } : { status: (n ? (a ? 'none' : pre) : 'na') as ArtefactStatus, links: [] }),
     });
   }
   if (rackIds.length || rackPlanned) {
     const n = a ? rackIds.length : rackPlanned;
     reservedLines.push({
       key: 'racks', label: 'Rack positions reserved', detail: plural(n, 'position'),
-      ...(rackIds.length ? { status: 'created' as const, links: [{ label: rackIds.length === 1 ? rackIds[0] : plural(rackIds.length, 'rack'), to: rackIds.length === 1 ? `/facility/racks/${rackIds[0]}` : '/facility/racks' }] } : { status: (a ? 'none' : pre) as ArtefactStatus, links: [] }),
+      ...(rackIds.length ? { status: 'created' as const, links: [{ label: rackIds.length === 1 ? rackIds[0] : plural(rackIds.length, 'rack'), to: rackIds.length === 1 ? `/dcim/racks/${encodeURIComponent(rackIds[0])}` : `/dcim?tab=racks${plan.dataCenterId ? `&dc=${plan.dataCenterId}` : ''}` }] } : { status: (a ? 'none' : pre) as ArtefactStatus, links: [] }),
     });
   }
 
@@ -240,22 +305,22 @@ export function artefactLines(plan: T.PlannerPlan, pack: PlanPackData): Artefact
   const extraLines: ArtefactLine[] = [];
   if (plan.scope === 'new-dc' || (plan.scope === 'expansion' && !plan.dataCenterId) || a?.createdSite) {
     const cs = a?.createdSite;
-    extraLines.push({ key: 'site', label: 'Site records', detail: cs ? `${cs.dataCenterId ? 'Data centre, ' : ''}${plural(cs.buildingIds?.length ?? 0, 'building')}, ${plural(cs.hallIds?.length ?? 0, 'hall')} (Planned)` : `${plan.scope === 'new-dc' ? 'Data centre, one building per phase' : 'Building on the campus'}, halls per phase, all Planned`, ...(cs?.dataCenterId ? { status: 'created' as const, links: [{ label: cs.dataCenterId, to: `/facility/dc/${cs.dataCenterId}` }] } : cs ? { status: 'created' as const, links: [] } : { status: (a ? 'none' : pre) as ArtefactStatus, links: [] }) });
+    extraLines.push({ key: 'site', label: 'Site records', detail: cs ? `${cs.dataCenterId ? 'Data centre, ' : ''}${plural(cs.buildingIds?.length ?? 0, 'building')}, ${plural(cs.hallIds?.length ?? 0, 'hall')} (Planned)` : `${plan.scope === 'new-dc' ? 'Data centre, one building per phase' : 'Building on the campus'}, halls per phase, all Planned`, ...(cs?.dataCenterId ? { status: 'created' as const, links: [{ label: cs.dataCenterId, to: `/planning/plans/${plan.id}?tab=delivery` }] } : cs ? { status: 'created' as const, links: [] } : { status: (a ? 'none' : pre) as ArtefactStatus, links: [] }) });
   }
-  if (init.atps?.length) extraLines.push({ key: 'atps', label: 'Acceptance tests', detail: `${plural(init.atps.length, 'test')} with their steps`, ...ids(a?.atpIds, '/commissioning', 'test') });
-  if (init.workOrders?.length) extraLines.push({ key: 'site-wo', label: 'Site work orders', detail: plural(init.workOrders.length, 'work order'), ...(a?.workOrderIds?.length ? { status: 'created' as const, links: [{ label: plural(a.workOrderIds.length, 'work order'), to: '/workorders' }] } : { status: (a ? 'none' : pre) as ArtefactStatus, links: [] }) });
+  if (init.atps?.length) extraLines.push({ key: 'atps', label: 'Acceptance tests', detail: `${plural(init.atps.length, 'test')} with their steps`, ...ids(a?.atpIds, dl('commissioning'), 'test') });
+  if (init.workOrders?.length) extraLines.push({ key: 'site-wo', label: 'Site work orders', detail: plural(init.workOrders.length, 'work order'), ...(a?.workOrderIds?.length ? { status: 'created' as const, links: [{ label: plural(a.workOrderIds.length, 'work order'), to: dl('workorders') }] } : { status: (a ? 'none' : pre) as ArtefactStatus, links: [] }) });
   if (init.vehicle === 'portfolio') extraLines.push({ key: 'children', label: 'Child plans', detail: init.childPlans?.length ? plural(init.childPlans.length, 'child plan') : 'No allocation yet', ...(a?.childPlanIds?.length ? { status: 'created' as const, links: a.childPlanIds.slice(0, 4).map(id => ({ label: id, to: `/planning/plans/${id}` })) } : { status: (init.childPlans?.length ? (a ? 'none' : pre) : 'na') as ArtefactStatus, links: [] }) });
 
   return [
     ...extraLines,
-    { key: 'bom', label: 'Bill of materials', detail: `${plural(bom.lines.length, 'line')} · ${fmtUsd(sourced?.total ?? bom.total)}`, ...(a?.bomId ? { status: 'created', links: [{ label: a.bomId, to: '/procurement' }] } : { status: a ? 'none' : bom.lines.length ? pre : 'na', links: [] }) },
+    { key: 'bom', label: 'Bill of materials', detail: `${plural(bom.lines.length, 'line')} · ${fmtUsd(sourced?.total ?? bom.total)}`, ...(a?.bomId ? { status: 'created', links: [{ label: a.bomId, to: `/planning/plans/${plan.id}?tab=delivery` }] } : { status: a ? 'none' : bom.lines.length ? pre : 'na', links: [] }) },
     poLine,
     ...reservedLines,
     ipLine,
-    { key: 'permits', label: 'Permits to file', detail: init.permits.length ? plural(init.permits.length, 'permit') : 'No permits listed', ...(init.permits.length || a?.permitIds.length ? ids(a?.permitIds, '/delivery/permits', 'permit') : { status: 'na' as const, links: [] }) },
-    { key: 'docs', label: 'Design documents', detail: init.designDocs.map(d => d.name).join(', '), ...ids(a?.designDocIds, '/delivery/design', 'document') },
+    { key: 'permits', label: 'Permits to file', detail: init.permits.length ? plural(init.permits.length, 'permit') : 'No permits listed', ...(init.permits.length || a?.permitIds.length ? ids(a?.permitIds, dl('permits'), 'permit') : { status: 'na' as const, links: [] }) },
+    { key: 'docs', label: 'Design documents', detail: init.designDocs.map(d => d.name).join(', '), ...ids(a?.designDocIds, '/delivery?tab=design', 'document') },
     ...(init.vehicle === 'portfolio' ? [] : [vehicleLine]),
-    { key: 'wo', label: 'Work order', detail: init.workOrder.process, ...(instanceId ? { status: 'created', links: [{ label: instanceId, to: `/workorders/instances/${instanceId}` }] } : { status: a ? 'none' : pre, links: [] }) },
+    ...(init.workOrders?.length ? [] : [{ key: 'wo', label: 'Work orders and change requests', detail: 'Planned by Delivery in crew windows, one change request each', ...ids(a?.workOrderIds, dl('workorders'), 'work order') }]),
   ];
 }
 

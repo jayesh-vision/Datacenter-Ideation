@@ -74,7 +74,11 @@ function enrichMigration(S: Seed, plans: T.PlannerPlan[]) {
   // Dispositions: what was retired goes to certified disposal; live equipment and services move; network and power kit at the source is retired with the site.
   const dsp: T.PlannerDispositionRow[] = [];
   const add = (recordType: T.PlannerDispositionRow['recordType'], recordId: string, label: string, disposition: T.PlannerDisposition, extra: Partial<T.PlannerDispositionRow> = {}) => dsp.push({ recordType, recordId, label, disposition, ...extra });
-  for (const d of devices) add('device', d.id, d.name, d.lifecycleState === 'Retired' ? 'dispose' : !live(d) ? 'move' : d.category === 'PDU' || d.category === 'UPS' ? 'retire' : d.category === 'Server' || d.category === 'GPU-Node' || d.category === 'Storage' ? 'move' : 'retire', { targetRef: live(d) ? tgt.id : undefined });
+  /* the site's own operator servers (telco NMS / AAA / NFV hosts, the colocation operator's DCIM / BMS / CCTV; owner team other than the
+     platform team) carry no customer service: they are retired with the site in the close-out wave, as its network and power kit is */
+  const onService = new Set(services.flatMap(s => [s.deviceId, ...(s.pathDeviceIds ?? [])]).filter((id): id is string => !!id));
+  const siteSystem = (d: T.Device) => (d.category === 'Server' || d.category === 'Storage') && !!d.ownerTeam && !['Platform engineering', 'Tenant'].includes(d.ownerTeam) && !onService.has(d.id);
+  for (const d of devices) add('device', d.id, d.name, d.lifecycleState === 'Retired' ? 'dispose' : !live(d) ? 'move' : d.category === 'PDU' || d.category === 'UPS' ? 'retire' : siteSystem(d) ? 'retire' : d.category === 'Server' || d.category === 'GPU-Node' || d.category === 'Storage' ? 'move' : 'retire', { targetRef: live(d) && !siteSystem(d) ? tgt.id : undefined });
   for (const r of racks.filter(x => x.status !== 'Retired')) add('rack', r.id, r.name, 'retire');
   for (const s of services) add('service', s.id, s.name, 'move', { targetRef: tgt.id });
   for (const c of circuits) add('circuit', c.id, c.cid, 'cease', { notes: 'Dublin CO-1 already has diverse carriers; cease rather than re-terminate' });

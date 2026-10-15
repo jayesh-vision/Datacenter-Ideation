@@ -71,7 +71,7 @@ export function ProjectPage() {
         { key: 'a', header: '', render: w => w.state !== 'Done' ? <Btn size="sm" onClick={() => run(() => advanceWorkOrder(w.id), `${w.id} ${w.state === 'In progress' ? 'completed' : 'started'}`)}>{w.state === 'In progress' ? 'Complete' : 'Start'}</Btn> : null }]} /></section>}
       {tab === 'procurement' && <section className="vw-card-section dcim-table"><DataTable rows={data.pos} pageSize={20} defaultSort={{ key: 'd', dir: 'asc' }} cols={[
         { key: 'id', header: 'PO', render: o => <span className="mono">{o.id}</span> },
-        { key: 'i', header: 'Item', wrap: true, render: o => <span className="cell-2"><b>{o.item}</b><small>{o.qty} × {fmtMoney(o.unitCost)}</small></span> },
+        { key: 'i', header: 'Item', wrap: true, render: o => <span className="cell-2"><b>{o.item}</b><small>{o.lines ? `${o.lines.length} line${o.lines.length === 1 ? '' : 's'} · ${o.contract ? `contract ${o.contract}` : 'no supply contract'}` : `${o.qty} × ${fmtMoney(o.unitCost)}`}</small></span> },
         { key: 's', header: 'Supplier', render: o => o.supplier },
         { key: 'l', header: 'Lead time', render: o => `${o.leadWeeks} weeks` },
         { key: 'd', header: 'Due', sort: o => o.due, render: o => <span className="nowrap">{fmtDate(o.due)}</span> },

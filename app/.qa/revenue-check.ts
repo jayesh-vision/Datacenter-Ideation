@@ -35,10 +35,11 @@ for (const p of ['network', 'colocation', 'cloud', 'enterprise', 'neocloud'] as 
   ok(`${p} command center`, cc.total.rate === v.total.rate && cc.base === v.base.mrr);
   console.log(`${p}: base ${v.base.mrr} · losing ${v.total.rate}/h · so far ${v.total.lost + v.total.credits} · at stake ${v.total.mrrExposed}/mo · ${v.issues.length} issues · 30 d ${v.trend.total}`);
 }
-/* the persona switch must not have moved the telco anchors (India only) */
+/* the persona switch must not have moved the telco anchors (India only). 15-Oct-2026: 179 network elements + 50 operator servers
+   (NFV / OSS / BSS / IMS / management, all installed and discovered), so 229 / 153 / 21 / 76 (was 179 / 103 / 21 / 76) */
 S.setGeo('in');
 S.setPersona('network');
 const mh = S.datacenters().find(d => d.id === 'MH-DC-001')!;
-ok('MH-DC-001 anchors', mh.ne === 179 && mh.discovered === 103 && mh.drifted === 21 && mh.notDiscovered === 76, `${mh.ne}/${mh.discovered}/${mh.drifted}/${mh.notDiscovered}`);
+ok('MH-DC-001 anchors', mh.ne === 229 && mh.discovered === 153 && mh.drifted === 21 && mh.notDiscovered === 76, `${mh.ne}/${mh.discovered}/${mh.drifted}/${mh.notDiscovered}`);
 console.log(fail ? `revenue-check: ${fail} FAILED` : 'revenue-check: ok');
 process.exit(fail ? 1 : 0);
