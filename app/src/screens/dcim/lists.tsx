@@ -126,7 +126,7 @@ export function DeviceDrawer({ id, onClose }: { id: string | null; onClose: () =
     <Drawer open onClose={onClose} width={640} title={d ? <span className="mono">{d.name}</span> : 'Device'} sub={d ? `${d.manufacturer} ${d.model} · ${d.dcId} · ${d.rackName} U${d.u}` : 'Loading'}
       foot={d && <>
         <Btn variant="filled" icon={I.Activity} onClick={() => nav(`/ne/${encodeURIComponent(d.id)}`)}>Open device page</Btn>
-        <Btn icon={I.Server} onClick={() => nav(`/dcim/racks/${encodeURIComponent(d.rackId)}`)}>Open rack</Btn>
+        <Btn icon={I.Server} onClick={() => { onClose(); nav(`/dcim/racks/${encodeURIComponent(d.rackId)}`); }}>Open rack</Btn>
         {editable && <Btn icon={I.MoveVertical} onClick={() => setMove(true)}>Move</Btn>}
         {d.status !== 'Tenant-owned' && d.status !== 'Planned' && <select className="select" aria-label="Lifecycle" value="" onChange={e => e.target.value && setSt(e.target.value as 'Active')}>
           <option value="">Set lifecycle…</option>{(['Active', 'Maintenance', 'Decommissioning'] as const).filter(x => x !== d.status).map(x => <option key={x} value={x}>{x}</option>)}

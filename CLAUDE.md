@@ -500,6 +500,7 @@ screens are rebuilt in our kit (PageHead, StatGrid, ListToolbar, DataTable, NST 
   `dcimChangeBoard`: every CR at the scope, open + closed in 30 days, with racks / devices it touches, DCIM work, Execute; CR drawer; "Plans in review"
   = planner plans in Draft / In review at the site). Up-front: a notice bar under the DCIM header (ready · awaiting · in progress · plans), amber
   marker on floor-plan racks with an open CR, planned new racks as dashed ghosts in free cells, CR chips in the Racks / Devices lists.
+  Rack elevation drag-and-drop (user, 15-Oct-2026): drag a device to free units → drop preview (green / red) → Move dialog under a CR. Check: `node .qa/dcim-drag.mjs`.
 - **Phase 2 = IP & Network (done)**: read model `mock/ipam.ts` (usage = addresses actually bound; P2B's 92% padding is not copied). Management =
   each device's own `ip` in a per-site VRF `MGMT-<site>` (the generator reuses 172.x ranges between sites, hence one VRF per site; the NOC
   imports RT 64500:999); the /24s are those the addresses fall in, under one container; an address outside it is "Outside plan" (the hero

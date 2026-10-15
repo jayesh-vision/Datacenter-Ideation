@@ -1,9 +1,9 @@
 /* Rack page (/dcim/racks/:id): the front elevation by rack unit (devices, planned space, the ODF patch-panel block, free U),
    the two rack PDUs with every cord, the rack's data cables and patch panels. A device opens the device drawer. */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { dcimReleaseU, dcimRetireRack, getDatacenter, getDcimRack, getDcimTags, getDcimWork, useQuery } from '../../api';
+import { dcimMoveDevice, dcimReleaseU, dcimRetireRack, getDatacenter, getDcimRack, getDcimTags, getDcimWork, useQuery } from '../../api';
 import { CrChip, CrWorkList, showCr, useCrGate } from './cr';
 import type { DcimDevice, DcimRackView } from '../../api/types';
 import { usePage, PageHead, Loading } from '../../shell/page';
@@ -72,8 +72,8 @@ export function RackPage() {
       ]} />
 
       <div className="dcim-rack-grid">
-        <Panel title="Front elevation" icon={I.Server} info="The cabinet seen from the cold aisle, rack unit 1 at the bottom. Colour = device category; hatched = planned (space held) or the ODF patch-panel block. Click a device for its ports and power.">
-          <Elevation v={data} onDevice={setDev} />
+        <Panel title="Front elevation" icon={I.Server} info="The cabinet seen from the cold aisle, rack unit 1 at the bottom. Colour = device category; hatched = planned (space held) or the ODF patch-panel block. Click a device for its ports and power; drag it to free units to move it (under a change request).">
+          <Elevation v={data} onDevice={setDev} onMove={r.owner === 'tenant' ? undefined : (d, u) => gate.open({ title: `Move ${d.name.replace(`${d.dcId}-`, '')} to U${u}${d.uHeight > 1 ? `–U${u + d.uHeight - 1}` : ''}`, sub: `${r.name} · from U${d.u} · cables stay on their ports`, dcId: r.dcId, std: false, verb: 'Move device', run: cr => dcimMoveDevice(d.id, r.id, u, cr), done: `${d.name.replace(`${d.dcId}-`, '')} moved to ${r.name} U${u}` })} />
         </Panel>
         <div className="dcim-rack-side">
           <Tabs value={tab} onChange={setTab} tabs={[{ id: 'devices', label: 'Devices', count: devices.length }, { id: 'power', label: 'Power', count: data.cords.length }, { id: 'cables', label: 'Cables', count: data.cables.length }, { id: 'panels', label: 'Panels', count: data.panels.length }, { id: 'reservations', label: 'Reserved', count: data.reserved.filter(x => x.id).length }, { id: 'changes', label: 'Change requests', count: work?.length || undefined }, { id: 'activity', label: 'Activity', count: data.activity.length }]} />
@@ -114,17 +114,36 @@ export function RackPage() {
   );
 }
 
-function Elevation({ v, onDevice }: { v: DcimRackView; onDevice: (id: string) => void }) {
+/* the elevation: click a device for its drawer; drag a device (not tenant gear) to another free U to move it under a change request */
+function Elevation({ v, onDevice, onMove }: { v: DcimRackView; onDevice: (id: string) => void; onMove?: (d: DcimDevice, u: number) => void }) {
   const H = v.rack.heightU;
   const units = Array.from({ length: H }, (_, i) => H - i);
+  const rails = useRef<HTMLDivElement>(null);
+  const [drag, setDrag] = useState<{ d: DcimDevice; grab: number } | null>(null);
+  const [drop, setDrop] = useState<{ u: number; ok: boolean } | null>(null);
+  const uAt = (y: number) => { const r = rails.current!.getBoundingClientRect(); return Math.floor((r.bottom - y) / UPX) + 1; };
+  /* units taken by everything except the device being dragged */
+  const fits = (d: DcimDevice, u: number) => {
+    const top = u + d.uHeight - 1; if (u < 1 || top > H) return false;
+    const busy = [...v.devices.filter(x => x.id !== d.id).map(x => [x.u, x.u + x.uHeight - 1]), ...v.reserved.map(x => [x.u, x.u + x.uHeight - 1])];
+    return !busy.some(([a, b]) => u <= b && top >= a);
+  };
+  const end = () => { setDrag(null); setDrop(null); };
   return (
     <div className="dcim-elev-wrap">
       <div className="dcim-elev" style={{ height: H * UPX + 2 }}>
         {units.map(u => <span key={u} className="dcim-u" style={{ bottom: (u - 1) * UPX }}>{u % 5 === 0 || u === 1 ? u : ''}</span>)}
-        <div className="dcim-elev-rails">
+        <div className={`dcim-elev-rails${drag ? ' is-dragging' : ''}`} ref={rails}
+          onDragOver={e => { if (!drag) return; e.preventDefault(); const u = uAt(e.clientY) - drag.grab; const ok = u !== drag.d.u && fits(drag.d, u); e.dataTransfer.dropEffect = ok ? 'move' : 'none'; if (drop?.u !== u || drop.ok !== ok) setDrop({ u, ok }); }}
+          onDragLeave={e => { if (e.currentTarget === e.target) setDrop(null); }}
+          onDrop={e => { e.preventDefault(); if (drag && drop?.ok) onMove?.(drag.d, drop.u); end(); }}>
+          {drag && drop && <div className={`dcim-drop${drop.ok ? '' : ' is-bad'}`} style={{ bottom: (Math.max(1, Math.min(drop.u, H - drag.d.uHeight + 1)) - 1) * UPX + 1, height: drag.d.uHeight * UPX - 2 }}><span>U{drop.u}{drag.d.uHeight > 1 ? `–${drop.u + drag.d.uHeight - 1}` : ''}{drop.ok ? '' : ' · not free'}</span></div>}
           {v.devices.map(d => (
-            <button key={d.id} type="button" onClick={() => onDevice(d.id)} title={`${d.name} · ${d.manufacturer} ${d.model} · U${d.u}${d.uHeight > 1 ? `–${d.u + d.uHeight - 1}` : ''} · ${d.status}`}
-              className={`dcim-dev${d.status === 'Planned' ? ' is-planned' : ''}${d.health === 'critical' ? ' is-bad' : d.health === 'degraded' ? ' is-warn' : ''}`}
+            <button key={d.id} type="button" onClick={() => onDevice(d.id)} title={`${d.name} · ${d.manufacturer} ${d.model} · U${d.u}${d.uHeight > 1 ? `–${d.u + d.uHeight - 1}` : ''} · ${d.status}${onMove && d.status !== 'Tenant-owned' ? ' · drag to move' : ''}`}
+              draggable={!!onMove && d.status !== 'Tenant-owned'}
+              onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', d.id); setDrag({ d, grab: Math.max(0, Math.min(d.uHeight - 1, uAt(e.clientY) - d.u)) }); }}
+              onDragEnd={end}
+              className={`dcim-dev${d.status === 'Planned' ? ' is-planned' : ''}${d.health === 'critical' ? ' is-bad' : d.health === 'degraded' ? ' is-warn' : ''}${drag?.d.id === d.id ? ' is-lifted' : ''}`}
               style={{ bottom: (d.u - 1) * UPX + 1, height: d.uHeight * UPX - 2, background: d.status === 'Planned' ? undefined : CAT_COLOR[d.category] }}>
               <span className="mono">{d.name.replace(`${d.dcId}-`, '')}</span>{d.uHeight >= 2 && <small>{d.model}</small>}
             </button>

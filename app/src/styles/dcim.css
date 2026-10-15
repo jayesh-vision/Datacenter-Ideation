@@ -205,3 +205,11 @@
 .dcim-lg-cr { background: var(--vw-color-amber-500) !important; border-radius: 999px; }
 .dcim-rk.is-crghost { background: repeating-linear-gradient(135deg, var(--vw-color-amber-50), var(--vw-color-amber-50) 4px, #fff 4px, #fff 8px); border: 1.5px dashed var(--vw-color-amber-400); color: var(--vw-color-amber-800); }
 .dcim-rk.is-crghost small { font-family: var(--font-mono, ui-monospace, monospace); }
+/* drag a device to move it (rack elevation) */
+.dcim-dev[draggable="true"] { cursor: grab; }
+.dcim-dev.is-lifted { opacity: .45; }
+.dcim-elev-rails.is-dragging .dcim-dev:not(.is-lifted) { pointer-events: none; }
+.dcim-drop { position: absolute; left: 6px; right: 6px; z-index: 3; border: 2px dashed var(--vw-color-green-500); background: color-mix(in srgb, var(--vw-color-green-100) 70%, transparent); border-radius: 4px; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.dcim-drop span { font: 600 11.5px/1 Inter, sans-serif; color: var(--vw-color-green-800); background: #fff; padding: 2px 6px; border-radius: 4px; }
+.dcim-drop.is-bad { border-color: var(--vw-color-red-500); background: color-mix(in srgb, var(--vw-color-red-100) 70%, transparent); }
+.dcim-drop.is-bad span { color: var(--vw-color-red-700); }
