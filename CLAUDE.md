@@ -610,6 +610,10 @@ screens are rebuilt in our kit (PageHead, StatGrid, ListToolbar, DataTable, NST 
   Screens `screens/changes/Changes.tsx` (tabs overview · changes · approvals · calendar · freezes · standard · policies; `?id=` redirects to the
   page; `?dc=` / `?status=` open the list), `ChangePage.tsx` (`/changes/:id`), reusable form / impact parts in `parts.tsx`; styles `changes.css`.
   Check: `node .qa/changes.mjs <persona>`.
+  Overview redesigned (15-Oct-2026, user: "cards not aligned", "very limited widgets … check P2B"): `screens/changes/ChangeOverview.tsx` = P2B's
+  overview in our charts — pairs of equal height (420 px, bodies scroll): Volume and outcome · Lead time, Open by stage · Approvals and the change
+  board, Next 14 days · Before the windows, Changes by site · Where changes fail (by source / template); then a tabbed detail table (needs attention ·
+  waiting for review · next 14 days · last 28 days). Calm palette (classes blue-grey, red only for failures).
 - **Phase 7 = Compliance + Customization (done, minimal redesign; menu group Admin)**: `mock/compliance.ts` evaluates policies CP-01…09 on the
   estate (rack ≤ 80%, dual-fed, cooling N+1, UPS ≥ 10 min, addresses in plan, end of support, change policy, fire inspections, PM overdue) and maps
   ISO 27001 / ISO 22237 / TIA-942 / SOC 2 controls to the policies that actually evidence them (P2B's mappings were wrong); manual controls carry an

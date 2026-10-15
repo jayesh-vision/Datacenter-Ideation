@@ -11,7 +11,7 @@ import { Btn, Chip, Drawer, Panel, Seg, Tabs } from '../../ui/kit';
 import { DataTable, type Col } from '../../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
 import { Facts, MiniBars, SoftMeter, Split, StatGrid, StatTile } from '../../ui/Analytics';
-import { ChangeChip, DcLink, SevDot } from '../../ui/status';
+import { ChangeChip, DcLink } from '../../ui/status';
 import { fmtDate, fmtDateTime, fmtNum } from '../../lib/format';
 import { fmtHm, useToast } from '../ops/shared';
 import { NewChange, RISK_TONE } from './parts';
@@ -19,6 +19,7 @@ import '../../styles/dcim.css';
 import '../../styles/planner.css';
 import '../../styles/ipam.css';
 import '../../styles/changes.css';
+import { ChangeOverview } from './ChangeOverview';
 
 type Tab = 'overview' | 'changes' | 'approvals' | 'calendar' | 'freezes' | 'standard' | 'policies';
 export const CLASS_TONE: Record<ChangeClass, 'cyan' | 'info' | 'error'> = { Standard: 'cyan', Normal: 'info', Emergency: 'error' };
@@ -90,19 +91,7 @@ export function Changes() {
       </StatGrid>
       <Tabs value={tab} onChange={v => set({ tab: v === 'overview' ? '' : v, q: '', src: '', cls: '', status: '', pol: '' })} tabs={[{ id: 'overview', label: 'Overview' }, { id: 'changes', label: 'Changes', count: all.length }, { id: 'approvals', label: 'Approvals', count: pending.length }, { id: 'calendar', label: 'Calendar' }, { id: 'freezes', label: 'Freezes', count: r.freezes.length }, { id: 'standard', label: 'Standard changes', count: r.templates.length }, { id: 'policies', label: 'Policies', count: r.policies.length }]} />
 
-      {tab === 'overview' && <div className="pl-ov">
-        <Panel title="Volume and outcome" icon={I.ChartColumn} info="Changes implemented each week for the last 12 weeks, by class; red = rolled back or caused an incident.">
-          <WeekBars weeks={r.weeks} />
-        </Panel>
-        <Panel title="Needs attention" icon={I.TriangleAlert} info="Open changes blocked by a policy, inside a freeze, overlapping other work, or with a review due.">
-          <ul className="ipam-find">{[...open.filter(c => c.violations.length), ...all.filter(c => c.pir.state === 'Due' || c.pir.state === 'Overdue')].filter((c, i, xs) => xs.indexOf(c) === i).slice(0, 10).map(c => (
-            <li key={c.id}><button type="button" onClick={() => nav(`/changes/${encodeURIComponent(c.id)}`)}><SevDot s={c.violations.some(v => v.enforcement === 'Block') || c.outcome === 'Caused an incident' ? 'major' : 'minor'} /><span className="cell-2"><b>{c.id} · {c.title}</b><small>{c.violations.length ? c.violations.map(v => v.text).join(' · ') : c.outcome === 'Caused an incident' ? `Caused ${c.causedIncident}: review due` : 'Post-implementation review due'}</small></span></button></li>
-          ))}</ul>
-        </Panel>
-        <Panel title="Coming up" icon={I.CalendarClock} className="ipam-agg" flush>
-          <DataTable rows={week.sort((a, b) => a.windowStart - b.windowStart)} cols={cols} pageSize={8} onRow={c => nav(`/changes/${encodeURIComponent(c.id)}`)} empty={<p className="vw-label" style={{ padding: 16 }}>No windows in the next seven days.</p>} />
-        </Panel>
-      </div>}
+      {tab === 'overview' && <ChangeOverview r={r} now={now} go={set} />}
       {tab === 'changes' && <section className="vw-card-section dcim-table">
         <DataTable rows={rows} cols={cols} pageSize={30} defaultSort={{ key: 'win', dir: 'desc' }} onRow={c => nav(`/changes/${encodeURIComponent(c.id)}`)}
           toolbar={<ListToolbar shown={rows.length} total={all.length} noun="changes" onApply={apply} onRefresh={reload} search={{ value: q, onChange: v => set({ q: v }), placeholder: 'ID, title, site, requester' }}
@@ -141,24 +130,6 @@ export function Changes() {
         {isNew && <NewChange kind={isNew} onDone={id => { set({ new: '' }); nav(`/changes/${encodeURIComponent(id)}`); }} />}
       </Drawer>
       {toast.node}
-    </div>
-  );
-}
-
-function WeekBars({ weeks }: { weeks: { start: number; standard: number; normal: number; emergency: number; failed: number }[] }) {
-  const max = Math.max(1, ...weeks.map(w => w.standard + w.normal + w.emergency));
-  return (
-    <div className="cm-weeks">
-      {weeks.map(w => { const tot = w.standard + w.normal + w.emergency; return (
-        <div key={w.start} className="cm-week" title={`Week of ${fmtDate(w.start)}: ${w.standard} standard, ${w.normal} normal, ${w.emergency} emergency; ${w.failed} failed`}>
-          <span className="cm-stack" style={{ height: `${(tot / max) * 100}%` }}>
-            {w.emergency > 0 && <i className="em" style={{ flex: w.emergency }} />}{w.normal > 0 && <i className="no" style={{ flex: w.normal }} />}{w.standard > 0 && <i className="st" style={{ flex: w.standard }} />}
-          </span>
-          {w.failed > 0 && <b className="cm-fail">{w.failed}</b>}
-          <small>{fmtDate(w.start).replace(/,? \d{4}$/, '').replace(/-\d{4}$/, '')}</small>
-        </div>
-      ); })}
-      <div className="cm-legend"><span><i className="st" />Standard</span><span><i className="no" />Normal</span><span><i className="em" />Emergency</span><span><b className="cm-fail">n</b> failed</span></div>
     </div>
   );
 }
