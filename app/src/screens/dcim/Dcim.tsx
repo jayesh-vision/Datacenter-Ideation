@@ -4,7 +4,8 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { getDcim, getDcimCables, getDcimDevices, getDcimTypes, useQuery } from '../../api';
+import { getDcim, getDcimCables, getDcimChangeBoard, getDcimDevices, getDcimTypes, useQuery } from '../../api';
+import { DcimChangesTab } from './Changes';
 import type { DcimSite } from '../../api/types';
 import { usePage, PageHead, Loading } from '../../shell/page';
 import { Btn, Tabs } from '../../ui/kit';
@@ -21,10 +22,10 @@ import { Explorer } from './Explorer';
 import { NewRackModal, InstallDeviceModal } from './forms';
 import '../../styles/dcim.css';
 
-export type DcimTab = 'sites' | 'floorplan' | 'racks' | 'devices' | 'cabling' | 'power' | 'types' | 'hierarchy' | 'explorer';
+export type DcimTab = 'sites' | 'floorplan' | 'racks' | 'devices' | 'cabling' | 'power' | 'changes' | 'types' | 'hierarchy' | 'explorer';
 const TABS: { id: DcimTab; label: string }[] = [
   { id: 'sites', label: 'Sites' }, { id: 'floorplan', label: 'Floor plans' }, { id: 'racks', label: 'Racks' }, { id: 'devices', label: 'Devices' },
-  { id: 'cabling', label: 'Cabling' }, { id: 'power', label: 'Power' }, { id: 'types', label: 'Device types' }, { id: 'hierarchy', label: 'Hierarchy' }, { id: 'explorer', label: 'Explorer' }
+  { id: 'cabling', label: 'Cabling' }, { id: 'power', label: 'Power' }, { id: 'changes', label: 'Change requests' }, { id: 'types', label: 'Device types' }, { id: 'hierarchy', label: 'Hierarchy' }, { id: 'explorer', label: 'Explorer' }
 ];
 
 export function Dcim() {
@@ -39,6 +40,7 @@ export function Dcim() {
   const { data: devices } = useQuery(() => getDcimDevices({ dcId: dcId || undefined }), [dcId]);
   const { data: cables } = useQuery(() => getDcimCables({ dcId: dcId || undefined }), [dcId]);
   const { data: types } = useQuery(getDcimTypes, []);
+  const { data: board } = useQuery(() => getDcimChangeBoard({ dcId: dcId || undefined }), [dcId]);
   if (!all || !scoped || !devices || !cables || !types) return <Loading />;
 
   const S = scoped;
@@ -66,6 +68,19 @@ export function Dcim() {
           <Btn icon={I.Plus} onClick={() => setModal('rack')}>New rack</Btn>
           <Btn variant="filled" icon={I.HardDriveDownload} onClick={() => setModal('device')}>Install device</Btn>
         </>} />
+
+      {board && (() => {
+        /* up-front: what change control has coming for this scope */
+        const ready = board.rows.filter(r => r.view === 'ready').length, wait = board.rows.filter(r => r.view === 'approval').length, run = board.rows.filter(r => r.view === 'progress').length;
+        if (!ready && !wait && !run && !board.plans.length) return null;
+        const open = (cv: string) => set({ tab: 'changes', cv });
+        return <div className={`dcim-crbar${ready ? ' is-ready' : ''}`} data-crbar><I.GitPullRequestArrow size={16} /><b>Change requests{dcId ? ` at ${dcId}` : ''}</b>
+          {ready > 0 && <button type="button" onClick={() => open('ready')}><em>{ready}</em> approved, ready to run in DCIM</button>}
+          {wait > 0 && <button type="button" onClick={() => open('approval')}><em>{wait}</em> awaiting approval</button>}
+          {run > 0 && <button type="button" onClick={() => open('progress')}><em>{run}</em> in progress</button>}
+          {board.plans.length > 0 && <button type="button" onClick={() => open('')}><em>{board.plans.length}</em> plan{board.plans.length === 1 ? '' : 's'} in review</button>}
+          <button type="button" className="dcim-crbar-go" onClick={() => open('')}>Open the list →</button></div>;
+      })()}
 
       <StatGrid>
         <StatTile label="Sites" value={sites.length} sub={`${fmtNum(sites.reduce((a, s) => a + s.halls, 0))} halls · ${fmtNum(sites.reduce((a, s) => a + s.rows, 0))} rows`} onClick={() => go('sites')} active={tab === 'sites'}
@@ -97,7 +112,7 @@ export function Dcim() {
         </StatTile>
       </StatGrid>
 
-      <Tabs value={tab} onChange={v => go(v)} tabs={TABS.map(t => ({ ...t, count: t.id === 'sites' ? sites.length : t.id === 'racks' ? S.racks.length : t.id === 'devices' ? devices.length : undefined }))} />
+      <Tabs value={tab} onChange={v => go(v)} tabs={TABS.map(t => ({ ...t, count: t.id === 'sites' ? sites.length : t.id === 'racks' ? S.racks.length : t.id === 'devices' ? devices.length : t.id === 'changes' ? board?.rows.filter(r => r.view !== 'done' && r.view !== 'closed').length || undefined : undefined }))} />
 
       {tab === 'sites' && <SitesTab sites={sites} onOpen={id => set({ tab: 'floorplan', dc: id, hall: '' })} />}
       {tab === 'floorplan' && <FloorPlans dcId={dcId || all.sites.find(s => s.status !== 'planned')?.id || all.sites[0].id} onSite={id => set({ dc: id, hall: '' })} />}
@@ -105,6 +120,7 @@ export function Dcim() {
       {tab === 'devices' && <DevicesTab devices={devices} />}
       {tab === 'cabling' && <CablingTab cables={cables} />}
       {tab === 'power' && <PowerTab panels={S.panels} feeds={S.feeds} dcId={dcId} />}
+      {tab === 'changes' && <DcimChangesTab dcId={dcId} />}
       {tab === 'types' && <TypesTab types={types} inScope={typeIds} />}
       {tab === 'hierarchy' && <Hierarchy dcId={dcId} />}
       {tab === 'explorer' && <Explorer dcId={dcId} />}

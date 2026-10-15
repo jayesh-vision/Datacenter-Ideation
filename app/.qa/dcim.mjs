@@ -18,7 +18,7 @@ const check = async (name) => {
   if (process.env.SHOTS || t.length || over || tblOver) await p.screenshot({ path: `.qa/out/dcim-${P}-${W}-${name}.png`, fullPage: true });
 };
 await p.goto(`${base}/dcim?persona=${P}&geo=${G}`, { waitUntil: 'networkidle' });
-for (const t of ['sites', 'floorplan', 'racks', 'devices', 'cabling', 'power', 'types', 'hierarchy']) {
+for (const t of ['sites', 'floorplan', 'racks', 'devices', 'cabling', 'power', 'changes', 'types', 'hierarchy']) {
   await p.goto(`${base}/dcim${t === 'sites' ? '' : `?tab=${t}`}`, { waitUntil: 'networkidle' }); await check(t);
 }
 /* scope to the first site: tiles and lists follow */
@@ -77,6 +77,18 @@ ok((await p.locator('.dcim-work li').first().innerText()).includes('Done'), 'exe
 await go(new URL(rackUrl).pathname + '?tab=changes'); await check('rack-changes');
 ok(await p.locator('.dcim-work li').count() >= 2, 'rack Change requests tab lists the work');
 { const bt = await p.innerText('body'); ok(/of 12\b|12 kW/.test(bt), 'rack budget updated to 12 kW'); }
+/* Change requests tab + up-front notice + a new rack raised under a new CR shows as a ghost on the floor plan */
+await go(`/dcim?dc=${site}&tab=changes`); await check('changes-tab');
+ok(await p.locator('[data-crbar]').count() === 1, 'change-request notice under the header');
+ok(await p.locator('.dt-table tbody tr').count() > 0, `change requests listed (${await p.locator('.dt-table tbody tr').count()})`);
+await p.locator('.dt-table tbody tr').first().click(); await p.waitForTimeout(500);
+ok((await p.locator('.drawer').innerText()).includes('Touches in DCIM'), 'CR drawer'); await p.keyboard.press('Escape');
+await p.getByRole('button', { name: 'New rack' }).click(); await p.waitForTimeout(400);
+await p.locator('.modal [data-cr-field] .seg button', { hasText: 'Raise new' }).click(); await p.waitForTimeout(200);
+await p.locator('.modal').getByRole('button', { name: 'Raise CR and plan rack' }).click(); await p.waitForTimeout(700);
+await go(`/dcim?dc=${site}&tab=floorplan`); await check('floorplan-cr');
+ok(await p.locator('.dcim-rk.is-crghost').count() >= 1, 'planned rack shows as a ghost on the floor plan');
+ok(await p.locator('.dcim-rk-cr').count() >= 1, 'racks with open CRs carry a marker');
 /* the twin sees it: the site's equipment count went up */
 console.log(errs.length ? `  ✗ console: ${errs.slice(0, 3).join(' | ')}` : '  ✓ no console errors'); if (errs.length) bad++;
 await b.close();

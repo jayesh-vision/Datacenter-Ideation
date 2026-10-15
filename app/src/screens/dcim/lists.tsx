@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { clockNow, dcimDisconnect, dcimRemoveModule, dcimSwapModule, getDatacenter, getDcimDevice, getDcimTags, getDcimWork, getDeviceIps, getDeviceLifecycle, getIpam, setDeviceStatus, useQuery } from '../../api';
+import { clockNow, dcimDisconnect, dcimRemoveModule, dcimSwapModule, getDatacenter, getDcimChangeBoard, getDcimDevice, getDcimTags, getDcimWork, getDeviceIps, getDeviceLifecycle, getIpam, setDeviceStatus, useQuery } from '../../api';
 import { CrChip, CrWorkList, showCr, useCrGate } from './cr';
 import type { DcimCable, DcimComponent, DcimDevice, DcimDeviceType, DcimModuleType, DcimPowerFeed, DcimPowerPanel, DcimRack, DcimCatalog } from '../../api/types';
 import { Loading } from '../../shell/page';
@@ -33,6 +33,8 @@ const has = (s: string, q: string) => !q || s.toLowerCase().includes(q.toLowerCa
 
 export function RacksTab({ racks }: { racks: DcimRack[] }) {
   const { get, set, apply } = useP();
+  const one = racks.length && racks.every(r => r.dcId === racks[0].dcId) ? racks[0].dcId : undefined;
+  const { data: board } = useQuery(() => getDcimChangeBoard({ dcId: one }), [one]);
   const nav = useNavigate();
   const q = get('q'), dens = get('density'), st = get('rst'), load = get('load');
   const rows = useMemo(() => racks.filter(r => (!dens || r.density === dens) && (!st || r.status === st) && (!load || (load === 'hot' ? r.powerPct >= 90 : load === 'side' ? r.power !== 'A + B' : load === 'full' ? r.freeU < 4 : r.devices === 0))
@@ -47,7 +49,7 @@ export function RacksTab({ racks }: { racks: DcimRack[] }) {
     { key: 'dens', header: 'Density', sort: r => r.density, render: r => <span className="cell-2"><span>{r.density}</span><small>{r.liquid ? 'Liquid cooled' : 'Air cooled'}</small></span> },
     { key: 'wt', header: 'Weight', sort: r => r.weightKg / r.maxWeightKg, hideBelow: 1360, render: r => <span className="cell-2"><span>{fmtNum(r.weightKg)} kg</span><small>of {fmtNum(r.maxWeightKg)} kg</small></span> },
     ...(tenants ? [{ key: 'ten', header: 'Tenant', sort: (r: DcimRack) => r.tenantName ?? '', render: (r: DcimRack) => r.tenantName ?? <span className="vw-label">Operator</span> }] : []),
-    { key: 'st', header: 'Status', sort: r => r.status, render: r => <DcimStatusChip s={r.status} /> }
+    { key: 'st', header: 'Status', sort: r => r.status, render: r => <span className="row" style={{ gap: 6 }}><DcimStatusChip s={r.status} />{board?.rackOpen[r.id]?.length ? <CrChip id={board.rackOpen[r.id][0]} title={`Open change request${board.rackOpen[r.id].length > 1 ? 's' : ''}: ${board.rackOpen[r.id].join(', ')}`} /> : null}</span> }
   ];
   return (
     <section className="vw-card-section dcim-table">
@@ -68,6 +70,8 @@ export function RacksTab({ racks }: { racks: DcimRack[] }) {
 
 export function DevicesTab({ devices }: { devices: DcimDevice[] }) {
   const { get, set, apply } = useP();
+  const one = devices.length && devices.every(d => d.dcId === devices[0].dcId) ? devices[0].dcId : undefined;
+  const { data: tags } = useQuery(() => getDcimTags({ dcId: one }), [one]);
   const q = get('q'), cat = get('cat'), st = get('dst');
   const [open, setOpen] = useState<string | null>(null);
   const rows = useMemo(() => devices.filter(d => (!cat || d.category === cat) && (!st || d.status === st) && has(`${d.name} ${d.model} ${d.manufacturer} ${d.serial} ${d.rackName} ${d.ip}`, q)), [devices, q, cat, st]);
@@ -78,7 +82,7 @@ export function DevicesTab({ devices }: { devices: DcimDevice[] }) {
     { key: 'ports', header: 'Ports', sort: d => d.ports, render: d => d.ports ? <span className="cell-2"><span>{d.portsUp}/{d.ports} up</span><small>{d.cables} cables</small></span> : <span className="vw-label">—</span> },
     { key: 'pw', header: 'Power', sort: d => d.powerW, render: d => <span className="cell-2"><span>{d.powerW ? `${fmtNum(d.powerW)} W` : '—'}</span><small>{d.psus} supply{d.psus === 1 ? '' : 'ies'}</small></span> },
     { key: 'sn', header: 'Serial', sort: d => d.serial, hideBelow: 1360, render: d => <span className="mono">{d.serial || '—'}</span> },
-    { key: 'st', header: 'Status', sort: d => d.status, render: d => <DcimStatusChip s={d.status} /> }
+    { key: 'st', header: 'Status', sort: d => d.status, render: d => <span className="row" style={{ gap: 6 }}><DcimStatusChip s={d.status} /><CrChip id={tags?.[`ne:${d.id}`]} /></span> }
   ];
   return (
     <section className="vw-card-section dcim-table">

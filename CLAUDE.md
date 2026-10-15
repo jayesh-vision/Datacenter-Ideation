@@ -496,6 +496,10 @@ screens are rebuilt in our kit (PageHead, StatGrid, ListToolbar, DataTable, NST 
   open delivery CR of their rack); audit lines carry the CR. UI: `screens/dcim/cr.tsx` (`useCrField` section in every form, `useCrGate` for one-click
   actions, `CrChip`, `CrWorkList`), rack page chip + "N planned changes" + **Change requests** tab, device drawer chip / per-port chips / list,
   change page **DCIM work** panel (Execute all). Checks: `npx tsx .qa/dcim-cr-check.ts`, `node .qa/dcim.mjs neocloud us` (raise → approve → execute).
+  Steps B + C: DCIM tab **Change requests** (`?tab=changes&cv=ready|approval|progress|soon|done|all&csrc=`; `screens/dcim/Changes.tsx`, server
+  `dcimChangeBoard`: every CR at the scope, open + closed in 30 days, with racks / devices it touches, DCIM work, Execute; CR drawer; "Plans in review"
+  = planner plans in Draft / In review at the site). Up-front: a notice bar under the DCIM header (ready · awaiting · in progress · plans), amber
+  marker on floor-plan racks with an open CR, planned new racks as dashed ghosts in free cells, CR chips in the Racks / Devices lists.
 - **Phase 2 = IP & Network (done)**: read model `mock/ipam.ts` (usage = addresses actually bound; P2B's 92% padding is not copied). Management =
   each device's own `ip` in a per-site VRF `MGMT-<site>` (the generator reuses 172.x ranges between sites, hence one VRF per site; the NOC
   imports RT 64500:999); the /24s are those the addresses fall in, under one container; an address outside it is "Outside plan" (the hero

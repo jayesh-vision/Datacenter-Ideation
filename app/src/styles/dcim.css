@@ -188,3 +188,20 @@
 .dcim-work li small { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .dcim-work-acts { display: inline-flex; gap: 6px; }
 .dcim-work.is-compact li { padding: 7px 0; }
+/* change requests tab + highlights (step B / C) */
+.dcim-crbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; padding: 10px 14px; border: 1px solid var(--vw-color-blue-200); background: var(--vw-color-blue-50); border-radius: 10px; font-size: 13.5px; color: var(--vw-color-slate-700); }
+.dcim-crbar > svg { color: var(--primaryColor); }
+.dcim-crbar.is-ready { border-color: var(--vw-color-amber-300); background: var(--vw-color-amber-50); }
+.dcim-crbar.is-ready > svg { color: var(--vw-color-amber-700); }
+.dcim-crbar button { border: 0; background: none; padding: 0; cursor: pointer; color: inherit; font: inherit; }
+.dcim-crbar button:hover { text-decoration: underline; }
+.dcim-crbar em { font-style: normal; font-weight: 600; font-family: Inter, sans-serif; font-variant-numeric: tabular-nums; }
+.dcim-crbar-go { margin-left: auto; color: var(--primaryColor) !important; }
+.dcim-cr-title { white-space: normal; max-width: 420px; }
+.dt-table tr.is-ready td:first-child { box-shadow: inset 3px 0 0 var(--vw-color-amber-400); }
+.dcim-crchip.is-rack { font-family: inherit; }
+.dcim-rk { position: relative; }
+.dcim-rk-cr { position: absolute; top: -5px; right: -5px; min-width: 12px; height: 12px; padding: 0 3px; border-radius: 999px; background: var(--vw-color-amber-500); border: 2px solid #fff; color: #fff; font: 600 8px/8px Inter, sans-serif; font-style: normal; display: inline-flex; align-items: center; justify-content: center; box-sizing: content-box; }
+.dcim-lg-cr { background: var(--vw-color-amber-500) !important; border-radius: 999px; }
+.dcim-rk.is-crghost { background: repeating-linear-gradient(135deg, var(--vw-color-amber-50), var(--vw-color-amber-50) 4px, #fff 4px, #fff 8px); border: 1.5px dashed var(--vw-color-amber-400); color: var(--vw-color-amber-800); }
+.dcim-rk.is-crghost small { font-family: var(--font-mono, ui-monospace, monospace); }

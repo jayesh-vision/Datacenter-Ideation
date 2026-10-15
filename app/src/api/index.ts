@@ -104,6 +104,7 @@ export const getDcimCrOptions = (dcId: string) => wait(() => S.dcimCrOptions(dcI
 export const getDcimTags = (q: { dcId?: string } = {}) => wait(() => S.dcimTags(q));                  // GET /dcim/change-tags?dcId (record → CR)
 export const getDcimWork = (q: Parameters<typeof S.dcimWork>[0] = {}) => wait(() => S.dcimWork(q));   // GET /dcim/work-items?dcId&rackId&neId
 export const getDcimWorkOf = (changeId: string) => wait(() => S.dcimItemsOf(changeId));              // GET /changes/:id/dcim-work
+export const getDcimChangeBoard = (q: { dcId?: string } = {}) => wait(() => S.dcimChangeBoard(q)); // GET /dcim/change-requests?dcId (CRs with what they touch + DCIM work)
 export const executeDcimWork = (id: string) => mutate(() => S.dcimExecute(id));                     // POST /dcim/work-items/:id/execute
 export const executeDcimChange = (changeId: string) => mutate(() => S.dcimExecuteAll(changeId));    // POST /changes/:id/dcim-work/execute
 export const cancelDcimWork = (id: string) => mutate(() => S.dcimCancelItem(id));                   // DELETE /dcim/work-items/:id

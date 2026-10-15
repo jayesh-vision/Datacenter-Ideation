@@ -699,3 +699,12 @@ export interface DcimWorkItem {
 }
 export interface DcimCrOption { id: string; title: string; status: ChangeStatus; cls: ChangeClass; source: ChangeRecord['source']; windowStart: number; windowEnd: number; applies: 'now' | 'staged'; blocked?: string }
 export interface DcimRunResult<T = unknown> { changeId: string; staged: boolean; itemId: string; result?: T }
+/* the DCIM Change requests tab: every CR at the site(s) with what it touches in DCIM and its DCIM work */
+export interface DcimCrRow {
+  id: string; title: string; source: ChangeRecord['source']; cls: ChangeClass; risk: Change['risk']; status: ChangeStatus; dcId: string; windowStart: number; windowEnd: number;
+  requester: string; next?: string; blocked?: string; projectId?: string; planId?: string; incidentId?: string;
+  racks: { id: string; name: string }[]; devices: number; work: { total: number; done: number; planned: number; failed: number };
+  view: 'ready' | 'approval' | 'progress' | 'done' | 'closed';
+}
+export interface DcimPlanRow { id: string; title: string; status: string; scope: string; dcId: string }
+export interface DcimChangeBoard { rows: DcimCrRow[]; plans: DcimPlanRow[]; rackOpen: Record<string, string[]>; ghosts: { hallId: string; changeId: string; label: string; itemId: string }[] }

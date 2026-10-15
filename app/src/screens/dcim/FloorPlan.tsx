@@ -2,7 +2,7 @@
    to face around a cold aisle). Colour by power, space, inlet temperature or status; a rack opens its rack page. */
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { getDcim, useQuery } from '../../api';
+import { getDcim, getDcimChangeBoard, useQuery } from '../../api';
 import type { DcimHall, DcimRack } from '../../api/types';
 import { Loading } from '../../shell/page';
 import { useState } from 'react';
@@ -28,6 +28,7 @@ export function FloorPlans({ dcId, onSite }: { dcId: string; onSite: (id: string
   const nav = useNavigate();
   const { data: all } = useQuery(() => getDcim(), []);
   const { data } = useQuery(() => getDcim({ dcId }), [dcId]);
+  const { data: board } = useQuery(() => getDcimChangeBoard({ dcId }), [dcId]);
   if (!data || !all) return <Loading />;
   const halls = data.halls;
   const hallId = sp.get('hall') && halls.some(h => h.id === sp.get('hall')) ? sp.get('hall')! : (halls.find(h => h.racks) ?? halls[0])?.id;
@@ -61,8 +62,9 @@ export function FloorPlans({ dcId, onSite }: { dcId: string; onSite: (id: string
         <div className="dcim-fp-grid">
           <Panel title={<>{hall.name}<span className="vw-label"> · {hall.floor} · {site?.id}</span></>} icon={I.LayoutGrid}
             info="The hall's racks on the twin's grid: rows in order, paired face to face around a cold aisle (fronts facing the aisle). Click a rack to open it."
-            actions={<span className="row" style={{ gap: 10 }}><span className="dcim-legend">{LEGEND[m].map(x => <span key={x.l}><i style={{ background: x.c }} />{x.l}</span>)}</span>{site?.status !== 'planned' && <Btn size="sm" icon={I.Plus} onClick={() => setAdding(true)}>New rack</Btn>}</span>}>
-            <Plan hall={hall} racks={data.racks.filter(r => r.hallId === hall.id)} rows={data.rows.filter(r => r.hallId === hall.id)} m={m} onRack={id => nav(`/dcim/racks/${encodeURIComponent(id)}`)} onAdd={() => setAdding(true)} />
+            actions={<span className="row" style={{ gap: 10 }}><span className="dcim-legend">{LEGEND[m].map(x => <span key={x.l}><i style={{ background: x.c }} />{x.l}</span>)}<span><i className="dcim-lg-cr" />Open change request</span></span>{site?.status !== 'planned' && <Btn size="sm" icon={I.Plus} onClick={() => setAdding(true)}>New rack</Btn>}</span>}>
+            <Plan hall={hall} racks={data.racks.filter(r => r.hallId === hall.id)} rows={data.rows.filter(r => r.hallId === hall.id)} m={m} onRack={id => nav(`/dcim/racks/${encodeURIComponent(id)}`)} onAdd={() => setAdding(true)}
+              crs={board?.rackOpen ?? {}} ghosts={(board?.ghosts ?? []).filter(g => g.hallId === hall.id)} onCr={id => nav(`/changes/${encodeURIComponent(id)}`)} />
           </Panel>
           <HallFacts hall={hall} racks={data.racks.filter(r => r.hallId === hall.id)} />
         </div>
@@ -72,8 +74,11 @@ export function FloorPlans({ dcId, onSite }: { dcId: string; onSite: (id: string
   );
 }
 
-function Plan({ hall, racks, rows, m, onRack, onAdd }: { hall: DcimHall; racks: DcimRack[]; rows: { id: string; name: string; racks: string[]; containment: string }[]; m: PlanMeasure; onRack: (id: string) => void; onAdd: () => void }) {
-  if (!racks.length) return <div style={{ padding: 16 }}><p className="vw-label">No racks in this room yet.</p><button type="button" className="dcim-rk is-ghost" onClick={onAdd}><I.Plus size={14} /><small>New rack</small></button></div>;
+function Plan({ hall, racks, rows, m, onRack, onAdd, crs, ghosts, onCr }: { hall: DcimHall; racks: DcimRack[]; rows: { id: string; name: string; racks: string[]; containment: string }[]; m: PlanMeasure; onRack: (id: string) => void; onAdd: () => void;
+  crs: Record<string, string[]>; ghosts: { changeId: string; label: string; itemId: string }[]; onCr: (id: string) => void }) {
+  /* a rack waiting under a change request (new rack raised from DCIM, not yet executed) */
+  const ghostBtn = (g: { changeId: string; label: string; itemId: string }) => <button key={g.itemId} type="button" className="dcim-rk is-crghost" onClick={() => onCr(g.changeId)} title={`${g.label} · planned under ${g.changeId}`}><b>{/RACK-[A-Z0-9-]+/.exec(g.label)?.[0].replace(/^RACK-/, '') ?? 'New'}</b><small>{g.changeId}</small></button>;
+  if (!racks.length) return <div style={{ padding: 16 }}><p className="vw-label">No racks in this room yet.</p><div className="row" style={{ gap: 8 }}>{ghosts.map(ghostBtn)}<button type="button" className="dcim-rk is-ghost" onClick={onAdd}><I.Plus size={14} /><small>New rack</small></button></div></div>;
   const byId = new Map(racks.map(r => [r.id, r]));
   /* rows come in pairs (A faces B across a cold aisle); a lone last row has no partner */
   const pairs: typeof rows[] = [];
@@ -89,12 +94,14 @@ function Plan({ hall, racks, rows, m, onRack, onAdd }: { hall: DcimHall; racks: 
                 <span className="dcim-row-l">{row.name}</span>
                 {row.racks.map(id => { const r = byId.get(id)!; const f = rackFill(r, m); return (
                   <button key={id} type="button" className={`dcim-rk${r.status === 'Planned' ? ' is-planned' : ''}${r.power !== 'A + B' && r.status !== 'Planned' ? ' is-bad' : ''}`} style={{ background: f.color }} onClick={() => onRack(id)}
-                    title={`${r.name} · ${r.role} · ${r.usedU}/${r.heightU} U · ${r.drawKw} of ${r.budgetKw} kW · ${r.power}${r.tenantName ? ` · ${r.tenantName}` : ''}`}>
+                    title={`${r.name} · ${r.role} · ${r.usedU}/${r.heightU} U · ${r.drawKw} of ${r.budgetKw} kW · ${r.power}${r.tenantName ? ` · ${r.tenantName}` : ''}${crs[id]?.length ? ` · open change request${crs[id].length > 1 ? 's' : ''}: ${crs[id].join(', ')}` : ''}`}>
                     <b>{r.name.replace(/^RACK-/, '')}</b><small>{f.label}</small>
                     {r.liquid && <I.Droplets size={11} className="dcim-rk-liq" aria-label="Liquid cooled" />}
+                    {!!crs[id]?.length && <i className="dcim-rk-cr" data-cr={crs[id][0]} aria-label={`Open change request ${crs[id].join(', ')}`}>{crs[id].length > 1 ? crs[id].length : ''}</i>}
                   </button>
                 ); })}
-                {pi === pairs.length - 1 && k === pr.length - 1 && Array.from({ length: Math.max(0, hall.gridCols - row.racks.length) }, (_, g) => (
+                {pi === pairs.length - 1 && k === pr.length - 1 && ghosts.slice(0, Math.max(0, hall.gridCols - row.racks.length)).map(ghostBtn)}
+                {pi === pairs.length - 1 && k === pr.length - 1 && Array.from({ length: Math.max(0, hall.gridCols - row.racks.length - ghosts.length) }, (_, g) => (
                   <button key={`g${g}`} type="button" className="dcim-rk is-ghost" onClick={onAdd} title="Empty position: add a rack here (racks fill the row in order)"><I.Plus size={13} /><small>Free</small></button>))}
               </div>
             </div>

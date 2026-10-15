@@ -2,7 +2,7 @@
    one in-memory estate. Only src/api/index.ts talks to this module. */
 
 import { sevLabel } from '../lib/vocab';
-import type { NewPrefixInput, DcimModuleType, DcimCr, DcimCrOption, DcimOp, DcimRunResult, DcimWorkItem, ChangeRecord,
+import type { NewPrefixInput, DcimModuleType, DcimCr, DcimCrOption, DcimOp, DcimChangeBoard, DcimCrRow, DcimPlanRow, DcimRunResult, DcimWorkItem, ChangeRecord,
   ActionStep, Alert, AlertScope, EdgeStatus, OpsState, AuditEntry, CapacityPlan, Change, ChangeStatus, Datacenter, DcSummary, Incident, IncidentStatus, Interface, Link, Location,
   ImpactCause, NetworkElement, NeRole, Persona, PrefixRole, ReconTask, RevDomain, RevIssue, RevenueView, RolloutStatus, Service, Severity, TimelineEvent
 } from '../api/types';
@@ -1363,6 +1363,35 @@ export function dcimTags(q: { dcId?: string } = {}) {
   if (byRack.size) for (const n of db.nes) if ((!q.dcId || n.dcId === q.dcId) && isPlannedNe(n) && byRack.has(n.rackId)) out[`ne:${n.id}`] = byRack.get(n.rackId)!;
   for (const [k, v] of dcimCr.tags) out[k] = v;
   return out;
+}
+/* the DCIM Change requests tab: open CRs at the site(s) and those closed in the last 30 days, resolved to the racks / devices they touch */
+export function dcimChangeBoard(q: { dcId?: string } = {}): DcimChangeBoard {
+  const m = dm(); const reg = changeRegister(db).changes.filter(c => !q.dcId || c.dcId === q.dcId);
+  const rackOpen: Record<string, string[]> = {};
+  const rows: DcimCrRow[] = [];
+  for (const c of reg) {
+    const open = OPEN_CR.includes(c.status);
+    if (!open && c.windowEnd < db.now - 30 * DAY) continue;
+    const items = dcimCr.items.filter(x => x.changeId === c.id);
+    const rk = new Set<string>(); let devices = 0;
+    for (const s of c.scope) { const n = db.neById.get(s); if (n) { devices++; rk.add(n.rackId); } else if (m.rackById.has(s)) rk.add(s); }
+    for (const it of items) { if (it.rackId) rk.add(it.rackId); if (it.neId && !c.scope.includes(it.neId)) devices++; }
+    const planned = items.filter(x => x.state === 'Planned').length, failed = items.filter(x => x.state === 'Failed').length;
+    const live = LIVE_CR.includes(c.status);
+    const view: DcimCrRow['view'] = !open ? (c.status === 'Completed' ? 'done' : 'closed') : live && (planned || failed) ? 'ready' : live ? 'progress' : 'approval';
+    if (open) for (const r of rk) (rackOpen[r] ??= []).push(c.id);
+    rows.push({ id: c.id, title: c.title, source: c.source, cls: c.cls, risk: c.risk, status: c.status, dcId: c.dcId, windowStart: c.windowStart, windowEnd: c.windowEnd, requester: c.requester,
+      next: c.approvals.find(a => a.decision === 'Pending')?.role, blocked: blockedBy(c), projectId: c.projectId, planId: c.projectId?.replace(/^PRJ-/, 'PLN-'), incidentId: c.incidentId,
+      racks: [...rk].map(id => ({ id, name: m.rackById.get(id)?.name ?? shortId(id) })), devices, work: { total: items.length, done: items.filter(x => x.state === 'Done').length, planned, failed }, view });
+  }
+  const order = { ready: 0, approval: 1, progress: 2, done: 3, closed: 4 } as const;
+  rows.sort((a, b) => order[a.view] - order[b.view] || (a.view === 'done' || a.view === 'closed' ? b.windowStart - a.windowStart : a.windowStart - b.windowStart));
+  /* plans still in review (no CR yet): the capacity a planner wants to add, visible before it reaches Change management */
+  const plans: DcimPlanRow[] = (p2bStore(db).getAllRaw('plannerPlans') as unknown as { id: string; title: string; status: string; scope: string; dataCenterId?: string }[])
+    .filter(p => p.dataCenterId && (!q.dcId || p.dataCenterId === q.dcId) && (p.status === 'In review' || p.status === 'Draft'))
+    .map(p => ({ id: p.id, title: p.title, status: p.status, scope: p.scope, dcId: p.dataCenterId! }));
+  const ghosts = dcimCr.items.filter(x => x.op === 'createRack' && x.state === 'Planned' && x.hallId && (!q.dcId || x.dcId === q.dcId)).map(x => ({ hallId: x.hallId!, changeId: x.changeId, label: x.label, itemId: x.id }));
+  return { rows, plans, rackOpen, ghosts };
 }
 export const dcimWork = (q: { dcId?: string; rackId?: string; neId?: string } = {}) => withCr(dcimCr.items.filter(x => (!q.dcId || x.dcId === q.dcId) && (!q.rackId || x.rackId === q.rackId) && (!q.neId || x.neId === q.neId))).sort((a, b) => b.created - a.created || b.id.localeCompare(a.id));
 
