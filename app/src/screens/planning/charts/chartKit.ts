@@ -1,6 +1,6 @@
 /* Shared, non-component helpers for the planner charts and drawings: NST colour tokens, a measured-width hook, the floating
    tooltip hook, axis ticks and short money for axes. Components live in ChartTip.tsx so fast refresh stays happy. */
-import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { fmtMoney } from '../../../lib/format';
 import { fromUsd } from '../common';
 
@@ -15,17 +15,20 @@ export const C = {
 /** Categorical order for stacked bars and donuts: a calm blue / teal / violet family, greys last (red and amber stay for faults). */
 export const SERIES = [C.blueDark, C.sky, C.indigo, C.teal, C.violet, C.cyan, 'var(--vw-color-slate-400)', C.skyLight];
 
-/** Width of a wrapper div, kept current with a ResizeObserver (starts at `initial` until measured). */
+/** A fixed drawing width (the review pack renders every sheet off-screen at one size); unset = measure the wrapper. */
+export const DrawWidth = createContext<number | undefined>(undefined);
+/** Width of a wrapper div, kept current with a ResizeObserver (starts at `initial` until measured), or the fixed `DrawWidth`. */
 export function useWidth(initial = 640): [RefObject<HTMLDivElement | null>, number] {
   const ref = useRef<HTMLDivElement | null>(null);
-  const [w, setW] = useState(initial);
+  const fixed = useContext(DrawWidth);
+  const [w, setW] = useState(fixed ?? initial);
   useEffect(() => {
-    const el = ref.current; if (!el) return;
+    const el = ref.current; if (!el || fixed) return;
     const first = Math.round(el.getBoundingClientRect().width); if (first > 0) setW(first);
     const ro = new ResizeObserver(e => { const n = Math.round(e[0].contentRect.width); if (n > 0) setW(p => (Math.abs(p - n) > 1 ? n : p)); });
     ro.observe(el); return () => ro.disconnect();
-  }, []);
-  return [ref, w];
+  }, [fixed]);
+  return [ref, fixed ?? w];
 }
 
 /** One tooltip row: label, value and an optional colour key (a dashed key for lines). */

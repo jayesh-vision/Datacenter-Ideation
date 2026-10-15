@@ -663,3 +663,78 @@ screens are rebuilt in our kit (PageHead, StatGrid, ListToolbar, DataTable, NST 
   the hidden ids in `data-more`, so QA visits tabs by id, never by label. New checks: `node .qa/cc-plan.mjs [persona geo …]` (strip, hero height, trio, lens pairs, stage switch, decision links),
   `node .qa/p2b-drawings.mjs <persona> <geo> [ids]` (every sheet: empty, NaN, overlapping or out-of-sheet SVG text).
 
+- **Plan review pack (15-Oct-2026, branch plan-pack-review, user: "the final document reviewed by the end user on email or in the portal")**:
+  ONE content model `pack/review/model.ts`, filled once by `review/build.ts` `buildReviewDoc(input)` (inputs from `review/reviewInput.ts`
+  `useReviewInput(plan)`, shared by the portal hook and the Plan pack downloads: scenario under review → approved → preferred → base). Sections
+  (empty ones dropped, renumbered; ids stable, sub-sections "4.1" are sections of their own): approval sheet (path, approvers, decisions, sign-off,
+  conditions, rounds, changes since the parent's baseline) · executive summary · scope and requirements (site baseline, holds merged per device,
+  inputs off the template) · design basis (power chain, plant, cooling, network, rack classes, figures inline) · the family's analysis
+  (`review/family.ts`: every family pack section rendered to static markup with all DataTable rows (`DataTableAllRows`) and read back into blocks;
+  tables over 40 rows go to the workbook in full) · capacity · cost and business case (+ baseline vs now) · bill of materials and sourcing ·
+  schedule · network and IP · risks, permits, conditions · rule checks · delivery and build initiation · assumptions and sources · Appendix A
+  drawing register. Drawings: `review/svg.ts` renders the SAME `SheetContent` (`pack/sheetContent.tsx`, also used by DrawingsView) with
+  react-dom/server at `SHEET_W` 1040 (`DrawWidth` context in chartKit), resolves `var(--vw-color-*)` (live token, else `review/tokens.ts`
+  generated from design-system/colors.css), redraws legend / caption / notes as SVG, prefixes ids; `framedSheetSvg` adds frame + title block.
+  Files (all lazy): `pdf.ts` (pdfmake 0.3.11, Inter TTFs from @expo-google-fonts/inter fetched only when a PDF is built: cover + verdict,
+  contents with page numbers, header doc number / revision, footer page x of y, tables with repeated header rows, vector figures, landscape
+  drawing pages; only titled tables are numbered, as in the portal), `xlsx.ts` (exceljs 4.4.0: a sheet per ReviewSheet, frozen header, filters,
+  money #,##0 with the currency in the header), `zip.ts` (fflate 0.8.3: PDF, workbook, csv/*.csv with BOM, drawings/*.svg, README.txt,
+  manifest.json with sizes + SHA-256; `buildPackFile` / `downloadPackFile`). Plan pack tab: "Review pack" panel with the three downloads.
+  Checks: `npx tsx --tsconfig tsconfig.app.json --import ./.qa/lib/css-hook.mjs .qa/review-doc.ts <persona> <geo> [ids]` (lint: NaN, undefined,
+  raw keys, rule ids, empty sections, row widths; writes text dumps + SVGs to .qa/out/review), same flags `.qa/review-files.ts` (node: PDF / XLSX /
+  ZIP built and checked with poppler + exceljs + manifest checksums, no heading at a page bottom, no blank page; PAGES=1 renders PNGs),
+  `node .qa/p2b-review-pack.mjs <persona> <geo> [ids]` (browser: the Plan pack buttons download and the files check out).
+
+- **Plan review portal (15-Oct-2026, branch plan-pack-review)**: `/planning/plans/:id/review` (`pack/review/ReviewPage.tsx`) renders the plan's
+  ReviewDoc (`review/useReviewDoc.ts` → `buildReviewDoc`, the same object the PDF / workbook / ZIP use) with `ReviewDocView.tsx` (cover, numbered
+  sections and "4.1" sub-sections, tables numbered per section, figures, sign-off boxes, drawing sheets; print-friendly via `printPlanArea`, sheets on
+  landscape pages). Band: Decision (the plan's own path, whose turn, the same `DecideModal` / `actions.decide` and segregation rules as the Approvals
+  tab) · Review status · Review pack files (`review/files.ts` → zip.ts). Side: Contents rail (sub-sections unfold under the section in view) |
+  Comments (threaded per section id, reply, resolve). **Send for review** (`review/SendForReview.tsx`, lazy via `review/lazy.tsx`; plan header,
+  Plan pack "Review pack" panel, review page): reviewers = holders of the path's roles minus requester / submitter (`planner/lib/reviews.ts`), message,
+  PDF / ZIP / link only, email preview with real attachment sizes; a draft can be submitted at the same time. No email is sent (note in the modal).
+  Records: collections `planReviews` (REV-n) + `planReviewComments` (RVC-n), actions `requestReview` / `commentOnReview` / `resolveReviewComment` in
+  usePlanner (audited on the plan → History). Shown on the plan page (note under the header, Approvals tab panels) and in the hub's "Plans that need
+  action" (`Your review` for the signed-in reviewer who has not answered, else `Review sent`). Check: `node .qa/p2b-review.mjs <persona> <geo> [ids]`
+  (W=1280|1440; render, raw values, overflow, PDF / XLSX / ZIP downloads, then send → comment → reply → resolve → hub → decide).
+
+- **Plan drill-down: edit from the plan page + a cleaner page (15-Oct-2026, branch plan-pack-review, user: "options in the plan drill-down for
+  materials, adjust project plan etc. … make the plan drill-down UX cleaner, like the other UX in our product")**. **Edit rule** (one for every
+  editor on the plan page): `plan/edit/policy.ts` `usePlanEdit(plan, { living? })` → `{ policy: { mode, note, commitLabel, target }, commit(patch, what) }`;
+  Draft / Rejected = in place; In review = "Withdraw and save" (withdraw, then patch); Approved / Executing = "Draft revision B" (raiseRevision,
+  then the edit patched onto B, audited "Raised to change: <what>"; map fields such as params are re-based so B keeps its approved overrides; an
+  open draft revision takes further edits — "Save to revision B"; one in review makes the editor read-only); On hold / Completed / Cancelled /
+  superseded = read-only with `G.lockReason`. `living: true` (risks / permits only) saves straight onto a locked plan. Editors show
+  `plan/edit/EditNote.tsx` (the calm banner) and land on the returned plan with `landOn(plan, result, tab)`; `patchPlan(id, patch, note?)` and
+  `raiseRevision(plan, reason?)` carry the note into History. Never write plan fields from the plan page without it.
+  **Page** (`PlanPage.tsx`, `plan/header.tsx`, `plan/overview.tsx`; styles in `planning-plan.css`), in the Delivery project page's rhythm: header
+  (scope icon, title, status / Rev chips, one facts line, primary action + Send for review + Actions) → ONE status line `.pn-status` (state in
+  words, whose decision, blockers, conditions, template drift, the build in Delivery, an open review — it is the `.note` p2b-review looks for — and
+  an open revision) → hero strip `.pn-hero` (readiness ring, or % built in delivery, + IT capacity · CapEx · Payback · Needed by · Rule checks,
+  each opens its tab) → ALL tabs in one row (no Figures picker; figures follow approved → in review → preferred scenario → base). Tab order:
+  Overview · Project plan (id `schedule`) · family tabs (short labels: Equipment, Inventory, Waves, Plant, Paths, Site fit) · Design (id `sizing`;
+  Sizing + Capacity, anchor `#pn-capacity`) · Cost · Materials · Risks & permits · Rules · Approvals · Plan pack · Delivery · History (holds the
+  Baseline when there is no Delivery). Scenarios open on demand from the header's What-if button (a drawer; icon + count below 1440 px). Old
+  `?tab=capacity|baseline|scenarios` still land right. Every plan's tabs fit one row at 1280 — keep labels short and counts for attention only.
+  Overview = 12-column dashboard: What and why (intent, Draft → In review → Approved → In delivery → Completed tracker, next step, where /
+  owner / template / design), Key dates, Needs attention (failing rules, late items, conditions, decision due, review comments, submit blockers,
+  soft rules), Phases, Cost · Capacity · Readiness, Inputs changed from the template, What the plan produces. **Project plan** (`plan/ProjectPlan.tsx`):
+  phases and dates; "Adjust the project plan" edits name / go-live / IT kW / density / cooling, split / merge / remove / add phases and the
+  needed-by date (phases move with it by default; live phases stay); the effect is computed live with `useDraftEvaluation` on the draft vs the plan
+  (design IT, racks, late items and to-order-in-90-days from `useSchedule` so Delivery's POs count, CapEx, NPV, payback, failing rules, newly late /
+  no longer late, first order-by, CapEx by build year, the capacity ladder) and the Schedule board / timeline below is drawn from the draft; a sticky
+  bar lists the changes and commits with `policy.commitLabel`. Design IT follows the phase sum when it did before.
+  **Materials** (`plan/Materials.tsx`, engine `planner/lib/materials.ts`, styles `planning-materials.css`): the bill is priced once in `buildBom`
+  (catalogue model and price; sourcing no longer re-prices), so the bill, Cost tab reconciliation, pack, review pack and Delivery POs agree. Edits are
+  `plan.materialOverrides` keyed by `kind|item|phase|site` (or `ADD-n`): quantity, model (same kind; same rating for plant; per-rack IT re-fits),
+  vendor (maker or catalogue `CHANNELS`: premium, lead difference, contract from the seed), source (auto / site / stock / buy, from
+  `sourceAvailability`), remove, add from the catalogue. `evaluate()` adds one CapEx line "Bill of materials changes" (bill − proposal; the
+  reconciliation skips it), sets `ev.materials`, and lays the changes over the schedule by `leadItem`. Check: `node .qa/p2b-materials.mjs <persona> <geo> <PLN> [width]`.
+  **Equipment, risks and permits**: `plan/EquipmentEditor.tsx` is the family tab `equipment` (replace "Equipment and waves", migration "Inventory and
+  waves", in-site "Racks and equipment"; registered in `scopes/{replace,migration,inSite}/index.tsx`); it reuses the wizard panels on a local copy
+  re-evaluated live, and read-only plans show the plan-pack read views. `plan/RisksPermits.tsx` is the `risks` tab (lists + drawer): status, rating,
+  owner and mitigation updates are a live register (`usePlanEdit(plan, { living: true })`); adding, removing or renaming items drafts a revision and
+  is merged by item id into an open one. Shared `plan/EffectBar.tsx`: EffectStrip (new value, "was …"), pinned ChangeBar (Discard / Review / the
+  policy's commit label; withdraw and revision always go through the review dialog), `usePending` keeps unsaved edits per plan across tabs.
+  Styles `planning-equipment.css` (`peq-`). Check: `W=1280|1440 node .qa/p2b-plan-edit-eq.mjs <persona> <geo>`. Planner CSS is global: never
+  reuse a class name another planner stylesheet already styles (`.pn-params` / `.pn-figs` clashes broke the wizard twice).

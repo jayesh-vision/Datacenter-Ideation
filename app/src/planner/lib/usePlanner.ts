@@ -25,9 +25,10 @@ import type { VendorOrder } from './sourcing';
 import * as G from './governance';
 import { moveReservations } from './reservations';
 import { clockMs } from '../compat/clock';
+import type { PlanReviewComment, PlanReviewRequest, ReviewDelivery, ReviewEmail } from './reviews';
 
 const BIG = { pageSize: 5000 } as const;
-export const PLANNER_ENTITIES = ['plannerTemplates', 'plannerBenchmarks', 'plannerPlans', 'plannerScenarios', 'plannerFeedback', 'approvalDelegations', 'auditEvents', 'capacityReservations', 'rackReservations'] as const;
+export const PLANNER_ENTITIES = ['plannerTemplates', 'plannerBenchmarks', 'plannerPlans', 'plannerScenarios', 'plannerFeedback', 'approvalDelegations', 'auditEvents', 'capacityReservations', 'rackReservations', 'planReviews', 'planReviewComments'] as const;
 /** Collections execution writes to (invalidated afterwards). Delivery owns the project, its orders, work orders and changes. */
 export const EXECUTION_COLLECTIONS = ['boms', 'bomLines', 'subnets', 'vlans', 'ipAddresses', 'changeRequests', 'maintenanceWindows', 'capacityReservations', 'rackReservations', 'devices', 'racks', 'halls', 'rows', 'buildings', 'floors', 'dataCenters', 'circuits', 'circuitTerminations', 'atps', 'atpSteps', 'configChanges', 'disposalCertificates', 'powerFeeds', 'pdus', 'cables', 'edgeLocations'] as const;
 const now = () => new Date(clockMs()).toISOString();
@@ -43,6 +44,10 @@ export const usePlan = (id?: string) => { const p = (useEntityDetail('plannerPla
 export const useScenarios = (planId?: string) => { const data = useEntityList('plannerScenarios', BIG).data?.data; return useMemo(() => { const all = (data ?? EMPTY) as unknown as T.PlannerScenario[]; return planId ? all.filter(s => s.planId === planId) : all; }, [data, planId]); };
 export const useFeedback = () => (useEntityList('plannerFeedback', BIG).data?.data ?? []) as unknown as T.PlannerFeedback[];
 export const useDelegations = () => { const data = useEntityList('approvalDelegations', BIG).data?.data; return useMemo(() => ((data ?? EMPTY) as unknown as T.ApprovalDelegation[]).filter(d => !d.isDeleted), [data]); };
+/** Review requests (the reviewer portal) of one plan, or of every plan; newest first. */
+export const usePlanReviews = (planId?: string) => { const data = useEntityList('planReviews', BIG).data?.data; return useMemo(() => ((data ?? EMPTY) as unknown as PlanReviewRequest[]).filter(r => !r.isDeleted && (!planId || r.planId === planId)).sort((a, b) => b.requestedAt.localeCompare(a.requestedAt)), [data, planId]); };
+/** Review comments of one plan, or of every plan; oldest first (threads read top-down). */
+export const useReviewComments = (planId?: string) => { const data = useEntityList('planReviewComments', BIG).data?.data; return useMemo(() => ((data ?? EMPTY) as unknown as PlanReviewComment[]).filter(c => !c.isDeleted && (!planId || c.planId === planId)).sort((a, b) => a.at.localeCompare(b.at)), [data, planId]); };
 /** Audit events of one plan, newest first. */
 export const usePlanAudit = (planId?: string) => { const data = useEntityList('auditEvents', { pageSize: 100000 }).data?.data; return useMemo(() => ((data ?? EMPTY) as unknown as T.AuditEvent[]).filter(e => planId && (e.plannerPlanId === planId || (e.entityType === 'Plan' && e.entityId === planId))).sort((a, b) => b.timestamp.localeCompare(a.timestamp)), [data, planId]); };
 
@@ -194,13 +199,13 @@ export function usePlannerActions() {
       invalidate(); return { ok: true, value: getPlan(server.id)! };
     },
     /** Patch a plan outside the wizard (detail tabs). Locked plans accept only the living fields (risks, permits). */
-    patchPlan(id: string, patch: Partial<T.PlannerPlan>): ActionResult {
+    patchPlan(id: string, patch: Partial<T.PlannerPlan>, note?: string): ActionResult {
       const cur = getPlan(id); if (!cur) return refuse('Plan not found.');
       const keys = Object.keys(patch) as (keyof T.PlannerPlan)[];
       if (!G.isEditable(cur) && keys.some(k => !LIVING_FIELDS.includes(k))) return refuse(G.lockReason(cur) ?? 'The plan is read-only.');
       const changes = G.diffPlan(cur, patch).concat(keys.filter(k => LIVING_FIELDS.includes(k)).map(k => ({ field: k, from: `${(cur[k] as unknown[] | undefined)?.length ?? 0} items`, to: `${(patch[k] as unknown[] | undefined)?.length ?? 0} items` })));
       update(id, patch);
-      log('Plan', id, 'edited', `Changed ${keys.join(', ')}${changes.length ? `: ${G.changesText(changes)}` : ''}`, { changes });
+      log('Plan', id, 'edited', `${note ? `${note}. ` : ''}Changed ${keys.join(', ')}${changes.length ? `: ${G.changesText(changes)}` : ''}`, { changes });
       invalidate(); return { ok: true };
     },
     setParam(plan: T.PlannerPlan, key: string, value: number | string | boolean, source: T.PlannerParamSource = 'user'): ActionResult {
@@ -310,6 +315,40 @@ export function usePlannerActions() {
       log('Delegation', id, 'revoked', `Delegation ${id} revoked by ${actor}`);
       invalidate(); return { ok: true };
     },
+    /* ----------------------------------------------------------------- review (portal) */
+    /** Record a review request: who was asked to read the review pack, the message, how it was sent and the email that would go out
+     *  (the prototype sends no email). Audited on the plan. */
+    requestReview(plan: T.PlannerPlan, r: { reviewers: { name: string; role: string }[]; message: string; delivery: ReviewDelivery; email: ReviewEmail; docNumber: string }): ActionResult<PlanReviewRequest> {
+      const cur = getPlan(plan.id) ?? plan;
+      if (!r.reviewers.length) return refuse('Pick at least one reviewer.');
+      if (['Cancelled', 'Completed'].includes(cur.status)) return refuse(`The plan is ${cur.status.toLowerCase()}; there is nothing left to review.`);
+      if (r.reviewers.some(x => x.name === cur.requestedBy || x.name === cur.submittedBy)) return refuse('The requester or submitter of the plan cannot review it (segregation of duties).');
+      const id = nextId('planReviews', 'REV');
+      const rec: PlanReviewRequest = { id, revId: id, planId: cur.id, plnId: cur.plnId, revision: cur.revision ?? 'A', round: G.currentRound(cur), docNumber: r.docNumber, requestedBy: actor, requestedById: actorId, requestedAt: now(), reviewers: r.reviewers, message: r.message, delivery: r.delivery, email: r.email, planStatus: cur.status, ...meta() };
+      db.create('planReviews', rec as unknown as Record<string, unknown>);
+      const how = r.delivery === 'link' ? 'a link to the review page' : `the ${r.delivery === 'pdf' ? 'PDF' : 'ZIP package'} and a link`;
+      log('Review', id, 'review requested', `Review ${id} of ${r.docNumber} requested from ${r.reviewers.map(x => `${x.name} (${x.role})`).join(', ')}, sent as ${how}`, { planId: cur.id, changes: [{ field: 'review request', to: r.email.subject }] });
+      invalidate(); return { ok: true, value: rec };
+    },
+    /** Comment on a section of the review document (or reply to a comment). */
+    commentOnReview(plan: T.PlannerPlan, c: { sectionId: string; sectionLabel: string; text: string; parentId?: string; reviewId?: string }): ActionResult<PlanReviewComment> {
+      const cur = getPlan(plan.id) ?? plan;
+      const text = c.text.trim(); if (text.length < 2) return refuse('Write a comment first.');
+      const id = nextId('planReviewComments', 'RVC');
+      const role = G.personOf({ id: actorId, name: actor })?.role;
+      const rec: PlanReviewComment = { id, planId: cur.id, reviewId: c.reviewId, revision: cur.revision ?? 'A', sectionId: c.sectionId, sectionLabel: c.sectionLabel, parentId: c.parentId, author: actor, authorRole: role, at: now(), text, status: 'Open', ...meta() };
+      db.create('planReviewComments', rec as unknown as Record<string, unknown>);
+      log('Review', id, c.parentId ? 'review reply' : 'review comment', `${c.parentId ? 'Replied on' : 'Commented on'} ${c.sectionLabel}: ${text.length > 120 ? `${text.slice(0, 117)}…` : text}`, { planId: cur.id });
+      invalidate(); return { ok: true, value: rec };
+    },
+    /** Resolve (or reopen) a comment thread. */
+    resolveReviewComment(plan: T.PlannerPlan, commentId: string, resolved: boolean): ActionResult {
+      const cur = db.getById('planReviewComments', commentId) as unknown as PlanReviewComment | undefined;
+      if (!cur) return refuse('Comment not found.');
+      db.update('planReviewComments', commentId, (resolved ? { status: 'Resolved', resolvedBy: actor, resolvedAt: now(), updatedAt: now() } : { status: 'Open', resolvedBy: undefined, resolvedAt: undefined, updatedAt: now() }) as Record<string, unknown>);
+      log('Review', commentId, resolved ? 'review comment resolved' : 'review comment reopened', `${resolved ? 'Resolved' : 'Reopened'} the comment on ${cur.sectionLabel} by ${cur.author}`, { planId: plan.id, changes: [{ field: `comment ${commentId}`, from: cur.status, to: resolved ? 'Resolved' : 'Open' }] });
+      invalidate(); return { ok: true };
+    },
     /* ----------------------------------------------------------------- lifecycle */
     hold(plan: T.PlannerPlan, reason: string): ActionResult {
       const cur = getPlan(plan.id) ?? plan; const r = G.holdPlan(cur, reason, actor, now()); if (!r.ok) return refuse(r.reason);
@@ -333,15 +372,15 @@ export function usePlannerActions() {
       update(cur.id, { isDeleted: true } as Partial<T.PlannerPlan>); log('Plan', cur.id, 'deleted', `Draft ${cur.plnId} ${cur.title} deleted`); invalidate(); return { ok: true };
     },
     /** Raise the next revision of an approved or executing plan: a Draft copy with its own approval round. */
-    raiseRevision(plan: T.PlannerPlan): ActionResult<T.PlannerPlan> {
+    raiseRevision(plan: T.PlannerPlan, reason?: string): ActionResult<T.PlannerPlan> {
       const cur = getPlan(plan.id) ?? plan;
       const scn = cur.approvedScenarioId ? (db.getById('plannerScenarios', cur.approvedScenarioId) as unknown as T.PlannerScenario | undefined) : undefined;
       const all = db.getAll('plannerPlans', { pageSize: 100000 }).data as unknown as T.PlannerPlan[];
       const r = G.revisionDraft(cur, all, scn?.overrides ?? {}, { id: actorId, name: actor }, now()); if (!r.ok) return refuse(r.reason);
       const rec = { ...r.patch, customerId: TENANT_ID, updatedBy: actor };
       db.create('plannerPlans', rec as unknown as Record<string, unknown>);
-      log('Plan', rec.id, 'revision raised', `Revision ${rec.revision} of ${cur.plnId} raised as a draft`, { planId: rec.id });
-      log('Plan', cur.id, 'revision raised', `Revision ${rec.revision} (${rec.plnId}) raised; this plan stays ${cur.status.toLowerCase()} until the revision is approved`);
+      log('Plan', rec.id, 'revision raised', `Revision ${rec.revision} of ${cur.plnId} raised as a draft${reason ? `. ${reason}` : ''}`, { planId: rec.id, reason });
+      log('Plan', cur.id, 'revision raised', `Revision ${rec.revision} (${rec.plnId}) raised${reason ? ` (${reason})` : ''}; this plan stays ${cur.status.toLowerCase()} until the revision is approved`, { reason });
       invalidate(); return { ok: true, value: rec };
     },
     /** The sourcing context as the store holds it now (stock, vendors, contracts); pass it to `execute`. */

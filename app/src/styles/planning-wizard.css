@@ -45,9 +45,9 @@
 .pn-scen .pn-card { min-height: 150px; }
 .pn-scentbl td, .pn-scentbl th { white-space: nowrap; }
 .pn-scencell { display: inline-flex; flex-direction: column; gap: 1px; line-height: 1.25; }
-.pn-delta { font-size: 11.5px; color: var(--ink-500); font-family: var(--num); }
-.pn-delta.is-good { color: var(--vw-color-emerald-700); }
-.pn-delta.is-bad { color: var(--vw-color-red-600); }
+.pw-delta { font-size: 11.5px; color: var(--ink-500); font-family: var(--num); }
+.pw-delta.is-good { color: var(--vw-color-emerald-700); }
+.pw-delta.is-bad { color: var(--vw-color-red-600); }
 
 /* ---- review */
 .pn-approvers { display: inline-flex; align-items: flex-start; gap: 5px; margin-top: 2px; }
@@ -167,3 +167,46 @@
 .pn-aff-tbl .row.wrap > .vw-chip, .planning .pn-aff-tbl .row.wrap > .vw-chip { white-space: nowrap; }
 .pn-departs .pn-tbl .nst-table td, .pn-departs .pn-tbl .nst-table th { padding: 8px 8px; white-space: normal; overflow-wrap: anywhere; }
 .pn-departs .pn-tbl td.num { white-space: normal; }
+
+/* ---- step header (StepHead in wizard/steps.tsx). Not .pn-hero: the plan page's hero strip owns that name (planning-plan.css), and once
+   the plan page had been opened its grid squeezed this header so the step pill covered the checks chip (15-Oct-2026). */
+.pw-hero { display: flex; gap: 14px; align-items: center; padding: 14px 18px; background: var(--surface); border: 1px solid var(--vw-color-slate-200); border-radius: 12px; min-width: 0; }
+.pw-hero-ico { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; flex: none; background: var(--primaryColor50); color: var(--primaryColor600); border: 1px solid var(--primaryColor100); }
+.pw-hero-txt { flex: 1; min-width: 0; }
+.pw-hero-txt h2 { margin: 0 0 2px; font-size: 16.5px; font-weight: 500; line-height: 1.3; color: var(--ink-900); }
+.pw-hero-txt p { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--ink-500); }
+.pw-hero-extra { flex: none; display: flex; align-items: center; gap: 8px; }
+.pw-hero-extra > .row { align-items: center; }
+.pw-hero-extra .vw-chip { white-space: nowrap; }
+.pw-hero-step { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 12px; background: var(--vw-color-slate-50); border: 1px solid var(--vw-color-slate-200); font-size: 11.5px; color: var(--ink-600); white-space: nowrap; font-family: var(--num); }
+
+/* ---- an area step's inputs (ParamInput.tsx). Each field is a two-row subgrid (label row, control row) of .pw-fields, so every input
+   of a grid row starts on the same line; a label may wrap to two lines (clamped, full text on hover) and sits on the input. The help
+   text lives in the ⓘ (kit Info), the unit inside the input, the reset is a small inline icon. */
+.pw-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px 18px; }
+.pw-field { grid-row: span 2; display: grid; grid-template-rows: subgrid; row-gap: 6px; min-width: 0; }
+.pw-field-head { align-self: end; display: flex; align-items: flex-end; gap: 6px; min-width: 0; font-size: 12.5px; line-height: 17px; color: var(--ink-700); }
+.pw-field-name { flex: 0 1 auto; min-width: 0; font-weight: 500; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.pw-field-last { white-space: nowrap; }
+.pw-field-last > .info-tip { margin-left: 4px; vertical-align: -2px; }
+.pw-field-src { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 11px; line-height: 17px; color: var(--ink-500); white-space: nowrap; }
+.pw-field-src i, .pw-legend i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex: none; }
+.pw-field-src.s-def i, .pw-legend i.s-def { background: var(--vw-color-slate-300); }
+.pw-field-src.s-user i, .pw-legend i.s-user { background: var(--primaryColor500); }
+.pw-field-src.s-req i, .pw-legend i.s-req { background: var(--vw-color-violet-500); }
+.pw-field-src.s-bm i, .pw-legend i.s-bm { background: var(--vw-color-teal-500); }
+.pw-field-reset { all: unset; box-sizing: border-box; flex: none; width: 17px; height: 17px; margin-left: -3px; display: grid; place-items: center; border-radius: 4px; color: var(--ink-400); cursor: pointer; }
+.pw-field-reset:hover { color: var(--primaryColor600); background: var(--primaryColor50); }
+.pw-field-reset:focus-visible { outline: 2px solid var(--primaryColor300); outline-offset: 0; }
+.pw-field-ctl { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.pw-field-ctl > .input, .pw-field-ctl > .select { width: 100%; min-width: 0; }
+.pw-field-num { position: relative; display: block; min-width: 0; }
+.pw-field-num > .input { width: 100%; min-width: 0; }
+.pw-field-num.has-unit > .input { padding-right: calc(var(--pw-unit, 0) * 6.6px + 24px); }
+.pw-field-num > small { position: absolute; top: 0; right: 12px; height: 38px; display: flex; align-items: center; font-size: 12px; color: var(--ink-500); white-space: nowrap; pointer-events: none; }
+.pw-field-bool { display: flex; align-items: center; height: 38px; }
+.pw-field.is-set .input, .pw-field.is-set .select { border-color: var(--primaryColor300); }
+.pw-field.is-bad .input { border-color: var(--vw-color-red-400); }
+.pw-field-err { font-size: 11.5px; line-height: 1.35; color: var(--vw-color-red-600); }
+.pw-legend { display: inline-flex; gap: 12px; font-size: 11.5px; color: var(--ink-500); }
+.pw-legend span { display: inline-flex; align-items: center; gap: 5px; }

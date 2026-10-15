@@ -1,0 +1,58 @@
+/* Plan page "Materials" tab (screens/planning/plan/Materials.tsx): the bill of materials editor, its line drawer, the changes against the
+   proposal and the vendor orders. Layout only; colours from NST tokens. Prefix pm-. The effect strip and the pending-change bar are the
+   shared ones (plan/EffectBar.tsx, styles/planning-equipment.css). */
+
+.pm-item { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; font-weight: 500; color: var(--ink-900); }
+.pm-was { margin-left: 6px; font-size: 11.5px; color: var(--ink-400); text-decoration: line-through; text-decoration-color: var(--vw-color-slate-300); }
+.pm-src { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.pm-src svg { color: var(--ink-400); }
+.pm-late { color: var(--vw-color-red-600); }
+.pm-gone { color: var(--ink-400); text-decoration: line-through; text-decoration-color: var(--vw-color-slate-300); }
+.pm .dt-table tr.pm-row-changed td:first-child { box-shadow: inset 3px 0 0 var(--vw-color-amber-400, #fbbf24); }
+.pm .dt-table tr.pm-row-gone td { color: var(--ink-400); }
+.pm .dt-table tr.pm-row-gone td:first-child { box-shadow: inset 3px 0 0 var(--vw-color-slate-300); }
+.pm-empty { margin: 0; font-size: 13px; }
+
+/* ---- changes against the proposal, vendor orders: quiet lists */
+.pm-changes, .pm-orders { list-style: none; margin: 0; padding: 0; }
+.pm-changes > li, .pm-orders > li { display: flex; align-items: center; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--vw-color-slate-100); min-width: 0; }
+.pm-changes > li:last-child, .pm-orders > li:last-child { border-bottom: 0; }
+.pm-changes > li.is-stale { opacity: .75; }
+.pm-change-main, .pm-order-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; text-align: left; background: none; border: 0; padding: 0; font: inherit; color: inherit; }
+button.pm-change-main { cursor: pointer; border-radius: 6px; }
+button.pm-change-main:hover b { color: var(--primary-700, var(--primaryColor)); }
+.pm-change-main b, .pm-order-main b { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; font-weight: 500; font-size: 13.5px; color: var(--ink-900); }
+.pm-order-main b small { font-weight: 400; color: var(--ink-500); font-size: 12px; }
+.pm-change-main small, .pm-order-main > small { font-size: 12px; color: var(--ink-500); }
+.pm-delta { flex: none; font-family: var(--num); font-size: 13px; color: var(--ink-700); white-space: nowrap; }
+.pm-delta.is-up { color: var(--vw-color-red-600); }
+.pm-delta.is-down { color: var(--vw-color-emerald-700); }
+.pm-orders .pk-b { flex: none; font-family: var(--num); }
+.pm-changes-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--vw-color-slate-200); }
+
+/* ---- line drawer */
+.pm-drawer { display: flex; flex-direction: column; gap: 18px; }
+.pm-sect > header { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.pm-sect h4 { margin: 0; font-size: 12.5px; font-weight: 500; color: var(--ink-500); text-transform: none; }
+.pm-sect .pm-reset { font-size: 12px; background: none; border: 0; padding: 0; cursor: pointer; }
+.pm-hint { margin: 6px 0 0; font-size: 12px; color: var(--ink-500); }
+.pm-ro { display: block; font-size: 13.5px; color: var(--ink-800); }
+.pm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.pm-opts { display: flex; flex-direction: column; gap: 6px; }
+.pm-opt { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px; background: #fff; border: 1px solid var(--vw-color-slate-200); border-radius: 10px; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.pm-opt:hover:not(:disabled) { border-color: var(--vw-color-slate-300); background: var(--vw-color-slate-50); }
+.pm-opt.is-on { border-color: var(--primary-400, var(--primaryColor)); background: var(--primary-50); }
+.pm-opt:disabled { cursor: default; opacity: .6; }
+.pm-opt.is-on:disabled { opacity: 1; }
+.pm-opt-dot { flex: none; width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--vw-color-slate-300); background: #fff; }
+.pm-opt.is-on .pm-opt-dot { border: 4px solid var(--primary-600, var(--primaryColor)); }
+.pm-opt-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pm-opt-main b { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; font-weight: 500; font-size: 13.5px; color: var(--ink-900); }
+.pm-opt-main small { font-size: 12px; color: var(--ink-500); }
+.pm-opt-side { flex: none; font-size: 13px; color: var(--ink-700); white-space: nowrap; }
+.pm-fx { width: 100%; }
+.pm-fx td.num { font-family: var(--num); }
+.pm-fx tr.is-moved td { background: var(--primary-50); }
+.pm-fx tr.is-moved td:last-child { font-weight: 500; color: var(--ink-900); }
+.drawer-foot .pm-foot-left { margin-right: auto; }
+.pn-two.pm-two { align-items: start; } /* the changes list stays its own height next to a long vendor order list */

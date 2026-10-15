@@ -7,6 +7,7 @@ import { replaceOf } from '../../../../planner/lib/replaceAnalysis';
 import { ReplaceDeliveryPanel, ReplaceItPanel, ReplaceNetworkPanel, ReplacePowerPanel, ReplaceSpacePanel, ReplaceWavesPanel } from './Panels';
 import { ClosureChecklist, OldToNew, PeopleSection, PortsAndPatching, Runbook, WaveSchedule } from './PackSections';
 import { WavesTab } from './WavesTab';
+import { EquipmentEditor } from '../../plan/EquipmentEditor';
 
 registerScopeUi('replace', {
   panels: { space: ReplaceSpacePanel, power: ReplacePowerPanel, network: ReplaceNetworkPanel, it: ReplaceItPanel, delivery: ReplaceDeliveryPanel, migration: ReplaceWavesPanel },
@@ -18,5 +19,5 @@ registerScopeUi('replace', {
     { key: 'people', label: 'Consent and notification', count: p => String(p.plan.scope === 'rack-replace' ? replaceOf(p.ev)?.rack?.consents.length ?? 0 : replaceOf(p.ev)?.impact.customers.length ?? 0), render: p => <Panel icon={I.Users} title="Consent and notification" info="Who must be told or must agree before each wave: tenants of the racks (with their notice period) or the customers whose services run on the equipment."><PeopleSection {...p} /></Panel> },
     { key: 'closure', label: 'Closure checklist', render: p => <Panel icon={I.ListChecks} title="Closure checklist" sub="Read live from the platform" info="What must be true before the plan can be completed; each check reads the platform records."><ClosureChecklist {...p} /></Panel> },
   ],
-  detailTabs: [{ key: 'waves', label: 'Waves and closure', badge: p => (p.plan.waves ?? []).filter(w => w.status !== 'Closed' && w.status !== 'Cancelled').length || undefined, render: p => <WavesTab {...p} family="replace" /> }],
+  detailTabs: [{ key: 'equipment', label: 'Equipment', render: p => <EquipmentEditor {...p} family="replace" /> }, { key: 'waves', label: 'Waves', badge: p => (p.plan.waves ?? []).filter(w => w.status !== 'Closed' && w.status !== 'Cancelled').length || undefined, render: p => <WavesTab {...p} family="replace" /> }],
 });

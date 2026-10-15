@@ -28,6 +28,7 @@ import type { PlannerData } from './plannerData';
 import { campusBaseline, planAddedKw, siteBaseline } from './site';
 import { modelFor, type CheckResult, type ScopeCtx } from './scopes';
 import { buildBom, type Bom, type BomCategory } from './outputs';
+import { MATERIAL_CHANGES_ITEM, compareBoms, materialsEstimateLine, scheduleWithMaterials, type MaterialsEffect } from './materials';
 import { clockMs } from '../compat/clock';
 import { plannerMoney } from '../compat/registry';
 
@@ -547,7 +548,7 @@ export function planItQuantities(plan: T.PlannerPlan, p: P, sizing: Sizing, data
   return itQuantities({ classes: sizing.rackClasses, neededBy: datedPhases(plan)[0]?.goLive ?? plan.targetGoLive, rackHeightU: ru > 42 ? 48 : prof?.physical.rackHeightU ?? 42 }, data);
 }
 
-export function estimate(plan: T.PlannerPlan, p: P, sizing: Sizing, benchmarks: T.PlannerBenchmark[], actuals?: EstateActuals, data?: PlannerData): Estimate {
+export function estimate(plan: T.PlannerPlan, p: P, sizing: Sizing, benchmarks: T.PlannerBenchmark[], actuals?: EstateActuals, data?: PlannerData, extra: EstimateLine[] = []): Estimate {
   const itKw = sizing.itKw;
   const notes: string[] = [];
   const build = WHOLE_SITE_SCOPES.includes(plan.scope);
@@ -589,6 +590,8 @@ export function estimate(plan: T.PlannerPlan, p: P, sizing: Sizing, benchmarks: 
     if (affected) capex.push({ category: 'CapEx', item: 'Installation, migration and disposal', amount: r0(affected * (plan.scope === 'rack-replace' ? 1900 : plan.scope === 'network-refresh' ? 420 : 370)), basis: `${affected} ${plan.scope === 'rack-replace' ? 'racks' : 'devices'} moved, cut over and disposed of`, source: 'benchmark' });
   }
   if (plan.scope === 'network') { capex.push({ category: 'CapEx', item: 'Optics, line cards and DCI circuits', amount: 1_250_000, basis: '2 × 400G DCI, third diverse path, optics both ends', source: 'benchmark' }); }
+  // Lines the caller adds (the planner's bill of materials changes, materials.ts); counted as other CapEx in the cash flow.
+  capex.push(...extra);
   // Contingency on works (not on bought-in IT or land).
   const worksBase = r0(mep + shell);
   const contPct = num(p, 'costContingencyPct', build ? 10 : 5);
@@ -763,6 +766,8 @@ export function reconcile(est: Estimate, bom: Bom): Reconciliation {
     const fresh = cats.filter(c => !used.has(c));
     const bomAmt = fresh.reduce((a, c) => a + (bom.byCategory.find(x => x.category === c)?.total ?? 0), 0);
     fresh.forEach(c => used.add(c));
+    // the planner's bill changes are already in the bill's categories: neither a row of their own nor uncosted
+    if (l.item === MATERIAL_CHANGES_ITEM) continue;
     if (!cats.length) uncosted.push({ item: l.item, amount: l.amount });
     rows.push({ item: l.item, estimate: l.amount, bom: bomAmt, categories: cats });
   }
@@ -935,6 +940,8 @@ export function evaluateRules(rules: T.PlannerRuleDef[], plan: T.PlannerPlan, p:
 /* ================================================================== schedule */
 export interface ScheduleItem {
   item: string; leadWeeks: number; needBy: string; orderBy: string; late: boolean; phase: string; kind: 'equipment' | 'gate' | 'permit'; phaseId?: string;
+  /** Lead-time benchmark of an equipment line: the bill's lines with the same lead item are the ones it orders (the planner's material
+   *  changes are laid over it by that link); family schedules name the item after it instead. */ leadItem?: string;
   /** Where the items come from: stock needs only a transfer, procurement the full lead time. */ source?: 'stock' | 'site' | 'procure' | 'mixed'; note?: string;
   /** Schedule contingency held as a separate buffer before the order date (weeks). */ bufferWeeks?: number;
   /** Purchase order covering the item after approval, and its status. */ poId?: string; status?: 'to order' | 'ordered' | 'late' | 'stock' | 'gate' | 'permit';
@@ -1055,7 +1062,7 @@ export function schedule(plan: T.PlannerPlan, sizing: Sizing, benchmarks: T.Plan
         if (po) { poId = po.poId ?? po.id; if (po.status === 'Draft') { late = new Date(po.orderBy ?? new Date(orderBy).toISOString()).getTime() < now; status = late ? 'late' : 'to order'; note = `${poId} is still a draft${late ? ' after its order-by date' : ''}`; } else { late = false; status = 'ordered'; note = `${poId} ${po.status.toLowerCase()}`; } }
         else { status = late ? 'late' : 'to order'; note = late ? 'no purchase order raised and the order-by date has passed' : 'no purchase order yet'; }
       } else if (late) status = 'late';
-      items.push({ item: l.item, leadWeeks: lead, bufferWeeks: buffer, needBy: new Date(needBy).toISOString(), orderBy: new Date(orderBy).toISOString(), late, phase: ph.name, phaseId: ph.id, kind: 'equipment', source, note: note ?? `${lt.leadWeeks} weeks (${lt.source})${buffer ? ` + ${buffer} weeks buffer` : ''}`, poId, status });
+      items.push({ item: l.item, leadItem: l.lead, leadWeeks: lead, bufferWeeks: buffer, needBy: new Date(needBy).toISOString(), orderBy: new Date(orderBy).toISOString(), late, phase: ph.name, phaseId: ph.id, kind: 'equipment', source, note: note ?? `${lt.leadWeeks} weeks (${lt.source})${buffer ? ` + ${buffer} weeks buffer` : ''}`, poId, status });
     }
     const gates: [string, number][] = plan.scope === 'new-dc' ? [['Shell complete (civil input)', 36], ['Power on', 20], ['Cooling commissioned', 12], ['Network live', 6], ['Go-live readiness', 1]] : plan.scope === 'expansion' ? [['Shell complete (civil input)', 28], ['Power on', 16], ['Commissioning level 5', 4], ['Go-live readiness', 1]] : plan.scope === 'rack' ? [['Change approved', 1]] : [['Design review', 12], ['Commissioning complete', 2], ['Go-live readiness', 1]];
     for (const [g, w] of gates) items.push({ item: g, leadWeeks: 0, needBy: new Date(gl - w * WEEK).toISOString(), orderBy: new Date(gl - w * WEEK).toISOString(), late: false, phase: ph.name, phaseId: ph.id, kind: 'gate', status: 'gate' });
@@ -1108,6 +1115,8 @@ export interface Evaluation {
   reconciliation?: Reconciliation;
   /** Inputs still on untouched template defaults (shown separately from readiness). */
   defaultsCount?: number;
+  /** The planner's bill of materials changes against the proposal (plan.materialOverrides), when there are any. */
+  materials?: MaterialsEffect;
 }
 /** The plan as a scenario sees it: its phases replaced when the scenario carries phase overrides. */
 export function planForScenario(plan: T.PlannerPlan, scenario?: T.PlannerScenario | null): T.PlannerPlan {
@@ -1140,7 +1149,27 @@ export function evaluate(basePlan: T.PlannerPlan, scenario: T.PlannerScenario | 
   const sus = sustainability(plan, params, sizing, est, benchmarks);
   const ev: Evaluation = { params, resolved, sizing, ladder, estimate: est, findings: [], schedule: sched, sustainability: sus, aspects: [], hardFails: 0, softWarns: 0, readinessPct: 0, bindingConstraint: 'none', ctx, scope: {} };
   if (model.analyse) ev.scope = model.analyse(ctx, ev);
-  try { ev.reconciliation = reconcile(est, buildBom(plan, ev, benchmarks)); } catch { ev.reconciliation = undefined; }
+  let bom: Bom | undefined;
+  try { bom = buildBom(plan, ev, benchmarks); } catch { bom = undefined; }
+  if (bom && plan.materialOverrides?.length) {
+    // The planner's bill changes (Materials tab): one CapEx line for the difference against the proposal, the order schedule re-laid.
+    const proposal = buildBom(plan, ev, benchmarks, { proposal: true });
+    const fx = compareBoms(proposal, bom, plan.materialOverrides, bom.materials?.stale, bom.materials?.warnings);
+    ev.materials = fx;
+    if (fx.delta) {
+      const line = materialsEstimateLine(fx);
+      let est2 = estimate(plan, params, sizing, benchmarks, actuals, data, [line]);
+      if (model.estimate) {
+        const fam = model.estimate(ctx, sizing, est2);
+        const withLine = fam.capex.some(l => l.item === MATERIAL_CHANGES_ITEM) ? fam : { ...fam, capex: [...fam.capex, line], capexTotal: fam.capexTotal + line.amount, plantCapexTotal: fam.plantCapexTotal + line.amount, capexPerRack: sizing.racks ? r0((fam.capexTotal + line.amount) / sizing.racks) : fam.capexPerRack };
+        est2 = scopeCashflow(plan, params, sizing, withLine, est2);
+      }
+      ev.estimate = est = est2;
+    }
+    const contingencyPct = num(params, 'contingencyPct', 15);
+    ev.schedule = sched = scheduleWithMaterials(sched, plan, proposal, bom, item => leadWeeksFor(item, benchmarks, contingencyPct), m => (data?.ready ? freeStock(data, m, plan.dataCenterId, plan.id).length : 0));
+  }
+  try { ev.reconciliation = bom ? reconcile(est, bom) : undefined; } catch { ev.reconciliation = undefined; }
   const findings = evaluateRules(resolved?.rules ?? [], plan, params, sizing, est, benchmarks, sched, model.check ? (rule => model.check!(ctx, rule, ev)) : undefined, ctx, ev.reconciliation);
   const aspects = aspectScores(resolved, plan, findings, params);
   ev.findings = findings; ev.aspects = aspects;

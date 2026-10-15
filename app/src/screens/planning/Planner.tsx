@@ -6,7 +6,9 @@ import * as I from 'lucide-react';
 import { usePage, PageHead, Loading } from '../../shell/page';
 import { Btn, Panel, Tabs, Chip } from '../../ui/kit';
 import { Facts, SoftMeter, Split, StatGrid, StatTile, type Part } from '../../ui/Analytics';
-import { useBenchmarks, useEstate, usePlans, useTemplates } from '../../planner/lib/usePlanner';
+import { useBenchmarks, useEstate, usePlanReviews, usePlans, useReviewComments, useTemplates } from '../../planner/lib/usePlanner';
+import { requestState, reviewerState } from '../../planner/lib/reviews';
+import { useAuth } from '../../planner/compat/auth';
 import { usePlannerData } from '../../planner/lib/plannerData';
 import { evaluate, type Evaluation } from '../../planner/lib/engine';
 import type * as T from '../../planner/p2b/types';
@@ -98,9 +100,11 @@ export function Planner() {
   );
 }
 
-type AttnKind = 'decision' | 'stalled' | 'condition' | 'fail' | 'late';
-const ATTN: Record<AttnKind, { label: string; tone: 'warning' | 'error' | 'orange'; tab?: string; rank: number; noun: string }> = {
+type AttnKind = 'mine' | 'decision' | 'review' | 'stalled' | 'condition' | 'fail' | 'late';
+const ATTN: Record<AttnKind, { label: string; tone: 'warning' | 'error' | 'orange' | 'info'; tab?: string; to?: (id: string) => string; rank: number; noun: string }> = {
+  mine: { label: 'Your review', tone: 'info', to: id => `/planning/plans/${id}/review`, rank: -1, noun: 'waiting for your review' },
   decision: { label: 'Awaiting decision', tone: 'warning', tab: 'approvals', rank: 0, noun: 'awaiting a decision' },
+  review: { label: 'Review sent', tone: 'info', to: id => `/planning/plans/${id}/review`, rank: 0.5, noun: 'with review comments or requests' },
   stalled: { label: 'Execution stopped', tone: 'error', rank: 1, noun: 'execution stopped' },
   condition: { label: 'Open condition', tone: 'warning', tab: 'approvals', rank: 2, noun: 'with an open condition' },
   fail: { label: 'Hard fail', tone: 'error', tab: 'rules', rank: 3, noun: 'failing a hard rule' },
@@ -113,6 +117,8 @@ function Overview({ rows }: { rows: PlanRow[] }) {
   const nav = useNavigate();
   const [, setSp] = useSearchParams();
   const [allAttn, setAllAttn] = useState(false);
+  const reviews = usePlanReviews(), comments = useReviewComments();
+  const { user } = useAuth();
   const byScope = new Map<T.PlannerScope, { n: number; kw: number }>();
   for (const r of rows) { const c = byScope.get(r.plan.scope) ?? { n: 0, kw: 0 }; c.n++; c.kw += r.plan.designPowerKw; byScope.set(r.plan.scope, c); }
   /* five kinds across every active plan, ranked by kind and then by size (as DCOS does); each row opens the plan at the right tab */
@@ -121,6 +127,16 @@ function Overview({ rows }: { rows: PlanRow[] }) {
     for (const r of rows) {
       const p = r.plan;
       if (!ACTIVE.includes(p.status)) continue;
+      /* review requests (the reviewer portal): one row for the signed-in reviewer who has not answered yet, else one per plan */
+      const req = reviews.find(x => x.planId === p.id && requestState(x, p).open);
+      const cs = comments.filter(c => c.planId === p.id && !c.parentId);
+      const openC = cs.filter(c => c.status === 'Open').length;
+      if (req) {
+        const states = req.reviewers.map(x => ({ x, s: reviewerState(x.name, req, p, comments) }));
+        const mine = user && states.find(st => st.x.name === user.name && st.s.state === 'Awaiting');
+        const answered = states.filter(st => st.s.state !== 'Awaiting').length;
+        out.push({ r, kind: mine ? 'mine' : 'review', text: `${mine ? `${req.requestedBy} asked you to review ${req.docNumber}` : `${req.revId} sent to ${req.reviewers.map(x => x.name).join(', ')}`} · ${answered} of ${req.reviewers.length} answered${openC ? ` · ${openC} open comment${openC === 1 ? '' : 's'}` : ''}` });
+      } else if (openC) out.push({ r, kind: 'review', text: `${openC} open review comment${openC === 1 ? '' : 's'}: ${cs.filter(c => c.status === 'Open').slice(0, 2).map(c => `${c.sectionLabel} (${c.author})`).join('; ')}` });
       const pending = p.approvals.filter(a => a.decision === 'Pending');
       if (p.status === 'In review' && pending.length) out.push({ r, kind: 'decision', text: `${pending.length} decision${pending.length === 1 ? '' : 's'} pending: ${pending.map(a => a.step).join(', ')}` });
       if (p.status === 'Approved' && p.artefacts?.executionId && !p.artefacts.completedAt) out.push({ r, kind: 'stalled', text: `Stopped at ${(p.artefacts.errors ?? []).map(e => e.step).join(', ') || 'a step'}; resume it from the plan page` });
@@ -131,7 +147,7 @@ function Overview({ rows }: { rows: PlanRow[] }) {
       if (late.length) out.push({ r, kind: 'late', text: `${late.length} long-lead item${late.length === 1 ? '' : 's'} past the order date: ${late.slice(0, 3).map(l => l.item).join(', ')}${late.length > 3 ? '…' : ''}` });
     }
     return out.sort((a, b) => ATTN[a.kind].rank - ATTN[b.kind].rank || b.r.plan.designPowerKw - a.r.plan.designPowerKw);
-  }, [rows]);
+  }, [rows, reviews, comments, user]);
   const recent = [...rows].sort((a, b) => b.plan.updatedAt.localeCompare(a.plan.updatedAt)).slice(0, 6);
   const totalKw = rows.reduce((a, r) => a + r.plan.designPowerKw, 0);
   const counts = (Object.keys(ATTN) as AttnKind[]).map(k => [k, attention.filter(a => a.kind === k).length] as const).filter(([, n]) => n);
@@ -144,9 +160,9 @@ function Overview({ rows }: { rows: PlanRow[] }) {
           <BarRows labelWidth={180} items={[...byScope.entries()].sort((a, b) => b[1].kw - a[1].kw).map(([scope, c]) => ({ key: scope, label: SCOPE_LABEL[scope], values: { n: c.n, kw: c.kw }, onClick: () => setSp(new URLSearchParams({ tab: 'plans', scope }), { replace: true }), note: 'Click to list these plans.' }))}
             series={[{ key: 'n', label: 'Plans', color: SERIES[1], format: v => num(v) }, { key: 'kw', label: 'IT power', color: SERIES[0], format: v => kw(v) }]} />
         </Panel>
-        <Panel title="Plans that need action" icon={I.TriangleAlert} count={attention.length} sub={counts.length ? counts.map(([k, n]) => `${n} ${ATTN[k].noun}`).join(' · ') : 'Nothing waiting'} info="Across every active plan: pending decisions, stopped executions, open approval conditions that block the build, hard rule fails and long-lead items past their order date. Ranked by kind, then by size. Click a row to open the plan at the right tab."
+        <Panel title="Plans that need action" icon={I.TriangleAlert} count={attention.length} sub={counts.length ? counts.map(([k, n]) => `${n} ${ATTN[k].noun}`).join(' · ') : 'Nothing waiting'} info="Across every active plan: reviews waiting for you (the signed-in reviewer) and review requests or open review comments, pending decisions, stopped executions, open approval conditions that block the build, hard rule fails and long-lead items past their order date. Ranked by kind, then by size. Click a row to open the plan at the right tab."
           foot={attention.length > ATTN_SHOWN ? <Btn variant="ghost" size="sm" iconRight={allAttn ? I.ChevronUp : I.ChevronDown} onClick={() => setAllAttn(v => !v)}>{allAttn ? 'Show fewer' : `Show all ${attention.length}`}</Btn> : undefined}>
-          {attention.length ? <ul className="pn-list pn-attn">{shownAttn.map((a, i) => <li key={`${a.r.id}-${a.kind}-${i}`}><button type="button" className="pn-rowbtn" onClick={() => nav(`/planning/plans/${a.r.plan.id}${ATTN[a.kind].tab ? `?tab=${ATTN[a.kind].tab}` : ''}`)}><span className="cell-2"><span className="pn-attn-head"><Chip tone={ATTN[a.kind].tone} size="xs" dot>{ATTN[a.kind].label}</Chip><b>{a.r.plan.title}</b><small className="mono" style={{ flex: 'none' }}>{a.r.plan.plnId}</small></span><small>{a.text}</small></span><I.ChevronRight size={15} className="muted" /></button></li>)}</ul>
+          {attention.length ? <ul className="pn-list pn-attn">{shownAttn.map((a, i) => <li key={`${a.r.id}-${a.kind}-${i}`}><button type="button" className="pn-rowbtn" onClick={() => nav(ATTN[a.kind].to?.(a.r.plan.id) ?? `/planning/plans/${a.r.plan.id}${ATTN[a.kind].tab ? `?tab=${ATTN[a.kind].tab}` : ''}`)}><span className="cell-2"><span className="pn-attn-head"><Chip tone={ATTN[a.kind].tone} size="xs" dot>{ATTN[a.kind].label}</Chip><b>{a.r.plan.title}</b><small className="mono" style={{ flex: 'none' }}>{a.r.plan.plnId}</small></span><small>{a.text}</small></span><I.ChevronRight size={15} className="muted" /></button></li>)}</ul>
             : <p className="vw-label">Nothing waiting: no pending decisions, stopped executions, open conditions, hard fails or late orders.</p>}
         </Panel>
       </div>

@@ -11,5 +11,5 @@ registerScopeUi('plant', {
     { key: 'plant-asis', label: 'As-is and to-be', count: p => `${p.plan.plantLines?.length ?? 0} lines`, render: p => <PlantView {...p} /> },
     { key: 'plant-cutins', label: 'Cut-in sequence', count: p => `${p.plan.cutIns?.length ?? 0} steps`, render: p => { const an = plantOf(p.ev); return an ? <CutInTable an={an} /> : null; } },
   ],
-  detailTabs: [{ key: 'plant', label: 'Plant and cut-ins', badge: p => plantOf(p.ev)?.cutIns.filter(c => !c.ok).length || undefined, render: p => <PlantView {...p} /> }],
+  detailTabs: [{ key: 'plant', label: 'Plant', badge: p => plantOf(p.ev)?.cutIns.filter(c => !c.ok).length || undefined, render: p => <PlantView {...p} /> }],
 });

@@ -92,8 +92,33 @@ export const CATALOGUE: Record<ItemKind, CatalogueKind> = {
   disposal: { kind: 'disposal', label: 'Disposal', options: [O('Certified disposal', 'CBRE', 'CBRE Data Center Solutions', 0)] },
 };
 
-/** Every vendor name the catalogue buys from (the seed must hold a vendor record for each). */
-export const CATALOGUE_VENDORS: string[] = [...new Set(Object.values(CATALOGUE).filter(k => !k.agreement).flatMap(k => k.options.map(o => o.vendor)))].sort();
+/**
+ * Authorised channels: companies that sell a kind's models besides the maker, with their price over the price book and the lead time
+ * they quote against the maker's (resellers and distributors hold buffer stock, so they deliver sooner for a premium). The maker always
+ * sells at the price book and the benchmark lead time. `contract` is the purchase contract the company holds (the seed writes it).
+ */
+export interface Channel { vendor: string; premiumPct: number; leadDeltaWeeks: number; note: string; contract?: 'Framework' | 'Supply' }
+const IT_CHANNELS: Channel[] = [
+  { vendor: 'Insight Enterprises', premiumPct: 4, leadDeltaWeeks: -3, note: 'authorised reseller holding buffer stock', contract: 'Framework' },
+  { vendor: 'Ingram Micro', premiumPct: 2, leadDeltaWeeks: -1, note: 'distributor, bought on a one-off order' },
+];
+const PHYSICAL_CHANNELS: Channel[] = [{ vendor: 'Wesco Anixter', premiumPct: 3, leadDeltaWeeks: -2, note: 'infrastructure distributor with regional warehouses', contract: 'Supply' }];
+export const CHANNELS: Partial<Record<ItemKind, Channel[]>> = {
+  'gpu-server': IT_CHANNELS, server: IT_CHANNELS, storage: IT_CHANNELS, leaf: IT_CHANNELS, spine: IT_CHANNELS, firewall: IT_CHANNELS, oob: IT_CHANNELS, optics: IT_CHANNELS, dac: IT_CHANNELS,
+  rack: PHYSICAL_CHANNELS, 'rack-pdu': PHYSICAL_CHANNELS, containment: PHYSICAL_CHANNELS, fibre: PHYSICAL_CHANNELS, patch: PHYSICAL_CHANNELS,
+};
+/** One company that sells a model: the maker's own sales channel (price book, benchmark lead) or an authorised channel. */
+export interface Seller { vendor: string; maker: boolean; premiumPct: number; leadDeltaWeeks: number; note: string }
+/** Who sells a model of a kind: its catalogue vendor first, then the kind's authorised channels. */
+export function sellersOf(kind: ItemKind, model?: string): Seller[] {
+  const k = CATALOGUE[kind]; if (!k || k.agreement) return [];
+  const o = (model && k.options.find(x => x.model === model)) || k.options[0];
+  const own: Seller = { vendor: o.vendor, maker: true, premiumPct: 0, leadDeltaWeeks: 0, note: o.vendor === o.manufacturer || o.vendor.startsWith(o.manufacturer) ? 'the maker' : `${o.manufacturer}'s sales channel` };
+  return [own, ...(CHANNELS[kind] ?? []).filter(c => c.vendor !== o.vendor).map(c => ({ vendor: c.vendor, maker: false, premiumPct: c.premiumPct, leadDeltaWeeks: c.leadDeltaWeeks, note: c.note }))];
+}
+
+/** Every vendor name the catalogue buys from, makers and channels (the seed must hold a vendor record for each). */
+export const CATALOGUE_VENDORS: string[] = [...new Set([...Object.values(CATALOGUE).filter(k => !k.agreement).flatMap(k => k.options.map(o => o.vendor)), ...Object.values(CHANNELS).flatMap(cs => (cs ?? []).map(c => c.vendor))])].sort();
 
 /** Price of a model in the price book, if listed. */
 export function priceOf(model: string): number | undefined {

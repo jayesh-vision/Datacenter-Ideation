@@ -4,7 +4,7 @@ import { useMemo, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import type * as T from '../../../planner/p2b/types';
 import { paramDefsFor, type StepProps } from '../../../planner/lib/wizardModel';
-import { ParamInput } from './ParamInput';
+import { ParamFields, ParamInput } from './ParamInput';
 import { date } from '../common';
 import '../../../styles/planning-scopes.css';
 import '../../../styles/planning-pack.css';
@@ -57,7 +57,7 @@ export function ParamGrid({ keys, draft, ev, templates, setParam, resetParam, wh
   const defs = useMemo(() => paramDefsFor(ev, templates, draft.dcTypeKey), [ev, templates, draft.dcTypeKey]);
   const list = keys.map(k => defs.get(k)).filter((d): d is T.PlannerParamDef => !!d);
   if (!list.length) return null;
-  return <div className="pn-params">{list.map(d => <ParamInput key={d.key} def={d} ev={ev} draft={draft} setParam={setParam} resetParam={resetParam} why={why[d.key]} disabled={readOnly} />)}</div>;
+  return <ParamFields>{list.map(d => <ParamInput key={d.key} def={d} ev={ev} draft={draft} setParam={setParam} resetParam={resetParam} why={why[d.key]} disabled={readOnly} />)}</ParamFields>;
 }
 
 /** Several values from a list: chips with a remove button and a select to add one more. */

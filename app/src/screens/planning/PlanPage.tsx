@@ -1,13 +1,15 @@
-/* Plan page (/planning/plans/:id): the plan's figures (base case or a scenario), its status and the actions its status allows
-   (submit, withdraw, decide, start the build, complete, hold, cancel, revision, open the programme in Delivery, clone as a scenario
-   base), then tabs: Overview · Plan pack · the family's own tabs (`uiFor(scope).detailTabs`) · Sizing · Capacity · Cost · Schedule ·
-   Rules · Scenarios · Risks & permits · Approvals · Delivery · Baseline · History. Once approved the build lives in Delivery as PRJ-n. */
+/* Plan page (/planning/plans/:id). Cleaned up 15-Oct-2026 in the rhythm of the Delivery project page: one header (scope icon, title,
+   status / revision chips, one line of facts, the primary action + Send for review + Actions), one calm status line (plan/header.tsx
+   PlanStatusLine: state, what it waits on, its build in Delivery, an open review or revision), one hero strip (PlanHero: readiness or
+   build ring + five figures), then the tabs with the figures picker (base case or a scenario) at the right of the row:
+   Overview · Project plan (phases and dates, editable with live effect) · the family's own tabs (`uiFor(scope).detailTabs`) · Sizing ·
+   Capacity · Cost · Risks & permits · Rules · Scenarios · Approvals · Plan pack · Delivery or Baseline · History.
+   Every edit on the page goes through plan/edit/policy.ts `usePlanEdit` (in place / withdraw first / revision / read-only). */
 import { useMemo, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { usePage, PageHead, Loading } from '../../shell/page';
-import { Btn, Chip, KV, Menu, Panel, type MenuItem } from '../../ui/kit';
-import { SummaryStrip } from '../site/SummaryStrip';
+import { Btn, Chip, Drawer, Menu, type MenuItem } from '../../ui/kit';
 import { DcLink } from '../../ui/status';
 import * as G from '../../planner/lib/governance';
 import { blockers } from '../../planner/lib/wizardModel';
@@ -17,16 +19,22 @@ import { useEstate, usePlan, usePlanEvaluation, usePlannerActions, useTemplates 
 import { message } from '../../planner/compat/notify';
 import { NotFound } from '../NotFound';
 import { getDeliveryProject, useQuery } from '../../api';
-import { PlanStatusChip, PlannerToasts, ReasonModal, SCOPE_LABEL, SelectInput, date, kw, money, num, pct, type ReasonRequest } from './common';
-import { BaselineTab, CapacityTab, CostTab, DeliveryTab, HistoryTab, OverviewTab, RulesTab, ScheduleTab, SizingTab } from './plan/tabs';
+import { PlanStatusChip, PlannerToasts, ReasonModal, SCOPE_ICON, SCOPE_LABEL, type ReasonRequest } from './common';
+import { BaselineTab, CapacityTab, CostTab, DeliveryTab, HistoryTab, RulesTab, SizingTab } from './plan/tabs';
+import { PlanOverview } from './plan/overview';
+import { ProjectPlanTab } from './plan/ProjectPlan';
+import { PlanHero, PlanStatusLine } from './plan/header';
 import { ApprovalsTab, DecideModal } from './plan/Approvals';
 import { ScenarioPanel } from './wizard/Scenarios';
 import { useSchedule } from './plan/schedule';
 import { PlanTabs } from './plan/tabbar';
-import { PermitsEditor, RisksEditor } from './wizard/DimensionStep';
+import { MaterialsTab } from './plan/Materials';
+import { RisksPermits } from './plan/RisksPermits';
 import { PackDeliverables, PlanPack } from './pack/PlanPack';
 import { projectOf, projectUrl } from './pack/records';
 import { uiFor, type PlanViewProps } from './scopes/registry';
+import { SendForReview, reviewUrl } from './pack/review/lazy';
+import { ReviewRequestsPanel } from './pack/review/ReviewRequests';
 import './scopes/all';
 import '../../styles/planning.css';
 import '../../styles/planning-plan.css';
@@ -43,17 +51,26 @@ export function PlanPage() {
   const templates = useTemplates();
   const estate = useEstate();
   const actions = usePlannerActions();
-  const [viewKey, setViewKey] = useState<string | undefined>();
   const [deciding, setDeciding] = useState(false);
   const [executing, setExecuting] = useState(false);
+  const [sending, setSending] = useState(false);
   const [ask, setAsk] = useState<ReasonRequest | null>(null);
-  const want = (sp.get('tab') as Tab) || 'overview';
-  const setTab = (t: Tab) => { const n = new URLSearchParams(sp); t === 'overview' ? n.delete('tab') : n.set('tab', t); if (t !== 'pack') n.delete('sec'); setSp(n, { replace: true }); };
+  /* Merged tabs (15-Oct-2026): Capacity is part of Design (id `sizing`), the Baseline is read in History, and Scenarios open on demand
+     from the What-if button; the old `?tab=` ids still land in the right place. */
+  const raw = (sp.get('tab') as Tab) || 'overview';
+  const want: Tab = raw === 'capacity' ? 'sizing' : raw === 'baseline' ? 'history' : raw === 'scenarios' ? 'overview' : raw;
+  const [whatIf, setWhatIf] = useState(raw === 'scenarios');
+  const setTab = (t: Tab) => {
+    if (t === 'scenarios') { setWhatIf(true); return; }
+    const to: Tab = t === 'capacity' ? 'sizing' : t === 'baseline' ? 'history' : t;
+    const n = new URLSearchParams(sp); to === 'overview' ? n.delete('tab') : n.set('tab', to); if (to !== 'pack') n.delete('sec'); setSp(n, { replace: true });
+    if (t === 'capacity') requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById('pn-capacity')?.scrollIntoView({ behavior: 'smooth', block: 'start' })));
+  };
   // Delivery holds the build once the plan is approved (PRJ-n = PLN-n); re-read when the plan moves.
   const { data: delivery } = useQuery(() => (plan && ['Approved', 'Executing', 'Completed'].includes(plan.status) ? getDeliveryProject(projectOf(plan)) : Promise.resolve(null)), [plan?.id, plan?.status, plan?.updatedAt]);
   const dcIds = useMemo(() => new Set(estate.dataCenters.map(d => d.id)), [estate.dataCenters]);
   usePage([{ label: 'Plan & Build' }, { label: 'Planner', to: '/planning' }, { label: 'Plans', to: '/planning?tab=plans' }, { label: planId }], plan?.dataCenterId ? { dcId: plan.dataCenterId } : {});
-  const effectiveKey = useMemo(() => { const want = viewKey ?? plan?.approvedScenarioId ?? plan?.reviewScenarioId ?? plan?.preferredScenarioId ?? 'base'; return want !== 'base' && !evaluation.scenarios.some(s => s.scenario.id === want) ? 'base' : want; }, [viewKey, plan, evaluation.scenarios]);
+  const effectiveKey = useMemo(() => { const want = plan?.approvedScenarioId ?? plan?.reviewScenarioId ?? plan?.preferredScenarioId ?? 'base'; return want !== 'base' && !evaluation.scenarios.some(s => s.scenario.id === want) ? 'base' : want; }, [plan, evaluation.scenarios]);
   // the schedule with Delivery's purchase orders over it (counts in the strip and the tab badge match the Schedule tab)
   const sched = useSchedule(plan, (effectiveKey === 'base' ? evaluation.base : evaluation.scenarios.find(x => x.scenario.id === effectiveKey)?.ev ?? evaluation.base) ?? undefined);
   const lateN = sched.filter(x => x.late).length;
@@ -69,8 +86,6 @@ export function PlanPage() {
   const s = plan.status;
   const next = G.nextPendingStep(plan);
   const editable = G.isEditable(plan);
-  const lock = G.lockReason(plan);
-  const drift = G.templateDrift(plan, template);
   const blocking = G.openBlockingConditions(plan);
   const partial = s === 'Approved' && !!plan.artefacts?.executionId && !plan.artefacts.completedAt;
   const preferred = evaluation.scenarios.find(x => x.scenario.id === plan.preferredScenarioId);
@@ -84,7 +99,7 @@ export function PlanPage() {
     const src = sel?.scenario;
     const rec = actions.createScenario(plan.id, src ? `${src.name} (copy)` : `Scenario ${String.fromCharCode(65 + evaluation.scenarios.length)}`, src ? src.description : 'Copy of the base case; change the overrides to explore an alternative.', { ...(src?.overrides ?? {}) });
     if (src?.phaseOverrides?.length) actions.updateScenario(rec.id, { phaseOverrides: src.phaseOverrides });
-    setViewKey(rec.id); setTab('scenarios'); message.success(`Scenario ${rec.name} created${src ? ` from ${src.name}` : ' from the base case'}`);
+    setTab('scenarios'); message.success(`Scenario ${rec.name} created${src ? ` from ${src.name}` : ' from the base case'}`);
   };
   const execute = async () => {
     setExecuting(true);
@@ -105,6 +120,7 @@ export function PlanPage() {
     : s === 'On hold' ? { label: 'Resume plan', icon: I.Play, onClick: () => { if (actions.resume(plan).ok) message.success('Plan resumed'); } }
     : undefined;
   const secondary: MenuItem[] = [
+    { label: 'Open the review page', icon: I.BookOpenCheck, onClick: () => nav(reviewUrl(plan.id)) },
     ...(delivery ? [{ label: `Open programme (${prj})`, icon: I.FolderKanban, onClick: () => nav(projectUrl(plan)) }] : []),
     { label: editable ? 'Edit in wizard' : 'View in wizard', icon: editable ? I.Pencil : I.Eye, onClick: () => nav(`/planning/plans/${plan.id}/edit`) },
     ...(editable ? [{ label: 'Clone as scenario base', icon: I.FlaskConical, onClick: cloneAsScenario }] : []),
@@ -116,60 +132,61 @@ export function PlanPage() {
   ];
   const hasDelivery = !!plan.artefacts?.executionId || s === 'Executing' || s === 'Completed';
   const badge = (b: number | string | undefined) => (typeof b === 'number' ? (b > 0 ? b : undefined) : b || undefined) as number | undefined;
+  /* Tab order (15-Oct-2026 cleanup): the summary, the plan itself (project plan, the family's own design tabs, sizing, capacity, cost,
+     materials, risks & permits), its checks (rules, scenarios), the decision (approvals), what it produces (plan pack, delivery / baseline)
+     and the record (history). Editors from other files register here with one line each. */
   const tabs: { id: Tab; label: string; count?: number }[] = [
-    { id: 'overview', label: 'Overview' }, { id: 'pack', label: 'Plan pack' }, ...scopeTabs.map(t => ({ id: t.key as Tab, label: t.label, count: badge(t.badge?.(vp)) })), { id: 'sizing', label: 'Sizing' }, { id: 'capacity', label: 'Capacity' }, { id: 'cost', label: 'Cost' },
-    { id: 'schedule', label: 'Schedule', count: lateN || undefined }, { id: 'rules', label: 'Rules', count: ev.hardFails + ev.softWarns || undefined },
-    { id: 'scenarios', label: 'Scenarios', count: evaluation.scenarios.length || undefined }, { id: 'risks', label: 'Risks & permits', count: plan.risks.length + plan.permits.length || undefined },
+    { id: 'overview', label: 'Overview' },
+    { id: 'schedule', label: 'Project plan', count: lateN || undefined },
+    ...scopeTabs.map(t => ({ id: t.key as Tab, label: t.label, count: badge(t.badge?.(vp)) })),
+    { id: 'sizing', label: 'Design' }, { id: 'cost', label: 'Cost' },
+    { id: 'materials', label: 'Materials', count: ev.materials?.changes.length || undefined },
+    { id: 'risks', label: 'Risks & permits' },
+    { id: 'rules', label: 'Rules', count: ev.hardFails + ev.softWarns || undefined },
     { id: 'approvals', label: 'Approvals', count: plan.approvals.filter(a => a.decision === 'Pending').length || undefined },
-    ...(hasDelivery ? [{ id: 'delivery' as Tab, label: 'Delivery' }] : []), ...(plan.baseline && !hasDelivery ? [{ id: 'baseline' as Tab, label: 'Baseline' }] : []), { id: 'history', label: 'History' },
+    { id: 'pack', label: 'Plan pack' },
+    ...(hasDelivery ? [{ id: 'delivery' as Tab, label: 'Delivery' }] : []),
+    { id: 'history', label: 'History' },
   ];
-  // once the build is in Delivery the frozen baseline is read beside it (one tab less on the busiest plans)
-  const asked: Tab = want === 'baseline' && hasDelivery ? 'delivery' : want;
-  const tab: Tab = tabs.some(t => t.id === asked) ? asked : 'overview';
+  const tab: Tab = tabs.some(t => t.id === want) ? want : 'overview';
   const tp = { plan, ev, template, data: evaluation.data, benchmarks: evaluation.benchmarks };
+  const siteName = site?.name ?? plan.newSiteName ?? campus?.name ?? 'New site';
+  const Ico = SCOPE_ICON[plan.scope] ?? I.FileText;
+  const go = (t: string) => setTab(t as Tab);
   return (
-    <div className="page planning">
-      <PageHead title={plan.title} chips={<><PlanStatusChip s={s} />{plan.revision && plan.revision !== 'A' && <Chip tone="neutral">Rev {plan.revision}</Chip>}{plan.supersededBy && <Chip tone="neutral">Superseded</Chip>}</>}
-        sub={<><span className="mono">{plan.plnId}</span> · {SCOPE_LABEL[plan.scope]} · {site ? <DcLink id={site.id}>{where}</DcLink> : where} · {template?.name ?? plan.templateId}{template ? ` v${template.version}` : ''} · requested by {plan.requestedBy} · updated {date(plan.updatedAt)}</>}
-        actions={<>{primary && <Btn variant="filled" icon={primary.icon} disabled={primary.disabled} title={primary.disabled && editable ? `${submitBlockers.length} item(s) block submission` : primary.disabled && s === 'Executing' ? `Not ready: ${checks.filter(c => !c.ok).map(c => c.label).join(', ')}` : undefined} onClick={primary.onClick}>{primary.label}</Btn>}<Menu items={secondary} trigger={open => <Btn icon={I.MoreHorizontal} onClick={open}>Actions</Btn>} /></>} />
-      {lock && <p className={`note ${s === 'Cancelled' || s === 'On hold' ? 'note--warn' : 'note--info'}`}><I.Lock size={15} /><span>{lock}{s === 'On hold' && plan.holdReason ? ` Reason: ${plan.holdReason} (${plan.heldBy ?? ''}, ${date(plan.heldAt)}).` : ''}{s === 'Cancelled' && plan.cancelReason ? ` Reason: ${plan.cancelReason}.` : ''}</span></p>}
-      {plan.revisionOf && <p className="note note--info"><I.GitBranch size={15} /><span>Revision {plan.revision} of <button type="button" className="ent-link mono" onClick={() => nav(`/planning/plans/${plan.revisionOf}`)}>{plan.revisionOf}</button>: when approved it supersedes the parent and takes over its delivery records.</span></p>}
-      {drift && <p className="note note--warn"><I.TriangleAlert size={15} /><span>Template changed since approval: v{drift.from} → v{drift.to}. The approved figures stay on v{drift.from}; raise a revision to adopt the new template.</span></p>}
-      {blocking.length > 0 && (s === 'Approved' || s === 'Executing') && <p className="note note--warn"><I.TriangleAlert size={15} /><span>{blocking.length} approval condition{blocking.length === 1 ? '' : 's'} block the build: {blocking.map(c => `${c.text} (owner ${c.owner}${c.dueDate ? `, due ${date(c.dueDate)}` : ''})`).join('; ')}. Close them on the Approvals tab.</span></p>}
-      {partial && <Panel title="Execution stopped part-way" icon={I.OctagonAlert}><div className="row wrap" style={{ gap: 6 }}>{Object.entries(plan.artefacts?.steps ?? {}).map(([k, st]) => <Chip key={k} tone={st === 'done' ? 'success' : st === 'failed' ? 'error' : 'neutral'} size="xs">{STEP_LABEL[k] ?? k}: {st}</Chip>)}</div>{(plan.artefacts?.errors ?? []).map((e, i) => <p key={i} className="note note--bad" style={{ marginTop: 8 }}><I.OctagonAlert size={15} /><span>{STEP_LABEL[e.step] ?? e.step}: {e.message}</span></p>)}</Panel>}
-      {delivery && <p className="note note--info"><I.FolderKanban size={15} /><span>In Delivery as <Link className="ent-link mono" to={projectUrl(plan)}>{prj}</Link> ({delivery.project.state.toLowerCase()}, {delivery.project.health}):{' '}
-        <Link className="ent-link" to={projectUrl(plan, 'workorders')}>{delivery.workOrders.length} work order{delivery.workOrders.length === 1 ? '' : 's'}</Link>{delivery.workOrders[0] && <> with change requests (<Link className="ent-link mono" to={`/changes/${delivery.workOrders[0].changeId}`}>{delivery.workOrders[0].changeId}</Link>{delivery.workOrders.length > 1 ? ` and ${delivery.workOrders.length - 1} more` : ''})</>},{' '}
-        <Link className="ent-link" to={projectUrl(plan, 'procurement')}>{delivery.pos.length} purchase order{delivery.pos.length === 1 ? '' : 's'}</Link>,{' '}
-        <Link className="ent-link" to={projectUrl(plan, 'permits')}>{delivery.permits.length} permit{delivery.permits.length === 1 ? '' : 's'} and {delivery.docs.length} design document{delivery.docs.length === 1 ? '' : 's'}</Link>.
-        {' '}<button type="button" className="ent-link" style={{ border: 0, background: 'none', padding: 0, cursor: 'pointer', font: 'inherit' }} onClick={() => setTab('pack')}>Everything the plan creates</button></span></p>}
-      <div className="pn-sumstrip"><SummaryStrip items={[
-        { key: 'kw', label: 'IT capacity', value: kw(ev.sizing.itKw), sub: ev.sizing.racks ? `${num(ev.sizing.racks)} racks${ev.sizing.halls ? ` · ${ev.sizing.halls} hall${ev.sizing.halls === 1 ? '' : 's'}` : ''}` : ev.estimate.capacityEnabledKw ? `${kw(ev.estimate.capacityEnabledKw)} made usable` : 'no new racks', onClick: () => setTab('sizing'), info: 'Design IT power and the racks and halls it takes at the chosen density; click for the sizing.' },
-        { key: 'capex', label: 'CapEx', value: money(plan.baseline?.capexTotal ?? ev.estimate.capexTotal), sub: plan.baseline ? 'approved baseline' : `${money(ev.estimate.capexPerKw)} per kW`, onClick: () => setTab('cost'), info: 'Plant and fit-out from benchmarks or the bill of materials, plus owned IT; the baseline once approved.' },
-        { key: 'opex', label: 'OpEx / month', value: money(ev.estimate.opexMonthly), sub: `PUE ${ev.sizing.pue.value}`, onClick: () => setTab('cost'), info: 'Energy at the PUE, maintenance, staff and leases per month.' },
-        { key: 'pay', label: 'Payback', value: ev.estimate.paybackMonths == null ? '—' : `${ev.estimate.paybackMonths} mo`, sub: ev.estimate.npvUsd !== undefined ? `NPV ${money(ev.estimate.npvUsd)}` : 'no cash flow', tone: ev.estimate.paybackMonths == null || ev.estimate.paybackMonths > 96 ? 'warn' : undefined, onClick: () => setTab('cost'), info: 'Months from the first spend until the cumulative cash flow turns positive.' },
-        { key: 'rules', label: 'Rules', value: ev.hardFails ? `${ev.hardFails} fail` : ev.softWarns ? `${ev.softWarns} warn` : 'Pass', sub: `${ev.findings.length} checked`, tone: ev.hardFails ? 'bad' : ev.softWarns ? 'warn' : undefined, onClick: () => setTab('rules'), info: 'Hard rules must pass before submission; soft rules are acknowledged in the review.' },
-        { key: 'ready', label: 'Readiness', value: pct(ev.readinessPct), sub: ev.defaultsCount ? `${ev.defaultsCount} on defaults` : 'inputs confirmed', tone: ev.readinessPct < 50 ? 'warn' : undefined, onClick: () => setTab('overview'), info: 'Share of inputs confirmed by the planner, the requirements, a benchmark, an actual or a document.' },
-        { key: 'go', label: 'Needed by', value: date(plan.targetGoLive), sub: lateN ? `${lateN} late item${lateN === 1 ? '' : 's'}` : 'orders on time', tone: lateN ? 'bad' : undefined, onClick: () => setTab('schedule'), info: 'The date the capacity is needed; late items cannot arrive by then at their lead time.' },
-      ]} /></div>
-      {evaluation.scenarios.length > 0 && <div className="row" style={{ gap: 8 }}><span className="vw-label">Showing</span><SelectInput value={effectiveKey} options={[{ id: 'base', label: 'Base case' }, ...evaluation.scenarios.map(x => ({ id: x.scenario.id, label: `${x.scenario.name}${[x.scenario.id === plan.preferredScenarioId ? 'preferred' : '', x.scenario.id === plan.approvedScenarioId ? 'approved' : ''].filter(Boolean).length ? ` (${[x.scenario.id === plan.preferredScenarioId ? 'preferred' : '', x.scenario.id === plan.approvedScenarioId ? 'approved' : ''].filter(Boolean).join(', ')})` : ''}` }))]} onChange={setViewKey} style={{ height: 32, width: 'auto' }} /></div>}
+    <div className="page planning pn-page">
+      <PageHead title={plan.title} icon={<span className="pn-icon"><Ico size={18} /></span>}
+        chips={<><PlanStatusChip s={s} />{plan.revision && plan.revision !== 'A' && <Chip tone="neutral">Rev {plan.revision}</Chip>}{plan.supersededBy && <Chip tone="neutral">Superseded</Chip>}</>}
+        sub={<><span className="mono">{plan.plnId}</span> · {SCOPE_LABEL[plan.scope]} · {site ? <DcLink id={site.id}>{where}</DcLink> : where} · owner {plan.ownerName}</>}
+        actions={<>{primary && <Btn variant="filled" icon={primary.icon} disabled={primary.disabled} title={primary.disabled && editable ? `${submitBlockers.length} item(s) block submission` : primary.disabled && s === 'Executing' ? `Not ready: ${checks.filter(c => !c.ok).map(c => c.label).join(', ')}` : undefined} onClick={primary.onClick}>{primary.label}</Btn>}{!['Cancelled', 'Completed'].includes(s) && <Btn icon={I.Send} onClick={() => setSending(true)}>Send for review</Btn>}<Btn className="pn-whatif" icon={I.FlaskConical} title="What-if scenarios" onClick={() => setWhatIf(true)}><span className="pn-whatif-l">What-if</span>{evaluation.scenarios.length ? <span className="pn-whatif-n">{evaluation.scenarios.length}</span> : null}</Btn><Menu items={secondary} trigger={open => <Btn icon={I.MoreHorizontal} onClick={open}>Actions</Btn>} /></>} />
+      <PlanStatusLine plan={plan} template={template} delivery={delivery} blockersN={submitBlockers.length} closeout={s === 'Executing' ? { done: checks.filter(c => c.ok).length, total: checks.length } : undefined} onTab={go} />
+      {partial && <p className="note note--bad"><I.OctagonAlert size={15} /><span>Execution stopped part-way: {Object.entries(plan.artefacts?.steps ?? {}).map(([k, st]) => `${STEP_LABEL[k] ?? k} ${st}`).join(' · ')}.{(plan.artefacts?.errors ?? []).map(e => ` ${STEP_LABEL[e.step] ?? e.step}: ${e.message}.`).join('')} Finished steps are kept; Resume execution picks up from there.</span></p>}
+      <PlanHero plan={plan} ev={ev} lateN={lateN} delivery={delivery} onTab={go} />
       <PlanTabs value={tab} onChange={setTab} tabs={tabs} />
-      {tab === 'overview' && <OverviewTab {...tp} deliverables={<PackDeliverables plan={plan} ev={ev} template={template} benchmarks={evaluation.benchmarks} siteName={site?.name ?? plan.newSiteName ?? campus?.name ?? 'New site'} dcIds={dcIds} delivery={delivery} />} />}
-      {tab === 'pack' && <PlanPack plan={plan} ev={ev} template={template} benchmarks={evaluation.benchmarks} data={evaluation.data} siteName={site?.name ?? plan.newSiteName ?? campus?.name ?? 'New site'} dcIds={dcIds} delivery={delivery} />}
+      {tab === 'overview' && <PlanOverview plan={plan} ev={ev} template={template} delivery={delivery} schedule={sched} submitBlockers={editable ? submitBlockers : []} onTab={go}
+        where={<>{site ? <DcLink id={site.id}>{site.name}</DcLink> : where}{campus && site ? ` · ${campus.name}` : ''}</>}
+        deliverables={<PackDeliverables plan={plan} ev={ev} template={template} benchmarks={evaluation.benchmarks} siteName={siteName} dcIds={dcIds} delivery={delivery} />} />}
+      {tab === 'pack' && <PlanPack plan={plan} ev={ev} template={template} benchmarks={evaluation.benchmarks} data={evaluation.data} siteName={siteName} dcIds={dcIds} delivery={delivery} />}
       {scopeTabs.filter(t => t.key === tab).map(t => <div key={t.key} className="col" style={{ gap: 14 }}>{t.render(vp)}</div>)}
       {tab === 'sizing' && <SizingTab {...tp} />}
-      {tab === 'capacity' && <CapacityTab {...tp} />}
+      {tab === 'sizing' && <><h3 className="pn-section-h" id="pn-capacity"><I.Gauge size={16} />Capacity</h3><CapacityTab {...tp} /></>}
       {tab === 'cost' && <CostTab {...tp} />}
-      {tab === 'schedule' && <ScheduleTab {...tp} />}
+      {tab === 'materials' && <MaterialsTab {...tp} />}
+      {tab === 'schedule' && <ProjectPlanTab {...tp} overrides={sel?.scenario.overrides} />}
       {tab === 'rules' && <RulesTab {...tp} />}
-      {tab === 'scenarios' && <Panel title="Scenarios" icon={I.FlaskConical} info="What-if options against the base case; the preferred one is what approvers see and, once approved, the frozen baseline."><ScenarioPanel plan={plan} base={evaluation.base} scenarios={evaluation.scenarios} templates={templates} actions={actions} editable={editable} /></Panel>}
-      {tab === 'risks' && <Panel title="Risks and permits" icon={I.Stamp} info="The risk register and the permits stay editable through delivery (the only fields that do once a plan is approved)."><PermitsEditor permits={plan.permits} target={plan.targetGoLive} readOnly={['Completed', 'Cancelled'].includes(s)} onChange={permits => actions.patchPlan(plan.id, { permits })} /><RisksEditor risks={plan.risks} owner={plan.ownerName} readOnly={['Completed', 'Cancelled'].includes(s)} onChange={risks => actions.patchPlan(plan.id, { risks })} /></Panel>}
+      <Drawer open={whatIf} onClose={() => { setWhatIf(false); if (raw === 'scenarios') setTab('overview'); }} width={1080} title="What-if scenarios"
+        sub="Options against the base case. The preferred one is what approvers see and, once approved, becomes the frozen baseline; the plan's figures follow it.">
+        <ScenarioPanel plan={plan} base={evaluation.base} scenarios={evaluation.scenarios} templates={templates} actions={actions} editable={editable} />
+      </Drawer>
+      {tab === 'risks' && <RisksPermits plan={plan} />}
       {tab === 'approvals' && <ApprovalsTab plan={plan} actions={actions} onDecide={() => setDeciding(true)} />}
+      {tab === 'approvals' && <ReviewRequestsPanel plan={plan} onSend={() => setSending(true)} />}
       {tab === 'delivery' && <DeliveryTab {...tp} />}
       {tab === 'delivery' && plan.baseline && <><h3 className="pn-section-h"><I.Lock size={16} />Baseline frozen at approval</h3><BaselineTab {...tp} /></>}
-      {tab === 'baseline' && <BaselineTab {...tp} />}
+      {tab === 'history' && plan.baseline && !hasDelivery && <><h3 className="pn-section-h"><I.Lock size={16} />Baseline frozen at approval</h3><BaselineTab {...tp} /></>}
       {tab === 'history' && <HistoryTab {...tp} />}
-      {tab === 'overview' && site && <Panel title="Where" icon={I.Building2}><KV cols={4} items={[['Site', <DcLink id={site.id}>{site.name}</DcLink>], ['Campus', campus?.name ?? '—'], ['Site type', template?.dcTypeKey ?? plan.dcTypeKey], ['Climate', plan.climate]]} /></Panel>}
       {deciding && <DecideModal plan={plan} review={evaluation.review} data={evaluation.data} actions={actions} onClose={changed => { setDeciding(false); if (changed) message.success('Decision recorded'); }} />}
+      {sending && <SendForReview plan={plan} onClose={() => setSending(false)} />}
       <ReasonModal req={ask} onClose={() => setAsk(null)} />
       <PlannerToasts />
     </div>

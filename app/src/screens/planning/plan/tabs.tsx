@@ -2,10 +2,10 @@
    with the ladder, cost with the cash-flow / breakdown / benchmark charts, rules), its delivery records, the frozen baseline and the
    history. The schedule tab lives in ./schedule.tsx. Round 2 of the planner gaps (14-Oct-2026): the best of DCOS and dcos-ops, without
    DCOS's three-column squeezes and half-width cost panels. */
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import * as I from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Btn, Chip, KV, Panel, Seg } from '../../../ui/kit';
+import { Chip, KV, Panel, Seg } from '../../../ui/kit';
 import { DataTable, type Col } from '../../../ui/DataTable';
 import { StatGrid, StatTile } from '../../../ui/Analytics';
 import type * as T from '../../../planner/p2b/types';
@@ -19,7 +19,7 @@ import { FAMILY_OF } from '../../../planner/lib/scopes';
 import { plantOf } from '../../../planner/lib/scopes/plant';
 import { useActuals, useDelivery, usePlanAudit, usePlans } from '../../../planner/lib/usePlanner';
 import { Sub, KvList } from '../parts';
-import { ASPECT_LABEL, FindingList, PlanStatusChip, SOURCE_LABEL, SourceChip, date, fmtValue, kw, money, num, pct } from '../common';
+import { ASPECT_LABEL, FindingList, PlanStatusChip, SOURCE_LABEL, SourceChip, date, kw, money, num, pct } from '../common';
 import { HallLayout, PhaseLadder, SingleLine } from '../pack/drawings';
 import { CashflowChart } from '../charts/Cashflow';
 import { CostBreakdownChart } from '../charts/CostBreakdown';
@@ -35,46 +35,8 @@ const tone = (c?: 'bad' | 'warn' | 'ok') => (c === 'bad' ? 'pn-bad' : c === 'war
 const Tv = ({ t, children }: { t?: 'bad' | 'warn' | 'ok'; children: React.ReactNode }) => <span className={tone(t)}>{children}</span>;
 const monthYear = (iso?: string) => (iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' }) : '—');
 
-/* ================================================================== overview */
-/** `deliverables`: the pack's deliverables with their state (PackDeliverables, rendered by the plan page, which has Delivery and the site). */
-export function OverviewTab({ plan, ev, template, deliverables }: TabProps & { deliverables?: ReactNode }) {
-  const fails = ev.findings.filter(f => f.status === 'fail'), warns = ev.findings.filter(f => f.status === 'warn');
-  const departures = useMemo(() => Object.entries(ev.params).filter(([k, s]) => (s.source === 'user' || s.source === 'ai' || s.source === 'document') && ev.resolved?.params.find(p => p.key === k)?.default !== s.value), [ev.params, ev.resolved]);
-  const [allDep, setAllDep] = useState(false);
-  const shownDep = allDep ? departures : departures.slice(0, 8);
-  const def = (k: string) => ev.resolved?.params.find(p => p.key === k);
-  return (
-    <div className="pn-cols">
-      <div className="col" style={{ gap: 14 }}>
-        <Panel title="The plan" icon={I.FileText} info="What was asked for, as entered in the wizard: the need, the workload and how critical it is.">
-          {plan.intent && <p style={{ margin: '0 0 10px', fontSize: 13.5, lineHeight: 1.5 }}>{plan.intent}</p>}
-          <KV cols={3} items={[['Requested by', plan.requestedBy], ['Owner', plan.ownerName], ['Template', `${template?.name ?? plan.templateId}${template ? ` v${template.version}` : ''}${plan.templateVersion ? ` (approved on v${plan.templateVersion})` : ''}`], ['Workload', `${plan.demand.gpuPct}% GPU · ${plan.demand.computePct}% compute · ${plan.demand.storagePct}% storage`], ['Tenancy', plan.demand.tenancy === 'multi' ? 'Several tenants' : 'Single'], ['Growth', `${plan.demand.growthPctPerYear}% a year`], ['Tier', String(ev.params.tier?.value ?? '—')], ['Redundancy', String(ev.params.redundancy?.value ?? '—')], ['Cooling', COOLING_LABEL[ev.params.coolingType?.value as T.PlannerCoolingType] ?? String(ev.params.coolingType?.value ?? '—')]]} />
-          {plan.phases.length > 0 && <><Sub>Phases</Sub><table className="nst-table" style={{ width: '100%' }}><thead><tr><th>Phase</th><th>Go-live</th><th>IT</th><th>Racks</th><th>Halls</th><th>Status</th></tr></thead><tbody>{[...plan.phases].sort((a, b) => a.goLive.localeCompare(b.goLive)).map(p => <tr key={p.id}><td>{p.name}</td><td className="nowrap">{date(p.goLive)}</td><td className="num">{kw(p.itKw)}</td><td className="num">{num(p.racks)}</td><td className="num">{num(p.halls)}</td><td><Chip tone={p.status === 'Live' ? 'success' : p.status === 'In delivery' ? 'warning' : 'neutral'} size="xs" dot>{p.status}</Chip></td></tr>)}</tbody></table></>}
-        </Panel>
-        <Panel title="Inputs changed from the template" icon={I.SlidersHorizontal} count={departures.length} flush={departures.length > 0} sub={template ? `${template.name} v${template.version}` : undefined}
-          info="Every input whose value is not the template default: entered by the planner, proposed and accepted, or read from a document. Approvers read these first."
-          actions={departures.length > 8 ? <Btn size="sm" variant="ghost" onClick={() => setAllDep(v => !v)}>{allDep ? 'Show fewer' : `Show all ${departures.length}`}</Btn> : undefined}>
-          {departures.length === 0 ? <p className="vw-label" style={{ margin: 0 }}>Every input is at its template value.</p>
-            : <table className="nst-table" style={{ width: '100%' }}><thead><tr><th>Input</th><th>Value</th><th>Template</th><th>Set by</th></tr></thead><tbody>{shownDep.map(([k, s]) => { const d = def(k); return <tr key={k}><td>{d?.label ?? k}</td><td className="num strong-num">{fmtValue(s.value, d?.unit)}</td><td className="num vw-label">{d?.default !== undefined ? fmtValue(d.default, d.unit) : '—'}</td><td><span className="cell-2"><span>{SOURCE_LABEL[s.source]}</span>{s.note && <small>{s.note}</small>}</span></td></tr>; })}</tbody></table>}
-        </Panel>
-        <Panel title="What the plan produces" icon={I.Package} info="The outputs the template defines (the Plan pack shows each one), and what execution creates in Delivery.">
-          {deliverables ?? <div className="row wrap" style={{ gap: 6 }}>{(template?.outputs ?? []).map(o => <Chip key={o} tone="neutral">{o}</Chip>)}{template?.executesAs && <Chip tone="info">becomes a {template.executesAs}</Chip>}</div>}
-          <KvList items={[['Approval path', template?.approvalPath.join(' → ') || 'none'], ['Rules checked', String(ev.findings.length)], ['Scenarios', plan.preferredScenarioId ? 'one preferred' : 'base case'], ['Permits', String(plan.permits.length)], ['Risks', String(plan.risks.length)], ['Conditions open', String((plan.conditions ?? []).filter(c => c.status === 'Open').length)]]} />
-        </Panel>
-      </div>
-      <div className="col" style={{ gap: 14 }}>
-        <Panel title="Rules that need attention" icon={I.TriangleAlert} count={fails.length + warns.length} info="Hard rules (must) block submission; soft rules (should) are acknowledged in the review.">
-          <FindingList findings={[...fails, ...warns]} empty="Every rule passes." />
-        </Panel>
-        <Panel title="Readiness by area" icon={I.ListChecks} info="Share of each area's inputs confirmed by the planner, the requirements, a benchmark, an estate actual or a document; untouched template defaults do not count.">
-          <ul className="pn-list">{ev.aspects.map(a => <li key={a.aspect}><span className="cell-2"><b style={{ fontWeight: 400 }}>{ASPECT_LABEL[a.aspect]}<small className="vw-label" style={{ marginLeft: 6 }}>{a.depth}</small></b><span className="pn-bar"><span className="bar" style={{ height: 6 }}><i style={{ width: `${a.pct}%`, background: a.pct >= 80 ? 'var(--vw-color-emerald-500)' : a.pct >= 50 ? 'var(--vw-color-amber-500)' : 'var(--vw-color-red-500)' }} /></span><small className="num">{a.answered}/{a.total}</small></span></span>{a.findings.some(f => f.status === 'fail') ? <Chip tone="error" size="xs">fail</Chip> : a.findings.some(f => f.status === 'warn') ? <Chip tone="warning" size="xs">warn</Chip> : <Chip tone="success" size="xs">pass</Chip>}</li>)}</ul>
-        </Panel>
-      </div>
-    </div>
-  );
-}
+/* The Overview lives in ./overview.tsx (PlanOverview, 15-Oct-2026 cleanup). */
 
-/* ================================================================== sizing */
 const KIND_LABEL: Record<PlantItem['kind'], string> = { feed: 'Grid supply path', substation: 'HV substation', transformer: 'Transformer', ups: 'UPS / DC plant', generator: 'Generator', pdu: 'Distribution', cooling: 'Air cooling', cdu: 'CDU', chiller: 'Chiller', 'heat-rejection': 'Heat rejection' };
 export function SizingTab({ plan, ev }: TabProps) {
   const s = ev.sizing;

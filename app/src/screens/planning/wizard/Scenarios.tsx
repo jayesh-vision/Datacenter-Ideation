@@ -48,9 +48,9 @@ export function ScenarioPanel({ plan, base, scenarios, templates, actions, edita
     const a = m.get(base), b = m.get(ev);
     if (a == null || b == null) return null;
     const d = Math.round((b - a) * 100) / 100;
-    if (!d) return <small className="pn-delta">same</small>;
+    if (!d) return <small className="pw-delta">same</small>;
     const good = m.better ? (m.better === 'lower' ? d < 0 : d > 0) : undefined;
-    return <small className={`pn-delta${good === undefined ? '' : good ? ' is-good' : ' is-bad'}`}>{signed(d, m.dfmt ?? m.fmt)}</small>;
+    return <small className={`pw-delta${good === undefined ? '' : good ? ' is-good' : ' is-bad'}`}>{signed(d, m.dfmt ?? m.fmt)}</small>;
   };
   return <>
     <div className="pn-scen">
@@ -68,7 +68,7 @@ export function ScenarioPanel({ plan, base, scenarios, templates, actions, edita
       <Sub>Compared on one measure</Sub>
       <ScenarioCompareChart base={base} scenarios={scenarios} preferredId={preferred} />
       <button type="button" className="pn-scen-more" aria-expanded={allMeasures} onClick={() => setAllMeasures(v => !v)}>{allMeasures ? <I.ChevronUp size={14} /> : <I.ChevronDown size={14} />}{allMeasures ? 'Hide the differences' : `Every measure (${METRICS.length}) with its difference from the base case`}</button>
-      {allMeasures && <div className="pn-tbl pn-scentbl"><table className="nst-table"><thead><tr><th>Measure</th>{cols.map(c => <th key={c.key}><span className="pn-scencell"><span>{c.name}</span>{(c.scenario?.id ?? undefined) === preferred && <small className="pn-delta is-good">preferred</small>}</span></th>)}</tr></thead>
+      {allMeasures && <div className="pn-tbl pn-scentbl"><table className="nst-table"><thead><tr><th>Measure</th>{cols.map(c => <th key={c.key}><span className="pn-scencell"><span>{c.name}</span>{(c.scenario?.id ?? undefined) === preferred && <small className="pw-delta is-good">preferred</small>}</span></th>)}</tr></thead>
         <tbody>{METRICS.map(m => <tr key={m.label}><td className="strong">{m.label}</td>{cols.map(c => { const v = m.get(c.ev); return <td key={c.key} className="num"><span className="pn-scencell"><span>{v == null ? '—' : m.fmt(v)}</span>{c.scenario && delta(m, c.ev)}</span></td>; })}</tr>)}</tbody></table></div>}
     </>}
     {editing && <ScenarioDrawer plan={plan} base={base} scenario={editing === 'new' ? null : editing} defs={defs} count={scenarios.length} actions={actions} onClose={() => setEditing(null)} />}

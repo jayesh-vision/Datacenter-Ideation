@@ -5,6 +5,7 @@ import { InSiteCooling, InSiteDelivery, InSiteFireSec, InSiteIt, InSiteMigration
 import { InSiteSitePicker } from './InSiteSitePicker';
 import { PlacementSection, SchedulesSection, SiteFitTab, WavesSection } from './PackSections';
 import { analysisOf } from './helpers';
+import { EquipmentEditor } from '../../plan/EquipmentEditor';
 
 registerScopeUi('in-site', {
   panels: { space: InSiteSpace, power: InSitePower, cooling: InSiteCooling, network: InSiteNetwork, it: InSiteIt, delivery: InSiteDelivery, migration: InSiteMigration, firesec: InSiteFireSec },
@@ -15,6 +16,7 @@ registerScopeUi('in-site', {
     { key: 'insite-waves', label: 'Waves', count: p => String(analysisOf(p.ev)?.retrofit?.waves.length ?? 0), render: p => <WavesSection {...p} /> },
   ],
   detailTabs: [
+    { key: 'equipment', label: 'Equipment', render: p => <EquipmentEditor {...p} family="in-site" /> },
     { key: 'site-fit', label: 'Site fit', badge: p => { const a = analysisOf(p.ev); const n = a ? Object.values(a.checks).filter(c => c.status === 'fail').length : 0; return n || undefined; }, render: p => <SiteFitTab {...p} /> },
   ],
 });

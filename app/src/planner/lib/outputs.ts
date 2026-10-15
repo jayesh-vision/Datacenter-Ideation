@@ -21,6 +21,7 @@ import type { PlannerData } from './plannerData';
 import { CATALOGUE, kindOfModel, priceOf, type ItemKind } from './catalogue';
 import { ASPECT_LABEL, SCOPE_LABEL, SOURCE_LABEL, fmtKw, fmtUsd, type Evaluation } from './engine';
 import { modelFor } from './scopes';
+import { MATERIAL_CHANGES_ITEM, applyOverrides, keyLines, priceContext, priceLine, type AppliedOverride } from './materials';
 import { clockMs } from '../compat/clock';
 
 const r0 = (n: number) => Math.round(n);
@@ -28,9 +29,18 @@ const num = (ev: Evaluation, k: string, d = 0) => { const v = ev.params[k]?.valu
 
 /* ================================================================== bill of materials */
 export type BomCategory = 'Power' | 'Cooling' | 'Network' | 'Cabling' | 'Racks and containment' | 'Compute and storage' | 'Fire and security' | 'Monitoring';
-export interface BomItem { id: string; kind: ItemKind; category: BomCategory; item: string; spec: string; qty: number; unit: string; unitCost: number; total: number; leadWeeks?: number; leadItem?: string; partNumber: string; manufacturer: string; /** Phase, wave or stage the line is needed for (purchase orders are raised per phase). */ phaseId?: string; needBy?: string; /** Site the line goes to (edge, portfolio, network ends). */ siteRef?: string; /** Service charges billed monthly (carrier circuits) rather than bought. */ monthly?: boolean; model?: string; /** Why the quantity differs from a standalone build (e.g. shared with the campus). */ note?: string }
+export interface BomItem { id: string; kind: ItemKind; category: BomCategory; item: string; spec: string; qty: number; unit: string; unitCost: number; total: number; leadWeeks?: number; leadItem?: string; partNumber: string; manufacturer: string; /** Phase, wave or stage the line is needed for (purchase orders are raised per phase). */ phaseId?: string; needBy?: string; /** Site the line goes to (edge, portfolio, network ends). */ siteRef?: string; /** Service charges billed monthly (carrier circuits) rather than bought. */ monthly?: boolean; model?: string; /** Why the quantity differs from a standalone build (e.g. shared with the campus). */ note?: string;
+  /* priced and edited lines (planner/lib/materials.ts) */
+  /** Stable key (kind|item|phase|site) the planner's overrides are kept against. */ key?: string;
+  /** Resolved to its catalogue model and priced (sourcing does not price it again). */ priced?: boolean;
+  /** Vendor the line is bought from (the model's catalogue vendor, or the planner's choice). */ vendorName?: string;
+  /** Preferred models skipped (end of life, inactive vendor). */ substituted?: string;
+  /** Per-rack IT line priced in units: racks, rack kW and usable height (a model swap re-fits the units per rack). */ perRack?: { racks: number; rackKw: number; usableU: number; perRack: number };
+  /** The planner's overrides as applied: vendor chosen (and its lead-time difference), source forced, what changed. */
+  chosenVendor?: string; leadDelta?: number; /** Price-book unit cost before a channel's premium (what stock and site capacity avoid). */ listUnitCost?: number; forceSource?: T.PlannerMaterialSource; applied?: AppliedOverride }
 /** `total` counts what is bought; monthly service charges (circuits) are summed in `monthlyTotal` and never added to CapEx. */
-export interface Bom { lines: BomItem[]; total: number; byCategory: { category: BomCategory; total: number; lines: number }[]; capexCompared: number; coveragePct: number; monthlyTotal?: number }
+export interface Bom { lines: BomItem[]; total: number; byCategory: { category: BomCategory; total: number; lines: number }[]; capexCompared: number; coveragePct: number; monthlyTotal?: number;
+  /** Overrides that no longer match a line, and notes on overrides that could not be applied as asked. */ materials?: { stale: T.PlannerMaterialOverride[]; warnings: string[] } }
 
 export const REPLACE_SCOPES: T.PlannerScope[] = ['server-refresh', 'network-refresh', 'rack-replace'];
 /** Item name → catalogue kind, so sourcing can match each line to a model, vendor and stock. */
@@ -43,8 +53,9 @@ const ITEM_KIND: Record<string, ItemKind> = {
   'Suppression system': 'suppression', 'Very early smoke detection': 'vesda', 'Access control and CCTV': 'access', 'Building management and DCIM sensors': 'bms',
 };
 
-/** Unit costs are indicative list prices; the planner calibrates totals against the CapEx estimate. */
-export function buildBom(plan: T.PlannerPlan, ev: Evaluation, benchmarks: T.PlannerBenchmark[]): Bom {
+/** Unit costs are indicative list prices; the planner calibrates totals against the CapEx estimate. Lines are priced from the approved
+ *  catalogue and carry the planner's overrides (materials.ts); `proposal` leaves the overrides out (the planner's own proposal). */
+export function buildBom(plan: T.PlannerPlan, ev: Evaluation, benchmarks: T.PlannerBenchmark[], opts: { proposal?: boolean } = {}): Bom {
   const lines: BomItem[] = [];
   const lead = leadOf(benchmarks);
   // The plan type's family emits its own lines; when they are the whole bill, the generic lines are skipped.
@@ -55,7 +66,12 @@ export function buildBom(plan: T.PlannerPlan, ev: Evaluation, benchmarks: T.Plan
     lines.push({ ...l, id: `B${n}`, qty: r0(l.qty), unitCost: r0(l.unitCost), total: r0(r0(l.qty) * l.unitCost), leadWeeks: l.leadWeeks ?? (l.leadItem ? lead(l.leadItem) : undefined), partNumber: l.partNumber ?? `${l.category.slice(0, 3).toUpperCase()}-${String(n).padStart(3, '0')}` });
   }) : false;
   if (!own) genericBomLines(plan, ev, benchmarks, lines);
-  return finishBom(lines, ev);
+  keyLines(lines);
+  const pc = priceContext(plan, ev);
+  const priced = lines.map(l => priceLine(plan, l, pc));
+  if (opts.proposal || !plan.materialOverrides?.length) return finishBom(priced, ev);
+  const o = applyOverrides(priced, plan.materialOverrides, { ...pc, lead });
+  return { ...finishBom(o.lines, ev), materials: { stale: o.stale, warnings: o.warnings } };
 }
 /** Lead time in weeks for a lead-time benchmark name (the high end of the band, the conservative figure). */
 const leadOf = (benchmarks: T.PlannerBenchmark[]) => (name: string) => { const b = benchmarks.find(x => x.metric === `leadWeeks:${name}`); return b ? r0(b.high ?? b.value ?? 0) : undefined; };
@@ -189,7 +205,7 @@ export function finishBom(lines: BomItem[], ev: Evaluation): Bom {
   const total = bought.reduce((a, l) => a + l.total, 0);
   const monthlyTotal = lines.filter(l => l.monthly).reduce((a, l) => a + l.total, 0);
   const cats = [...new Set(bought.map(l => l.category))];
-  const capexCompared = ev.estimate.capex.filter(l => !/Land and shell|Services and contingency/.test(l.item)).reduce((a, l) => a + l.amount, 0);
+  const capexCompared = ev.estimate.capex.filter(l => !/Land and shell|Services and contingency/.test(l.item) && l.item !== MATERIAL_CHANGES_ITEM).reduce((a, l) => a + l.amount, 0);
   return { lines, total, monthlyTotal: monthlyTotal || undefined, byCategory: cats.map(c => ({ category: c, total: bought.filter(l => l.category === c).reduce((a, l) => a + l.total, 0), lines: bought.filter(l => l.category === c).length })).sort((a, b) => b.total - a.total), capexCompared, coveragePct: capexCompared ? r0((total / capexCompared) * 100) : 0 };
 }
 

@@ -10,7 +10,7 @@ import { requirementParamKeys } from '../../../planner/lib/dimensions';
 import { fmtParam, paramDefsFor, type StepProps } from '../../../planner/lib/wizardModel';
 import { Sec } from '../parts';
 import { FindingList } from '../common';
-import { ParamInput } from './ParamInput';
+import { ParamFields, ParamInput } from './ParamInput';
 import { StepHead } from './steps';
 import { DIMENSION_PANEL } from './DimensionPanels';
 import { uiFor } from '../scopes/registry';
@@ -34,8 +34,8 @@ export function DimensionStep(props: StepProps & { dim: Dimension; depth: 'full'
       <StepHead title={dim.label} text={dim.question} extra={<span className="row" style={{ gap: 6 }}>{depth === 'summary' && <Chip tone="neutral">Brief for this plan type</Chip>}<Chip tone={fails ? 'error' : warns ? 'warning' : 'success'} dot>{fails ? `${fails} fail` : warns ? `${warns} warning${warns === 1 ? '' : 's'}` : 'Checks pass'}</Chip></span>} />
       {fixed.length > 0 && <div className="pn-fromreq"><I.ListChecks size={15} /><span className="vw-label">From your requirements</span>{fixed.map(d => <span key={d.key} className="pn-fromreq-item">{d.label} <b>{fmtParam(d.key, ev?.params[d.key]?.value ?? d.default, d.unit)}</b></span>)}<button type="button" className="ent-link" onClick={() => goTo('requirements')}>Change</button></div>}
       {inputs.length > 0 && <Sec icon={I.SlidersHorizontal} title="Inputs" sub={fromReq > 0 ? `${fromReq} of ${inputs.length} filled from your requirements; change only what differs` : `${inputs.length} input${inputs.length === 1 ? '' : 's'} for ${dim.label.toLowerCase()}`}
-        extra={<span className="pn-legend"><span><i className="s-user" />Entered</span><span><i className="s-req" />Requirements</span><span><i className="s-def" />Default</span><span><i className="s-bm" />Benchmark</span></span>}>
-        <div className="pn-params">{visible.map(d => <ParamInput key={d.key} def={d} ev={ev} draft={draft} setParam={setParam} resetParam={resetParam} why={why[d.key]} disabled={readOnly} />)}</div>
+        extra={<span className="pw-legend"><span><i className="s-user" />Entered</span><span><i className="s-req" />Requirements</span><span><i className="s-def" />Default</span><span><i className="s-bm" />Benchmark</span></span>}>
+        <ParamFields>{visible.map(d => <ParamInput key={d.key} def={d} ev={ev} draft={draft} setParam={setParam} resetParam={resetParam} why={why[d.key]} disabled={readOnly} />)}</ParamFields>
         {visible.length < inputs.length && <button type="button" className="ent-link" style={{ marginTop: 12, fontSize: 12.5 }} onClick={() => setShowAll(true)}>Show {inputs.length - visible.length} more input{inputs.length - visible.length === 1 ? '' : 's'}</button>}
       </Sec>}
       <Sec icon={I.Calculator} title="What the planner works out" sub="Recalculated from the inputs as you type">
