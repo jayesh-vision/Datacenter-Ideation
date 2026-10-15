@@ -1,0 +1,70 @@
+/* Plan-page editors of equipment / racks / waves (plan/EquipmentEditor.tsx) and risks / permits (plan/RisksPermits.tsx), with the shared
+   effect strip and pending-change bar (plan/EffectBar.tsx). Layout only; colours from NST tokens. Prefix peq-. */
+
+.peq-hint { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-500); }
+
+/* ---- effect strip: one slim card of figures, "before → after" on the ones a pending change moves */
+.peq-fx { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); background: #fff; border: 1px solid var(--vw-color-slate-200); border-radius: 12px; overflow: hidden; }
+.peq-fx-i { display: flex; flex-direction: column; gap: 3px; padding: 11px 14px; border-left: 1px solid var(--vw-color-slate-100); min-width: 0; }
+.peq-fx-i:first-child { border-left: 0; }
+.peq-fx-i > small { font-size: 12px; color: var(--ink-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.peq-fx-i > b { font-family: var(--num); font-weight: 400; font-size: 19px; line-height: 26px; color: var(--ink-900); display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.peq-fx-i > em { font-style: normal; font-size: 11.5px; color: var(--ink-400); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.peq-fx-i.is-moved { background: var(--primary-50); }
+.peq-fx-i.is-moved > em.peq-fx-was { color: var(--primary-700); }
+.peq-fx .is-bad, .peq-review-fx td.is-bad { color: var(--vw-color-red-600); }
+.peq-fx .is-good, .peq-review-fx td.is-good { color: var(--vw-color-emerald-700); }
+
+@media (max-width: 900px) { .peq-fx { grid-auto-flow: row; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); } }
+/* ---- the editor body inside its panel (the wizard panels bring their own tables) */
+.peq-body { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.peq-body > .pn-sub:first-child { margin-top: 0; }
+.peq .panel-head .seg { flex-wrap: wrap; }
+
+/* ---- pending-change bar: pinned to the bottom of the window while something is not saved */
+.peq-bar { position: sticky; bottom: 12px; z-index: 20; display: flex; align-items: center; gap: 14px; padding: 10px 12px 10px 16px; background: #fff;
+  border: 1px solid var(--primary-200, var(--vw-color-slate-300)); border-radius: 12px; box-shadow: var(--shadow-pop, 0 8px 24px rgba(15, 23, 42, .12)); }
+.peq-bar-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.peq-bar-main > b { display: inline-flex; align-items: center; gap: 7px; font-weight: 500; font-size: 13.5px; color: var(--ink-900); }
+.peq-bar-main > b svg { color: var(--primary-600); }
+.peq-bar-fx { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.peq-bar-act { display: flex; gap: 8px; flex: none; }
+
+/* ---- review dialog */
+.peq-review h4 { margin: 0 0 6px; font-size: 12.5px; font-weight: 500; color: var(--ink-500); }
+.peq-review h4 + * { margin-bottom: 14px; }
+.peq-review-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; font-size: 13px; color: var(--ink-800); }
+.peq-review-fx { width: 100%; }
+.peq-review-fx tr.is-same td { color: var(--ink-400); }
+.peq-review-fx td.num { font-family: var(--num); }
+
+/* ---- risks and permits: registers as quiet lists, edited in a drawer */
+.peq-rp { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: stretch; }
+.peq-rp > .panel { min-width: 0; }
+@media (max-width: 1360px) { .peq-rp { grid-template-columns: minmax(0, 1fr); } }
+.peq-reg { list-style: none; margin: 0; padding: 0; }
+.peq-reg > li { display: flex; align-items: flex-start; gap: 12px; padding: 11px 4px; border-bottom: 1px solid var(--vw-color-slate-100); }
+.peq-reg > li:last-child { border-bottom: 0; }
+.peq-reg > li.is-click { cursor: pointer; border-radius: 8px; }
+.peq-reg > li.is-click:hover { background: var(--vw-color-slate-50); }
+.peq-reg > li.is-new { box-shadow: inset 3px 0 0 var(--primary-600); }
+.peq-reg > li.is-gone { opacity: .5; text-decoration: line-through; text-decoration-color: var(--vw-color-slate-300); }
+.peq-reg > li.is-edited { box-shadow: inset 3px 0 0 var(--vw-color-amber-400, #fbbf24); }
+.peq-score { flex: none; width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; font-family: var(--num); font-size: 13px; font-weight: 500; }
+.peq-score.is-high { background: var(--vw-color-red-50); color: var(--vw-color-red-700); border: 1px solid var(--vw-color-red-200); }
+.peq-score.is-mid { background: var(--vw-color-amber-50); color: var(--vw-color-amber-800); border: 1px solid var(--vw-color-amber-200); }
+.peq-score.is-low { background: var(--vw-color-slate-50); color: var(--ink-600); border: 1px solid var(--vw-color-slate-200); }
+.peq-score.is-permit { background: var(--vw-color-slate-50); color: var(--ink-500); border: 1px solid var(--vw-color-slate-200); }
+.peq-reg-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.peq-reg-main > b { font-weight: 500; font-size: 13.5px; color: var(--ink-900); }
+.peq-reg-main > small { font-size: 12px; color: var(--ink-500); }
+.peq-reg-main .peq-mit { display: inline-flex; align-items: flex-start; gap: 5px; color: var(--ink-600); }
+.peq-reg-main .peq-mit svg { flex: none; margin-top: 2px; }
+.peq-reg-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: none; max-width: 46%; text-align: right; }
+.peq-reg-side small { font-size: 11.5px; color: var(--ink-500); white-space: nowrap; }
+.peq-reg-side .row { justify-content: flex-end; }
+.peq-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
+.peq-form > .is-wide { grid-column: 1 / -1; }
+.peq-form-note { grid-column: 1 / -1; margin: 0; font-size: 12px; color: var(--ink-500); }
+.peq-drawer-del { margin-right: auto; }
+.peq-ro { display: block; padding: 6px 0; font-size: 13.5px; color: var(--ink-800); }

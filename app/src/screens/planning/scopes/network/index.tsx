@@ -11,5 +11,5 @@ registerScopeUi('network', {
     { key: 'net-paths', label: 'Paths and diversity', count: p => `${p.plan.paths?.length ?? 0} paths`, render: p => { const an = networkOf(p.ev); return an ? <PathsTable an={an} /> : null; } },
     { key: 'net-cutover', label: 'Interconnect plan', render: p => <NetworkView {...p} /> },
   ],
-  detailTabs: [{ key: 'network', label: 'Paths and circuits', badge: p => networkOf(p.ev)?.paths.filter(x => x.problems.length).length || undefined, render: p => <NetworkView {...p} /> }],
+  detailTabs: [{ key: 'network', label: 'Paths', badge: p => networkOf(p.ev)?.paths.filter(x => x.problems.length).length || undefined, render: p => <NetworkView {...p} /> }],
 });

@@ -39,6 +39,7 @@ function TopologyRedirect() { const dc = new URLSearchParams(useLocation().searc
 const PlannerHub = lazy(() => import('./screens/planning/Planner').then(m => ({ default: m.Planner })));
 const PlannerWizard = lazy(() => import('./screens/planning/PlanWizard').then(m => ({ default: m.PlanWizard })));
 const PlannerPlan = lazy(() => import('./screens/planning/PlanPage').then(m => ({ default: m.PlanPage })));
+const PlannerReview = lazy(() => import('./screens/planning/pack/review/ReviewPage').then(m => ({ default: m.ReviewPage })));
 const lazyEl = (el: ReactNode) => <Suspense fallback={<div className="loading"><span className="spinner" />Loading…</div>}>{el}</Suspense>;
 function OldPlan() { const id = useLocation().pathname.split('/')[2]; return <Navigate to={id && id !== 'new' ? `/planning/plans/${id}` : id === 'new' ? '/planning/new' : '/planning'} replace />; }
 /* /planning/templates/:id deep link → the Templates tab with that template's drawer open */
@@ -90,6 +91,7 @@ export default function App() {
           <Route path="planning/new" element={lazyEl(<PlannerWizard />)} />
           <Route path="planning/plans/:planId/edit" element={lazyEl(<PlannerWizard />)} />
           <Route path="planning/plans/:planId" element={lazyEl(<PlannerPlan />)} />
+          <Route path="planning/plans/:planId/review" element={lazyEl(<PlannerReview />)} />
           <Route path="planning/plans" element={<Navigate to="/planning?tab=plans" replace />} />
           <Route path="planning/templates" element={<Navigate to="/planning?tab=templates" replace />} />
           <Route path="planning/templates/:templateId" element={<TemplateLink />} />

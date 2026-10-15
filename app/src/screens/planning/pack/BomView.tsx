@@ -95,7 +95,7 @@ export function BomView({ plan, bom: plain, sourced, capexTotal }: { plan: T.Pla
       return <span className="cell-2"><span>{buy.vendorName ?? 'To tender'}</span>{c === 'no contract' ? <span><Chip tone="warning" size="xs">No contract</Chip></span> : <small>{c}</small>}</span>;
     } };
     // Sourced lines carry more columns: the category sits under the item and the unit cost under the total (both in the CSV as columns).
-    const itemCat: Col<Row> = { key: 'item', header: 'Item', wrap: true, render: r => <span className="cell-2"><span className="pk-b">{r.item}</span><small>{r.category}</small>{open.has(r.id) && <Allocations line={r} />}</span> };
+    const itemCat: Col<Row> = { key: 'item', header: 'Item', wrap: true, render: r => <span className="cell-2"><span className="pk-b">{r.item}{r.applied && <> <Chip tone={r.applied.added ? 'info' : 'warning'} size="xs" title="Changed by the planner on the Materials tab">{r.applied.added ? 'Added' : 'Changed'}</Chip></>}</span><small>{r.category}</small>{open.has(r.id) && <Allocations line={r} />}</span> };
     const totalUnit: Col<Row> = { ...total, render: r => <span className="cell-2">{total.render(r)}<small className="num">{money(r.unitCost)} each</small></span> };
     return [expand, itemCat, model, qty, split('fromSite', 'From site'), split('fromStock', 'From stock'), split('toBuy', 'To buy'), totalUnit, vendor, lead, { ...pn, hideBelow: 1560 }];
   }, [sourced, contract, open]);
@@ -121,6 +121,7 @@ export function BomView({ plan, bom: plain, sourced, capexTotal }: { plan: T.Pla
           <div className="pk-cats">{bom.byCategory.map(c => <div key={c.category}><span className="vw-label">{c.category}</span><SoftMeter pct={(c.total / max) * 100} /><b className="num">{money(c.total)}</b></div>)}</div>
         </Panel>
       </div>
+      {bom.lines.some(l => l.applied) && <p className="note note--info"><I.PencilLine size={15} /><span>{bom.lines.filter(l => l.applied).length} line{bom.lines.filter(l => l.applied).length === 1 ? '' : 's'} differ from the planner's proposal{plain.materials?.stale.length ? ` (${plain.materials.stale.length} change${plain.materials.stale.length === 1 ? '' : 's'} no longer match a line)` : ''}: see the plan's Materials tab.</span></p>}
       <p className="note note--info"><I.Info size={15} /><span>{comparison} Unit costs are indicative list prices until the items are tendered.{sourced ? ' Models come from the approved catalogue; open a line to see where each quantity comes from.' : ''}</span></p>
       <Panel flush icon={I.ListOrdered} title="Lines" count={rows.length} actions={<Btn size="sm" icon={I.Download} onClick={csv}>Download CSV</Btn>}
         foot={<div className="row" style={{ justifyContent: 'space-between' }}><span className="vw-label">Total{rows.length !== bom.lines.length ? ' (filtered)' : ''}</span><b className="num">{money(filteredTotal)}</b></div>}>

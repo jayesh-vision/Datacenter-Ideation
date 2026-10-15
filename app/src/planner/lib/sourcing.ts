@@ -24,7 +24,8 @@ import { datedPhases, leadWeeksFor, type Evaluation } from './engine';
 import type { Bom, BomItem } from './outputs';
 import type { PlannerData } from './plannerData';
 import { usableAt } from './site';
-import { CATALOGUE, chooseOption, isFreeStock, type CatalogueOption, type ItemKind } from './catalogue';
+import { CATALOGUE, chooseOption, isFreeStock, optionOf, type CatalogueOption, type ItemKind } from './catalogue';
+import { NEED_WEEKS, priceContext, priceLine } from './materials';
 import { clockMs } from '../compat/clock';
 
 export interface SourcingContext { devices: T.Device[]; vendors: T.Vendor[]; contracts: T.Contract[]; assetModels: T.AssetModel[]; racks: T.Rack[]; upsUnits: T.UPS[]; coolingZones: T.CoolingZone[]; dataCenters: T.DataCenter[]; /** Full platform data when available (reservations, purchase orders). */ data?: PlannerData }
@@ -47,43 +48,75 @@ export interface SourcedBom {
 const EXISTING_SITE: T.PlannerScope[] = ['rack', 'pod', 'hall', 'retrofit', 'plant', 'server-refresh', 'network-refresh', 'rack-replace'];
 const PURCHASE_CONTRACTS: T.Contract['type'][] = ['Supply', 'Framework'];
 const WEEK = 7 * 864e5;
-/** Weeks before go-live an item is needed on site (installation and commissioning time). */
-const NEED_WEEKS: Partial<Record<ItemKind, number>> = { 'hv-transformer': 30, transformer: 30, switchgear: 24, generator: 26, ups: 20, chiller: 20, 'dry-cooler': 20, cdu: 14, crah: 14, fanwall: 14, inrow: 14, reardoor: 14, pdu: 12, rack: 10, containment: 10, leaf: 10, spine: 10, core: 10, optics: 8, fibre: 8, dac: 6, 'gpu-server': 4, server: 4, storage: 4 };
 /** Items bought once for the whole site (with the first phase). */
 const FIRST_PHASE_ONLY: ItemKind[] = ['hv-transformer', 'utility', 'core', 'firewall', 'bms'];
 
-export function sourceBom(plan: T.PlannerPlan, ev: Evaluation, bom: Bom, ctx: SourcingContext): SourcedBom {
-  const warnings: string[] = []; const usedDevices = new Set<string>(); const usedRacks = new Set<string>(); const plannedHold = new Set<string>();
+/** The purchase contract a vendor holds (a framework before a supply contract; never a support or SLA contract). */
+export function purchaseContract(contracts: T.Contract[], vendorId?: string): T.Contract | undefined {
   const now = clockMs();
+  return contracts.filter(c => c.vendorId === vendorId && c.status === 'Active' && new Date(c.endDate).getTime() > now && PURCHASE_CONTRACTS.includes(c.type)).sort((a, b) => (a.type === 'Framework' ? -1 : 1) - (b.type === 'Framework' ? -1 : 1))[0];
+}
+
+/** Spare capacity at the plan's site, decided once per plan (not line by line). */
+export interface SiteCapacity { onSite: boolean; ups: boolean; cooling: boolean; plant: boolean; freePositions: T.Rack[]; decisions: NonNullable<SourcedBom['decisions']>; warnings: string[] }
+export function siteCapacity(plan: T.PlannerPlan, ev: Evaluation, ctx: SourcingContext): SiteCapacity {
   const onSite = EXISTING_SITE.includes(plan.scope) && !!plan.dataCenterId;
+  const dc = ctx.dataCenters.find(d => d.id === plan.dataCenterId);
+  const site = ev.ctx.site;
+  const added = plan.scope === 'plant' ? 0 : ev.sizing.itKw;
+  const decisions: NonNullable<SourcedBom['decisions']> = {}; const warnings: string[] = [];
+  let ups = false, cooling = false, plant = false;
+  if (onSite && added > 0) {
+    const upsStage = site?.stages.find(s => s.key === 'ups');
+    if (upsStage) { ups = upsStage.headroomItKw >= added; decisions.ups = `${upsStage.label} at ${upsStage.redundancy}: ${Math.round(upsStage.headroomItKw)} kW free after load, holds and approved plans; ${ups ? 'covers' : 'does not cover'} the ${Math.round(added)} kW added`; }
+    else {
+      const units = ctx.upsUnits.filter(u => u.dataCenterId === plan.dataCenterId && u.status !== 'Failed');
+      if (units.length) { const red = units[0].redundancy ?? 'N+1'; const usable = usableAt(red, units.map(u => ({ capacityKw: u.capacityKw }))); const load = units.reduce((a, u) => a + (u.loadKw || 0), 0); ups = usable - load >= added; decisions.ups = `UPS at ${red}: ${Math.round(usable - load)} kW usable free; ${ups ? 'covers' : 'does not cover'} the ${Math.round(added)} kW added`; }
+    }
+    if (site?.cooling.zones.length) { cooling = site.cooling.headroomKw >= added * 1.1; decisions.cooling = `Cooling with the largest unit lost per zone: ${Math.round(site.cooling.headroomKw)} kW free; ${cooling ? 'covers' : 'does not cover'} ${Math.round(added * 1.1)} kW (× 1.1)`; }
+    if (site && plan.scope !== 'plant') { plant = site.headroomItKw >= added; decisions.plant = `Site plant: ${Math.round(site.headroomItKw)} kW IT free (binding: ${site.binding?.label ?? 'none'}); ${plant ? 'covers' : 'does not cover'} the ${Math.round(added)} kW added`; }
+    if (!ups && decisions.ups) warnings.push(`UPS is short at ${dc?.name ?? 'the site'}: raise a plant plan for UPS rather than buying it inside this plan`);
+  }
+  const hallId = plan.params.targetHallId as string | undefined;
+  const freePositions = onSite && plan.scope !== 'rack-replace' ? ctx.racks.filter(r => r.dataCenterId === plan.dataCenterId && (!hallId || r.hallId === hallId) && (r.status === 'Planned' || r.status === 'Reserved') && r.currentPowerKw === 0) : [];
+  return { onSite, ups, cooling, plant, freePositions, decisions, warnings };
+}
+
+/** What a line could come from (for the Materials tab's source choice): spare site capacity, free stock of its model, or buying. */
+export interface SourceAvailability { site: { qty: number; note: string }; stock: { qty: number; note: string } }
+export function sourceAvailability(plan: T.PlannerPlan, ev: Evaluation, line: BomItem, ctx: SourcingContext, cap = siteCapacity(plan, ev, ctx)): SourceAvailability {
+  const cat = CATALOGUE[line.kind];
+  const dc = ctx.dataCenters.find(d => d.id === plan.dataCenterId)?.name ?? 'the site';
+  let site = { qty: 0, note: cap.onSite ? 'not something the site has spare' : 'the plan does not use an existing site' };
+  if (cap.onSite && cat?.siteCapacity && (plan.scope !== 'plant' || cat.siteCapacity === 'positions')) {
+    if (cat.siteCapacity === 'positions') site = { qty: cap.freePositions.length, note: cap.freePositions.length ? `${cap.freePositions.length} planned or reserved rack position${cap.freePositions.length === 1 ? '' : 's'} free at ${dc}` : `no free rack positions at ${dc}` };
+    else if (cat.siteCapacity === 'ups') site = line.kind === 'ups' && cap.ups ? { qty: line.qty, note: cap.decisions.ups ?? 'existing UPS has headroom' } : { qty: 0, note: cap.decisions.ups ?? 'no UPS headroom' };
+    else if (cat.siteCapacity === 'cooling') site = cap.cooling ? { qty: line.qty, note: cap.decisions.cooling ?? 'existing cooling has headroom' } : { qty: 0, note: cap.decisions.cooling ?? 'no cooling headroom' };
+    else if (cat.siteCapacity === 'plant') site = cap.plant ? { qty: line.qty, note: cap.decisions.plant ?? 'site plant has headroom' } : { qty: 0, note: cap.decisions.plant ?? 'no plant headroom' };
+  }
+  const option = optionOf(line.model);
+  const holds = ctx.data ? { capacityReservations: ctx.data.capacityReservations } : undefined;
+  const pool = cat?.stockable && option?.device ? ctx.devices.filter(d => d.model === option.model && isFreeStock(d, holds, plan.id)) : [];
+  const atSite = pool.filter(d => d.dataCenterId && d.dataCenterId === plan.dataCenterId).length, depot = pool.filter(d => !d.dataCenterId).length;
+  const stock = { qty: pool.length, note: !cat?.stockable ? 'not held in stock' : pool.length ? [atSite && `${atSite} spare at the site`, depot && `${depot} in the central depot`, pool.length - atSite - depot && `${pool.length - atSite - depot} at other sites`].filter(Boolean).join(', ') : `no free ${option?.model ?? line.item} in stock` };
+  return { site, stock };
+}
+
+export function sourceBom(plan: T.PlannerPlan, ev: Evaluation, bom: Bom, ctx: SourcingContext): SourcedBom {
+  const usedDevices = new Set<string>(); const usedRacks = new Set<string>(); const plannedHold = new Set<string>();
+  const now = clockMs();
+  const cap = siteCapacity(plan, ev, ctx);
+  const warnings: string[] = [...cap.warnings, ...(bom.materials?.warnings ?? [])];
+  const { onSite, decisions, freePositions } = cap;
+  const upsCovered = cap.ups, coolCovered = cap.cooling, plantCovered = cap.plant;
   const dc = ctx.dataCenters.find(d => d.id === plan.dataCenterId);
   const phases = datedPhases(plan);
   const totalKw = phases.reduce((a, ph) => a + ph.itKw, 0) || 1;
   const contingencyPct = Number(ev.params['contingencyPct']?.value ?? 15) || 0;
   const holdWeeks = Number(ev.params['stockHoldWeeks']?.value ?? 12) || 12;
   const vendorRec = (name: string) => ctx.vendors.find(v => v.name === name);
-  const contractFor = (vendorId?: string) => ctx.contracts.filter(c => c.vendorId === vendorId && c.status === 'Active' && new Date(c.endDate).getTime() > now && PURCHASE_CONTRACTS.includes(c.type)).sort((a, b) => (a.type === 'Framework' ? -1 : 1) - (b.type === 'Framework' ? -1 : 1))[0];
   const holdsData = ctx.data ? { capacityReservations: ctx.data.capacityReservations } : undefined;
-
-  // ── Site capacity, decided once per plan ──
-  const site = ev.ctx.site;
-  const added = plan.scope === 'plant' ? 0 : ev.sizing.itKw;
-  const decisions: NonNullable<SourcedBom['decisions']> = {};
-  let upsCovered = false, coolCovered = false, plantCovered = false;
-  if (onSite && added > 0) {
-    const upsStage = site?.stages.find(s => s.key === 'ups');
-    if (upsStage) { upsCovered = upsStage.headroomItKw >= added; decisions.ups = `${upsStage.label} at ${upsStage.redundancy}: ${Math.round(upsStage.headroomItKw)} kW free after load, holds and approved plans; ${upsCovered ? 'covers' : 'does not cover'} the ${Math.round(added)} kW added`; }
-    else {
-      const units = ctx.upsUnits.filter(u => u.dataCenterId === plan.dataCenterId && u.status !== 'Failed');
-      if (units.length) { const red = units[0].redundancy ?? 'N+1'; const usable = usableAt(red, units.map(u => ({ capacityKw: u.capacityKw }))); const load = units.reduce((a, u) => a + (u.loadKw || 0), 0); upsCovered = usable - load >= added; decisions.ups = `UPS at ${red}: ${Math.round(usable - load)} kW usable free; ${upsCovered ? 'covers' : 'does not cover'} the ${Math.round(added)} kW added`; }
-    }
-    if (site?.cooling.zones.length) { coolCovered = site.cooling.headroomKw >= added * 1.1; decisions.cooling = `Cooling with the largest unit lost per zone: ${Math.round(site.cooling.headroomKw)} kW free; ${coolCovered ? 'covers' : 'does not cover'} ${Math.round(added * 1.1)} kW (× 1.1)`; }
-    if (site && plan.scope !== 'plant') { plantCovered = site.headroomItKw >= added; decisions.plant = `Site plant: ${Math.round(site.headroomItKw)} kW IT free (binding: ${site.binding?.label ?? 'none'}); ${plantCovered ? 'covers' : 'does not cover'} the ${Math.round(added)} kW added`; }
-    if (!upsCovered && decisions.ups) warnings.push(`UPS is short at ${dc?.name ?? 'the site'}: raise a plant plan for UPS rather than buying it inside this plan`);
-  }
-  const hallId = plan.params.targetHallId as string | undefined;
-  const freePositions = onSite && plan.scope !== 'rack-replace' ? ctx.racks.filter(r => r.dataCenterId === plan.dataCenterId && (!hallId || r.hallId === hallId) && (r.status === 'Planned' || r.status === 'Reserved') && r.currentPowerKw === 0) : [];
-  const itLines = ev.estimate.it?.lines ?? [];
+  const pc = { ...priceContext(plan, ev), models: ctx.assetModels, vendors: ctx.vendors };
 
   /** Split a quantity over the phases by kW (largest remainder); lines with a phase keep it. */
   const split = (line: BomItem): { phase: T.PlannerPhase | undefined; qty: number }[] => {
@@ -105,47 +138,36 @@ export function sourceBom(plan: T.PlannerPlan, ev: Evaluation, bom: Bom, ctx: So
 
   const lines: SourcedLine[] = bom.lines.map(raw => {
     const cat = CATALOGUE[raw.kind];
-    let line: BomItem = raw; let option: CatalogueOption | undefined; let substituted: string | undefined;
-    if (cat) {
-      const preferred = raw.model ?? REPLACEMENT_MODEL(plan, raw.kind);
-      const pick = chooseOption(raw.kind, line0GoLive(), ctx.assetModels, ctx.vendors, preferred);
-      option = pick.option;
-      if (pick.skipped.length) { substituted = pick.skipped.map(x => `${x.model} (${x.reason})`).join(', '); warnings.push(`${cat.label}: skipped ${substituted}; using ${option.model}`); }
-      const isIt = raw.kind === 'gpu-server' || raw.kind === 'server' || raw.kind === 'storage';
-      const itLine = isIt ? itLines.find(l => l.kind === raw.kind && (raw.item.toLowerCase().includes(l.className.toLowerCase()) || itLines.filter(x => x.kind === raw.kind).length === 1)) ?? itLines.find(l => l.kind === raw.kind) : undefined;
-      if (isIt && raw.unit === 'rack') {
-        // Per-rack IT lines become server units of the same model and price as the estimate.
-        const perRack = itLine?.perRack ?? 1; const model = itLine?.model ?? option.model; const price = itLine?.unitPrice ?? option.unitPrice;
-        option = CATALOGUE[raw.kind].options.find(o => o.model === model) ?? option;
-        const qty = raw.qty * perRack;
-        line = { ...raw, item: `${cat.label}s`, spec: `${model}, ${perRack} per rack in ${raw.qty} rack${raw.qty === 1 ? '' : 's'}`, qty, unit: 'each', unitCost: price, total: qty * price, manufacturer: option.manufacturer, model };
-      } else if (isIt && itLine && (!raw.model || raw.model === itLine.model)) {
-        option = CATALOGUE[raw.kind].options.find(o => o.model === itLine.model) ?? option;
-        line = { ...raw, unitCost: itLine.unitPrice, total: raw.qty * itLine.unitPrice, manufacturer: option.manufacturer, model: itLine.model, spec: raw.spec.includes(itLine.model) ? raw.spec : `${itLine.model} · ${raw.spec}` };
-      } else if (option.unitPrice && (cat.stockable || raw.kind === 'rack')) {
-        line = { ...raw, unitCost: option.unitPrice, total: raw.qty * option.unitPrice, manufacturer: option.manufacturer, model: option.model, spec: raw.spec.includes(option.model) ? raw.spec : `${option.model} · ${raw.spec}` };
-      } else line = { ...raw, manufacturer: raw.manufacturer === 'To tender' ? option.manufacturer : raw.manufacturer };
-    }
+    // Lines come priced from buildBom (materials.priceLine); a bill built elsewhere is priced here the same way.
+    const line: BomItem = raw.priced ? raw : priceLine(plan, raw, pc);
+    const option: CatalogueOption | undefined = cat ? optionOf(line.model) ?? chooseOption(raw.kind, line0GoLive(), ctx.assetModels, ctx.vendors).option : undefined;
+    const substituted = line.substituted;
+    if (substituted && cat) warnings.push(`${cat.label}: skipped ${substituted}; using ${option?.model ?? line.model}`);
+    const force = line.forceSource;
     const allocations: Allocation[] = []; let remaining = line.qty;
     // 1. Site capacity (a plant upgrade adds the very plant it would otherwise reuse, so only rack positions count there).
-    if (onSite && cat?.siteCapacity && remaining > 0 && (plan.scope !== 'plant' || cat.siteCapacity === 'positions')) {
-      if (cat.siteCapacity === 'positions' && freePositions.length) {
+    const siteOk = onSite && !!cat?.siteCapacity && (plan.scope !== 'plant' || cat.siteCapacity === 'positions');
+    if (force === 'site' && !siteOk) warnings.push(`${line.item}: spare site capacity was asked for, but ${onSite ? 'the site has none of this kind' : 'the plan does not use an existing site'}; sourced as usual`);
+    if (siteOk && remaining > 0 && force !== 'stock' && force !== 'buy') {
+      if (cat!.siteCapacity === 'positions' && freePositions.length) {
         const take = freePositions.filter(r => !usedRacks.has(r.id)).slice(0, remaining);
         take.forEach(r => usedRacks.add(r.id));
         if (take.length) { allocations.push({ source: 'site', qty: take.length, unitCost: 0, rackIds: take.map(r => r.id), note: `${take.length} planned or reserved rack position${take.length === 1 ? '' : 's'} at ${dc?.name ?? 'the site'}` }); remaining -= take.length; }
       }
-      if (cat.siteCapacity === 'ups' && line.kind === 'ups' && upsCovered) { allocations.push({ source: 'site', qty: remaining, unitCost: 0, note: decisions.ups ?? 'existing UPS has headroom' }); remaining = 0; }
-      if (cat.siteCapacity === 'cooling' && coolCovered) { allocations.push({ source: 'site', qty: remaining, unitCost: 0, note: decisions.cooling ?? 'existing cooling has headroom' }); remaining = 0; }
-      if (cat.siteCapacity === 'plant' && plantCovered) { allocations.push({ source: 'site', qty: remaining, unitCost: 0, note: decisions.plant ?? 'site plant has headroom' }); remaining = 0; }
+      if (cat!.siteCapacity === 'ups' && line.kind === 'ups' && upsCovered) { allocations.push({ source: 'site', qty: remaining, unitCost: 0, note: decisions.ups ?? 'existing UPS has headroom' }); remaining = 0; }
+      if (cat!.siteCapacity === 'cooling' && coolCovered) { allocations.push({ source: 'site', qty: remaining, unitCost: 0, note: decisions.cooling ?? 'existing cooling has headroom' }); remaining = 0; }
+      if (cat!.siteCapacity === 'plant' && plantCovered) { allocations.push({ source: 'site', qty: remaining, unitCost: 0, note: decisions.plant ?? 'site plant has headroom' }); remaining = 0; }
+      if (force === 'site' && remaining > 0) warnings.push(`${line.item}: spare site capacity covers ${line.qty - remaining} of ${line.qty}; the rest is sourced as usual`);
     }
     const parts = remaining > 0 ? split({ ...line, qty: remaining }) : [];
+    let stockShort = 0;
     for (const part of parts) {
       let left = part.qty;
       const lt = leadWeeksFor(line.leadItem ?? '', [], 0).leadWeeks;
       const lead = line.leadWeeks ?? lt;
       const dates = datesFor(line.kind, part.phase, lead);
       // 2. Stock, held only within the hold window before the need date.
-      if (cat?.stockable && option?.device && left > 0) {
+      if (cat?.stockable && option?.device && left > 0 && force !== 'buy') {
         const pool = ctx.devices.filter(d => d.model === option!.model && isFreeStock(d, holdsData, plan.id) && !usedDevices.has(d.id) && !plannedHold.has(d.id));
         const ranked = [...pool.filter(d => d.dataCenterId === plan.dataCenterId), ...pool.filter(d => !d.dataCenterId), ...pool.filter(d => d.dataCenterId && d.dataCenterId !== plan.dataCenterId)];
         const take = ranked.slice(0, left);
@@ -159,20 +181,24 @@ export function sourceBom(plan: T.PlannerPlan, ev: Evaluation, bom: Bom, ctx: So
           left -= take.length;
         }
       }
+      if (force === 'stock') stockShort += left;
       // 3. Procurement (or an agreement for the grid connection).
       if (left > 0) {
         if (cat?.agreement) { allocations.push({ source: 'procure', qty: left, unitCost: line.unitCost, agreement: true, vendorName: option?.vendor, phaseId: part.phase?.id, needBy: dates.needBy, note: 'Grid connection agreement with the network operator, paid in milestones (not a purchase order)' }); continue; }
-        const v = option ? vendorRec(option.vendor) : undefined;
-        const c = contractFor(v?.id);
-        if (option && !v) warnings.push(`${line.item}: no vendor record for ${option.vendor}`);
+        const vName = line.vendorName ?? option?.vendor;
+        const v = vName ? vendorRec(vName) : undefined;
+        const c = purchaseContract(ctx.contracts, v?.id);
+        if (vName && !v) warnings.push(`${line.item}: no vendor record for ${vName}`);
         if (v && !c) warnings.push(`${line.item}: ${v.name} has no active supply or framework contract; buy on a one-off order`);
-        allocations.push({ source: 'procure', qty: left, unitCost: line.unitCost, vendorId: v?.id, vendorName: v?.name ?? option?.vendor ?? 'To tender', contractId: c?.id, leadWeeks: lead, phaseId: part.phase?.id, needBy: dates.needBy, orderBy: dates.orderBy, note: c ? `${v?.name} under ${c.type.toLowerCase()} contract ${c.ctrId}` : v ? `${v.name}, one-off order` : 'To tender' });
+        allocations.push({ source: 'procure', qty: left, unitCost: line.unitCost, vendorId: v?.id, vendorName: v?.name ?? vName ?? 'To tender', contractId: c?.id, leadWeeks: lead, phaseId: part.phase?.id, needBy: dates.needBy, orderBy: dates.orderBy, note: c ? `${v?.name} under ${c.type.toLowerCase()} contract ${c.ctrId}` : v ? `${v.name}, one-off order` : 'To tender' });
       }
     }
+    if (force === 'stock' && stockShort > 0) warnings.push(`${line.item}: stock was asked for, but only ${line.qty - stockShort - (line.qty - remaining)} of ${remaining} are free; ${stockShort} bought`);
+    if (force === 'stock' && !(cat?.stockable && option?.device)) warnings.push(`${line.item}: not something held in stock; bought`);
     const fromSite = allocations.filter(a => a.source === 'site').reduce((a, x) => a + x.qty, 0);
     const fromStock = allocations.filter(a => a.source === 'stock').reduce((a, x) => a + x.qty, 0);
     const toBuy = allocations.filter(a => a.source === 'procure').reduce((a, x) => a + x.qty, 0);
-    return { ...line, model: option?.model ?? line.model, vendorName: option?.vendor, allocations, fromSite, fromStock, toBuy, buyCost: Math.round(toBuy * line.unitCost), avoidedCost: Math.round((fromSite + fromStock) * line.unitCost), substituted };
+    return { ...line, model: line.model ?? option?.model, vendorName: line.vendorName ?? option?.vendor, allocations, fromSite, fromStock, toBuy, buyCost: Math.round(toBuy * line.unitCost), avoidedCost: Math.round((fromSite + fromStock) * (line.listUnitCost ?? line.unitCost)), substituted };
   });
 
   // Purchase orders: one per vendor per phase, under the vendor's supply or framework contract.
@@ -191,15 +217,9 @@ export function sourceBom(plan: T.PlannerPlan, ev: Evaluation, bom: Bom, ctx: So
   }
   const vendors = [...byKey.values()].sort((a, b) => (a.orderBy ?? '').localeCompare(b.orderBy ?? '') || b.value - a.value);
   const agreementValue = agreements.reduce((a, x) => a + x.value, 0);
+  // The total is the bill's (monthly service charges such as carrier circuits are not CapEx); the split by source counts every order.
   return {
-    lines, total: lines.reduce((a, l) => a + l.total, 0), buyTotal: lines.reduce((a, l) => a + l.buyCost, 0) - agreementValue, stockValue: lines.reduce((a, l) => a + (l.fromStock * l.unitCost), 0), siteValue: lines.reduce((a, l) => a + (l.fromSite * l.unitCost), 0),
+    lines, total: lines.filter(l => !l.monthly).reduce((a, l) => a + l.total, 0), buyTotal: lines.reduce((a, l) => a + l.buyCost, 0) - agreementValue, stockValue: lines.reduce((a, l) => a + (l.fromStock * (l.listUnitCost ?? l.unitCost)), 0), siteValue: lines.reduce((a, l) => a + (l.fromSite * (l.listUnitCost ?? l.unitCost)), 0),
     vendors, stockDeviceIds: [...usedDevices], siteRackIds: [...usedRacks], warnings: [...new Set(warnings)], plannedHoldDeviceIds: [...plannedHold], agreements, decisions,
   };
-}
-
-/** Replacement plans name the model to use; others take the catalogue preference. */
-function REPLACEMENT_MODEL(plan: T.PlannerPlan, kind: string): string | undefined {
-  if (kind === 'rack' && plan.params.rackModel) return String(plan.params.rackModel);
-  if (plan.params.replacementModel && (plan.scope === 'server-refresh' || plan.scope === 'network-refresh')) return String(plan.params.replacementModel);
-  return undefined;
 }

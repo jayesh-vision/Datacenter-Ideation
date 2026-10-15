@@ -1186,3 +1186,29 @@ export interface PDU {
   /** The rack the power strip is mounted in. */
   rackId?: string;
 }
+
+/* ------------------------------------------------------------------ material overrides (15-Oct-2026, plan page "Materials" tab)
+   The planner's own edits to the bill of materials, kept on the plan against the engine's proposal (the bill the sizing implies):
+   change a line's quantity, swap its model for another approved catalogue model of the same kind, force where it comes from
+   (spare site capacity, stock or buy), choose the vendor (the maker or an authorised channel), remove it, or add a line from the
+   catalogue. Applied in planner/lib/materials.ts (buildBom → sourcing → estimate → schedule → vendor orders → Delivery). */
+export type PlannerMaterialSource = 'auto' | 'site' | 'stock' | 'buy';
+export interface PlannerMaterialOverride {
+  /** The bill line's stable key (`kind|item|phase|site`, see materials.lineKey), or `ADD-n` for a line added from the catalogue. */
+  key: string;
+  /** Catalogue item kind (ItemKind) and the line's name when the override was made (so the change summary can name a line that has gone). */
+  kind: string; item: string;
+  /** Quantity in the line's unit (per-rack IT lines are priced in units). */
+  qty?: number;
+  /** Another approved catalogue model of the same kind. */
+  model?: string;
+  /** Where the line comes from; 'auto' (or unset) = spare site capacity, then stock, then buy. */
+  source?: PlannerMaterialSource;
+  /** Vendor to buy from: the model's maker or one of its authorised channels (catalogue.sellersOf). */
+  vendor?: string;
+  removed?: boolean;
+  /** A line added from the catalogue (not in the proposal). */
+  added?: { category: string; unit: string; spec?: string; phaseId?: string };
+  reason?: string; by?: string; at?: string;
+}
+export interface PlannerPlan { materialOverrides?: PlannerMaterialOverride[] }

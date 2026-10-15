@@ -2,7 +2,7 @@
    every output with its state and links to the records in Delivery, IP & Network and DCIM; the template's output manifest; then the
    sections: plan document (basis of design), bill of materials (site / stock / buy), IP and network plan, drawings, build initiation,
    followed by the sections the plan's family adds (`uiFor(scope).packSections`). */
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
 import type * as T from '../../../planner/p2b/types';
@@ -11,7 +11,10 @@ import type { PlannerData } from '../../../planner/lib/plannerData';
 import type { DeliveryProjectView } from '../../../api/types';
 import { PACK_SECTIONS, buildPack, packManifest, sourcingReady, vendorOrders, type ArtefactStatus } from '../../../planner/lib/packModel';
 import { useRecordedOrders, useSourcingContext } from '../../../planner/lib/usePlanner';
-import { Chip, Panel } from '../../../ui/kit';
+import { useReviewInput } from './review/reviewInput';
+import { clockMs } from '../../../planner/compat/clock';
+import { message } from '../../../planner/compat/notify';
+import { Btn, Chip, Panel } from '../../../ui/kit';
 import { DataTable, type Col } from '../../../ui/DataTable';
 import type { Tone } from '../../../lib/tone';
 import { uiFor, type PlanViewProps } from '../scopes/registry';
@@ -21,6 +24,7 @@ import { InitiationView } from './InitiationView';
 import { IpPlanView } from './IpPlanView';
 import { PlanDocument } from './PlanDocument';
 import { recordLines, type RecordLine } from './records';
+import { SendForReview } from './review/lazy';
 import '../../../styles/planning-pack.css';
 
 export const RECORD_STATUS: Record<ArtefactStatus, { label: string; tone: Tone }> = {
@@ -69,6 +73,43 @@ export function PackDeliverables({ plan, ev, template, benchmarks, siteName, dcI
   );
 }
 
+type PackKind = 'zip' | 'pdf' | 'xlsx';
+const PACK_LABEL: Record<PackKind, string> = { zip: 'review pack', pdf: 'PDF', xlsx: 'workbook' };
+const size = (b: number) => (b >= 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
+/** The review pack downloads: the document a reviewer reads by email or in the portal (review/build.ts → pdf / xlsx / zip). The document
+ *  is built on click from the figures on screen; the builders and their libraries load only then. */
+function ReviewPackPanel({ plan }: { plan: T.PlannerPlan }) {
+  // the same inputs as the reviewer's page (scenario under review / approved / preferred), so the files match what the portal shows
+  const { input } = useReviewInput(plan);
+  const [busy, setBusy] = useState<PackKind | null>(null);
+  const [last, setLast] = useState<string>();
+  const [sending, setSending] = useState(false);
+  const run = async (kind: PackKind) => {
+    if (!input) return;
+    setBusy(kind);
+    try {
+      const [{ buildReviewDoc }, { downloadPackFile, packFileName }] = await Promise.all([import('./review/build'), import('./review/zip')]);
+      const doc = buildReviewDoc({ ...input, generatedAt: new Date(clockMs()).toISOString() });
+      const bytes = await downloadPackFile(doc, kind);
+      setLast(`${packFileName(doc, kind)} · ${size(bytes)}`);
+    } catch (e) { message.error(`The ${PACK_LABEL[kind]} could not be built: ${(e as Error).message}`); }
+    finally { setBusy(null); }
+  };
+  const btn = (kind: PackKind, label: string, icon: I.LucideIcon, variant?: 'filled') => <Btn size="sm" variant={variant} icon={busy === kind ? I.LoaderCircle : icon} disabled={!!busy || !input} onClick={() => void run(kind)}>{busy === kind ? 'Building…' : label}</Btn>;
+  return (
+    <Panel icon={I.FileArchive} title="Review pack" sub="The document a reviewer reads by email or in the portal"
+      info="One package for the review: the review document as PDF (cover and verdict, approval sheet, executive summary, design basis with drawings, capacity, cost and business case, bill of materials, schedule, IP plan, risks, rule checks, delivery, assumptions, drawing sheets), the data workbook, every table as CSV, every drawing sheet as SVG, a README and a manifest with checksums."
+      actions={<span className="row wrap" style={{ gap: 6 }}>{!['Cancelled', 'Completed'].includes(plan.status) && <Btn size="sm" icon={I.Send} onClick={() => setSending(true)}>Send for review</Btn>}{btn('zip', 'Download review pack (.zip)', I.FileArchive, 'filled')}{btn('pdf', 'Download PDF', I.FileText)}{btn('xlsx', 'Download workbook', I.Sheet)}</span>}>
+      <p className="vw-label" style={{ margin: 0, fontSize: 12.5 }}>
+        PDF with the drawings · data workbook · CSV per table · drawing sheets as SVG · README and checksums.{' '}
+        <Link className="ent-link" to={`/planning/plans/${plan.id}/review`}>Open the review page</Link>
+        {last && <> · <span>Downloaded {last}</span></>}
+      </p>
+      {sending && <SendForReview plan={plan} onClose={() => setSending(false)} />}
+    </Panel>
+  );
+}
+
 export interface PlanPackProps { plan: T.PlannerPlan; ev: Evaluation; template?: T.PlannerTemplate; benchmarks: T.PlannerBenchmark[]; data: PlannerData; siteName: string; dcIds: Set<string>; delivery?: DeliveryProjectView | null }
 
 export function PlanPack({ plan, ev, template, benchmarks, data, siteName, dcIds, delivery }: PlanPackProps) {
@@ -114,6 +155,8 @@ export function PlanPack({ plan, ev, template, benchmarks, data, siteName, dcIds
         actions={<span className="vw-label">{stripNote}</span>}>
         <DataTable rows={lines.map(l => ({ ...l, id: l.key }))} cols={cols} pageSize={100} />
       </Panel>
+
+      <ReviewPackPanel plan={plan} />
 
       {manifest.length > 0 && (
         <Panel icon={I.Boxes} title="Plan pack" sub="The outputs this plan type delivers, from the plan template" info="Each output the template lists and the section of this pack that holds it; click one to open that section.">

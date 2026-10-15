@@ -5,7 +5,7 @@
 import { chromium } from 'playwright';
 const P = process.argv[2] ?? 'neocloud', G = process.argv[3] ?? 'us', W = Number(process.env.W ?? 1280);
 const IDS = (process.argv[4] ?? 'PLN-0002,PLN-0004,PLN-0005,PLN-0008,PLN-0003,PLN-0009').split(',');
-const TAB = { 'in-site': 'Site fit', plant: 'Plant and cut-ins', network: 'Paths and circuits' };
+const TAB = { 'in-site': 'Site fit', plant: 'Plant', network: 'Paths' };
 const b = await chromium.launch(process.env.PW_CHROME ? { executablePath: process.env.PW_CHROME } : {}); const p = await b.newPage({ viewport: { width: W, height: 900 } });
 const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (m.type() === 'error' && !/Failed to load resource|arcgis/.test(m.text())) errs.push(m.text().slice(0, 300)); });
 let bad = 0; const ok = (c, m) => { console.log(`  ${c ? '✓' : '✗'} ${m}`); if (!c) bad++; };

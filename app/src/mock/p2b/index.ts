@@ -69,7 +69,7 @@ function build(db: Db): MockDB {
   const snap: Record<string, Record<string, unknown>[]> = { ...estate };
   for (const k of ['plannerTemplates', 'plannerBenchmarks', 'plannerPlans', 'plannerScenarios', 'plannerFeedback', 'programs', 'projects', 'boms', 'purchaseOrders', 'permits', 'designDocuments', 'maintenanceWindows', 'disposalCertificates', 'changeRequests', 'capacityReservations'] as const)
     snap[k] = (S as unknown as Record<string, Record<string, unknown>[]>)[k];
-  for (const k of ['approvalDelegations', 'auditEvents', 'rackReservations', 'milestones', 'atps', 'hotos', 'demandRequests', 'contracts', 'vendors', 'cidrBlocks', 'ipAddresses', 'interfaces', 'cables', 'deviceComponents', 'virtualChassis', 'configBackups', 'powerPanels', 'powerFeeds', 'approvalMatrixRules', 'tasks', 'projectActivities', 'bomLines', 'purchaseOrderLines', 'processInstances', 'materials'])
+  for (const k of ['approvalDelegations', 'auditEvents', 'rackReservations', 'milestones', 'atps', 'hotos', 'demandRequests', 'contracts', 'vendors', 'cidrBlocks', 'ipAddresses', 'interfaces', 'cables', 'deviceComponents', 'virtualChassis', 'configBackups', 'powerPanels', 'powerFeeds', 'approvalMatrixRules', 'tasks', 'projectActivities', 'bomLines', 'purchaseOrderLines', 'processInstances', 'materials', 'planReviews', 'planReviewComments'])
     snap[k] ??= [];
   validate(snap, db.now);
   snap.auditEvents = [...snap.auditEvents, ...planAuditTrail(snap.plannerPlans as unknown as T.PlannerPlan[], snap.auditEvents as { id: string }[])];

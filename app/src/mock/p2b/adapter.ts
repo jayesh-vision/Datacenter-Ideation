@@ -16,7 +16,7 @@ import { dcimModel } from '../dcim';
 import { capacityHolds } from '../capacity';
 import { ipamModel } from '../ipam';
 import { siteLifecycle } from '../lifecycle';
-import { CATALOGUE, type CatalogueOption, type ItemKind } from '../../planner/lib/catalogue';
+import { CATALOGUE, CHANNELS, type CatalogueOption, type Channel, type ItemKind } from '../../planner/lib/catalogue';
 
 export const USD_RATE = 50;
 /** a local amount (₹ in India, $ in the USA) in the planner's dollars */
@@ -283,5 +283,16 @@ function stockAndSuppliers(db: Db, dm: ReturnType<typeof dcimModel>, push: Push)
     const cid = `CTR-${slug(name)}`;
     push('contracts', { id: cid, ctrId: `${framework ? 'FA' : 'SA'}-${String(c).padStart(3, '0')}`, vendorId: id, type: framework ? 'Framework' : 'Supply', startDate: iso(db.now - (300 + (c % 4) * 90) * DAY), endDate: iso(db.now + (540 + (c % 3) * 180) * DAY), value: 0, status: 'Active',
       description: framework ? `Framework agreement: ${name} equipment at price-book rates` : `Supply contract: ${name} equipment and services` });
+  }
+  /* authorised channels (resellers and distributors, catalogue CHANNELS, 15-Oct-2026): a vendor record each, and the contract they hold */
+  const channels = new Map<string, Channel>();
+  for (const cs of Object.values(CHANNELS)) for (const ch of cs ?? []) if (!vendors.has(ch.vendor)) channels.set(ch.vendor, ch);
+  for (const [name, ch] of [...channels].sort((a, b) => a[0].localeCompare(b[0]))) {
+    const id = `VEN-${slug(name)}`;
+    push('vendors', { id, vendId: id, name, category: ch.contract === 'Supply' ? 'Facility and plant' : 'IT equipment', contactName: 'Account team', slaTier: 'Standard', rating: 4, status: 'Active' });
+    if (!ch.contract) continue;
+    c++;
+    push('contracts', { id: `CTR-${slug(name)}`, ctrId: `${ch.contract === 'Framework' ? 'FA' : 'SA'}-${String(c).padStart(3, '0')}`, vendorId: id, type: ch.contract, startDate: iso(db.now - (300 + (c % 4) * 90) * DAY), endDate: iso(db.now + (540 + (c % 3) * 180) * DAY), value: 0, status: 'Active',
+      description: `${ch.contract === 'Framework' ? 'Framework agreement' : 'Supply contract'}: ${name}, authorised channel at price book plus ${ch.premiumPct}%` });
   }
 }

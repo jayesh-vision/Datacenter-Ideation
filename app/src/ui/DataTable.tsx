@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ArrowDown, ChevronLeft, ChevronRight, Inbox } from 'lucide-react';
 import { CheckBox, Empty } from './kit';
 import { fmtNum } from '../lib/format';
@@ -10,6 +10,9 @@ export interface Col<T> {
   /** hide the column when the viewport is narrower than this (px) — lets a wide table keep its key columns readable */
   hideBelow?: number;
 }
+
+/** Export mode (the plan review pack renders screens to a document): every row on one page, every column. */
+export const DataTableAllRows = createContext(false);
 
 function useViewportWidth() {
   const [w, setW] = useState(() => (typeof window === 'undefined' ? 9999 : window.innerWidth));
@@ -25,7 +28,9 @@ export function DataTable<T extends { id: string }>({
   maxHeight?: number | string; empty?: ReactNode; rowClass?: (r: T) => string; compact?: boolean;
 }) {
   const vw = useViewportWidth();
-  const cols = allCols.filter(c => !c.hideBelow || vw >= c.hideBelow);
+  const all = useContext(DataTableAllRows);
+  if (all) pageSize = Math.max(pageSize, rows.length, 1);
+  const cols = allCols.filter(c => all || !c.hideBelow || vw >= c.hideBelow);
   const [sort, setSort] = useState(defaultSort ?? null);
   const [page, setPage] = useState(0);
   useEffect(() => setPage(0), [rows.length]);

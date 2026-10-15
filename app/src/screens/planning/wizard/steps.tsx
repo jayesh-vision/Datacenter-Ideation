@@ -21,7 +21,7 @@ import { uiFor } from '../scopes/registry';
 export const StepMeta = createContext<{ icon: I.LucideIcon; eyebrow: string } | null>(null);
 export function StepHead({ title, text, extra }: { title: string; text: string; extra?: React.ReactNode }) {
   const m = useContext(StepMeta); const Ico = m?.icon;
-  return <div className="pn-hero">{Ico && <span className="pn-hero-ico"><Ico size={20} /></span>}<div className="pn-hero-txt"><h2>{title}</h2><p>{text}</p></div><div className="pn-hero-extra">{extra}{m && <span className="pn-hero-step">{m.eyebrow}</span>}</div></div>;
+  return <div className="pw-hero">{Ico && <span className="pw-hero-ico"><Ico size={20} /></span>}<div className="pw-hero-txt"><h2>{title}</h2><p>{text}</p></div><div className="pw-hero-extra">{extra}{m && <span className="pw-hero-step">{m.eyebrow}</span>}</div></div>;
 }
 
 /* ------------------------------------------------------------------ step 1: plan type */

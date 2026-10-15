@@ -9,6 +9,7 @@ import { MigrationDeliveryPanel, MigrationItPanel, MigrationNetworkPanel, Migrat
 import { Compliance, ExitPlan, InventoryRegister, MigrationClosure, MigrationConsents, MigrationRunbook } from './PackSections';
 import { WaveSchedule } from '../replace/PackSections';
 import { WavesTab } from '../replace/WavesTab';
+import { EquipmentEditor } from '../../plan/EquipmentEditor';
 
 registerScopeUi('migration', {
   requirements: p => <MigrationInventory {...p} />,
@@ -22,5 +23,5 @@ registerScopeUi('migration', {
     { key: 'compliance', label: 'Compliance', count: p => String(migrationOf(p.ev)?.permits.length ?? 0), render: p => <Panel icon={I.ShieldCheck} title="Compliance" info="Regulatory and contractual steps a site exit needs, and whether each is on the plan's permits."><Compliance {...p} /></Panel> },
     { key: 'closure', label: 'Closure checklist', render: p => <Panel icon={I.ListChecks} title="Closure checklist" sub="Read live from the platform" info="What must be true before the plan can be completed and the site retired; each check reads the platform records."><MigrationClosure {...p} /></Panel> },
   ],
-  detailTabs: [{ key: 'waves', label: 'Waves and closure', badge: p => (p.plan.waves ?? []).filter(w => w.status !== 'Closed' && w.status !== 'Cancelled').length || undefined, render: p => <WavesTab {...p} family="migration" /> }],
+  detailTabs: [{ key: 'equipment', label: 'Inventory', render: p => <EquipmentEditor {...p} family="migration" /> }, { key: 'waves', label: 'Waves', badge: p => (p.plan.waves ?? []).filter(w => w.status !== 'Closed' && w.status !== 'Cancelled').length || undefined, render: p => <WavesTab {...p} family="migration" /> }],
 });
