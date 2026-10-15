@@ -24,24 +24,29 @@ export const rackHeightMm = (u: number) => Math.round(u * 44.45 + 125);
 export const CABLE_CLEARANCE_MM = 150;
 const METERED = /geist|metered|switched|rpdu/i;
 
-export interface RackCandidate { rack: T.Rack; rb?: RackBaseline; type?: T.RackType; row?: T.Row; devices: T.Device[]; reasons: RackReason[]; deepestMm: number; deepestModel?: string; usableDepthMm: number; metered: boolean; held?: string }
-/** Every rack at the site with the reasons it qualifies for replacement. */
-export function rackCandidates(data: PlannerData, plan: T.PlannerPlan, crit: SelectionCriteria): RackCandidate[] {
+export interface RackCandidate { rack: T.Rack; rb?: RackBaseline; type?: T.RackType; row?: T.Row; devices: T.Device[]; reasons: RackReason[]; deepestMm: number; deepestModel?: string; usableDepthMm: number; metered: boolean; held?: string; ageYears?: number; damageNote?: string }
+/** Severity for ordering a list: damaged and over its rating first, then too shallow, old type, unmetered. */
+export const RACK_REASON_WEIGHT: Record<RackReason, number> = { damaged: 16, 'over-power': 8, shallow: 4, 'old-type': 2, unmetered: 1 };
+/** Every rack at the site with the reasons it is due for replacement (possibly none). Old type = a rack type the estate marks legacy
+    or one the user picked; damaged = the audit condition or marked in the wizard; metered = a metered strip device or a rack PDU record. */
+export function rackCandidates(data: PlannerData, plan: T.PlannerPlan, crit: SelectionCriteria, now = Date.now()): RackCandidate[] {
+  const pduRacks = new Set(data.pdus.map(p => p.rackId).filter(Boolean));
   return (groupBy(data, 'racks', 'dataCenterId').get(plan.dataCenterId ?? '') ?? []).filter(r => r.status !== 'Retired' && r.status !== 'Planned').map(rack => {
     const rb = rackBaseline(data, rack.id, { excludePlanId: plan.id });
     const devices = (groupBy(data, 'devices', 'rackId').get(rack.id) ?? []).filter(d => !GONE(d));
     const type = byId(data, 'rackTypes', rack.rackTypeId);
     const deep = devices.reduce((a, d) => { const mm = DEVICE_DEPTH_MM[d.model ?? ''] ?? 0; return mm > a.mm ? { mm, model: d.model } : a; }, { mm: 0, model: undefined as string | undefined });
     const usable = rack.mountingDepthMm ?? (rack.outerDepthMm ?? rack.depthMm) - 100;
-    const metered = devices.some(d => d.category === 'PDU' && METERED.test(`${d.model} ${d.name}`));
+    const metered = pduRacks.has(rack.id) || devices.some(d => d.category === 'PDU' && METERED.test(`${d.model} ${d.name}`));
     const reasons: RackReason[] = [];
     if (rb && rb.drawKw > rack.maxPowerKw) reasons.push('over-power');
-    if (crit.rackTypes?.length && type && crit.rackTypes.includes(type.model)) reasons.push('old-type');
+    if (type && (type.legacy || crit.rackTypes?.includes(type.model))) reasons.push('old-type');
     if (deep.mm && deep.mm + CABLE_CLEARANCE_MM > usable) reasons.push('shallow');
     if (!metered) reasons.push('unmetered');
-    if (crit.damagedRackIds?.includes(rack.id)) reasons.push('damaged');
+    if (rack.condition === 'Damaged' || crit.damagedRackIds?.includes(rack.id)) reasons.push('damaged');
     const held = rack.plannerPlanId && rack.plannerPlanId !== plan.id ? `Held by plan ${byId(data, 'plannerPlans', rack.plannerPlanId)?.plnId ?? rack.plannerPlanId}` : data.changeRequests.find(c => ['Submitted', 'UnderReview', 'Approved', 'Scheduled', 'InProgress'].includes(c.status) && c.plannerPlanId !== plan.id && (c.affectedResourceIds ?? []).includes(rack.id)) ? 'In an open change' : undefined;
-    return { rack, rb, type, row: byId(data, 'rows', rack.rowId), devices, reasons, deepestMm: deep.mm, deepestModel: deep.model, usableDepthMm: usable, metered, held };
+    const ageYears = rack.installedDate ? r1((now - new Date(rack.installedDate).getTime()) / (365 * 864e5)) : undefined;
+    return { rack, rb, type, row: byId(data, 'rows', rack.rowId), devices, reasons, deepestMm: deep.mm, deepestModel: deep.model, usableDepthMm: usable, metered, held, ageYears, damageNote: rack.condition === 'Damaged' ? rack.conditionNote : undefined };
   });
 }
 

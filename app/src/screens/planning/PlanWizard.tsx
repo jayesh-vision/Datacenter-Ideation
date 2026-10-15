@@ -2,15 +2,15 @@
    one step per area the template covers → Scenarios → Review and submit. Leaving Requirements fills every design input the planner
    has not set themselves ("Fill the design") and creates the draft; the live estimate on the right is re-evaluated on every change.
    A plan past review opens read-only. Logic: src/planner/lib (wizardModel, dimensions, engine, governance). */
-import { Fragment, useCallback, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { usePage, PageHead, Loading } from '../../shell/page';
-import { Btn, Chip } from '../../ui/kit';
+import { Btn, Chip, Modal } from '../../ui/kit';
 import type * as T from '../../planner/p2b/types';
 import { evaluate, type ParamValue } from '../../planner/lib/engine';
 import { applyDerived, deriveFromRequirements, dimensionsFor } from '../../planner/lib/dimensions';
-import { blockers, ensureSinglePhase, stepIssues, stepsFor, type StepKey, type StepProps } from '../../planner/lib/wizardModel';
+import { blockers, earliestGoLive, ensureSinglePhase, stepIssues, stepsFor, type StepKey, type StepProps } from '../../planner/lib/wizardModel';
 import * as G from '../../planner/lib/governance';
 import { newPlanDraft, useActuals, useBenchmarks, useDraftEvaluation, useEstate, usePlan, usePlannerActions, useScenarios, useTemplates } from '../../planner/lib/usePlanner';
 import { usePlannerData } from '../../planner/lib/plannerData';
@@ -22,7 +22,10 @@ import { Sec } from './parts';
 import { DimensionStep } from './wizard/DimensionStep';
 import { ScenarioPanel } from './wizard/Scenarios';
 import { LiveEstimate, ReviewStep } from './wizard/Review';
+import './scopes/all';
 import '../../styles/planning.css';
+import '../../styles/planning-pack.css';
+import '../../styles/planning-wizard.css';
 
 const GROUP_ICON: Record<string, I.LucideIcon> = { 'Set up': I.Flag, Design: I.LayoutGrid, Delivery: I.CalendarRange, Business: I.Wallet, Decide: I.Scale };
 const STEP_ICON: Record<string, I.LucideIcon> = {
@@ -44,7 +47,7 @@ function Wizard() {
   const actions = usePlannerActions();
   const existing = usePlan(planId);
   const templates = useTemplates(), benchmarks = useBenchmarks(), estate = useEstate(), data = usePlannerData();
-  const [local, setLocal] = useState<T.PlannerPlan | null>(() => (planId ? null : newPlanDraft({ title: sp.get('title') ?? '', ...(sp.get('scope') ? { scope: sp.get('scope') as T.PlannerScope } : {}), ...(sp.get('template') ? { templateId: sp.get('template')! } : {}) }, { id: actions.actorId, name: actions.actor })));
+  const [local, setLocal] = useState<T.PlannerPlan | null>(() => (planId ? null : newPlanDraft({ title: sp.get('title') ?? '', ...(sp.get('scope') ? { scope: sp.get('scope') as T.PlannerScope } : {}), ...(sp.get('template') ? { templateId: sp.get('template')! } : {}), ...(sp.get('intent') ? { intent: sp.get('intent')! } : {}), ...((d => (d ? { dataCenterId: d.id, campusId: d.campusId, regionId: estate.campuses.find(c => c.id === d.campusId)?.regionId, ...(d.dcTypeKey ? { dcTypeKey: d.dcTypeKey } : {}) } : {}))(estate.dataCenters.find(x => x.id === sp.get('dc')))) }, { id: actions.actorId, name: actions.actor })));
   const [base, setBase] = useState<T.PlannerPlan | undefined>(undefined);
   if (planId && existing && (!base || (!local && existing.updatedAt !== base.updatedAt))) setBase(existing);
   const draft = local ?? existing;
@@ -62,6 +65,36 @@ function Wizard() {
   const scenarios = useScenarios(draft?.id);
   const why = useMemo(() => (draft ? Object.fromEntries(deriveFromRequirements(draft, template, benchmarks).map(d => [d.key, d.why])) : {}), [draft, template, benchmarks]);
   const dirty = !readOnly && !!local && (base ? Object.keys(G.wizardPatch(base, local)).length > 0 : !!local.templateId);
+  // A new plan's needed-by date follows the earliest date its long-lead equipment allows, until the planner sets it themselves.
+  const autoDate = useRef<{ at: string; n: number } | null>(planId || !local ? null : { at: local.targetGoLive, n: 0 });
+  useEffect(() => {
+    const a = autoDate.current;
+    if (!a || readOnly || !local || !ev) return;
+    if (local.targetGoLive !== a.at) { autoDate.current = null; return; }
+    if (a.n >= 4) return;
+    const e = earliestGoLive(ev, local.targetGoLive, clockMs());
+    if (e && e.slice(0, 10) !== local.targetGoLive.slice(0, 10)) { autoDate.current = { at: e, n: a.n + 1 }; setLocal(d => (d ? { ...d, targetGoLive: e } : d)); }
+  }, [ev, local, readOnly]);
+  // Unsaved-changes guard: closing the tab, and in-app links (the rail, crumbs, entity links) while the draft has changes.
+  const [leaveTo, setLeaveTo] = useState<string | null>(null);
+  useEffect(() => {
+    if (!dirty) return;
+    const unload = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    const click = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+      if (!a || (a.target && a.target !== '_self') || a.hasAttribute('download')) return;
+      const url = new URL(a.href, window.location.href);
+      if (url.origin !== window.location.origin || url.pathname === window.location.pathname) return;
+      e.preventDefault(); e.stopPropagation();
+      setLeaveTo(url.pathname + url.search + url.hash);
+    };
+    window.addEventListener('beforeunload', unload);
+    document.addEventListener('click', click, true);
+    return () => { window.removeEventListener('beforeunload', unload); document.removeEventListener('click', click, true); };
+  }, [dirty]);
+  const [allSteps, setAllSteps] = useState(() => { try { return localStorage.getItem('pn.wizard.allSteps') === '1'; } catch { return false; } });
+  const toggleAllSteps = () => setAllSteps(v => { try { localStorage.setItem('pn.wizard.allSteps', v ? '0' : '1'); } catch { /* private window */ } return !v; });
   usePage([{ label: 'Plan & Build' }, { label: 'Planner', to: '/planning' }, { label: planId ? `${readOnly ? 'View' : 'Edit'} ${planId}` : 'New plan' }], draft?.dataCenterId ? { dcId: draft.dataCenterId } : {});
 
   const patch = useCallback((p: Partial<T.PlannerPlan>) => setLocal(d => ({ ...(d ?? existing!), ...p })), [existing]);
@@ -126,7 +159,11 @@ function Wizard() {
       <PageHead title={draft.title.trim() || 'New plan'} chips={<><PlanStatusChip s={draft.status} />{template && <Chip tone="neutral">{template.name}</Chip>}{dirty && <Chip tone="warning" size="xs" dot>Unsaved changes</Chip>}</>}
         sub={<><span className="mono">{draft.plnId}</span>{draft.revision ? ` · revision ${draft.revision}` : ''} · owner {draft.ownerName}</>}
         actions={readOnly ? <Btn icon={I.ArrowLeft} onClick={() => nav(`/planning/plans/${draft.id}`)}>Back to the plan</Btn> : <Btn icon={I.Save} disabled={!canSave} title={canSave ? undefined : 'Pick a plan type and give the plan a name first'} onClick={saveExit}>Save and exit</Btn>} />
-      {lock && <p className="note note--info"><I.Lock size={15} /><span>{lock} The wizard shows the plan as it was submitted.</span></p>}
+      {lock && existing && <div className="note note--info pn-lockbar"><I.Lock size={15} /><span className="pn-lockbar-txt">{lock} You can look through every step; nothing can be changed here.</span>
+        <span className="pn-lockbar-acts">
+          {existing.status === 'In review' && <Btn size="sm" icon={I.Undo2} onClick={() => { const r = actions.withdraw(existing, 'Withdrawn from the wizard to make changes'); if (r.ok) { setLocal(null); message.success('Withdrawn to Draft; you can edit the plan now'); } else message.warning(r.reason); }}>Withdraw to edit</Btn>}
+          {(existing.status === 'Approved' || existing.status === 'Executing') && !existing.supersededBy && <Btn size="sm" icon={I.GitBranchPlus} onClick={() => { const r = actions.raiseRevision(existing); if (r.ok && r.value) { message.success(`Revision ${r.value.revision ?? ''} raised as a draft`); nav(`/planning/plans/${r.value.id}/edit`); } else if (!r.ok) message.warning(r.reason); }}>Raise a revision</Btn>}
+        </span></div>}
       <nav className="pn-stepper vw-card-section" aria-label="Wizard steps">
         <div className="pn-stages">
           {shownGroups.map((g, k) => {
@@ -149,8 +186,15 @@ function Wizard() {
                 <span className="pn-stage-txt"><b>{g}</b><small>{all ? 'Done' : `${n} of ${idx.length} done`}</small></span>
               </button></Fragment>;
           })}
-          <span className="pn-stage-pct"><span><b className="num">{pctDone}%</b> complete</span><i><em style={{ width: `${pctDone}%` }} /></i></span>
+          <span className="pn-stage-pct"><span><b className="num">{pctDone}%</b> complete</span><i><em style={{ width: `${pctDone}%` }} /></i>
+            {template && <button type="button" className="pn-allsteps-btn" aria-expanded={allSteps} onClick={toggleAllSteps}><I.ListOrdered size={13} />{allSteps ? 'Hide steps' : `All ${steps.length} steps`}</button>}</span>
         </div>
+        {template && allSteps && <div className="pn-steplist">{groups.map(g => <div key={g} className="pn-steplist-col">
+          <span className="pn-steplist-g">{g}</span>
+          {steps.map((s, i) => (s.group !== g ? null : <button key={s.key} type="button" className={`pn-steplist-item${i === step ? ' is-on' : done(i) ? ' is-done' : ''}`} disabled={i > maxVisited && !readOnly} onClick={() => goTo(i)} title={s.hint}>
+            <i>{done(i) && i !== step ? <I.Check size={11} /> : i + 1}</i><span>{s.label}</span>{s.depth === 'summary' && <small>brief</small>}
+          </button>))}
+        </div>)}</div>}
       </nav>
       <div className={`pn-wiz${cur.key === 'type' ? ' is-full' : ''}`}>
         <div className="pn-main">
@@ -161,7 +205,7 @@ function Wizard() {
             {cur.key === 'scenarios' && <>
               <StepHead title="Compare options" text="Scenarios change a few inputs against the base case; the preferred one is what approvers are shown. The plan is saved as a draft before a scenario is created." />
               {ev && <Sec icon={I.GitCompareArrows} title="Scenarios" sub="Base case and the options you are weighing">
-                <ScenarioPanel plan={draft} base={ev} scenarios={scenarios.map(s => ({ scenario: s, ev: evaluate(draft, s, templates, benchmarks, actuals, data) }))} templates={templates} actions={actions} editable={!readOnly} onCreateNeedsSave={() => persist()} />
+                <ScenarioPanel plan={draft} base={ev} scenarios={scenarios.map(s => ({ scenario: s, ev: evaluate(draft, s, templates, benchmarks, actuals, data) }))} templates={templates} actions={actions} editable={!readOnly} onCreateNeedsSave={() => persist()} onPrefer={id => { const r = actions.preferScenario(draft, id); if (r === undefined || (r as { ok?: boolean }).ok !== false) patch({ preferredScenarioId: id }); }} />
               </Sec>}
             </>}
             {cur.key === 'review' && <ReviewStep {...stepProps} />}
@@ -179,6 +223,10 @@ function Wizard() {
         </div>
         {cur.key !== 'type' && <LiveEstimate draft={draft} ev={ev} />}
       </div>
+      <Modal open={!!leaveTo} onClose={() => setLeaveTo(null)} title="Leave without saving?" sub="Your changes to this plan have not been saved."
+        foot={<div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}><Btn onClick={() => setLeaveTo(null)}>Stay</Btn>{canSave && <Btn icon={I.Save} onClick={() => { const to = leaveTo; if (to && persist()) { setLeaveTo(null); message.success('Draft saved'); nav(to); } }}>Save and leave</Btn>}<Btn variant="filled" onClick={() => { const to = leaveTo; setLeaveTo(null); if (to) nav(to); }}>Leave</Btn></div>}>
+        <p className="vw-label" style={{ margin: 0 }}>Leaving discards what changed since the last save{saved ? '' : '; the plan has not been saved yet, so nothing is kept'}.</p>
+      </Modal>
       <PlannerToasts />
     </div>
   );

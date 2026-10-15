@@ -10,18 +10,18 @@ await p.goto(`http://localhost:5181/planning/plans?persona=${P}&geo=${G}`, { wai
 const ids = only ? [only] : Array.from({ length: 15 }, (_, i) => `PLN-${String(i + 1).padStart(4, '0')}`);
 for (const id of ids) {
   await go(`/planning/plans/${id}`);
-  const tabs = await p.locator('.tabs [role=tab], .tabs button').evaluateAll(els => els.map(e => e.getAttribute('data-id') ?? e.textContent.trim()));
-  const keys = await p.evaluate(() => [...document.querySelectorAll('.tabs button, .tabs [role=tab]')].map(b => b.textContent.trim()));
+  // the plan page shows the tabs that fit and the rest under "More" (data-more lists their ids): visit every tab by its id
+  const tabs = await p.evaluate(() => [...[...document.querySelectorAll('.tabs [role=tab][data-id]')].map(b => b.getAttribute('data-id')), ...(document.querySelector('.tabs [data-more]')?.getAttribute('data-more')?.split(',').filter(Boolean) ?? [])]);
+  const keys = tabs;
   for (let i = 0; i < keys.length; i++) {
     errs.length = 0;
-    await p.locator('.tabs button, .tabs [role=tab]').nth(i).click(); await p.waitForTimeout(500);
+    await go(`/planning/plans/${id}?tab=${keys[i]}`); await p.waitForTimeout(300);
     const t = await p.evaluate(() => ['NaN', 'undefined', 'Infinity', '[object', 'Invalid Date'].filter(w => document.querySelector('.page')?.innerText.includes(w)));
     const over = await p.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
     n++;
     if (t.length || over || errs.length) { bad++; console.log(`  ✗ ${id} ${keys[i]}${t.length ? ' TEXT ' + t : ''}${over ? ' OVERFLOW' : ''}${errs.length ? ' ERR ' + errs.slice(0, 2).join(' | ') : ''}`); await p.screenshot({ path: `.qa/out/plan-${id}-${keys[i].replace(/\W+/g, '_')}.png`, fullPage: true }); }
     else if (process.env.SHOTS) await p.screenshot({ path: `.qa/out/plan-${id}-${keys[i].replace(/\W+/g, '_')}.png`, fullPage: true });
   }
-  void tabs;
 }
 await b.close();
 console.log(`${n} plan tabs checked · ${bad ? `${bad} problem(s)` : 'all clear'}`); process.exit(bad ? 1 : 0);

@@ -9,6 +9,7 @@
  */
 import type * as T from '../../p2b/types';
 import type { Estimate, EstimateLine, LadderRow, ScheduleItem, Sizing } from '../engine';
+import { plannerMoney } from '../../compat/registry';
 import type { BodRow, BodSection, Initiation } from '../outputs';
 import { inSiteAnalysis, type InSiteAnalysis, type InSiteLine } from '../inSiteAnalysis';
 import { inSiteCloseout, inSiteExecute, inSiteExecuteVehicle, inSiteOf, inSiteRackUnits, inSiteReservations } from '../inSiteExec';
@@ -18,7 +19,7 @@ import { clockMs } from '../../compat/clock';
 const r0 = (n: number) => Math.round(n);
 const r1 = (n: number) => Math.round(n * 10) / 10;
 const kw = (n: number) => (Math.abs(n) >= 1000 ? `${r1(n / 1000)} MW` : `${r1(n)} kW`);
-const usd = (n: number) => (Math.abs(n) >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : Math.abs(n) >= 1e3 ? `$${(n / 1e3).toFixed(0)}k` : `$${r0(n)}`);
+const usd = (n: number) => plannerMoney()?.(n) ?? (Math.abs(n) >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : Math.abs(n) >= 1e3 ? `$${(n / 1e3).toFixed(0)}k` : `$${r0(n)}`);
 const num = (c: ScopeCtx, k: string, d = 0) => { const v = c.params[k]?.value; return typeof v === 'number' ? v : typeof v === 'string' && v !== '' && !Number.isNaN(Number(v)) ? Number(v) : d; };
 const lineTotal = (l: InSiteLine) => r0(l.qty * l.unitCost);
 

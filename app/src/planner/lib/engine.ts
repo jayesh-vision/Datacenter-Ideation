@@ -29,6 +29,7 @@ import { campusBaseline, planAddedKw, siteBaseline } from './site';
 import { modelFor, type CheckResult, type ScopeCtx } from './scopes';
 import { buildBom, type Bom, type BomCategory } from './outputs';
 import { clockMs } from '../compat/clock';
+import { plannerMoney } from '../compat/registry';
 
 export type ParamValue = number | string | boolean;
 export interface Sourced<V = number> { value: V; source: T.PlannerParamSource; note?: string }
@@ -650,6 +651,48 @@ export function estimate(plan: T.PlannerPlan, p: P, sizing: Sizing, benchmarks: 
   };
 }
 
+/** A plan type's own estimate replaces the generic lines (bill-priced works, benefits, incremental OpEx) but used to keep the generic cash
+ *  flow, so the payback tile (a simple CapEx ÷ margin) and the chart disagreed (PLN-0002: "34 months" beside a flow that never turns
+ *  positive). When the lines differ from the generic ones, the cash flow is rebuilt from them: works and IT CapEx spent before each
+ *  phase's go-live (IT refreshed), the revenue or charge-back ramping in, benefits and OpEx from go-live, tax with losses carried
+ *  forward; payback, NPV and IRR are read from that flow, and a facility-only payback is kept when the plan owns IT. */
+function scopeCashflow(plan: T.PlannerPlan, p: P, sizing: Sizing, est: Estimate, generic: Estimate): Estimate {
+  if (est === generic) return est;
+  const same = generic.capexTotal > 0 && Math.abs(est.capexTotal - generic.capexTotal) / generic.capexTotal < 0.02 && Math.abs(est.revenueAnnual - generic.revenueAnnual) <= Math.max(1, generic.revenueAnnual * 0.02) && !est.benefitAnnual;
+  if (same) return { ...est, cashflow: generic.cashflow, npvUsd: generic.npvUsd, irrPct: generic.irrPct, discountPct: generic.discountPct, depreciationAnnual: generic.depreciationAnnual, paybackMonths: generic.paybackMonths, paybackBasis: generic.paybackBasis, paybackFacilityMonths: generic.paybackFacilityMonths };
+  const now = clockMs(); const phases = datedPhases(plan);
+  if (!phases.length || est.capexTotal <= 0) return { ...est, cashflow: undefined, npvUsd: undefined, irrPct: undefined };
+  const totalKw = phases.reduce((a, ph) => a + ph.itKw, 0) || phases.length;
+  // only operator-owned IT (servers, storage, GPUs priced from the catalogue) is refreshed; network and plant kit is a works line
+  const it = est.it?.total ? Math.max(0, est.capexTotal - est.plantCapexTotal) : 0, works = est.capexTotal - it;
+  const refresh = num(p, 'refreshYears', 5), ramp = num(p, 'fillRampMonths', 12), fill = 85;
+  const capKw = est.capacityEnabledKw || sizing.itKw;
+  const income = est.revenueAnnual + (est.energyRecoveredAnnual ?? 0);
+  const build = (withIt: boolean) => {
+    const capex: CapexItem[] = []; const revenue: RevenueStream[] = []; const opexItems: OpexItem[] = []; const benefits: { label: string; annual: number; fromMs: number }[] = [];
+    phases.forEach(ph => {
+      const s = (ph.itKw || totalKw / phases.length) / totalKw; const gl = new Date(ph.goLive).getTime();
+      const spread = Math.max(1, Math.min(9, Math.round((gl - now) / (30.4 * 864e5))));
+      if (works) capex.push({ label: `Works · ${ph.name}`, amount: works * s, assetClass: 'mep', inServiceMs: gl, spreadMonths: spread, lifeYears: num(p, 'mepLifeYears', 15) });
+      if (withIt && it) capex.push({ label: `IT · ${ph.name}`, amount: it * s, assetClass: 'it', inServiceMs: gl, spreadMonths: 2, lifeYears: refresh, refresh: true });
+      if (income > 0 && capKw > 0) revenue.push({ label: ph.name, kw: capKw * s, fromMs: gl, priceKwMonth: income / (capKw * 12 * (fill / 100)), targetFillPct: fill, rampMonths: ramp });
+      if (est.benefitAnnual) benefits.push({ label: `Benefit · ${ph.name}`, annual: est.benefitAnnual * s, fromMs: gl });
+      if (est.opexMonthly) opexItems.push({ label: `OpEx · ${ph.name}`, monthly: est.opexMonthly * s, fromMs: gl });
+    });
+    const lastGl = new Date(phases[phases.length - 1].goLive).getTime();
+    return cashflowFor({ startMs: now, horizonYears: Math.max(num(p, 'horizonYears', 15), Math.ceil((lastGl - now) / (365 * 864e5)) + 10), discountPct: num(p, 'hurdlePct', 8), taxRatePct: num(p, 'taxRatePct', 25), capex, revenue, opex: opexItems, benefits });
+  };
+  const flow = build(true);
+  const earns = income > 0 || (est.benefitAnnual ?? 0) > 0;
+  const facilityOnly = earns && it && works ? build(false) : undefined;
+  return {
+    ...est, cashflow: flow.years, npvUsd: flow.npvUsd, irrPct: flow.irrPct, discountPct: flow.discountPct, depreciationAnnual: flow.depreciationAnnual,
+    paybackMonths: earns ? flow.paybackMonths : null,
+    paybackBasis: earns ? `cash-flow payback from the first spend on the lines above: works${it ? ' and IT (refreshed every ' + refresh + ' years)' : ''} spent before each phase goes live, ${income > 0 ? `revenue ramping to ${fill}% over ${ramp} months` : 'the yearly benefit'} and OpEx from go-live, tax at ${num(p, 'taxRatePct', 25)}%` : est.paybackBasis,
+    paybackFacilityMonths: facilityOnly ? facilityOnly.paybackMonths : undefined,
+  };
+}
+
 /** The generic cash flow: CapEx by phase date, revenue ramp, energy at actual draw, OpEx following the staff ramp. */
 function buildCashflow(plan: T.PlannerPlan, p: P, sizing: Sizing, benchmarks: T.PlannerBenchmark[], x: { mep: number; shell: number; land: number; it?: ItQuantities; contingency: number; other: number; price: number; fill: number; draw: number; tariff: number; pue: number; staffCost: number; maintPct: number; connectivityMonthly: number; property: number; insurance: number; software: number; multi: boolean }) {
   const now = clockMs();
@@ -895,6 +938,46 @@ export interface ScheduleItem {
   /** Where the items come from: stock needs only a transfer, procurement the full lead time. */ source?: 'stock' | 'site' | 'procure' | 'mixed'; note?: string;
   /** Schedule contingency held as a separate buffer before the order date (weeks). */ bufferWeeks?: number;
   /** Purchase order covering the item after approval, and its status. */ poId?: string; status?: 'to order' | 'ordered' | 'late' | 'stock' | 'gate' | 'permit';
+  /** Delivery's purchase orders that cover the item (set by `withDeliveryOrders` once the plan is in Delivery). */ orders?: ScheduleOrder[];
+}
+/** A purchase order as Delivery reports it (the shape of compat/delivery DeliveryPo, kept structural so the engine does not import Delivery). */
+export interface ScheduleOrder { id: string; supplier: string; item: string; state: string; due: string }
+/* What an item or an order line is, read from its words: the same vocabulary on both sides (plan lines, catalogue models, CapEx lines). */
+const ORDER_KIND: [string, RegExp][] = [
+  ['battery', /batter/], ['ups', /\bups\b|power module/], ['rental', /rental|\bhire\b/], ['chiller', /chiller/], ['cooler', /dry cooler|adiabatic/],
+  ['generator', /generator|genset/], ['transformer', /transformer/], ['switchgear', /switchgear/], ['substation', /substation/],
+  ['pdu', /\bpdus?\b|power strip|rpdu|power distribution/], ['air', /crah|\bcdus?\b|air handler|liebert|fan ?wall|in-row|rear door|rdhx/], ['rack', /\bracks?\b|containment|netshelter|smartaisle/],
+  ['optics', /optic|qdd|400g|dr4|transceiver|\bdac\b/], ['fibre', /fibre|fiber|trunk|mpo|patch|cross-connect/], ['switch', /switch|\bleaf\b|spine|line card|router/],
+  ['server', /server|poweredge|dgx|xe9680|r760|hgx/], ['storage', /storage|flasharray|vast|weka|ddn|netapp/], ['wan', /carrier|wavelogic|line system|dwdm|\bwave\b/],
+];
+function orderKinds(text: string): Set<string> {
+  const t = text.toLowerCase().replace(/rack power strips?/g, 'rpdu'); const out = new Set(ORDER_KIND.filter(([, re]) => re.test(t)).map(([k]) => k));
+  if (out.has('battery')) out.delete('ups'); if (out.has('rental')) out.delete('chiller');
+  return out;
+}
+/** Delivery's purchase orders laid over the schedule: an equipment line to buy is covered by the orders of its phase (an order names its phase
+ *  after " · ", or covers every phase) that share its kind of kit. Drafts leave it "to order" (late once the order-by date passes); placed
+ *  orders mark it ordered, and a delivery Delivery reports late past the need date marks it late. */
+export function withDeliveryOrders(items: ScheduleItem[], orders: ScheduleOrder[], phaseNames: string[]): ScheduleItem[] {
+  if (!orders.length) return items;
+  const now = clockMs();
+  const phaseOf = (o: ScheduleOrder) => phaseNames.find(n => o.item.endsWith(` · ${n}`));
+  const kinds = new Map(orders.map(o => [o.id, orderKinds(o.item)]));
+  return items.map(it => {
+    if (it.kind !== 'equipment' || it.source === 'stock') return it;
+    const mine = orderKinds(`${it.item} ${it.note ?? ''}`);
+    if (!mine.size) return it;
+    const hit = orders.filter(o => { const ph = phaseOf(o); return (!ph || ph === it.phase) && [...kinds.get(o.id)!].some(k => mine.has(k)); });
+    if (!hit.length) return it;
+    const ids = hit.map(o => o.id).join(', ');
+    if (hit.every(o => o.state === 'Draft')) {
+      const late = new Date(it.orderBy).getTime() < now;
+      return { ...it, orders: hit, poId: hit[0].id, late, status: late ? 'late' : 'to order', note: `${ids} ${hit.length === 1 ? 'is' : 'are'} still draft${late ? ' after the order-by date' : ''}` };
+    }
+    const lateDelivery = hit.some(o => o.state === 'Late' && o.due > it.needBy);
+    const states = [...new Set(hit.map(o => o.state.toLowerCase()))].join(' / ');
+    return { ...it, orders: hit, poId: hit[0].id, late: lateDelivery, status: lateDelivery ? 'late' : 'ordered', note: `${ids} ${states}${lateDelivery ? `, due after the need date` : ''}` };
+  });
 }
 /** Supplier lead time for an item: the benchmark high (the figure the bill of materials shows) plus the schedule contingency as a separate buffer. */
 export function leadWeeksFor(leadItem: string, benchmarks: T.PlannerBenchmark[], contingencyPct = 0): { leadWeeks: number; bufferWeeks: number; low?: number; source: string } {
@@ -1051,7 +1134,7 @@ export function evaluate(basePlan: T.PlannerPlan, scenario: T.PlannerScenario | 
   let ladder = capacityLadder(plan, params, sizing, ctx);
   if (model.ladder) ladder = model.ladder(ctx, sizing, ladder);
   let est = estimate(plan, params, sizing, benchmarks, actuals, data);
-  if (model.estimate) est = model.estimate(ctx, sizing, est);
+  if (model.estimate) est = scopeCashflow(plan, params, sizing, model.estimate(ctx, sizing, est), est);
   let sched = schedule(plan, sizing, benchmarks, params, { data, it: est.it });
   if (model.schedule) sched = model.schedule(ctx, sizing, sched);
   const sus = sustainability(plan, params, sizing, est, benchmarks);
@@ -1071,6 +1154,7 @@ export function evaluate(basePlan: T.PlannerPlan, scenario: T.PlannerScenario | 
 export const ASPECT_LABEL: Record<T.PlannerAspect, string> = { space: 'Space and layout', power: 'Power', cooling: 'Cooling and thermal', network: 'Network and connectivity', it: 'Compute, storage and GPU', fire: 'Fire, life safety and water', security: 'Physical security', sustainability: 'Environment and sustainability', resilience: 'Resilience and tier', operations: 'Operations and staffing', supply: 'Supply chain', schedule: 'Schedule and dependencies', finance: 'Finance', compliance: 'Compliance and permits', commissioning: 'Commissioning and handover', migration: 'Migration and cut-over', risk: 'Risk' };
 export const SCOPE_LABEL: Record<T.PlannerScope, string> = { rack: 'Rack placement', pod: 'Pod, row or cage', hall: 'Hall fit-out', retrofit: 'Densification or liquid retrofit', plant: 'Plant upgrade', network: 'Network uplift', expansion: 'Site expansion', 'new-dc': 'New data centre', portfolio: 'Regional portfolio', migration: 'Migration or decommission', edge: 'Edge rollout', 'server-refresh': 'Server refresh or replacement', 'network-refresh': 'Network device refresh', 'rack-replace': 'Rack replacement' };
 export const SOURCE_LABEL: Record<T.PlannerParamSource, string> = { user: 'Entered', requirement: 'From your requirements', template: 'Template default', benchmark: 'Benchmark', actual: 'Estate actual', document: 'From document', ai: 'Proposed' };
-export function fmtUsd(n: number): string { return Math.abs(n) >= 1e9 ? `$${(n / 1e9).toFixed(2)}B` : Math.abs(n) >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : Math.abs(n) >= 1e3 ? `$${(n / 1e3).toFixed(0)}k` : `$${Math.round(n)}`; }
+/** A USD figure in the geography's money when the app registered its formatter (compat/registry), else short USD. */
+export function fmtUsd(n: number): string { const f = plannerMoney(); if (f) return f(n); return Math.abs(n) >= 1e9 ? `$${(n / 1e9).toFixed(2)}B` : Math.abs(n) >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : Math.abs(n) >= 1e3 ? `$${(n / 1e3).toFixed(0)}k` : `$${Math.round(n)}`; }
 export function fmtKw(kw: number): string { return kw >= 1000 ? `${(kw / 1000).toFixed(kw >= 10000 ? 0 : 1)} MW` : `${Math.round(kw)} kW`; }
 export { r0, r1, r2 };

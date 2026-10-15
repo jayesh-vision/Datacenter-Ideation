@@ -11,6 +11,12 @@ import { USD_RATE } from './adapter';
 import { evaluate, type Evaluation } from '../../planner/lib/engine';
 import { buildBom, buildInitiation } from '../../planner/lib/outputs';
 import { plannerDataFromSnapshot } from '../../planner/lib/plannerData';
+import { completeFromHandover } from '../../planner/lib/closeout';
+import { baselineScenario } from '../../planner/lib/governance';
+import { contextForPlan, sourcingReady, vendorOrderRecords, type VendorOrderRecord } from '../../planner/lib/packModel';
+import { sourceBom, type SourcingContext } from '../../planner/lib/sourcing';
+import type { Store } from '../../planner/lib/reservations';
+import type { MockDB } from './store';
 
 const fromUsd = (usd: number) => Math.round(activeGeo().id === 'us' ? usd : usd * USD_RATE);
 const ms = (iso?: string) => (iso ? new Date(iso).getTime() : 0);
@@ -20,12 +26,18 @@ export const SCOPE_TO_DELIVERY: Record<T.PlannerScope, PlanScope> = {
 };
 const PAST = ['Approved', 'Executing', 'Completed'];
 
-interface Bridged { plan: PlannerPlan; eval: { tasks: { name: string; weeks: number; start: number; end: number; longLead?: boolean }[]; finish: number; capex: { line: string; amount: number; basis: string }[]; capexTotal: number }; source: T.PlannerPlan }
+interface Bridged {
+  plan: PlannerPlan; eval: { tasks: { name: string; weeks: number; start: number; end: number; longLead?: boolean }[]; finish: number; capex: { line: string; amount: number; basis: string }[]; capexTotal: number }; source: T.PlannerPlan;
+  /** The sourcing decision (one order per vendor and phase, values in local money): what execution handed over, or before execution the
+   *  same sourcing the plan pack shows (`planned`), so Delivery and the pack list the same orders before and after. */
+  vendorOrders?: (VendorOrderRecord & { value: number })[];
+  planned?: boolean;
+}
 let cacheKey = ''; let cache: Bridged[] = [];
 
 export function bridgedPlans(db: Db): Bridged[] {
   const st = p2bStore(db);
-  const key = ['plannerPlans', 'plannerScenarios', 'plannerTemplates', 'plannerBenchmarks'].map(e => st.version(e)).join('.') + String(db.now);
+  const key = ['plannerPlans', 'plannerScenarios', 'plannerTemplates', 'plannerBenchmarks', 'boms', 'devices', 'racks', 'vendors', 'contracts', 'assetModels'].map(e => st.version(e)).join('.') + String(db.now);
   if (key === cacheKey) return cache;
   cacheKey = key;
   const all = st.getAllRaw('plannerPlans') as unknown as T.PlannerPlan[];
@@ -34,9 +46,14 @@ export function bridgedPlans(db: Db): Bridged[] {
   const scns = st.getAllRaw('plannerScenarios') as unknown as T.PlannerScenario[];
   const snap: Record<string, unknown> = {}; for (const e of st.entities()) snap[e] = st.getAllRaw(e);
   const data = plannerDataFromSnapshot(snap);
+  const boms = st.getAllRaw('boms') as unknown as (T.BOM & { vendorOrders?: VendorOrderRecord[] })[];
+  /* the sourcing context as the plan pack reads it (stock, vendors, contracts, catalogue, racks, plant) */
+  const live = <R,>(e: string) => (st.entities().includes(e) ? st.getAllRaw(e).filter(r => !(r as { isDeleted?: boolean }).isDeleted) : []) as unknown as R[];
+  const sourcing: SourcingContext = { devices: live('devices'), vendors: live('vendors'), contracts: live('contracts'), assetModels: live('assetModels'), racks: live('racks'), upsUnits: live('upsUnits'), coolingZones: live('coolingZones'), dataCenters: live('dataCenters') };
   cache = plans.map(p => {
+    /* the approved figures (frozen baseline parameters, as execution uses them); the preferred scenario before a baseline exists */
     const scn = scns.find(s => s.id === (p.approvedScenarioId ?? p.preferredScenarioId)) ?? null;
-    const ev: Evaluation = evaluate(p, scn, tpls, bms, undefined, data);
+    const ev: Evaluation = evaluate(p, baselineScenario(p) ?? scn, tpls, bms, undefined, data);
     const bom = buildBom(p, ev, bms);
     const init = buildInitiation(p, ev, tpls.find(t => t.id === p.templateId), bom);
     const tasks = init.projects.map(x => ({ name: x.name, start: ms(x.start), end: ms(x.end), weeks: Math.max(1, Math.round((ms(x.end) - ms(x.start)) / (7 * 864e5))), longLead: x.longLead })).filter(t => t.end > t.start).sort((a, b) => a.start - b.start);
@@ -55,16 +72,32 @@ export function bridgedPlans(db: Db): Bridged[] {
       capacityPlanIds: [], createdRacks: [], scenario: scn?.name ?? 'Base case', source: 'Planner',
     };
     const finish = Math.max(plan.target, ...tasks.map(t => t.end));
-    return { plan, eval: { tasks: tasks.length ? tasks : [{ name: 'Delivery', start: Math.max(db.now - 30 * 864e5, plan.created), end: finish, weeks: 8 }], finish, capex, capexTotal: fromUsd(ev.estimate.capexTotal) }, source: p };
+    const bomRec = p.artefacts?.bomId ? boms.find(b => b.id === p.artefacts!.bomId && Array.isArray(b.vendorOrders)) : undefined;
+    const planned = !bomRec && p.status === 'Approved' && sourcingReady(sourcing) && bom.lines.length > 0;
+    const records = bomRec?.vendorOrders ?? (planned ? vendorOrderRecords(sourceBom(p, ev, bom, contextForPlan(p, sourcing))) : undefined);
+    const vendorOrders = records?.map(v => ({ ...v, value: fromUsd(v.valueUsd) }));
+    return { plan, eval: { tasks: tasks.length ? tasks : [{ name: 'Delivery', start: Math.max(db.now - 30 * 864e5, plan.created), end: finish, weeks: 8 }], finish, capex, capexTotal: fromUsd(ev.estimate.capexTotal) }, source: p, vendorOrders, planned: !bomRec && planned };
   });
   return cache;
 }
 
-/** Handover in Delivery completes the plan in the planner (P2B status Completed). */
-export function completeFromDelivery(db: Db, plnId: string, who: string) {
+/** The planner store as a governance store (what the planner's completion writes through). */
+const storeOf = (st: MockDB): Store => ({ list: e => st.getAllRaw(e), get: (e, id) => st.getById(e, id), create: (e, r) => { st.create(e, r); }, update: (e, id, patch) => { st.update(e, id, patch); } });
+
+/** Handover in Delivery completes the plan in the planner, the same completion as "Complete plan" there (closeout.completeFromHandover):
+ *  the plan's records set to what was delivered, waves closed, holds consumed, the close-out written with its checklist, audited. */
+export function completeFromDelivery(db: Db, plnId: string, who: string, notes?: string) {
   const st = p2bStore(db);
   const p = (st.getAllRaw('plannerPlans') as unknown as T.PlannerPlan[]).find(x => x.plnId === plnId);
-  if (p) st.update('plannerPlans', p.id, { status: 'Completed', updatedAt: new Date(db.now).toISOString(), updatedBy: who });
+  if (!p || p.status === 'Completed') return;
+  const at = new Date(db.now).toISOString();
+  const tpl = (st.getAllRaw('plannerTemplates') as unknown as T.PlannerTemplate[]).find(t => t.id === p.templateId);
+  const data = () => { const snap: Record<string, unknown> = {}; for (const e of st.entities()) snap[e] = st.getAllRaw(e); return plannerDataFromSnapshot(snap); };
+  const r = completeFromHandover(storeOf(st), p, data, tpl, who, at, notes);
+  st.update('plannerPlans', p.id, { ...r.patch, updatedAt: at, updatedBy: who });
+  const n = (st.getAllRaw('auditEvents') as { id: string }[]).reduce((m, e) => { const x = /^AUD-(\d+)$/.exec(e.id); return x ? Math.max(m, Number(x[1])) : m; }, 0) + 1;
+  const id = `AUD-${String(n).padStart(4, '0')}`;
+  st.create('auditEvents', { id, audId: id, entityType: 'Plan', entityId: p.id, action: 'completed', actorName: who, timestamp: at, summary: r.summary, changes: [{ field: 'status', from: p.status, to: 'Completed' }], plannerPlanId: p.id, customerId: 'CUST-001', isDeleted: false, createdAt: at, updatedAt: at, createdBy: who, createdById: who });
 }
 
 /** Plans waiting in the planner (in review, or approved but not yet executed), for the Delivery pipeline. */

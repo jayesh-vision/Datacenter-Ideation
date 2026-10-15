@@ -30,13 +30,14 @@ export const REASON_LABEL: Record<Reason, string> = { eol: 'Past end of life', w
 export type RackReason = 'over-power' | 'old-type' | 'shallow' | 'unmetered' | 'damaged';
 export const RACK_REASON_LABEL: Record<RackReason, string> = { 'over-power': 'Draws more than its rating', 'old-type': 'Old rack type', shallow: 'Too shallow for its deepest device', unmetered: 'No metered power strips', damaged: 'Marked damaged' };
 
-/** What produced the selection; saved on the plan so reopening the wizard shows the same list. */
+/** What the list was filtered on; saved on the plan so reopening the wizard shows the same list. The reasons are quick filters over
+    every eligible device at the site (none = the whole list, several = any of them), not a requirement to qualify. */
 export interface SelectionCriteria {
   reasons: Reason[]; years: number;
   models?: string[]; rackIds?: string[]; rowIds?: string[]; teams?: string[]; serviceIds?: string[]; text?: string;
   rackReasons?: RackReason[]; rackTypes?: string[]; damagedRackIds?: string[];
 }
-export const DEFAULT_CRITERIA: SelectionCriteria = { reasons: ['eol', 'warranty', 'faulty'], years: 5, rackReasons: ['over-power', 'shallow', 'unmetered', 'damaged'] };
+export const DEFAULT_CRITERIA: SelectionCriteria = { reasons: [], years: 5, rackReasons: [] };
 export function readCriteria(plan: T.PlannerPlan): SelectionCriteria {
   const raw = plan.params.selectionCriteria;
   if (typeof raw !== 'string' || !raw) return DEFAULT_CRITERIA;
@@ -54,22 +55,34 @@ export function heldBy(data: PlannerData, plan: Pick<T.PlannerPlan, 'id' | 'plnI
   return chg ? `In open change ${chg.id} (${chg.status})` : undefined;
 }
 
-export interface Candidate { d: T.Device; why: Reason[]; ageYears?: number; rack?: T.Rack; row?: T.Row; services: T.Service[]; held?: string; role: RoleKey }
-/** Every device of the plan type's categories racked at the site, with the reasons it qualifies. */
+/** Why a device is due for replacement, with the dates behind each reason (end of sale / support of its model, warranty end, age). */
+export interface Reasons { why: Reason[]; ageYears?: number; eolAt?: number; supportEndAt?: number; warrantyEndAt?: number }
+export function reasonsOf(data: PlannerData, d: T.Device, years: number, now: number): Reasons {
+  const why: Reason[] = [];
+  const am = d.model ? data.assetModels.find(m => m.model === d.model) : undefined;
+  const eolAt = am?.eolDate ? new Date(am.eolDate).getTime() : undefined;
+  if (eolAt !== undefined && eolAt < now) why.push('eol');
+  const w = d.warrantyContractId ? byId(data, 'contracts', d.warrantyContractId) : undefined;
+  const warrantyEndAt = d.warrantyEndDate ? new Date(d.warrantyEndDate).getTime() : w ? new Date(w.endDate).getTime() : undefined;
+  if ((warrantyEndAt !== undefined && warrantyEndAt < now) || w?.status === 'Expired') why.push('warranty');
+  if (d.status === 'Faulty') why.push('faulty');
+  const age = d.commissionedDate ? (now - new Date(d.commissionedDate).getTime()) / YEAR : undefined;
+  if (age !== undefined && age > years) why.push('age');
+  return { why, ageYears: age !== undefined ? r1(age) : undefined, eolAt, supportEndAt: am?.supportEndDate ? new Date(am.supportEndDate).getTime() : undefined, warrantyEndAt };
+}
+/** Severity for ordering a list: faulty, then past end of life, then out of warranty, then age. */
+export const REASON_WEIGHT: Record<Reason, number> = { faulty: 8, eol: 4, warranty: 2, age: 1 };
+export const severityOf = (why: Reason[]) => why.reduce((a, r) => a + REASON_WEIGHT[r], 0);
+
+export interface Candidate extends Reasons { d: T.Device; rack?: T.Rack; row?: T.Row; services: T.Service[]; held?: string; role: RoleKey }
+/** Every device of the plan type's categories racked at the site, with the reasons it is due for replacement (possibly none). */
 export function deviceCandidates(data: PlannerData, plan: T.PlannerPlan, years: number, now: number): Candidate[] {
   const cats = CATEGORIES[plan.scope as ReplaceScope] ?? [];
-  const eol = new Map(data.assetModels.map(m => [m.model, m.eolDate]));
   const svcBy = new Map<string, T.Service[]>();
   for (const s of data.services) if (s.status !== 'Disabled') for (const id of new Set([s.deviceId, ...(s.pathDeviceIds ?? [])].filter(Boolean) as string[])) svcBy.set(id, [...(svcBy.get(id) ?? []), s]);
-  return (groupBy(data, 'devices', 'dataCenterId').get(plan.dataCenterId ?? '') ?? []).filter(d => d.rackId && cats.includes(String(d.category)) && !GONE(d)).map(d => {
-    const why: Reason[] = [];
-    const e = d.model ? eol.get(d.model) : undefined; if (e && new Date(e).getTime() < now) why.push('eol');
-    const w = d.warrantyContractId ? byId(data, 'contracts', d.warrantyContractId) : undefined; if (w && (new Date(w.endDate).getTime() < now || w.status === 'Expired')) why.push('warranty');
-    if (d.status === 'Faulty') why.push('faulty');
-    const age = d.commissionedDate ? (now - new Date(d.commissionedDate).getTime()) / YEAR : undefined;
-    if (age !== undefined && age > years) why.push('age');
+  return (groupBy(data, 'devices', 'dataCenterId').get(plan.dataCenterId ?? '') ?? []).filter(d => d.rackId && cats.includes(String(d.category)) && !GONE(d) && d.lifecycleState !== 'Ordered').map(d => {
     const rack = byId(data, 'racks', d.rackId);
-    return { d, why, ageYears: age !== undefined ? r1(age) : undefined, rack, row: byId(data, 'rows', rack?.rowId), services: svcBy.get(d.id) ?? [], held: heldBy(data, plan, d), role: roleOf(d) };
+    return { d, ...reasonsOf(data, d, years, now), rack, row: byId(data, 'rows', rack?.rowId), services: svcBy.get(d.id) ?? [], held: heldBy(data, plan, d), role: roleOf(d) };
   });
 }
 

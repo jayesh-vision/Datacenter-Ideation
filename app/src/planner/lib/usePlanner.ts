@@ -5,28 +5,31 @@
    Every mutation is audited with a field-level diff (who, when, old → new, source). Plan
    lifecycle rules live in governance.ts (pure); this file applies them to the store. */
 import { useCallback, useMemo } from 'react';
-import { useQueryClient } from '../compat/query';
+import { useQuery, useQueryClient } from '../compat/query';
 import { useEntityList, useEntityDetail } from '../compat/useEntityCRUD';
 import { useAuth } from '../compat/auth';
 import { message } from '../compat/notify';
 import { db } from '../compat/db';
 import type * as T from '../p2b/types';
-import { useCreateProgram, useCreateProgramFromBlueprint, useCreateProjectFromTemplate } from '../compat/delivery/createFlows';
-import { useEngineActions } from '../compat/workflows';
+import { deliveryFor, deliveryHandover, type DeliveryRef } from '../compat/delivery/handoff';
 import { evaluate, fmtUsd, type EstateActuals, type Evaluation } from './engine';
 import { estateActuals } from './ai';
 import { sourceBom, type SourcingContext } from './sourcing';
 import { buildBom } from './outputs';
 import { mockDbStore, nextId, runExecution } from './execute';
-import { emptyPlannerData, usePlannerData, type PlannerData } from './plannerData';
+import { emptyPlannerData, plannerDataFromSnapshot, usePlannerData, type PlannerData } from './plannerData';
+import { closeoutChecks, closeoutReady } from './closeout';
+import type { RecordChanges } from './replaceClose';
+import { recordedVendorOrders, type VendorOrderRecord } from './packModel';
+import type { VendorOrder } from './sourcing';
 import * as G from './governance';
 import { moveReservations } from './reservations';
 import { clockMs } from '../compat/clock';
 
 const BIG = { pageSize: 5000 } as const;
 export const PLANNER_ENTITIES = ['plannerTemplates', 'plannerBenchmarks', 'plannerPlans', 'plannerScenarios', 'plannerFeedback', 'approvalDelegations', 'auditEvents', 'capacityReservations', 'rackReservations'] as const;
-/** Collections execution writes to (invalidated afterwards). */
-export const EXECUTION_COLLECTIONS = ['programs', 'projects', 'milestones', 'tasks', 'projectActivities', 'boms', 'bomLines', 'purchaseOrders', 'subnets', 'vlans', 'ipAddresses', 'permits', 'designDocuments', 'changeRequests', 'maintenanceWindows', 'capacityReservations', 'rackReservations', 'devices', 'racks', 'halls', 'rows', 'buildings', 'floors', 'dataCenters', 'circuits', 'circuitTerminations', 'atps', 'atpSteps', 'configChanges', 'disposalCertificates', 'processInstances', 'contracts', 'services'] as const;
+/** Collections execution writes to (invalidated afterwards). Delivery owns the project, its orders, work orders and changes. */
+export const EXECUTION_COLLECTIONS = ['boms', 'bomLines', 'subnets', 'vlans', 'ipAddresses', 'changeRequests', 'maintenanceWindows', 'capacityReservations', 'rackReservations', 'devices', 'racks', 'halls', 'rows', 'buildings', 'floors', 'dataCenters', 'circuits', 'circuitTerminations', 'atps', 'atpSteps', 'configChanges', 'disposalCertificates', 'powerFeeds', 'pdus', 'cables', 'edgeLocations'] as const;
 const now = () => new Date(clockMs()).toISOString();
 const sid = (p: string) => `${p}-${clockMs().toString(36).toUpperCase()}${Math.floor(Math.random() * 1e3).toString(36).toUpperCase()}`;
 /** Tenant of every record. The signed-in user carries an operator, not a customer id, so the platform tenant is used. */
@@ -72,6 +75,25 @@ export function useSourcingContext(): SourcingContext {
   const coolingZones = useEntityList('coolingZones', BIG).data?.data;
   const dataCenters = useEntityList('dataCenters', BIG).data?.data;
   return useMemo(() => ({ devices: (devices ?? EMPTY) as unknown as T.Device[], vendors: (vendors ?? EMPTY) as unknown as T.Vendor[], contracts: (contracts ?? EMPTY) as unknown as T.Contract[], assetModels: (assetModels ?? EMPTY) as unknown as T.AssetModel[], racks: (racks ?? EMPTY) as unknown as T.Rack[], upsUnits: (upsUnits ?? EMPTY) as unknown as T.UPS[], coolingZones: (coolingZones ?? EMPTY) as unknown as T.CoolingZone[], dataCenters: (dataCenters ?? EMPTY) as unknown as T.DataCenter[] }), [devices, vendors, contracts, assetModels, racks, upsUnits, coolingZones, dataCenters]);
+}
+/** The same context read from the store as it is now (for actions: execution sources against today's stock, not a rendered copy). */
+export function storeSourcing(): SourcingContext {
+  const all = <R,>(e: string) => (db.entities().includes(e) ? db.getAllRaw(e).filter(r => !(r as { isDeleted?: boolean }).isDeleted) : []) as unknown as R[];
+  const snap: Record<string, unknown> = {}; for (const e of db.entities()) snap[e] = db.getAllRaw(e);
+  return { devices: all('devices'), vendors: all('vendors'), contracts: all('contracts'), assetModels: all('assetModels'), racks: all('racks'), upsUnits: all('upsUnits'), coolingZones: all('coolingZones'), dataCenters: all('dataCenters'), data: plannerDataFromSnapshot(snap) };
+}
+
+/** The vendor orders execution recorded on the plan's bill of materials (what Delivery raised as purchase orders); undefined before. */
+export function useRecordedOrders(plan?: T.PlannerPlan): VendorOrder[] | undefined {
+  const boms = useEntityList('boms', BIG).data?.data;
+  const bomId = plan?.artefacts?.bomId;
+  return useMemo(() => { const b = bomId ? ((boms ?? EMPTY) as unknown as { id: string; vendorOrders?: VendorOrderRecord[] }[]).find(x => x.id === bomId) : undefined; return Array.isArray(b?.vendorOrders) ? recordedVendorOrders(b.vendorOrders) : undefined; }, [boms, bomId]);
+}
+
+/** Delivery's view of a plan (project, purchase orders, work orders and their change requests, commissioning, permits); re-read on
+ *  every planner or Delivery change. Null until the plan is in Delivery. */
+export function useDelivery(plnId?: string): DeliveryRef | null {
+  return useQuery({ queryKey: ['delivery', plnId], queryFn: () => (plnId ? deliveryFor(plnId) : null), enabled: !!plnId }).data ?? null;
 }
 
 export function useActuals(dcTypeKey?: string): EstateActuals {
@@ -126,13 +148,9 @@ export function usePlannerActions() {
   const { user } = useAuth();
   const actor = user?.name ?? 'Planner';
   const actorId = user?.id;
-  const createProgram = useCreateProgramFromBlueprint();
-  const createPlainProgram = useCreateProgram();
-  const createProject = useCreateProjectFromTemplate();
-  const engine = useEngineActions();
   const templatesAll = useTemplates();
   const benchmarksAll = useBenchmarks();
-  const invalidate = useCallback(() => { for (const k of PLANNER_ENTITIES) void qc.invalidateQueries({ queryKey: [k] }); void qc.invalidateQueries({ queryKey: ['programs'] }); void qc.invalidateQueries({ queryKey: ['projects'] }); }, [qc]);
+  const invalidate = useCallback(() => { for (const k of PLANNER_ENTITIES) void qc.invalidateQueries({ queryKey: [k] }); void qc.invalidateQueries({ queryKey: ['delivery'] }); }, [qc]);
   const meta = useCallback(() => ({ customerId: TENANT_ID, isDeleted: false, createdAt: now(), updatedAt: now(), createdBy: actor, createdById: actorId ?? 'unknown' }), [actor, actorId]);
 
   /** Audit event with a field-level diff, tied to the plan so the History tab can read it. */
@@ -269,7 +287,7 @@ export function usePlannerActions() {
         notes.push(...fx.notes);
       }
       if (d.rejected) log('Plan', cur.id, 'rejected', `Rejected at ${step}: ${input.reason}`, { reason: input.reason });
-      for (const k of ['capacityReservations', 'rackReservations', 'programs', 'projects', 'purchaseOrders']) void qc.invalidateQueries({ queryKey: [k] });
+      for (const k of ['capacityReservations', 'rackReservations']) void qc.invalidateQueries({ queryKey: [k] });
       invalidate(); return { ok: true, notes };
     },
     closeCondition(plan: T.PlannerPlan, conditionId: string, evidence: string): ActionResult {
@@ -305,7 +323,7 @@ export function usePlannerActions() {
       const cur = getPlan(plan.id) ?? plan; const t = now(); const r = G.cancelPlan(cur, reason, actor, t); if (!r.ok) return refuse(r.reason);
       const n = moveReservations(mockDbStore, cur.id, 'Released', { reason: `plan cancelled: ${reason}`, at: t });
       update(cur.id, r.patch);
-      log('Plan', cur.id, 'cancelled', `Cancelled: ${reason}. ${n} capacity hold(s) released.${cur.artefacts?.programId ? ` Programme ${cur.artefacts.programId} must be closed in Delivery.` : ''}`, { reason, changes: [{ field: 'status', from: cur.status, to: 'Cancelled' }] });
+      log('Plan', cur.id, 'cancelled', `Cancelled: ${reason}. ${n} capacity hold(s) released.${cur.status === 'Executing' && deliveryFor(cur.plnId) ? ` Project ${deliveryFor(cur.plnId)!.projectId} must be stopped in Delivery.` : ''}`, { reason, changes: [{ field: 'status', from: cur.status, to: 'Cancelled' }] });
       for (const k of ['capacityReservations', 'rackReservations']) void qc.invalidateQueries({ queryKey: [k] });
       invalidate(); return { ok: true };
     },
@@ -326,21 +344,44 @@ export function usePlannerActions() {
       log('Plan', cur.id, 'revision raised', `Revision ${rec.revision} (${rec.plnId}) raised; this plan stays ${cur.status.toLowerCase()} until the revision is approved`);
       invalidate(); return { ok: true, value: rec };
     },
-    /** Approved plan → build artefacts (see execute.ts). Resumes an earlier run that stopped part-way. */
+    /** The sourcing context as the store holds it now (stock, vendors, contracts); pass it to `execute`. */
+    sourcing: storeSourcing,
+    /** Approved plan → handed to Delivery (see execute.ts). Resumes an earlier run that stopped part-way. Without a sourcing context the
+     *  store's current one is used, so the bill of materials is always split into site / stock / buy. */
     async execute(plan: T.PlannerPlan, sourcing: SourcingContext | undefined, data: PlannerData | undefined, scenarios?: T.PlannerScenario[]) {
       const cur = getPlan(plan.id) ?? plan;
-      const res = await runExecution({ actor, actorId, customerId: TENANT_ID, templates: templatesAll, benchmarks: benchmarksAll, data: data ?? emptyPlannerData(), scenarios, audit: (e, id, a, s) => log(e, id, a, s), startProcess: (k, b, r) => engine.startInstance(k, b, r).catch(() => undefined), createProgramFromBlueprint: async i => (await createProgram({ ...i, startISO: i.startDate })) ?? undefined, createProgram: createPlainProgram, createProject }, cur, undefined, sourcing);
+      const res = await runExecution({ actor, actorId, customerId: TENANT_ID, templates: templatesAll, benchmarks: benchmarksAll, data: data ?? emptyPlannerData(), scenarios, audit: (e, id, a, s) => log(e, id, a, s) }, cur, undefined, sourcing ?? storeSourcing());
       for (const k of EXECUTION_COLLECTIONS) void qc.invalidateQueries({ queryKey: [k] });
       invalidate(); return res;
     },
-    /** Completion: every close-out check green, then write what was delivered and consume the holds. */
+    /** Completion = the handover to operations. When Delivery is ready (every check green), the handover is signed in Delivery, which
+     *  completes the plan (closeout.completeFromHandover through the bridge). A plan Delivery has no project for cannot complete. */
     complete(plan: T.PlannerPlan, data: PlannerData, notes?: string): ActionResult {
       const cur = getPlan(plan.id) ?? plan; const template = templatesAll.find(t => t.id === cur.templateId);
-      const r = G.completePlan(mockDbStore, cur, data, template, actor, now(), notes); if (!r.ok) return refuse(r.reason);
-      update(cur.id, r.patch);
-      log('Plan', cur.id, 'completed', `Completed: ${r.patch.closeout!.deliveredKw} kW delivered, actual ${fmtUsd(r.patch.closeout!.actualCapex)}${cur.baseline ? ` against ${fmtUsd(cur.baseline.capexTotal)} baseline` : ''}${r.patch.closeout!.measuredKw !== undefined ? `, ${r.patch.closeout!.measuredKw} kW measured` : ''}; holds consumed`, { changes: [{ field: 'status', from: cur.status, to: 'Completed' }] });
-      for (const k of ['capacityReservations', 'rackReservations']) void qc.invalidateQueries({ queryKey: [k] });
+      const checks = closeoutChecks(cur, data, template);
+      if (!closeoutReady(checks)) return refuse(`Not ready to complete: ${checks.filter(c => !c.ok && !c.atHandover).map(c => c.label).join(', ')}.`);
+      const d = deliveryFor(cur.plnId);
+      if (d && !d.handedOver) { try { deliveryHandover(cur.plnId, actor, notes); } catch (e) { return refuse((e as Error).message); } }
+      else { const r = G.completePlan(mockDbStore, cur, data, template, actor, now(), notes); if (!r.ok) return refuse(r.reason); update(cur.id, r.patch); log('Plan', cur.id, 'completed', `Completed: ${r.patch.closeout!.deliveredKw} kW delivered; holds consumed`, { changes: [{ field: 'status', from: cur.status, to: 'Completed' }] }); }
+      for (const k of ['capacityReservations', 'rackReservations', 'delivery']) void qc.invalidateQueries({ queryKey: [k] });
       invalidate(); return { ok: true };
+    },
+    /** Apply the record changes a wave close, a disposal certificate, the final meter reading or a site retirement produces
+     *  (replaceClose / migrationCore): creates and updates through the store, the plan patch (waves, params, artefacts) and one audit
+     *  event on the plan. These records follow the work, so unlike `patchPlan` this runs on an executing or completed plan. */
+    applyRecordChanges(plan: T.PlannerPlan, changes: RecordChanges, what: string): ActionResult {
+      const cur = getPlan(plan.id) ?? plan;
+      if (cur.status !== 'Executing' && cur.status !== 'Completed') return refuse(`The plan is ${cur.status.toLowerCase()}: waves, certificates and the site retirement are recorded once the build has started.`);
+      if (changes.errors.length) return refuse(changes.errors.join('; '));
+      for (const c of changes.creates) db.create(c.entity, c.rec);
+      for (const u of changes.updates) db.update(u.entity, u.id, u.patch);
+      const diff = Object.keys(changes.plan).length ? G.diffPlan(cur, changes.plan) : [];
+      if (Object.keys(changes.plan).length) update(cur.id, changes.plan);
+      const counts = [changes.updates.length && `${changes.updates.length} record(s) updated`, changes.creates.length && `${changes.creates.length} created`].filter(Boolean).join(', ');
+      const said = changes.summary.join('; ');
+      log('Plan', cur.id, 'records updated', `${!said ? what : said.startsWith(what) ? said : `${what}: ${said}`}${counts ? ` (${counts})` : ''}`, { changes: diff });
+      for (const k of [...EXECUTION_COLLECTIONS, 'managedDevices', 'services', 'contracts', 'disposalCertificates']) void qc.invalidateQueries({ queryKey: [k] });
+      invalidate(); return { ok: true, notes: changes.warnings };
     },
     /* ----------------------------------------------------------------- library */
     /** Save a template. Content edits bump the version (plans keep the version they were approved against). */
@@ -370,5 +411,5 @@ export function usePlannerActions() {
       invalidate();
     },
     newId: sid,
-  }), [actor, actorId, log, refuse, update, createProgram, createPlainProgram, createProject, engine, invalidate, meta, templatesAll, benchmarksAll, qc]);
+  }), [actor, actorId, log, refuse, update, invalidate, meta, templatesAll, benchmarksAll, qc]);
 }

@@ -1164,3 +1164,25 @@ export interface Module { serial?: string }
 /** 13. Imported alarm history (DCO workbook Snapshot_Alerts): the site, the node name when the node is not in the
  *  inventory (deviceId is then empty), the workbook's alarm scope and the link or rack it names. */
 export interface Alarm { dataCenterId?: string; nodeName?: string; scope?: string; linkRef?: string }
+
+// ── Estate vintage (15-Oct-2026): what the replace planner selects on, copied from the asset lifecycle read model (mock/lifecycle.ts) ──
+export interface Device {
+  /** End of the manufacturer's warranty (3 or 5 years from purchase). */
+  warrantyEndDate?: string;
+}
+export interface AssetModel {
+  /** Vendor end of support (eolDate is the end of sale). */
+  supportEndDate?: string;
+}
+export interface Rack {
+  /** When the rack was bought, and its condition from the last audit (Damaged with a note). */
+  installedDate?: string; condition?: 'Good' | 'Damaged'; conditionNote?: string;
+}
+export interface RackType {
+  /** An old type the estate is replacing (shallower, no longer bought). */
+  legacy?: boolean;
+}
+export interface PDU {
+  /** The rack the power strip is mounted in. */
+  rackId?: string;
+}

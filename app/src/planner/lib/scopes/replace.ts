@@ -15,8 +15,8 @@ import type { BodSection, Initiation, IpPlan } from '../outputs';
 import { analyseReplace, PARALLEL, replaceOf, replaceSchedule, type ReplaceAnalysis } from '../replaceAnalysis';
 import { replaceCloseout } from '../replaceClose';
 import { pnum, pstr } from '../replaceBench';
-import { REASON_LABEL, readCriteria } from '../replaceCore';
-import { swapMethodOf, SWAP_TEXT } from '../replaceRack';
+import { RACK_REASON_LABEL, REASON_LABEL, readCriteria, reasonsOf, type Reason } from '../replaceCore';
+import { rackCandidates, swapMethodOf, SWAP_TEXT } from '../replaceRack';
 import { byId } from '../plannerData';
 import { impactOf } from '../impact';
 import { priceOf } from '../catalogue';
@@ -28,6 +28,19 @@ const NOT_LOADED: CheckResult = { status: 'n/a', detail: 'Not checked: platform 
 const PROJECT_TEMPLATE: Record<string, E.ProjectTemplate> = { 'server-refresh': 'Server Refresh', 'network-refresh': 'Network Refresh', 'rack-replace': 'Rack Replacement' };
 const CHANGE_TYPE: Record<string, T.ChangeRequest['type']> = { 'server-refresh': 'ServerRelocation', 'network-refresh': 'NetworkMigration', 'rack-replace': 'ServerRelocation' };
 const noun = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+/** Why the selection is due, counted on the selected items themselves (the wizard's reasons are quick filters, not criteria). */
+function whyText(ev: Evaluation, a: ReplaceAnalysis): string {
+  const data = ev.ctx.data; if (!data) return 'As selected';
+  const now = clockMs(); const crit = readCriteria(ev.ctx.plan);
+  if (a.scope === 'rack-replace') {
+    const ids = new Set(a.rackIds); const counts = new Map<string, number>();
+    for (const c of rackCandidates(data, ev.ctx.plan, crit, now).filter(c => ids.has(c.rack.id))) for (const r of c.reasons) counts.set(RACK_REASON_LABEL[r], (counts.get(RACK_REASON_LABEL[r]) ?? 0) + 1);
+    return [...counts].map(([k, n]) => `${n} ${k.toLowerCase()}`).join(', ') || 'As selected';
+  }
+  const counts = new Map<Reason, number>();
+  for (const d of a.old) for (const r of reasonsOf(data, d, crit.years, now).why) counts.set(r, (counts.get(r) ?? 0) + 1);
+  return (['eol', 'warranty', 'faulty', 'age'] as Reason[]).filter(r => counts.get(r)).map(r => `${counts.get(r)} ${r === 'age' ? `older than ${crit.years} years` : REASON_LABEL[r].toLowerCase()}`).join(', ') || 'As selected';
+}
 
 function check(a: ReplaceAnalysis, plan: T.PlannerPlan, rule: T.PlannerRuleDef, ev: Evaluation): CheckResult | undefined {
   const waves = (plan.waves ?? []).filter(w => w.status !== 'Cancelled');
@@ -175,7 +188,7 @@ export const replaceModel: ScopeModel = {
     const waves = [...(ev.ctx.plan.waves ?? [])].sort((x, y) => x.order - y.order);
     const e = ev.estimate;
     const out: BodSection[] = [
-      { id: 'purpose', title: '1. Purpose', text: purpose?.text, rows: [{ label: 'Plan type', value: purpose?.rows[0]?.value ?? '' }, { label: 'Site', value: `${a.dc?.name} (${a.dc?.code})` }, { label: a.scope === 'rack-replace' ? 'Racks' : 'Devices', value: a.scope === 'rack-replace' ? `${a.rackIds.length} racks holding ${a.old.length} devices` : `${a.old.length} devices in ${a.rackIds.length} racks` }, { label: 'Why', value: readCriteria(ev.ctx.plan).reasons.map(r => REASON_LABEL[r]).join(', ') || 'As selected' }] },
+      { id: 'purpose', title: '1. Purpose', text: purpose?.text, rows: [{ label: 'Plan type', value: purpose?.rows[0]?.value ?? '' }, { label: 'Site', value: `${a.dc?.name} (${a.dc?.code})` }, { label: a.scope === 'rack-replace' ? 'Racks' : 'Devices', value: a.scope === 'rack-replace' ? `${a.rackIds.length} racks holding ${a.old.length} devices` : `${a.old.length} devices in ${a.rackIds.length} racks` }, { label: 'Why', value: whyText(ev, a) }] },
       { id: 'mapping', title: '2. Old to new', rows: a.scope === 'rack-replace' ? [{ label: 'New rack', value: `${a.rack?.newType?.model ?? '—'} · ${a.rack?.recommend.type ? `recommended: ${a.rack.recommend.type.model} (${a.rack.recommend.why})` : a.rack?.recommend.why}` }, ...a.rackIds.map(id => ({ label: byId(ev.ctx.data!, 'racks', id)?.name ?? id, value: `${swapMethodOf(ev.ctx.plan, id)}: ${SWAP_TEXT[swapMethodOf(ev.ctx.plan, id)]}` }))] : a.mapping.map(m => ({ label: `${m.count} × ${m.oldModel} (${m.role})`, value: `${m.newUnits} × ${m.newModel} at ${m.ratio}:1; old ones: ${m.disposition}`, source: m.fromPlan ? 'Entered' : 'Catalogue default' })) },
       { id: 'racks', title: '3. Power, space and weight per rack', rows: a.scope === 'rack-replace' ? (a.rack?.outlets ?? []).map(o => ({ label: byId(ev.ctx.data!, 'racks', o.rackId)?.name ?? o.rackId, value: `${o.drawKw} kW drawn; rating ${o.ratingBeforeKw} → ${o.ratingAfterKw} kW; ${o.detail}` })) : a.rackRows.map(r => ({ label: r.rack.name, value: `${r.kwBefore} → ${r.kwAfter} kW (peak ${r.kwPeakAfter}) of ${r.ratingKw} kW; ${r.uBefore} → ${r.uAfter} U; ${r.kgBefore} → ${r.kgAfter} kg${r.issues.length ? ` · ${r.issues.join('; ')}` : ''}` })) },
       { id: 'network', title: '4. Network', rows: a.ports ? [{ label: 'Ports', value: `${a.ports.used} used ports mapped, ${a.ports.incompatible} without a match` }, { label: 'Far end', value: `${a.ports.farEnd.length} uplinks change speed at the spine` }, { label: 'Optics', value: a.ports.optics.map(o => `${o.cls}: ${o.reuse} reused, ${o.buy} new`).join('; ') || 'none' }] : a.nic ? [{ label: 'Server ports', value: a.nic.detail }] : [{ label: 'Cross-connects', value: `${a.rack?.xconnects.length ?? 0} to re-patch with the carrier` }] },

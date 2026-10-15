@@ -35,7 +35,8 @@ ok(await p.locator('.dcim-dev').count() > 0 || (await p.innerText('body')).inclu
 await p.locator('.dcim-dev:not(.is-odf)').first().click(); await p.waitForTimeout(600);
 ok(await p.locator('.drawer').count() === 1 && (await p.locator('.drawer .dcim-comp tbody tr').count()) > 0, 'device drawer lists components');
 await p.keyboard.press('Escape');
-await p.goto(p.url() + '?tab=power'); await p.waitForTimeout(600); ok(await p.locator('.dcim-pdus .panel').count() >= 1, 'rack power cards');
+/* a full reload regenerates the estate: wait for the cards rather than a fixed 600 ms (the telco estate grew on 15-Oct-2026 and missed it) */
+await p.goto(p.url() + '?tab=power'); await p.locator('.dcim-pdus .panel').first().waitFor({ timeout: 8000 }).catch(() => {}); ok(await p.locator('.dcim-pdus .panel').count() >= 1, 'rack power cards');
 /* type page */
 await p.goto(`${base}/dcim?tab=types`, { waitUntil: 'networkidle' }); await p.locator('.dt-table tbody tr').first().click(); await p.waitForURL(/\/dcim\/types\//); await check('type');
 /* cabling: a data cable opens its path */

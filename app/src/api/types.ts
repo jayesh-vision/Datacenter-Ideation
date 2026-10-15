@@ -37,6 +37,8 @@ export interface Rack {
   owner?: 'operator' | 'tenant'; tenantId?: string; contractedKw?: number;
   /* high-density AI rack (GPU nodes or a tenant AI cage) and how it is cooled */
   density?: 'ai'; liquid?: boolean;
+  /* a rack the operator added for its own servers (telco NFV / OSS / management racks, the colocation operator rack; 15-Oct-2026) */
+  opServers?: boolean;
 }
 export interface PortClass { cls: string; total: number; used: number }
 export interface UpsUnit { id: string; name: string; capacityKw: number; loadPct: number; redundancy: 'N' | 'N+1' | '2N'; batteryMin: number; state: 'Online' | 'On battery' | 'Bypass' | 'Fault' }
@@ -74,6 +76,8 @@ export interface NetworkElement {
   isPe: boolean;
   /* chassis height (rack units); tenant gear = an opaque block of customer equipment */
   uSize?: number; tenantId?: string;
+  /* what an operator server runs (telco NFV hosts, OSS / BSS / IMS, management servers; the colocation operator's DCIM / BMS / CCTV …) */
+  purpose?: string;
 }
 
 export type IfState = 'up' | 'down' | 'admin-down' | 'reserved';
@@ -411,9 +415,11 @@ export interface RmaCase {
   status: 'Opened' | 'Part shipped' | 'Engineer booked' | 'Replaced · verifying'; eta: number; spareOnSite: boolean;
 }
 export interface SparePart { id: string; dcId: string; part: string; fits: string; onHand: number; min: number; reserved: number; state: 'ok' | 'low' | 'out' }
+/* rack type, purchase date and condition (mock/vintage.ts): old = the shallow 600 × 1000 type of the first build-out */
+export interface RackLife { rackId: string; manufacturer: string; model: string; heightU: number; depthMm: number; mountingDepthMm: number; installed: number; old: boolean; condition: 'Good' | 'Damaged'; note?: string }
 export interface SiteLifecycle {
-  dcId: string; assets: AssetLife[]; rmas: RmaCase[]; spares: SparePart[];
-  totals: { devices: number; covered: number; expiring: number; outOfWarranty: number; endOfSupport: number; tenant: number; openRma: number; sparesLow: number };
+  dcId: string; assets: AssetLife[]; rmas: RmaCase[]; spares: SparePart[]; racks: RackLife[];
+  totals: { devices: number; covered: number; expiring: number; outOfWarranty: number; endOfSupport: number; tenant: number; openRma: number; sparesLow: number; oldRacks: number; damagedRacks: number };
 }
 
 export type PmState = 'done' | 'upcoming' | 'due' | 'overdue' | 'scheduled' | 'in-progress';
@@ -467,6 +473,8 @@ export interface DcimRack {
   role: string; heightU: number; usedU: number; freeU: number; devices: number; plannedDevices: number; drawKw: number; budgetKw: number; powerPct: number;
   density: 'Standard' | 'High' | 'AI'; liquid: boolean; owner: 'operator' | 'tenant'; tenantId?: string; tenantName?: string; status: DcimStatus; tempC: number;
   pdus: number; power: 'A + B' | 'A + B · one side down' | 'B only' | 'A only'; weightKg: number; maxWeightKg: number; ports: number; portsUsed: number;
+  /* cabinet type, purchase date and audit condition (asset lifecycle, mock/vintage.ts) */
+  model?: string; installed?: number; old?: boolean; condition?: 'Good' | 'Damaged'; conditionNote?: string;
 }
 export interface DcimDeviceType {
   id: string; manufacturer: string; model: string; role: NeRole; category: NeCategory; uHeight: number; fullDepth: boolean; airflow: 'Front to rear' | 'Rear to front' | 'Side to side';
@@ -478,6 +486,8 @@ export interface DcimDevice {
   id: string; name: string; dcId: string; rackId: string; rackName: string; hallId: string; hallName: string; u: number; uHeight: number; typeId: string;
   manufacturer: string; model: string; role: NeRole; category: NeCategory; status: DcimStatus; serial: string; assetTag: string; ip: string; platform: string;
   ports: number; portsUp: number; cables: number; psus: number; powerW: number; tenantId?: string; health: Health;
+  /* what an operator server runs (NetworkElement.purpose) */
+  purpose?: string;
 }
 export type DcimComponentKind = 'Interface' | 'Power port' | 'Console' | 'Management' | 'Module bay';
 export interface DcimComponent {
@@ -597,7 +607,7 @@ export interface DeliveryProject {
 export interface DeliveryMilestone { name: string; start: number; end: number; state: 'done' | 'active' | 'next'; longLead?: boolean }
 export type WoState = 'Planned' | 'Awaiting change' | 'Ready' | 'In progress' | 'Done';
 export interface WorkOrder { id: string; projectId: string; dcId: string; title: string; kind: 'Install' | 'Cabling' | 'Electrical' | 'Mechanical' | 'Commissioning' | 'Migration' | 'Civil' | 'Decommission'; crew: string; crewKind: 'Own technicians' | 'Contractor'; start: number; end: number; state: WoState; changeId: string; changeState: 'Draft' | 'Pending approval' | 'Approved' | 'Implemented'; rackIds: string[]; kit: 'Ready' | 'Partial' | 'Not ordered' }
-export interface PurchaseOrder { id: string; projectId: string; supplier: string; item: string; qty: number; unitCost: number; total: number; ordered: number; due: number; state: 'Draft' | 'Ordered' | 'In transit' | 'Delivered' | 'Late'; leadWeeks: number }
+export interface PurchaseOrder { id: string; projectId: string; supplier: string; item: string; qty: number; unitCost: number; total: number; ordered: number; due: number; state: 'Draft' | 'Ordered' | 'In transit' | 'Delivered' | 'Late'; leadWeeks: number; /** sourced orders: the vendor's contract and the order lines */ contract?: string; lines?: { item: string; qty: number }[] }
 export interface CxTest { level: 1 | 2 | 3 | 4 | 5; name: string; scope: string; due: number; state: 'Passed' | 'Failed' | 'Scheduled' | 'Not started'; witness: string; snags: number }
 export interface Permit { id: string; projectId: string; name: string; authority: string; submitted?: number; due: number; state: 'Not needed' | 'To submit' | 'Submitted' | 'Granted' | 'Expired'; owner: string }
 export interface DesignDoc { id: string; projectId: string; title: string; kind: 'Design basis' | 'Single-line diagram' | 'Cooling P&ID' | 'Floor layout' | 'Cable schedule' | 'Method statement' | 'As-built'; rev: string; state: 'Draft' | 'In review' | 'Issued for construction' | 'As-built'; updated: number; author: string }

@@ -134,6 +134,7 @@ export function Site() {
             <Btn icon={I.Network} onClick={() => go('topology')} disabled={!s.discovered}>Topology</Btn>
             <Btn icon={I.Zap} onClick={() => nav(`/facilities?dc=${dc.id}`)}>Facilities</Btn>
             <Btn icon={I.ArrowLeftRight} onClick={() => nav(`/changes?dc=${dc.id}`)}>Changes</Btn>
+            <Btn icon={I.DraftingCompass} title="Plan capacity, plant or network work for this datacenter" onClick={() => nav(`/planning/new?dc=${dc.id}`)}>Plan</Btn>
             <OpstralBtn title="Ask Opstral AI about this datacenter" onClick={() => ask(`What is at risk in ${dc.id}?`)}>Opstral AI</OpstralBtn>
           </div>
           {collapseBtn}
@@ -171,6 +172,7 @@ export function Site() {
           <Btn icon={I.Network} title="Topology" onClick={() => go('topology')} disabled={!s.discovered} />
           <Btn icon={I.Zap} title="Facilities" onClick={() => nav(`/facilities?dc=${dc.id}`)} />
           <Btn icon={I.ArrowLeftRight} title="Changes & maintenance" onClick={() => nav(`/changes?dc=${dc.id}`)} />
+          <Btn icon={I.DraftingCompass} title="Plan work for this datacenter" onClick={() => nav(`/planning/new?dc=${dc.id}`)} />
           <OpstralBtn title="Ask Opstral AI about this datacenter" onClick={() => ask(`What is at risk in ${dc.id}?`)}>Opstral AI</OpstralBtn>
           {collapseBtn}
         </div>

@@ -1,13 +1,13 @@
 /* New site: the site facts of each candidate plot (plot, grid offer and energisation, water, fibre, land) checked against what the
    design needs; one plot is chosen and, with two or more, the planner scores them (time to power, cost, energy, latency, risk). */
 import * as I from 'lucide-react';
-import { Btn, CheckBox, Chip, Field } from '../../../ui/kit';
+import { Btn, Chip, Field } from '../../../ui/kit';
 import type * as T from '../../../planner/p2b/types';
 import type { StepProps } from '../../../planner/lib/wizardModel';
 import { buildScope } from '../../../planner/lib/scopes/build';
 import { clockMs } from '../../../planner/compat/clock';
 import { Sub } from '../parts';
-import { NumInput, SelectInput, TextInput, date, money, num } from '../common';
+import { CheckLabel, NumInput, SelectInput, TextInput, date, money, num } from '../common';
 
 const ZONING: T.PlannerCandidateSite['zoning'][] = ['Zoned for data centre', 'Rezoning needed', 'Unknown'];
 export function CandidatePlots({ draft, patch, ev, readOnly }: StepProps) {
@@ -31,12 +31,12 @@ export function CandidatePlots({ draft, patch, ev, readOnly }: StepProps) {
           <Field label="Zoning"><SelectInput value={c.zoning} disabled={readOnly} options={ZONING.map(z => ({ id: z, label: z.replace('data centre', 'datacenter') }))} onChange={v => upd(c.id, { zoning: v })} /></Field>
           <Field label="Grid offer"><NumInput value={c.gridOfferMva} min={0} unit="MVA" disabled={readOnly} onChange={v => v !== undefined && upd(c.id, { gridOfferMva: v })} /></Field>
           <Field label="Energised by"><TextInput type="date" value={c.gridEnergisation.slice(0, 10)} disabled={readOnly} onChange={v => v && upd(c.id, { gridEnergisation: `${v}T00:00:00.000Z` })} /></Field>
-          <Field label="Grid offer firm"><CheckBox on={c.gridFirm} label={c.gridFirm ? 'Signed offer' : 'Indicative'} onChange={v => upd(c.id, { gridFirm: v })} /></Field>
+          <Field label="Grid offer firm"><CheckLabel on={c.gridFirm} label={c.gridFirm ? 'Signed offer' : 'Indicative'} onChange={v => upd(c.id, { gridFirm: v })} /></Field>
           <Field label="Water supply"><NumInput value={c.waterM3PerDay} min={0} unit="m³/day" disabled={readOnly} onChange={v => v !== undefined && upd(c.id, { waterM3PerDay: v })} /></Field>
           <Field label="Fibre routes"><NumInput value={c.fibreRoutes} min={0} disabled={readOnly} onChange={v => v !== undefined && upd(c.id, { fibreRoutes: v })} /></Field>
           <Field label="Distance to PoP"><NumInput value={c.kmToPop} min={0} unit="km" disabled={readOnly} onChange={v => v !== undefined && upd(c.id, { kmToPop: v })} /></Field>
           <Field label="Land cost"><NumInput value={c.landCostUsd} min={0} unit="USD" disabled={readOnly} onChange={v => v !== undefined && upd(c.id, { landCostUsd: v })} /></Field>
-          <Field label="Hazards"><span className="row" style={{ gap: 10 }}><CheckBox on={c.floodZone} label="Flood zone" onChange={v => upd(c.id, { floodZone: v })} /><CheckBox on={c.seismicZone} label="Seismic" onChange={v => upd(c.id, { seismicZone: v })} /></span></Field>
+          <Field label="Hazards"><span className="row" style={{ gap: 10 }}><CheckLabel on={c.floodZone} label="Flood zone" onChange={v => upd(c.id, { floodZone: v })} /><CheckLabel on={c.seismicZone} label="Seismic" onChange={v => upd(c.id, { seismicZone: v })} /></span></Field>
         </div>
         {f && <div className="row wrap" style={{ gap: 6, marginTop: 4 }}>{f.checks.map(k => <Chip key={k.key} tone={k.ok ? (k.warn ? 'warning' : 'success') : k.key === 'zoning' ? 'warning' : 'error'} size="xs" dot title={k.detail}>{k.label}</Chip>)}<span className="vw-label" style={{ fontSize: 12 }}>needs {num(f.plotNeedM2 / 10000, 1)} ha, {f.mva} MVA, {num(f.waterM3PerDay)} m³/day, power on by {date(f.powerOn)}{f.proposal ? ` · if energisation is late: ${f.proposal.interimGenerationMw} MW interim generation or phase 1 to ${date(f.proposal.shiftPhase1To)}` : ''}</span></div>}
       </div>); })}

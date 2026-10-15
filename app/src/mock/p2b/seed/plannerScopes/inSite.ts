@@ -223,7 +223,12 @@ function enrichInSite(S: Seed, plans: T.PlannerPlan[]) {
     }
     const kw = n * kwEach;
     if (fit && placed && fit.headroom >= kw) pod.placement = { mode: 'empty-positions', hallId: placed[0].hallId, racks: [], positions: placed, acceptedAt: S.daysAgo(10) };
-    else if (pod.status === 'Approved' || pod.status === 'Executing') demote(S, pod, `${fit?.dc.name ?? 'The site'} has ${fit?.headroom ?? 0} kW of IT headroom and ${placed ? 'room' : 'no contiguous run of positions'} for ${n} racks at ${kwEach} kW (${kw} kW). Raise a linked plant or expansion plan, or move the pod to a site with room.`);
+    else if (pod.status === 'Approved' || pod.status === 'Executing') {
+      demote(S, pod, `${fit?.dc.name ?? 'The site'} has ${fit?.headroom ?? 0} kW of IT headroom and ${placed ? 'room' : 'no contiguous run of positions'} for ${n} racks at ${kwEach} kW (${kw} kW). Raise a linked plant or expansion plan, or move the pod to a site with room.`);
+      /* back to a draft, nothing is ordered yet: it is needed once the in-row units (the longest lead, about 24 weeks) can arrive */
+      const needBy = S.daysAhead(32 * 7);
+      if (new Date(pod.targetGoLive).getTime() < new Date(needBy).getTime()) { pod.targetGoLive = needBy; pod.phases = pod.phases.map(ph => ({ ...ph, goLive: needBy })); }
+    }
   }
   // ── PLN-0002 · hall: a partly used hall, so only its free positions are planned ──
   const hall = by('PLN-0002');
@@ -244,6 +249,14 @@ function enrichInSite(S: Seed, plans: T.PlannerPlan[]) {
       hall.params.hallMode = live ? 'Partly used hall (fill free positions)' : 'Shell hall (full fit-out)'; hall.paramSources.hallMode = 'user';
       Object.assign(hall.params, { costContingencyPct: 12, liquidCapturePct: 75, coolingType: 'chilled-water', uplinkGbps: '100' });
       hall.designPowerKw = kw;
+      // P2B named a 2 MW Hall 3; on our estate the plan is the free positions of the hall it lands in, so title, intent and the
+      // finance condition say what is planned
+      const kwText = kw >= 1000 ? `${+(kw / 1000).toFixed(1)} MW` : `${kw} kW`;
+      hall.title = hall.title.replace(/Hall 3 fit-out · 2 MW/, `${named.name} fit-out · ${kwText}`);
+      hall.intent = hall.intent.replace(/Open Hall 3 for/, `Fill the free positions of ${named.name} for`).replace(/: 2 MW,/, `: ${kwText} (${racks} racks),`);
+      const cond = (t?: string) => t?.replace('Order rows E to H only when rows A to D reach', 'Order the remaining rows only when the first rows reach');
+      hall.conditions = hall.conditions?.map(c => ({ ...c, text: cond(c.text)! }));
+      hall.approvals = hall.approvals?.map(a => (a.conditions ? { ...a, conditions: cond(a.conditions) } : a));
       const p1 = Math.ceil(racks / 2) * density;
       hall.phases = hall.phases.length >= 2 && racks >= 2 ? [{ ...hall.phases[0], name: 'Free positions, first rows', itKw: p1, racks: Math.ceil(racks / 2), halls: 1 }, { ...hall.phases[1], name: 'Free positions, remaining rows', itKw: kw - p1, racks: racks - Math.ceil(racks / 2), halls: 1 }] : [{ ...(hall.phases[0] ?? { id: 'P1', goLive: hall.targetGoLive, status: 'Planned' }), name: 'Free positions', itKw: kw, racks, halls: 1 } as T.PlannerPhase];
       const zoneFree = fit?.zone(named.coolingZoneId) ?? 0;
@@ -258,8 +271,17 @@ function enrichInSite(S: Seed, plans: T.PlannerPlan[]) {
     const hallR = S.halls.filter(h => h.dataCenterId === ret.dataCenterId).sort((a, b) => a.name.localeCompare(b.name))[0];
     if (hallR) {
       const rowsR = S.rows.filter(rw => rw.hallId === hallR.id).sort((a, b) => a.name.localeCompare(b.name)).slice(2, 4);
-      const target = Number(ret.params.densityKwPerRack ?? 40) || 40;
-      const sel = S.racks.filter(r => rowsR.some(rw => rw.id === r.rowId) && r.status !== 'Retired' && r.status !== 'Planned').map(r => ({ rackId: r.id, targetKw: target }));
+      const picked = S.racks.filter(r => rowsR.some(rw => rw.id === r.rowId) && r.status !== 'Retired' && r.status !== 'Planned');
+      // a retrofit densifies: the target is the first standard liquid density at least 30% above the busiest rack today (never below it)
+      const busiest = Math.max(0, ...picked.map(r => r.currentPowerKw ?? 0));
+      const asked = Number(ret.params.densityKwPerRack ?? 40) || 40;
+      const target = [40, 50, 60, 80, 100, 120, 140].find(k => k >= Math.max(asked, busiest * 1.3)) ?? Math.ceil((busiest * 1.3) / 10) * 10;
+      ret.params.densityKwPerRack = target; ret.demand = { ...ret.demand, densityKwPerRack: target };
+      // the rear-door alternative cannot reach liquid densities, but it must still carry today's load: the first rear-door rating above it
+      for (const sc of S.plannerScenarios.filter(x => x.planId === ret.id && typeof x.overrides.densityKwPerRack === 'number' && (x.overrides.densityKwPerRack as number) < busiest))
+        sc.overrides = { ...sc.overrides, densityKwPerRack: [30, 40, 50, 60].find(k => k >= busiest * 1.1) ?? Math.ceil(busiest * 1.1) };
+      for (const sc of S.plannerScenarios.filter(x => x.planId === ret.id && /capped at 30 kW/.test(x.description))) sc.description = sc.description.replace('capped at 30 kW', `capped at ${sc.overrides.densityKwPerRack} kW`);
+      const sel = picked.map(r => ({ rackId: r.id, targetKw: target }));
       const today = sel.reduce((s, x) => s + (S.racks.find(r => r.id === x.rackId)?.currentPowerKw ?? 0), 0);
       ret.inSite = { retrofit: sel };
       ret.params.targetHallId = hallR.id; ret.paramSources.targetHallId = 'user';

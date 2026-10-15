@@ -49,7 +49,7 @@ export interface ReservationRequest { resourceType: E.ResourceType; resourceId: 
 /** Units held in a rack (written as a RackReservation). */
 export interface RackUnitRequest { rackId: string; units: number[]; description: string }
 /** One line of the completion checklist. */
-export interface CloseoutCheck { key: string; label: string; ok: boolean; detail: string }
+export interface CloseoutCheck { key: string; label: string; ok: boolean; detail: string; /** Set by the handover to operations (records the handover updates); does not hold the completion back. */ atHandover?: boolean }
 
 /** Context handed to execution hooks. Every create goes through `create` so ids land in the artefacts. */
 export interface ExecCtx {

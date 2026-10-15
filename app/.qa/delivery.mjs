@@ -21,9 +21,10 @@ await go('/delivery?tab=projects');
 const ids = (await p.locator('.dt-table tbody tr .mono').allInnerTexts()).filter(x => /^PRJ-/.test(x));
 for (const id of ids) for (const t of ['milestones', 'workorders', 'procurement', 'commissioning', 'permits', 'history']) { await go(`/delivery/projects/${id}${t === 'milestones' ? '' : `?tab=${t}`}`); await check(`${id}-${t}`); }
 /* flow: the approved plan → execute → project in progress */
-await go('/planner?st=Approved'); const pl = (await p.locator('.dt-table tbody tr .mono').allInnerTexts()).find(x => /^PLN-/.test(x));
+/* the planner moved to /planning (13-Oct-2026) and "Execute plan" became "Start the build" (hands the plan to Delivery) */
+await go('/planning?tab=plans&status=Approved'); const pl = (await p.locator('.dt-table tbody tr .mono').allInnerTexts()).find(x => /^PLN-/.test(x));
 if (pl) {
-  await go(`/planner/${pl}`); await p.getByRole('button', { name: 'Execute plan' }).click(); await p.waitForTimeout(900);
+  await go(`/planning/plans/${pl}`); await p.getByRole('button', { name: 'Start the build' }).click(); await p.waitForTimeout(2500);
   const prj = pl.replace('PLN-', 'PRJ-');
   await go(`/delivery/projects/${prj}?tab=procurement`);
   ok((await p.innerText('body')).includes('In progress'), `${prj} in progress after execute`);
@@ -36,7 +37,7 @@ if (pl) {
   for (let l = 1; l <= 5; l++) { const btn = p.getByRole('button', { name: new RegExp(`Run L${l} test`) }); if (!(await btn.count())) break; await btn.click(); await p.waitForTimeout(600); }
   const ho = p.getByRole('button', { name: 'Hand over to operations' });
   if (await ho.count()) { await ho.click(); await p.waitForTimeout(800); ok((await p.innerText('body')).includes('Delivered'), 'handed over → Delivered');
-    await go(`/planner/${pl}`); ok((await p.innerText('body')).includes('Delivered'), 'planner plan shows Delivered'); }
+    await go(`/planning/plans/${pl}`); ok((await p.innerText('.page')).includes('Completed'), 'planner plan completed by the handover'); }
   else ok(states.some(s => /Planned/.test(s)), 'handover waits for planned work orders (dates ahead)');
 } else ok(true, 'no approved plan in this persona');
 console.log(errs.length ? `  ✗ console: ${errs.slice(0, 3).join(' | ')}` : '  ✓ no console errors'); if (errs.length) bad++;

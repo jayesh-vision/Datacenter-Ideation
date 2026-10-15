@@ -3,17 +3,18 @@
    with owners and due dates, and delegations. */
 import { useState } from 'react';
 import * as I from 'lucide-react';
-import { Btn, CheckBox, Chip, Field, KV, Modal, Panel, Seg } from '../../../ui/kit';
+import { Btn, Chip, Field, KV, Modal, Panel, Seg } from '../../../ui/kit';
 import type * as T from '../../../planner/p2b/types';
 import * as G from '../../../planner/lib/governance';
 import type { Evaluation } from '../../../planner/lib/engine';
 import type { PlannerData } from '../../../planner/lib/plannerData';
-import { useDelegations, type usePlannerActions } from '../../../planner/lib/usePlanner';
+import { useDelegations, useSourcingContext, type usePlannerActions } from '../../../planner/lib/usePlanner';
+import { sourcingReady } from '../../../planner/lib/packModel';
 import { switchUser, useAuth } from '../../../planner/compat/auth';
 import { clockMs } from '../../../planner/compat/clock';
 import { message } from '../../../planner/compat/notify';
 import { Sub } from '../parts';
-import { NumInput, SelectInput, TextArea, TextInput, date, money } from '../common';
+import { CheckLabel, NumInput, SelectInput, TextArea, TextInput, date, money } from '../common';
 
 type Actions = ReturnType<typeof usePlannerActions>;
 const DECISION_TONE = { Pending: 'warning', Approved: 'success', 'Approved with conditions': 'success', Rejected: 'error' } as const;
@@ -73,6 +74,8 @@ function DelegationModal({ actions, onClose }: { actions: Actions; onClose: () =
 type Decision = G.DecisionInput['decision'];
 export function DecideModal({ plan, review, data, actions, onClose }: { plan: T.PlannerPlan; review: { ev: Evaluation; scenario: T.PlannerScenario | null } | undefined; data: PlannerData; actions: Actions; onClose: (changed: boolean) => void }) {
   const delegations = useDelegations();
+  /* the final approval freezes the baseline with the sourced bill of materials (what comes from the site and stock, what is bought) */
+  const sourcingCtx = useSourcingContext();
   const { users } = useAuth();
   const [decision, setDecision] = useState<Decision>('Approved');
   const [reason, setReason] = useState('');
@@ -87,7 +90,7 @@ export function DecideModal({ plan, review, data, actions, onClose }: { plan: T.
     if (!next || !review) return;
     if ((decision === 'Rejected' || decision === 'Approved with conditions') && reason.trim().length < 5) { setError('Give a reason of a few words; it is kept in the plan history.'); return; }
     if (decision === 'Approved with conditions' && (!conds.length || conds.some(c => !c.text.trim() || !c.owner.trim() || !c.dueDate))) { setError('Each condition needs a text, an owner and a due date.'); return; }
-    const res = actions.decide(plan, next.step, { decision, reason: reason.trim() || undefined, conditions: decision === 'Approved with conditions' ? conds : undefined }, { ev: review.ev, scenario: review.scenario, data }, delegations);
+    const res = actions.decide(plan, next.step, { decision, reason: reason.trim() || undefined, conditions: decision === 'Approved with conditions' ? conds : undefined }, { ev: review.ev, scenario: review.scenario, data, sourcing: sourcingReady(sourcingCtx) ? sourcingCtx : undefined }, delegations);
     if (!res.ok) { setError(res.reason); return; }
     onClose(true);
   };
@@ -105,7 +108,7 @@ export function DecideModal({ plan, review, data, actions, onClose }: { plan: T.
         <Field label={decision === 'Approved' ? 'Comment (optional)' : 'Reason'} required={decision !== 'Approved'} style={{ marginTop: 10 }}><TextArea rows={2} value={reason} onChange={setReason} placeholder={decision === 'Rejected' ? 'What must change before resubmission' : decision === 'Approved with conditions' ? 'Why the conditions are needed' : ''} /></Field>
         {decision === 'Approved with conditions' && <>
           <Sub extra={<Btn size="sm" icon={I.Plus} onClick={() => setConds(c => [...c, { text: '', owner: plan.ownerName, dueDate: new Date(clockMs() + 30 * 864e5).toISOString().slice(0, 10), blocksExecution: false }])}>Add a condition</Btn>}>Conditions</Sub>
-          {conds.map((c, i) => <div key={i} className="pn-grid-4" style={{ marginBottom: 8, alignItems: 'end' }}><Field label="Condition" style={{ gridColumn: 'span 2' }}><TextInput value={c.text} onChange={v => setConds(cs => cs.map((x, k) => (k === i ? { ...x, text: v } : x)))} /></Field><Field label="Owner"><TextInput value={c.owner} onChange={v => setConds(cs => cs.map((x, k) => (k === i ? { ...x, owner: v } : x)))} /></Field><Field label="Due"><TextInput type="date" value={c.dueDate ?? ''} onChange={v => setConds(cs => cs.map((x, k) => (k === i ? { ...x, dueDate: v } : x)))} /></Field><span className="row" style={{ gridColumn: 'span 4', gap: 10 }}><CheckBox on={c.blocksExecution} label="Blocks the build until closed" onChange={v => setConds(cs => cs.map((x, k) => (k === i ? { ...x, blocksExecution: v } : x)))} /><Btn size="sm" variant="ghost" icon={I.Trash2} onClick={() => setConds(cs => cs.filter((_, k) => k !== i))} /></span></div>)}
+          {conds.map((c, i) => <div key={i} className="pn-grid-4" style={{ marginBottom: 8, alignItems: 'end' }}><Field label="Condition" style={{ gridColumn: 'span 2' }}><TextInput value={c.text} onChange={v => setConds(cs => cs.map((x, k) => (k === i ? { ...x, text: v } : x)))} /></Field><Field label="Owner"><TextInput value={c.owner} onChange={v => setConds(cs => cs.map((x, k) => (k === i ? { ...x, owner: v } : x)))} /></Field><Field label="Due"><TextInput type="date" value={c.dueDate ?? ''} onChange={v => setConds(cs => cs.map((x, k) => (k === i ? { ...x, dueDate: v } : x)))} /></Field><span className="row" style={{ gridColumn: 'span 4', gap: 10 }}><CheckLabel on={c.blocksExecution} label="Blocks the build until closed" onChange={v => setConds(cs => cs.map((x, k) => (k === i ? { ...x, blocksExecution: v } : x)))} /><Btn size="sm" variant="ghost" icon={I.Trash2} onClick={() => setConds(cs => cs.filter((_, k) => k !== i))} /></span></div>)}
         </>}
       </>}
       {error && <p className="field-error" style={{ marginTop: 8 }}>{error}</p>}

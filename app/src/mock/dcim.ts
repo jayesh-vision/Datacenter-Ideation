@@ -12,6 +12,7 @@ import type {
 import type { Db } from './generate';
 import { NE_CATEGORY } from '../api/types';
 import { psus, sitePhys } from './physical';
+import { siteLifecycle } from './lifecycle';
 
 const r1 = (n: number) => Math.round(n * 10) / 10;
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -98,6 +99,7 @@ function build(db: Db): DcimModel {
 
   for (const dc of db.datacenters) {
     const phys = sitePhys(db, dc.id);
+    const rackLife = new Map((siteLifecycle(db, dc.id)?.racks ?? []).map(x => [x.rackId, x]));
     const pdus = phys?.pdus ?? [], cords = phys?.cords ?? [];
     for (const p of pdus) pduByRack.set(p.rackId, [...(pduByRack.get(p.rackId) ?? []), p]);
     for (const c of cords) { const n = db.neById.get(c.neId); if (n) cordsByRack.set(n.rackId, [...(cordsByRack.get(n.rackId) ?? []), c]); }
@@ -144,6 +146,7 @@ function build(db: Db): DcimModel {
         const ports = all.reduce((a, n) => a + (db.ifaces.get(n.id)?.length ?? 0), 0);
         const used = all.reduce((a, n) => a + (db.ifaces.get(n.id) ?? []).filter(x => x.peer).length, 0);
         const ai = rk.density === 'ai';
+        const life = rackLife.get(rk.id);
         racks.push({
           id: rk.id, name: rk.name, dcId: dc.id, hallId: id, hallName: room, rowId: `${id}-R${String.fromCharCode(65 + row)}`, rowName: `Row ${String.fromCharCode(65 + row)}`,
           floor: f.name, gridX: col, gridY: row, role: rk.role, heightU: rk.heightU, usedU: rk.usedU, freeU: Math.max(0, rk.heightU - rk.usedU),
@@ -151,7 +154,8 @@ function build(db: Db): DcimModel {
           density: ai ? 'AI' : rk.budgetKw >= 15 ? 'High' : 'Standard', liquid: !!rk.liquid, owner: rk.owner ?? 'operator', tenantId: rk.tenantId, tenantName: rk.tenantId ? custName.get(rk.tenantId) : undefined,
           status: dc.status === 'planned' || (all.length && !live.length) ? 'Planned' : rk.owner === 'tenant' ? 'Tenant-owned' : 'Active', tempC: rk.tempC,
           pdus: rp2.length, power: downSides.length === 0 ? 'A + B' : downSides.length === 2 ? 'A + B · one side down' : downSides.includes('A') ? 'B only' : 'A only',
-          weightKg: Math.round(RACK_KG + all.reduce((a, n) => a + deviceKg(n), 0) + (rk.role === 'ODF / patching' ? 60 : 0)), maxWeightKg: ai ? 1800 : 1360, ports, portsUsed: used
+          weightKg: Math.round(RACK_KG + all.reduce((a, n) => a + deviceKg(n), 0) + (rk.role === 'ODF / patching' ? 60 : 0)), maxWeightKg: ai ? 1800 : 1360, ports, portsUsed: used,
+          model: life ? `${life.manufacturer} ${life.model}` : undefined, installed: life?.installed, old: life?.old, condition: life?.condition, conditionNote: life?.note
         });
       });
     }));
@@ -165,7 +169,7 @@ function build(db: Db): DcimModel {
         id: n.id, name: n.name, dcId: dc.id, rackId: n.rackId, rackName: dc.racks.find(r => r.id === n.rackId)?.name ?? n.rackId, hallId: hall?.id ?? '', hallName: hall?.name ?? '',
         u: n.u, uHeight: n.uSize ?? 1, typeId: typeIdOf(n), manufacturer: n.vendor, model: n.model, role: n.role, category: NE_CATEGORY[n.role], status: deviceStatus(n),
         serial: n.serial, assetTag: `AT-${n.id.replace(/[^A-Z0-9]/gi, '').slice(-8)}`, ip: n.ip, platform: n.os, ports: ifs.length, portsUp: ifs.filter(x => x.state === 'up').length,
-        cables: ifs.filter(x => x.peer).length + cs.length, psus: isOpaque(n) ? cs.length || 2 : psus(n).length, powerW: cs.reduce((a, c) => a + c.drawW, 0), tenantId: n.tenantId, health: n.health
+        cables: ifs.filter(x => x.peer).length + cs.length, psus: isOpaque(n) ? cs.length || 2 : psus(n).length, powerW: cs.reduce((a, c) => a + c.drawW, 0), tenantId: n.tenantId, health: n.health, ...(n.purpose ? { purpose: n.purpose } : {})
       });
     }
 

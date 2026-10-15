@@ -68,7 +68,7 @@ export const APPROVAL_LIMIT_BANDS: AmountBand[] = [
 export function bandFor(amountUsd: number): AmountBand {
   return APPROVAL_LIMIT_BANDS.find(b => b.upTo === null || amountUsd <= b.upTo)!;
 }
-export const bandLabel = (b: AmountBand) => `${b.label} (${b.upTo === null ? 'over $1M' : `up to ${fmtUsd(b.upTo)}`}) · ${b.ruleId}`;
+export const bandLabel = (b: AmountBand) => `${b.label} (${b.upTo === null ? `over ${fmtUsd(1e6)}` : `up to ${fmtUsd(b.upTo)}`}) · ${b.ruleId}`;
 
 /** The amount an approval is routed on: CapEx of the evaluation, which includes IT the operator buys. */
 export function approvalAmount(ev: Evaluation): { amountUsd: number; itUsd: number } {
@@ -85,7 +85,7 @@ export function buildApprovalPath(template: Pick<T.PlannerTemplate, 'name' | 've
   const entries = template?.approvalPath?.length ? template.approvalPath : DEFAULT_PATH;
   const tplBasis = template ? `Template ${template.name} v${template.version} approval path` : 'Default approval path (the plan has no template path)';
   const amountText = `CapEx ${fmtUsd(amountUsd)}${itUsd > 0 ? ` (incl. ${fmtUsd(itUsd)} owned IT)` : ''}`;
-  const bandBasis = `Delegation of authority, approval-limit table ${band.ruleId} "${band.label}": ${amountText} is ${band.upTo === null ? 'over $1M' : `up to ${fmtUsd(band.upTo)}`}`;
+  const bandBasis = `Delegation of authority, approval-limit table ${band.ruleId} "${band.label}": ${amountText} is ${band.upTo === null ? `over ${fmtUsd(1e6)}` : `up to ${fmtUsd(band.upTo)}`}`;
   const steps: T.PlannerApproval[] = [];
   /** Band basis held back for a role the template names later on (it signs there, under the template's name). */
   const deferred = new Map<string, string>();
@@ -378,7 +378,7 @@ export function templateDrift(plan: T.PlannerPlan, template?: T.PlannerTemplate)
 export const WIZARD_FIELDS = [
   'title', 'scope', 'templateId', 'dcTypeKey', 'campusId', 'dataCenterId', 'regionId', 'newSiteName', 'peerDataCenterId', 'climate', 'intent', 'ownerName', 'requestedBy',
   'designPowerKw', 'targetGoLive', 'demand', 'phases', 'params', 'paramSources', 'risks', 'permits', 'aiAssisted', 'revenuePerKwMonth', 'tariffUsdPerKwh',
-  'wizardStep', 'wizardStepKey', 'waves', 'sites', 'candidates', 'plantLines', 'cutIns', 'paths', 'consents', 'dispositions', 'mapping', 'placement', 'ipAllocation',
+  'wizardStep', 'wizardStepKey', 'waves', 'sites', 'candidates', 'plantLines', 'cutIns', 'paths', 'consents', 'dispositions', 'mapping', 'placement', 'ipAllocation', 'inSite',
 ] as const satisfies readonly (keyof T.PlannerPlan)[];
 const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
@@ -464,7 +464,7 @@ export function onFinalApproval(store: Store, i: { plan: T.PlannerPlan; ev: Eval
 /** Complete the plan when every check is green: write the close-out, set phases Live, consume the holds. */
 export function completePlan(store: Store, plan: T.PlannerPlan, data: PlannerData, template: T.PlannerTemplate | undefined, actor: string, at: string, notes?: string): Result<Partial<T.PlannerPlan>> {
   const checklist = closeoutChecks(plan, data, template);
-  if (!closeoutReady(checklist)) return { ok: false, reason: `Not ready to complete: ${checklist.filter(c => !c.ok).map(c => c.label).join(', ')}.` };
+  if (!closeoutReady(checklist)) return { ok: false, reason: `Not ready to complete: ${checklist.filter(c => !c.ok && !c.atHandover).map(c => c.label).join(', ')}.` };
   const fig = closeoutFigures(plan, data);
   moveReservations(store, plan.id, 'Consumed', { at });
   const closeout: T.PlannerCloseout = { completedAt: at, completedBy: actor, deliveredKw: fig.deliveredKw, actualCapex: fig.actualCapex, checklist, notes, measuredKw: fig.measuredKw, measuredAt: fig.measuredKw !== undefined ? at : undefined };

@@ -445,20 +445,32 @@ export function seedPlanner(S: Seed): void {
   }, [{ name: 'Submitted', description: 'Rejected on payback and grid.', overrides: {}, preferred: true }]);
 
   // ── learning loop: feedback on AI suggestions ──
-  // ── replacement plans on the previous-generation fleet (seeded by fleet.ts) ──
-  /* our fleet has other models: the P2B model names a category, and the site's most common operator-owned model of that category is refreshed */
-  const legacyAt = (dc: T.DataCenter | undefined, model: string) => {
-    const at = S.devices.filter(d => dc && d.dataCenterId === dc.id && d.rackId && d.ownerTeam !== 'Tenant' && d.lifecycleState === 'Active');
-    const exact = at.filter(d => d.model === model); if (exact.length) return exact;
-    const cat = /R7|server/i.test(model) ? 'Server' : 'Switch';
-    const counts = new Map<string, number>(); for (const d of at.filter(x => x.category === cat)) counts.set(d.model ?? '', (counts.get(d.model ?? '') ?? 0) + 1);
-    const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-    return top ? at.filter(d => d.category === cat && d.model === top).slice(0, 48) : [];
+  // ── replacement plans on the previous-generation fleet (15-Oct-2026: the estate's own vintage, mock/vintage.ts) ──
+  /* The estate ages its kit: previous-generation servers and switches past end of sale, old 600 × 1000 racks and racks marked damaged at
+     audit, at every live site. The demo plans select those real records at the site their campus key lands on, in every persona and
+     geography; titles and intents name what was actually selected. */
+  const pastEol = (model?: string) => { const am = S.assetModels.find(a => a.model === model); return !!am?.eolDate && new Date(am.eolDate).getTime() < S.now; };
+  const ownedAt = (dc: T.DataCenter | undefined) => S.devices.filter(d => dc && d.dataCenterId === dc.id && d.rackId && d.ownerTeam !== 'Tenant' && d.lifecycleState === 'Active');
+  /** Previous-generation devices of a category at a site (past end of sale); `prefer` narrows to a model family when the site has it. */
+  const legacyAt = (dc: T.DataCenter | undefined, category: T.Device['category'], prefer: RegExp[] = [], skip?: RegExp) => {
+    const at = ownedAt(dc).filter(d => d.category === category && pastEol(d.model) && !(skip && skip.test(d.name ?? '')));
+    for (const re of prefer) { const p = at.filter(d => re.test(d.model ?? '')); if (p.length) return p; }
+    return at;
   };
-  const replacePlan = (o: { title: string; scope: T.PlannerScope; status: T.PlannerPlanStatus; code: string; devices: T.Device[]; model?: string; intent: string; owner: string; extra: Record<string, number | string | boolean>; weeks: number; unitCost: number; unitsOf: (n: number) => number; racksOnly?: boolean }) => {
-    const dc = dcByCode(o.code); if (!dc || !o.devices.length) return;
+  const short = (m: string) => m.replace(/^(PowerEdge|ProLiant|Spectrum-\d) /, '').replace(/^(Nexus \d{4})(PQ|PX)$/, '$1').replace(/-TNR$/, '');
+  /** "R740", "R740-class" when several models, or "Nexus 3172 / 9372" for two of a family. */
+  const modelsLabel = (ds: T.Device[]) => {
+    const counts = new Map<string, number>(); for (const d of ds) counts.set(short(d.model ?? ''), (counts.get(short(d.model ?? '')) ?? 0) + 1);
+    const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([m]) => m);
+    /* a mix that includes Dell's 14th generation reads as the R740 class (the generation being retired), as the planners say it */
+    return top.length <= 1 ? top[0] ?? '' : top.length === 2 && top.every(m => m.startsWith('Nexus')) ? `${top[0]} / ${top[1].replace('Nexus ', '')}` : top.some(m => /^R[67]40$/.test(m)) ? 'R740-class' : `${top[0]}-class`;
+  };
+  const listModels = (ds: T.Device[]) => [...new Set(ds.map(d => d.model ?? ''))].join(', ');
+  const outOfWarranty = (ds: T.Device[]) => ds.filter(d => d.warrantyEndDate && new Date(d.warrantyEndDate).getTime() < S.now).length;
+  const replacePlan = (o: { title: string; scope: T.PlannerScope; status: T.PlannerPlanStatus; code: string; devices: T.Device[]; model?: string; intent: string; owner: string; extra: Record<string, number | string | boolean>; weeks: number; unitCost: number; unitsOf: (n: number) => number; racksOnly?: boolean; rackIds?: string[] }) => {
+    const dc = dcByCode(o.code); if (!dc || !(o.rackIds?.length || o.devices.length)) return;
     const cmp = S.campuses.find(c => c.id === dc.campusId);
-    const racks = [...new Set(o.devices.map(d => d.rackId!))];
+    const racks = o.rackIds ?? [...new Set(o.devices.map(d => d.rackId!))];
     const affected = o.racksOnly ? racks.length : o.devices.length;
     const units = o.unitsOf(affected);
     const newKw = Math.max(1, Math.round((o.devices.reduce((a, d) => a + (d.powerDrawW ?? 400), 0) / 1000) * (o.racksOnly ? 1 : 0.7)));
@@ -472,9 +484,17 @@ export function seedPlanner(S: Seed): void {
       risks: [risk(40, 'Workload cut-over overruns the change window', 'Facility', 'Medium', 'Medium', 'Rehearse the first wave; keep rollback racks powered for 48 hours')], permits: [], aiAssisted: false, wizardStep: 4,
     }, [{ name: 'As planned', description: 'Selected devices, catalogue model, waves as entered.', overrides: {}, preferred: true }]);
   };
-  replacePlan({ title: 'Ashburn DC-1 · R740 server refresh', scope: 'server-refresh', status: 'In review', code: 'ASH-DC1', devices: legacyAt(dcByCode('ASH-DC1'), 'PowerEdge R740'), intent: 'Replace the PowerEdge R740 fleet in Ashburn DC-1: out of warranty, past end of life, six faulty. Consolidate 2:1 onto R760.', owner: S.byRole('Capacity Planner').name, extra: { replacementModel: 'PowerEdge R760', consolidationRatio: 2, oldEquipment: 'Certified disposal', migrationApproach: 'Rolling, rack by rack', racksPerWave: 4 }, weeks: 16, unitCost: 14000, unitsOf: n => Math.ceil(n / 2) });
-  replacePlan({ title: 'Dublin CO-1 · Nexus 3172 leaf refresh', scope: 'network-refresh', status: 'Draft', code: 'DUB-CO1', devices: legacyAt(dcByCode('DUB-CO1'), 'Nexus 3172PQ'), intent: 'Replace end-of-life Nexus 3172PQ leaves in Dublin CO-1 with Arista 7050X3; reuse optics where they fit.', owner: S.byRole('Network Engineer').name, extra: { replacementModel: '7050X3-48YC8', opticsReusePct: 60, oldEquipment: 'Certified disposal', racksPerWave: 6 }, weeks: 12, unitCost: 38000, unitsOf: n => n });
-  replacePlan({ title: 'Frankfurt Colo · 42U rack replacement, row B', scope: 'rack-replace', status: 'Draft', code: 'FRA-COLO1', devices: legacyAt(dcByCode('FRA-COLO1'), 'QFX5100-48S'), intent: 'Swap the old 42U racks holding the QFX5100 leaves for 48U racks with metered A and B power strips.', owner: S.byRole('Facilities Director').name, extra: { rackModel: 'NetShelter SX 48U', replacePdus: true, reRack: true, oldEquipment: 'Certified disposal', racksPerWave: 2 }, weeks: 10, unitCost: 3800 + 2800, unitsOf: n => n, racksOnly: true });
+  { const ash = dcByCode('ASH-DC1'); const devs = legacyAt(ash, 'Server'); const faulty = devs.filter(d => d.status === 'Faulty').length;
+    replacePlan({ title: `Ashburn DC-1 · ${modelsLabel(devs)} server refresh`, scope: 'server-refresh', status: 'In review', code: 'ASH-DC1', devices: devs, intent: `Replace the ${devs.length} previous-generation servers in Ashburn DC-1 (${listModels(devs)}): past end of sale, ${outOfWarranty(devs)} out of warranty${faulty ? `, ${faulty} faulty` : ''}. Consolidate 2:1 onto R760.`, owner: S.byRole('Capacity Planner').name, extra: { replacementModel: 'PowerEdge R760', consolidationRatio: 2, oldEquipment: 'Certified disposal', migrationApproach: 'Rolling, rack by rack', racksPerWave: 4 }, weeks: 16, unitCost: 14000, unitsOf: n => Math.ceil(n / 2) }); }
+  { const dub = dcByCode('DUB-CO1'); const devs = legacyAt(dub, 'Switch', [], /spine/i);
+    replacePlan({ title: `Dublin CO-1 · ${modelsLabel(devs)} leaf refresh`, scope: 'network-refresh', status: 'Draft', code: 'DUB-CO1', devices: devs, intent: `Replace the ${devs.length} end-of-life ${listModels(devs)} leaf switches in Dublin CO-1 with Arista 7050X3; reuse optics where they fit.`, owner: S.byRole('Network Engineer').name, extra: { replacementModel: '7050X3-48YC8', opticsReusePct: 60, oldEquipment: 'Certified disposal', racksPerWave: 6 }, weeks: 12, unitCost: 38000, unitsOf: n => n }); }
+  { const fra = dcByCode('FRA-COLO1');
+    const racks = S.racks.filter(r => fra && r.dataCenterId === fra.id && r.status !== 'Planned' && (/^RT-TS8-/.test(r.rackTypeId ?? '') || r.condition === 'Damaged')).sort((a, b) => Number(b.condition === 'Damaged') - Number(a.condition === 'Damaged') || a.name.localeCompare(b.name, undefined, { numeric: true })).slice(0, 6);
+    const ids = new Set(racks.map(r => r.id)); const devs = S.devices.filter(d => d.rackId && ids.has(d.rackId) && d.lifecycleState !== 'Retired' && d.lifecycleState !== 'Disposed');
+    const old = racks.filter(r => /^RT-TS8-/.test(r.rackTypeId ?? '')).length, dmg = racks.filter(r => r.condition === 'Damaged').length;
+    const rows = [...new Set(racks.map(r => S.rows.find(x => x.id === r.rowId)?.name).filter(Boolean))];
+    const what = [old ? `${old} old 600 × 1000 rack${old === 1 ? '' : 's'}` : '', dmg ? `${dmg} rack${dmg === 1 ? '' : 's'} damaged at audit` : ''].filter(Boolean).join(' and ');
+    replacePlan({ title: `Frankfurt Colo · ${old ? 'old' : 'damaged'} rack replacement${rows.length === 1 ? `, ${String(rows[0]).replace(/^Row\b/, 'row')}` : ''}`, scope: 'rack-replace', status: 'Draft', code: 'FRA-COLO1', devices: devs, rackIds: racks.map(r => r.id), intent: `Swap the ${what} for 48U racks with metered A and B power strips.`, owner: S.byRole('Facilities Director').name, extra: { rackModel: 'NetShelter SX 48U', replacePdus: true, reRack: true, oldEquipment: 'Certified disposal', racksPerWave: 2 }, weeks: 10, unitCost: 3800 + 2800, unitsOf: n => n, racksOnly: true }); }
 
   const caps = ['intent-to-profile', 'sizing-assistant', 'phasing-optimiser', 'cost-estimator', 'risk-predictor', 'compliance-check', 'placement-optimiser', 'document-extraction'];
   const plans = S.plannerPlans;

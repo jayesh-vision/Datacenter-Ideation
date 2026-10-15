@@ -18,6 +18,9 @@ import '../../styles/dcim.css';
 import '../../styles/planner.css';
 import '../../styles/ipam.css';
 
+/* a delivery project is its planner plan's project (PRJ-n = PLN-n) */
+const planOf = (projectId: string) => projectId.replace(/^PRJ-/, 'PLN-');
+
 type Tab = 'overview' | 'approvals' | 'checks' | 'review' | 'history';
 
 export function ChangePage() {
@@ -39,9 +42,9 @@ export function ChangePage() {
   return (
     <div className="page dcim planner">
       <PageHead title={<span className="mono">{c.id}</span>} chips={<><Chip tone={CLASS_TONE[c.cls]}>{c.cls}</Chip><ChangeChip s={c.status} />{c.outcome && <Chip tone={c.outcome === 'Successful' ? 'success' : 'error'} dot>{c.outcome}</Chip>}</>}
-        sub={<>{c.title} · <DcLink id={c.dcId} /> · {c.source}{c.projectId ? <> · project <Link className="ent-link mono" to={`/delivery/projects/${c.projectId}?tab=workorders`}>{c.projectId}</Link></> : null}{c.incidentId ? <> · incident <IncLink id={c.incidentId} /></> : null}</>}
+        sub={<>{c.title} · <DcLink id={c.dcId} /> · {c.source}{c.projectId ? <> · project <Link className="ent-link mono" to={`/delivery/projects/${c.projectId}?tab=workorders`}>{c.projectId}</Link> · plan <Link className="ent-link mono" to={`/planning/plans/${planOf(c.projectId)}?tab=delivery`}>{planOf(c.projectId)}</Link></> : null}{c.incidentId ? <> · incident <IncLink id={c.incidentId} /></> : null}</>}
         actions={c.source === 'Delivery'
-          ? <Link className="nst-btn nst-btn--sm" to={`/delivery/projects/${c.projectId}?tab=workorders`}>Open work order {c.woId}</Link>
+          ? <><Link className="nst-btn nst-btn--sm" to={`/planning/plans/${planOf(c.projectId ?? '')}?tab=delivery`}>Open plan {planOf(c.projectId ?? '')}</Link><Link className="nst-btn nst-btn--sm" to={`/delivery/projects/${c.projectId}?tab=workorders`}>Open work order {c.woId}</Link></>
           : c.status === 'Pending approval' && step ? <><Btn icon={I.X} onClick={() => decide(false)}>Reject</Btn><Btn variant="filled" icon={I.ShieldCheck} disabled={!!blocking.length} title={blocking.length ? blocking.map(v => v.text).join('; ') : undefined} onClick={() => decide(true)}>Approve as {step.role}</Btn></>
           : op ? <Transitions c={op} /> : null} />
       {blocking.length > 0 && <p className="pl-verdict is-blocked"><I.OctagonX size={16} />Blocked by policy: {blocking.map(v => v.text).join(' · ')}</p>}

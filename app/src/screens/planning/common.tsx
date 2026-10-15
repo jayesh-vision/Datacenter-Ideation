@@ -9,7 +9,7 @@ import type * as T from '../../planner/p2b/types';
 import type { Finding, ParamValue } from '../../planner/lib/engine';
 import { fmtKw as fmtKwEngine } from '../../planner/lib/engine';
 import { onNotify, type Note } from '../../planner/compat/notify';
-import { Chip, Modal, Btn } from '../../ui/kit';
+import { Chip, Modal, Btn, CheckBox } from '../../ui/kit';
 import { fmtDate as fmtDay, fmtMoney } from '../../lib/format';
 import type { Tone } from '../../lib/tone';
 
@@ -48,15 +48,20 @@ export const FINDING_TONE: Record<Finding['status'], Tone> = { pass: 'success', 
 export const fmtValue = (v: ParamValue | undefined, unit?: string) => (v === undefined || v === '' ? '—' : typeof v === 'boolean' ? (v ? 'Yes' : 'No') : typeof v === 'number' ? `${num(v, 2)}${unit ? ` ${unit}` : ''}` : String(v));
 
 /* ---- findings (rule checks) as a list */
-export function FindingList({ findings, empty = 'No rules apply here.' }: { findings: Finding[]; empty?: string }) {
+/** `rich` adds the rule id, the measured value, the standard or source with its threshold, and a "declared, not measured" chip (Rules tab). */
+export function FindingList({ findings, empty = 'No rules apply here.', rich }: { findings: Finding[]; empty?: string; rich?: boolean }) {
   const order = { fail: 0, warn: 1, pass: 2, 'n/a': 3 };
   const rows = [...findings].sort((a, b) => order[a.status] - order[b.status]);
   if (!rows.length) return <p className="vw-label">{empty}</p>;
   return (
-    <ul className="pn-findings">{rows.map(f => (
+    <ul className={`pn-findings${rich ? ' is-rich' : ''}`}>{rows.map(f => (
       <li key={f.rule.id}>
         <Chip tone={FINDING_TONE[f.status]} size="xs">{f.status === 'n/a' ? 'N/A' : f.status[0].toUpperCase() + f.status.slice(1)}</Chip>
-        <span className="cell-2"><b>{f.rule.title}</b><small>{f.detail}</small></span>
+        {rich ? <span className="cell-2">
+          <span className="pn-find-head"><b>{f.rule.title}</b><span className="mono vw-label">{f.rule.id}</span>{f.value && <Chip tone="neutral" size="xs">{f.value}</Chip>}{/^Declared/i.test(f.detail) && <Chip tone="warning" size="xs" outline>declared, not measured</Chip>}</span>
+          <small>{f.detail}</small>
+          {(f.rule.standard || f.rule.source || f.rule.threshold !== undefined) && <small className="pn-find-src">{[f.rule.standard ?? f.rule.source, f.rule.threshold !== undefined ? `threshold ${f.rule.threshold}` : ''].filter(Boolean).join(' · ')}</small>}
+        </span> : <span className="cell-2"><b>{f.rule.title}</b><small>{f.detail}</small></span>}
         <Chip tone={f.rule.severity === 'hard' ? 'error' : 'warning'} size="xs" outline>{f.rule.severity === 'hard' ? 'Must' : 'Should'}</Chip>
       </li>
     ))}</ul>
@@ -107,4 +112,9 @@ export function PlannerToasts() {
       <div style={{ flex: 1, minWidth: 0 }}><b>{bad ? (n.kind === 'error' ? 'Not done' : 'Check this') : 'Done'}</b><span>{n.text}</span></div>
       <button type="button" onClick={() => setN(null)} className="toast-x" aria-label="Dismiss"><X size={14} /></button>
     </div></div>, document.body);
+}
+
+/** The kit's CheckBox with its label shown next to it (the kit only gives the label to screen readers); the text toggles it too. */
+export function CheckLabel({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
+  return <label className="row" style={{ gap: 8, cursor: 'pointer', fontSize: 13, alignItems: 'center', display: 'inline-flex' }}><CheckBox on={on} label={label} onChange={onChange} /><span>{label}</span></label>;
 }

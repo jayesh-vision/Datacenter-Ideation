@@ -2,18 +2,27 @@
    - milestones = the plan's schedule (lead times); progress is read against today, so a project is "late" only when its own dates say so;
    - work orders = the field-work milestones split into crew windows, each with its own delivery change request (CR-…) and a kit status
      from the purchase orders that must land before it starts;
-   - purchase orders = the plan's plant lines, racks and compute, ordered at approval, due after their lead time;
+   - purchase orders = the plan's sourced bill of materials: one order per vendor and phase, under the vendor's contract, for what is
+     bought (site capacity and stock are not ordered). Once executed, the orders execution recorded; before that the same sourcing the
+     plan pack shows, as Draft orders, so both screens list the same orders before and after. Ordered at approval (or the order-by
+     date), due after their lead time. A plan with nothing to source falls back to its plant lines, racks and compute;
    - commissioning L1–L5 (factory witness → site acceptance → pre-functional → functional → integrated systems test) on the schedule's dates;
-   - permits and design documents by scope; handover once L5 has passed and no work order is open: the plan and its capacity plans are
-     marked Delivered. Cost: earned value = budget × progress, actual from a per-project factor, CPI / SPI from those.
+   - permits = the plan's permit register (by scope when the plan has none); design documents by scope; handover once L5 has passed
+     and no work order is open: the plan is completed in the planner (bridge.completeFromDelivery, the planner's own completion).
+   Delivery is the source of truth for the build (14-Oct-2026): the planner reads these records through compat/delivery/handoff
+   (registered at the end of this file) and keeps only its holds and plan-type records. Cost: earned value = budget × progress, actual from a per-project factor, CPI / SPI from those.
    Derived per data version; the user's moves (start / complete a work order, run a test, hand over) live in an overlay. */
 import type { CxTest, DeliveryMilestone, DeliveryProject, DeliveryProjectView, DesignDoc, Permit, PlannerPlan, PurchaseOrder, WorkOrder } from '../api/types';
 import type { Db } from './generate';
 import { activeGeo } from './geo';
 import { bridgedPlans, completeFromDelivery } from './p2b/bridge';
+import { notifyPlanner, plannerDb } from './p2b';
+import { toUsd } from './p2b/adapter';
+import { registerDelivery, type DeliveryRef } from '../planner/compat/delivery/handoff';
 /* plans past approval in the planner (P2B port), read in the delivery shape */
 const plannerPlans = (db: Db) => bridgedPlans(db).map(b => b.plan);
-const evaluate = (db: Db, p: PlannerPlan) => bridgedPlans(db).find(b => b.plan.id === p.id)!.eval;
+const bridged = (db: Db, p: PlannerPlan) => bridgedPlans(db).find(b => b.plan.id === p.id)!;
+const evaluate = (db: Db, p: PlannerPlan) => bridged(db, p).eval;
 import { mulberry32, seedOf, between } from '../lib/rng';
 import { DAY } from './seed';
 
@@ -54,10 +63,22 @@ function view(db: Db, p: PlannerPlan): DeliveryProjectView {
   const delivered = p.status === 'Delivered' || overlay.handed.has(pid);
   /* milestones */
   const milestones: DeliveryMilestone[] = e.tasks.map(t => ({ name: t.name, start: t.start, end: t.end, longLead: t.longLead, state: delivered || t.end <= now ? 'done' : t.start <= now ? 'active' : 'next' }));
-  /* purchase orders: plant lines, racks, compute — ordered at approval, due after the lead time */
+  /* purchase orders: the sourced orders (one per vendor and phase; drafts until executed), else the plant lines, racks and compute */
   const pos: PurchaseOrder[] = [];
   let k = 0;
-  for (const c of e.capex) {
+  const { vendorOrders, planned: draftPos } = bridged(db, p);
+  const poState = (poId: string, due: number, late: boolean): PurchaseOrder['state'] => overlay.po.has(poId) ? 'Delivered' : draftPos && !delivered ? 'Draft' : p.status === 'Approved' && !delivered ? 'Ordered' : delivered || due + (late ? 3 * WEEK : 0) < now ? (late && due + 3 * WEEK > now ? 'Late' : 'Delivered') : due - 2 * WEEK < now ? 'In transit' : 'Ordered';
+  if (vendorOrders?.length) for (const v of vendorOrders) {
+    const qty = v.lines.reduce((a, l) => a + l.qty, 0) || 1;
+    const lead = v.leadWeeks || 8;
+    const ordered = Math.max(approvedAt, start, v.orderBy ? new Date(v.orderBy).getTime() : 0);
+    const due = ordered + lead * WEEK;
+    const late = !delivered && p.status === 'Executing' && due < now && r() < 0.18;
+    const poId = `PO-${pid.slice(4)}-${String(++k).padStart(2, '0')}`;
+    pos.push({ id: poId, projectId: pid, supplier: v.vendorName, item: v.lines.map(l => `${l.qty} × ${l.model ?? l.item}`).join(', ') + (v.phaseName ? ` · ${v.phaseName}` : ''), qty, unitCost: Math.round(v.value / qty), total: v.value,
+      ordered, due: late ? due + 3 * WEEK : due, leadWeeks: lead, state: poState(poId, due, late), contract: v.contractLabel, lines: v.lines.map(l => ({ item: l.model ?? l.item, qty: l.qty })) });
+  }
+  else for (const c of e.capex) {
     const cat = catOf(c.line); if (!cat) continue;
     const qty = Number(/^(\d+)\s*×/.exec(c.basis)?.[1] ?? 1);
     const ordered = Math.max(approvedAt, start);
@@ -65,7 +86,7 @@ function view(db: Db, p: PlannerPlan): DeliveryProjectView {
     const late = !delivered && p.status === 'Executing' && due < now && r() < 0.18;
     const poId = `PO-${pid.slice(4)}-${String(++k).padStart(2, '0')}`;
     pos.push({ id: poId, projectId: pid, supplier: SUPPLIER[cat][seedOf(`${p.id}${cat}`) % 2], item: c.line, qty, unitCost: Math.round(c.amount / Math.max(1, qty)), total: c.amount,
-      ordered, due: late ? due + 3 * WEEK : due, leadWeeks: LEAD[cat], state: overlay.po.has(poId) ? 'Delivered' : p.status === 'Approved' && !delivered ? 'Ordered' : delivered || due + (late ? 3 * WEEK : 0) < now ? (late && due + 3 * WEEK > now ? 'Late' : 'Delivered') : due - 2 * WEEK < now ? 'In transit' : 'Ordered' });
+      ordered, due: late ? due + 3 * WEEK : due, leadWeeks: LEAD[cat], state: poState(poId, due, late) });
   }
   /* work orders: the field-work milestones, split in crew windows */
   const cr = crews();
@@ -117,7 +138,13 @@ function view(db: Db, p: PlannerPlan): DeliveryProjectView {
     : p.scope === 'new-hall' ? [['Fire safety approval for the hall', auth.fire, finish - 6 * WEEK], ['Electrical installation approval', auth.elec, finish - 4 * WEEK]]
     : p.scope === 'plant-upgrade' ? [[p.plant === 'Generator' ? 'Generator emission consent' : 'Electrical installation approval', p.plant === 'Generator' ? auth.env : auth.elec, finish - 2 * WEEK]]
     : p.scope === 'ai-pod' ? [['Electrical installation approval (busway)', auth.elec, finish - 3 * WEEK]] : [];
-  const permits: Permit[] = permitDefs.map(([name, authority, due], i) => ({ id: `PMT-${pid.slice(4)}-${i + 1}`, projectId: pid, name, authority, due, submitted: due - 10 * WEEK < now ? due - 10 * WEEK : undefined, owner: manager,
+  /* the plan's own permit register when it has one (the planner's living list), else the scope's usual permits */
+  const register = bridged(db, p).source.permits ?? [];
+  const PERMIT_STATE: Record<string, Permit['state']> = { Approved: 'Granted', Applied: 'Submitted', 'In review': 'Submitted', Expired: 'Expired', 'Not started': 'To submit' };
+  const permits: Permit[] = register.length
+    ? register.map((pm, i) => { const due = new Date(pm.neededBefore).getTime(); const filed = pm.appliedAt ? new Date(pm.appliedAt).getTime() : due - pm.leadWeeks * WEEK; const state: Permit['state'] = delivered ? 'Granted' : PERMIT_STATE[pm.status] ?? 'To submit';
+      return { id: `PMT-${pid.slice(4)}-${i + 1}`, projectId: pid, name: pm.name, authority: pm.authority, due, submitted: state === 'Submitted' || state === 'Granted' ? Math.min(filed, now) : undefined, owner: manager, state }; })
+    : permitDefs.map(([name, authority, due], i) => ({ id: `PMT-${pid.slice(4)}-${i + 1}`, projectId: pid, name, authority, due, submitted: due - 10 * WEEK < now ? due - 10 * WEEK : undefined, owner: manager,
     state: delivered || due <= now ? 'Granted' : due - 10 * WEEK <= now ? 'Submitted' : 'To submit' }));
   /* design documents */
   const docKinds: DesignDoc['kind'][] = p.scope === 'refresh' ? ['Design basis', 'Method statement', 'Cable schedule'] : p.scope === 'plant-upgrade' ? ['Design basis', 'Single-line diagram', 'Method statement']
@@ -158,7 +185,7 @@ export function advanceWorkOrder(db: Db, woId: string, who: string): WorkOrder['
     if (wo.kit !== 'Ready') throw new Error(`Kit not on site (${wo.kit.toLowerCase()}): the work cannot start before its purchase orders land`);
   }
   const next: WorkOrder['state'] = wo.state === 'In progress' ? 'Done' : 'In progress';
-  overlay.wo.set(woId, next);
+  overlay.wo.set(woId, next); notifyPlanner();
   log(pv.project.id, who, `${woId} ${next === 'Done' ? 'completed' : 'started'} (${wo.title}); ${wo.changeId} ${next === 'Done' ? 'implemented' : 'approved'}`, db.now);
   return next;
 }
@@ -169,16 +196,17 @@ export function runTest(db: Db, projectIdArg: string, level: number, who: string
   const before = v.tests.filter(x => x.level < level && x.state !== 'Passed');
   if (before.length) throw new Error(`Pass L${before[0].level} first: commissioning runs in order`);
   if (level >= 3 && v.workOrders.some(w => w.kind !== 'Commissioning' && w.state !== 'Done')) throw new Error('Finish the installation work orders before start-up testing');
-  overlay.tests.set(`${projectIdArg}:L${level}`, 'Passed');
+  overlay.tests.set(`${projectIdArg}:L${level}`, 'Passed'); notifyPlanner();
   log(projectIdArg, who, `L${level} ${t.name} passed${t.snags ? ` (${t.snags} snags closed)` : ''}`, db.now);
   return 'Passed';
 }
-export function handover(db: Db, projectIdArg: string, who: string) {
+export function handover(db: Db, projectIdArg: string, who: string, notes?: string) {
   const v = deliveryProject(db, projectIdArg); if (!v) throw new Error('Unknown project');
   if (!v.canHandover) throw new Error('Handover needs every work order done and L1–L5 passed');
   overlay.handed.set(projectIdArg, db.now);
-  completeFromDelivery(db, v.plan.id, who);
   log(projectIdArg, who, 'Handover to operations signed: as-built issued, the plan is completed in the planner', db.now);
+  completeFromDelivery(db, v.plan.id, who, notes);
+  notifyPlanner();
 }
 /* goods receipt: the delivery is checked in on site (the kit of the work orders that need it becomes ready) */
 export function receivePo(db: Db, poId: string, who: string) {
@@ -186,7 +214,27 @@ export function receivePo(db: Db, poId: string, who: string) {
   const o = v.pos.find(x => x.id === poId)!;
   if (o.state === 'Delivered') throw new Error('Already received');
   if (v.project.state === 'Mobilising') throw new Error('The project has not started: execute the plan first');
-  overlay.po.add(poId);
+  overlay.po.add(poId); notifyPlanner();
   log(v.project.id, who, `${poId} received on site: ${o.qty} × ${o.item} from ${o.supplier}`, db.now);
 }
 
+
+/* ---- the planner's handle on Delivery (compat/delivery/handoff): money back in the planner's dollars, dates as ISO */
+const isoOf = (t: number) => new Date(t).toISOString();
+function refOf(v: DeliveryProjectView): DeliveryRef {
+  const x = v.project;
+  return {
+    projectId: x.id, state: x.state, health: x.health, manager: x.manager, start: isoOf(x.start), finish: isoOf(x.finish), progress: x.progress, plannedProgress: x.plannedProgress,
+    budgetUsd: Math.round(toUsd(x.budget)), earnedUsd: Math.round(toUsd(x.earned)), actualUsd: Math.round(toUsd(x.actual)), cpi: x.cpi, spi: x.spi,
+    purchaseOrders: v.pos.map(o => ({ id: o.id, supplier: o.supplier, item: o.item, contract: o.contract, totalUsd: Math.round(toUsd(o.total)), due: isoOf(o.due), leadWeeks: o.leadWeeks, state: o.state })),
+    workOrders: v.workOrders.map(w => ({ id: w.id, title: w.title, kind: w.kind, crew: w.crew, start: isoOf(w.start), end: isoOf(w.end), state: w.state, changeId: w.changeId, changeState: w.changeState })),
+    tests: v.tests.map(t => ({ level: t.level, name: t.name, state: t.state, due: isoOf(t.due) })),
+    permits: v.permits.map(pm => ({ id: pm.id, name: pm.name, authority: pm.authority, due: isoOf(pm.due), state: pm.state })),
+    docs: v.docs.map(d => ({ id: d.id, title: d.title, kind: d.kind, state: d.state })),
+    canHandover: v.canHandover, handedOver: x.state === 'Delivered',
+  };
+}
+registerDelivery({
+  project: plnId => { const db = plannerDb(); if (!db) return null; const v = deliveryProject(db, projectId(plnId)); return v ? refOf(v) : null; },
+  handover: (plnId, who, notes) => { const db = plannerDb(); if (!db) throw new Error('Delivery is not available'); handover(db, projectId(plnId), who, notes); },
+});

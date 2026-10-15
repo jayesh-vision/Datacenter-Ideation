@@ -1,0 +1,74 @@
+/* Planner charts and drawings (screens/planning/charts/*, pack/drawings.tsx): frame, legend, empty state, floating tooltip,
+   metric switch rows and the benchmark band. Colours come from NST tokens; layout only. */
+.pc-draw { position: relative; width: 100%; min-width: 0; }
+.pc-draw svg { display: block; max-width: 100%; overflow: visible; }
+.pc-draw svg text { font-family: var(--num, inherit); }
+.pc-empty { min-height: 160px; display: grid; place-content: center; gap: 4px; text-align: center; border-radius: 8px; background: var(--vw-color-slate-50); color: var(--ink-500); font-size: 12.5px; padding: 16px; }
+.pc-empty b { color: var(--ink-700); font-weight: 500; font-size: 13px; }
+.pc-caption { margin: 6px 0 0; font-size: 11.5px; color: var(--ink-500); line-height: 1.45; }
+
+/* legend */
+.pc-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin-top: 8px; font-size: 11.5px; color: var(--ink-600); }
+.pc-legend > span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.pc-legend i { display: inline-block; flex: none; width: 12px; height: 12px; border-radius: 3px; }
+.pc-legend i.is-line, .pc-legend i.is-dash { width: 16px; height: 0; border-radius: 0; border-top: 2px solid; background: none !important; }
+.pc-legend i.is-dash { border-top-style: dashed; }
+.pc-legend i.is-diamond { width: 9px; height: 9px; transform: rotate(45deg); border-radius: 1px; }
+.pc-legend i.is-dot { width: 10px; height: 10px; border-radius: 50%; }
+.pc-legend i.is-hatch { border: 1px solid; background: repeating-linear-gradient(135deg, currentColor 0 1.5px, transparent 1.5px 4.5px); }
+
+/* floating tooltip (portal; the look is .ch-tip from app.css) */
+.pc-tip { position: fixed; z-index: 1000; max-width: 300px; }
+.pc-tip .ch-tip-row span { min-width: 0; }
+.pc-tip .ch-tip-row b { white-space: nowrap; }
+.pc-tip-note { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); font-size: 11.5px; line-height: 1.45; color: var(--ink-500); white-space: normal; }
+
+/* chart head: title figures left, switch right */
+.pc-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 10px; }
+.pc-head-figs { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; min-width: 0; font-size: 12px; color: var(--ink-500); }
+.pc-head-figs b { font-size: 18px; font-weight: 500; color: var(--ink-900); font-variant-numeric: tabular-nums; font-family: var(--num, inherit); }
+.pc-head-figs span { white-space: nowrap; }
+
+/* cost breakdown */
+.pc-cost { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px 28px; align-items: center; }
+.pc-cost.is-narrow { grid-template-columns: minmax(0, 1fr); }
+.pc-cost.is-narrow .pc-donut { justify-self: center; order: -1; }
+.pc-lines { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; margin-top: 10px; }
+.pc-lines.is-two { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; }
+.pc-line { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto 44px; align-items: center; gap: 8px; padding: 4px 6px; margin: 0 -6px; border-radius: 6px; font-size: 12px; color: var(--ink-700); cursor: default; }
+.pc-line.is-hot { background: var(--vw-color-slate-100); }
+.pc-line i { width: 10px; height: 10px; border-radius: 3px; }
+.pc-line span { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.3; overflow-wrap: anywhere; }
+.pc-line b { font-weight: 500; color: var(--ink-900); font-variant-numeric: tabular-nums; font-family: var(--num, inherit); white-space: nowrap; }
+.pc-line em { font-style: normal; text-align: right; color: var(--ink-500); font-variant-numeric: tabular-nums; font-family: var(--num, inherit); }
+
+/* benchmark band */
+.pc-bench { display: flex; flex-direction: column; gap: 14px; }
+.pc-bench-row { display: grid; grid-template-columns: 220px minmax(0, 1fr) 118px; align-items: center; gap: 6px 18px; }
+.pc-bench.is-narrow .pc-bench-row { grid-template-columns: minmax(0, 1fr) auto; }
+.pc-bench.is-narrow .pc-bench-track { grid-column: 1 / -1; grid-row: 2; }
+.pc-bench-label { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.pc-bench-label b { font-size: 12.5px; font-weight: 500; color: var(--ink-900); }
+.pc-bench-label span { font-size: 11.5px; color: var(--ink-500); line-height: 1.35; }
+.pc-bench-label strong { font-weight: 600; color: var(--ink-900); font-variant-numeric: tabular-nums; font-family: var(--num, inherit); }
+.pc-bench-track { min-width: 0; }
+.pc-bench-row > .vw-chip { justify-self: end; }
+
+/* scenario compare */
+.pc-strip { margin-top: 12px; overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+.pc-strip table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.pc-strip th, .pc-strip td { padding: 6px 10px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; border-top: 1px solid var(--vw-color-slate-100); }
+.pc-strip thead th { border-top: 0; background: var(--vw-color-slate-50); font-weight: 500; color: var(--ink-600); }
+.pc-strip th:first-child, .pc-strip td:first-child { text-align: left; color: var(--ink-600); font-weight: 400; }
+.pc-strip thead th.is-pref { color: var(--vw-color-blue-700); }
+.pc-strip tbody tr { cursor: pointer; }
+.pc-strip tbody tr:hover td { background: var(--vw-color-slate-50); }
+.pc-strip tbody tr.is-active td { background: var(--vw-color-blue-50); }
+.pc-strip tbody tr.is-active td:first-child { color: var(--vw-color-blue-700); font-weight: 500; }
+.pc-strip td.is-best { color: var(--vw-color-emerald-700); font-weight: 600; }
+.pc-strip td.is-na { color: var(--ink-400, var(--vw-color-slate-400)); }
+
+/* lead times: header pinned above the scrolling rows */
+.pc-gantt-scroll { overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; border-bottom: 1px solid var(--vw-color-slate-100); }
+.pc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.pc-legend .pc-legend-note { margin-left: auto; color: var(--ink-500); }

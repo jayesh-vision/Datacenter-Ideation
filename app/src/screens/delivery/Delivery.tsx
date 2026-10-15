@@ -90,7 +90,7 @@ export function Delivery() {
           <Split parts={(['Awaiting change', 'Ready', 'In progress', 'Planned'] as const).map(s => ({ key: s, label: s, n: openWo.filter(w => w.state === s).length, tone: (s === 'Awaiting change' ? 'orange' : s === 'In progress' ? 'info' : 'neutral') as 'orange' | 'info' | 'neutral' })).filter(x => x.n)} />
         </StatTile>
         <StatTile label="Purchase orders" value={d.pos.filter(o => o.state !== 'Delivered').length} sub={`open · ${latePo.length} late`} subTone={latePo.length ? 'warn' : undefined} info="Equipment ordered for the projects: plant (UPS, generators, cooling), racks and compute, with their lead times.">
-          <Split parts={(['Late', 'In transit', 'Ordered', 'Delivered'] as const).map(s => ({ key: s, label: s, n: d.pos.filter(o => o.state === s).length, tone: (s === 'Late' ? 'error' : s === 'In transit' ? 'info' : 'neutral') as 'error' | 'info' | 'neutral' })).filter(x => x.n)} />
+          <Split parts={(['Late', 'In transit', 'Ordered', 'Draft', 'Delivered'] as const).map(s => ({ key: s, label: s, n: d.pos.filter(o => o.state === s).length, tone: (s === 'Late' ? 'error' : s === 'In transit' ? 'info' : 'neutral') as 'error' | 'info' | 'neutral' })).filter(x => x.n)} />
         </StatTile>
         <StatTile label="Commissioning" value={d.tests.filter(t => t.state === 'Passed').length} sub={`of ${d.tests.length} tests passed`} onClick={() => setTab('commissioning')} info="L1 factory witness → L2 site acceptance → L3 pre-functional → L4 functional → L5 integrated systems test, per project.">
           <SoftMeter pct={d.tests.length ? (d.tests.filter(t => t.state === 'Passed').length / d.tests.length) * 100 : 0} tone="info" />

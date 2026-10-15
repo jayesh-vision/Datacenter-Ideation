@@ -28,6 +28,16 @@ export const METRIC_INFO: Record<string, { name: string; use: string }> = {
   wue: { name: 'WUE', use: 'Litres of water used per kWh of IT energy.' },
   leadWeeks: { name: 'Lead time', use: 'Weeks from order to delivery on site.' },
   durationWeeks: { name: 'Build duration', use: 'Weeks from start to the first hall ready for service.' },
+  transferDays: { name: 'Spares transfer time', use: 'Days to move a spare or replacement to the rack: from the site store, the central depot or another site.' },
+  stagingDays: { name: 'Staging before a wave', use: 'Days to stage, update firmware and burn in new equipment before a replacement wave.' },
+  downtime: { name: 'Migration downtime', use: 'Hours a service is down when it moves, by migration method.' },
+  'downtime:liftShiftH': { name: 'Lift and shift downtime', use: 'Hours to de-rack, transport and re-rack one system, excluding travel.' },
+  'downtime:swingH': { name: 'Replicated swing downtime', use: 'Hours for the final sync and swing of a replicated service.' },
+  'downtime:replatformH': { name: 'Re-platform cut-over', use: 'Hours to cut a re-platformed service over (DNS and traffic).' },
+  'transferDays:site': { name: 'Site store to the rack', use: 'Days from a spare held at the same site to the rack.' },
+  'transferDays:depot': { name: 'Central depot to a site', use: 'Days from the central depot to the site.' },
+  'transferDays:transfer': { name: 'Transfer between sites', use: 'Days to move equipment from another site.' },
+  hireLeadMonths: { name: 'Hiring lead time', use: 'Months to recruit operations staff before the site opens.' },
 };
 export const metricKey = (metric: string) => metric.split(':')[0];
 export const metricDetail = (metric: string) => metric.split(':')[1] ?? '';

@@ -27,7 +27,8 @@ export function Assets({ data }: { data: SiteData }) {
     const inst = (nes ?? []).filter(n => n.opsState !== 'planned');
     const planned = (nes ?? []).length - inst.length;
     const byRole = Object.entries(inst.reduce<Record<string, number>>((m, n) => { m[n.role] = (m[n.role] ?? 0) + 1; return m; }, {})).sort((x, y) => y[1] - x[1]);
-    const byLayer = Object.entries(inst.reduce<Record<string, number>>((m, n) => { m[n.layer] = (m[n.layer] ?? 0) + 1; return m; }, {})).sort((x, y) => y[1] - x[1]);
+    /* network layers count network gear only (the operator's servers, 15-Oct-2026, are in the donut as Servers) */
+    const byLayer = Object.entries(inst.filter(n => n.category === 'network').reduce<Record<string, number>>((m, n) => { m[n.layer] = (m[n.layer] ?? 0) + 1; return m; }, {})).sort((x, y) => y[1] - x[1]);
     const byCat = Object.entries(inst.reduce<Record<string, number>>((m, n) => { m[n.category] = (m[n.category] ?? 0) + 1; return m; }, {})).sort((x, y) => y[1] - x[1]);
     const usedU = dc.racks.reduce((t, r) => t + r.usedU, 0), totU = dc.racks.reduce((t, r) => t + r.heightU, 0);
     const rooms = dc.floors.flatMap(f => f.rooms.map(rm => {
@@ -57,7 +58,7 @@ export function Assets({ data }: { data: SiteData }) {
         { key: 'fl', label: 'Floors', value: dc.floors.length, sub: `${a.rooms.length} rooms`, info: 'Floors in the building and the rooms (data halls, meet-me rooms, plant rooms) across them.' },
         { key: 'rk', label: 'Racks', value: dc.racks.length, sub: `${dc.racks.filter(r => r.usedU === 0).length} empty`, info: 'Racks on the floor plan; empty = no equipment installed or planned in them yet.' },
         { key: 'u', label: 'Rack space used', value: `${fmtNum(a.usedU)} U`, sub: `${fmtNum(a.totU - a.usedU)} U free`, info: 'Rack units occupied across every rack, including space reserved for planned devices, and the units still free.' },
-        { key: 'ne', label: persona === 'network' ? 'Network devices' : persona === 'colocation' ? 'Devices & tenant blocks' : 'Hosts & network devices', value: a.inst.length, sub: a.planned ? `+${a.planned} planned` : 'all installed', info: `${vocab.equipment} physically installed at the site; planned devices are not counted here but hold reserved rack space.` },
+        { key: 'ne', label: persona === 'network' ? 'Devices' : persona === 'colocation' ? 'Devices & tenant blocks' : 'Hosts & network devices', value: a.inst.length, sub: a.planned ? `+${a.planned} planned` : 'all installed', info: `${vocab.equipment} physically installed at the site; planned devices are not counted here but hold reserved rack space.` },
         { key: 'fac', label: 'Facility assets', value: a.facility.reduce((t, f) => t + f.v, 0), sub: 'power · cooling', info: 'Count of plant items: UPS units, rectifier plants, DG sets, battery banks, utility feeds, rack PDUs (A + B per rack), cooling units and environment sensors, as listed in Facility assets below.' },
         { key: 'pt', label: 'Ports in use', value: fmtNum(s.portsUsed), sub: `of ${fmtNum(s.portsTotal)}`, info: 'Ports on installed equipment that are patched or in use, out of all ports at the site.' }
       ]} />
@@ -84,7 +85,7 @@ export function Assets({ data }: { data: SiteData }) {
           <div className="asset-split">
             <Donut size={150} centerValue={String(a.inst.length)} centerLabel="devices" slices={a.byRole.map(([k, v], i) => ({ key: k, label: ROLE_LABEL[k] ?? k, value: v, color: PALETTE[i % PALETTE.length] }))} />
             <div className="asset-layers">
-              <span className="vw-label">{persona === 'network' ? 'By network layer' : 'By category'}</span>
+              <span className="vw-label">{persona === 'network' ? 'Network gear by layer' : 'By category'}</span>
               <div className="asset-tiles">{(persona === 'network' ? a.byLayer : a.byCat).map(([k, v]) => <Stat key={k} l={persona === 'network' ? k[0].toUpperCase() + k.slice(1) : CAT_LABEL[k] ?? k} v={String(v)} sub={`${Math.round((v / Math.max(1, a.inst.length)) * 100)}%`} />)}</div>
             </div>
           </div>
@@ -103,7 +104,7 @@ export function Assets({ data }: { data: SiteData }) {
           </div>
         </Panel>
 
-        <Panel title="Ports & compute" icon={I.Cpu} sub="Port classes and pooled compute (no per-server records in this model)" info="Fill of each port class (used out of total), then the site's pooled compute: CPU cores, memory and storage in use out of installed. Compute is a site-level pool, not a per-server inventory.">
+        <Panel title="Ports & compute" icon={I.Cpu} sub={persona === 'network' || persona === 'colocation' ? 'Port classes and the site compute estimate (servers are listed as devices)' : 'Port classes and pooled compute (no per-server records in this model)'} info="Fill of each port class (used out of total), then the site's pooled compute: CPU cores, memory and storage in use out of installed. Compute is a site-level pool, not a per-server inventory.">
           <div className="asset-ports">
             {dc.ports.map(p => <div key={p.cls} className="asset-layer"><span>{p.cls}</span><Meter pct={(p.used / Math.max(1, p.total)) * 100} width={84} label={`${fmtNum(p.used)} / ${fmtNum(p.total)}`} /></div>)}
             <span className="vw-label" style={{ marginTop: 8 }}>Compute & storage</span>

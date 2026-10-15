@@ -10,6 +10,13 @@ export const CUSTOMER = 'CUST-001';
 /** P2B campus key → our datacenter position (1-based, as dcAt): the hero site, the UPS site, the GPU site, a liquid site… */
 export const SITE_KEYS: Record<string, number> = { ASH: 1, FRA: 20, DAL: 9, SIN: 3, SYD: 22, DUB: 16, GRU: 5 };
 
+/** The datacenter a campus key lands on in a list of planner datacenters (position, or a live one when that position is only planned). */
+export function siteAtKey(dataCenters: T.DataCenter[], code: string): T.DataCenter | undefined {
+  const pos = SITE_KEYS[code.slice(0, 3).toUpperCase()];
+  const live = dataCenters.filter(d => d.status !== 'Planned');
+  return pos ? (dataCenters[pos - 1]?.status !== 'Planned' ? dataCenters[pos - 1] : live[pos % live.length]) : undefined;
+}
+
 function mulberry(seed: number) { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
 type Coll = Record<string, unknown>[];
@@ -27,10 +34,7 @@ export class Seed {
   siteByKey(code: string): T.DataCenter | undefined {
     /* the second Dublin site (CO-1) is a neighbour of the first: another live site in the same region */
     if (code.toUpperCase().startsWith('DUB-CO')) { const a = this.siteByKey('DUB'); const live = this.dataCenters.filter(d => d.status !== 'Planned' && d.id !== a?.id); return live.find(d => d.campusId !== a?.campusId && this.campuses.find(c => c.id === d.campusId)?.regionId === this.campuses.find(c => c.id === a?.campusId)?.regionId) ?? live[0]; }
-    const key = code.slice(0, 3).toUpperCase();
-    const pos = SITE_KEYS[key];
-    const live = this.dataCenters.filter(d => d.status !== 'Planned');
-    return pos ? (this.dataCenters[pos - 1]?.status !== 'Planned' ? this.dataCenters[pos - 1] : live[pos % live.length]) : undefined;
+    return siteAtKey(this.dataCenters, code);
   }
 
   nid(prefix: string): string { return `${prefix}-${String((this.counters[prefix] = (this.counters[prefix] ?? 0) + 1)).padStart(4, '0')}`; }

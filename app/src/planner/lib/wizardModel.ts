@@ -72,6 +72,17 @@ export function longestLead(ev?: Evaluation): { item: string; weeks: number } | 
   return items.reduce<{ item: string; weeks: number } | undefined>((m, x) => (!m || x.leadWeeks > m.weeks ? { item: x.item, weeks: x.leadWeeks } : m), undefined);
 }
 
+/** The earliest needed-by date the plan can meet: today plus the longest order-to-go-live span of the equipment it buys (lead
+ *  time, buffer and install), rounded up to the first of the next month. Undefined when nothing has to be bought. */
+export function earliestGoLive(ev: Evaluation | undefined, targetGoLive: string, nowMs: number): string | undefined {
+  const t = Date.parse(targetGoLive);
+  const items = (ev?.schedule ?? []).filter(x => x.kind === 'equipment' && x.source !== 'stock' && x.source !== 'site' && x.leadWeeks > 0 && Number.isFinite(Date.parse(x.orderBy)));
+  if (!items.length || !Number.isFinite(t)) return undefined;
+  const span = Math.max(...items.map(x => t - Date.parse(x.orderBy)), ...items.map(x => x.leadWeeks * 7 * DAY));
+  const d = new Date(nowMs + span + 7 * DAY);
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1)).toISOString();
+}
+
 /** What must be fixed on a step before Next. Generic checks only; families add theirs through `blockers`. */
 export function stepIssues(key: StepKey, draft: T.PlannerPlan, ev: Evaluation | undefined, templates: T.PlannerTemplate[], nowMs: number): StepIssue[] {
   const out: StepIssue[] = [];
