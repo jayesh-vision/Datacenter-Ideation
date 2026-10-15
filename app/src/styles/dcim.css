@@ -213,3 +213,4 @@
 .dcim-drop span { font: 600 11.5px/1 Inter, sans-serif; color: var(--vw-color-green-800); background: #fff; padding: 2px 6px; border-radius: 4px; }
 .dcim-drop.is-bad { border-color: var(--vw-color-red-500); background: color-mix(in srgb, var(--vw-color-red-100) 70%, transparent); }
 .dcim-drop.is-bad span { color: var(--vw-color-red-700); }
+.dcim-ex-facts { white-space: nowrap; font-size: 12.5px; }
