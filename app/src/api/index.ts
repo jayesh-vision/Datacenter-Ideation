@@ -124,6 +124,8 @@ export const assignDeviceIp = (neId: string, prefixId: string, iface: string | u
 export const unassignIp = (id: string) => mutate(() => S.ipamUnassign(id));                         // DELETE /ipam/ip-addresses/:id/assignment
 export const setPrimaryIp = (neId: string, id: string) => mutate(() => S.ipamSetPrimary(neId, id)); // PATCH /network-elements/:id { primaryIp4 }
 export const getIpamIntegrations = () => wait(() => S.ipamIntegrations());                       // GET /ipam/integrations
+export const saveIpamRecord = (kind: Parameters<typeof S.ipamSaveRecord>[0], x: Record<string, unknown>, id?: string) => mutate(() => S.ipamSaveRecord(kind, x, id)); // POST /ipam/{kind}s or PATCH /ipam/{kind}s/:id
+export const deleteIpamRecord = (kind: Parameters<typeof S.ipamDeleteRecord>[0], id: string) => mutate(() => S.ipamDeleteRecord(kind, id));             // DELETE /ipam/{kind}s/:id
 export const syncIpamIntegration = (id: string, action: 'Sync' | 'Import' | 'Export' | 'Connect') => mutate(() => S.ipamSync(id, action)); // POST /ipam/integrations/:id/sync
 
 /* ---- Planner (P2B port): the planner's record store (templates, benchmarks, plans, scenarios, holds) over our estate.

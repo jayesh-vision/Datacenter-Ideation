@@ -520,6 +520,11 @@ screens are rebuilt in our kit (PageHead, StatGrid, ListToolbar, DataTable, NST 
   address actions (assign the next free address of a site prefix, set primary, unassign), Registers tab (registries, roles, route targets,
   VLAN groups, service templates, all derived), Integrations tab (ServiceNow / Infoblox / BlueCat / AD DNS / Kea DHCP mock connectors:
   records and differences from the plan, sync / import / export / connect, audited). Overlays reset on regenerate.
+  CRUD (15-Oct-2026, user; fields after P2B's IPAM pages): create / edit / delete IP addresses, VRFs, VLANs, IP ranges, ASNs, FHRP gateway groups,
+  aggregates and application services; prefixes edit / delete (create = New prefix). `mock/ipam.ts` `ipamSave` / `ipamRemove` (overlay `crud`:
+  hand-made records + edits + deletions of derived ones), validated (inside the prefix, not network / broadcast, unique in the VRF / site, RD and
+  RT format, VLAN 1–4094, ASN reserved ranges, no overlap) and deletes refused while something depends on it. UI `screens/ipam/crud.tsx`
+  (`useIpamCrud` form + delete dialog, `RowActions`); "New …" in each list toolbar. Check: `node .qa/ipam-crud.mjs`.
 - **Phase 3 = Capacity (done)**: our parked `/capacity` screen (`screens/Capacity.tsx`) is back in the menu (it was the screen P2B had copied as
   "Plans & forecast") with P2B's additions, all derived (`mock/capacity.ts`, fields `holds · gpu · energy · halls` on `capacity()`): overview opens
   with a StatGrid (one tile per dimension + holds); Space adds space & power by hall (→ DCIM floor plan); Compute & GPU adds GPU capacity (in a

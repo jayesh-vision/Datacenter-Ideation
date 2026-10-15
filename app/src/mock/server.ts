@@ -25,6 +25,7 @@ import { sitePm as sitePm_, clearMaintenance } from './maintenance';
 import { clearOps, colocationOrders as colocationOrders_, incidentOps as incidentOps_, onCall as onCall_, problems as problems_, resilienceTests as resilienceTests_ } from './ops';
 import { cablePath as cablePath_, clearPhysical, devicePhysical as devicePhysical_, sitePhysicalPublic, whatIf as whatIf_ } from './physical';
 import { addCustomType, clearDcim, customTypeById, dcimCatalog as dcimCatalog_, dcimComponents as dcimComponents_, dcimModel, dcimOverlay, dcimRackView as dcimRackView_, freeSlots, resetDcimCustom } from './dcim';
+import { ipamSave as ipamSave_, ipamRemove as ipamRemove_, type IpamKind } from './ipam';
 import { addressDetail, assignToDevice, carvePrefix, clearIpam, createPrefix, integrations, ipamModel, reserveNextIp, resetIpamOverlay, setPrimaryAddress, syncIntegration, unassignAddress } from './ipam';
 import { capacityHolds, gpuCapacity, siteEnergy } from './capacity';
 import { setPlannerClock } from '../planner/compat/clock';
@@ -1401,7 +1402,7 @@ export function ipam(q: { dcId?: string } = {}) {
   if (!q.dcId) return m;
   const f = <T extends { dcId?: string }>(xs: T[]) => xs.filter(x => x.dcId === q.dcId);
   const vrfIds = new Set(f(m.addresses).map(a => a.vrf));
-  return { ...m, prefixes: f(m.prefixes), addresses: f(m.addresses), vrfs: m.vrfs.filter(v => v.dcId === q.dcId || (!v.dcId && vrfIds.has(v.id))), vlans: f(m.vlans), asns: m.asns.filter(a => !a.dcId || a.dcId === q.dcId),
+  return { ...m, prefixes: f(m.prefixes), addresses: f(m.addresses), vrfs: m.vrfs.filter(v => v.dcId === q.dcId || (!v.dcId && (vrfIds.has(v.id) || !v.prefixes))), vlans: f(m.vlans), asns: m.asns.filter(a => !a.dcId || a.dcId === q.dcId),
     ranges: f(m.ranges), fhrp: f(m.fhrp), services: f(m.services), findings: f(m.findings) };
 }
 export const ipamOfDevice = (neId: string) => { const m = ipamModel(db); return { addresses: m.addresses.filter(a => a.deviceId === neId), services: m.services.filter(s => s.deviceId === neId), vlans: m.vlans.filter(v => v.serviceId && db.services.find(s => s.id === v.serviceId)?.neId === neId) }; };
@@ -1413,6 +1414,8 @@ export function ipamAssign(neId: string, prefixId: string, iface: string | undef
 export function ipamUnassign(id: string) { const a = unassignAddress(db, id); audit_({ actor: ME, object: a.address, field: 'device', prev: a.deviceName ?? '—', next: 'unassigned (held)', source: 'IPAM' }); changed(); return a; }
 export function ipamSetPrimary(neId: string, id: string) { setPrimaryAddress(db, neId, id); audit_({ actor: ME, object: db.neById.get(neId)?.name ?? neId, field: 'primary IPv4', prev: '—', next: id.split('|')[1] ?? id, source: 'IPAM' }); changed(); }
 export const ipamIntegrations = () => integrations(db);
+export function ipamSaveRecord(kind: IpamKind, x: Record<string, unknown>, id?: string) { const r = ipamSave_(db, kind, x, id); audit_({ actor: ME, object: r, field: kind, prev: id ? 'edited' : '—', next: id ? 'updated' : 'created', source: 'IPAM' }); changed(); return r; }
+export function ipamDeleteRecord(kind: IpamKind, id: string) { const r = ipamRemove_(db, kind, id); audit_({ actor: ME, object: r, field: kind, prev: 'present', next: 'deleted', source: 'IPAM' }); changed(); return r; }
 export function ipamSync(id: string, action: 'Sync' | 'Import' | 'Export' | 'Connect') { const c = syncIntegration(db, id, action); audit_({ actor: ME, object: c.name, field: 'sync', prev: '—', next: c.history[0]?.result ?? action, source: 'IPAM integrations' }); changed(); return c; }
 
 

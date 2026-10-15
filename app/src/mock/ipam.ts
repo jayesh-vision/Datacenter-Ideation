@@ -35,7 +35,7 @@ export interface IpamOverlay {
   sync: Map<string, Pick<IpIntegration, 'status' | 'lastSync' | 'message' | 'history'>>;
 }
 const overlay: IpamOverlay = { addresses: [], prefixes: [], bound: new Map(), unbound: new Map(), primary: new Map(), sync: new Map() };
-export const resetIpamOverlay = () => { overlay.addresses.length = 0; overlay.prefixes.length = 0; overlay.bound.clear(); overlay.unbound.clear(); overlay.primary.clear(); overlay.sync.clear(); cache = null; };
+export const resetIpamOverlay = () => { resetCrud(); overlay.addresses.length = 0; overlay.prefixes.length = 0; overlay.bound.clear(); overlay.unbound.clear(); overlay.primary.clear(); overlay.sync.clear(); cache = null; };
 let cacheDb: Db | null = null;
 let cache: IpamView | null = null;
 export const clearIpam = () => { cache = null; };
@@ -211,6 +211,12 @@ function build(db: Db): IpamView {
   /* ---- runtime overlay (reserved IPs, carved prefixes) */
   prefixes.push(...overlay.prefixes.filter(p => !prefixes.some(x => x.id === p.id)));
   addresses.push(...overlay.addresses.filter(a => !addresses.some(x => x.id === a.id)));
+  /* ---- records entered / edited / deleted by hand (15-Oct-2026, CRUD) */
+  vrfs.push(...crud.vrfs.map(x => ({ ...x }))); vlans.push(...crud.vlans.map(x => ({ ...x }))); asns.push(...crud.asns.map(x => ({ ...x })));
+  ranges.push(...crud.ranges.map(x => ({ ...x }))); fhrp.push(...crud.fhrp.map(x => ({ ...x }))); services.push(...crud.services.map(x => ({ ...x })));
+  const applyCrud = <T extends { id: string }>(kind: IpamKind, xs: T[]) => { for (let i = xs.length - 1; i >= 0; i--) { const k = `${kind}|${xs[i].id}`; if (crud.deleted.has(k)) xs.splice(i, 1); else { const e = crud.edits.get(k); if (e) Object.assign(xs[i], e); } } };
+  applyCrud('prefix', prefixes); applyCrud('address', addresses); applyCrud('vrf', vrfs); applyCrud('vlan', vlans); applyCrud('asn', asns); applyCrud('range', ranges); applyCrud('fhrp', fhrp); applyCrud('service', services);
+  for (const r of ranges) { const a = toInt(r.start), b = toInt(r.end); r.size = b - a + 1; r.used = addresses.filter(x => x.vrf === prefixes.find(p => p.id === r.prefixId)?.vrf && toInt(x.address) >= a && toInt(x.address) <= b).length; }
   for (const a of addresses) {
     const b = overlay.bound.get(a.id);
     if (b) Object.assign(a, { deviceId: b.deviceId, deviceName: b.deviceName, iface: b.iface, status: 'Active', use: a.use === 'Reserved' ? 'Host' : a.use, note: `Assigned to ${b.deviceName} by hand` });
@@ -239,12 +245,14 @@ function build(db: Db): IpamView {
 
   const aggDefs: [string, string, string][] = [['172.16.0.0/12', 'RFC 1918', 'Management networks (each site in its own VRF, so ranges may repeat)'], ['10.0.0.0/8', 'RFC 1918', 'Site fabrics, loopbacks, hosts and the backbone'],
     ...(custs.length ? [['100.64.0.0/10', 'RFC 6598', 'Customer PE–CE links (L3VPN)'] as [string, string, string]] : []), ...(irv.length ? pub.map(p => [p, rir, 'Public addresses for internet customers'] as [string, string, string]) : [])];
+  aggDefs.push(...crud.aggregates.filter(a => !aggDefs.some(d => d[0] === a.prefix)).map(a => [a.prefix, a.rir, a.description] as [string, string, string]));
   const aggregates: IpAggregate[] = aggDefs.map(([prefix, r, description]) => {
     const top = prefixes.filter(p => p.aggregate === prefix && !p.parentId);
     const allocated = top.reduce((a, p) => a + span(parse(p.prefix).mask), 0);
     const size = span(parse(prefix).mask);
     return { id: prefix, prefix, rir: r, description, size, allocated, pct: Math.round((allocated / size) * 1000) / 10 };
   });
+  applyCrud('aggregate', aggregates);
   /* management /12 counts every site's container even where VRFs reuse a range */
 
   /* ---- findings */
@@ -402,4 +410,189 @@ export function syncIntegration(db: Db, id: string, action: 'Sync' | 'Import' | 
   const result = `${action}: ${fmtNum(c.records)} records${c.differences ? `, ${c.differences} difference${c.differences === 1 ? '' : 's'} resolved` : ', no differences'}`;
   overlay.sync.set(id, { status: 'Connected', lastSync: db.now, message: undefined, history: [{ at: db.now, action, result }, ...c.history].slice(0, 6) });
   return integrations(db).find(x => x.id === id)!;
+}
+
+
+/* ---- CRUD (15-Oct-2026, user: "create, edit, delete IP addresses, VRFs, VLANs … like P2B's forms"). Records entered by hand live in
+   `crud`; derived records can be edited (descriptive fields) or deleted when nothing depends on them. Validated against the plan. */
+export type IpamKind = 'address' | 'prefix' | 'vrf' | 'vlan' | 'range' | 'asn' | 'fhrp' | 'aggregate' | 'service';
+const crud = { vrfs: [] as IpVrf[], vlans: [] as IpVlan[], asns: [] as IpAsn[], ranges: [] as IpRange[], fhrp: [] as IpFhrp[], services: [] as IpService[], aggregates: [] as { prefix: string; rir: string; description: string }[],
+  edits: new Map<string, Record<string, unknown>>(), deleted: new Set<string>(), seq: 0 };
+function resetCrud() { for (const k of ['vrfs', 'vlans', 'asns', 'ranges', 'fhrp', 'services', 'aggregates'] as const) crud[k].length = 0; crud.edits.clear(); crud.deleted.clear(); crud.seq = 0; }
+const IPV4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+const isIp = (x: string) => { const m = IPV4.exec(x.trim()); return !!m && m.slice(1).every(o => Number(o) <= 255); };
+const RD = /^(\d{1,10}:\d{1,10}|\d{1,3}(\.\d{1,3}){3}:\d{1,5})$/;
+const str = (v: unknown) => String(v ?? '').trim();
+const num = (v: unknown) => Number(v);
+const edit = (kind: IpamKind, id: string, patch: Record<string, unknown>) => { const k = `${kind}|${id}`; crud.edits.set(k, { ...(crud.edits.get(k) ?? {}), ...patch }); };
+const asnKind = (n: number): IpAsn['kind'] => (n >= 64512 && n <= 65534 ? 'Private 16-bit' : n >= 4200000000 && n <= 4294967294 ? 'Private 32-bit' : 'Public');
+const rts = (v: unknown) => (Array.isArray(v) ? v.map(String) : str(v).split(/[,\s]+/)).map(x => x.trim()).filter(Boolean);
+const ports = (v: unknown) => (Array.isArray(v) ? v.map(Number) : str(v).split(/[,\s]+/).map(Number)).filter(n => Number.isInteger(n));
+
+/* create (no id) or update (id) one record; returns its id */
+export function ipamSave(db: Db, kind: IpamKind, x: Record<string, unknown>, id?: string): string {
+  const m = ipamModel(db);
+  const pfx = (pid: unknown) => { const p = m.prefixes.find(q => q.id === pid); if (!p) throw new Error('Pick a prefix'); return p; };
+  const done = (r: string) => { cache = null; return r; };
+  switch (kind) {
+    case 'address': {
+      if (id) { const a = m.addresses.find(q => q.id === id); if (!a) throw new Error('Unknown address');
+        const st = str(x.status) as IpAddr['status']; if (st && !['Active', 'Reserved'].includes(st)) throw new Error('Status is Active or Reserved');
+        const mac = str(x.mac); if (mac && !/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i.test(mac)) throw new Error('MAC as 00:1a:2b:3c:4d:5e');
+        edit('address', id, { dns: str(x.dns), mac: mac || a.mac, note: str(x.note) || a.note, ...(st && a.status !== 'Gateway' && a.status !== 'Outside plan' ? { status: st } : {}) }); return done(id); }
+      const p = pfx(x.prefixId); if (p.status === 'Container') throw new Error(`${p.prefix} is a container: pick a prefix inside it`);
+      const ip = str(x.address); if (!isIp(ip)) throw new Error('Enter an IPv4 address, e.g. 10.4.32.17');
+      if (!inPrefix(ip, p.prefix)) throw new Error(`${ip} is not inside ${p.prefix}`);
+      const { base, mask } = parse(p.prefix), n = toInt(ip);
+      if (mask < 31 && (n === base || n === base + span(mask) - 1)) throw new Error(`${ip} is the ${n === base ? 'network' : 'broadcast'} address of ${p.prefix}`);
+      if (m.addresses.some(a => a.vrf === p.vrf && a.address === ip)) throw new Error(`${ip} is already recorded in ${p.vrf}`);
+      const dev = str(x.deviceId) ? db.neById.get(str(x.deviceId)) : undefined; if (str(x.deviceId) && !dev) throw new Error('Unknown device');
+      const st = (str(x.status) || (dev ? 'Active' : 'Reserved')) as IpAddr['status'];
+      const a: IpAddr = { id: `${p.vrf}|${ip}`, address: ip, mask, prefixId: p.id, vrf: p.vrf, dcId: p.dcId, status: st, use: dev ? 'Host' : 'Reserved', dns: str(x.dns), note: str(x.note) || 'Entered by hand', mac: str(x.mac) || undefined };
+      overlay.addresses.push(a);
+      if (dev) overlay.bound.set(a.id, { deviceId: dev.id, deviceName: dev.name, iface: str(x.iface) || undefined });
+      return done(a.id);
+    }
+    case 'prefix': {
+      if (!id) throw new Error('Use New prefix to create one');
+      const p = m.prefixes.find(q => q.id === id); if (!p) throw new Error('Unknown prefix');
+      const st = str(x.status); if (p.status === 'Container' && st && st !== 'Container') throw new Error('A container stays a container');
+      if (p.status !== 'Container' && st && !['Active', 'Reserved'].includes(st)) throw new Error('Status is Active or Reserved');
+      const vl = str(x.vlan) ? num(x.vlan) : undefined; if (vl != null && !(vl >= 1 && vl <= 4094)) throw new Error('VLAN id is 1–4094');
+      edit('prefix', id, { description: str(x.description) || p.description, role: str(x.role) || p.role, ...(st ? { status: st } : {}), vlan: vl }); return done(id);
+    }
+    case 'vrf': {
+      const rd = str(x.rd); if (!RD.test(rd)) throw new Error('Route distinguisher as ASN:number (64500:120) or IP:number');
+      const imp = rts(x.importRt), exp = rts(x.exportRt); const badRt = [...imp, ...exp].find(t => !RD.test(t)); if (badRt) throw new Error(`${badRt} is not a route target (ASN:number)`);
+      if (m.vrfs.some(v => v.rd === rd && v.id !== id)) throw new Error(`${rd} is already the RD of ${m.vrfs.find(v => v.rd === rd)!.name}`);
+      const scope = (str(x.scope) || 'Estate') as IpVrf['scope']; const dcId = str(x.dcId) || undefined;
+      if (scope === 'Site' && !dcId) throw new Error('A site VRF needs its datacenter');
+      if (id) { edit('vrf', id, { rd, importRt: imp, exportRt: exp, enforceUnique: !!x.enforceUnique, description: str(x.description), scope, dcId }); return done(id); }
+      const name = str(x.name).toUpperCase().replace(/\s+/g, '-'); if (!/^[A-Z0-9][A-Z0-9_-]{1,30}$/.test(name)) throw new Error('Name: 2–31 letters, digits, - or _');
+      if (m.vrfs.some(v => v.id === name || v.name === name)) throw new Error(`${name} already exists`);
+      crud.vrfs.push({ id: name, name, rd, scope, dcId: scope === 'Site' ? dcId : undefined, importRt: imp.length ? imp : [rd], exportRt: exp.length ? exp : [rd], prefixes: 0, addresses: 0, enforceUnique: x.enforceUnique !== false, description: str(x.description) || 'Entered by hand' });
+      return done(name);
+    }
+    case 'vlan': {
+      const vid = num(x.vid), dcId = str(x.dcId), name = str(x.name);
+      if (!id) { if (!Number.isInteger(vid) || vid < 1 || vid > 4094) throw new Error('VLAN id is 1–4094'); if (!dcId) throw new Error('Pick the datacenter'); }
+      if (!name) throw new Error('Give the VLAN a name');
+      const st = (str(x.status) || 'Active') as IpVlan['status']; const prefix = str(x.prefix) || undefined;
+      if (prefix && !m.prefixes.some(p => p.prefix === prefix)) throw new Error(`${prefix} is not a prefix in the plan`);
+      if (id) { edit('vlan', id, { name, role: str(x.role), status: st, prefix }); return done(id); }
+      if (m.vlans.some(v => v.dcId === dcId && v.vid === vid)) throw new Error(`VLAN ${vid} is already used at ${dcId}`);
+      const vId = `man-vlan:${dcId}:${vid}`;
+      crud.vlans.push({ id: vId, vid, name, dcId, group: (str(x.group) || 'Services') as IpVlan['group'], role: str(x.role) || 'Entered by hand', prefix, devices: 0, status: st });
+      return done(vId);
+    }
+    case 'range': {
+      const p = pfx(x.prefixId), a = str(x.start), b = str(x.end);
+      if (!isIp(a) || !isIp(b)) throw new Error('Start and end are IPv4 addresses');
+      if (!inPrefix(a, p.prefix) || !inPrefix(b, p.prefix)) throw new Error(`The range must sit inside ${p.prefix}`);
+      if (toInt(a) > toInt(b)) throw new Error('Start must not be after end');
+      const clash = m.ranges.find(r => r.id !== id && r.prefixId === p.id && toInt(a) <= toInt(r.end) && toInt(b) >= toInt(r.start)); if (clash) throw new Error(`Overlaps ${clash.start} – ${clash.end}`);
+      if (id) { edit('range', id, { start: a, end: b, purpose: str(x.purpose) }); return done(id); }
+      const rId = `man-range:${++crud.seq}`;
+      crud.ranges.push({ id: rId, dcId: p.dcId ?? '', prefixId: p.id, start: a, end: b, size: toInt(b) - toInt(a) + 1, purpose: str(x.purpose) || 'Entered by hand', used: 0 });
+      return done(rId);
+    }
+    case 'asn': {
+      if (id) { edit('asn', id, { description: str(x.description), dcId: str(x.dcId) || undefined }); return done(id); }
+      const n = num(x.asn); if (!Number.isInteger(n) || n < 1 || n > 4294967295) throw new Error('ASN is 1–4,294,967,295');
+      if (n === 23456 || (n >= 64496 && n <= 64511)) throw new Error(`AS${n} is reserved (AS_TRANS / documentation)`);
+      if (m.asns.some(a => a.asn === n)) throw new Error(`AS${n} is already in the plan`);
+      const aId = `man-asn:${n}`;
+      crud.asns.push({ id: aId, asn: n, kind: asnKind(n), dcId: str(x.dcId) || undefined, description: str(x.description) || 'Entered by hand', devices: 0, sessions: 0, up: 0 });
+      return done(aId);
+    }
+    case 'fhrp': {
+      const p = pfx(x.prefixId); if (p.status === 'Container') throw new Error('Pick a host prefix, not a container');
+      const vip = str(x.vip); if (!isIp(vip) || !inPrefix(vip, p.prefix)) throw new Error(`The virtual IP must be inside ${p.prefix}`);
+      const grp = num(x.group); if (!Number.isInteger(grp) || grp < 1 || grp > 255) throw new Error('Group id is 1–255');
+      const members = rts(x.members); if (!members.length) throw new Error('Pick at least one router or switch');
+      const bad = members.find(d => db.neById.get(d)?.dcId !== p.dcId); if (bad) throw new Error(`${bad} is not at ${p.dcId}`);
+      if (m.fhrp.some(g => g.id !== id && g.prefixId === p.id && g.group === grp)) throw new Error(`Group ${grp} already runs on ${p.prefix}`);
+      const taken = m.addresses.find(a => a.vrf === p.vrf && a.address === vip);
+      if (taken && taken.use !== 'Gateway (VIP)') throw new Error(`${vip} is already used by ${taken.deviceName ?? 'another record'}`);
+      const protocol = (str(x.protocol) || 'VRRP') as IpFhrp['protocol'];
+      if (id) { edit('fhrp', id, { protocol, group: grp, members, state: members.length >= 2 ? 'ok' : 'degraded' }); return done(id); }
+      const gId = `man-fhrp:${++crud.seq}`;
+      crud.fhrp.push({ id: gId, dcId: p.dcId ?? '', protocol, group: grp, vip, prefixId: p.id, members, state: members.length >= 2 ? 'ok' : 'degraded' });
+      if (!taken) overlay.addresses.push({ id: `${p.vrf}|${vip}`, address: vip, mask: parse(p.prefix).mask, prefixId: p.id, vrf: p.vrf, dcId: p.dcId, status: 'Gateway', use: 'Gateway (VIP)', dns: '', note: `${protocol} group ${grp} virtual IP` });
+      return done(gId);
+    }
+    case 'aggregate': {
+      if (id) { edit('aggregate', id, { rir: str(x.rir), description: str(x.description) }); return done(id); }
+      const c = str(x.prefix); const ok = /^(\d{1,3}(\.\d{1,3}){3})\/(\d{1,2})$/.exec(c);
+      if (!ok || !isIp(ok[1]) || Number(ok[3]) < 4 || Number(ok[3]) > 24) throw new Error('Enter an aggregate from /4 to /24, e.g. 198.18.0.0/15');
+      const { base, mask } = parse(c); if (base % span(mask)) throw new Error(`${c} is not on a /${mask} boundary`);
+      const clash = m.aggregates.find(a => { const q = parse(a.prefix); return base < q.base + span(q.mask) && q.base < base + span(mask); }); if (clash) throw new Error(`Overlaps the aggregate ${clash.prefix}`);
+      if (!str(x.rir)) throw new Error('Pick the registry (RIR)');
+      crud.aggregates.push({ prefix: c, rir: str(x.rir), description: str(x.description) || 'Entered by hand' });
+      return done(c);
+    }
+    case 'service': {
+      const name = str(x.name); if (!name) throw new Error('Give the service a name');
+      const ps = ports(x.ports); if (!ps.length || ps.some(n => n < 1 || n > 65535)) throw new Error('Ports 1–65535, comma-separated');
+      const protocol = (str(x.protocol) || 'TCP') as IpService['protocol'];
+      if (id) { edit('service', id, { name, protocol, ports: ps }); return done(id); }
+      const a = m.addresses.find(q => q.id === str(x.addressId)); if (!a?.deviceId) throw new Error('Pick an address that is on a device');
+      const sId = `man-svc:${++crud.seq}`;
+      crud.services.push({ id: sId, name, protocol, ports: ps, deviceId: a.deviceId, deviceName: a.deviceName ?? a.deviceId, dcId: a.dcId ?? '', address: a.address });
+      return done(sId);
+    }
+  }
+}
+
+/* delete one record when nothing depends on it */
+export function ipamRemove(db: Db, kind: IpamKind, id: string): string {
+  const m = ipamModel(db);
+  const del = (label: string) => { crud.deleted.add(`${kind}|${id}`); cache = null; return label; };
+  const drop = <T extends { id: string }>(xs: T[]) => { const i = xs.findIndex(x => x.id === id); if (i >= 0) { xs.splice(i, 1); cache = null; return true; } return false; };
+  switch (kind) {
+    case 'address': {
+      const a = m.addresses.find(q => q.id === id); if (!a) throw new Error('Unknown address');
+      if (a.use === 'Gateway (VIP)') throw new Error(`${a.address} is a gateway virtual IP: delete its FHRP group instead`);
+      if (a.deviceId) throw new Error(`${a.address} is on ${a.deviceName}: unassign it first`);
+      const i = overlay.addresses.findIndex(q => q.id === id); if (i >= 0) { overlay.addresses.splice(i, 1); overlay.unbound.delete(id); cache = null; return a.address; }
+      return del(a.address);
+    }
+    case 'prefix': {
+      const p = m.prefixes.find(q => q.id === id); if (!p) throw new Error('Unknown prefix');
+      if (p.children) throw new Error(`${p.prefix} holds ${p.children} prefix${p.children === 1 ? '' : 'es'}: delete them first`);
+      const n = m.addresses.filter(a => a.prefixId === id).length; if (n) throw new Error(`${p.prefix} holds ${n} address${n === 1 ? '' : 'es'}: delete or move them first`);
+      if (m.ranges.some(r => r.prefixId === id) || m.fhrp.some(g => g.prefixId === id)) throw new Error(`${p.prefix} has a range or gateway on it: delete those first`);
+      const i = overlay.prefixes.findIndex(q => q.id === id); if (i >= 0) { overlay.prefixes.splice(i, 1); cache = null; return p.prefix; }
+      return del(p.prefix);
+    }
+    case 'vrf': {
+      const v = m.vrfs.find(q => q.id === id); if (!v) throw new Error('Unknown VRF');
+      if (v.prefixes || v.addresses) throw new Error(`${v.name} holds ${v.prefixes} prefixes and ${v.addresses} addresses: it cannot be deleted`);
+      if (drop(crud.vrfs)) return v.name; return del(v.name);
+    }
+    case 'vlan': {
+      const v = m.vlans.find(q => q.id === id); if (!v) throw new Error('Unknown VLAN');
+      if (v.serviceId && v.status === 'Active') throw new Error(`VLAN ${v.vid} carries ${v.serviceId}: release the service first`);
+      if (m.prefixes.some(p => p.dcId === v.dcId && p.vlan === v.vid)) throw new Error(`VLAN ${v.vid} is the VLAN of a prefix at ${v.dcId}: change the prefix first`);
+      if (drop(crud.vlans)) return `VLAN ${v.vid}`; return del(`VLAN ${v.vid}`);
+    }
+    case 'range': { const r = m.ranges.find(q => q.id === id); if (!r) throw new Error('Unknown range'); if (drop(crud.ranges)) return `${r.start} – ${r.end}`; return del(`${r.start} – ${r.end}`); }
+    case 'asn': {
+      const a = m.asns.find(q => q.id === id); if (!a) throw new Error('Unknown ASN');
+      if (a.devices || a.sessions) throw new Error(`AS${a.asn} is configured on ${a.devices} device${a.devices === 1 ? '' : 's'}: it cannot be deleted`);
+      if (drop(crud.asns)) return `AS${a.asn}`; return del(`AS${a.asn}`);
+    }
+    case 'fhrp': {
+      const g = m.fhrp.find(q => q.id === id); if (!g) throw new Error('Unknown gateway group');
+      const vrf = m.prefixes.find(p => p.id === g.prefixId)?.vrf; const vi = overlay.addresses.findIndex(a => a.id === `${vrf}|${g.vip}`); if (vi >= 0) overlay.addresses.splice(vi, 1);
+      if (drop(crud.fhrp)) return `${g.protocol} ${g.group}`; return del(`${g.protocol} ${g.group}`);
+    }
+    case 'aggregate': {
+      const a = m.aggregates.find(q => q.id === id); if (!a) throw new Error('Unknown aggregate');
+      if (a.allocated) throw new Error(`${a.prefix} has prefixes allocated from it: it cannot be deleted`);
+      const i = crud.aggregates.findIndex(q => q.prefix === id); if (i >= 0) { crud.aggregates.splice(i, 1); cache = null; return a.prefix; }
+      return del(a.prefix);
+    }
+    case 'service': { const v = m.services.find(q => q.id === id); if (!v) throw new Error('Unknown service'); if (drop(crud.services)) return v.name; return del(v.name); }
+  }
 }

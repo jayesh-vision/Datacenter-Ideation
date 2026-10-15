@@ -18,6 +18,8 @@ import { ACCENT, loadColor } from '../dcim/common';
 import '../../styles/dcim.css';
 import '../../styles/ipam.css';
 import { AddressDrawer, FullBy, Integrations, NewPrefixModal, Registers, STATE_TONE } from './extras';
+import { RowActions, useIpamCrud } from './crud';
+type Crud = ReturnType<typeof useIpamCrud>;
 
 type Tab = 'overview' | 'prefixes' | 'addresses' | 'vrfs' | 'vlans' | 'asns' | 'services' | 'registers' | 'integrations';
 const TABS: { id: Tab; label: string }[] = [{ id: 'overview', label: 'Overview' }, { id: 'prefixes', label: 'Prefixes' }, { id: 'addresses', label: 'IP addresses' }, { id: 'vrfs', label: 'VRFs' }, { id: 'vlans', label: 'VLANs' }, { id: 'asns', label: 'ASNs' }, { id: 'services', label: 'Gateways & services' }, { id: 'registers', label: 'Registers' }, { id: 'integrations', label: 'Integrations' }];
@@ -44,6 +46,8 @@ export function Ipam() {
   const [addr, setAddr] = useState<string | null>(null);
   const [newPfx, setNewPfx] = useState(false);
   const toast = useToast();
+  const siteOpts = useMemo(() => (sites?.sites ?? []).map(s => ({ id: s.id, label: `${s.id} · ${s.city}` })), [sites]);
+  const crud = useIpamCrud(m, siteOpts, dcId, toast.show);
   if (!m || !sites) return <Loading />;
   const leaf = m.prefixes.filter(p => p.status !== 'Container');
   const full = leaf.filter(p => p.pct >= 90 && p.size >= 8 && p.role !== 'Point-to-point');
@@ -87,17 +91,18 @@ export function Ipam() {
         </StatTile>
       </StatGrid>
       <Tabs value={tab} onChange={v => setTab(v)} tabs={TABS.map(t => ({ ...t, count: t.id === 'prefixes' ? leaf.length : t.id === 'vlans' ? m.vlans.length : undefined }))} />
-      {tab === 'overview' && <Overview m={m} onPrefix={setPrefix} />}
-      {tab === 'prefixes' && <Prefixes m={m} onPrefix={setPrefix} onNew={() => setNewPfx(true)} />}
-      {tab === 'addresses' && <Addresses m={m} onAddress={setAddr} />}
-      {tab === 'vrfs' && <Vrfs vrfs={m.vrfs} />}
-      {tab === 'vlans' && <Vlans vlans={m.vlans} />}
-      {tab === 'asns' && <Asns m={m} />}
-      {tab === 'services' && <Services m={m} onPrefix={setPrefix} />}
+      {tab === 'overview' && <Overview m={m} onPrefix={setPrefix} crud={crud} />}
+      {tab === 'prefixes' && <Prefixes m={m} onPrefix={setPrefix} onNew={() => setNewPfx(true)} crud={crud} />}
+      {tab === 'addresses' && <Addresses m={m} onAddress={setAddr} crud={crud} />}
+      {tab === 'vrfs' && <Vrfs vrfs={m.vrfs} crud={crud} />}
+      {tab === 'vlans' && <Vlans vlans={m.vlans} crud={crud} />}
+      {tab === 'asns' && <Asns m={m} crud={crud} />}
+      {tab === 'services' && <Services m={m} onPrefix={setPrefix} crud={crud} />}
       {tab === 'registers' && <Registers m={m} onFilter={(t, patch) => setTab(t as Tab, patch)} />}
       {tab === 'integrations' && <Integrations />}
       <AddressDrawer id={addr} onClose={() => setAddr(null)} onPrefix={id => { setAddr(null); setPrefix(id); }} onAddress={setAddr} toast={toast.show} />
       <NewPrefixModal open={newPfx} m={m} dcId={dcId || undefined} onClose={() => setNewPfx(false)} onDone={id => { setNewPfx(false); setPrefix(id); toast.show('Prefix created', 'It starts as Reserved; carve or reserve addresses from it.'); }} />
+      {crud.node}
       {toast.node}
       <PrefixDrawer m={m} id={prefix} onClose={() => setPrefix(null)} onOpen={setPrefix} onAddress={id => { setPrefix(null); setAddr(id); }} />
     </div>
@@ -114,7 +119,7 @@ const CHECKS: { kind: IpFinding['kind']; label: string; text: string }[] = [
   { kind: 'Gateway degraded', label: 'Gateway without redundancy', text: 'a VRRP / HSRP group that lost a router' },
 ];
 
-function Overview({ m, onPrefix }: { m: IpamView; onPrefix: (id: string) => void }) {
+function Overview({ m, onPrefix, crud }: { m: IpamView; onPrefix: (id: string) => void; crud: Crud }) {
   const fullest = m.prefixes.filter(p => p.status === 'Active' && p.size >= 8 && p.role !== 'Point-to-point').sort((a, b) => b.pct - a.pct).slice(0, 20);
   const kinds = [...new Set(m.findings.map(f => f.kind))];
   const roleN = new Map<string, number>(); m.prefixes.filter(p => p.status !== 'Container').forEach(p => roleN.set(p.role, (roleN.get(p.role) ?? 0) + 1));
@@ -141,10 +146,10 @@ function Overview({ m, onPrefix }: { m: IpamView; onPrefix: (id: string) => void
           </button></li>
         ))}</ul>
       </Panel>
-      <Panel title="Aggregates" icon={I.Network} count={m.aggregates.length} sub="Top-level blocks the plan is carved from" info="The top-level blocks the plan is carved from, who allocates them, and how much of each is given to site containers and prefixes.">
+      <Panel title="Aggregates" icon={I.Network} count={m.aggregates.length} actions={<Btn size="sm" icon={I.Plus} onClick={() => crud.open('aggregate')}>New</Btn>} sub="Top-level blocks the plan is carved from" info="The top-level blocks the plan is carved from, who allocates them, and how much of each is given to site containers and prefixes.">
         <ul className="ipam-rank">{m.aggregates.map(a => (
           <li key={a.id}><div>
-            <span className="ipam-rank-top"><b className="mono">{a.prefix}</b><Chip tone="neutral" size="xs">{a.rir}</Chip></span>
+            <span className="ipam-rank-top"><b className="mono">{a.prefix}</b><Chip tone="neutral" size="xs">{a.rir}</Chip><RowActions onEdit={() => crud.open('aggregate', a as never)} onDelete={() => crud.remove('aggregate', a.id, a.prefix)} /></span>
             <small title={a.description}>{a.description}</small>
             <span className="ipam-rank-bar"><i style={{ width: `${Math.max(a.pct, a.allocated ? 1 : 0)}%`, background: ACCENT }} /></span>
             <small className="ipam-rank-n">{fmtNum(a.allocated)} of {fmtNum(a.size)} allocated · {a.pct}%</small>
@@ -159,7 +164,7 @@ function Overview({ m, onPrefix }: { m: IpamView; onPrefix: (id: string) => void
 
 /* ---------------------------------------------------------------- prefixes */
 
-function Prefixes({ m, onPrefix, onNew }: { m: IpamView; onPrefix: (id: string) => void; onNew: () => void }) {
+function Prefixes({ m, onPrefix, onNew, crud }: { m: IpamView; onPrefix: (id: string) => void; onNew: () => void; crud: Crud }) {
   const { get, set, apply } = useP();
   const q = get('q'), role = get('role'), vrf = get('vrf'), pf = get('pf'), pst = get('pst');
   const [closed, setClosed] = useState<Set<string>>(new Set());
@@ -188,7 +193,7 @@ function Prefixes({ m, onPrefix, onNew }: { m: IpamView; onPrefix: (id: string) 
           { id: 'pf', label: 'Usage', value: pf, anyLabel: 'Any usage', onChange: v => set('pf', v), options: [{ id: 'full', label: '≥ 90% used', count: m.prefixes.filter(p => p.pct >= 90 && p.status !== 'Container' && p.size >= 8 && p.role !== 'Point-to-point').length }] }
         ]} /></div>
       <div className="dt-scroll"><table className="nst-table dt-table ipam-tree">
-        <thead><tr><th>Prefix</th><th>Description</th><th>VRF</th><th>Role</th><th>VLAN</th><th>Usage</th><th>Forecast</th><th>Full by</th><th>Status</th></tr></thead>
+        <thead><tr><th>Prefix</th><th>Description</th><th>VRF</th><th>Role</th><th>VLAN</th><th>Usage</th><th>Forecast</th><th>Status</th><th aria-label="Actions" /></tr></thead>
         <tbody>{rows.slice(0, 600).map(({ p, depth }) => (
           <tr key={p.id} className="is-click" onClick={() => onPrefix(p.id)}>
             <td><span className="ipam-pfx" style={{ paddingLeft: depth * 20 }}>
@@ -199,9 +204,9 @@ function Prefixes({ m, onPrefix, onNew }: { m: IpamView; onPrefix: (id: string) 
             <td><Chip tone={ROLE_TONE[p.role]} size="xs">{p.role}</Chip></td>
             <td className="mono">{p.vlan ?? '—'}</td>
             <td>{p.status === 'Container' ? <Meter pct={p.pct} width={60} color="var(--vw-color-slate-400)" label={`${p.children} block${p.children === 1 ? '' : 's'}`} /> : <Meter pct={p.pct} width={60} color={loadColor(p.pct)} label={`${fmtNum(p.used)}/${fmtNum(p.size)}`} />}</td>
-            <td>{p.state ? <Chip tone={STATE_TONE[p.state]} size="xs">{p.state}</Chip> : <span className="vw-label">—</span>}</td>
-            <td><FullBy p={p} compact /></td>
+            <td>{p.state ? <span className="cell-2"><Chip tone={STATE_TONE[p.state]} size="xs">{p.state}</Chip><small><FullBy p={p} compact /></small></span> : <span className="vw-label">—</span>}</td>
             <td><Chip tone={p.status === 'Active' ? 'success' : p.status === 'Reserved' ? 'info' : 'neutral'} dot>{p.status}</Chip>{p.manual && <small className="vw-label"> by hand</small>}</td>
+            <td><RowActions onEdit={() => crud.open('prefix', p as never)} onDelete={() => crud.remove('prefix', p.id, p.prefix)} /></td>
           </tr>
         ))}</tbody>
       </table>{rows.length > 600 && <p className="vw-label" style={{ padding: 12 }}>Showing the first 600 rows — search or filter to narrow down.</p>}</div>
@@ -286,7 +291,7 @@ function CarveModal({ open, parent, onClose, onDone }: { open: boolean; parent: 
 
 /* ---------------------------------------------------------------- lists */
 
-function Addresses({ m, onAddress }: { m: IpamView; onAddress: (id: string) => void }) {
+function Addresses({ m, onAddress, crud }: { m: IpamView; onAddress: (id: string) => void; crud: Crud }) {
   const { get, set, apply } = useP();
   const q = get('q'), use = get('use'), st = get('ast');
   const rows = useMemo(() => m.addresses.filter(a => (!use || a.use === use) && (!st || a.status === st) && has(`${a.address} ${a.deviceName ?? ''} ${a.iface ?? ''} ${a.dns} ${a.vrf}`, q)), [m, q, use, st]);
@@ -296,19 +301,21 @@ function Addresses({ m, onAddress }: { m: IpamView; onAddress: (id: string) => v
     { key: 'd', header: 'Device · interface', sort: a => a.deviceName ?? '', render: a => a.deviceId ? <span className="cell-2"><NeLink id={a.deviceId}>{a.deviceName}</NeLink><small className="mono">{a.iface}</small></span> : <span>{a.deviceName ?? '—'}</span> },
     { key: 'u', header: 'Use', sort: a => a.use, render: a => a.use },
     { key: 'n', header: 'DNS name', sort: a => a.dns, wrap: true, render: a => <span className="mono dcim-via">{a.dns || '—'}</span> },
-    { key: 's', header: 'Status', sort: a => a.status, render: a => <Chip tone={ST_TONE[a.status]} dot>{a.status}</Chip> }
+    { key: 's', header: 'Status', sort: a => a.status, render: a => <Chip tone={ST_TONE[a.status]} dot>{a.status}</Chip> },
+    { key: 'x', header: '', render: a => <RowActions onEdit={() => crud.open('address', a as never)} onDelete={() => crud.remove('address', a.id, a.address)} /> }
   ];
   return (
     <section className="vw-card-section dcim-table">
       <DataTable rows={rows} cols={cols} pageSize={30} defaultSort={{ key: 'a', dir: 'asc' }} onRow={a => onAddress(a.id)}
         toolbar={<ListToolbar shown={rows.length} total={m.addresses.length} noun="addresses" onApply={apply} search={{ value: q, onChange: v => set('q', v), placeholder: 'Address, device, interface, DNS name' }}
+          tools={<Btn variant="filled" icon={I.Plus} onClick={() => crud.open('address')}>New IP address</Btn>}
           filters={[{ id: 'use', label: 'Use', quick: true, value: use, anyLabel: 'Any use', onChange: v => set('use', v), options: opts(m.addresses, a => a.use) },
             { id: 'ast', label: 'Status', quick: true, value: st, anyLabel: 'Any status', onChange: v => set('ast', v), options: opts(m.addresses, a => a.status) }]} />} />
     </section>
   );
 }
 
-function Vrfs({ vrfs }: { vrfs: IpVrf[] }) {
+function Vrfs({ vrfs, crud }: { vrfs: IpVrf[]; crud: Crud }) {
   const { get, set, apply } = useP();
   const q = get('q'), sc = get('scope');
   const rows = vrfs.filter(v => (!sc || v.scope === sc) && has(`${v.name} ${v.rd} ${v.description}`, q));
@@ -316,6 +323,7 @@ function Vrfs({ vrfs }: { vrfs: IpVrf[] }) {
     <section className="vw-card-section dcim-table">
       <DataTable rows={rows} pageSize={30} defaultSort={{ key: 'n', dir: 'asc' }}
         toolbar={<ListToolbar shown={rows.length} total={vrfs.length} noun="VRFs" onApply={apply} search={{ value: q, onChange: v => set('q', v), placeholder: 'VRF, route distinguisher' }}
+          tools={<Btn variant="filled" icon={I.Plus} onClick={() => crud.open('vrf')}>New VRF</Btn>}
           filters={[{ id: 'scope', label: 'Scope', quick: true, value: sc, anyLabel: 'Any scope', onChange: v => set('scope', v), options: opts(vrfs, v => v.scope) }]} />}
         cols={[
           { key: 'n', header: 'VRF', sort: v => v.name, render: v => <span className="cell-2"><span className="mono vw-card-activity-label">{v.name}</span><small>{v.description}</small></span>, wrap: true },
@@ -323,12 +331,13 @@ function Vrfs({ vrfs }: { vrfs: IpVrf[] }) {
           { key: 'rt', header: 'Route targets', render: v => <span className="cell-2"><span className="mono">import {v.importRt.join(', ')}</span><small className="mono">export {v.exportRt.join(', ')}</small></span> },
           { key: 's', header: 'Scope', sort: v => v.scope, render: v => <Chip tone={v.scope === 'Customer' ? 'orange' : v.scope === 'Site' ? 'info' : 'neutral'} size="xs">{v.scope}</Chip> },
           { key: 'p', header: 'Prefixes', sort: v => v.prefixes, render: v => fmtNum(v.prefixes) },
-          { key: 'a', header: 'Addresses', sort: v => v.addresses, render: v => fmtNum(v.addresses) }]} />
+          { key: 'a', header: 'Addresses', sort: v => v.addresses, render: v => fmtNum(v.addresses) },
+          { key: 'x', header: '', render: v => <RowActions onEdit={() => crud.open('vrf', v as never)} onDelete={() => crud.remove('vrf', v.id, v.name)} /> }]} />
     </section>
   );
 }
 
-function Vlans({ vlans }: { vlans: IpVlan[] }) {
+function Vlans({ vlans, crud }: { vlans: IpVlan[]; crud: Crud }) {
   const { get, set, apply } = useP();
   const q = get('q'), grp = get('group'), st = get('vst');
   const rows = vlans.filter(v => (!grp || v.group === grp) && (!st || v.status === st) && has(`${v.vid} ${v.name} ${v.dcId} ${v.role} ${v.serviceId ?? ''}`, q));
@@ -336,6 +345,7 @@ function Vlans({ vlans }: { vlans: IpVlan[] }) {
     <section className="vw-card-section dcim-table">
       <DataTable rows={rows} pageSize={30} defaultSort={{ key: 'd', dir: 'asc' }}
         toolbar={<ListToolbar shown={rows.length} total={vlans.length} noun="VLANs" onApply={apply} search={{ value: q, onChange: v => set('q', v), placeholder: 'VLAN id, name, site, service' }}
+          tools={<Btn variant="filled" icon={I.Plus} onClick={() => crud.open('vlan')}>New VLAN</Btn>}
           filters={[{ id: 'group', label: 'Group', quick: true, value: grp, anyLabel: 'Any group', onChange: v => set('group', v), options: opts(vlans, v => v.group) },
             { id: 'vst', label: 'Status', quick: true, value: st, anyLabel: 'Any status', onChange: v => set('vst', v), options: opts(vlans, v => v.status) }]} />}
         cols={[
@@ -344,12 +354,13 @@ function Vlans({ vlans }: { vlans: IpVlan[] }) {
           { key: 'r', header: 'Role', sort: v => v.role, render: v => v.role },
           { key: 'p', header: 'Prefix / service', render: v => v.serviceId ? <Link className="ent-link mono" to={`/services/${v.serviceId}`}>{v.serviceId}</Link> : <span className="mono">{v.prefix ?? '—'}</span> },
           { key: 'n', header: 'Devices', sort: v => v.devices, render: v => fmtNum(v.devices) },
-          { key: 's', header: 'Status', sort: v => v.status, render: v => <Chip tone={v.status === 'Active' ? 'success' : v.status === 'Unused' ? 'warning' : 'info'} dot>{v.status}</Chip> }]} />
+          { key: 's', header: 'Status', sort: v => v.status, render: v => <Chip tone={v.status === 'Active' ? 'success' : v.status === 'Unused' ? 'warning' : 'info'} dot>{v.status}</Chip> },
+          { key: 'x', header: '', render: v => <RowActions onEdit={() => crud.open('vlan', v as never)} onDelete={() => crud.remove('vlan', v.id, `VLAN ${v.vid} ${v.name}`)} /> }]} />
     </section>
   );
 }
 
-function Asns({ m }: { m: IpamView }) {
+function Asns({ m, crud }: { m: IpamView; crud: Crud }) {
   const { get, set, apply } = useP();
   const q = get('q'), k = get('kind');
   const rows = m.asns.filter(a => (!k || a.kind === k) && has(`${a.asn} ${a.description} ${a.dcId ?? ''}`, q));
@@ -361,18 +372,20 @@ function Asns({ m }: { m: IpamView }) {
     <section className="vw-card-section dcim-table">
       <DataTable rows={rows} pageSize={30} defaultSort={{ key: 'a', dir: 'asc' }}
         toolbar={<ListToolbar shown={rows.length} total={m.asns.length} noun="ASNs" onApply={apply} search={{ value: q, onChange: v => set('q', v), placeholder: 'ASN, site, device' }}
+          tools={<Btn variant="filled" icon={I.Plus} onClick={() => crud.open('asn')}>New ASN</Btn>}
           filters={[{ id: 'kind', label: 'Kind', quick: true, value: k, anyLabel: 'Any kind', onChange: v => set('kind', v), options: opts(m.asns, a => a.kind) }]} />}
         cols={[
           { key: 'a', header: 'ASN', sort: a => a.asn, render: (a: IpAsn) => <span className="mono vw-card-activity-label">AS{a.asn}</span> },
           { key: 'k', header: 'Kind', sort: a => a.kind, render: a => a.kind },
           { key: 'd', header: 'Used by', sort: a => a.description, wrap: true, render: a => <span className="cell-2"><span>{a.description}</span>{a.dcId && <small>{a.dcId}</small>}</span> },
           { key: 'n', header: 'Devices', sort: a => a.devices, render: a => a.devices },
-          { key: 's', header: 'BGP sessions', sort: a => a.sessions, render: a => a.sessions ? <Meter pct={(a.up / a.sessions) * 100} width={56} color={a.up < a.sessions ? 'var(--vw-color-amber-500)' : 'var(--vw-color-emerald-500)'} label={`${a.up}/${a.sessions} up`} /> : <span className="vw-label">—</span> }]} />
+          { key: 's', header: 'BGP sessions', sort: a => a.sessions, render: a => a.sessions ? <Meter pct={(a.up / a.sessions) * 100} width={56} color={a.up < a.sessions ? 'var(--vw-color-amber-500)' : 'var(--vw-color-emerald-500)'} label={`${a.up}/${a.sessions} up`} /> : <span className="vw-label">—</span> },
+          { key: 'x', header: '', render: a => <RowActions onEdit={() => crud.open('asn', a as never)} onDelete={() => crud.remove('asn', a.id, `AS${a.asn}`)} /> }]} />
     </section>
   </>);
 }
 
-function Services({ m, onPrefix }: { m: IpamView; onPrefix: (id: string) => void }) {
+function Services({ m, onPrefix, crud }: { m: IpamView; onPrefix: (id: string) => void; crud: Crud }) {
   const { get, set, apply } = useP();
   const v = (get('sv') || 'gateways') as 'gateways' | 'ranges' | 'apps';
   const q = get('q');
@@ -380,24 +393,28 @@ function Services({ m, onPrefix }: { m: IpamView; onPrefix: (id: string) => void
   const apps = m.services.filter(s => has(`${s.name} ${s.deviceName} ${s.address}`, q));
   return (
     <section className="vw-card-section dcim-table">
-      <div className="dcim-sub-bar"><Seg value={v} onChange={x => set('sv', x === 'gateways' ? '' : x)} options={[{ id: 'gateways', label: `Gateways ${m.fhrp.length}` }, { id: 'ranges', label: `DHCP ranges ${m.ranges.length}` }, { id: 'apps', label: `Services on addresses ${fmtNum(m.services.length)}` }]} /></div>
+      <div className="dcim-sub-bar"><Seg value={v} onChange={x => set('sv', x === 'gateways' ? '' : x)} options={[{ id: 'gateways', label: `Gateways ${m.fhrp.length}` }, { id: 'ranges', label: `DHCP ranges ${m.ranges.length}` }, { id: 'apps', label: `Services on addresses ${fmtNum(m.services.length)}` }]} /><span style={{ flex: 1 }} />
+        <Btn variant="filled" icon={I.Plus} onClick={() => crud.open(v === 'gateways' ? 'fhrp' : v === 'ranges' ? 'range' : 'service')}>{v === 'gateways' ? 'New gateway group' : v === 'ranges' ? 'New IP range' : 'New service'}</Btn></div>
       {v === 'gateways' && <DataTable rows={m.fhrp} pageSize={30} defaultSort={{ key: 's', dir: 'desc' }} onRow={g => onPrefix(g.prefixId)} empty={<p className="vw-label" style={{ padding: 16 }}>No host prefixes in scope, so no first-hop gateways (telecom sites route on the devices themselves).</p>} cols={[
         { key: 'v', header: 'Virtual IP', sort: g => g.vip, render: g => <span className="mono">{g.vip}</span> },
         { key: 'p', header: 'Prefix', render: g => <span className="cell-2"><span className="mono">{pfx.get(g.prefixId)?.prefix}</span><small>{pfx.get(g.prefixId)?.description}</small></span> },
         { key: 'g', header: 'Protocol', render: g => `${g.protocol} ${g.group}` },
         { key: 'm', header: 'Routers', wrap: true, render: g => <span className="row wrap" style={{ gap: 6 }}>{g.members.map(x => <NeLink key={x} id={x}>{x.replace(`${g.dcId}-`, '')}</NeLink>)}</span> },
-        { key: 's', header: 'State', sort: g => (g.state === 'ok' ? 0 : 1), render: g => <Chip tone={g.state === 'ok' ? 'success' : 'error'} dot>{g.state === 'ok' ? 'Redundant' : 'Single router'}</Chip> }]} />}
+        { key: 's', header: 'State', sort: g => (g.state === 'ok' ? 0 : 1), render: g => <Chip tone={g.state === 'ok' ? 'success' : 'error'} dot>{g.state === 'ok' ? 'Redundant' : 'Single router'}</Chip> },
+        { key: 'x', header: '', render: g => <RowActions onEdit={() => crud.open('fhrp', g as never)} onDelete={() => crud.remove('fhrp', g.id, `${g.protocol} ${g.group} · ${g.vip}`)} /> }]} />}
       {v === 'ranges' && <DataTable rows={m.ranges} pageSize={30} onRow={r => onPrefix(r.prefixId)} empty={<p className="vw-label" style={{ padding: 16 }}>No DHCP ranges in scope.</p>} cols={[
         { key: 'r', header: 'Range', render: r => <span className="mono">{r.start} – {r.end}</span> },
         { key: 'p', header: 'In prefix', render: r => <span className="mono">{pfx.get(r.prefixId)?.prefix}</span> },
         { key: 'u', header: 'Purpose', wrap: true, render: r => r.purpose },
-        { key: 'n', header: 'Held', render: r => `${r.used} of ${r.size}` }]} />}
+        { key: 'n', header: 'Held', render: r => `${r.used} of ${r.size}` },
+        { key: 'x', header: '', render: r => <RowActions onEdit={() => crud.open('range', r as never)} onDelete={() => crud.remove('range', r.id, `${r.start} – ${r.end}`)} /> }]} />}
       {v === 'apps' && <DataTable rows={apps} pageSize={30} defaultSort={{ key: 'd', dir: 'asc' }}
         toolbar={<ListToolbar shown={apps.length} total={m.services.length} noun="services" onApply={apply} search={{ value: q, onChange: x => set('q', x), placeholder: 'Service, device, address' }} />} cols={[
         { key: 'n', header: 'Service', sort: s => s.name, render: s => <b>{s.name}</b> },
         { key: 'p', header: 'Port', render: s => <span className="mono">{s.protocol}/{s.ports.join(',')}</span> },
         { key: 'd', header: 'Device', sort: s => s.deviceName, render: s => <NeLink id={s.deviceId}>{s.deviceName}</NeLink> },
-        { key: 'a', header: 'Address', sort: s => s.address, render: s => <span className="mono">{s.address}</span> }]} />}
+        { key: 'a', header: 'Address', sort: s => s.address, render: s => <span className="mono">{s.address}</span> },
+        { key: 'x', header: '', render: s => <RowActions onEdit={() => crud.open('service', s as never)} onDelete={() => crud.remove('service', s.id, `${s.name} on ${s.address}`)} /> }]} />}
     </section>
   );
 }
