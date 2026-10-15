@@ -26,8 +26,9 @@
 .cm-ev small { font-size: 11px; color: var(--ink-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* overview dashboard (15-Oct-2026): pairs of equal height, bodies scroll */
 .cm-dash { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: stretch; }
-.cm-dash > .panel { height: 420px; display: flex; flex-direction: column; min-width: 0; }
-.cm-dash > .panel > .panel-body { flex: 1; min-height: 0; overflow-y: auto; }
+.cm-dash > .panel { max-height: 460px; display: flex; flex-direction: column; min-width: 0; }
+.cm-dash > .panel > .panel-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+.cm-dash > .panel > .panel-body > .cm-board { margin-top: auto; }
 .cm-figs { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0 0 8px; font-size: 13px; color: var(--ink-500, var(--vw-color-slate-500)); }
 .cm-figs b { font: 600 15px/1 Inter, sans-serif; font-variant-numeric: tabular-nums; color: var(--vw-color-slate-800); margin-right: 4px; }
 .cm-figs .is-bad b { color: var(--vw-color-red-600); }
@@ -53,3 +54,11 @@
 .cm-detail-head .tabs { border-bottom: 0; }
 .cm-why { display: inline-flex; align-items: flex-start; gap: 6px; }
 .cm-issues .cell-2 { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.cm-figs .is-warn b { color: var(--vw-color-amber-700); }
+.cm-pipe { display: flex; gap: 2px; height: 10px; margin: 0 0 14px; border-radius: 999px; overflow: hidden; }
+.cm-pipe button { border: 0; padding: 0; cursor: pointer; min-width: 6px; }
+.cm-wait { list-style: none; margin: 12px 0 0; padding: 0; border-top: 1px solid var(--vw-color-slate-100); }
+.cm-wait li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto 34px; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--vw-color-slate-100); font-size: 13px; }
+.cm-wait li span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--vw-color-slate-700); }
+.cm-wait li small { text-align: right; color: var(--ink-500, var(--vw-color-slate-500)); font-variant-numeric: tabular-nums; }

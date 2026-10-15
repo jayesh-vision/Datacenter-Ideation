@@ -130,10 +130,15 @@ export function ChangeOverview({ r, now, go }: { r: ChangeRegister; now: number;
       </Panel>
 
       <Panel title="Open changes by stage" icon={I.GitPullRequestArrow} count={open.length} info="Where every open change is now, split by class. Stuck = more than 7 days in draft or approval, an approved window that has passed, or in progress for over 2 days. Click a stage for its changes.">
+        <div className="cm-figs"><span><b>{open.length}</b> open</span><span className={open.filter(stuckOf).length ? 'is-warn' : undefined}><b>{open.filter(stuckOf).length}</b> stuck</span><span><b>{d1(open.length ? Math.max(...open.map(c => (now - c.created) / DAY)) : null)}</b> oldest open</span></div>
+        <div className="cm-pipe">{STAGES.map((st, i) => { const n = open.filter(c => c.status === st).length; return n ? <button key={st} type="button" style={{ flex: n, background: ['var(--vw-color-slate-300)', 'var(--primaryColor300, #93c5fd)', 'var(--primaryColor400, #4f9cf5)', 'var(--primaryColor600, #1d6fd1)'][i] }} title={`${st}: ${n}`} onClick={() => go({ tab: 'changes', status: st })} /> : null; })}</div>
         <BarList items={stageItems} />
       </Panel>
       <Panel title="Approvals and the change board" icon={I.Gavel} count={pending.length} info="Changes waiting on each approval role (3-day target), and the normal changes on the next weekly change advisory board (Thursdays 10:00).">
         {roleItems.length ? <BarList items={roleItems} /> : <p className="vw-label">Nothing is waiting for a decision.</p>}
+        {pending.length > 0 && <ul className="cm-wait">{[...pending].sort((a, b) => a.created - b.created).slice(0, 4).map(c => (
+          <li key={c.id}><Link className="ent-link mono" to={`/changes/${encodeURIComponent(c.id)}`}>{c.id}</Link><span title={c.title}>{c.title}</span>
+            <Chip size="xs" tone={c.risk === 'High' ? 'warning' : 'neutral'}>{c.risk}</Chip><small>{Math.max(0, Math.round((now - c.created) / DAY))} d</small></li>))}</ul>}
         <div className="cm-board"><I.CalendarCheck size={15} /><span><b>Next change board · {fmtDateTime(thu.getTime())}</b><small>{cab.length ? `${cab.length} high-risk change${cab.length === 1 ? '' : 's'} on the agenda: ${cab.slice(0, 4).map(c => c.id).join(', ')}${cab.length > 4 ? '…' : ''}` : 'No high-risk change on the agenda yet'}</small></span>
           <Btn size="sm" onClick={() => go({ tab: 'approvals' })}>Open approvals</Btn></div>
       </Panel>
