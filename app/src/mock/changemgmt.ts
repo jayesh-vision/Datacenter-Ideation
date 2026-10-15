@@ -22,6 +22,7 @@ const TEMPLATES: (Omit<StandardTemplate, 'uses' | 'lastUsed' | 'success'> & { ma
   { id: 'STD-03', name: 'Preventive maintenance (OEM schedule)', description: 'Planned PM on UPS, generator, cooling or fire systems per the maintenance plan.', risk: 'Low', checks: 'Redundant unit carries the load · vendor engineer booked', match: /preventive|PM\b|inspection|battery test|load bank|filter|DG test|generator test/i },
   { id: 'STD-04', name: 'Firmware / OS patch in the vendor\'s recommended release', description: 'Patch one node of a redundant pair to the approved golden release.', risk: 'Low', checks: 'Pair partner healthy · release on the approved list', match: /firmware|patch|golden release|driver/i },
   { id: 'STD-05', name: 'Patch a cross-connect', description: 'Add or move a patch cord on the ODF / meet-me panels for a new or moved service.', risk: 'Low', checks: 'Free ports reserved · cable ID labelled', match: /cross-connect|re-patch|patch cord/i },
+  { id: 'STD-07', name: 'Update a DCIM record', description: 'Hold or release rack space, label or enable a port: record work with no effect on running service.', risk: 'Low', checks: 'No live service on the port · space not promised to another change', match: /^DCIM record:/ },
   { id: 'STD-06', name: 'Install a rack or a device in reserved space', description: 'Rack and stack into reserved U with both power sides and structured cabling.', risk: 'Low', checks: 'U reserved in DCIM · PDU budget below 80%', match: /install .*rack|rack[- ]and[- ]stack|racks? & PDUs|install & cable/i }
 ];
 const short = (s: string) => s.replace(/^[A-Z]{2}-DC-\d{3}-/, '');
@@ -70,9 +71,9 @@ function build(db: Db): ChangeRegister {
   const spofOf = (dcId: string) => { let s = spofNes.get(dcId); if (!s) { s = new Set((sitePhys(db, dcId)?.spofs ?? []).filter(x => x.domain === 'Power' && x.neIds.length < 6).flatMap(x => x.neIds)); spofNes.set(dcId, s); } return s; };
   const recs: ChangeRecord[] = [];
   for (const c of db.changes) {
-    const tpl = TEMPLATES.find(t => t.match.test(c.title));
+    const tpl = /^DCIM record:/.test(c.title) ? TEMPLATES.find(t => t.id === 'STD-07') : TEMPLATES.find(t => t.match.test(c.title));
     const cls: ChangeRecord['cls'] = c.emergency ? 'Emergency' : tpl && c.risk === 'Low' ? 'Standard' : 'Normal';
-    recs.push({ id: c.id, source: c.kind === 'Maintenance' ? 'Maintenance' : 'Operations', cls, kind: c.kind, title: c.title, dcId: c.dcId, scope: c.scope, risk: c.risk, status: c.status, windowStart: c.windowStart, windowEnd: c.windowEnd,
+    recs.push({ id: c.id, source: c.origin === 'DCIM' ? 'DCIM' : c.kind === 'Maintenance' ? 'Maintenance' : 'Operations', cls, kind: c.kind, title: c.title, dcId: c.dcId, scope: c.scope, risk: c.risk, status: c.status, windowStart: c.windowStart, windowEnd: c.windowEnd,
       requester: c.requester, approver: c.approver, rollback: c.rollback, created: c.created, incidentId: c.incidentId, template: cls === 'Standard' ? tpl?.id : undefined,
       approvals: matrix(cls, c.risk, c.status, c.id, c.created, c.approver), conflicts: [], violations: [], pir: { state: 'Not needed' } });
   }

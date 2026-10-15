@@ -164,3 +164,27 @@
 .dcim-activity b { text-transform: none; }
 .dcim-tpl-sum small { white-space: normal; }
 .dcim-rack-side .tabs .tab { padding: 0 9px; }
+
+/* ---- change control (15-Oct-2026): the "Change request" section of every DCIM form, CR chips, DCIM work lists */
+.dcim-cr { border: 1px solid var(--vw-color-slate-200); border-radius: 10px; background: var(--vw-color-slate-50); padding: 12px 14px; display: grid; gap: 10px; }
+.dcim-cr .dcim-form { grid-template-columns: 1fr 1fr; }
+.dcim-cr .select, .dcim-cr .input { width: 100%; background: #fff; }
+.dcim-cr-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.dcim-cr-head b { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-1, var(--vw-color-slate-800)); }
+.dcim-cr-head b svg { color: var(--primaryColor); }
+.dcim-cr-note { margin: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 12.5px; color: var(--vw-color-slate-600); }
+.dcim-cr-note .ent-link { margin-left: auto; }
+.dcim-cr-effect { margin: 0; display: flex; align-items: flex-start; gap: 6px; font-size: 12.5px; color: var(--vw-color-slate-600); }
+.dcim-cr-effect svg { flex-shrink: 0; margin-top: 2px; color: var(--primaryColor); }
+.dcim-cr .dcim-err { display: flex; align-items: center; gap: 6px; }
+.dcim-crchip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--primaryColor-200, var(--vw-color-blue-200)); background: var(--primaryColor-50, var(--vw-color-blue-50));
+  color: var(--primaryColor); font: 500 11.5px/18px var(--font-mono, ui-monospace, monospace); white-space: nowrap; text-decoration: none; }
+.dcim-crchip:hover { background: var(--primaryColor-100, var(--vw-color-blue-100)); }
+.dcim-crpending { border: 1px solid var(--vw-color-amber-300); background: var(--vw-color-amber-50); color: var(--vw-color-amber-800); border-radius: 999px; padding: 1px 9px; font-size: 12px; cursor: pointer; }
+.dcim-work { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.dcim-work li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--vw-color-slate-100); }
+.dcim-work li:last-child { border-bottom: 0; }
+.dcim-work li b { font-weight: 500; font-size: 13.5px; }
+.dcim-work li small { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.dcim-work-acts { display: inline-flex; gap: 6px; }
+.dcim-work.is-compact li { padding: 7px 0; }

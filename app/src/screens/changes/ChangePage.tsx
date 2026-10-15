@@ -3,7 +3,8 @@
    through their transitions here; a delivery change request follows its work order in Delivery. */
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { decideChange, getChangeRecord, getChanges, useQuery } from '../../api';
+import { decideChange, executeDcimChange, getChangeRecord, getChanges, getDcimWorkOf, useQuery } from '../../api';
+import { CrWorkList } from '../dcim/cr';
 import type { Change } from '../../api/types';
 import { usePage, PageHead, Loading } from '../../shell/page';
 import { Btn, Chip, KV, Panel, Tabs } from '../../ui/kit';
@@ -31,6 +32,7 @@ export function ChangePage() {
   const { data, loading } = useQuery(() => getChangeRecord(id), [id]);
   const { data: raw } = useQuery(() => getChanges({}), [id]);
   const toast = useToast();
+  const { data: work } = useQuery(() => getDcimWorkOf(id), [id]);
   usePage([{ label: 'Operate' }, { label: 'Change management', to: '/changes' }, { label: id }], data ? { dcId: data.change.dcId } : {});
   if (loading && !data) return <Loading />;
   if (!data) return <NotFound what="Change" />;
@@ -56,6 +58,16 @@ export function ChangePage() {
         { key: 'v', label: 'Review', value: c.pir.state, sub: c.pir.due ? `due ${fmtDate(c.pir.due)}` : c.cls === 'Emergency' ? 'after implementation' : 'not required', tone: c.pir.state === 'Overdue' ? 'bad' : c.pir.state === 'Due' ? 'warn' : undefined, onClick: () => setTab('review'), info: 'Post-implementation review: every emergency change, and any change that rolled back or caused an incident.' }
       ]} />
       <Tabs value={tab} onChange={setTab} tabs={[{ id: 'overview', label: 'Scope & impact' }, { id: 'approvals', label: 'Approvals', count: c.approvals.length }, { id: 'checks', label: 'Policies & conflicts', count: c.violations.length || undefined }, { id: 'review', label: 'Review' }, { id: 'history', label: 'History', count: data.audit.length || undefined }]} />
+      {tab === 'overview' && !!work?.length && (() => {
+        const todo = work.filter(w => w.state === 'Planned' || w.state === 'Failed');
+        const live = c.status === 'Approved' || c.status === 'In progress';
+        return <Panel title="DCIM work" icon={I.Server} count={work.length} info="The DCIM edits that run under this change request: done ones are recorded with it, planned ones run from here (or from DCIM → Change requests) once the change is approved."
+          actions={todo.length > 0 && <Btn size="sm" variant="filled" icon={I.Play} disabled={!live || !!blocking.length} title={!live ? 'Approve the change first' : blocking.map(v => v.text).join('; ') || undefined}
+            onClick={() => executeDcimChange(c.id).then(r => toast.show(`${r.filter(x => x.ok).length} of ${r.length} DCIM items done`, r.filter(x => !x.ok).map(x => x.message).join(' · ') || 'The racks, devices and cables are updated in DCIM.'))}>Execute all ({todo.length})</Btn>}>
+          <CrWorkList items={work} />
+          <p className="vw-label" style={{ margin: '10px 0 0' }}><Link className="ent-link" to={`/dcim?dc=${c.dcId}&tab=changes`}>Open in DCIM →</Link></p>
+        </Panel>;
+      })()}
       {tab === 'overview' && (op ? <Panel title="Scope and dependency impact" icon={I.Network}><ChangeBody c={op} /></Panel>
         : <Panel title="Scope" icon={I.Network}><KV cols={2} items={[['Source', c.source], ['Site', <DcLink id={c.dcId} />], ['Requester', c.requester], ['Window', `${fmtDateTime(c.windowStart)} → ${fmtDateTime(c.windowEnd)}`], ['Rollback plan', c.rollback],
             ['Racks', c.scope.length ? <span className="row wrap" style={{ gap: 6 }}>{c.scope.map(r => <Link key={r} className="ent-link mono" to={`/dcim/racks/${encodeURIComponent(r)}`}>{r.split('-').slice(-2).join('-')}</Link>)}</span> : '—'], ...(c.template ? [['Standard template', c.template] as [string, string]] : [])]} /></Panel>)}

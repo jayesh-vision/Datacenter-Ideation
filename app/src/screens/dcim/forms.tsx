@@ -7,6 +7,7 @@ import { addDeviceType, createRack, getDcim, getDcimFreeSlots, getDcimTypes, ins
 import type { NeRole } from '../../api/types';
 import { Btn, Field, Modal } from '../../ui/kit';
 import { useToast } from '../ops/shared';
+import { crOutcome, useCrField } from './cr';
 
 const ROLES = ['Access', 'Network', 'Compute', 'Storage', 'GPU', 'Core', 'ODF / patching', 'Tenant cabinet'];
 
@@ -27,12 +28,18 @@ export function NewRackModal({ open, onClose, dcId, hallId }: { open: boolean; o
   const taken = new Set((data?.racks ?? []).filter(r => r.dcId === site).map(r => r.name));
   const suggest = useMemo(() => { for (let i = 0; i < 26 * 4; i++) { const n = `RACK-${String.fromCharCode(65 + (i % 26))}${i >= 26 ? Math.floor(i / 26) : ''}`; if (!taken.has(n)) return n; } return 'RACK-NEW'; }, [taken]);
   useEffect(() => { if (open) { setErr(''); setName(''); setDc(dcId ?? ''); setHall(hallId ?? ''); } }, [open, dcId, hallId]);
-  const submit = () => createRack({ dcId: site, hallId: hl, name: name || suggest, heightU: h, budgetKw: kw, role })
-    .then(id => { onClose(); toast.show(`${name || suggest} added to ${halls.find(x => x.id === hl)?.name}`, 'It appears on the floor plan, in the twin and in Facilities with an A and a B rack PDU.', { to: `/dcim/racks/${encodeURIComponent(id)}`, label: 'Open rack' }); nav(`/dcim/racks/${encodeURIComponent(id)}`); })
+  const cr = useCrField(site, false, open);
+  const submit = () => (cr.value ? createRack({ dcId: site, hallId: hl, name: name || suggest, heightU: h, budgetKw: kw, role }, cr.value) : Promise.reject(new Error('Pick or raise a change request')))
+    .then(r => {
+      onClose();
+      if (r.staged) { toast.show(...crOutcome(r, `${name || suggest} in ${halls.find(x => x.id === hl)?.name}`)); return; }
+      const id = r.result!;
+      toast.show(`${name || suggest} added to ${halls.find(x => x.id === hl)?.name}`, `Recorded under ${r.changeId}. It appears on the floor plan, in the twin and in Facilities with an A and a B rack PDU.`, { to: `/dcim/racks/${encodeURIComponent(id)}`, label: 'Open rack' }); nav(`/dcim/racks/${encodeURIComponent(id)}`);
+    })
     .catch(e => setErr(String(e.message ?? e)));
   return (<>
-    <Modal open={open} onClose={onClose} title="New rack" sub="Adds an empty cabinet to a hall; its A and B rack PDUs are fed from the hall's busways."
-      foot={<><Btn onClick={onClose}>Cancel</Btn><Btn variant="filled" onClick={submit} disabled={!hl}>Create rack</Btn></>}>
+    <Modal open={open} onClose={onClose} width={600} title="New rack" sub="Adds an empty cabinet to a hall under a change request; its A and B rack PDUs are fed from the hall's busways."
+      foot={<><Btn onClick={onClose}>Cancel</Btn><Btn variant="filled" onClick={submit} disabled={!hl || !cr.ok}>{cr.value && 'raise' in cr.value ? 'Raise CR and plan rack' : 'Create rack'}</Btn></>}>
       <div className="dcim-form">
         <Field label="Datacenter" required><select className="select" value={site} onChange={e => { setDc(e.target.value); setHall(''); }}>{(data?.sites ?? []).map(s => <option key={s.id} value={s.id}>{s.id} · {s.city}</option>)}</select></Field>
         <Field label="Hall" required><select className="select" value={hl} onChange={e => setHall(e.target.value)}>{halls.map(x => <option key={x.id} value={x.id}>{x.floor} · {x.name} ({x.racks} racks)</option>)}</select></Field>
@@ -40,6 +47,7 @@ export function NewRackModal({ open, onClose, dcId, hallId }: { open: boolean; o
         <Field label="Role"><select className="select" value={role} onChange={e => setRole(e.target.value)}>{ROLES.map(r => <option key={r}>{r}</option>)}</select></Field>
         <Field label="Height (U)" error={h < 20 || h > 52 ? '20–52 U' : undefined}><input className="input" type="number" min={20} max={52} value={h} onChange={e => setH(Number(e.target.value))} /></Field>
         <Field label="Power budget (kW per side)" hint="Each side is rated for the whole cabinet (2N at the rack)" error={kw <= 0 || kw > 150 ? 'Above 0, at most 150 kW' : undefined}><input className="input" type="number" min={1} max={150} step={0.5} value={kw} onChange={e => setKw(Number(e.target.value))} /></Field>
+        <div style={{ gridColumn: '1 / -1' }}>{cr.node}</div>
         {err && <p className="dcim-err">{err}</p>}
       </div>
     </Modal>
@@ -66,12 +74,13 @@ export function InstallDeviceModal({ open, onClose, dcId, rackId }: { open: bool
   const t = tl.find(x => x.id === type) ?? tl[0];
   const fits = (slots ?? []).filter(s => t && s.to - s.from + 1 >= t.uHeight);
   const pos = u && fits.some(s => u >= s.from && u + (t?.uHeight ?? 1) - 1 <= s.to) ? u : fits[0]?.from ?? 0;
-  const submit = () => (rk && t ? installDevice({ rackId: rk.id, typeId: t.id, name: name || `${t.role.toUpperCase()}-${rk.name.replace('RACK-', '')}-U${pos}`, u: pos }) : Promise.reject(new Error('Pick a rack and a device type')))
-    .then(id => { onClose(); toast.show(`${id} planned in ${rk!.name} U${pos}`, 'The rack units are held for it on the rack, the floor plan and the twin. It becomes Active once installed and discovered.', { to: `/dcim/racks/${encodeURIComponent(rk!.id)}`, label: 'Open rack' }); })
+  const cr = useCrField(site, false, open);
+  const submit = () => (rk && t && cr.value ? installDevice({ rackId: rk.id, typeId: t.id, name: name || `${t.role.toUpperCase()}-${rk.name.replace('RACK-', '')}-U${pos}`, u: pos }, cr.value) : Promise.reject(new Error('Pick a rack, a device type and a change request')))
+    .then(r => { onClose(); if (r.staged) { toast.show(...crOutcome(r, `Device in ${rk!.name} U${pos}`)); return; } toast.show(`${r.result} planned in ${rk!.name} U${pos}`, `Recorded under ${r.changeId}. The rack units are held for it on the rack, the floor plan and the twin. It becomes Active once installed and discovered.`, { to: `/dcim/racks/${encodeURIComponent(rk!.id)}`, label: 'Open rack' }); })
     .catch(e => setErr(String(e.message ?? e)));
   return (<>
-    <Modal open={open} onClose={onClose} width={560} title="Install device" sub="Plans a device into free rack units. It shows as Planned (reserved space) until it is installed and discovered."
-      foot={<><Btn onClick={onClose}>Cancel</Btn><Btn variant="filled" onClick={submit} disabled={!rk || !t || !pos}>Plan device</Btn></>}>
+    <Modal open={open} onClose={onClose} width={600} title="Install device" sub="Plans a device into free rack units. It shows as Planned (reserved space) until it is installed and discovered."
+      foot={<><Btn onClick={onClose}>Cancel</Btn><Btn variant="filled" onClick={submit} disabled={!rk || !t || !pos || !cr.ok}>Plan device</Btn></>}>
       <div className="dcim-form">
         <Field label="Datacenter" required><select className="select" value={site} onChange={e => { setDc(e.target.value); setRack(''); }}>{(data?.sites ?? []).map(s => <option key={s.id} value={s.id}>{s.id} · {s.city}</option>)}</select></Field>
         <Field label="Rack" required hint={rk ? `${rk.freeU} U free · ${rk.drawKw} of ${rk.budgetKw} kW` : undefined}><select className="select" value={rk?.id ?? ''} onChange={e => { setRack(e.target.value); setU(0); }}>{racks.map(r => <option key={r.id} value={r.id}>{r.name} · {r.hallName} · {r.freeU} U free</option>)}</select></Field>
@@ -82,6 +91,7 @@ export function InstallDeviceModal({ open, onClose, dcId, rackId }: { open: bool
         </Field>
         <Field label="Name" hint="Leave empty for a generated name"><input className="input" value={name} onChange={e => setName(e.target.value)} placeholder={t && rk ? `${t.role.toUpperCase()}-${rk.name.replace('RACK-', '')}-U${pos}` : ''} /></Field>
         {t && rk && t.typicalW > 0 && rk.drawKw + t.typicalW / 1000 > rk.budgetKw && <p className="dcim-warn" style={{ gridColumn: '1 / -1' }}>A typical {t.model} draws {t.typicalW} W: once live the rack would draw {Math.round((rk.drawKw + t.typicalW / 1000) * 10) / 10} of {rk.budgetKw} kW.</p>}
+        <div style={{ gridColumn: '1 / -1' }}>{cr.node}</div>
         {err && <p className="dcim-err">{err}</p>}
       </div>
     </Modal>

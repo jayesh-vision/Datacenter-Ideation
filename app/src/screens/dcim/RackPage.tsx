@@ -3,10 +3,11 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { dcimReleaseU, dcimRetireRack, getDatacenter, getDcimRack, useQuery } from '../../api';
+import { dcimReleaseU, dcimRetireRack, getDatacenter, getDcimRack, getDcimTags, getDcimWork, useQuery } from '../../api';
+import { CrChip, CrWorkList, showCr, useCrGate } from './cr';
 import type { DcimDevice, DcimRackView } from '../../api/types';
 import { usePage, PageHead, Loading } from '../../shell/page';
-import { Btn, Chip, Info, Modal, Panel, Tabs } from '../../ui/kit';
+import { Btn, Chip, Info, Panel, Tabs } from '../../ui/kit';
 import { useToast } from '../ops/shared';
 import { RackEditModal, ReserveModal } from './ops';
 import { DataTable, type Col } from '../../ui/DataTable';
@@ -20,7 +21,7 @@ import { DeviceDrawer } from './lists';
 import { InstallDeviceModal } from './forms';
 import '../../styles/dcim.css';
 
-type Tab = 'devices' | 'power' | 'cables' | 'panels' | 'reservations' | 'activity';
+type Tab = 'devices' | 'power' | 'cables' | 'panels' | 'reservations' | 'changes' | 'activity';
 const UPX = 15;
 
 export function RackPage() {
@@ -33,9 +34,11 @@ export function RackPage() {
   const [install, setInstall] = useState(false);
   const [power, setPower] = useState(false);
   const [path, setPath] = useState<string | null>(null);
-  const [form, setForm] = useState<'edit' | 'reserve' | 'retire' | null>(null);
-  const [err, setErr] = useState('');
+  const [form, setForm] = useState<'edit' | 'reserve' | null>(null);
   const toast = useToast();
+  const gate = useCrGate(toast);
+  const { data: tags } = useQuery(() => (data ? getDcimTags({ dcId: data.rack.dcId }) : Promise.resolve({} as Record<string, string>)), [data?.rack.dcId]);
+  const { data: work } = useQuery(() => getDcimWork({ rackId: id }), [id]);
   usePage([{ label: 'Plan & Build' }, { label: 'DCIM', to: '/dcim' }, { label: data?.rack.dcId ?? '…', to: data ? `/dcim?tab=floorplan&dc=${data.rack.dcId}&hall=${data.rack.hallId}` : undefined }, { label: data?.rack.name ?? id }], data ? { dcId: data.rack.dcId } : {});
   const { data: dc } = useQuery(() => (data ? getDatacenter(data.rack.dcId) : Promise.resolve(null)), [data?.rack.dcId]);
   if (loading && !data) return <Loading />;
@@ -46,7 +49,7 @@ export function RackPage() {
 
   return (
     <div className="page dcim">
-      <PageHead title={r.name} chips={<><DcimStatusChip s={r.status} /><Chip tone="neutral">{r.role}</Chip>{r.density !== 'Standard' && <Chip tone="purple">{r.density} density</Chip>}{r.liquid && <Chip tone="cyan">Liquid cooled</Chip>}{r.tenantName && <Chip tone="neutral">{r.tenantName}</Chip>}{r.condition === 'Damaged' && <Chip tone="error" title={r.conditionNote}>Damaged</Chip>}{r.old && <Chip tone="warning" title="An old cabinet type: shallower (1000 mm) than the current 1200 mm standard">Old type</Chip>}</>}
+      <PageHead title={r.name} chips={<><DcimStatusChip s={r.status} /><Chip tone="neutral">{r.role}</Chip>{r.density !== 'Standard' && <Chip tone="purple">{r.density} density</Chip>}{r.liquid && <Chip tone="cyan">Liquid cooled</Chip>}{r.tenantName && <Chip tone="neutral">{r.tenantName}</Chip>}{r.condition === 'Damaged' && <Chip tone="error" title={r.conditionNote}>Damaged</Chip>}{r.old && <Chip tone="warning" title="An old cabinet type: shallower (1000 mm) than the current 1200 mm standard">Old type</Chip>}<CrChip id={tags?.[`rack:${r.id}`]} />{!!work?.filter(w => w.state === 'Planned').length && <button type="button" className="dcim-crpending" onClick={() => setTab('changes')}>{work.filter(w => w.state === 'Planned').length} planned change{work.filter(w => w.state === 'Planned').length === 1 ? '' : 's'}</button>}</>}
         sub={<>{r.dcId} · {r.floor} · <Link className="ent-link" to={`/dcim?tab=floorplan&dc=${r.dcId}&hall=${r.hallId}`}>{r.hallName}</Link> · {r.rowName}{r.model ? ` · ${r.model}${r.installed ? `, bought ${fmtMonth(r.installed)}` : ''}` : ''}{r.condition === 'Damaged' && r.conditionNote ? ` · ${r.conditionNote}` : ''}{data.neighbours.length ? ` · next to ${data.neighbours.slice(0, 3).map(n => n.name).join(', ')}` : ''}</>}
         actions={<>
           <Btn icon={I.Zap} onClick={() => setPower(true)}>Outlet map</Btn>
@@ -54,7 +57,7 @@ export function RackPage() {
           {r.owner !== 'tenant' && <>
             <Btn icon={I.Pencil} onClick={() => setForm('edit')}>Edit</Btn>
             <Btn icon={I.Bookmark} onClick={() => setForm('reserve')} disabled={r.freeU < 1}>Reserve space</Btn>
-            <Btn icon={I.Archive} onClick={() => { setErr(''); setForm('retire'); }}>Retire</Btn>
+            <Btn icon={I.Archive} onClick={() => gate.open({ title: `Retire ${r.name}`, sub: r.devices ? `${r.name} holds ${r.devices} device${r.devices === 1 ? '' : 's'}: move or remove them first (or plan their removal under the same change request).` : `${r.name} is empty. It leaves the hall, the floor plan and the twin.`, dcId: r.dcId, std: false, verb: 'Retire rack', run: cr => dcimRetireRack(r.id, cr), done: `${r.name} retired`, onDone: x => { if (!x.staged) nav(`/dcim?tab=floorplan&dc=${r.dcId}&hall=${r.hallId}`); } })}>Retire</Btn>
             <Btn variant="filled" icon={I.HardDriveDownload} onClick={() => setInstall(true)} disabled={r.freeU < 1}>Install device</Btn>
           </>}
         </>} />
@@ -73,7 +76,7 @@ export function RackPage() {
           <Elevation v={data} onDevice={setDev} />
         </Panel>
         <div className="dcim-rack-side">
-          <Tabs value={tab} onChange={setTab} tabs={[{ id: 'devices', label: 'Devices', count: devices.length }, { id: 'power', label: 'Power', count: data.cords.length }, { id: 'cables', label: 'Cables', count: data.cables.length }, { id: 'panels', label: 'Panels', count: data.panels.length }, { id: 'reservations', label: 'Reserved', count: data.reserved.filter(x => x.id).length }, { id: 'activity', label: 'Activity', count: data.activity.length }]} />
+          <Tabs value={tab} onChange={setTab} tabs={[{ id: 'devices', label: 'Devices', count: devices.length }, { id: 'power', label: 'Power', count: data.cords.length }, { id: 'cables', label: 'Cables', count: data.cables.length }, { id: 'panels', label: 'Panels', count: data.panels.length }, { id: 'reservations', label: 'Reserved', count: data.reserved.filter(x => x.id).length }, { id: 'changes', label: 'Change requests', count: work?.length || undefined }, { id: 'activity', label: 'Activity', count: data.activity.length }]} />
           {tab === 'devices' && <DeviceList devices={devices} onRow={d => setDev(d.id)} />}
           {tab === 'power' && <PowerCards v={data} />}
           {tab === 'cables' && <section className="vw-card-section dcim-table"><DataTable rows={data.cables} pageSize={15} onRow={c => c.linkId && setPath(c.linkId)} defaultSort={{ key: 'st', dir: 'desc' }} cols={[
@@ -90,7 +93,9 @@ export function RackPage() {
             { key: 'u', header: 'Units', sort: x => x.u, render: x => <span className="mono">U{x.u}–U{x.u + x.uHeight - 1}</span> },
             { key: 'l', header: 'Held for', sort: x => x.label, wrap: true, render: x => <span className="cell-2"><span>{x.label}</span><small>by {x.by}</small></span> },
             { key: 't', header: 'Until', sort: x => x.until ?? 0, render: x => (x.until ? fmtDate(x.until) : <span className="vw-label">open</span>) },
-            { key: 'a', header: '', render: x => <Btn size="sm" icon={I.X} onClick={() => dcimReleaseU(x.id).then(() => toast.show('Space released', `U${x.u}–U${x.u + x.uHeight - 1} is free again.`))}>Release</Btn> }]} /></section>}
+            { key: 'c', header: 'Change', sort: x => tags?.[`resv:${x.id}`] ?? '', render: x => <CrChip id={tags?.[`resv:${x.id}`]} /> },
+            { key: 'a', header: '', render: x => <Btn size="sm" icon={I.X} onClick={() => gate.open({ title: `Release U${x.u}–U${x.u + x.uHeight - 1}`, sub: `${r.name} · held for ${x.label}`, dcId: r.dcId, std: true, verb: 'Release', run: cr => dcimReleaseU(x.id, cr), done: `U${x.u}–U${x.u + x.uHeight - 1} released` })}>Release</Btn> }]} /></section>}
+          {tab === 'changes' && <section className="vw-card-section">{work?.length ? <CrWorkList items={work} /> : <p className="vw-label">No DCIM change has been made or planned on this cabinet in this session. Every edit (install, move, reserve, power) names its change request and is listed here.</p>}</section>}
           {tab === 'activity' && <section className="vw-card-section"><ul className="dcim-activity">{data.activity.map(a => (
             <li key={a.id}><span className="dcim-activity-dot" /><span><span className="dcim-activity-t"><b>{a.field}</b> · <span className="mono">{a.object.replace(`${r.dcId}-`, '')}</span></span><small>{a.prev !== '—' ? `${a.prev} → ` : ''}{a.next}</small></span><small className="dcim-activity-when">{fmtDateTime(a.at)}<br />{a.actor}</small></li>))}</ul>
             {!data.activity.length && <p className="vw-label">No changes recorded for this cabinet or its devices in this session.</p>}</section>}
@@ -98,13 +103,9 @@ export function RackPage() {
       </div>
 
       <DeviceDrawer id={dev} onClose={() => setDev(null)} />
-      <RackEditModal rack={form === 'edit' ? r : null} onClose={() => setForm(null)} onDone={t => { setForm(null); toast.show(t); }} />
-      <ReserveModal rack={form === 'reserve' ? r : null} onClose={() => setForm(null)} onDone={t => { setForm(null); setTab('reservations'); toast.show(t, 'Install and Move skip this space until it is released.'); }} />
-      <Modal open={form === 'retire'} onClose={() => setForm(null)} title={`Retire ${r.name}?`} sub="The cabinet is removed from the hall, the floor plan and the twin. Only an empty rack can be retired."
-        foot={<><Btn onClick={() => setForm(null)}>Cancel</Btn><Btn variant="filled" icon={I.Archive} onClick={() => dcimRetireRack(r.id).then(() => { setForm(null); nav(`/dcim?tab=floorplan&dc=${r.dcId}&hall=${r.hallId}`); }).catch(e => setErr(String(e.message ?? e)))}>Retire rack</Btn></>}>
-        <p style={{ margin: 0 }}>{r.devices ? `${r.name} holds ${r.devices} device${r.devices === 1 ? '' : 's'}: move or remove them first.` : `${r.name} is empty and can be retired.`}</p>
-        {err && <p className="dcim-err">{err}</p>}
-      </Modal>
+      <RackEditModal rack={form === 'edit' ? r : null} onClose={() => setForm(null)} onDone={(t, x) => { setForm(null); showCr(toast, t, x); }} />
+      <ReserveModal rack={form === 'reserve' ? r : null} onClose={() => setForm(null)} onDone={(t, x) => { setForm(null); setTab(x?.staged ? 'changes' : 'reservations'); showCr(toast, t, x, 'Install and Move skip this space until it is released.'); }} />
+      {gate.node}
       {toast.node}
       <InstallDeviceModal open={install} onClose={() => setInstall(false)} dcId={r.dcId} rackId={r.id} />
       {power && dc && <RackPowerDrawer dc={dc.dc} rackId={r.id} onClose={() => setPower(false)} />}

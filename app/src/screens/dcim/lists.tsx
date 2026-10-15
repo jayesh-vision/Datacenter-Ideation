@@ -3,7 +3,8 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { clockNow, dcimDisconnect, dcimRemoveModule, dcimSwapModule, getDatacenter, getDcimDevice, getDeviceIps, getDeviceLifecycle, getIpam, setDeviceStatus, useQuery } from '../../api';
+import { clockNow, dcimDisconnect, dcimRemoveModule, dcimSwapModule, getDatacenter, getDcimDevice, getDcimTags, getDcimWork, getDeviceIps, getDeviceLifecycle, getIpam, setDeviceStatus, useQuery } from '../../api';
+import { CrChip, CrWorkList, showCr, useCrGate } from './cr';
 import type { DcimCable, DcimComponent, DcimDevice, DcimDeviceType, DcimModuleType, DcimPowerFeed, DcimPowerPanel, DcimRack, DcimCatalog } from '../../api/types';
 import { Loading } from '../../shell/page';
 import { Btn, Chip, Drawer, KV, Panel, Seg } from '../../ui/kit';
@@ -105,14 +106,18 @@ export function DeviceDrawer({ id, onClose }: { id: string | null; onClose: () =
   const [bay, setBay] = useState<string | null>(null);
   const [move, setMove] = useState(false);
   const [trace, setTrace] = useState<string | null>(null);
+  const gate = useCrGate(toast);
+  const { data: tags } = useQuery(() => (data?.device ? getDcimTags({ dcId: data.device.dcId }) : Promise.resolve({} as Record<string, string>)), [data?.device?.dcId]);
+  const { data: work } = useQuery(() => (id ? getDcimWork({ neId: id }) : Promise.resolve([])), [id]);
   if (!id) return null;
   const d = data?.device;
   const comps = data?.components ?? [];
   const shown = comps.filter(c => (kind === 'other' ? c.kind === 'Console' || c.kind === 'Management' : c.kind === kind));
   const editable = !!d && d.status !== 'Tenant-owned';
-  const run = (p: Promise<unknown>, ok: string, body?: string) => p.then(() => toast.show(ok, body)).catch(e => toast.show('Not changed', String(e.message ?? e)));
+  /* one-click edits ask for the change request they run under */
+  const ask = (title: string, std: boolean, verb: string, run: Parameters<typeof gate.open>[0]['run'], done: string) => d && gate.open({ title, sub: `${d.name} · ${d.dcId}`, dcId: d.dcId, std, verb, run, done });
   const optics = comps.filter(c => c.kind === 'Interface' && c.detail && /dBm/.test(c.detail));
-  const setSt = (to: 'Active' | 'Maintenance' | 'Decommissioning') => setDeviceStatus(id, to).then(() => toast.show(`${d?.name} set to ${to}`, 'The device page, the twin and the rack update with the new lifecycle state.')).catch(e => toast.show('Not changed', String(e.message ?? e)));
+  const setSt = (to: 'Active' | 'Maintenance' | 'Decommissioning') => ask(`Set ${d?.name} to ${to}`, false, `Set to ${to}`, cr => setDeviceStatus(id, to, cr), `${d?.name} set to ${to}`);
   return (
     <Drawer open onClose={onClose} width={640} title={d ? <span className="mono">{d.name}</span> : 'Device'} sub={d ? `${d.manufacturer} ${d.model} · ${d.dcId} · ${d.rackName} U${d.u}` : 'Loading'}
       foot={d && <>
@@ -124,7 +129,7 @@ export function DeviceDrawer({ id, onClose }: { id: string | null; onClose: () =
         </select>}
       </>}>
       {!d ? <Loading /> : <>
-        <div className="row" style={{ gap: 8, marginBottom: 12, flexWrap: 'wrap' }}><DcimStatusChip s={d.status} />{d.status !== 'Planned' && d.status !== 'Tenant-owned' && <HealthChip s={d.health} />}<Chip tone="neutral">{d.role}</Chip><Chip tone="neutral">{d.uHeight}U</Chip>{d.purpose && <span className="vw-label" data-purpose>{d.purpose}</span>}</div>
+        <div className="row" style={{ gap: 8, marginBottom: 12, flexWrap: 'wrap' }}><DcimStatusChip s={d.status} />{d.status !== 'Planned' && d.status !== 'Tenant-owned' && <HealthChip s={d.health} />}<Chip tone="neutral">{d.role}</Chip><Chip tone="neutral">{d.uHeight}U</Chip>{d.purpose && <span className="vw-label" data-purpose>{d.purpose}</span>}<CrChip id={tags?.[`ne:${d.id}`]} /></div>
         <KV cols={3} items={[['Serial', <span className="mono">{d.serial || '—'}</span>], ['Asset tag', <span className="mono">{d.assetTag}</span>], ['Management IP', <span className="mono">{d.ip || '—'}</span>],
           ['Platform', d.platform], ['Hall', d.hallName], ['Draw', d.powerW ? `${fmtNum(d.powerW)} W` : '—'],
           ...(lc?.life && lc.life.state !== 'Planned' && lc.life.state !== 'Tenant-owned' ? [
@@ -135,6 +140,7 @@ export function DeviceDrawer({ id, onClose }: { id: string | null; onClose: () =
           <b className="dcim-sub-h">IP addresses ({ips.addresses.length}) <Link className="ent-link" style={{ fontWeight: 400 }} to={`/ipam?tab=addresses&q=${encodeURIComponent(d.name)}`}>in IP & Network →</Link></b>
           <DeviceAddresses neId={d.id} name={d.name} dcId={d.dcId} addrs={ips.addresses} prefixes={sitePlan?.prefixes ?? []} ifaces={comps.filter(c => c.kind === 'Interface').map(c => c.name)} onChanged={toast.show} />
         </>}
+        {!!work?.length && <><b className="dcim-sub-h">Change requests on this device ({work.length})</b><CrWorkList items={work} /></>}
         <div className="row" style={{ justifyContent: 'space-between', margin: '16px 0 8px' }}>
           <b>Components</b>
           <Seg size="sm" value={kind} onChange={setKind} options={[{ id: 'Interface', label: `Ports ${comps.filter(c => c.kind === 'Interface').length}` }, { id: 'Power port', label: `Power ${comps.filter(c => c.kind === 'Power port').length}` }, { id: 'Module bay', label: `Bays ${comps.filter(c => c.kind === 'Module bay').length}` }, { id: 'other', label: `Mgmt ${comps.filter(c => c.kind === 'Console' || c.kind === 'Management').length}` }]} />
@@ -146,18 +152,18 @@ export function DeviceDrawer({ id, onClose }: { id: string | null; onClose: () =
               <td className="mono">{c.name}</td>
               <td><span className="cell-2"><span>{c.type}</span>{c.speedMbps ? <small>{fmtBw(c.speedMbps)}</small> : c.detail && <small>{c.detail}</small>}</span></td>
               <td>{c.peer ? <span className="cell-2"><span className="mono">{c.peer.deviceName}</span><small>{c.peer.port}</small></span> : <span className="vw-label">—</span>}</td>
-              <td><Chip tone={c.state === 'Connected' ? 'success' : c.state === 'Down' || c.state === 'Failed' ? 'error' : 'neutral'} dot>{kind === 'Module bay' && c.state === 'Connected' ? 'Installed' : c.state}</Chip></td>
+              <td><span className="row" style={{ gap: 6 }}><Chip tone={c.state === 'Connected' ? 'success' : c.state === 'Down' || c.state === 'Failed' ? 'error' : 'neutral'} dot>{kind === 'Module bay' && c.state === 'Connected' ? 'Installed' : c.state}</Chip><CrChip id={tags?.[`${kind === 'Module bay' ? 'mod' : 'if'}:${d!.id}|${c.name}`]} /></span></td>
               {editable && kind === 'Interface' && <td className="dcim-acts">
                 {c.peer ? <>
                   {c.cableId?.startsWith('CB-') && <button type="button" title="Trace the cable" onClick={() => setTrace(c.cableId!.slice(3))}><I.Route size={14} /></button>}
-                  <button type="button" title="Disconnect" onClick={() => run(dcimDisconnect(d!.id, c.name), `${c.name} disconnected`, `The cable to ${c.peer!.deviceName} ${c.peer!.port} is removed; both ports are free.`)}><I.Unplug size={14} /></button>
+                  <button type="button" title="Disconnect" onClick={() => ask(`Disconnect ${c.name}`, true, 'Disconnect', cr => dcimDisconnect(d!.id, c.name, cr), `${c.name} disconnected from ${c.peer!.deviceName} ${c.peer!.port}`)}><I.Unplug size={14} /></button>
                 </> : c.state !== 'Disabled' && <button type="button" title="Connect a cable" onClick={() => setConn(c)}><I.Cable size={14} /></button>}
                 <button type="button" title="Edit interface" onClick={() => setEdit(c)}><I.Pencil size={14} /></button>
               </td>}
               {editable && kind === 'Module bay' && <td className="dcim-acts">
                 {c.state === 'Empty' ? <button type="button" title="Install a module" onClick={() => setBay(c.name)}><I.Plus size={14} /></button> : <>
-                  <button type="button" title={c.state === 'Failed' ? 'Replace the faulty module' : 'Swap for a spare'} onClick={() => run(dcimSwapModule(d!.id, c.name), `${c.name} replaced`, 'The new serial is recorded; the old one goes to RMA.')}><I.RefreshCw size={14} /></button>
-                  {/^(FPC|DISK)/.test(c.name) && <button type="button" title="Remove the module" onClick={() => run(dcimRemoveModule(d!.id, c.name), `${c.name} removed`)}><I.Trash2 size={14} /></button>}
+                  <button type="button" title={c.state === 'Failed' ? 'Replace the faulty module' : 'Swap for a spare'} onClick={() => ask(`Replace the module in ${c.name}`, /^(PSU|PEM|FAN)/.test(c.name), 'Replace', cr => dcimSwapModule(d!.id, c.name, cr), `${c.name} replaced; the old part goes to RMA`)}><I.RefreshCw size={14} /></button>
+                  {/^(FPC|DISK)/.test(c.name) && <button type="button" title="Remove the module" onClick={() => ask(`Remove the module in ${c.name}`, false, 'Remove', cr => dcimRemoveModule(d!.id, c.name, cr), `${c.name} removed`)}><I.Trash2 size={14} /></button>}
                 </>}
               </td>}
             </tr>
@@ -170,11 +176,12 @@ export function DeviceDrawer({ id, onClose }: { id: string | null; onClose: () =
         </>}
       </>}
       {d && <>
-        <ConnectModal port={conn && { deviceId: d.id, deviceName: d.name, dcId: d.dcId, name: conn.name, speedMbps: conn.speedMbps }} onClose={() => setConn(null)} onDone={t => { setConn(null); toast.show(t, 'The cable appears in Cabling, on both devices and in the cable path view.'); }} />
-        <InterfaceModal port={edit && { deviceId: d.id, c: edit }} onClose={() => setEdit(null)} onDone={t => { setEdit(null); toast.show(t); }} />
-        <ModuleModal bay={bay ? { deviceId: d.id, model: d.model, slot: bay } : null} onClose={() => setBay(null)} onDone={t => { setBay(null); toast.show(t); }} />
-        <MoveModal dev={move ? { id: d.id, name: d.name, dcId: d.dcId, rackId: d.rackId, u: d.u, uHeight: d.uHeight, powerW: d.powerW } : null} onClose={() => setMove(false)} onDone={t => { setMove(false); toast.show(t, 'The rack, the floor plan and the twin show the new position.'); }} />
+        <ConnectModal port={conn && { deviceId: d.id, deviceName: d.name, dcId: d.dcId, name: conn.name, speedMbps: conn.speedMbps }} onClose={() => setConn(null)} onDone={(t, r) => { setConn(null); showCr(toast, t, r, 'The cable appears in Cabling, on both devices and in the cable path view.'); }} />
+        <InterfaceModal port={edit && { deviceId: d.id, dcId: d.dcId, c: edit }} onClose={() => setEdit(null)} onDone={(t, r) => { setEdit(null); showCr(toast, t, r); }} />
+        <ModuleModal bay={bay ? { deviceId: d.id, dcId: d.dcId, model: d.model, slot: bay } : null} onClose={() => setBay(null)} onDone={(t, r) => { setBay(null); showCr(toast, t, r); }} />
+        <MoveModal dev={move ? { id: d.id, name: d.name, dcId: d.dcId, rackId: d.rackId, u: d.u, uHeight: d.uHeight, powerW: d.powerW } : null} onClose={() => setMove(false)} onDone={(t, r) => { setMove(false); showCr(toast, t, r, 'The rack, the floor plan and the twin show the new position.'); }} />
         <CablePathDrawer linkId={trace} onClose={() => setTrace(null)} />
+        {gate.node}
       </>}
       {toast.node}
     </Drawer>
@@ -231,16 +238,17 @@ export function PowerTab({ panels, feeds, dcId }: { panels: DcimPowerPanel[]; fe
   const q = get('q'), side = get('side'), fst = get('fst');
   const [panel, setPanel] = useState('');
   const [rack, setRack] = useState<{ dcId: string; rackId: string } | null>(null);
+  const { data: tags } = useQuery(() => getDcimTags({ dcId: dcId || undefined }), [dcId]);
   const fRows = useMemo(() => feeds.filter(f => (!panel || f.panelId === panel) && (!side || f.side === side) && (!fst || f.state === fst) && has(`${f.rackName} ${f.hallName} ${f.name} ${f.dcId}`, q)), [feeds, panel, side, fst, q]);
   const pCols: Col<DcimPowerPanel>[] = [
-    { key: 'p', header: 'Distribution', sort: p => `${p.dcId}${p.hallName}${p.side}`, render: p => <span className="cell-2"><span className="vw-card-activity-label">{p.name}{p.manual && <Chip tone="info" size="xs">New</Chip>}</span><small>{p.dcId}{p.hallName && !p.name.includes(p.hallName) ? ` · ${p.hallName}` : ''}</small></span> },
+    { key: 'p', header: 'Distribution', sort: p => `${p.dcId}${p.hallName}${p.side}`, render: p => <span className="cell-2"><span className="vw-card-activity-label">{p.name}{p.manual && <Chip tone="info" size="xs">New</Chip>}<CrChip id={tags?.[`panel:${p.id}`]} /></span><small>{p.dcId}{p.hallName && !p.name.includes(p.hallName) ? ` · ${p.hallName}` : ''}</small></span> },
     { key: 'src', header: 'Fed from', sort: p => p.source, render: p => <span className="cell-2"><span>{p.source}</span><small style={{ color: p.sourceState === 'On battery' || p.sourceState === 'Fault' ? BAD : undefined }}>{p.sourceState === 'Rectifier' ? '−48 V plant' : p.sourceState} · {p.utility}</small></span> },
     { key: 'f', header: 'Rack PDUs', sort: p => p.feeds, render: p => fmtNum(p.feeds) },
     { key: 'load', header: 'Load', sort: p => p.loadKw / (p.capacityKw || 1), render: p => <Meter pct={pct(p.loadKw, p.capacityKw)} width={56} color={loadColor(pct(p.loadKw, p.capacityKw))} label={`${fmtKw(p.loadKw)} of ${fmtKw(p.capacityKw)}`} /> },
     { key: 'st', header: 'State', sort: p => p.state, render: p => <Chip tone={p.state === 'ok' ? 'success' : p.state === 'warn' ? 'warning' : 'error'} dot>{p.state === 'ok' ? 'Normal' : p.state === 'warn' ? 'Attention' : 'Fault'}</Chip> }
   ];
   const fCols: Col<DcimPowerFeed>[] = [
-    { key: 'r', header: 'Rack PDU', sort: f => `${f.dcId}${f.rackName}${f.name}`, render: f => <span className="cell-2"><span className="vw-card-activity-label">{f.rackName} · {f.name}{f.manual && <Chip tone="info" size="xs">New</Chip>}</span><small>{f.dcId} · {f.hallName}</small></span> },
+    { key: 'r', header: 'Rack PDU', sort: f => `${f.dcId}${f.rackName}${f.name}`, render: f => <span className="cell-2"><span className="vw-card-activity-label">{f.rackName} · {f.name}{f.manual && <Chip tone="info" size="xs">New</Chip>}<CrChip id={tags?.[`feed:${f.id}`]} /></span><small>{f.dcId} · {f.hallName}</small></span> },
     { key: 'e', header: 'Electrical', sort: f => f.capacityKw, render: f => <span className="cell-2"><span>{f.kind === 'DC' ? '−48 V DC' : `${f.volts} V · ${f.phases}-phase · ${f.amps} A`}</span><small>rated {fmtKw(f.capacityKw)}</small></span> },
     { key: 'load', header: 'Load', sort: f => f.pct, render: f => <Meter pct={f.pct} width={56} color={loadColor(f.pct)} label={fmtKw(f.loadKw)} /> },
     { key: 'o', header: 'Outlets', sort: f => f.cords / f.outlets, render: f => `${f.cords} of ${f.outlets}` },
@@ -260,8 +268,8 @@ export function PowerTab({ panels, feeds, dcId }: { panels: DcimPowerPanel[]; fe
             ]}>{panel && <Chip tone="info">{panels.find(p => p.id === panel)?.name}<button type="button" className="dcim-chip-x" onClick={() => setPanel('')} aria-label="Clear panel">×</button></Chip>}</ListToolbar>} />
       </section>
       {rack && <RackPower dcId={rack.dcId} rackId={rack.rackId} onClose={() => setRack(null)} />}
-      <PanelModal open={form === 'panel'} dcId={dcId} onClose={() => setForm(null)} onDone={t => { setForm(null); toast.show(t, 'It is listed under Distribution; add feeds to give racks a circuit from it.'); }} />
-      <FeedModal open={form === 'feed'} dcId={dcId} onClose={() => setForm(null)} onDone={t => { setForm(null); toast.show(t, 'The rack PDU appears in the feed list with no cords yet.'); }} />
+      <PanelModal open={form === 'panel'} dcId={dcId} onClose={() => setForm(null)} onDone={(t, r) => { setForm(null); showCr(toast, t, r, 'It is listed under Distribution; add feeds to give racks a circuit from it.'); }} />
+      <FeedModal open={form === 'feed'} dcId={dcId} onClose={() => setForm(null)} onDone={(t, r) => { setForm(null); showCr(toast, t, r, 'The rack PDU appears in the feed list with no cords yet.'); }} />
       {toast.node}
     </div>
   );

@@ -485,6 +485,17 @@ screens are rebuilt in our kit (PageHead, StatGrid, ListToolbar, DataTable, NST 
   New feed (V × A × √3 × 0.8). Catalogue: New module type, Import JSON, component templates on the type page (editable for hand-made types).
   Explorer tab (racks / devices, filters, table / tiles, saved views in localStorage, CSV export). Floor plan: Thermal · Density · Tenant
   (draw vs contracted) colourings and free grid cells that open New rack. `physical.ts` link index is now rebuilt on every change.
+- **DCIM change control (15-Oct-2026, user: "every DCIM change should be tagged with a CR from Change management")** — step A: every DCIM edit
+  (new rack, install, status, move, connect / disconnect, port edit, modules, edit / retire rack, reserve / release U, power panel / feed; NOT the
+  catalogue) runs through `mock/server.ts` `dcimRun(op, args, cr)` with a `DcimCr`: **standard** (pre-approved record work — patch cords, space
+  holds, port label / enable, hot-swap PSU / fan — raised and closed as a Standard CHG, template STD-07 "DCIM record:" or STD-02 / 05; refused at a
+  site under an incident freeze), an **open CR** at the site (Approved / In progress = applied now; Draft / Pending = saved as planned work), or
+  **raise new** (CHG Pending approval, `Change.origin = 'DCIM'`, register source "DCIM"). Planned work (`DcimWorkItem`, overlay `dcimCr`, reset on
+  regenerate) runs with `dcimExecute` / `dcimExecuteAll` once the CR is approved and not blocked by policy; a DCIM-raised CR completes when all its
+  work is done. Records are tagged (`dcimTags`: `rack: · ne: · if:ne|port · mod:ne|slot · resv: · panel: · feed:`; planned generator devices take the
+  open delivery CR of their rack); audit lines carry the CR. UI: `screens/dcim/cr.tsx` (`useCrField` section in every form, `useCrGate` for one-click
+  actions, `CrChip`, `CrWorkList`), rack page chip + "N planned changes" + **Change requests** tab, device drawer chip / per-port chips / list,
+  change page **DCIM work** panel (Execute all). Checks: `npx tsx .qa/dcim-cr-check.ts`, `node .qa/dcim.mjs neocloud us` (raise → approve → execute).
 - **Phase 2 = IP & Network (done)**: read model `mock/ipam.ts` (usage = addresses actually bound; P2B's 92% padding is not copied). Management =
   each device's own `ip` in a per-site VRF `MGMT-<site>` (the generator reuses 172.x ranges between sites, hence one VRF per site; the NOC
   imports RT 64500:999); the /24s are those the addresses fall in, under one container; an address outside it is "Outside plan" (the hero

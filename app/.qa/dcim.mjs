@@ -59,6 +59,24 @@ await p.locator('.modal').getByRole('button', { name: 'Plan device' }).click(); 
 ok(await p.locator('.dcim-dev.is-planned').count() === 1, 'planned device shows hatched in the elevation');
 const dup = await p.evaluate(() => document.body.innerText.includes('Planned'));
 ok(dup, 'device listed as Planned');
+ok(await p.locator('.dcim-crchip').count() >= 1, 'rack carries its change request chip');
+/* change control: edit the rack under a NEW change request → planned; approve it in Change management; execute from the rack page */
+await p.getByRole('button', { name: 'Edit' }).click(); await p.waitForTimeout(400);
+await p.locator('.modal [data-cr-field] .seg button', { hasText: 'Raise new' }).click(); await p.waitForTimeout(200);
+await p.locator('.modal input[type=number]').nth(1).fill('12');
+await p.locator('.modal').getByRole('button', { name: 'Save' }).click(); await p.waitForTimeout(800);
+const toastT = (await p.locator('.toast').allInnerTexts()).join(' | ');
+const chg = /CHG-\d+/.exec(toastT)?.[0];
+ok(!!chg && /Planned under/.test(toastT), `edit planned under a new CR ${chg ?? toastT}`);
+ok(await p.locator('.dcim-crpending').count() === 1, 'rack header shows the planned change');
+await go(`/changes/${chg}`); await check('change-page');
+ok((await p.innerText('body')).includes('DCIM work'), 'change page lists its DCIM work');
+for (let k = 0; k < 4; k++) { const ap = p.getByRole('button', { name: /^Approve as/ }); if (!(await ap.count())) break; await ap.click(); await p.waitForTimeout(500); }
+await p.getByRole('button', { name: /Execute all/ }).click(); await p.waitForTimeout(700);
+ok((await p.locator('.dcim-work li').first().innerText()).includes('Done'), 'executed from the change page');
+await go(new URL(rackUrl).pathname + '?tab=changes'); await check('rack-changes');
+ok(await p.locator('.dcim-work li').count() >= 2, 'rack Change requests tab lists the work');
+{ const bt = await p.innerText('body'); ok(/of 12\b|12 kW/.test(bt), 'rack budget updated to 12 kW'); }
 /* the twin sees it: the site's equipment count went up */
 console.log(errs.length ? `  ✗ console: ${errs.slice(0, 3).join(' | ')}` : '  ✓ no console errors'); if (errs.length) bad++;
 await b.close();

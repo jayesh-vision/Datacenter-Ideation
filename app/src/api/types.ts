@@ -161,6 +161,8 @@ export type ChangeStatus = 'Draft' | 'Pending approval' | 'Approved' | 'In progr
 export interface Change {
   id: string; kind: 'Change' | 'Maintenance'; title: string; dcId: string; scope: string[]; risk: 'Low' | 'Medium' | 'High'; status: ChangeStatus;
   windowStart: number; windowEnd: number; requester: string; approver?: string; rollback: string; created: number; emergency?: boolean; incidentId?: string;
+  /* raised from DCIM (15-Oct-2026): the change carries DCIM work items (mock/server.ts dcimRun) */
+  origin?: 'DCIM';
 }
 
 export interface ReconTask {
@@ -638,7 +640,7 @@ export type ChangeClass = 'Standard' | 'Normal' | 'Emergency';
 export interface ChangeApprovalStep { role: string; who: string; decision: 'Approved' | 'Pending' | 'Waiting' | 'Rejected' | 'Pre-approved'; at?: number }
 export interface ChangeViolation { policy: string; enforcement: 'Block' | 'Warn'; text: string }
 export interface ChangeRecord {
-  id: string; source: 'Operations' | 'Maintenance' | 'Delivery'; cls: ChangeClass; kind: Change['kind']; title: string; dcId: string; scope: string[]; risk: Change['risk']; status: ChangeStatus;
+  id: string; source: 'Operations' | 'Maintenance' | 'Delivery' | 'DCIM'; cls: ChangeClass; kind: Change['kind']; title: string; dcId: string; scope: string[]; risk: Change['risk']; status: ChangeStatus;
   windowStart: number; windowEnd: number; requester: string; approver?: string; rollback: string; created: number; incidentId?: string; projectId?: string; woId?: string;
   template?: string; approvals: ChangeApprovalStep[]; conflicts: string[]; freeze?: string; violations: ChangeViolation[];
   pir: { state: 'Not needed' | 'Due' | 'Done' | 'Overdue'; due?: number }; outcome?: 'Successful' | 'Rolled back' | 'Rejected' | 'Caused an incident'; causedIncident?: string;
@@ -682,3 +684,18 @@ export interface WorkOrderDetail {
   access: { state: 'Not needed' | 'Not requested' | 'Requested' | 'Approved' | 'Checked in' | 'Checked out'; zones: string; instanceId?: string } ; signoff?: { doneBy: string; confirmedBy: string; witness: boolean; notes: string; at: number };
   failure?: { reason: string; at: number; by: string }; pos: PurchaseOrder[]; process?: WfInstance; change?: { id: string; status: string; cls: string; risk: string } ; history: { at: number; who: string; text: string }[];
 }
+
+/* ---- DCIM change control (15-Oct-2026, user: "every DCIM change should be tagged with a CR from Change management").
+   Every DCIM edit names its change request: a standard (pre-approved) one for low-risk record work, an open CR at the site (approved = applied
+   now, not yet approved = saved as planned work under it), or a new CR raised from DCIM (Pending approval; the work runs once approved). */
+export type DcimCr = { standard: true } | { changeId: string } | { raise: { title?: string; windowStart: number; hours: number; rollback: string } };
+export type DcimOp = 'createRack' | 'installDevice' | 'setDeviceStatus' | 'connect' | 'disconnect' | 'editInterface' | 'installModule' | 'removeModule' | 'swapModule'
+  | 'editRack' | 'retireRack' | 'moveDevice' | 'reserveU' | 'releaseU' | 'createPanel' | 'createFeed';
+export interface DcimWorkItem {
+  id: string; changeId: string; op: DcimOp; label: string; dcId: string; rackId?: string; neId?: string; hallId?: string; keys: string[];
+  state: 'Planned' | 'Done' | 'Failed' | 'Cancelled'; created: number; by: string; doneAt?: number; error?: string; result?: string; args: unknown[];
+  /* the CR as it stands (filled by the read functions) */
+  cr?: { title: string; status: ChangeStatus; cls: ChangeClass; source: ChangeRecord['source']; windowStart: number; blocked?: string };
+}
+export interface DcimCrOption { id: string; title: string; status: ChangeStatus; cls: ChangeClass; source: ChangeRecord['source']; windowStart: number; windowEnd: number; applies: 'now' | 'staged'; blocked?: string }
+export interface DcimRunResult<T = unknown> { changeId: string; staged: boolean; itemId: string; result?: T }

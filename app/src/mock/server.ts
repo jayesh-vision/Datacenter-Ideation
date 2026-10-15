@@ -2,7 +2,7 @@
    one in-memory estate. Only src/api/index.ts talks to this module. */
 
 import { sevLabel } from '../lib/vocab';
-import type { NewPrefixInput, DcimModuleType,
+import type { NewPrefixInput, DcimModuleType, DcimCr, DcimCrOption, DcimOp, DcimRunResult, DcimWorkItem, ChangeRecord,
   ActionStep, Alert, AlertScope, EdgeStatus, OpsState, AuditEntry, CapacityPlan, Change, ChangeStatus, Datacenter, DcSummary, Incident, IncidentStatus, Interface, Link, Location,
   ImpactCause, NetworkElement, NeRole, Persona, PrefixRole, ReconTask, RevDomain, RevIssue, RevenueView, RolloutStatus, Service, Severity, TimelineEvent
 } from '../api/types';
@@ -96,7 +96,7 @@ const listeners = new Set<() => void>();
 export const subscribe = (f: () => void) => { listeners.add(f); return () => { listeners.delete(f); }; };
 const changed = () => { version++; clearPhysical(); clearDcim(); clearIpam(); clearChangeMgmt(); clearCompliance(); clearSafety(); clearLifecycle(); clearMaintenance(); clearOps(); finaliseHealth(db); summaryCache.clear(); revModel = null; revViews.clear(); listeners.forEach(f => f()); };
 export const getVersion = () => version;
-const rebuild = () => { db = generate(persona); edgeCache.clear(); resetDcimCustom(); resetIpamOverlay(); resetPlanner2(); resetDelivery(); resetWorkflow(); resetCompliance(); resetChangeMgmt(); resetCustomization(); changed(); };
+const rebuild = () => { db = generate(persona); edgeCache.clear(); resetDcimCustom(); resetDcimCr(); resetIpamOverlay(); resetPlanner2(); resetDelivery(); resetWorkflow(); resetCompliance(); resetChangeMgmt(); resetCustomization(); changed(); };
 export const reset = () => rebuild();
 export const getPersona = () => persona;
 export function setPersona(p: Persona) {
@@ -772,7 +772,9 @@ export function topology(dcId: string) {
 
 /* ------------------------------------------------------------- mutations */
 
-const audit_ = (e: Omit<AuditEntry, 'id' | 'at'>) => db.audit.push({ ...e, id: `AUD-${++db.seq.aud}`, at: db.now });
+/* while a DCIM edit runs under a change request, every audit line it writes names that CR */
+let auditCr: string | null = null;
+const audit_ = (e: Omit<AuditEntry, 'id' | 'at'>) => db.audit.push({ ...e, next: auditCr && e.source === 'DCIM' ? `${e.next} · ${auditCr}` : e.next, id: `AUD-${++db.seq.aud}`, at: db.now });
 export const ME = 'Jayesh Verma';
 
 export function ackAlert(id: string) { const a = db.alerts.find(x => x.id === id); if (a && a.state === 'active') { a.state = 'acknowledged'; a.ackBy = ME; audit_({ actor: ME, object: a.code, field: 'State', prev: 'active', next: 'acknowledged', source: 'Alerts console' }); changed(); } }
@@ -1222,6 +1224,147 @@ export function dcimImportTypes(json: string) {
   return out;
 }
 
+
+/* ---- DCIM change control (15-Oct-2026, user): every DCIM edit runs under a change request from Change management --------------------
+   dcimRun(op, args, cr): a standard change (pre-approved record work: patch cords, space holds, port labels, hot-swap PSU / fan) is raised
+   and closed with the edit; an approved / in-progress CR at the site applies the edit now; a CR not yet approved — or a new one raised here
+   (Pending approval) — keeps the edit as planned work that runs from DCIM (dcimExecute) once it is approved. Each record touched is tagged
+   with its CR (dcimTags), and the CR's history lists the work. Overlay only: a regenerate clears it. */
+const dcimCr = { items: [] as DcimWorkItem[], tags: new Map<string, string>(), seq: 0 };
+function resetDcimCr() { dcimCr.items.length = 0; dcimCr.tags.clear(); dcimCr.seq = 0; }
+const shortId = (id: string) => id.replace(/^[A-Z]{2}-DC-\d{3}-/, '');
+const neName = (id: string) => shortId(db.neById.get(id)?.name ?? id);
+const rackName = (id: string) => dm().rackById.get(id)?.name ?? shortId(id);
+type OpSpec = { run: (...a: never[]) => unknown; dc: (a: never[]) => string; label: (a: never[]) => string; scope: (a: never[]) => string[]; keys: (a: never[], r: unknown) => string[];
+  std?: (a: never[]) => boolean; rack?: (a: never[]) => string | undefined; ne?: (a: never[]) => string | undefined; hall?: (a: never[]) => string | undefined };
+const neDc = (id: string) => neOrThrow(id).dcId;
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const OPS: Record<DcimOp, OpSpec> = {
+  createRack: { run: dcimCreateRack as any, dc: ([x]: any[]) => x.dcId, label: ([x]: any[]) => `New rack ${x.name?.trim() ? x.name.trim().toUpperCase() : '(next free name)'} in ${dm().hallById.get(x.hallId)?.name ?? 'the hall'}`, scope: () => [], keys: (_a, r) => [`rack:${r}`], hall: ([x]: any[]) => x.hallId },
+  installDevice: { run: dcimInstallDevice as any, dc: ([x]: any[]) => rackOrThrow(x.rackId).dc.id, label: ([x]: any[]) => { const t = dm().typeById.get(x.typeId); return `Install ${x.name?.trim() || `a ${t?.model ?? 'device'}`} in ${rackName(x.rackId)} U${x.u}${t ? ` (${t.manufacturer} ${t.model})` : ''}`; }, scope: ([x]: any[]) => [x.rackId], keys: (_a, r) => [`ne:${r}`], rack: ([x]: any[]) => x.rackId },
+  setDeviceStatus: { run: dcimSetDeviceStatus as any, dc: ([id]: any[]) => neDc(id), label: ([id, to]: any[]) => `Set ${neName(id)} to ${to}`, scope: ([id]: any[]) => [id], keys: ([id]: any[]) => [`ne:${id}`], ne: ([id]: any[]) => id, rack: ([id]: any[]) => db.neById.get(id)?.rackId },
+  connect: { run: dcimConnect as any, dc: ([a]: any[]) => neDc(a), label: ([a, ai, z, zi]: any[]) => `Patch cord: ${neName(a)} ${ai} ↔ ${neName(z)} ${zi}`, scope: ([a, , z]: any[]) => [a, z], keys: ([a, ai, z, zi]: any[]) => [`if:${a}|${ai}`, `if:${z}|${zi}`], std: () => true, ne: ([a]: any[]) => a, rack: ([a]: any[]) => db.neById.get(a)?.rackId },
+  disconnect: { run: dcimDisconnect as any, dc: ([n]: any[]) => neDc(n), label: ([n, i]: any[]) => { const p = (db.ifaces.get(n) ?? []).find(x => x.name === i)?.peer; return `Remove patch cord: ${neName(n)} ${i}${p ? ` ↔ ${neName(p.neId)} ${p.ifName}` : ''}`; }, scope: ([n]: any[]) => [n], keys: ([n, i]: any[]) => [`if:${n}|${i}`], std: () => true, ne: ([n]: any[]) => n, rack: ([n]: any[]) => db.neById.get(n)?.rackId },
+  editInterface: { run: dcimEditInterface as any, dc: ([n]: any[]) => neDc(n), label: ([n, i, x]: any[]) => x.enabled ? `DCIM record: label / enable ${i} on ${neName(n)}` : `Disable ${i} on ${neName(n)}`, scope: ([n]: any[]) => [n], keys: ([n, i]: any[]) => [`if:${n}|${i}`], std: ([, , x]: any[]) => !!x.enabled, ne: ([n]: any[]) => n, rack: ([n]: any[]) => db.neById.get(n)?.rackId },
+  installModule: { run: dcimInstallModule as any, dc: ([n]: any[]) => neDc(n), label: ([n, sl, t]: any[]) => `Install ${dm().modules.find(m => m.id === t)?.name ?? 'a module'} in ${sl} of ${neName(n)}`, scope: ([n]: any[]) => [n], keys: ([n, sl]: any[]) => [`mod:${n}|${sl}`, `ne:${n}`], ne: ([n]: any[]) => n, rack: ([n]: any[]) => db.neById.get(n)?.rackId },
+  removeModule: { run: dcimRemoveModule as any, dc: ([n]: any[]) => neDc(n), label: ([n, sl]: any[]) => `Remove the module in ${sl} of ${neName(n)}`, scope: ([n]: any[]) => [n], keys: ([n, sl]: any[]) => [`mod:${n}|${sl}`, `ne:${n}`], ne: ([n]: any[]) => n, rack: ([n]: any[]) => db.neById.get(n)?.rackId },
+  swapModule: { run: dcimSwapModule as any, dc: ([n]: any[]) => neDc(n), label: ([n, sl]: any[]) => /^(PSU|PEM)/.test(sl) ? `Replace ${sl} power supply on ${neName(n)}` : /^FAN/.test(sl) ? `Replace ${sl} fan module on ${neName(n)}` : `Replace the module in ${sl} of ${neName(n)}`, scope: ([n]: any[]) => [n], keys: ([n, sl]: any[]) => [`mod:${n}|${sl}`, `ne:${n}`], std: ([, sl]: any[]) => /^(PSU|PEM|FAN)/.test(sl), ne: ([n]: any[]) => n, rack: ([n]: any[]) => db.neById.get(n)?.rackId },
+  editRack: { run: dcimEditRack as any, dc: ([id]: any[]) => rackOrThrow(id).dc.id, label: ([id, x]: any[]) => `Change ${rackName(id)} to ${x.role} · ${x.heightU}U · ${x.budgetKw} kW`, scope: ([id]: any[]) => [id], keys: ([id]: any[]) => [`rack:${id}`], rack: ([id]: any[]) => id },
+  retireRack: { run: dcimRetireRack as any, dc: ([id]: any[]) => rackOrThrow(id).dc.id, label: ([id]: any[]) => `Retire ${rackName(id)}`, scope: ([id]: any[]) => [id], keys: ([id]: any[]) => [`rack:${id}`], rack: ([id]: any[]) => id },
+  moveDevice: { run: dcimMoveDevice as any, dc: ([n]: any[]) => neDc(n), label: ([n, r, u]: any[]) => `Move ${neName(n)} to ${rackName(r)} U${u}`, scope: ([n, r]: any[]) => [n, r], keys: ([n]: any[]) => [`ne:${n}`], ne: ([n]: any[]) => n, rack: ([, r]: any[]) => r },
+  reserveU: { run: dcimReserveU as any, dc: ([r]: any[]) => rackOrThrow(r).dc.id, label: ([r, x]: any[]) => `DCIM record: hold U${x.u}–U${x.u + x.uHeight - 1} in ${rackName(r)} for ${String(x.label ?? '').trim() || 'a request'}`, scope: ([r]: any[]) => [r], keys: (_a, r) => [`resv:${r}`], std: () => true, rack: ([r]: any[]) => r },
+  releaseU: { run: dcimReleaseU as any, dc: ([id]: any[]) => { const r = dcimOverlay.reservations.find(x => x.id === id); if (!r) throw new Error('Unknown reservation'); return rackOrThrow(r.rackId).dc.id; }, label: ([id]: any[]) => { const r = dcimOverlay.reservations.find(x => x.id === id); return r ? `DCIM record: release U${r.u}–U${r.u + r.uHeight - 1} in ${rackName(r.rackId)}` : `DCIM record: release ${id}`; }, scope: () => [], keys: ([id]: any[]) => [`resv:${id}`], std: () => true, rack: ([id]: any[]) => dcimOverlay.reservations.find(x => x.id === id)?.rackId },
+  createPanel: { run: dcimCreatePanel as any, dc: ([x]: any[]) => { const h = dm().hallById.get(x.hallId); if (!h) throw new Error('Unknown hall'); return h.dcId; }, label: ([x]: any[]) => `New power panel ${String(x.name ?? '').trim()} in ${dm().hallById.get(x.hallId)?.name ?? 'the hall'}`, scope: () => [], keys: (_a, r) => [`panel:${r}`], hall: ([x]: any[]) => x.hallId },
+  createFeed: { run: dcimCreateFeed as any, dc: ([x]: any[]) => { const r = dm().rackById.get(x.rackId); if (!r) throw new Error('Unknown rack'); return r.dcId; }, label: ([x]: any[]) => `New power feed ${String(x.name ?? '').trim() || 'PDU'} for ${rackName(x.rackId)} from ${dm().panels.find(p => p.id === x.panelId)?.name ?? 'a panel'}`, scope: ([x]: any[]) => [x.rackId], keys: (_a, r) => [`feed:${(r as { id: string }).id}`], rack: ([x]: any[]) => x.rackId }
+};
+/* eslint-enable @typescript-eslint/no-explicit-any */
+const LIVE_CR: ChangeStatus[] = ['Approved', 'In progress'];
+const OPEN_CR: ChangeStatus[] = ['Draft', 'Pending approval', 'Approved', 'In progress'];
+const crRecord = (id: string) => changeRegister(db).changes.find(c => c.id === id);
+const blockedBy = (r: ChangeRecord) => r.violations.filter(v => v.enforcement === 'Block').map(v => v.text).join('; ') || undefined;
+/* the change requests a DCIM edit at a site can run under: open CRs at that site, approved ones first */
+export function dcimCrOptions(dcId: string): DcimCrOption[] {
+  return changeRegister(db).changes.filter(c => c.dcId === dcId && OPEN_CR.includes(c.status))
+    .map(c => ({ id: c.id, title: c.title, status: c.status, cls: c.cls, source: c.source, windowStart: c.windowStart, windowEnd: c.windowEnd, applies: LIVE_CR.includes(c.status) ? 'now' as const : 'staged' as const, blocked: LIVE_CR.includes(c.status) ? blockedBy(c) : undefined }))
+    .sort((a, b) => (a.applies === b.applies ? a.windowStart - b.windowStart : a.applies === 'now' ? -1 : 1));
+}
+export const dcimOpIsStandard = (op: DcimOp, args: unknown[]) => !!OPS[op].std?.(args as never[]);
+/* apply one item under its (approved) CR: run the edit with the CR on every audit line, tag the records, note it on the CR */
+function applyItem(it: DcimWorkItem) {
+  const spec = OPS[it.op];
+  auditCr = it.changeId;
+  let r: unknown;
+  try { r = spec.run(...(it.args as never[])); } finally { auditCr = null; }
+  it.state = 'Done'; it.doneAt = db.now; it.error = undefined; it.result = typeof r === 'string' ? r : r && typeof r === 'object' && 'id' in r ? String((r as { id: string }).id) : undefined;
+  it.keys = spec.keys(it.args as never[], r);
+  for (const k of it.keys) dcimCr.tags.set(k, it.changeId);
+  if (it.op === 'installDevice' && it.result) it.neId = it.result;
+  if (it.op === 'createRack' && it.result) it.rackId = it.result;
+  audit_({ actor: ME, object: it.changeId, field: 'DCIM work', prev: 'planned', next: `done: ${it.label}`, source: 'Change management' });
+  const ch = db.changes.find(c => c.id === it.changeId);
+  if (ch && ch.status === 'Approved') ch.status = 'In progress';
+  /* a CR raised from DCIM is complete once all of its DCIM work is done */
+  if (ch && ch.origin === 'DCIM' && ch.status === 'In progress' && dcimCr.items.filter(x => x.changeId === ch.id).every(x => x.state === 'Done' || x.state === 'Cancelled')) ch.status = 'Completed';
+  return r;
+}
+export function dcimRun(op: DcimOp, args: unknown[], cr: DcimCr | undefined): DcimRunResult {
+  const spec = OPS[op]; if (!spec) throw new Error(`Unknown DCIM operation ${op}`);
+  if (!cr) throw new Error('Every DCIM change needs a change request: pick one, raise one, or use a standard change');
+  const a = args as never[];
+  const dcId = spec.dc(a), label = spec.label(a);
+  const item: DcimWorkItem = { id: `DW-${++dcimCr.seq}`, changeId: '', op, label, dcId, rackId: spec.rack?.(a), neId: spec.ne?.(a), hallId: spec.hall?.(a), keys: [], state: 'Planned', created: db.now, by: ME, args: structuredClone(args) };
+  if ('standard' in cr) {
+    if (!spec.std?.(a)) throw new Error('This change is not covered by a standard (pre-approved) template; pick or raise a change request');
+    const frz = changeRegister(db).freezes.find(f => (f.scope === 'Estate' || f.dcId === dcId) && db.now >= f.from && db.now < (f.to ?? Infinity) && f.allows === 'Emergency only');
+    if (frz && db.datacenters.find(d => d.id === dcId)?.status === 'on-air') throw new Error(`${frz.title}. Only emergency changes run now; raise a change request and it runs from DCIM once the hold lifts.`);
+    const id = `CHG-${++db.seq.chg}`;
+    const c: Change = { id, kind: 'Change', title: label, dcId, scope: spec.scope(a), risk: 'Low', status: 'In progress', windowStart: db.now, windowEnd: db.now + HOUR, requester: ME, approver: 'Pre-approved', rollback: 'Reverse the record change in DCIM; nothing in service depends on it', created: db.now, origin: 'DCIM' };
+    db.changes.push(c); item.changeId = id; dcimCr.items.push(item);
+    try { const r = applyItem(item); c.status = 'Completed'; changed(); return { changeId: id, staged: false, itemId: item.id, result: r }; }
+    catch (e) { db.changes.splice(db.changes.indexOf(c), 1); dcimCr.items.splice(dcimCr.items.indexOf(item), 1); db.seq.chg--; throw e; }
+  }
+  if ('raise' in cr) {
+    const x = cr.raise;
+    if (!x.rollback?.trim() || x.rollback.trim().length < 3) throw new Error('Say how the change is reversed (rollback plan)');
+    if (!(x.hours > 0 && x.hours <= 72)) throw new Error('The window must be 1–72 hours');
+    const id = `CHG-${++db.seq.chg}`, scope = spec.scope(a);
+    const im = changeImpact(scope.filter(s => db.neById.has(s)), dcId);
+    db.changes.push({ id, kind: 'Change', title: x.title?.trim() || label, dcId, scope, risk: im.risk, status: 'Pending approval', windowStart: x.windowStart, windowEnd: x.windowStart + x.hours * HOUR, requester: ME, rollback: x.rollback.trim(), created: db.now, origin: 'DCIM' });
+    item.changeId = id; dcimCr.items.push(item);
+    audit_({ actor: ME, object: id, field: 'change', prev: '—', next: `raised from DCIM: ${label}`, source: 'Change management' });
+    changed(); return { changeId: id, staged: true, itemId: item.id };
+  }
+  const rec = crRecord(cr.changeId); if (!rec) throw new Error(`Unknown change request ${cr.changeId}`);
+  if (rec.dcId !== dcId) throw new Error(`${rec.id} is for ${rec.dcId}; this change is at ${dcId}`);
+  if (!OPEN_CR.includes(rec.status)) throw new Error(`${rec.id} is ${rec.status.toLowerCase()}; pick an open change request`);
+  item.changeId = rec.id; dcimCr.items.push(item);
+  if (!LIVE_CR.includes(rec.status)) {
+    audit_({ actor: ME, object: rec.id, field: 'DCIM work', prev: '—', next: `planned: ${label}`, source: 'Change management' });
+    changed(); return { changeId: rec.id, staged: true, itemId: item.id };
+  }
+  const blk = blockedBy(rec);
+  if (blk) { dcimCr.items.pop(); throw new Error(`${rec.id} cannot run now: ${blk}`); }
+  try { const r = applyItem(item); changed(); return { changeId: rec.id, staged: false, itemId: item.id, result: r }; }
+  catch (e) { dcimCr.items.pop(); throw e; }
+}
+/* run planned DCIM work once its change request is approved */
+export function dcimExecute(itemId: string) {
+  const it = dcimCr.items.find(x => x.id === itemId); if (!it) throw new Error('Unknown DCIM work item');
+  if (it.state === 'Done' || it.state === 'Cancelled') throw new Error(`${it.label} is already ${it.state.toLowerCase()}`);
+  const rec = crRecord(it.changeId); if (!rec) throw new Error(`Unknown change request ${it.changeId}`);
+  if (!LIVE_CR.includes(rec.status)) throw new Error(`${rec.id} is ${rec.status.toLowerCase()}: it runs once it is approved`);
+  const blk = blockedBy(rec); if (blk) throw new Error(`${rec.id} cannot run now: ${blk}`);
+  try { applyItem(it); } catch (e) { it.state = 'Failed'; it.error = (e as Error).message; changed(); throw e; }
+  changed(); return it.id;
+}
+export function dcimExecuteAll(changeId: string) {
+  const todo = dcimCr.items.filter(x => x.changeId === changeId && (x.state === 'Planned' || x.state === 'Failed'));
+  const out: { id: string; ok: boolean; message: string }[] = [];
+  for (const it of todo) { try { dcimExecute(it.id); out.push({ id: it.id, ok: true, message: it.label }); } catch (e) { out.push({ id: it.id, ok: false, message: (e as Error).message }); } }
+  return out;
+}
+export function dcimCancelItem(itemId: string) {
+  const it = dcimCr.items.find(x => x.id === itemId); if (!it) throw new Error('Unknown DCIM work item');
+  if (it.state === 'Done') throw new Error('Done work is reversed with a new change, not cancelled');
+  it.state = 'Cancelled';
+  audit_({ actor: ME, object: it.changeId, field: 'DCIM work', prev: 'planned', next: `cancelled: ${it.label}`, source: 'Change management' });
+  const ch = db.changes.find(c => c.id === it.changeId);
+  if (ch && ch.origin === 'DCIM' && dcimCr.items.filter(x => x.changeId === ch.id).every(x => x.state === 'Cancelled')) ch.status = 'Rejected';
+  changed();
+}
+const withCr = (xs: DcimWorkItem[]) => { const reg = new Map(changeRegister(db).changes.map(c => [c.id, c])); return xs.map(x => { const c = reg.get(x.changeId); return { ...x, cr: c ? { title: c.title, status: c.status, cls: c.cls, source: c.source, windowStart: c.windowStart, blocked: blockedBy(c) } : undefined }; }); };
+export const dcimItemsOf = (changeId: string) => withCr(dcimCr.items.filter(x => x.changeId === changeId));
+/* record → CR it was last changed under; planned devices from the generator take the open delivery CR of their rack */
+export function dcimTags(q: { dcId?: string } = {}) {
+  const out: Record<string, string> = {};
+  const reg = changeRegister(db).changes;
+  const byRack = new Map<string, string>();
+  for (const r of reg) if (r.source === 'Delivery' && OPEN_CR.includes(r.status) && (!q.dcId || r.dcId === q.dcId)) for (const k of r.scope) if (!byRack.has(k)) byRack.set(k, r.id);
+  if (byRack.size) for (const n of db.nes) if ((!q.dcId || n.dcId === q.dcId) && isPlannedNe(n) && byRack.has(n.rackId)) out[`ne:${n.id}`] = byRack.get(n.rackId)!;
+  for (const [k, v] of dcimCr.tags) out[k] = v;
+  return out;
+}
+export const dcimWork = (q: { dcId?: string; rackId?: string; neId?: string } = {}) => withCr(dcimCr.items.filter(x => (!q.dcId || x.dcId === q.dcId) && (!q.rackId || x.rackId === q.rackId) && (!q.neId || x.neId === q.neId))).sort((a, b) => b.created - a.created || b.id.localeCompare(a.id));
 
 /* ---- IP & Network (P2B merge, phase 2): the address plan derived from the estate (mock/ipam.ts) */
 export function ipam(q: { dcId?: string } = {}) {
