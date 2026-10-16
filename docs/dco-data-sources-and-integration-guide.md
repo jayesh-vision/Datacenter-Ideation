@@ -16,6 +16,8 @@ How to read it:
 
 Conventions: *Pull* means we poll the source; *Push* means the source sends to us (SNMP traps, syslog, Redfish events, streaming telemetry). *Interval* is the recommended collection cadence, not a product constraint. *Manual* means a person enters or imports the value (contracts, budgets, warranty dates). Vocabulary is the network persona's; the other personas only rename things.
 
+**Platform modules.** In the target solution the record and process systems below are modules of our own platform (Inventory, IP Management, Supply chain, BSS, ITSM) and the Opstral Ops Toolkit; the register in section 14 names the module for each integration, and the **Platform map** tab of the guide shows every module and the Datacenter screens it serves. The third-party products named in sections 4 to 10 are what those modules, or the collector, talk to.
+
 Out of scope: the database schema, authentication and the UI, deployment topology. These follow from this document.
 
 ## How data reaches a screen
@@ -24,7 +26,6 @@ Every figure on a screen is produced along one path: a source system, a collecto
 
 ![Data path: 5 source classes, one collector per site, 3 stores, read models, API](dco-data-path.png)
 
-&#91;embedded content: data path · 5 source classes, 1 collector per site, 3 stores, read models, API\]
 
 The collector runs inside the datacenter because almost every source speaks a protocol that must not cross the Internet (SNMP, Modbus, BACnet, IPMI) and because the facility network is normally air-gapped from the corporate one; it connects outbound only. Pull, push and sync are three different kinds of work with different failure modes, so the collector reports them separately: this is where the prototype's collector state (`Datacenter.collectors[].state` up / stale / down) and the device state `unmonitored` come from.
 
@@ -486,36 +487,36 @@ lost = \frac{MRR}{730} \cdot k \cdot h_{impacted}, \quad k = 1\ (down),\ 0.3\ (d
 
 One row per integration to build, in rough priority order: the first block feeds the Command center and the datacenter page, the second the facility and GPU detail, the third the business and process views. "In" means data comes into DCO; "Out" means DCO sends. Owner is the customer team that must grant access.
 
-| ID | System | Direction | Protocol / API | Auth | Interval | Customer owner | Feeds |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| INT-01 | Network devices (routers, switches, firewalls) | In | SNMP v3 polling + traps; gNMI where supported; syslog | SNMPv3 USM; gNMI over TLS | 30 s; on change | Network operations | Interfaces, links, LLDP, BGP, device health, alarms |
-| INT-02 | Collector ICMP / NTP / AAA probes | In | ICMP echo; NTP query; AAA server logs | — | 30 s; 5 min | Network operations | Reachability, NTP, RADIUS cards |
-| INT-03 | Server and GPU-node BMCs | In | Redfish (HTTPS) poll + EventService; IPMI fallback | Redfish session per BMC | 60 s; events | Compute / platform | Equipment, PSUs, fans, temps, firmware, hardware alarms |
-| INT-04 | UPS network cards | In | SNMP UPS-MIB + vendor MIB; traps | SNMPv3 where supported | 10 s; traps | Facilities (electrical) | UPS state, autonomy, alarms |
-| INT-05 | Rack PDUs | In | SNMP (vendor PDU MIB) or Redfish / JSON-RPC | SNMPv3 / HTTPS | 60 s | Facilities | Rack draw, PDU banks, outlets, breaker trips |
-| INT-06 | Meters, ATS, LV switchgear | In | Modbus TCP (IEC 61850 on some switchgear) | none (isolated VLAN) | 10–60 s | Facilities (electrical) | Feeds, power path, PUE, load 24 h |
-| INT-07 | Generators | In | Modbus RTU / TCP (vendor register map) | none (isolated VLAN) | 30 s | Facilities (electrical) | DG state, fuel, run hours, tests |
-| INT-08 | BMS (cooling, chillers, CDUs, fire, leak) | In | BACnet/IP or BACnet/SC; OPC UA alternative | BACnet/SC certificates | 60 s; COV; events | Facilities (mechanical, fire) | Cooling units, heat balance, CDUs, fire and leak states |
-| INT-09 | Rack / room environment sensors | In | SNMP; JSON | SNMPv3 where supported | 60 s | Facilities | Inlet temperature, humidity, heat map |
-| INT-10 | −48 V DC plant and battery monitors | In | SNMP / Modbus (per controller) | per device | 60 s | Facilities / network power | Rectifiers, DC load, battery health |
-| INT-11 | GPU telemetry agents | In | dcgm-exporter (Prometheus, 9400); Gaudi exporter (41611); XPU Manager | network policy on the host | 10–30 s | AI platform | All per-GPU fields, Xid, health |
-| INT-12 | Job scheduler and training framework | In | Slurm REST or Kubernetes API; job metrics endpoint (to agree) | service account / token | 30–60 s | AI platform | Node state, jobs, step time, checkpoints |
-| INT-13 | InfiniBand fabric manager | In | UFM REST + UFM Telemetry (Prometheus / JSON) or host sysfs counters | UFM user / token | 60 s | AI platform / network | IB rails, symbol errors, flaps |
-| INT-14 | DCIM / inventory | In (or Out if DCO is the record) | NetBox REST / GraphQL + webhooks; or dcTrack / Nlyte / Device42 REST | API token | webhooks; daily reconcile | Datacenter engineering | Sites, racks, devices, cables, power chain, panels |
-| INT-15 | CMDB | In / Out | ServiceNow Table API (`cmdb_ci_*`) | OAuth / basic | daily; on change | IT service management | Configuration items, reconciliation |
-| INT-16 | IPAM / DNS / DHCP | In | Infoblox WAPI; BlueCat v2; Kea; Microsoft PowerShell | per system | daily; on change | Network engineering | IP & Network screen, Integrations tab |
-| INT-17 | Physical access control | In | Vendor PACS API with event stream (OpenAccess, Gallagher, Brivo, Genetec…) | API key / OAuth | events | Physical security | Access tab, doors, exceptions, access review |
-| INT-18 | Visitor management | In | Envoy / Proxyclick / Sine REST + webhooks | OAuth / API key | events | Physical security / reception | Visitors, escorts, hosts |
-| INT-19 | Video management | In | Milestone REST / WebSocket events; Genetec Web SDK | OAuth / API key | events | Physical security | Evidence references on exceptions |
-| INT-20 | ITSM | Out / In | ServiceNow Table API + Event Management; or Jira SM / BMC Helix | OAuth | events | IT service management | Incident, problem, change sync; ITSM ref |
-| INT-21 | Paging and on-call | Out / In | PagerDuty Events v2 + REST `/oncalls`; or xMatters | routing key / API token | events; 5 min | NOC | Paging, escalations, on call now |
-| INT-22 | Customer notifications | Out | SMTP; Twilio SMS; Slack webhook; Teams via Power Automate | per channel | events | Customer success | Customer notices |
-| INT-23 | CRM and contracts | In | Salesforce REST (Account, Contract) or equivalent | OAuth | daily; webhooks | Sales operations | Customers, SLA targets, premium, account manager |
-| INT-24 | Billing | In / Out | Zuora / Chargebee / Stripe / SAP OData | OAuth / API key | daily | Finance | Monthly charge per service; metered power usage out |
-| INT-25 | Service inventory | In | Telco OSS / cloud control plane / tenant register (customer specific) | per system | daily; on change | Product / provisioning | Service paths: the base of impact and revenue |
-| INT-26 | Vendor support and lifecycle | In | Cisco Support APIs; Dell TechDirect; Fortinet FortiCare; Arista CloudVision; HPE GreenLake; import for the rest | OAuth client credentials | weekly | Procurement / vendor management | Warranty, contracts, end of sale / support, advisories |
-| INT-27 | Maintenance planning (CMMS) | In | CMMS API or import | per system | daily | Facilities | PM plan, done dates, inspections |
-| INT-28 | Collector heartbeat | In | collector → platform | mutual TLS | 60 s | DCO operations | Collector state, monitoring gaps |
+| ID | System | Platform module | Direction | Protocol / API | Auth | Interval | Customer owner | Feeds |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| INT-01 | Network devices (routers, switches, firewalls) | Opstral Telemetry Ops | In | SNMP v3 polling + traps; gNMI where supported; syslog | SNMPv3 USM; gNMI over TLS | 30 s; on change | Network operations | Interfaces, links, LLDP, BGP, device health, alarms |
+| INT-02 | Collector ICMP / NTP / AAA probes | Opstral Telemetry Ops | In | ICMP echo; NTP query; AAA server logs | — | 30 s; 5 min | Network operations | Reachability, NTP, RADIUS cards |
+| INT-03 | Server and GPU-node BMCs | Opstral Telemetry Ops | In | Redfish (HTTPS) poll + EventService; IPMI fallback | Redfish session per BMC | 60 s; events | Compute / platform | Equipment, PSUs, fans, temps, firmware, hardware alarms |
+| INT-04 | UPS network cards | Opstral Telemetry Ops | In | SNMP UPS-MIB + vendor MIB; traps | SNMPv3 where supported | 10 s; traps | Facilities (electrical) | UPS state, autonomy, alarms |
+| INT-05 | Rack PDUs | Opstral Telemetry Ops | In | SNMP (vendor PDU MIB) or Redfish / JSON-RPC | SNMPv3 / HTTPS | 60 s | Facilities | Rack draw, PDU banks, outlets, breaker trips |
+| INT-06 | Meters, ATS, LV switchgear | Opstral Telemetry Ops | In | Modbus TCP (IEC 61850 on some switchgear) | none (isolated VLAN) | 10–60 s | Facilities (electrical) | Feeds, power path, PUE, load 24 h |
+| INT-07 | Generators | Opstral Telemetry Ops | In | Modbus RTU / TCP (vendor register map) | none (isolated VLAN) | 30 s | Facilities (electrical) | DG state, fuel, run hours, tests |
+| INT-08 | BMS (cooling, chillers, CDUs, fire, leak) | Opstral Telemetry Ops | In | BACnet/IP or BACnet/SC; OPC UA alternative | BACnet/SC certificates | 60 s; COV; events | Facilities (mechanical, fire) | Cooling units, heat balance, CDUs, fire and leak states |
+| INT-09 | Rack / room environment sensors | Opstral Telemetry Ops | In | SNMP; JSON | SNMPv3 where supported | 60 s | Facilities | Inlet temperature, humidity, heat map |
+| INT-10 | −48 V DC plant and battery monitors | Opstral Telemetry Ops | In | SNMP / Modbus (per controller) | per device | 60 s | Facilities / network power | Rectifiers, DC load, battery health |
+| INT-11 | GPU telemetry agents | Opstral Telemetry Ops | In | dcgm-exporter (Prometheus, 9400); Gaudi exporter (41611); XPU Manager | network policy on the host | 10–30 s | AI platform | All per-GPU fields, Xid, health |
+| INT-12 | Job scheduler and training framework | Opstral Infra Ops | In | Slurm REST or Kubernetes API; job metrics endpoint (to agree) | service account / token | 30–60 s | AI platform | Node state, jobs, step time, checkpoints |
+| INT-13 | InfiniBand fabric manager | Opstral Infra Ops | In | UFM REST + UFM Telemetry (Prometheus / JSON) or host sysfs counters | UFM user / token | 60 s | AI platform / network | IB rails, symbol errors, flaps |
+| INT-14 | DCIM / inventory | Inventory + Inventory Planning | In (or Out if DCO is the record) | NetBox REST / GraphQL + webhooks; or dcTrack / Nlyte / Device42 REST | API token | webhooks; daily reconcile | Datacenter engineering | Sites, racks, devices, cables, power chain, panels |
+| INT-15 | CMDB | Inventory | In / Out | ServiceNow Table API (`cmdb_ci_*`) | OAuth / basic | daily; on change | IT service management | Configuration items, reconciliation |
+| INT-16 | IPAM / DNS / DHCP | IP Management | In | Infoblox WAPI; BlueCat v2; Kea; Microsoft PowerShell | per system | daily; on change | Network engineering | IP & Network screen, Integrations tab |
+| INT-17 | Physical access control | Opstral Security Ops (to discuss) | In | Vendor PACS API with event stream (OpenAccess, Gallagher, Brivo, Genetec…) | API key / OAuth | events | Physical security | Access tab, doors, exceptions, access review |
+| INT-18 | Visitor management | Opstral Security Ops (to discuss) | In | Envoy / Proxyclick / Sine REST + webhooks | OAuth / API key | events | Physical security / reception | Visitors, escorts, hosts |
+| INT-19 | Video management | Opstral Security Ops (to discuss) | In | Milestone REST / WebSocket events; Genetec Web SDK | OAuth / API key | events | Physical security | Evidence references on exceptions |
+| INT-20 | ITSM | Change Management · Incidents · Tickets | Out / In | ServiceNow Table API + Event Management; or Jira SM / BMC Helix | OAuth | events | IT service management | Incident, problem, change sync; ITSM ref |
+| INT-21 | Paging and on-call | Opstral System Alerts | Out / In | PagerDuty Events v2 + REST `/oncalls`; or xMatters | routing key / API token | events; 5 min | NOC | Paging, escalations, on call now |
+| INT-22 | Customer notifications | Experience and Care · System Alerts | Out | SMTP; Twilio SMS; Slack webhook; Teams via Power Automate | per channel | events | Customer success | Customer notices |
+| INT-23 | CRM and contracts | CRM · Customers | In | Salesforce REST (Account, Contract) or equivalent | OAuth | daily; webhooks | Sales operations | Customers, SLA targets, premium, account manager |
+| INT-24 | Billing | Customers · Plans & Products Catalog | In / Out | Zuora / Chargebee / Stripe / SAP OData | OAuth / API key | daily | Finance | Monthly charge per service; metered power usage out |
+| INT-25 | Service inventory | Orders · Customers | In | Telco OSS / cloud control plane / tenant register (customer specific) | per system | daily; on change | Product / provisioning | Service paths: the base of impact and revenue |
+| INT-26 | Vendor support and lifecycle | Vendors · Contracts | In | Cisco Support APIs; Dell TechDirect; Fortinet FortiCare; Arista CloudVision; HPE GreenLake; import for the rest | OAuth client credentials | weekly | Procurement / vendor management | Warranty, contracts, end of sale / support, advisories |
+| INT-27 | Maintenance planning (CMMS) | Maintenance | In | CMMS API or import | per system | daily | Facilities | PM plan, done dates, inspections |
+| INT-28 | Collector heartbeat | Opstral Data Ops | In | collector → platform | mutual TLS | 60 s | DCO operations | Collector state, monitoring gaps |
 
 ## Collection architecture
 

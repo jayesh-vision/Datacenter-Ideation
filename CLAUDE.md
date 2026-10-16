@@ -317,6 +317,15 @@ containment chain (region → port and cable), six "why monitoring needs invento
 of 84 inventory items in 11 domains (Core / Recommended / Optional, system of record, how it gets in, where the tool shows it); 14 glossary terms
 in the "Inventory" area. Docs only — the tool's inventory screens stay parked. Check: `node .qa/field-inv.mjs`.
 
+## Integration guide (16-Oct-2026, user: "show how many platform modules the Datacenter solution integrates")
+`docs/dco-integration-guide.html` (served at `/integration-guide.html`) is BUILT: edit `docs/dco-data-sources-and-integration-guide.md` (technical
+guide) or `app/scripts/docs/integration-guide.template.html` (Platform map data: SUITES / SCREENS / MODULES / JOURNEYS / WAVES), then run
+`node scripts/docs/build-integration-guide.mjs` from app/ (writes both copies). Tab Platform map = 30 modules (Plan to Build, Supply Chain, BSS,
+Services & ITSM, Opstral Ops Toolkit; Datacenter Ops is itself an Opstral module) linked to the 16 menu screens, journeys, module table, screens ×
+modules matrix, ownership (overlapping functions: the platform module owns the record), waves. Module teams own their data models: list only what
+Datacenter needs, never invent their fields or APIs. Modules with no match (facility live state, twin, capacity, planner engine, revenue, RCA,
+compliance, access log) are "to discuss".
+
 ## Inventory import template and data backup (12-Oct-2026, user)
 `docs/dco-inventory-import-template.xlsx` = what a customer (e.g. RackBank) must send to onboard datacenters: one sheet per entity of
 `api/types.ts` (Sites → Floors → Rooms → Racks → power / cooling plant → Devices → Interfaces → Links → GPU → Customers → Services → Collectors),

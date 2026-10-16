@@ -1,0 +1,1058 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Datacenter Integration Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Two tabs. "Platform map" = which platform modules the Datacenter solution uses (diagram, journeys, module table, matrix,
+   ownership). "Technical guide" = the data-source guide rendered from markdown (section rail, search, sortable tables).
+   Look follows the Datacenter tool (NST): Poppins chrome, Inter text, slate surfaces, brand blue; one colour per suite. */
+:root {
+  --bg: #f4f7fb; --surface: #ffffff; --surface-2: #f8fafc; --line: #e2e8f0; --line-2: #cbd5e1;
+  --fg: #0f172a; --fg-2: #334155; --muted: #64748b; --faint: #94a3b8;
+  --accent: #1c81ef; --accent-ink: #1d4ed8; --accent-soft: #e0edff;
+  --good: #059669; --good-soft: #d1fae5; --warn: #b45309; --warn-soft: #fef3c7; --mark: #fff1a8;
+  --p2b: #0284c7; --scm: #0f766e; --bss: #7c3aed; --itsm: #c2410c; --ops: #4338ca; --dco: #1c81ef;
+  --p2b-s: #e0f2fe; --scm-s: #ccfbf1; --bss-s: #ede9fe; --itsm-s: #ffedd5; --ops-s: #e0e7ff; --dco-s: #e0edff;
+  --hero-a: #0b1b3a; --hero-b: #1c3f8a;
+  --shadow: 0 1px 2px rgba(15, 23, 42, .05), 0 4px 16px rgba(15, 23, 42, .05);
+  --f-display: "Poppins", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Inter", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --r: 12px; --top-h: 60px; --rail: 272px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0b1220; --surface: #111a2e; --surface-2: #0e1628; --line: #1f2b44; --line-2: #2c3b5a;
+  --fg: #e6edf7; --fg-2: #c3cfe0; --muted: #8a9ab3; --faint: #64748b;
+  --accent: #5aa6ff; --accent-ink: #8cc2ff; --accent-soft: #15284a;
+  --good: #34d399; --good-soft: #0f2e25; --warn: #fbbf24; --warn-soft: #33270b; --mark: #5c4b00;
+  --p2b: #38bdf8; --scm: #2dd4bf; --bss: #a78bfa; --itsm: #fb923c; --ops: #818cf8; --dco: #5aa6ff;
+  --p2b-s: #0c2a3d; --scm-s: #0b2e2a; --bss-s: #241a42; --itsm-s: #3a1f0d; --ops-s: #1c1f4a; --dco-s: #15284a;
+  --hero-a: #08101f; --hero-b: #13295a; --shadow: 0 1px 2px rgba(0, 0, 0, .3); color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0b1220; --surface: #111a2e; --surface-2: #0e1628; --line: #1f2b44; --line-2: #2c3b5a;
+  --fg: #e6edf7; --fg-2: #c3cfe0; --muted: #8a9ab3; --faint: #64748b;
+  --accent: #5aa6ff; --accent-ink: #8cc2ff; --accent-soft: #15284a;
+  --good: #34d399; --good-soft: #0f2e25; --warn: #fbbf24; --warn-soft: #33270b; --mark: #5c4b00;
+  --p2b: #38bdf8; --scm: #2dd4bf; --bss: #a78bfa; --itsm: #fb923c; --ops: #818cf8; --dco: #5aa6ff;
+  --p2b-s: #0c2a3d; --scm-s: #0b2e2a; --bss-s: #241a42; --itsm-s: #3a1f0d; --ops-s: #1c1f4a; --dco-s: #15284a;
+  --hero-a: #08101f; --hero-b: #13295a; --shadow: 0 1px 2px rgba(0, 0, 0, .3); color-scheme: dark; }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { scroll-padding-top: calc(var(--top-h) + 16px); }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 14.5px/1.6 var(--f-body); }
+h1, h2, h3, h4 { font-family: var(--f-display); font-weight: 500; margin: 0; text-wrap: balance; color: var(--fg); }
+p { margin: 0; }
+a { color: var(--accent-ink); text-decoration: none; }
+a:hover { text-decoration: underline; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+code { font: .86em var(--f-mono); background: var(--surface-2); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; overflow-wrap: anywhere; }
+
+/* top bar */
+.topbar { position: sticky; top: 0; z-index: 30; height: var(--top-h); display: flex; align-items: center; gap: 16px; padding: 0 24px; background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+.logo { display: flex; align-items: center; gap: 10px; font: 600 15px var(--f-display); white-space: nowrap; }
+.logo i { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: linear-gradient(135deg, var(--accent), var(--ops)); color: #fff; font-style: normal; }
+.logo small { display: block; font: 400 11.5px var(--f-body); color: var(--muted); }
+.tabs { display: flex; gap: 4px; padding: 4px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; margin-left: auto; }
+.tab { border: 0; background: none; padding: 6px 14px; border-radius: 7px; font: 500 13px var(--f-display); color: var(--muted); white-space: nowrap; }
+.tab:hover { color: var(--fg); }
+.tab.on { background: var(--surface); color: var(--accent-ink); box-shadow: var(--shadow); }
+.icon-btn { width: 36px; height: 36px; border-radius: 9px; border: 1px solid var(--line); background: var(--surface); display: grid; place-items: center; color: var(--muted); }
+.icon-btn:hover { color: var(--accent-ink); border-color: var(--accent); }
+
+/* hero */
+.hero { background: radial-gradient(1200px 400px at 85% -10%, color-mix(in srgb, var(--ops) 55%, transparent), transparent 60%), linear-gradient(120deg, var(--hero-a), var(--hero-b)); color: #e8eefb; }
+.hero-in { max-width: 1280px; margin: 0 auto; padding: 40px 24px 34px; display: grid; gap: 22px; }
+.eyebrow { font: 500 11.5px var(--f-display); letter-spacing: .14em; text-transform: uppercase; color: #9cc2ff; }
+.hero h1 { color: #fff; font-size: clamp(26px, 3.4vw, 38px); font-weight: 600; line-height: 1.2; }
+.hero p.lede { color: #c9d6ee; max-width: 76ch; font-size: 15.5px; }
+.kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+.kpi { background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .13); border-radius: 12px; padding: 14px 16px; }
+.kpi b { display: block; font: 600 28px/1.1 var(--f-display); color: #fff; font-variant-numeric: tabular-nums; }
+.kpi span { font-size: 12.5px; color: #b9c8e6; }
+.kpi .bar { display: flex; gap: 3px; margin-top: 10px; height: 5px; }
+.kpi .bar i { flex: 1; border-radius: 3px; background: rgba(255, 255, 255, .25); }
+
+/* page frame */
+.wrap { max-width: 1280px; margin: 0 auto; padding: 0 24px 80px; }
+.block { margin-top: 28px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
+.block-h { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; padding: 20px 22px 14px; border-bottom: 1px solid var(--line); }
+.block-h .num { font: 500 12px var(--f-mono); color: var(--accent-ink); background: var(--accent-soft); border-radius: 6px; padding: 2px 7px; }
+.block-h h2 { font-size: 20px; font-weight: 600; }
+.block-h p { color: var(--muted); font-size: 13.5px; max-width: 80ch; margin-top: 4px; }
+.block-h .grow { flex: 1 1 360px; min-width: 0; }
+.block-b { padding: 18px 22px 22px; }
+.pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.pill { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 12px; font: 500 12.5px var(--f-body); color: var(--fg-2); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.pill:hover { border-color: var(--accent); color: var(--accent-ink); }
+.pill.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); }
+.pill .sw { width: 9px; height: 9px; border-radius: 50%; }
+
+/* legend */
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12.5px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.lv { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+.lv.core { background: currentColor; }
+.lv.supporting { border: 2px solid currentColor; }
+.lv.discuss { border: 2px dashed currentColor; }
+.own { font: 600 9.5px var(--f-display); letter-spacing: .04em; color: var(--itsm); border: 1px solid currentColor; border-radius: 4px; padding: 0 4px; line-height: 15px; }
+
+/* diagram: platform suites left · Datacenter Ops centre · ITSM + Opstral + site right; SVG links in the two gutters */
+.dg { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 150px minmax(0, 1.06fr) 150px minmax(0, 1fr); align-items: start; }
+.dg svg.links { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.dg .col { display: flex; flex-direction: column; gap: 12px; position: relative; z-index: 1; }
+.dg .col.l { grid-column: 1; } .dg .col.c { grid-column: 3; } .dg .col.r { grid-column: 5; }
+.suite { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); overflow: hidden; }
+.suite-h { display: flex; align-items: center; gap: 8px; padding: 9px 12px; font: 600 12.5px var(--f-display); color: var(--sc); background: var(--ss); border-bottom: 1px solid var(--line); }
+.suite-h small { margin-left: auto; font: 500 11.5px var(--f-mono); color: var(--sc); opacity: .85; }
+.suite-b { padding: 6px; display: flex; flex-direction: column; gap: 3px; }
+.node { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 31px; padding: 4px 9px; border: 1px solid transparent; border-radius: 8px; background: none; text-align: left; font: 500 13px/1.25 var(--f-body); color: var(--fg); transition: background .12s, opacity .12s, border-color .12s; position: relative; }
+.node:hover, .node.hot { background: var(--ss, var(--accent-soft)); border-color: color-mix(in srgb, var(--sc, var(--accent)) 40%, transparent); }
+.node.pin { border-color: var(--sc, var(--accent)); background: var(--ss, var(--accent-soft)); }
+.node .lv { color: var(--sc); }
+.node .nm { flex: 1; min-width: 0; }
+.node .ct { font: 500 11px var(--f-mono); color: var(--faint); }
+.node .badge { position: absolute; right: -9px; top: 50%; translate: 0 -50%; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--accent); color: #fff; font: 600 10.5px/20px var(--f-mono); text-align: center; box-shadow: 0 0 0 2px var(--surface); }
+.col.c .node .badge { right: auto; left: -9px; }
+.dg.focus .node:not(.hot):not(.pin) { opacity: .32; }
+
+.hub { --sc: var(--dco); --ss: var(--dco-s); border: 1.5px solid color-mix(in srgb, var(--dco) 55%, var(--line)); border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 5px color-mix(in srgb, var(--dco) 9%, transparent), var(--shadow); overflow: hidden; }
+.hub-h { padding: 14px 16px 12px; background: linear-gradient(135deg, var(--dco-s), color-mix(in srgb, var(--ops-s) 70%, var(--surface))); border-bottom: 1px solid var(--line); }
+.hub-h b { display: block; font: 600 16px var(--f-display); color: var(--fg); }
+.hub-h span { font-size: 12px; color: var(--muted); }
+.hub-g { padding: 4px 8px 6px; }
+.hub-g + .hub-g { border-top: 1px dashed var(--line); }
+.hub-g h4 { font: 600 10.5px var(--f-display); letter-spacing: .09em; text-transform: uppercase; color: var(--faint); padding: 6px 4px 2px; }
+.hub .node { min-height: 30px; }
+.hub .node .ic { width: 22px; height: 22px; border-radius: 6px; background: var(--dco-s); color: var(--dco); display: grid; place-items: center; flex: none; }
+.caps { border: 1.5px dashed var(--line-2); border-radius: 12px; padding: 12px 14px 8px; background: var(--surface-2); margin-top: 16px; display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 4px 20px; align-items: center; }
+.caps > div { display: flex; flex-wrap: wrap; }
+@media (max-width: 960px) { .caps { grid-template-columns: minmax(0, 1fr); } }
+.caps h4 { font: 600 12.5px var(--f-display); display: flex; gap: 8px; align-items: center; }
+.caps p { font-size: 12px; color: var(--muted); margin: 2px 0 8px; }
+.cap { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); margin: 0 4px 5px 0; color: var(--fg-2); }
+.site { --sc: var(--muted); --ss: var(--surface-2); }
+.site .flow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; color: var(--muted); padding: 2px 6px 8px; }
+.site .flow b { font-weight: 600; color: var(--fg-2); }
+.src { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 6px 6px; }
+.src .node { width: auto; min-height: 26px; padding: 2px 9px; font-size: 12px; border: 1px solid var(--line); border-radius: 999px; }
+path.ln { fill: none; stroke-width: 1.3; opacity: .3; transition: opacity .15s, stroke-width .15s; }
+path.ln.hot { opacity: .95; stroke-width: 2.2; }
+path.ln.seq { opacity: .95; stroke-width: 2.4; stroke-dasharray: 6 5; animation: dash 1.1s linear infinite; }
+.dg.focus path.ln:not(.hot):not(.seq) { opacity: .05; }
+.node.has-b .ct { visibility: hidden; }
+@keyframes dash { to { stroke-dashoffset: -22; } }
+@media (prefers-reduced-motion: reduce) { path.ln.seq { animation: none; } * { transition: none !important; } }
+
+.dg-bar { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.dg-bar .lbl { font: 500 12px var(--f-display); color: var(--muted); margin-right: 4px; }
+.detail { margin-top: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); padding: 16px 18px; min-height: 120px; }
+.detail .d-h { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.detail .d-h h3 { font-size: 17px; font-weight: 600; }
+.detail .d-h .x { margin-left: auto; }
+.detail .d-sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.d-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 14px; }
+.d-grid h4 { font: 600 11px var(--f-display); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); margin-bottom: 6px; }
+.d-grid p, .d-grid li { font-size: 13px; color: var(--fg-2); }
+.d-grid ul { margin: 0; padding-left: 18px; }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chip { display: inline-flex; align-items: center; gap: 5px; font: 500 12px var(--f-body); padding: 2px 9px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--fg-2); white-space: nowrap; }
+button.chip:hover { border-color: var(--accent); color: var(--accent-ink); }
+.chip.code { font: 11.5px var(--f-mono); }
+.tag { font: 600 11px var(--f-body); border-radius: 999px; padding: 1px 8px; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; }
+.tag.core { background: var(--good-soft); color: var(--good); }
+.tag.supporting { background: var(--accent-soft); color: var(--accent-ink); }
+.tag.discuss { background: var(--warn-soft); color: var(--warn); }
+.tag.dir { background: var(--surface); border: 1px solid var(--line); color: var(--fg-2); font-weight: 500; }
+.steps { list-style: none; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 22px; counter-reset: s; }
+.steps li { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; align-items: start; font-size: 13px; color: var(--fg-2); padding: 6px 8px; border-radius: 8px; cursor: pointer; }
+.steps li:hover { background: var(--surface); }
+.steps li::before { counter-increment: s; content: counter(s); width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #fff; font: 600 11.5px/24px var(--f-mono); text-align: center; }
+.steps li b { color: var(--fg); font-weight: 600; }
+
+/* journey cards */
+.jgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.jcard { text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px; transition: border-color .12s, box-shadow .12s; }
+.jcard:hover { border-color: var(--accent); box-shadow: var(--shadow); }
+.jcard .ji { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent-ink); }
+.jcard h3 { font-size: 15px; font-weight: 600; }
+.jcard p { font-size: 13px; color: var(--muted); }
+.jcard .chips { margin-top: auto; }
+.jcard .go { font: 500 12.5px var(--f-display); color: var(--accent-ink); }
+
+/* module table */
+.tbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+.tsearch { flex: 1 1 240px; position: relative; max-width: 340px; }
+.tsearch input { width: 100%; height: 36px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--fg); font: 13.5px var(--f-body); padding: 0 12px 0 34px; }
+.tsearch svg { position: absolute; left: 11px; top: 10px; color: var(--faint); }
+.tcount { margin-left: auto; font-size: 12.5px; color: var(--muted); }
+.mt-wrap { border: 1px solid var(--line); border-radius: 12px; overflow: clip; }
+table.mt { width: 100%; border-collapse: collapse; font-size: 13px; }
+.mt th { position: sticky; top: var(--top-h); z-index: 2; background: var(--surface-2); text-align: left; font: 600 12px var(--f-display); color: var(--muted); padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.mt td { padding: 11px 12px; border-bottom: 1px solid var(--line); vertical-align: top; color: var(--fg-2); }
+.mt tr:last-child td { border-bottom: 0; }
+.mt tbody tr { cursor: pointer; }
+.mt tbody tr:hover td { background: var(--surface-2); }
+.mt tr.grp td { background: var(--ss); color: var(--sc); font: 600 12.5px var(--f-display); padding: 8px 12px; cursor: default; }
+.mt .mname { display: flex; flex-direction: column; gap: 3px; min-width: 170px; }
+.mt .mname b { color: var(--fg); font-weight: 600; font-size: 13.5px; display: flex; align-items: center; gap: 7px; }
+.mt .mname small { color: var(--muted); font-size: 12px; line-height: 1.4; }
+.mt td.meta { white-space: nowrap; }
+.mt td.meta .tag { margin-bottom: 4px; }
+.mt .chips { max-width: 260px; }
+.mt .ints { font: 11.5px var(--f-mono); color: var(--muted); white-space: nowrap; }
+
+/* matrix */
+.mx-wrap { overflow-x: auto; }
+table.mx { border-collapse: separate; border-spacing: 0; font-size: 12.5px; margin: 0 auto; }
+.mx th, .mx td { padding: 0; text-align: center; }
+.mx thead th.sg { font: 600 11px var(--f-display); color: var(--sc); background: var(--ss); padding: 5px 4px; border-radius: 6px 6px 0 0; border-left: 2px solid var(--surface); }
+.mx thead th.mh { height: 132px; width: 27px; vertical-align: bottom; padding-bottom: 6px; border-left: 0; }
+.mx thead th.mh span { writing-mode: vertical-rl; transform: rotate(180deg); font: 500 11.5px var(--f-body); color: var(--fg-2); white-space: nowrap; cursor: pointer; }
+.mx thead th.mh span:hover { color: var(--accent-ink); }
+.mx tbody th { text-align: left; font: 500 12.5px var(--f-body); color: var(--fg); padding: 4px 14px 4px 0; white-space: nowrap; }
+.mx tbody th small { color: var(--faint); font: 11px var(--f-mono); margin-left: 6px; }
+.mx td { width: 27px; height: 27px; border-top: 1px solid var(--line); }
+.mx td.first { border-left: 2px solid var(--surface); }
+.mx td i { display: inline-block; width: 13px; height: 13px; border-radius: 4px; background: var(--sc); }
+.mx td i.s { background: color-mix(in srgb, var(--sc) 40%, transparent); }
+.mx td i.d { background: none; border: 1.5px dashed var(--sc); }
+.mx tr:hover th, .mx tr:hover td { background: var(--surface-2); }
+.mx tfoot td { font: 500 11px var(--f-mono); color: var(--muted); padding-top: 6px; border: 0; }
+.mx tfoot th { text-align: left; font: 500 11.5px var(--f-body); color: var(--muted); padding-top: 6px; }
+
+/* ownership + waves */
+.own-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.own-card { border: 1px solid var(--line); border-radius: 12px; padding: 16px; background: var(--surface); display: flex; flex-direction: column; gap: 10px; border-top: 3px solid var(--oc); }
+.own-card h3 { font-size: 15px; font-weight: 600; }
+.own-card p { font-size: 13px; color: var(--muted); }
+.seam { margin-top: 16px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; align-items: stretch; }
+.seam div { position: relative; padding: 12px 14px; background: var(--surface-2); border: 1px solid var(--line); font-size: 12.5px; color: var(--fg-2); }
+.seam div + div { border-left: 0; }
+.seam div:first-child { border-radius: 10px 0 0 10px; } .seam div:last-child { border-radius: 0 10px 10px 0; }
+.seam b { display: block; font: 600 12.5px var(--f-display); color: var(--fg); margin-bottom: 2px; }
+.seam div.me { background: var(--dco-s); }
+.waves { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.wave { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: var(--surface); position: relative; }
+.wave .wn { font: 600 11px var(--f-display); letter-spacing: .1em; text-transform: uppercase; color: var(--accent-ink); }
+.wave h3 { font-size: 15px; font-weight: 600; margin: 4px 0 6px; }
+.wave p { font-size: 12.5px; color: var(--muted); margin-bottom: 10px; }
+.note { margin-top: 14px; display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 10px; background: var(--warn-soft); color: var(--fg-2); font-size: 13px; }
+.note svg { color: var(--warn); flex: none; margin-top: 2px; }
+
+/* technical guide */
+.tech { display: grid; grid-template-columns: var(--rail) minmax(0, 1fr); max-width: 1440px; margin: 0 auto; }
+.rail { position: sticky; top: var(--top-h); height: calc(100vh - var(--top-h)); overflow-y: auto; border-right: 1px solid var(--line); padding: 18px 12px 32px; background: var(--surface); }
+.toc { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.toc a { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 6px; align-items: baseline; padding: 6px 8px; border-radius: 7px; color: var(--muted); font-size: 13px; line-height: 1.35; }
+.toc a:hover { background: var(--surface-2); color: var(--fg); text-decoration: none; }
+.toc a.on { background: var(--accent-soft); color: var(--accent-ink); font-weight: 500; }
+.toc .n { font: 400 11px var(--f-mono); color: var(--faint); }
+.toc .hits { font: 500 11px var(--f-mono); color: var(--accent-ink); }
+.toc a.dim { opacity: .4; }
+.rail-group { font: 600 10.5px var(--f-display); letter-spacing: .09em; text-transform: uppercase; color: var(--faint); padding: 14px 8px 4px; }
+.tmain { min-width: 0; padding: 0 32px 80px; }
+.tbar2 { position: sticky; top: var(--top-h); z-index: 5; background: var(--bg); padding: 14px 0 12px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tbar2 .tsearch { max-width: none; }
+.btn { height: 36px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--fg-2); font: 500 13px var(--f-body); padding: 0 12px; }
+.btn:hover { border-color: var(--accent); color: var(--accent-ink); }
+.btn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); }
+.status { flex-basis: 100%; font-size: 12.5px; color: var(--muted); min-height: 18px; }
+.menu-btn { display: none; }
+.thero { padding: 26px 0 6px; max-width: 980px; }
+.thero h2 { font-size: 24px; font-weight: 600; }
+.thero p { color: var(--muted); margin-top: 6px; max-width: 76ch; }
+.facts { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.fact { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 10px 14px; font-size: 12.5px; color: var(--muted); min-width: 120px; }
+.fact b { display: block; font: 600 20px var(--f-display); color: var(--fg); font-variant-numeric: tabular-nums; }
+.sec { max-width: 1120px; margin-top: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); scroll-margin-top: calc(var(--top-h) + 84px); border-left: 3px solid var(--gc, var(--accent)); }
+.sec-h { display: flex; align-items: center; gap: 12px; width: 100%; border: 0; background: none; text-align: left; padding: 16px 20px; font: 600 17px/1.3 var(--f-display); }
+.sec-h .n { font: 500 11.5px var(--f-mono); color: var(--gc, var(--accent)); background: color-mix(in srgb, var(--gc, var(--accent)) 12%, transparent); border-radius: 6px; padding: 2px 7px; }
+.sec-h .t { flex: 1; min-width: 0; }
+.sec-h .g { font: 500 11px var(--f-display); letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
+.sec-h .chev { transition: transform .15s; color: var(--faint); }
+.sec.closed .chev { transform: rotate(-90deg); }
+.sec.closed .sec-b { display: none; }
+.sec-b { padding: 4px 22px 22px; border-top: 1px solid var(--line); }
+.sec-b > p, .sec-b > ul, .sec-b > ol { max-width: 80ch; color: var(--fg-2); }
+.sec-b p { margin: 12px 0; }
+.sec-b h3 { font-size: 15px; font-weight: 600; margin: 26px 0 8px; scroll-margin-top: calc(var(--top-h) + 84px); }
+.sec-b img { display: block; max-width: 100%; margin: 16px 0; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.sec-b pre { background: var(--surface-2); padding: 12px 14px; border-radius: 8px; overflow-x: auto; border: 1px solid var(--line); }
+.sec-b pre code { background: none; border: 0; padding: 0; }
+mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1px; }
+.tc { font: 600 11px var(--f-body); color: var(--warn); background: var(--warn-soft); border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
+.tblock { margin: 14px 0; }
+.ttools { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; font-size: 12px; color: var(--faint); }
+.ttools input { height: 30px; width: 220px; max-width: 100%; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--fg); font: 13px var(--f-body); padding: 0 10px; }
+.tw { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+.tw table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.tw th { background: var(--surface-2); text-align: left; font: 600 12px var(--f-display); color: var(--muted); padding: 9px 10px; border-bottom: 1px solid var(--line); cursor: pointer; white-space: nowrap; user-select: none; }
+.tw th:hover { color: var(--accent-ink); }
+.tw th .s { color: var(--faint); margin-left: 4px; font-size: 10px; }
+.tw td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; min-width: 90px; color: var(--fg-2); }
+.tw td:first-child { font-weight: 500; color: var(--fg); }
+.tw tr:last-child td { border-bottom: 0; }
+.tw tbody tr:hover td { background: var(--surface-2); }
+.tw tr[hidden] { display: none; }
+.tw td.pm { white-space: nowrap; }
+.tw td.pm span { display: inline-block; font: 500 11.5px var(--f-body); border-radius: 999px; padding: 1px 8px; background: var(--ops-s); color: var(--ops); }
+.totop { position: fixed; right: 20px; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--fg-2); box-shadow: var(--shadow); z-index: 20; }
+
+@media (max-width: 1180px) {
+  .dg { grid-template-columns: minmax(0, 1fr) 90px minmax(0, 1.1fr) 90px minmax(0, 1fr); }
+  .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .jgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .waves { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 960px) {
+  .dg { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .dg .col.l, .dg .col.c, .dg .col.r { grid-column: 1; }
+  .dg .col.c { order: -1; }
+  .dg svg.links { display: none; }
+  .node .badge { right: 6px; } .col.c .node .badge { left: auto; right: 6px; }
+  .d-grid, .own-grid { grid-template-columns: minmax(0, 1fr); }
+  .seam { grid-template-columns: minmax(0, 1fr); }
+  .seam div + div { border-left: 1px solid var(--line); border-top: 0; }
+  .seam div:first-child { border-radius: 10px 10px 0 0; } .seam div:last-child { border-radius: 0 0 10px 10px; }
+  .steps { grid-template-columns: minmax(0, 1fr); }
+  .tech { grid-template-columns: minmax(0, 1fr); }
+  .rail { position: fixed; inset: var(--top-h) auto 0 0; width: min(300px, 86vw); z-index: 25; transform: translateX(-100%); transition: transform .2s; box-shadow: 0 0 40px rgba(0, 0, 0, .2); height: auto; }
+  .rail.open { transform: none; }
+  .tmain { padding: 0 16px 60px; }
+  .menu-btn { display: inline-block; }
+  /* the module table becomes cards */
+  table.mt, .mt tbody, .mt tr, .mt td { display: block; }
+  .mt thead { display: none; }
+  .mt tbody tr { padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .mt td { border: 0; padding: 3px 0; }
+  .mt td[data-l]::before { content: attr(data-l); display: block; font: 600 10.5px var(--f-display); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+  .mt .chips { max-width: none; }
+}
+@media (max-width: 640px) {
+  .topbar { padding: 0 12px; gap: 8px; }
+  .logo small { display: none; }
+  .logo span { display: none; }
+  .wrap, .hero-in { padding-inline: 16px; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .jgrid, .waves { grid-template-columns: minmax(0, 1fr); }
+  .block-h, .block-b { padding-inline: 14px; }
+  .tab { padding: 6px 10px; }
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="logo"><i><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="6" rx="1.5"/><rect x="3" y="15" width="18" height="6" rx="1.5"/><path d="M7 6h.01M7 18h.01M12 9v6"/></svg></i><span>Datacenter Ops<small>Integration guide</small></span></div>
+  <nav class="tabs" role="tablist" aria-label="Guide parts">
+    <button class="tab on" role="tab" data-tab="map" aria-selected="true">Platform map</button>
+    <button class="tab" role="tab" data-tab="tech" aria-selected="false">Technical guide</button>
+  </nav>
+  <button class="icon-btn" id="theme" type="button" aria-label="Switch light or dark theme" title="Light / dark"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+</header>
+
+<!-- ======================= PLATFORM MAP ======================= -->
+<div id="view-map">
+  <section class="hero">
+    <div class="hero-in">
+      <div>
+        <div class="eyebrow">Datacenter solution · end to end</div>
+        <h1>One Datacenter solution, built on the platform modules we already run</h1>
+      </div>
+      <p class="lede">Datacenter Ops is a module of the Opstral Ops Toolkit. Plan &amp; Build and Operations screens read their records from the platform's own modules (Inventory, IP Management, Supply chain, BSS, ITSM) and write back through them. This map shows every module the solution uses, what it gives each Datacenter screen and what Datacenter sends back. Where both had the same function, the platform module owns the record.</p>
+      <div class="kpis" id="kpis"></div>
+    </div>
+  </section>
+
+  <div class="wrap">
+    <!-- 1 diagram -->
+    <section class="block" id="map">
+      <div class="block-h">
+        <div class="grow"><span class="num">01</span>
+          <h2 style="margin-top:6px">Integration map</h2>
+          <p>Every platform module on the sides, every Datacenter screen in the middle. Point at a module or a screen to trace its links; click to pin it and read the detail below. Pick a journey to see the order in which the modules take part.</p></div>
+      </div>
+      <div class="block-b">
+        <div class="dg-bar">
+          <div class="pills" id="jpills"><span class="lbl">Show</span></div>
+          <div class="legend" id="legend"></div>
+        </div>
+        <div class="dg" id="dg">
+          <svg class="links" id="links" aria-hidden="true"></svg>
+          <div class="col l" id="colL"></div>
+          <div class="col c" id="colC"></div>
+          <div class="col r" id="colR"></div>
+        </div>
+        <div class="caps" id="caps"></div>
+        <div class="detail" id="detail" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- 2 journeys -->
+    <section class="block" id="journeys">
+      <div class="block-h"><div class="grow"><span class="num">02</span>
+        <h2 style="margin-top:6px">End-to-end journeys</h2>
+        <p>Four everyday flows that cross the modules. Open one to draw it on the map step by step.</p></div></div>
+      <div class="block-b"><div class="jgrid" id="jgrid"></div></div>
+    </section>
+
+    <!-- 3 module table -->
+    <section class="block" id="modules">
+      <div class="block-h"><div class="grow"><span class="num">03</span>
+        <h2 style="margin-top:6px">Modules mapped to the Datacenter ideation</h2>
+        <p>For each module: what Datacenter reads from it, what it sends back, the screens that use it and the contract types in <code>app/src/api/types.ts</code> it fills. This is the interface we ask each module team for (the fields we need, not their data model).</p></div></div>
+      <div class="block-b">
+        <div class="tbar">
+          <label class="tsearch"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="mq" type="search" placeholder="Search modules, screens, data…" aria-label="Search modules"></label>
+          <div class="pills" id="msuite"></div>
+          <div class="pills" id="mlevel"></div>
+          <span class="tcount" id="mcount"></span>
+        </div>
+        <div class="mt-wrap"><table class="mt" id="mt"><thead><tr><th>Module</th><th>Role</th><th>Datacenter reads</th><th>Datacenter sends</th><th>Used on</th><th>Contract types</th></tr></thead><tbody></tbody></table></div>
+      </div>
+    </section>
+
+    <!-- 4 matrix -->
+    <section class="block" id="matrix">
+      <div class="block-h"><div class="grow"><span class="num">04</span>
+        <h2 style="margin-top:6px">Screens × modules</h2>
+        <p>Which modules each Datacenter screen depends on. Solid = core, light = supporting, dashed = to discuss. Click a row or a module name to open it on the map.</p></div></div>
+      <div class="block-b"><div class="mx-wrap"><table class="mx" id="mx"></table></div></div>
+    </section>
+
+    <!-- 5 ownership -->
+    <section class="block" id="ownership">
+      <div class="block-h"><div class="grow"><span class="num">05</span>
+        <h2 style="margin-top:6px">Who owns what</h2>
+        <p>Where the platform and the Datacenter ideation had the same function, the platform module is the system of record. Datacenter screens read it and raise records in it; they never keep a second copy.</p></div></div>
+      <div class="block-b">
+        <div class="own-grid" id="owngrid"></div>
+        <h3 style="font-size:15px;font-weight:600;margin:22px 0 4px">How a Datacenter screen reaches a module</h3>
+        <p style="font-size:13px;color:var(--muted);max-width:80ch">Screens never call a module directly. They call one API layer, <code>app/src/api/index.ts</code>; each function there names its future REST path. Integrating a module means pointing those functions at the module's API and mapping its fields onto the contract types. The screens do not change.</p>
+        <div class="seam">
+          <div class="me"><b>Datacenter screen</b>DCIM, Planner, Incidents…</div>
+          <div class="me"><b>API layer</b><code>api/index.ts</code>: <code>getDcimRack()</code>, <code>createRack()</code>…</div>
+          <div class="me"><b>Contract</b><code>api/types.ts</code>: <code>DcimRack</code>, <code>Change</code>…</div>
+          <div><b>Adapter</b>field mapping and IDs, per module</div>
+          <div><b>Platform module</b>Inventory, Change Management…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6 waves -->
+    <section class="block" id="waves">
+      <div class="block-h"><div class="grow"><span class="num">06</span>
+        <h2 style="margin-top:6px">Proposed integration order</h2>
+        <p>A suggestion to agree with the module teams: the records operations stands on first, then the build chain, then the supporting modules.</p></div></div>
+      <div class="block-b">
+        <div class="waves" id="wavegrid"></div>
+        <div class="note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg><span>Field names, IDs and APIs are not in this guide: the module teams own their data models. Each row of the module table is the list of what Datacenter needs from that module, to be matched against its API.</span></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- ======================= TECHNICAL GUIDE ======================= -->
+<div id="view-tech" hidden>
+  <div class="tech">
+    <nav class="rail" id="rail" aria-label="Sections"><ul class="toc" id="toc"></ul></nav>
+    <main class="tmain">
+      <div class="tbar2">
+        <button class="btn menu-btn" id="menu" type="button" aria-label="Show sections">Sections</button>
+        <label class="tsearch"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          <input id="q" type="search" placeholder="Search: UPS, DCGM, Redfish, PDU, Access tab…" autocomplete="off" aria-label="Search the guide"></label>
+        <button class="btn" id="tc" type="button" title="Show only items still to confirm with the vendor">To confirm</button>
+        <button class="btn" id="expand" type="button">Collapse all</button>
+        <div class="status" id="status"></div>
+      </div>
+      <header class="thero">
+        <h2>Data sources and collection</h2>
+        <p>For every figure on the Datacenter screens: the system it comes from, the protocol or API that carries it, how it is derived and how often to collect it. Every protocol fact links to the specification or vendor page it was checked against.</p>
+        <div class="facts" id="facts"></div>
+      </header>
+      <div id="content"></div>
+    </main>
+  </div>
+</div>
+<button class="totop" id="totop" type="button" aria-label="Back to top">↑</button>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script>
+/* ---------------------------------------------------------------- data: the platform map */
+var SUITES = {
+  p2b:  { name: 'Plan to Build', side: 'L' },
+  scm:  { name: 'Supply Chain', side: 'L' },
+  bss:  { name: 'Operate to Acquire (BSS)', side: 'L' },
+  itsm: { name: 'Services & ITSM catalogue', side: 'R' },
+  ops:  { name: 'Opstral · Ops Toolkit', side: 'R' }
+};
+var LEVEL = { core: 'Core', supporting: 'Supporting', discuss: 'To discuss' };
+var DIR = { in: 'Datacenter reads', out: 'Datacenter sends', both: 'Reads and writes' };
+/* the Datacenter Ops menu, in its order */
+var SCREENS = [
+  { g: 'Overview', items: [
+    ['cc', 'Command center', 'Estate health, live map, what is happening, who is affected, recommendations.'],
+    ['rev', 'Revenue impact', 'What every open issue costs in lost revenue and service credits.'] ] },
+  { g: 'Infrastructure', items: [
+    ['dcs', 'Datacenters', 'Datacenter list and page: attention, metrics, power & space, equipment, assets, topology, customers, access, ops log.'],
+    ['fac', 'Facilities', 'Power path, cooling, environment & safety, single points of failure, planned maintenance.'],
+    ['gpu', 'AI & GPU', 'GPU fleet, jobs, GPU telemetry, GPU time lost, GPU models.'] ] },
+  { g: 'Operate', items: [
+    ['alr', 'Alerts', 'Alarms in scope per datacenter, normalised and correlated.'],
+    ['inc', 'Incidents', 'Incidents with impact, root-cause hypotheses, on call and customer communications; problems.', 1],
+    ['chg', 'Change management', 'Change register, approvals, calendar, freezes, standard changes, policies.', 1] ] },
+  { g: 'Plan & Build', items: [
+    ['pln', 'Planner', 'Plans: sizing, cost, project plan, materials, approvals, plan pack and review.'],
+    ['cap', 'Capacity', 'Space, power, cooling, network and GPU capacity; reservations; PUE and energy.'],
+    ['ipam', 'IP & Network', 'VRFs, prefixes, addresses, VLANs, ASNs, gateway groups, exhaustion forecast.', 1],
+    ['dcim', 'DCIM', 'Sites to ports: racks, devices, cabling, power, device types, change requests.', 1],
+    ['del', 'Delivery', 'Projects and programmes, purchase orders, commissioning L1–L5, handover.'],
+    ['wo', 'Work orders', 'Work orders and processes: my tasks, running work, process KPIs.', 1] ] },
+  { g: 'Admin', items: [
+    ['cmp', 'Compliance', 'Policies as code, frameworks and controls, decisions, evidence.'],
+    ['cus', 'Customization', 'Custom fields and tags over the estate.'] ] }
+];
+var SCREEN = {}; SCREENS.forEach(function (g) { g.items.forEach(function (s) { SCREEN[s[0]] = { id: s[0], name: s[1], desc: s[2], owned: !!s[3], group: g.g }; }); });
+/* functions the platform has no module for yet (user, 16-Oct-2026: to discuss) */
+var CAPS = ['Live facility plant (power, cooling, fuel)', 'Digital twin and floor plan', 'Capacity and forecast', 'Planner engine (sizing, cost, approvals)', 'Revenue impact model', 'Alarm scope, correlation and RCA', 'Compliance policies', 'Access and security log'];
+var SOURCES = ['Network devices', 'Servers & BMCs', 'GPUs & fabric', 'Power chain', 'Cooling & BMS', 'Fire, leak & doors'];
+
+var MODULES = [
+  /* Plan to Build */
+  { id: 'invplan', s: 'p2b', name: 'Inventory Planning', tag: 'Templates for active & passive elements & equipment', lv: 'core', dir: 'both',
+    reads: 'Device, module and rack types with their component templates: U height, ports, power ports, module bays, typical draw; passive templates (patch panels, trunks, PDUs).',
+    sends: 'New device and module types added from the DCIM catalogue.',
+    on: ['dcim', 'pln', 'cap'], types: ['DcimDeviceType', 'DcimModuleType', 'DcimCatalog'], ints: ['INT-14'] },
+  { id: 'inv', s: 'p2b', name: 'Inventory', tag: 'Physical and logical info with life cycle management', lv: 'core', dir: 'both', owns: 1,
+    reads: 'Sites, floors, halls, rows, racks, devices with U position and status, ports, modules, cables, patch panels, trunks, rack PDUs and outlets, facility plant (UPS, cooling, generators); install date, warranty, end of sale and support.',
+    sends: 'Every DCIM edit under its change request (new rack, install, move, connect, modules, power); planned devices from the Planner; status at handover.',
+    on: ['dcim', 'dcs', 'fac', 'cap', 'pln', 'del', 'cmp', 'cus', 'cc'], types: ['Datacenter', 'Rack', 'NetworkElement', 'Interface', 'Link', 'DcimDevice', 'DcimCable', 'RackPdu', 'PatchPanel', 'AssetLife'], ints: ['INT-14', 'INT-15'] },
+  { id: 'ipam', s: 'p2b', name: 'IP Management', tag: 'Schema & templates for VLAN, VRF & network resources with IP topology', lv: 'core', dir: 'both', owns: 1,
+    reads: 'VRFs, aggregates, prefixes, IP addresses, ranges, VLANs, ASNs, gateway groups, route targets and the IP topology.',
+    sends: 'Create, edit and delete from IP & Network; the next free address for a DCIM install; prefixes carved for a plan\'s IP plan.',
+    on: ['ipam', 'dcim', 'pln', 'cmp'], types: ['IpVrf', 'IpPrefix', 'IpAddr', 'IpVlan', 'IpRange', 'IpAsn', 'IpFhrp', 'IpAggregate'], ints: ['INT-16'] },
+  /* Supply Chain */
+  { id: 'mat', s: 'scm', name: 'Materials', tag: 'Master info with BOM for material planning & supplier association', lv: 'core', dir: 'both',
+    reads: 'Material master: model, rating, list price, the suppliers that carry it, bill-of-materials templates.',
+    sends: 'A plan\'s bill of materials as material demand, per phase and site.',
+    on: ['pln', 'del'], types: ['Bill of materials (planner/lib/materials.ts)'], ints: [] },
+  { id: 'ven', s: 'scm', name: 'Vendors', tag: 'Onboarding, RFx, Assignments, Contracts, Performance & Ratings', lv: 'supporting', dir: 'in',
+    reads: 'Suppliers and contractors, assignments, RFx outcome, performance and ratings.',
+    sends: 'The vendor chosen on a bill-of-materials line; contractor assigned to a work order.',
+    on: ['pln', 'del', 'wo'], types: ['PurchaseOrder.supplier', 'WorkOrder.crew'], ints: ['INT-26'] },
+  { id: 'con', s: 'scm', name: 'Contracts', tag: 'Life cycle management & supplier engagement', lv: 'supporting', dir: 'in',
+    reads: 'Supplier contracts (price, lead time, terms) and support contracts per vendor and level.',
+    sends: 'Nothing; contract terms are read for sourcing and warranty state.',
+    on: ['pln', 'del', 'dcs'], types: ['AssetLife (support contract)'], ints: ['INT-26'] },
+  { id: 'proc', s: 'scm', name: 'Procurement', tag: 'PR / PO, acceptance, invoice & payment lifecycles with supplier collaboration', lv: 'core', dir: 'both', owns: 1,
+    reads: 'Purchase order status, acceptance, goods receipt, invoices.',
+    sends: 'Purchase requisitions from "Start the build" (one per vendor and phase); budget changes from approved change orders.',
+    on: ['del', 'pln'], types: ['PurchaseOrder', 'ChangeOrder'], ints: [] },
+  { id: 'wh', s: 'scm', name: 'Warehouses', tag: 'Inventory inbound receipts, stock movements & dispatches', lv: 'core', dir: 'both', owns: 1,
+    reads: 'Stock on hand and reserved, spares per part family, inbound receipts, dispatches, return-for-repair stock.',
+    sends: 'Stock holds for a plan (stock before buying); spare requests for repair cases.',
+    on: ['pln', 'del', 'wo', 'dcs'], types: ['SparePart', 'RmaCase'], ints: [] },
+  { id: 'ffm', s: 'scm', name: 'Field Force Management', tag: 'Managing workforce, jobs, and executing tasks with efficiency', lv: 'core', dir: 'both', owns: 1,
+    reads: 'Crews, technicians and skills, job status, task evidence, who is on site.',
+    sends: 'Jobs from delivery work orders, preventive maintenance, remote hands and incident dispatch.',
+    on: ['wo', 'del', 'fac', 'inc'], types: ['WorkOrder', 'WfTask', 'RemoteHandsTicket'], ints: [] },
+  { id: 'log', s: 'scm', name: 'Logistics', tag: 'Plan & track shipments from assignment to delivery', lv: 'supporting', dir: 'both',
+    reads: 'Shipments from supplier or warehouse to site: carrier, ETA, delivered; returns.',
+    sends: 'Delivery address and need-by date per work order.',
+    on: ['del', 'wo'], types: ['PurchaseOrder (kit on site)'], ints: [] },
+  /* BSS */
+  { id: 'crm', s: 'bss', name: 'CRM', tag: 'Tracks customer interactions, leads, and engagement', lv: 'discuss', dir: 'in',
+    reads: 'Account manager, contacts, open opportunities as future demand.',
+    sends: 'Nothing today.',
+    on: ['rev', 'cap'], types: ['Customer'], ints: ['INT-23'] },
+  { id: 'cat', s: 'bss', name: 'Plans & Products Catalog', tag: 'Plans, features and services bundled as commercial offers', lv: 'supporting', dir: 'in',
+    reads: 'Service types and units (kW, GPU, port, rack), rates, service level tiers and credit rules.',
+    sends: 'Nothing; the catalogue prices revenue impact and GPU rates.',
+    on: ['rev', 'gpu', 'cap'], types: ['ServiceType', 'ServiceUnit'], ints: ['INT-24'] },
+  { id: 'ord', s: 'bss', name: 'Orders', tag: 'Handling enterprise customer orders through its lifecycle', lv: 'core', dir: 'both', owns: 1,
+    reads: 'Customer orders through their lifecycle: new capacity, GPU clusters, cross-connects, moves, ceases.',
+    sends: 'Feasibility and the capacity hold, build progress, ready for service.',
+    on: ['cap', 'pln', 'del', 'dcim'], types: ['CrossConnectOrder', 'CapacityHold'], ints: ['INT-25'] },
+  { id: 'cust', s: 'bss', name: 'Customers', tag: 'Provisioning, subscriptions, usage analytics & payment info', lv: 'core', dir: 'both', owns: 1,
+    reads: 'Customers and subscriptions with the racks, devices and ports they ride on; monthly charge, usage, service level target, premium flag.',
+    sends: 'Metered power and GPU usage; which subscriptions an open issue affects.',
+    on: ['rev', 'cc', 'dcs', 'inc', 'gpu'], types: ['Customer', 'Service'], ints: ['INT-23', 'INT-24', 'INT-25'] },
+  { id: 'cx', s: 'bss', name: 'Experience and Care', tag: 'Customer information, analytics & issue management for CX executives', lv: 'supporting', dir: 'both',
+    reads: 'Customer cases and the communication history.',
+    sends: 'Customer notices (initial, update, resolved) with the impact; customers at risk.',
+    on: ['inc', 'rev', 'cc'], types: ['IncidentOps (notices)'], ints: ['INT-22'] },
+  /* Services & ITSM */
+  { id: 'chg', s: 'itsm', name: 'Change Management', tag: 'Manage changes in network via structured & controlled process', lv: 'core', dir: 'both', owns: 1,
+    reads: 'Change requests, approval matrix and CAB, freezes, standard templates, calendar, status.',
+    sends: 'Change requests raised from DCIM and Delivery; DCIM work done under a change; conflict, single-point-of-failure and policy findings.',
+    on: ['chg', 'dcim', 'del', 'fac', 'cmp', 'cc'], types: ['Change', 'ChangeRecord', 'DcimCr', 'DcimWorkItem'], ints: ['INT-20'] },
+  { id: 'incm', s: 'itsm', name: 'Incidents', tag: 'Managing end-to-end life cycle of network incidents', lv: 'core', dir: 'both', owns: 1,
+    reads: 'The incident record: severity, assignment, status, timeline.',
+    sends: 'Incidents opened from correlated alarms, with scope, impact, root-cause hypotheses and recommended actions.',
+    on: ['inc', 'cc', 'rev', 'alr'], types: ['Incident', 'Problem', 'Hypothesis'], ints: ['INT-20'] },
+  { id: 'mnt', s: 'itsm', name: 'Maintenance', tag: 'Manage, track & resolve efficiently for smooth operational performance', lv: 'core', dir: 'both', owns: 1,
+    reads: 'Preventive maintenance plans per plant asset, schedules, completed visits, inspections.',
+    sends: 'The what-if of a maintenance window; plant findings.',
+    on: ['fac', 'chg', 'cmp'], types: ['PmTask'], ints: ['INT-27'] },
+  { id: 'kb', s: 'itsm', name: 'Knowledge Center', tag: 'Repository for managing knowledge assets centrally with access controls', lv: 'supporting', dir: 'both',
+    reads: 'Runbooks, SoP / MoP documents and known errors linked from recommendations.',
+    sends: 'Post-incident reviews and root-cause write-ups.',
+    on: ['inc', 'alr', 'cc'], types: ['ActionStep'], ints: [] },
+  { id: 'tkt', s: 'itsm', name: 'Tickets', tag: 'Trouble ticket lifecycle management with process automation', lv: 'supporting', dir: 'both',
+    reads: 'Customer and internal trouble tickets, remote-hands requests.',
+    sends: 'Tickets raised from alarms and customer impact, linked to the incident.',
+    on: ['inc', 'alr', 'dcs'], types: ['RemoteHandsTicket'], ints: ['INT-20'] },
+  /* Opstral Ops Toolkit (Datacenter Ops itself is the hub) */
+  { id: 'sys', s: 'ops', name: 'System Alerts', tag: 'Automated notifications for important events, issues, or status changes requiring action', lv: 'core', dir: 'both',
+    reads: 'Acknowledgements, on-call schedule, escalation state.',
+    sends: 'Alarm, incident, approval and maintenance events to notify and page.',
+    on: ['alr', 'inc', 'chg', 'cc'], types: ['OnCall', 'IncidentOps'], ints: ['INT-21', 'INT-22'] },
+  { id: 'tel', s: 'ops', name: 'Telemetry Ops', tag: 'Telemetry dashboards', lv: 'core', dir: 'in',
+    reads: 'Every reading the collectors take: interfaces, power, UPS, cooling, environment, GPU counters; 24 h and 12-month history.',
+    sends: 'Nothing; Datacenter reads the series.',
+    on: ['dcs', 'fac', 'gpu', 'cc', 'cap'], types: ['Gpu', 'GpuNode', 'UpsUnit', 'CoolingUnit', 'EnvSensor'], ints: ['INT-01…11'] },
+  { id: 'dat', s: 'ops', name: 'Data Ops', tag: 'SMART monitoring of Ingest & transform algo with recommendations', lv: 'core', dir: 'in',
+    reads: 'Ingest and transform health per site collector: freshness, gaps, mapping errors.',
+    sends: 'Nothing; drives collector state and "stale" markers.',
+    on: ['dcs', 'cc', 'alr'], types: ['Datacenter.collectors'], ints: ['INT-28'] },
+  { id: 'infra', s: 'ops', name: 'Infra Ops', tag: 'Workload, network, security & storage resources management', lv: 'supporting', dir: 'both',
+    reads: 'Workloads and clusters (Slurm, Kubernetes), node state, jobs, storage and network resources.',
+    sends: 'Nodes to drain or cordon when hardware fails.',
+    on: ['gpu', 'cap'], types: ['GpuJob', 'GpuCluster'], ints: ['INT-12', 'INT-13'] },
+  { id: 'fin', s: 'ops', name: 'Fin Ops', tag: 'Cluster utilization & congestion stats with AI recommendations', lv: 'supporting', dir: 'in',
+    reads: 'Cluster utilisation, congestion, idle allocations and cost recommendations.',
+    sends: 'Nothing; used on GPU time lost, capacity and energy.',
+    on: ['gpu', 'cap', 'rev'], types: ['GpuCapacity', 'SiteEnergy'], ints: [] },
+  { id: 'bots', s: 'ops', name: 'Proc Bots', tag: 'Distributed SoP / MoP scripts execution with SRE & NRE enablement', lv: 'supporting', dir: 'out',
+    reads: 'Run results and logs.',
+    sends: 'SoP / MoP runs: planned DCIM work in its window, the safe steps of a recommendation, resilience tests.',
+    on: ['chg', 'inc', 'dcim', 'fac'], types: ['ActionStep', 'DcimWorkItem', 'ResilienceTest'], ints: [] },
+  { id: 'exp', s: 'ops', name: 'Explainability', tag: 'Ensures every action is traceable, verifiable, and explainable by design', lv: 'supporting', dir: 'out',
+    reads: 'The trace of any AI answer or automated action.',
+    sends: 'Root-cause hypotheses with their evidence, recommendations, policy decisions and the audit trail.',
+    on: ['inc', 'cc', 'cmp'], types: ['Hypothesis', 'AuditEntry', 'PolicyDecision'], ints: [] },
+  { id: 'sec', s: 'ops', name: 'Security Ops', tag: 'Detect threats and automate security incident response', lv: 'supporting', dir: 'both',
+    reads: 'Security incidents and threat detections that touch a datacenter.',
+    sends: 'Physical access exceptions (tailgating, door forced or held open) and firewall alarms.',
+    on: ['dcs', 'alr', 'inc'], types: ['SecException', 'AccessEvent'], ints: ['INT-17…19'] },
+  { id: 'svc', s: 'ops', name: 'Service Ops', tag: 'Integrates logs, traces, alerts and APM for all services', lv: 'supporting', dir: 'in',
+    reads: 'Service health from logs, traces and APM.',
+    sends: 'Nothing; confirms the customer impact of an infrastructure fault.',
+    on: ['rev', 'cc', 'inc'], types: ['Service'], ints: [] },
+  { id: 'agent', s: 'ops', name: 'Agent Ops', tag: 'Telemetry for ML models, AI agents, prompts and executions', lv: 'discuss', dir: 'out',
+    reads: 'Nothing.',
+    sends: 'Telemetry of the Opstral AI copilot: prompts, tools used, executions.',
+    on: ['cc'], types: [], ints: [] }
+];
+var MOD = {}; MODULES.forEach(function (m) { MOD[m.id] = m; });
+
+/* journeys: node ids are m:<module>, s:<screen> or x:src (field sources) */
+var JOURNEYS = [
+  { id: 'build', name: 'Build new GPU capacity', icon: 'M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6', blurb: 'A customer orders a GPU cluster; the platform sources, ships and installs it under change control.',
+    steps: [['m:ord', '<b>Orders</b> receives a customer order for a 512-GPU cluster.'], ['s:cap', '<b>Capacity</b> checks space, power and cooling and holds what the order needs.'],
+      ['s:pln', '<b>Planner</b> sizes the build on <b>Inventory Planning</b> templates.'], ['m:invplan', 'Templates give the U height, ports and typical draw of every device.'],
+      ['m:mat', '<b>Materials</b> prices the bill; <b>Vendors</b> and <b>Contracts</b> give channel and lead time.'], ['m:proc', 'On approval, <b>Procurement</b> gets one requisition per vendor and phase.'],
+      ['m:wh', '<b>Warehouses</b> supplies what is in stock; <b>Logistics</b> ships the rest to site.'], ['s:del', '<b>Delivery</b> tracks orders, goods receipt and commissioning L1–L5.'],
+      ['m:ffm', '<b>Field Force</b> runs the install jobs.'], ['m:chg', 'Every install runs under a <b>Change Management</b> request.'],
+      ['s:dcim', '<b>DCIM</b> records racks, devices and cables in <b>Inventory</b>, addresses in <b>IP Management</b>.'], ['m:inv', 'Inventory now holds the new hall as installed.'],
+      ['m:tel', 'Collection starts: the new devices report into <b>Telemetry Ops</b>.'], ['m:cust', 'Handover: the subscription goes live in <b>Customers</b>.']] },
+  { id: 'fault', name: 'From fault to fix', icon: 'M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z', blurb: 'A failed optic and a UPS on battery, from the first reading to the change that fixes it.',
+    steps: [['x:src', 'An optic fails and a UPS goes on battery: the site devices report it.'], ['m:dat', 'The site collector streams it; <b>Data Ops</b> checks ingest and freshness.'],
+      ['m:tel', '<b>Telemetry Ops</b> stores the readings.'], ['s:alr', '<b>Alerts</b> scopes the alarms to the datacenter and correlates them.'],
+      ['m:incm', 'An incident opens in <b>Incidents</b>, with impact and root-cause hypotheses.'], ['m:sys', '<b>System Alerts</b> pages the on-call engineer.'],
+      ['m:cust', '<b>Customers</b> names the subscriptions on the failed path; <b>Revenue impact</b> prices them.'], ['m:cx', '<b>Experience and Care</b> sends the customer notice.'],
+      ['m:kb', '<b>Knowledge Center</b> gives the runbook; <b>Proc Bots</b> runs its safe steps.'], ['m:ffm', '<b>Field Force</b> dispatches a technician with a spare from <b>Warehouses</b>.'],
+      ['m:chg', 'The fix goes in under an emergency change.'], ['m:exp', '<b>Explainability</b> keeps the evidence for the root cause and every automated step.']] },
+  { id: 'dcim', name: 'A change in DCIM', icon: 'M4 4h16v6H4zM4 14h16v6H4zM8 7h.01M8 17h.01', blurb: 'An engineer moves a server to another rack; the platform approves, executes and records it.',
+    steps: [['s:dcim', 'An engineer drags a server to another rack in <b>DCIM</b>.'], ['m:chg', 'DCIM asks for a change request: standard, an open one, or a new one in <b>Change Management</b>.'],
+      ['s:chg', 'The change is approved (CAB at high risk, freeze checked).'], ['m:bots', 'In the window, <b>Proc Bots</b> runs the MoP…'], ['m:ffm', '…and <b>Field Force</b> does the physical move.'],
+      ['m:inv', '<b>Inventory</b> records the move, tagged with the change.'], ['m:ipam', '<b>IP Management</b> updates the address when the port changes.'], ['m:exp', 'The audit line carries the change id.']] },
+  { id: 'pm', name: 'Planned maintenance', icon: 'M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z', blurb: 'A UPS battery service, from the due date to the visit closed out.',
+    steps: [['m:mnt', '<b>Maintenance</b> says the UPS-2 battery service is due.'], ['s:fac', '<b>Facilities</b> shows the what-if: which racks lose A-side power.'],
+      ['m:chg', 'A maintenance change is booked; freezes and conflicts are checked.'], ['m:con', '<b>Contracts</b> and <b>Vendors</b> name the service vendor.'],
+      ['m:ffm', '<b>Field Force</b> schedules the visit and arranges site access.'], ['m:sys', '<b>System Alerts</b> tells the site and the affected teams.'],
+      ['m:cx', 'Affected customers get a planned-work notice.'], ['m:mnt', 'Maintenance records the visit as done.']] }
+];
+
+var OWN = [
+  { c: 'var(--good)', t: 'Platform owns the record', p: 'Datacenter reads it and creates or changes records only through the module, under a change request where one is required.', ids: MODULES.filter(function (m) { return m.owns; }).map(function (m) { return m.id; }) },
+  { c: 'var(--accent)', t: 'Platform supplies, Datacenter derives', p: 'Readings, catalogue and commercial data that Datacenter turns into health, impact, capacity and cost.', ids: MODULES.filter(function (m) { return !m.owns && m.lv !== 'discuss'; }).map(function (m) { return m.id; }) },
+  { c: 'var(--warn)', t: 'To discuss', p: 'Modules with little use today, and Datacenter functions with no platform module yet.', ids: MODULES.filter(function (m) { return m.lv === 'discuss'; }).map(function (m) { return m.id; }), caps: true }
+];
+var WAVES = [
+  { n: 'Wave 1', t: 'Records operations stands on', p: 'Live estate, alarms, incidents and changes on platform records.', ids: ['inv', 'ipam', 'incm', 'chg', 'sys', 'tel', 'dat', 'cust'] },
+  { n: 'Wave 2', t: 'The build chain', p: 'From an order to installed, commissioned capacity.', ids: ['invplan', 'mat', 'proc', 'wh', 'ffm', 'ord', 'mnt'] },
+  { n: 'Wave 3', t: 'Supporting modules', p: 'Richer sourcing, customer care, automation and explainability.', ids: ['ven', 'con', 'log', 'cat', 'cx', 'kb', 'tkt', 'infra', 'fin', 'bots', 'exp', 'sec', 'svc'] },
+  { n: 'To discuss', t: 'Open points', p: 'Low use today, or no module yet.', ids: ['crm', 'agent'], caps: true }
+];
+
+/* ---------------------------------------------------------------- helpers */
+var $ = function (s, r) { return (r || document).querySelector(s); };
+var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+var esc = function (s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
+var sv = function (s) { return '--sc:var(--' + s + ');--ss:var(--' + s + '-s)'; };
+var feeders = function (sid) { return MODULES.filter(function (m) { return m.on.indexOf(sid) >= 0; }); };
+var store = { get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+var ICONS = { cc: 'M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z', rev: 'M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6', dcs: 'M4 21V5l8-3 8 3v16M9 21v-4h6v4M8 8h.01M12 8h.01M16 8h.01M8 12h.01M12 12h.01M16 12h.01',
+  fac: 'M13 2 3 14h9l-1 8 10-12h-9z', gpu: 'M5 5h14v14H5zM9 9h6v6H9zM9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3', alr: 'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21h4',
+  inc: 'M12 2 2 21h20zM12 9v5M12 17h.01', chg: 'M7 4 3 8l4 4M3 8h18M17 20l4-4-4-4M21 16H3', pln: 'M12 2 4 22M12 2l8 20M7 15h10', cap: 'M12 14l4-4M3.3 19a10 10 0 1 1 17.4 0',
+  ipam: 'M12 2v6M12 16v6M5 12H2M22 12h-3M7 7l-2-2M17 7l2-2M7 17l-2 2M17 17l2 2M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8', dcim: 'M3 4h18v6H3zM3 14h18v6H3zM7 7h.01M7 17h.01', del: 'M3 7h18v13H3zM8 7V4h8v3M3 12h18',
+  wo: 'M9 2h6v4H9zM5 4h4M15 4h4v18H5V4M9 12l2 2 4-4', cmp: 'M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5zM9 12l2 2 4-4', cus: 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6' };
+var svgI = function (d, n) { return '<svg width="' + (n || 13) + '" height="' + (n || 13) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="' + d + '"/></svg>'; };
+
+/* ---------------------------------------------------------------- hero figures */
+(function () {
+  var core = MODULES.filter(function (m) { return m.lv === 'core'; }).length, sup = MODULES.filter(function (m) { return m.lv === 'supporting'; }).length, dis = MODULES.length - core - sup;
+  var platform = MODULES.filter(function (m) { return m.s !== 'ops'; }).length, edges = MODULES.reduce(function (a, m) { return a + m.on.length; }, 0);
+  var bar = function (n, of) { var s = ''; for (var i = 0; i < of; i++) s += '<i style="' + (i < n ? 'background:#9cc2ff' : '') + '"></i>'; return '<div class="bar">' + s + '</div>'; };
+  var k = [[MODULES.length, 'modules integrated', bar(MODULES.length, MODULES.length)], [platform + ' + ' + (MODULES.length - platform), 'platform + Opstral modules', bar(platform, MODULES.length)],
+    [core, 'core modules', bar(core, MODULES.length)], [sup + ' · ' + dis, 'supporting · to discuss', bar(sup, MODULES.length)],
+    [Object.keys(SCREEN).length, 'Datacenter screens served', bar(Object.keys(SCREEN).length, Object.keys(SCREEN).length)], [edges, 'module-to-screen links', bar(10, 10)]];
+  $('#kpis').innerHTML = k.map(function (x) { return '<div class="kpi"><b>' + x[0] + '</b><span>' + x[1] + '</span>' + x[2] + '</div>'; }).join('');
+})();
+
+/* ---------------------------------------------------------------- diagram */
+var dg = $('#dg'), svg = $('#links');
+function suiteCard(s) {
+  var ms = MODULES.filter(function (m) { return m.s === s; });
+  return '<div class="suite" style="' + sv(s) + '"><div class="suite-h">' + esc(SUITES[s].name) + '<small>' + ms.length + '</small></div><div class="suite-b">' +
+    ms.map(function (m) { return '<button type="button" class="node" data-node="m:' + m.id + '" style="' + sv(s) + '"><i class="lv ' + m.lv + '"></i><span class="nm">' + esc(m.name) + '</span>' + (m.owns ? '<span class="own" title="Platform owns the record">REC</span>' : '') + '<span class="ct">' + m.on.length + '</span></button>'; }).join('') + '</div></div>';
+}
+$('#colL').innerHTML = ['p2b', 'scm', 'bss'].map(suiteCard).join('');
+$('#colR').innerHTML = suiteCard('itsm') + suiteCard('ops') +
+  '<div class="suite site"><div class="suite-h">At each datacenter<small>' + SOURCES.length + '</small></div><div class="flow"><b>Field sources</b> → site collector → <b>Data Ops</b> → <b>Telemetry Ops</b></div><div class="src">' +
+  SOURCES.map(function (x) { return '<button type="button" class="node" data-node="x:src">' + esc(x) + '</button>'; }).join('') + '</div></div>';
+$('#colC').innerHTML = '<div class="hub"><div class="hub-h"><b>Datacenter Ops</b><span>Opstral module · Plan &amp; Build and Operations · ' + Object.keys(SCREEN).length + ' screens</span></div>' +
+  SCREENS.map(function (g) { return '<div class="hub-g"><h4>' + g.g + '</h4>' + g.items.map(function (s) { var n = feeders(s[0]).length;
+    return '<button type="button" class="node" data-node="s:' + s[0] + '"><span class="ic">' + svgI(ICONS[s[0]]) + '</span><span class="nm">' + esc(s[1]) + '</span>' + (s[3] ? '<span class="own" title="Its records live in a platform module">REC</span>' : '') + '<span class="ct">' + n + '</span></button>'; }).join('') + '</div>'; }).join('') + '</div>';
+$('#caps').innerHTML = '<div style="display:block"><h4><span class="lv discuss" style="color:var(--warn)"></span>Datacenter-specific, no module yet · ' + CAPS.length + '</h4><p>To discuss: these stay in Datacenter Ops unless a platform module takes them.</p></div><div>' + CAPS.map(function (c) { return '<span class="cap">' + esc(c) + '</span>'; }).join('') + '</div>';
+
+$('#legend').innerHTML = '<span style="color:var(--fg-2)"><i class="lv core"></i>Core</span><span style="color:var(--fg-2)"><i class="lv supporting"></i>Supporting</span><span style="color:var(--fg-2)"><i class="lv discuss"></i>To discuss</span><span><span class="own">REC</span>platform owns the record</span><span><b style="font:500 11px var(--f-mono)">n</b>&nbsp;links</span>';
+
+var EDGES = [];
+MODULES.forEach(function (m) { m.on.forEach(function (s) { EDGES.push({ a: 'm:' + m.id, b: 's:' + s, suite: m.s }); }); });
+function anchor(el, side) {
+  var r = el.getBoundingClientRect(), o = dg.getBoundingClientRect();
+  return { x: (side === 'R' ? r.right : r.left) - o.left, y: r.top + r.height / 2 - o.top };
+}
+function draw() {
+  if (getComputedStyle(svg).display === 'none') return;
+  var o = dg.getBoundingClientRect(); svg.setAttribute('viewBox', '0 0 ' + o.width + ' ' + o.height);
+  var out = '';
+  EDGES.forEach(function (e, i) {
+    var mEl = dg.querySelector('[data-node="' + e.a + '"]'), sEl = dg.querySelector('[data-node="' + e.b + '"]');
+    if (!mEl || !sEl) return;
+    var left = SUITES[e.suite].side === 'L';
+    var p = anchor(mEl, left ? 'R' : 'L'), q = anchor(sEl, left ? 'L' : 'R');
+    var dx = (q.x - p.x) * .55;
+    out += '<path class="ln" data-e="' + i + '" stroke="var(--' + e.suite + ')" d="M' + p.x.toFixed(1) + ' ' + p.y.toFixed(1) + ' C' + (p.x + dx).toFixed(1) + ' ' + p.y.toFixed(1) + ' ' + (q.x - dx).toFixed(1) + ' ' + q.y.toFixed(1) + ' ' + q.x.toFixed(1) + ' ' + q.y.toFixed(1) + '"/>';
+  });
+  svg.innerHTML = out;
+  paint();
+}
+
+/* state: hover > pinned node > journey */
+var state = { hover: null, pin: null, journey: null };
+function related(node) {
+  var set = {}; set[node] = 1; var eds = {};
+  EDGES.forEach(function (e, i) { if (e.a === node || e.b === node) { set[e.a] = 1; set[e.b] = 1; eds[i] = 1; } });
+  return { nodes: set, edges: eds };
+}
+function paint() {
+  var focus = state.hover || state.pin, nodes = {}, eds = {}, seq = {}, badges = {};
+  if (focus) { var r = related(focus); nodes = r.nodes; eds = r.edges; }
+  else if (state.journey) {
+    var J = JOURNEYS.filter(function (j) { return j.id === state.journey; })[0];
+    J.steps.forEach(function (st, i) { nodes[st[0]] = 1; (badges[st[0]] = badges[st[0]] || []).push(i + 1);
+      var nx = J.steps[i + 1]; if (!nx) return;
+      EDGES.forEach(function (e, k) { if ((e.a === st[0] && e.b === nx[0]) || (e.b === st[0] && e.a === nx[0])) seq[k] = 1; }); });
+  }
+  dg.classList.toggle('focus', !!(focus || state.journey));
+  $$('.node', dg).forEach(function (el) {
+    var id = el.getAttribute('data-node');
+    el.classList.toggle('hot', !!nodes[id]);
+    el.classList.toggle('pin', state.pin === id);
+    var b = el.querySelector('.badge'); if (b) b.remove(); el.classList.remove('has-b');
+    if (badges[id] && !focus && (id !== 'x:src' || el === dg.querySelector('[data-node="x:src"]'))) { el.insertAdjacentHTML('beforeend', '<span class="badge">' + badges[id].join('·') + '</span>'); el.classList.add('has-b'); }
+  });
+  $$('path.ln', svg).forEach(function (p) { var i = +p.getAttribute('data-e'); p.classList.toggle('hot', !!eds[i]); p.classList.toggle('seq', !focus && !!seq[i]); });
+}
+function detail() {
+  var d = $('#detail'), id = state.pin;
+  if (!id && state.journey) {
+    var J = JOURNEYS.filter(function (j) { return j.id === state.journey; })[0];
+    d.innerHTML = '<div class="d-h"><h3>' + esc(J.name) + '</h3><span class="tag dir">' + J.steps.length + ' steps</span><button class="btn x" type="button" data-clear>Clear</button></div><div class="d-sub">' + esc(J.blurb) + '</div>' +
+      '<ol class="steps">' + J.steps.map(function (s) { return '<li data-go="' + s[0] + '"><span>' + s[1] + '</span></li>'; }).join('') + '</ol>';
+    return;
+  }
+  if (!id) {
+    d.innerHTML = '<div class="d-h"><h3>Pick a module or a screen</h3></div><div class="d-sub">Point at anything on the map to trace its links; click to pin it here. ' + MODULES.length + ' modules link to ' + Object.keys(SCREEN).length + ' screens through ' + EDGES.length + ' links. Lines take the colour of the module\'s suite.</div>' +
+      '<div class="d-grid"><div><h4>Most connected screens</h4><div class="chips">' + Object.keys(SCREEN).map(function (k) { return [k, feeders(k).length]; }).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 6).map(function (x) { return '<button class="chip" data-go="s:' + x[0] + '">' + esc(SCREEN[x[0]].name) + ' · ' + x[1] + '</button>'; }).join('') + '</div></div>' +
+      '<div><h4>Most used modules</h4><div class="chips">' + MODULES.slice().sort(function (a, b) { return b.on.length - a.on.length; }).slice(0, 6).map(function (m) { return '<button class="chip" data-go="m:' + m.id + '">' + esc(m.name) + ' · ' + m.on.length + '</button>'; }).join('') + '</div></div>' +
+      '<div><h4>Platform owns the record</h4><div class="chips">' + MODULES.filter(function (m) { return m.owns; }).map(function (m) { return '<button class="chip" data-go="m:' + m.id + '">' + esc(m.name) + '</button>'; }).join('') + '</div></div></div>';
+    return;
+  }
+  if (id.indexOf('m:') === 0) {
+    var m = MOD[id.slice(2)];
+    d.innerHTML = '<div class="d-h"><i class="lv ' + m.lv + '" style="color:var(--' + m.s + ')"></i><h3>' + esc(m.name) + '</h3><span class="tag ' + m.lv + '">' + LEVEL[m.lv] + '</span><span class="tag dir">' + DIR[m.dir] + '</span>' + (m.owns ? '<span class="tag core">Platform owns the record</span>' : '') + '<button class="btn x" type="button" data-clear>Clear</button></div>' +
+      '<div class="d-sub">' + esc(SUITES[m.s].name) + ' · ' + esc(m.tag) + '</div>' +
+      '<div class="d-grid"><div><h4>Datacenter reads</h4><p>' + esc(m.reads) + '</p></div><div><h4>Datacenter sends</h4><p>' + esc(m.sends) + '</p></div>' +
+      '<div><h4>Used on ' + m.on.length + ' screens</h4><div class="chips">' + m.on.map(function (s) { return '<button class="chip" data-go="s:' + s + '">' + esc(SCREEN[s].name) + '</button>'; }).join('') + '</div>' +
+      (m.types.length ? '<h4 style="margin-top:12px">Contract types</h4><div class="chips">' + m.types.map(function (t) { return '<span class="chip code">' + esc(t) + '</span>'; }).join('') + '</div>' : '') +
+      (m.ints.length ? '<h4 style="margin-top:12px">Technical register</h4><div class="chips">' + m.ints.map(function (t) { return '<a class="chip code" href="#integration-point-register">' + esc(t) + '</a>'; }).join('') + '</div>' : '') + '</div></div>';
+  } else if (id.indexOf('s:') === 0) {
+    var s = SCREEN[id.slice(2)], fs = feeders(s.id);
+    d.innerHTML = '<div class="d-h"><span class="ic" style="width:26px;height:26px;border-radius:7px;background:var(--dco-s);color:var(--dco);display:grid;place-items:center">' + svgI(ICONS[s.id], 15) + '</span><h3>' + esc(s.name) + '</h3><span class="tag dir">' + esc(s.group) + '</span><span class="tag supporting">' + fs.length + ' modules</span>' + (s.owned ? '<span class="tag core">Records in a platform module</span>' : '') + '<button class="btn x" type="button" data-clear>Clear</button></div>' +
+      '<div class="d-sub">' + esc(s.desc) + '</div><div class="d-grid">' + ['core', 'supporting', 'discuss'].map(function (lv) { var l = fs.filter(function (m) { return m.lv === lv; });
+        return '<div><h4>' + LEVEL[lv] + ' · ' + l.length + '</h4>' + (l.length ? '<ul>' + l.map(function (m) { return '<li><a href="#" data-go="m:' + m.id + '">' + esc(m.name) + '</a> <span style="color:var(--muted)">· ' + esc(SUITES[m.s].name) + '</span></li>'; }).join('') + '</ul>' : '<p style="color:var(--faint)">None</p>') + '</div>'; }).join('') + '</div>';
+  } else {
+    d.innerHTML = '<div class="d-h"><h3>Field sources at each datacenter</h3><button class="btn x" type="button" data-clear>Clear</button></div><div class="d-sub">Network devices, server BMCs, GPU agents, the power chain, cooling and the BMS, fire, leak and door controllers. One collector per site reads them over SNMP, Redfish, Modbus, BACnet and vendor APIs and streams the result to Data Ops and Telemetry Ops. The <a href="#tech">Technical guide</a> lists every protocol and figure.</div>';
+  }
+}
+function pin(id) { state.pin = state.pin === id ? null : id; state.journey = null; syncJourneyPills(); paint(); detail(); }
+dg.addEventListener('mouseover', function (e) { var n = e.target.closest('.node'); if (n) { state.hover = n.getAttribute('data-node'); paint(); } });
+dg.addEventListener('mouseleave', function () { state.hover = null; paint(); });
+dg.addEventListener('mouseout', function (e) { var n = e.target.closest('.node'); if (n && !n.contains(e.relatedTarget)) { state.hover = null; paint(); } });
+dg.addEventListener('click', function (e) { var n = e.target.closest('.node'); if (n) pin(n.getAttribute('data-node')); });
+$('#detail').addEventListener('click', function (e) {
+  if (e.target.closest('[data-clear]')) { state.pin = null; state.journey = null; syncJourneyPills(); paint(); detail(); return; }
+  var g = e.target.closest('[data-go]'); if (!g) return; e.preventDefault();
+  var id = g.getAttribute('data-go');
+  if (state.journey && g.tagName === 'LI') { var el = dg.querySelector('[data-node="' + id + '"]'); if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); state.hover = id; paint(); setTimeout(function () { state.hover = null; paint(); }, 1400); } return; }
+  state.pin = id; state.journey = null; syncJourneyPills(); paint(); detail();
+});
+/* journey pills */
+var jp = $('#jpills');
+jp.insertAdjacentHTML('beforeend', '<button class="pill on" type="button" data-j="">All links</button>' + JOURNEYS.map(function (j) { return '<button class="pill" type="button" data-j="' + j.id + '">' + esc(j.name) + '</button>'; }).join(''));
+function syncJourneyPills() { $$('.pill', jp).forEach(function (p) { p.classList.toggle('on', (p.getAttribute('data-j') || null) === state.journey); }); }
+function openJourney(id) { state.journey = id || null; state.pin = null; syncJourneyPills(); paint(); detail(); }
+jp.addEventListener('click', function (e) { var p = e.target.closest('[data-j]'); if (p) openJourney(p.getAttribute('data-j')); });
+
+/* journey cards */
+$('#jgrid').innerHTML = JOURNEYS.map(function (j) {
+  var ms = []; j.steps.forEach(function (s) { if (s[0].indexOf('m:') === 0 && ms.indexOf(s[0]) < 0) ms.push(s[0]); });
+  return '<button class="jcard" type="button" data-j="' + j.id + '"><span class="ji">' + svgI(j.icon, 19) + '</span><h3>' + esc(j.name) + '</h3><p>' + esc(j.blurb) + '</p><div class="chips">' +
+    ms.slice(0, 6).map(function (id) { var m = MOD[id.slice(2)]; return '<span class="chip" style="color:var(--' + m.s + ')">' + esc(m.name) + '</span>'; }).join('') + (ms.length > 6 ? '<span class="chip">+' + (ms.length - 6) + '</span>' : '') +
+    '</div><span class="go">' + j.steps.length + ' steps · show on the map →</span></button>';
+}).join('');
+$('#jgrid').addEventListener('click', function (e) { var c = e.target.closest('[data-j]'); if (!c) return; openJourney(c.getAttribute('data-j')); $('#map').scrollIntoView({ behavior: 'smooth' }); });
+
+/* ---------------------------------------------------------------- module table */
+var tf = { q: '', suite: '', lv: '' };
+$('#msuite').innerHTML = '<button class="pill on" data-s="">All suites</button>' + Object.keys(SUITES).map(function (s) { return '<button class="pill" data-s="' + s + '"><i class="sw" style="background:var(--' + s + ')"></i>' + esc(SUITES[s].name.replace(' (BSS)', '').replace(' catalogue', '')) + '</button>'; }).join('');
+$('#mlevel').innerHTML = '<button class="pill on" data-l="">Any role</button>' + Object.keys(LEVEL).map(function (l) { return '<button class="pill" data-l="' + l + '">' + LEVEL[l] + '</button>'; }).join('');
+function renderTable() {
+  var q = tf.q.toLowerCase(), rows = '', shown = 0;
+  Object.keys(SUITES).forEach(function (s) {
+    var ms = MODULES.filter(function (m) {
+      if (m.s !== s || (tf.suite && tf.suite !== s) || (tf.lv && tf.lv !== m.lv)) return false;
+      if (!q) return true;
+      return [m.name, m.tag, m.reads, m.sends, m.types.join(' '), m.on.map(function (x) { return SCREEN[x].name; }).join(' ')].join(' ').toLowerCase().indexOf(q) >= 0;
+    });
+    if (!ms.length) return;
+    shown += ms.length;
+    rows += '<tr class="grp" style="' + sv(s) + '"><td colspan="6">' + esc(SUITES[s].name) + ' · ' + ms.length + '</td></tr>';
+    rows += ms.map(function (m) {
+      return '<tr data-m="' + m.id + '"><td><div class="mname"><b><i class="lv ' + m.lv + '" style="color:var(--' + m.s + ')"></i>' + esc(m.name) + '</b><small>' + esc(m.tag) + '</small></div></td>' +
+        '<td class="meta" data-l="Role"><span class="tag ' + m.lv + '">' + LEVEL[m.lv] + '</span><br><span class="tag dir">' + DIR[m.dir] + '</span>' + (m.owns ? '<br><span class="tag core" style="margin-top:4px">Owns the record</span>' : '') + '</td>' +
+        '<td data-l="Datacenter reads">' + esc(m.reads) + '</td><td data-l="Datacenter sends">' + esc(m.sends) + '</td>' +
+        '<td data-l="Used on"><div class="chips">' + m.on.map(function (x) { return '<span class="chip">' + esc(SCREEN[x].name) + '</span>'; }).join('') + '</div></td>' +
+        '<td data-l="Contract types"><div class="chips">' + (m.types.length ? m.types.map(function (t) { return '<span class="chip code">' + esc(t) + '</span>'; }).join('') : '<span style="color:var(--faint)">—</span>') + '</div>' + (m.ints.length ? '<div class="ints" style="margin-top:6px">' + esc(m.ints.join(' · ')) + '</div>' : '') + '</td></tr>';
+    }).join('');
+  });
+  $('#mt tbody').innerHTML = rows || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:28px">No module matches. Clear the search or pick another suite.</td></tr>';
+  $('#mcount').textContent = 'Showing ' + shown + ' of ' + MODULES.length;
+}
+$('#mq').addEventListener('input', function () { tf.q = this.value.trim(); renderTable(); });
+$('#msuite').addEventListener('click', function (e) { var p = e.target.closest('[data-s]'); if (!p) return; tf.suite = p.getAttribute('data-s'); $$('.pill', this).forEach(function (x) { x.classList.toggle('on', x === p); }); renderTable(); });
+$('#mlevel').addEventListener('click', function (e) { var p = e.target.closest('[data-l]'); if (!p) return; tf.lv = p.getAttribute('data-l'); $$('.pill', this).forEach(function (x) { x.classList.toggle('on', x === p); }); renderTable(); });
+function showOnMap(id) { state.pin = id; state.journey = null; syncJourneyPills(); paint(); detail(); $('#map').scrollIntoView({ behavior: 'smooth' }); }
+$('#mt').addEventListener('click', function (e) { var r = e.target.closest('tr[data-m]'); if (r) showOnMap('m:' + r.getAttribute('data-m')); });
+renderTable();
+
+/* ---------------------------------------------------------------- matrix */
+(function () {
+  var order = Object.keys(SUITES), cols = [];
+  order.forEach(function (s) { MODULES.forEach(function (m) { if (m.s === s) cols.push(m); }); });
+  var h1 = '<tr><th></th>' + order.map(function (s) { var n = cols.filter(function (m) { return m.s === s; }).length; return '<th class="sg" colspan="' + n + '" style="' + sv(s) + '">' + esc(SUITES[s].name.replace(' (BSS)', '').replace(' catalogue', '').replace('Opstral · ', '')) + '</th>'; }).join('') + '<th></th></tr>';
+  var h2 = '<tr><th></th>' + cols.map(function (m) { return '<th class="mh"><span data-go="m:' + m.id + '" title="' + esc(m.tag) + '">' + esc(m.name) + '</span></th>'; }).join('') + '<th></th></tr>';
+  var body = SCREENS.map(function (g) { return g.items.map(function (s) { var n = 0;
+    return '<tr data-go="s:' + s[0] + '" style="cursor:pointer"><th>' + esc(s[1]) + '</th>' + cols.map(function (m, i) { var on = m.on.indexOf(s[0]) >= 0; if (on) n++;
+      var first = i > 0 && cols[i - 1].s !== m.s ? ' first' : '';
+      return '<td class="' + first + '" style="' + sv(m.s) + '">' + (on ? '<i class="' + (m.lv === 'core' ? '' : m.lv === 'supporting' ? 's' : 'd') + '" title="' + esc(m.name) + ' → ' + esc(s[1]) + '"></i>' : '') + '</td>'; }).join('') + '<th><small>' + n + '</small></th></tr>'; }).join(''); }).join('');
+  var foot = '<tr><th>Screens per module</th>' + cols.map(function (m) { return '<td>' + m.on.length + '</td>'; }).join('') + '<th></th></tr>';
+  $('#mx').innerHTML = '<thead>' + h1 + h2 + '</thead><tbody>' + body + '</tbody><tfoot>' + foot + '</tfoot>';
+  $('#mx').addEventListener('click', function (e) { var g = e.target.closest('[data-go]'); if (g) showOnMap(g.getAttribute('data-go')); });
+})();
+
+/* ---------------------------------------------------------------- ownership + waves */
+var modChips = function (ids) { return '<div class="chips">' + ids.map(function (id) { var m = MOD[id]; return '<button class="chip" data-go="m:' + id + '"><i class="lv ' + m.lv + '" style="color:var(--' + m.s + ');width:8px;height:8px"></i>' + esc(m.name) + '</button>'; }).join('') + '</div>'; };
+var capChips = '<div class="chips">' + CAPS.map(function (c) { return '<span class="chip" style="border-style:dashed">' + esc(c) + '</span>'; }).join('') + '</div>';
+$('#owngrid').innerHTML = OWN.map(function (o) { return '<div class="own-card" style="--oc:' + o.c + '"><h3>' + o.t + ' · ' + o.ids.length + '</h3><p>' + o.p + '</p>' + modChips(o.ids) + (o.caps ? '<p style="margin-top:4px">Datacenter functions with no module yet:</p>' + capChips : '') + '</div>'; }).join('');
+$('#wavegrid').innerHTML = WAVES.map(function (w) { return '<div class="wave"><div class="wn">' + w.n + ' · ' + w.ids.length + ' modules</div><h3>' + w.t + '</h3><p>' + w.p + '</p>' + modChips(w.ids) + (w.caps ? '<p style="margin-top:10px">+ ' + CAPS.length + ' Datacenter functions with no module yet</p>' : '') + '</div>'; }).join('');
+['#owngrid', '#wavegrid'].forEach(function (s) { $(s).addEventListener('click', function (e) { var g = e.target.closest('[data-go]'); if (g) showOnMap(g.getAttribute('data-go')); }); });
+
+detail();
+var raf; function redraw() { cancelAnimationFrame(raf); raf = requestAnimationFrame(draw); }
+window.addEventListener('resize', redraw);
+if (window.ResizeObserver) new ResizeObserver(redraw).observe(dg);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(redraw);
+redraw();
+
+/* ---------------------------------------------------------------- theme + tabs */
+(function () {
+  var t = store.get('dco.ig.theme'); if (t) document.documentElement.setAttribute('data-theme', t);
+  $('#theme').addEventListener('click', function () {
+    var cur = document.documentElement.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    var nx = cur === 'dark' ? 'light' : 'dark'; document.documentElement.setAttribute('data-theme', nx); store.set('dco.ig.theme', nx);
+  });
+})();
+var techReady = false;
+function setTab(tab, keepScroll) {
+  $$('.tab').forEach(function (b) { var on = b.getAttribute('data-tab') === tab; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); });
+  $('#view-map').hidden = tab !== 'map'; $('#view-tech').hidden = tab !== 'tech';
+  if (tab === 'tech' && !techReady) buildTech();
+  if (tab === 'map') redraw();
+  if (!keepScroll) window.scrollTo(0, 0);
+}
+$$('.tab').forEach(function (b) { b.addEventListener('click', function () { var t = b.getAttribute('data-tab'); history.replaceState(null, '', '#' + t); setTab(t); }); });
+$('#totop').addEventListener('click', function () { window.scrollTo({ top: 0, behavior: 'smooth' }); });
+function route() {
+  var h = location.hash.slice(1);
+  var mapIds = ['map', 'journeys', 'modules', 'matrix', 'ownership', 'waves'];
+  if (!h || mapIds.indexOf(h) >= 0) { setTab('map', true); if (h && h !== 'map') { var el = document.getElementById(h); if (el) el.scrollIntoView(); } return; }
+  setTab('tech', true);
+  if (h !== 'tech') { var t = document.getElementById(h); if (t) { var s = t.closest('.sec'); if (s) s.classList.remove('closed'); t.scrollIntoView(); } }
+}
+window.addEventListener('hashchange', route);
+
+/* ---------------------------------------------------------------- technical guide (rendered from markdown) */
+function buildTech() {
+  techReady = true;
+  var MD = /*__MD__*/"";
+  var GROUPS = { 1: ['Overview', 'var(--dco)'], 4: ['Source systems', 'var(--ops)'], 11: ['What each screen needs', 'var(--p2b)'], 12: ['Rules and build plan', 'var(--scm)'], 16: ['Decisions', 'var(--itsm)'] };
+  var content = $('#content');
+  content.innerHTML = window.marked ? marked.parse(MD) : '<p>The guide needs the markdown renderer (cdnjs) to load.</p>';
+  content.querySelectorAll('a[href^="http"]').forEach(function (a) { a.target = '_blank'; a.rel = 'noopener'; });
+  var slug = function (s) { return s.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); };
+  var kids = Array.prototype.slice.call(content.childNodes), frag = document.createDocumentFragment(), body = null, n = 0, secs = [], grp = GROUPS[1];
+  kids.forEach(function (node) {
+    if (node.nodeName === 'H2') {
+      n++; if (GROUPS[n]) grp = GROUPS[n];
+      var sec = document.createElement('section'); sec.className = 'sec'; sec.id = slug(node.textContent); sec.style.setProperty('--gc', grp[1]);
+      var h = document.createElement('button'); h.type = 'button'; h.className = 'sec-h'; h.setAttribute('aria-expanded', 'true');
+      h.innerHTML = '<span class="n">' + String(n).padStart(2, '0') + '</span><span class="t"></span><span class="g"></span><svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>';
+      h.querySelector('.t').textContent = node.textContent; h.querySelector('.g').textContent = grp[0];
+      body = document.createElement('div'); body.className = 'sec-b';
+      sec.appendChild(h); sec.appendChild(body); frag.appendChild(sec);
+      secs.push({ el: sec, title: node.textContent, n: n });
+      h.addEventListener('click', function () { toggle(this.parentNode); });
+    } else if (body) body.appendChild(node); else frag.appendChild(node);
+  });
+  content.innerHTML = ''; content.appendChild(frag);
+  content.querySelectorAll('h3').forEach(function (h) { h.id = slug(h.textContent); });
+  function toggle(s, force) { var close = force === undefined ? !s.classList.contains('closed') : force; s.classList.toggle('closed', close); s.querySelector('.sec-h').setAttribute('aria-expanded', String(!close)); }
+
+  var walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT), hits = [], t;
+  while ((t = walker.nextNode())) if (/to confirm/i.test(t.nodeValue) && !t.parentNode.closest('a,code')) hits.push(t);
+  hits.forEach(function (tn) { var span = document.createElement('span'); span.innerHTML = esc(tn.nodeValue).replace(/(to confirm)/gi, '<span class="tc">$1</span>'); tn.parentNode.replaceChild(span, tn); });
+
+  /* the register's "Platform module" column as pills */
+  var reg = document.getElementById('integration-point-register');
+  if (reg) reg.querySelectorAll('table').forEach(function (tb) {
+    var col = -1; Array.prototype.forEach.call(tb.tHead.rows[0].cells, function (c, i) { if (/platform module/i.test(c.textContent)) col = i; });
+    if (col >= 0) Array.prototype.forEach.call(tb.tBodies[0].rows, function (r) { var c = r.cells[col]; c.className = 'pm'; c.innerHTML = c.textContent.split(' · ').map(function (x) { return '<span>' + esc(x) + '</span>'; }).join(' '); });
+  });
+
+  var tables = [];
+  content.querySelectorAll('table').forEach(function (tb, i) {
+    var block = document.createElement('div'); block.className = 'tblock';
+    var wrap = document.createElement('div'); wrap.className = 'tw';
+    tb.parentNode.insertBefore(block, tb); wrap.appendChild(tb);
+    var rows = Array.prototype.slice.call(tb.tBodies[0] ? tb.tBodies[0].rows : []);
+    if (rows.length > 5) {
+      var tools = document.createElement('div'); tools.className = 'ttools';
+      tools.innerHTML = '<input type="search" id="tf' + i + '" placeholder="Filter rows" aria-label="Filter this table"><span class="cnt"></span>';
+      block.appendChild(tools);
+      var rec = { tb: tb, rows: rows, inp: tools.querySelector('input'), cnt: tools.querySelector('.cnt') };
+      rec.inp.addEventListener('input', function () { applyTable(rec); });
+      tables.push(rec);
+    }
+    block.appendChild(wrap);
+    Array.prototype.forEach.call(tb.tHead ? tb.tHead.rows[0].cells : [], function (th, col) {
+      th.insertAdjacentHTML('beforeend', '<span class="s">↕</span>'); th.title = 'Sort';
+      th.addEventListener('click', function () {
+        var dir = th.dataset.dir === 'asc' ? 'desc' : 'asc';
+        Array.prototype.forEach.call(th.parentNode.cells, function (c) { delete c.dataset.dir; c.querySelector('.s').textContent = '↕'; });
+        th.dataset.dir = dir; th.querySelector('.s').textContent = dir === 'asc' ? '↑' : '↓';
+        var b = tb.tBodies[0], rs = Array.prototype.slice.call(b.rows);
+        rs.sort(function (a, c) { var x = a.cells[col] ? a.cells[col].textContent.trim() : '', y = c.cells[col] ? c.cells[col].textContent.trim() : ''; var nx = parseFloat(x), ny = parseFloat(y);
+          var r = (!isNaN(nx) && !isNaN(ny)) ? nx - ny : x.localeCompare(y, undefined, { numeric: true }); return dir === 'asc' ? r : -r; });
+        rs.forEach(function (r) { b.appendChild(r); });
+      });
+    });
+  });
+
+  var toc = $('#toc'), links = [];
+  secs.forEach(function (s) {
+    if (GROUPS[s.n]) toc.insertAdjacentHTML('beforeend', '<li class="rail-group">' + GROUPS[s.n][0] + '</li>');
+    var li = document.createElement('li');
+    li.innerHTML = '<a href="#' + s.el.id + '"><span class="n">' + String(s.n).padStart(2, '0') + '</span><span></span><span class="hits"></span></a>';
+    li.querySelector('span:nth-child(2)').textContent = s.title; toc.appendChild(li);
+    var a = li.firstChild; links.push(a); s.link = a;
+    a.addEventListener('click', function () { toggle(s.el, false); $('#rail').classList.remove('open'); });
+  });
+
+  var count = function (sel) { return content.querySelectorAll(sel).length; };
+  var facts = [[secs.length, 'sections'], [reg ? reg.querySelectorAll('tbody tr').length : 0, 'integrations to build'], [count('table'), 'reference tables'],
+    [new Set(Array.prototype.map.call(content.querySelectorAll('a[href^="http"]'), function (a) { return a.href; })).size, 'sources linked'], [count('.tc'), 'items to confirm']];
+  $('#facts').innerHTML = facts.map(function (f) { return '<div class="fact"><b>' + f[0] + '</b>' + f[1] + '</div>'; }).join('');
+
+  function clearMarks() { content.querySelectorAll('mark').forEach(function (m) { var p = m.parentNode; p.replaceChild(document.createTextNode(m.textContent), m); p.normalize(); }); }
+  function markIn(root, q) {
+    var re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), list = [], tn, c = 0;
+    while ((tn = w.nextNode())) if (re.test(tn.nodeValue) && !tn.parentNode.closest('.sec-h,button')) list.push(tn);
+    list.forEach(function (tn) { var parts = tn.nodeValue.split(re), found = tn.nodeValue.match(re) || [], f = document.createDocumentFragment();
+      parts.forEach(function (p, i) { f.appendChild(document.createTextNode(p)); if (i < found.length) { var m = document.createElement('mark'); m.textContent = found[i]; f.appendChild(m); c++; } });
+      tn.parentNode.replaceChild(f, tn); });
+    return c;
+  }
+  var q = $('#q'), status = $('#status'), tcOn = false, timer;
+  function applyTable(rec) {
+    var f = rec.inp.value.trim().toLowerCase(), g = q.value.trim().toLowerCase(), shown = 0;
+    rec.rows.forEach(function (r) { var txt = r.textContent.toLowerCase(); var ok = (!f || txt.indexOf(f) >= 0) && (!g || txt.indexOf(g) >= 0) && (!tcOn || r.querySelector('.tc')); r.hidden = !ok; if (ok) shown++; });
+    rec.cnt.textContent = (f || g || tcOn) ? shown + ' of ' + rec.rows.length + ' rows' : rec.rows.length + ' rows';
+  }
+  function run() {
+    clearMarks(); var s = q.value.trim(); tables.forEach(applyTable);
+    if (!s && !tcOn) { secs.forEach(function (x) { x.el.hidden = false; x.link.classList.remove('dim'); x.link.querySelector('.hits').textContent = ''; }); status.textContent = ''; return; }
+    var total = 0, inSecs = 0;
+    secs.forEach(function (x) {
+      var c = s ? markIn(x.el.querySelector('.sec-b'), s) : 0, tcCount = x.el.querySelectorAll('.tc').length;
+      var show = (s ? c > 0 : true) && (tcOn ? tcCount > 0 : true);
+      x.el.hidden = !show; x.link.classList.toggle('dim', !show); x.link.querySelector('.hits').textContent = show ? (s ? c : tcCount) : '';
+      if (show) { inSecs++; total += s ? c : tcCount; toggle(x.el, false); }
+    });
+    status.textContent = s ? (total ? total + ' matches for "' + s + '" in ' + inSecs + ' sections. Tables show matching rows only.' : 'No matches for "' + s + '". Try a shorter word, such as UPS or Redfish.')
+      : total + ' items still to confirm with the vendor, in ' + inSecs + ' sections.';
+  }
+  q.addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(run, 180); });
+  $('#tc').addEventListener('click', function () { tcOn = !tcOn; this.classList.toggle('on', tcOn); run(); });
+  var exp = $('#expand');
+  exp.addEventListener('click', function () { var closeAll = exp.textContent === 'Collapse all'; secs.forEach(function (x) { toggle(x.el, closeAll); }); exp.textContent = closeAll ? 'Expand all' : 'Collapse all'; });
+  $('#menu').addEventListener('click', function () { $('#rail').classList.toggle('open'); });
+  document.addEventListener('keydown', function (e) { if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && !$('#view-tech').hidden) { e.preventDefault(); q.focus(); } });
+  var io = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) links.forEach(function (l) { l.classList.toggle('on', l.getAttribute('href') === '#' + e.target.id); }); }); }, { rootMargin: '-120px 0px -70% 0px' });
+  secs.forEach(function (x) { io.observe(x.el); });
+  tables.forEach(applyTable);
+}
+route();
+</script>
+</body>
+</html>
