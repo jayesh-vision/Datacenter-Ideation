@@ -363,3 +363,21 @@ div.att-row { cursor: default; }
 .site-sticky .pills { gap: 4px; }
 .site-sticky .pill { height: 32px; padding: 0 9px; font-size: 12.5px; gap: 5px; }
 @media (max-width: 1340px) { .site-sticky .pill { padding: 0 6px; font-size: 12px; gap: 4px; } .site-sticky .pill .count { padding: 1px 4px; } .site-sticky .pills { gap: 2px; } }
+
+/* Tab groups + sub tabs (16-Oct-2026, user: fewer tabs, grouped by function). Group pills on top, the open group's
+   sub tabs as an underlined row right under them; both stay pinned in .site-sticky. */
+.site-sticky .pills .pill svg { flex: none; opacity: .75; }
+.site-sticky .pills .pill.is-active svg { opacity: 1; }
+.site-subtabs { display: flex; flex-wrap: wrap; gap: 2px 18px; margin-top: calc(-1 * var(--vw-space-md) + 6px); border-bottom: 1px solid var(--vw-color-slate-200); padding: 0 4px; }
+.site-subtab { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 2px; border: 0; background: none; cursor: pointer;
+  font: 500 13px/1 var(--primaryFont, 'Poppins', sans-serif); color: var(--vw-color-slate-500); white-space: nowrap; }
+.site-subtab:hover { color: var(--vw-color-slate-900); }
+.site-subtab.is-active { color: var(--primaryColor600, var(--primaryColor)); }
+.site-subtab.is-active::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; border-radius: 2px; background: var(--primaryColor600, var(--primaryColor)); }
+.site-subtab .count { font: 500 11px/1 Inter, sans-serif; font-variant-numeric: tabular-nums; padding: 2px 6px; border-radius: 999px; background: var(--vw-color-slate-100); color: var(--vw-color-slate-600); }
+.site-subtab.is-active .count { background: var(--primaryColor50); color: var(--primaryColor600, var(--primaryColor)); }
+.site-subtab:focus-visible { outline: 2px solid var(--primaryColor); outline-offset: 2px; border-radius: 4px; }
+/* four group pills fit easily, so they keep the normal pill size at every width */
+.site-sticky .pills, .site-sticky .pills .pill { gap: 6px; }
+.site-sticky .pills .pill { height: 34px; padding: 0 14px; font-size: 13px; }
+.site-sticky .pills .pill .count { padding: 1px 6px; }

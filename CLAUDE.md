@@ -444,6 +444,14 @@ visitors · doors) → On site now | Security exceptions → 24 h chart | Doors 
 adoor · adir`); person / exception drawers. Planned sites show an empty state. Site tabs got tighter pills so all five personas fit on one row at
 1280 (enterprise wrapped before). Checks: `npx tsx .qa/access-check.ts` (`GEO=us`), `node .qa/access.mjs <persona> <geo> <dc>` (W=1280).
 
+## Datacenter page tab groups (16-Oct-2026, user: "too many tabs … group them, with sub tabs")
+`site/Site.tsx` shows four group pills, then the open group's sub tabs as an underlined row (`.site-subtabs`, both inside `.site-sticky`):
+**Overview** (Datacenter layout · Needs attention · Ops log) · **Facility** (Metrics · Power & space · Access & security) ·
+**Infrastructure** (Equipment · AI & GPU · Assets · Topology) · **Business impact** (persona words for Customers · Revenue).
+`?tab=` still names the SUB tab (ids unchanged), so every existing deep link works and the group follows from it; a group pill opens
+the sub tab last used in that group this session, else its first. Group pill count = sum of its sub tab counts. AI & GPU stays hidden
+without GPU infrastructure. Add a new datacenter tab to a group in `GROUPS`, never as a fifth pill.
+
 ## Power & cable paths in 3D (13-Oct-2026, user: "show which UPS feeds which rack PDU and which cable comes from which device on the digital twin and the 3D view, with quick chips")
 - Realistic twin (`site/twin2/paths.tsx`): chips **Power path** / **Cable paths** (floor level and below). Power = per room an A (blue) and B
   (orange) overhead busway fed by ONE UPS module each (`mock/physical.ts` now assigns UPS per room: A = UPS-2/4, B = UPS-1/3 by room index),

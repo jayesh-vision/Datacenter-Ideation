@@ -35,8 +35,23 @@ const TABS: { id: Tab; label: string }[] = [
      (Customers · Revenue) → who came in and out (Access & security, 14-Oct-2026) → what happened (Ops log). */
   { id: 'overview', label: 'Overview' }, { id: 'attention', label: 'Attention' }, { id: 'metrics', label: 'Metrics' },
   { id: 'details', label: 'Power & space' }, { id: 'gpu', label: 'AI & GPU' }, { id: 'elements', label: 'Equipment' }, { id: 'assets', label: 'Assets' },
-  { id: 'topology', label: 'Topology' }, { id: 'customers', label: 'Customers' }, { id: 'revenue', label: 'Revenue' }, { id: 'access', label: 'Access' }, { id: 'timeline', label: 'Ops log' }
+  { id: 'topology', label: 'Topology' }, { id: 'customers', label: 'Customers' }, { id: 'revenue', label: 'Revenue' }, { id: 'access', label: 'Access & security' }, { id: 'timeline', label: 'Ops log' }
 ];
+/* Tab groups (16-Oct-2026, user: "too many tabs … group them by functionality, with sub tabs"). Four groups answer the
+   operator's questions in order: how is the site and what happened · the building (power, cooling, environment, who came
+   in) · what is installed and how it connects · who it serves and what it costs. `?tab=` still names the sub tab, so
+   every existing link keeps working; the group follows from it. */
+type Group = 'site' | 'facility' | 'infra' | 'business';
+const GROUPS: { id: Group; label: string; icon: I.LucideIcon; tabs: Tab[] }[] = [
+  { id: 'site', label: 'Overview', icon: I.LayoutDashboard, tabs: ['overview', 'attention', 'timeline'] },
+  { id: 'facility', label: 'Facility', icon: I.Zap, tabs: ['metrics', 'details', 'access'] },
+  { id: 'infra', label: 'Infrastructure', icon: I.Server, tabs: ['elements', 'gpu', 'assets', 'topology'] },
+  { id: 'business', label: 'Business impact', icon: I.Users, tabs: ['customers', 'revenue'] }
+];
+const SUB_LABEL: Partial<Record<Tab, string>> = { overview: 'Datacenter layout', attention: 'Needs attention', details: 'Power & space', metrics: 'Metrics' };
+const groupOf = (t: Tab): Group => GROUPS.find(g => g.tabs.includes(t))!.id;
+/* the sub tab a viewer last opened in each group, so going back to a group returns there (this session only) */
+const lastSub: Partial<Record<Group, Tab>> = {};
 
 const FLAG_LABEL: Record<string, string> = { inc: 'incidents', alm: 'alarms', edge: 'edge', net: 'faults', pwr: 'power', cool: 'cooling', pue: 'PUE', svc: 'svc degraded' };
 
@@ -70,6 +85,11 @@ export function Site() {
   const { dc, summary: s } = data;
   const tab: Tab = TABS.some(t => t.id === sp.get('tab')) && (sp.get('tab') !== 'gpu' || hasGpuNow(dc.id)) ? (sp.get('tab') as Tab) : 'overview';
   const go = (t: Tab) => { const n = new URLSearchParams(sp); n.set('tab', t); ['role', 'disc', 'q', 'kind', 'view', 'cview', 'cause', 'layer', 'rview', 'dom', 'rdc', 'seg', 'gtab', 'gstate', 'aq', 'ares', 'atype', 'adoor', 'adir'].forEach(k => n.delete(k)); setSp(n, { replace: true }); };
+  const group = groupOf(tab);
+  lastSub[group] = tab;
+  const visible = (t: Tab) => t !== 'gpu' || hasGpuNow(dc.id);
+  const countOf = (t: Tab): number | undefined => t === 'attention' ? data.summary.openIncidents + data.summary.critAlerts : t === 'elements' ? data.summary.installed : t === 'customers' ? data.summary.customers : undefined;
+  const labelOf = (t: Tab) => t === 'customers' ? vocab.customers : t === 'revenue' ? vocab.money.noun : SUB_LABEL[t] ?? TABS.find(x => x.id === t)!.label;
   const now = clockNow();
   const staleCol = dc.collectors.filter(c => c.state !== 'up');
 
@@ -177,11 +197,22 @@ export function Site() {
           {collapseBtn}
         </div>
       </section>}
-      <div className="pills" role="tablist">
-          {TABS.filter(t => t.id !== 'gpu' || hasGpuNow(dc.id)).map(t => {
-            const n = t.id === 'attention' ? s.openIncidents + s.critAlerts : t.id === 'elements' ? s.installed : t.id === 'customers' ? s.customers : undefined;
-            return <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={`pill${tab === t.id ? ' is-active' : ''}`} onClick={() => go(t.id)}>{t.id === 'customers' ? vocab.customers : t.id === 'revenue' ? vocab.money.noun : t.label}{n ? <span className="count">{n}</span> : null}</button>;
+      <div className="pills" role="tablist" aria-label="Datacenter sections">
+          {GROUPS.map(g => {
+            const subs = g.tabs.filter(visible);
+            const n = subs.reduce((a, t) => a + (countOf(t) ?? 0), 0);
+            const on = group === g.id;
+            return <button key={g.id} type="button" role="tab" aria-selected={on} data-group={g.id} className={`pill${on ? ' is-active' : ''}`}
+              title={subs.map(labelOf).join(' · ')}
+              onClick={() => go(lastSub[g.id] && visible(lastSub[g.id]!) ? lastSub[g.id]! : subs[0])}>
+              <g.icon size={14} />{g.label}{n ? <span className="count">{n}</span> : null}</button>;
           })}
+      </div>
+      <div className="site-subtabs" role="tablist" aria-label={GROUPS.find(g => g.id === group)!.label}>
+        {GROUPS.find(g => g.id === group)!.tabs.filter(visible).map(t => {
+          const n = countOf(t);
+          return <button key={t} type="button" role="tab" aria-selected={tab === t} data-sub={t} className={`site-subtab${tab === t ? ' is-active' : ''}`} onClick={() => go(t)}>{labelOf(t)}{n ? <span className="count">{n}</span> : null}</button>;
+        })}
       </div>
       </div>
 
