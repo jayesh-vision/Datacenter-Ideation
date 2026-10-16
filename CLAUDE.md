@@ -446,11 +446,34 @@ adoor · adir`); person / exception drawers. Planned sites show an empty state. 
 
 ## Datacenter page tab groups (16-Oct-2026, user: "too many tabs … group them, with sub tabs")
 `site/Site.tsx` shows four group pills, then the open group's sub tabs as an underlined row (`.site-subtabs`, both inside `.site-sticky`):
-**Overview** (Datacenter layout · Needs attention · Ops log) · **Facility** (Metrics · Power & space · Access & security) ·
-**Infrastructure** (Equipment · AI & GPU · Assets · Topology) · **Business impact** (persona words for Customers · Revenue).
+**Overview** (Datacenter layout · Needs attention · Ops log) · **Facility** (Power & backup · Cooling · Environment · Single points of failure ·
+Maintenance & alarms · Metrics · Access & security) ·
+**Infrastructure** (Equipment · Space & ports · Assets · AI & GPU · Topology; "Space & ports" = the old Power & space tab, `?tab=details`,
+moved here and renamed 16-Oct-2026 once its power and cooling parts were hidden) · **Business impact** (persona words for Customers · Revenue).
 `?tab=` still names the SUB tab (ids unchanged), so every existing deep link works and the group follows from it; a group pill opens
 the sub tab last used in that group this session, else its first. Group pill count = sum of its sub tab counts. AI & GPU stays hidden
 without GPU infrastructure. Add a new datacenter tab to a group in `GROUPS`, never as a fifth pill.
+Facility group (16-Oct-2026, user: "show the Facility screen's sub tabs directly in Datacenter → Facility"): the first five sub tabs
+(`?tab=fpower|fcooling|fenv|fspof|fmaint`) render `FacilitiesBody` from `screens/Facilities.tsx` (its strip + tab content, `hideTabs`),
+the same component the /facilities page wraps with its header and datacenter picker; counts follow the Facilities tabs. The six-tile
+facility strip (`FacilityStrip`: power load, PUE, UPS, cooling, environment, alarms & maintenance) is NOT repeated on those five sub tabs
+(`hideStrip`); it heads Facility → Metrics instead (user, 16-Oct-2026) and each tile opens its sub tab. /facilities keeps it on top.
+Power & backup is four collapsible sections (`FacSections` / `FacSection` in Facilities.tsx; user: "too many widgets, user needs to scroll"):
+Power path · Load & ride-through · Cabinet power distribution & what-if · Rack power. A closed section shows a one-line summary as
+status pills (red / amber / green by state); first section open by default, state remembered per viewer (localStorage `dco.fac.power`),
+Expand all / Collapse all above. A section holding one panel hides that panel's own title. Reuse these for other long tabs.
+A closed section is a summary card (icon, title + Needs action / Watch / Normal chip, one-line description, 3–6 labelled figures,
+coloured left edge); keep figure values short enough not to truncate at 1280. Rack power is a standard list (ListToolbar + DataTable:
+search, quick filters State / Location, Filters panel adds Role / PDU sides; URL params rq · rstate · rroom · rrole · rpdu). The header's
+Facilities button and the power / cooling / PUE KPI tiles open these sub tabs. Which Facility sub tabs to merge is still to be decided.
+
+Duplicate information hidden (16-Oct-2026, user: "hide the overlap, keep the code; roll back if something is missing, else delete later"):
+one switch `SHOW_DUPLICATES` in `site/dedupe.ts` (false). Only figures Facilities (or another tab) already shows are hidden — check a
+figure is really shown elsewhere before hiding it (user caught non-duplicates hidden on Metrics). Metrics keeps avg zone temperature and
+humidity with 24 h trends, rack inlet avg / range, hottest chassis, hottest racks, Diesel (litres, burn, 30-day use), hardware faults and
+device load; Power & space keeps rack space, ports, building and the floors / rooms / racks table; Assets keeps space by room (devices
+per room), equipment by category, facility assets, compute and lifecycle. A "now on Facilities" note links there.
+Roll back = set the switch to true.
 
 ## Power & cable paths in 3D (13-Oct-2026, user: "show which UPS feeds which rack PDU and which cable comes from which device on the digital twin and the 3D view, with quick chips")
 - Realistic twin (`site/twin2/paths.tsx`): chips **Power path** / **Cable paths** (floor level and below). Power = per room an A (blue) and B

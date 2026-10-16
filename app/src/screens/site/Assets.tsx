@@ -10,6 +10,7 @@ import { SummaryStrip } from './SummaryStrip';
 import { fmtNum } from '../../lib/format';
 import type { SiteData } from './Site';
 import { SiteLifecycle } from '../physical/phase2';
+import { SHOW_DUPLICATES } from './dedupe';
 
 const PALETTE = ['#1C81EF', '#0d9488', '#7c3aed', '#db2777', '#0891b2', '#64748b'];
 const ROLE_LABEL: Record<string, string> = { Router: 'Routers', Switch: 'Switches', Firewall: 'Firewalls', DWDM: 'DWDM / optical', Access: 'Access', Server: 'Servers', Storage: 'Storage arrays', GPU: 'GPU nodes', 'Tenant gear': 'Tenant equipment' };
@@ -61,7 +62,7 @@ export function Assets({ data }: { data: SiteData }) {
         { key: 'ne', label: persona === 'network' ? 'Devices' : persona === 'colocation' ? 'Devices & tenant blocks' : 'Hosts & network devices', value: a.inst.length, sub: a.planned ? `+${a.planned} planned` : 'all installed', info: `${vocab.equipment} physically installed at the site; planned devices are not counted here but hold reserved rack space.` },
         { key: 'fac', label: 'Facility assets', value: a.facility.reduce((t, f) => t + f.v, 0), sub: 'power · cooling', info: 'Count of plant items: UPS units, rectifier plants, DG sets, battery banks, utility feeds, rack PDUs (A + B per rack), cooling units and environment sensors, as listed in Facility assets below.' },
         { key: 'pt', label: 'Ports in use', value: fmtNum(s.portsUsed), sub: `of ${fmtNum(s.portsTotal)}`, info: 'Ports on installed equipment that are patched or in use, out of all ports at the site.' }
-      ]} />
+      ].filter(x => SHOW_DUPLICATES || !['fl', 'rk', 'u', 'pt'].includes(x.key))} />
 
       <div className="grid g-2 mx-row">
         <Panel title="Space by room" icon={I.Building2} sub="Racks, U used / free and draw per room" flush actions={<Link className="ent-link" to={`/dcim?tab=floorplan&dc=${dc.id}`}>Floor plans in DCIM →</Link>} info="Each room with its racks, U-space used out of total, installed devices and power draw (sum of its racks). Below: the fullest rack by U fill, the average draw per rack and how many planned devices hold reserved space.">
@@ -104,10 +105,10 @@ export function Assets({ data }: { data: SiteData }) {
           </div>
         </Panel>
 
-        <Panel title="Ports & compute" icon={I.Cpu} sub={persona === 'network' || persona === 'colocation' ? 'Port classes and the site compute estimate (servers are listed as devices)' : 'Port classes and pooled compute (no per-server records in this model)'} info="Fill of each port class (used out of total), then the site's pooled compute: CPU cores, memory and storage in use out of installed. Compute is a site-level pool, not a per-server inventory.">
+        <Panel title={SHOW_DUPLICATES ? 'Ports & compute' : 'Compute & storage'} icon={I.Cpu} sub={!SHOW_DUPLICATES ? 'Site compute pool: CPU cores, memory and storage in use (ports are on Space & ports)' : persona === 'network' || persona === 'colocation' ? 'Port classes and the site compute estimate (servers are listed as devices)' : 'Port classes and pooled compute (no per-server records in this model)'} info="Fill of each port class (used out of total), then the site's pooled compute: CPU cores, memory and storage in use out of installed. Compute is a site-level pool, not a per-server inventory.">
           <div className="asset-ports">
-            {dc.ports.map(p => <div key={p.cls} className="asset-layer"><span>{p.cls}</span><Meter pct={(p.used / Math.max(1, p.total)) * 100} width={84} label={`${fmtNum(p.used)} / ${fmtNum(p.total)}`} /></div>)}
-            <span className="vw-label" style={{ marginTop: 8 }}>Compute & storage</span>
+            {SHOW_DUPLICATES && <>{dc.ports.map(p => <div key={p.cls} className="asset-layer"><span>{p.cls}</span><Meter pct={(p.used / Math.max(1, p.total)) * 100} width={84} label={`${fmtNum(p.used)} / ${fmtNum(p.total)}`} /></div>)}
+            <span className="vw-label" style={{ marginTop: 8 }}>Compute & storage</span></>}
             <div className="asset-layer"><span>CPU cores</span><Meter pct={(c.cpuUsed / c.cpuCores) * 100} width={84} label={`${fmtNum(c.cpuUsed)} / ${fmtNum(c.cpuCores)}`} /></div>
             <div className="asset-layer"><span>Memory</span><Meter pct={(c.memUsed / c.memGb) * 100} width={84} label={`${fmtNum(Math.round(c.memUsed / 1024))} / ${fmtNum(Math.round(c.memGb / 1024))} TB`} /></div>
             <div className="asset-layer"><span>Storage</span><Meter pct={(c.storageUsed / c.storageTb) * 100} width={84} label={`${fmtNum(c.storageUsed)} / ${fmtNum(c.storageTb)} TB`} /></div>

@@ -8,6 +8,8 @@ import { Donut } from '../../charts/Donut';
 import { fmtAgo, fmtNum } from '../../lib/format';
 import { utilColor } from '../../lib/vocab';
 import type { SiteData } from './Site';
+import { SHOW_DUPLICATES } from './dedupe';
+import { FacilityNote } from './Metrics';
 
 const SPLIT_COLORS = ['var(--primaryColor500)', 'var(--vw-color-cyan-500)', 'var(--vw-color-slate-400)'];
 const PORT_COLOR: Record<string, string> = { '1G copper': 'var(--vw-color-emerald-500)', '10G SFP+': 'var(--vw-color-amber-500)', '100G QSFP28': 'var(--primaryColor500)', '400G OSFP': 'var(--vw-color-indigo-500)', 'Optical (ODF)': 'var(--vw-color-purple-500)' };
@@ -37,15 +39,16 @@ export function Details({ data }: { data: SiteData }) {
 
   return (
     <div className="col" style={{ gap: 16 }}>
-      <div className="grid g-4">
-        <div className="card cap-card" style={{ '--cc': 'var(--vw-color-orange-400)' } as React.CSSProperties}>
+      {!SHOW_DUPLICATES && <FacilityNote dcId={dc.id} what="Power feeds, the 24-hour load, backup (UPS, battery, DG) and cooling for this site" />}
+      <div className={`grid ${SHOW_DUPLICATES ? 'g-4' : 'g-3'}`}>
+        {SHOW_DUPLICATES && <div className="card cap-card" style={{ '--cc': 'var(--vw-color-orange-400)' } as React.CSSProperties}>
           <span className="cap-l">Power in use<Info text="Facility power drawn right now against the site's installed capacity, split into the AC mains and the −48 V DC plant. Headroom = capacity minus the recorded peak load." /></span>
           <span className="cap-v">{used}<small>kW</small></span>
           <span className="cap-s">of {fmtNum(p.capacityKw)} kW capacity · {Math.round(pct)}%</span>
           <span className="stackbar" style={{ height: 6 }}><i style={{ width: `${(p.acKw / p.capacityKw) * 100}%`, background: 'var(--vw-color-orange-400)' }} /><i style={{ width: `${(p.dcKw / p.capacityKw) * 100}%`, background: 'var(--vw-color-sky-500)' }} /></span>
           <Legend items={[{ label: `${p.acKw} ac`, color: 'var(--vw-color-orange-400)' }, { label: `${p.dcKw} dc`, color: 'var(--vw-color-sky-500)' }]} />
           <span className="cap-good"><I.TrendingUp size={13} />{Math.round((p.capacityKw - p.peakKw) * 10) / 10} kW headroom · peak {p.peakKw} kW</span>
-        </div>
+        </div>}
         <div className="card cap-card" style={{ '--cc': 'var(--vw-color-emerald-500)' } as React.CSSProperties}>
           <span className="cap-l">Rack space<Info text="Rack units occupied by installed and planned equipment out of the total U across every rack at the site. Empty racks are counted as reserved for growth." /></span>
           <span className="cap-v">{s.rackUsedU}<small>U</small></span>
@@ -66,12 +69,14 @@ export function Details({ data }: { data: SiteData }) {
           <span className="cap-l">Building<Info text="The physical shell and plant: number of racks, floors and rooms, UPS count, diesel generator rating, battery autonomy, PUE (total facility power ÷ IT power) and the cooling redundancy level." /></span>
           <span className="cap-v">{dc.racks.length}<small>racks</small></span>
           <span className="cap-s">{dc.floors.length} floors · {rooms} rooms</span>
+          {SHOW_DUPLICATES ? <>
           <span className="cap-s" style={{ marginTop: 'auto' }}>{p.ups.length} UPS · DG {p.dg.kva} kVA · battery {p.battery.runtimeH} h</span>
-          <span className="cap-s">PUE <b className="num strong">{p.pue}</b> · cooling {cool.redundancy}</span>
+          <span className="cap-s">PUE <b className="num strong">{p.pue}</b> · cooling {cool.redundancy}</span></>
+            : <span className="cap-s" style={{ marginTop: 'auto' }}>{byFloor.filter(f => f.racks).length} floor{byFloor.filter(f => f.racks).length === 1 ? '' : 's'} with racks · {dc.racks.filter(r => r.usedU > 0).length} racks in use</span>}
         </div>
       </div>
 
-      <div className="grid g-2-1">
+      {SHOW_DUPLICATES && <div className="grid g-2-1">
         <Panel title="Power" sub={`AC mains 415 V 3-phase · DC −48 V plant`} flush info="Every power feed into the site with its source, rating, present load and utilisation (load ÷ feed capacity); a healthy feed carrying no load reads Standby. The chart is hourly facility load over the last 24 hours.">
           <table className="nst-table site-table">
             <thead><tr><th>Feed</th><th>Type</th><th>Source</th><th>Rating</th><th className="is-right">Load</th><th>Utilisation</th><th>Status</th></tr></thead>
@@ -99,7 +104,7 @@ export function Details({ data }: { data: SiteData }) {
           ))}
           <div className="row between faint" style={{ fontSize: 12, marginTop: 10 }}><span>PUE <b className="num strong">{p.pue}</b> · UPS {fmtNum(upsKw)} kW installed</span><span>AC {p.acKw} kW · DC {p.dcKw} kW</span></div>
         </Panel>
-      </div>
+      </div>}
 
       <div className="grid site-g-racks">
         <Panel title="Floors, rooms and racks" sub={`${dc.floors.length} floors · ${rooms} rooms · ${dc.racks.length} racks`} flush info="Every rack with its floor and room, U-space used, power draw and inlet temperature. Draw turns red at 85% of the rack's power budget, inlet above 27°C. The By floor cards roll the same racks up per floor.">
@@ -140,7 +145,7 @@ export function Details({ data }: { data: SiteData }) {
               <tbody>{dc.racks.filter(r => r.ports > 0).map(r => <tr key={r.id}><td className="mono">{r.name}</td><td className="is-right num">{fmtNum(r.ports)}</td><td className="is-right num">{fmtNum(r.portsUsed)}</td><td><Meter pct={(r.portsUsed / r.ports) * 100} width={48} /></td></tr>)}</tbody>
             </table>
           </Panel>
-          <Panel title="Cooling" sub={`${cool.redundancy} · ${cool.units.length} units`} info="Heat load being removed against installed cooling capacity, each cooling unit with its load share or fault state (hover for zone and supply / return temperatures), and the current temperature and humidity of every zone." actions={<Link to={`/facilities?dc=${dc.id}&tab=cooling`} className="panel-link">Cooling detail<I.ChevronRight size={14} /></Link>}>
+          {SHOW_DUPLICATES && <Panel title="Cooling" sub={`${cool.redundancy} · ${cool.units.length} units`} info="Heat load being removed against installed cooling capacity, each cooling unit with its load share or fault state (hover for zone and supply / return temperatures), and the current temperature and humidity of every zone." actions={<Link to={`/facilities?dc=${dc.id}&tab=cooling`} className="panel-link">Cooling detail<I.ChevronRight size={14} /></Link>}>
             <div className="row between" style={{ marginBottom: 8 }}><span className="num"><b className="strong" style={{ fontSize: 18 }}>{cool.loadKw}</b> <span className="faint">of {fmtNum(cool.capacityKw)} kW</span></span><Meter pct={coolPct} width={120} /></div>
             <div className="unit-grid">
               {cool.units.map(u => (
@@ -148,7 +153,7 @@ export function Details({ data }: { data: SiteData }) {
               ))}
             </div>
             <div className="faint" style={{ fontSize: 12, marginTop: 10 }}>{cool.sensors.map(x => `${x.zone} ${x.tempC}°C / ${x.humidity}%`).join(' · ')}</div>
-          </Panel>
+          </Panel>}
         </div>
       </div>
     </div>
