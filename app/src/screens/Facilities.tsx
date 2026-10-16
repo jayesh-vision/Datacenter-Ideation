@@ -69,18 +69,11 @@ export function FacilitiesBody({ dcId, tab, onTab, hideTabs, hideStrip }: { dcId
   if (loading && !data) return <Loading />;
   if (!data) return <NotFound what="Datacenter" />;
   const dc = data.dc;
-  const now = clockNow();
   const fac = (alerts ?? []).filter(a => a.source === 'Power' || a.source === 'Cooling' || a.source === 'Environment');
   const maint = (changes ?? []).filter(c => c.kind === 'Maintenance');
-  const upcoming = maint.filter(m => m.status !== 'Completed' && m.windowEnd >= now).sort((a, b) => a.windowStart - b.windowStart);
-  const ups = dc.power.ups, units = dc.cooling.units, sensors = dc.cooling.sensors;
-  const upsDown = ups.filter(u => u.state !== 'Online');
+  const units = dc.cooling.units, sensors = dc.cooling.sensors;
   const coolDown = units.filter(u => u.status !== 'Operational');
   const hotZones = sensors.filter(s => s.tempC > TEMP.hi);
-  const totalKw = dc.power.split.reduce((a, s) => a + s.kw, 0);
-  const pwrPct = Math.round((totalKw / dc.power.capacityKw) * 100);
-  const coolPct = Math.round((dc.cooling.loadKw / dc.cooling.capacityKw) * 100);
-  const hottest = sensors.length ? Math.max(...sensors.map(s => s.tempC)) : 0;
   const set = (_k: 'tab', v: string) => onTab((v || 'power') as TabId);
 
   return (
@@ -104,10 +97,9 @@ export function FacilitiesBody({ dcId, tab, onTab, hideTabs, hideStrip }: { dcId
 /* The six-tile facility summary (power load, PUE, UPS, cooling, environment, alarms & maintenance). On /facilities it heads the
    screen; inside the datacenter page it heads Facility → Metrics (user, 16-Oct-2026), and its tiles open the matching sub tab. */
 export function FacilityStrip({ dcId, tab, onTab }: { dcId: string; tab?: TabId; onTab: (t: TabId) => void }) {
-  const { data, loading } = useQuery(() => getDatacenter(dcId), [dcId]);
+  const { data } = useQuery(() => getDatacenter(dcId), [dcId]);
   const { data: alerts } = useQuery(() => getAlerts({ dcId, state: 'open' }), [dcId]);
   const { data: changes } = useQuery(() => getChanges({ dcId }), [dcId]);
-  const { data: phys } = useQuery(() => getSitePhysical(dcId), [dcId]);
   if (!data) return null;
   const dc = data.dc;
   const now = clockNow();
@@ -494,6 +486,151 @@ function RackTable({ racks, phys, onRow }: { racks: Rack[]; phys: SitePhysical |
       } />
   );
 }
+
+/* -------------------------------------------------------------- cooling */
+
+function Cooling({ dc, phys }: { dc: Datacenter; phys: SitePhysical | null }) {
+  const c = dc.cooling;
+  const op = c.units.filter(u => u.status === 'Operational');
+  const unitCap = c.units[0]?.capacityKw || 1;
+  const needed = Math.max(1, Math.ceil(c.loadKw / unitCap));
+  const designOk = op.length >= needed + (c.redundancy === 'N+1' ? 1 : 0);
+  const failedZones = new Set(c.units.filter(u => u.status !== 'Operational').map(u => u.zone));
+  const racks = dc.racks.filter(r => failedZones.has(`${r.floor} · ${r.room}`) || r.tempC > 30).sort((a, b) => b.tempC - a.tempC);
+  const running = op.reduce((a, u) => a + u.capacityKw, 0), minusOne = Math.max(0, running - unitCap);
+  const scale = Math.max(c.capacityKw, c.loadKw) || 1;
+  const bars: { k: string; v: number; tone: Tone; note: string }[] = [
+    { k: 'Heat to remove', v: c.loadKw, tone: 'orange', note: `${Math.round((c.loadKw / c.capacityKw) * 100)}% of installed capacity` },
+    { k: 'Running capacity', v: running, tone: 'info', note: `${op.length} of ${c.units.length} units` },
+    { k: 'With one more unit lost', v: minusOne, tone: minusOne >= c.loadKw ? 'success' : 'error', note: minusOne >= c.loadKw ? 'still covers the load' : 'does NOT cover the load' },
+    { k: 'Installed capacity', v: c.capacityKw, tone: 'neutral', note: `design ${c.redundancy}` }
+  ];
+  return (
+    <>
+      <div className="grid g-1-2 fac-eq">
+        <Panel title="Heat balance" sub="Can the running units carry the heat load, and survive one more failure?" icon={I.Scale}
+          info="Heat to remove (the site's heat load) against the capacity of the running units, what would remain after one more unit failed, and installed capacity, all on one scale. Redundancy holds when running units ≥ units needed plus one spare.">
+          <div className={`note ${designOk ? 'note--good' : 'note--bad'}`}>{designOk ? <I.CheckCircle2 size={15} /> : <I.ShieldAlert size={15} />}
+            <span>{designOk ? `Redundancy intact: ${op.length} units running for a load that needs ${needed}.` : `Redundancy lost in ${[...failedZones].join(', ')}: ${op.length} running for a load that needs ${needed}.`}</span></div>
+          <div className="hb">
+            {bars.map(b => (
+              <div key={b.k} className="hb-row">
+                <span className="hb-k">{b.k}</span>
+                <span className="hb-track"><i style={{ width: `${Math.min(100, (b.v / scale) * 100)}%`, background: SOFT[b.tone] }} /><em style={{ left: `${Math.min(100, (c.loadKw / scale) * 100)}%` }} /></span>
+                <span className="hb-v"><b>{fmtKw(b.v)}</b><small className={b.tone === 'error' ? 'bad' : ''}>{b.note}</small></span>
+              </div>
+            ))}
+            <span className="hb-foot"><em />heat load line</span>
+          </div>
+        </Panel>
+        <Panel title="Cooling units" count={c.units.length} sub="Load, supply and return air per unit" icon={I.Fan}
+          info="One card per CRAH, CRAC or CDU: load as a share of its capacity (amber from 75%, red from 85%), supply and return temperature and the ΔT between them, and the zone it serves. A failed unit shows no readings.">
+          <div className="cu-grid">
+            {c.units.map(u => { const st = u.status === 'Operational' ? 'success' : u.status === 'Failed' ? 'error' : 'warning'; const load = u.status === 'Failed' ? 0 : u.loadPct; return (
+              <div key={u.id} className={`cu is-${st}`}>
+                <div className="cu-h"><span><b>{u.name}</b><small>{u.type} · {fmtKw(u.capacityKw)}</small></span><span className={`vw-chip vw-chip--${st} pp-chip`}><i className="chip-dot" />{u.status}</span></div>
+                <div className="cu-load"><span className="dco-meter"><i style={{ width: `${load}%`, background: SOFT[u.status === 'Failed' ? 'error' : loadTone(load)] }} /></span><b>{load}%</b></div>
+                <div className="cu-air"><span><small>Supply</small>{u.status === 'Failed' ? '—' : `${u.supplyC}°C`}</span><I.MoveRight size={14} /><span><small>Return</small>{u.status === 'Failed' ? '—' : `${u.returnC}°C`}</span><span className="cu-dt"><small>ΔT</small>{u.status === 'Failed' ? '—' : `${u.returnC - u.supplyC}°`}</span></div>
+                <small className="cu-zone"><I.MapPin size={12} />{u.zone}</small>
+              </div>
+            ); })}
+          </div>
+        </Panel>
+      </div>
+      {phys && <Panel title="Coverage by floor" count={phys.zones.length} sub="Which units cool which floor, and where a unit is down or a room runs hot" icon={I.LayoutGrid}
+        info="Cooling per floor: the CRAH / CRAC units on a floor share its under-floor air, with the floor's air heat and how many of its units run. Redundancy is judged for the site (Heat balance above); a floor is marked No spare when it holds the unit that is down or a hot room. Liquid-cooled racks send about 75% of their heat to the CDU loop. A room with a unit down or a sensor above 27°C is listed as hot.">
+        <div className="phys-zone">{phys.zones.map(z => (
+          <div key={z.id} className={z.state === 'n+1' ? '' : z.state === 'short' ? 'is-bad' : 'is-warn'} data-zone={z.id}>
+            <div className="row between"><b>{z.floor}</b><Chip tone={z.state === 'n+1' ? 'success' : z.state === 'short' ? 'error' : 'warning'} size="xs">{z.state === 'n+1' ? 'N+1 holds' : z.state === 'short' ? 'Short' : 'No spare'}</Chip></div>
+            <small>{z.rooms.join(' · ')}</small>
+            <span className="num">{fmtKw(z.airHeatKw)} air heat · {z.unitIds.filter(id => c.units.find(u => u.id === id)?.status === 'Operational').length} of {z.unitIds.length} units running</span>
+            {z.liquidHeatKw > 0 && <small>{fmtKw(z.liquidHeatKw)} to liquid loops ({z.cduIds.length} CDU{z.cduIds.length === 1 ? '' : 's'})</small>}
+            {z.hotRooms.length > 0 && <small className="bad">Hot: {z.hotRooms.join(', ')}</small>}
+            <small>{z.unitIds.map(id => c.units.find(u => u.id === id)?.name).join(' · ')} · {z.rackIds.length} racks</small>
+          </div>))}</div>
+      </Panel>}
+      <Panel title="Dependent racks" count={racks.length} sub="In a zone with a unit down, or inlet above 30°C" icon={I.Server} flush
+        info="Racks that depend on cooling that is failed or in maintenance (same zone), or whose inlet is above 30°C, hottest first, with their power draw.">
+        {racks.length ? (
+          <table className="nst-table dt-table"><thead><tr><th>Rack</th><th>Zone</th><th>Nearest unit</th><th>Inlet</th><th>Draw</th></tr></thead>
+            <tbody>{racks.map(r => { const rc = phys?.rackCooling.find(x => x.rackId === r.id); const u = c.units.find(x => x.id === rc?.primaryId); return <tr key={r.id}><td className="mono strong">{r.name}</td><td className="is-wrap">{r.floor} · {r.room}</td><td>{u ? <span className="cell-2"><span>{u.name}</span><small className={u.status === 'Operational' ? '' : 'bad'}>{u.status}</small></span> : '—'}</td><td className={`num ${r.tempC > 30 ? 'bad' : ''}`}>{r.tempC}°C</td><td className="num">{fmtKw(r.drawKw)}</td></tr>; })}</tbody></table>
+        ) : <div className="panel-body"><Empty icon={I.CheckCircle2} title="No rack depends on a failed unit" /></div>}
+      </Panel>
+    </>
+  );
+}
+
+/* ----------------------------------------------------------- environment */
+
+/* a reading on its scale, with the safe band shaded and the value marked */
+function Band({ value, min, max, lo, hi }: { value: number; min: number; max: number; lo: number; hi: number }) {
+  const pc = (v: number) => Math.max(0, Math.min(100, ((v - min) / (max - min)) * 100));
+  const out = value > hi || value < lo;
+  return <span className="band"><i className="band-safe" style={{ left: `${pc(lo)}%`, width: `${pc(hi) - pc(lo)}%` }} /><i className={`band-dot${out ? ' is-out' : ''}`} style={{ left: `${pc(value)}%` }} /><span className="band-x"><em style={{ left: `${pc(lo)}%` }}>{lo}</em><em style={{ left: `${pc(hi)}%` }}>{hi}</em></span></span>;
+}
+
+function Environment({ dc }: { dc: Datacenter }) {
+  const sensors = dc.cooling.sensors;
+  return (<>
+    <Panel title="Zones" count={sensors.length} sub={`Each reading against its safe band — ${TEMP.lo}–${TEMP.hi}°C and ${HUM.lo}–${HUM.hi}% RH`} icon={I.Thermometer} actions={<Fresh>sensors · 1 min</Fresh>}
+      info={`One card per zone sensor: temperature and humidity marked on their scale with the safe band shaded (${TEMP.lo}–${TEMP.hi}°C, ${HUM.lo}–${HUM.hi}% RH), smoke and leak detectors, and the racks in the zone with their highest inlet. Red = over temperature, smoke or leak; amber = humidity out of band.`}>
+      <div className="zn-grid">
+        {sensors.map(s => {
+          const h = s.tempC > TEMP.hi || s.tempC < TEMP.lo, w = s.humidity > HUM.hi || s.humidity < HUM.lo, ev = s.smoke || s.leak;
+          const racks = dc.racks.filter(r => `${r.floor} · ${r.room}` === s.zone);
+          const tone = h || ev ? 'error' : w ? 'warning' : 'success';
+          return (
+            <div key={s.id} className={`zn is-${tone}`}>
+              <div className="zn-h"><b>{s.zone}</b><span className={`vw-chip vw-chip--${tone} pp-chip`}><i className="chip-dot" />{h ? 'Over temp' : s.smoke ? 'Smoke' : s.leak ? 'Leak' : w ? 'Humidity' : 'Normal'}</span></div>
+              <div className="zn-read">
+                <div><span className="zn-l"><I.Thermometer size={13} />Temperature</span><b className={h ? 'bad' : ''}>{s.tempC}<small>°C</small></b><Band value={s.tempC} min={12} max={34} lo={TEMP.lo} hi={TEMP.hi} /></div>
+                <div><span className="zn-l"><I.Droplets size={13} />Humidity</span><b className={w ? 'warn' : ''}>{s.humidity}<small>% RH</small></b><Band value={s.humidity} min={20} max={80} lo={HUM.lo} hi={HUM.hi} /></div>
+              </div>
+              <div className="zn-f">
+                <span className={s.smoke ? 'is-bad' : ''}><I.AlarmSmoke size={13} />{s.smoke ? 'Smoke detected' : 'No smoke'}</span>
+                <span className={s.leak ? 'is-bad' : ''}><I.Droplet size={13} />{s.leak ? 'Leak detected' : 'Dry'}</span>
+                <span><I.Server size={13} />{racks.length} racks{racks.length ? ` · max inlet ${Math.max(...racks.map(r => r.tempC))}°C` : ''}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Panel>
+    <SafetyPanels dcId={dc.id} />
+  </>);
+}
+
+/* ----------------------------------------------------------- maintenance */
+
+function Maintenance({ alerts, changes }: { alerts: NonNullable<Awaited<ReturnType<typeof getAlerts>>>; changes: NonNullable<Awaited<ReturnType<typeof getChanges>>> }) {
+  const nav = useNavigate();
+  const now = clockNow();
+  return (
+    <div className="grid g-2 fac-eq">
+      <Panel title="Facility alarms" count={alerts.length} sub="Power, cooling and environment events and their incident" icon={I.BellRing} flush
+        info="Open alarms whose source is Power, Cooling or Environment at this site: severity, the alarm and its code, the incident tracking it (or 'not correlated') and how long ago it was raised.">
+        {alerts.length ? (
+          <table className="nst-table dt-table"><thead><tr><th>Severity</th><th>Alarm</th><th>Incident</th><th className="is-right">Raised</th></tr></thead>
+            <tbody>{alerts.map(a => (
+              <tr key={a.id}><td><SeverityChip s={a.severity} size="xs" /></td><td className="is-wrap"><span className="cell-2"><b className="strong">{a.title}</b><small>{a.code} · {a.description}</small></span></td>
+                <td>{a.incidentId ? <IncLink id={a.incidentId} /> : <span className="faint">not correlated</span>}</td><td className="is-right num nowrap">{fmtAgo(a.start, now)}</td></tr>))}</tbody></table>
+        ) : <div className="panel-body"><Empty icon={I.CheckCircle2} title="No active facility alarms" /></div>}
+      </Panel>
+      <Panel title="Maintenance schedule" count={changes.length} sub="Inspections and tests for generators, batteries, UPS, cooling and safety systems" icon={I.CalendarClock} flush
+        info="Changes of kind Maintenance at this site: window start, what is being done, requester and approver, risk and status. Click a row to open it in Changes & maintenance."
+        actions={<Link to="/changes" className="panel-link">Change calendar<I.ChevronRight size={14} /></Link>}>
+        {changes.length ? (
+          <table className="nst-table dt-table"><thead><tr><th>Window</th><th>Maintenance</th><th>Risk</th><th>Status</th></tr></thead>
+            <tbody>{changes.map(c => (
+              <tr key={c.id} className="is-click" onClick={() => nav(`/changes?id=${c.id}`)}><td className="num nowrap">{fmtDateTime(c.windowStart)}</td><td className="is-wrap"><span className="cell-2"><b className="strong">{c.title}</b><small className="mono">{c.id} · {c.requester}{c.approver ? ` · approved by ${c.approver}` : ''}</small></span></td>
+                <td><Chip tone={c.risk === 'High' ? 'error' : c.risk === 'Medium' ? 'warning' : 'neutral'} size="xs">{c.risk}</Chip></td><td><ChangeChip s={c.status} size="xs" /></td></tr>))}</tbody></table>
+        ) : <div className="panel-body"><Empty icon={I.CalendarClock} title="No maintenance scheduled for this site" /></div>}
+      </Panel>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------- distribution */
 
 function PduSides({ phys, rackId }: { phys: SitePhysical | null; rackId: string }) {
   if (!phys) return <span className="faint">—</span>;
