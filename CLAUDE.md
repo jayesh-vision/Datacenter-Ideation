@@ -446,9 +446,9 @@ adoor · adir`); person / exception drawers. Planned sites show an empty state. 
 
 ## Datacenter page tab groups (16-Oct-2026, user: "too many tabs … group them, with sub tabs")
 `site/Site.tsx` shows four group pills, then the open group's sub tabs as an underlined row (`.site-subtabs`, both inside `.site-sticky`):
-**Overview** (Datacenter layout · Needs attention · Ops log) · **Facility** (Power & backup · Cooling · Environment · Single points of failure ·
-Maintenance & alarms · Metrics · Access & security) ·
-**Infrastructure** (Equipment · Space & ports · Assets · AI & GPU · Topology; "Space & ports" = the old Power & space tab, `?tab=details`,
+**Overview** (Datacenter layout · Needs attention · Metrics · Ops log; Metrics moved here 16-Oct-2026) · **Facility** (Power & backup · Cooling ·
+Environment · Access & security · Single points of failure · Maintenance & alarms) ·
+**Infrastructure** (Equipment · AI & GPU · Topology · Space & ports · Assets; "Space & ports" = the old Power & space tab, `?tab=details`,
 moved here and renamed 16-Oct-2026 once its power and cooling parts were hidden) · **Business impact** (persona words for Customers · Revenue).
 `?tab=` still names the SUB tab (ids unchanged), so every existing deep link works and the group follows from it; a group pill opens
 the sub tab last used in that group this session, else its first. Group pill count = sum of its sub tab counts. AI & GPU stays hidden
@@ -457,11 +457,21 @@ Facility group (16-Oct-2026, user: "show the Facility screen's sub tabs directly
 (`?tab=fpower|fcooling|fenv|fspof|fmaint`) render `FacilitiesBody` from `screens/Facilities.tsx` (its strip + tab content, `hideTabs`),
 the same component the /facilities page wraps with its header and datacenter picker; counts follow the Facilities tabs. The six-tile
 facility strip (`FacilityStrip`: power load, PUE, UPS, cooling, environment, alarms & maintenance) is NOT repeated on those five sub tabs
-(`hideStrip`); it heads Facility → Metrics instead (user, 16-Oct-2026) and each tile opens its sub tab. /facilities keeps it on top.
+(`hideStrip`); it heads Overview → Metrics instead (user, 16-Oct-2026) and each tile opens its sub tab. /facilities keeps it on top.
 Power & backup is four collapsible sections (`FacSections` / `FacSection` in Facilities.tsx; user: "too many widgets, user needs to scroll"):
 Power path · Load & ride-through · Cabinet power distribution & what-if · Rack power. A closed section shows a one-line summary as
 status pills (red / amber / green by state); first section open by default, state remembered per viewer (localStorage `dco.fac.power`),
-Expand all / Collapse all above. A section holding one panel hides that panel's own title. Reuse these for other long tabs.
+Expand all / Collapse all above. A section holding one panel hides that panel's own title. The components live in `ui/Sections.tsx` (styles `styles/sections.css`) and
+Access & security uses them too: People on site & exceptions · Entries, exits & doors · Access rights review · Access audit trail (the
+summary strip was folded into the section figures; clicking a door or a filter link opens the audit trail section and scrolls to it).
+The Needs attention tab no longer repeats the single points of failure list (Facility → Single points of failure has it, with tests and
+the what-if; hidden via SHOW_DUPLICATES).
+Needs attention layout (16-Oct-2026, user: misaligned, too much white space): incident severity chips are a fixed 70 px (titles line up), alarm
+scope + severity chips sit in one centred group (`.att-tags`), Open incidents opens with four figure tiles (past SLA · unacked · oldest open ·
+MTTR 30 d) matching the alarm category tiles, then "Resolved · last 7 days". Both panel subtitles stay short so the tile rows line up at 1280.
+Site header: the Topology and Facilities buttons were removed (the tabs cover them); Changes above Plan (equal-width
+column) with Opstral AI beside them, centred across both rows (user: not all three in one row); the collapse arrow is a quiet icon in the top-right corner; below 1400 px
+the collectors line drops its label so the card keeps three lines.
 A closed section is a summary card (icon, title + Needs action / Watch / Normal chip, one-line description, 3–6 labelled figures,
 coloured left edge); keep figure values short enough not to truncate at 1280. Rack power is a standard list (ListToolbar + DataTable:
 search, quick filters State / Location, Filters panel adds Role / PDU sides; URL params rq · rstate · rroom · rrole · rpdu). The header's

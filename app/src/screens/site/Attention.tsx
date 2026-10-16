@@ -3,12 +3,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { clockNow, getAlerts, getChanges, getIncidents, getNetworkElements, getSitePhysical, useQuery, vocabNow } from '../../api';
 import { SpofList, SpofInfo } from '../physical/parts';
+import { SHOW_DUPLICATES } from './dedupe';
 import { OnCallPanel } from '../ops/process';
 import type { Alert, AlertCategory } from '../../api/types';
 import { Empty, Panel } from '../../ui/kit';
 import { ChangeChip, SevDot, SeverityChip } from '../../ui/status';
 import { ScopeChip } from '../../ui/scope';
-import { fmtAgo, fmtDur, fmtWhen } from '../../lib/format';
+import { fmtAgo, fmtDate, fmtDur, fmtWhen } from '../../lib/format';
 import type { SiteData } from './Site';
 
 const CATS: { k: AlertCategory; icon: I.LucideIcon }[] = [
@@ -25,6 +26,7 @@ export function Attention({ data }: { data: SiteData }) {
   const nav = useNavigate();
   const now = clockNow();
   const { data: incs } = useQuery(() => getIncidents({ dcId: dc.id, status: 'open' }), [dc.id]);
+  const { data: allIncs } = useQuery(() => getIncidents({ dcId: dc.id }), [dc.id]);
   const { data: al } = useQuery(() => getAlerts({ dcId: dc.id, state: 'open' }), [dc.id]);
   const { data: chg } = useQuery(() => getChanges({ dcId: dc.id }), [dc.id]);
   const { data: nes } = useQuery(() => getNetworkElements({ dcId: dc.id }), [dc.id]);
@@ -41,6 +43,18 @@ export function Attention({ data }: { data: SiteData }) {
   const opsRisks = dc.risks.filter(r => r.domain === 'Facility' || r.domain === 'Network' || r.domain === 'Security' || r.domain === 'Supplier');
   const top = [...alarms].sort((a, b) => SEV_RANK[a.severity] - SEV_RANK[b.severity] || b.start - a.start).slice(0, 8);
   const facilityIssues = upsBad.length + feedsBad.length + unitsBad.length + hotZones.length;
+  /* incident figures + recently resolved (16-Oct-2026, user: the incidents panel was mostly empty space next to the alarms) */
+  const open = incs ?? [];
+  const resolved = (allIncs ?? []).filter(i => i.resolved && i.resolved >= now - 7 * 86400e3).sort((a, b) => (b.resolved ?? 0) - (a.resolved ?? 0));
+  const res30 = (allIncs ?? []).filter(i => i.resolved && i.resolved >= now - 30 * 86400e3);
+  const mttr = res30.length ? res30.reduce((t, i) => t + ((i.resolved ?? 0) - i.detected), 0) / res30.length / 60000 : null;
+  const oldest = open.length ? Math.min(...open.map(i => i.detected)) : null;
+  const incFacts = [
+    { k: 'Past SLA', v: String(open.filter(i => i.sla.breaching).length), bad: open.some(i => i.sla.breaching), icon: I.TimerOff },
+    { k: 'Unacked', v: String(open.filter(i => !i.acknowledged).length), bad: open.some(i => !i.acknowledged), icon: I.BellDot },
+    { k: 'Oldest open', v: oldest ? fmtDur((now - oldest) / 60000) : '—', bad: false, icon: I.Hourglass },
+    { k: 'MTTR · 30 d', v: mttr !== null ? fmtDur(mttr) : '—', bad: false, icon: I.TimerReset }
+  ];
 
   const summary = [
     incs?.length ? `${incs.length} open incident${incs.length === 1 ? '' : 's'}` : '',
@@ -58,18 +72,30 @@ export function Attention({ data }: { data: SiteData }) {
       </div>
 
       <div className="grid g-2">
-        <Panel title="Open incidents" count={incs?.length ?? 0} icon={I.Siren} info="Incidents here that are Open, Investigating or Mitigated, most severe first, then least time left on the resolution SLA; the right column is that time left (or overdue). Click a row to open the incident." actions={<Link to={`/incidents?dc=${dc.id}`} className="panel-link">All incidents<I.ChevronRight size={14} /></Link>} flush>
+        <Panel title="Open incidents" count={incs?.length ?? 0} icon={I.Siren} sub="Open, investigating or mitigated · most severe first" info="Incidents here that are Open, Investigating or Mitigated, most severe first, then least time left on the resolution SLA; the right column is that time left (or overdue). Click a row to open the incident." actions={<Link to={`/incidents?dc=${dc.id}`} className="panel-link">All incidents<I.ChevronRight size={14} /></Link>} flush>
+          <div className="att-cats">
+            {incFacts.map(f => <div key={f.k} className="att-cat"><span className="att-cat-h"><f.icon size={14} /><span className="vw-label">{f.k}</span></span><span className={`vw-card-metric-sm${f.bad ? ' bad' : ''}`}>{f.v}</span></div>)}
+          </div>
           {incs && incs.length ? (
             <div className="att-list">{[...incs].sort((a, b) => a.sev - b.sev || a.sla.resolveLeft - b.sla.resolveLeft).map(i => (
               <Link key={i.id} to={`/incidents/${i.id}`} className="att-row">
-                <span className={`vw-chip ${sevChipCls(i.sev)} is-strong cmd-chip`}>{sevLabel(i.sev)}</span>
+                <span className={`vw-chip ${sevChipCls(i.sev)} is-strong cmd-chip att-sev`}>{sevLabel(i.sev)}</span>
                 <span className="att-main"><b>{i.title}</b><small>{i.id} · {i.status} · {i.owner} · {i.impact.services} {vocabNow().services.toLowerCase()}</small></span>
                 <span className={`att-sla${i.sla.breaching ? ' is-late' : ''}`}>{i.sla.resolveLeft < 0 ? `Overdue ${fmtDur(-i.sla.resolveLeft)}` : `${fmtDur(i.sla.resolveLeft)} left`}</span>
               </Link>))}</div>
           ) : <Empty icon={I.ShieldCheck} title="No open incidents" />}
+          {resolved.length > 0 && <>
+            <div className="att-subh"><span>Resolved · last 7 days</span><span className="faint">{resolved.length}</span></div>
+            <div className="att-list">{resolved.slice(0, 6).map(i => (
+              <Link key={i.id} to={`/incidents/${i.id}`} className="att-row is-done">
+                <span className="vw-chip vw-chip--neutral cmd-chip att-sev">{sevLabel(i.sev)}</span>
+                <span className="att-main"><b>{i.title}</b><small>{i.id} · resolved {fmtDate(i.resolved!)} · {i.owner}</small></span>
+                <span className="att-sla is-done">took {fmtDur(((i.resolved ?? 0) - i.detected) / 60000)}</span>
+              </Link>))}</div>
+          </>}
         </Panel>
 
-        <Panel title="Alarms in datacenter scope" count={alarms.length} icon={I.BellRing} sub="Site, edge links and dependencies · downstream excluded" info="Active alarms that count against this site: inside it, on links leaving it, or on something it depends on; downstream sites are excluded. Tiles split them by category, the list shows the 8 most severe. Click a tile or row to drill in." actions={<Link to={`/alerts?dc=${dc.id}`} className="panel-link">Alerts console<I.ChevronRight size={14} /></Link>} flush>
+        <Panel title="Alarms in datacenter scope" count={alarms.length} icon={I.BellRing} sub="Site, edge and dependencies · not downstream" info="Active alarms that count against this site: inside it, on links leaving it, or on something it depends on; downstream sites are excluded. Tiles split them by category, the list shows the 8 most severe. Click a tile or row to drill in." actions={<Link to={`/alerts?dc=${dc.id}`} className="panel-link">Alerts console<I.ChevronRight size={14} /></Link>} flush>
           <div className="att-cats">
             {CATS.map(c => { const xs = alarms.filter(a => a.category === c.k); const crit = xs.filter(a => a.severity === 'critical' || a.severity === 'major').length; return (
               <Link key={c.k} to={`/alerts?dc=${dc.id}`} className="att-cat" title={`${xs.length} ${c.k.toLowerCase()} alarms · ${crit} major or critical`}><span className="att-cat-h"><c.icon size={14} /><span className="vw-label">{c.k}</span></span><span className="att-cat-v"><span className="vw-card-metric-sm">{xs.length}</span>{crit ? <em>{crit} major+</em> : null}</span></Link>
@@ -79,7 +105,7 @@ export function Attention({ data }: { data: SiteData }) {
             <button key={a.id} type="button" className="att-row" onClick={() => nav(a.neId ? `/ne/${a.neId}?tab=alerts` : `/alerts?dc=${dc.id}&q=${a.code}`)}>
               <SevDot s={a.severity} />
               <span className="att-main"><b>{a.title}</b><small>{a.neId ? a.neId.replace(`${dc.id}-`, '') : a.node ?? (a.category === 'Facility' ? 'Facility' : dc.id)}{a.ifName ? ` · ${a.ifName}` : ''} · {fmtAgo(a.start, now)}</small></span>
-              <ScopeChip a={a} /><SeverityChip s={a.severity} size="xs" />
+              <span className="att-tags"><ScopeChip a={a} /><SeverityChip s={a.severity} size="xs" /></span>
             </button>))}</div> : <Empty icon={I.BellOff} title="No active alarms" />}
         </Panel>
       </div>
@@ -139,12 +165,13 @@ export function Attention({ data }: { data: SiteData }) {
         </Panel>
       </div>
 
-      {phys && dc.status !== 'planned' && (<div className="grid g-1-2">
+      {/* the single points of failure list is the Facility → Single points of failure tab (16-Oct-2026, user: duplicate; see dedupe.ts) */}
+      {phys && dc.status !== 'planned' && (<div className={SHOW_DUPLICATES ? 'grid g-1-2' : 'col'}>
         <OnCallPanel dcId={dc.id} />
-        <Panel title={<>Single points of failure<SpofInfo /></>} count={phys.spofs.length} icon={I.ShieldAlert} flush sub="Power, cooling and cabling risks that would turn one more failure into an outage"
+        {SHOW_DUPLICATES && <Panel title={<>Single points of failure<SpofInfo /></>} count={phys.spofs.length} icon={I.ShieldAlert} flush sub="Power, cooling and cabling risks that would turn one more failure into an outage"
           actions={phys.spofs.length > 4 ? <Link to={`/facilities?dc=${dc.id}&tab=resilience`} className="panel-link">All {phys.spofs.length}<I.ChevronRight size={14} /></Link> : undefined}>
           <SpofList spofs={phys.spofs.slice(0, 4)} link />
-        </Panel>
+        </Panel>}
       </div>)}
     </div>
   );

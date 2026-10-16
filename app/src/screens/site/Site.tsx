@@ -49,10 +49,12 @@ const FAC_BACK: Record<FacilityTab, Tab> = { power: 'fpower', cooling: 'fcooling
    in) · what is installed and how it connects · who it serves and what it costs. `?tab=` still names the sub tab, so
    every existing link keeps working; the group follows from it. */
 type Group = 'site' | 'facility' | 'infra' | 'business';
+/* Sub tab order (16-Oct-2026 review): Facility = plant (power, cooling) → environment & physical security → risk → planned work;
+   Infrastructure = what is installed (equipment, GPUs) → how it connects (topology) → physical capacity (space & ports) → lifecycle. */
 const GROUPS: { id: Group; label: string; icon: I.LucideIcon; tabs: Tab[] }[] = [
-  { id: 'site', label: 'Overview', icon: I.LayoutDashboard, tabs: ['overview', 'attention', 'timeline'] },
-  { id: 'facility', label: 'Facility', icon: I.Zap, tabs: ['fpower', 'fcooling', 'fenv', 'fspof', 'fmaint', 'metrics', 'access'] },
-  { id: 'infra', label: 'Infrastructure', icon: I.Server, tabs: ['elements', 'details', 'assets', 'gpu', 'topology'] },
+  { id: 'site', label: 'Overview', icon: I.LayoutDashboard, tabs: ['overview', 'attention', 'metrics', 'timeline'] },
+  { id: 'facility', label: 'Facility', icon: I.Zap, tabs: ['fpower', 'fcooling', 'fenv', 'access', 'fspof', 'fmaint'] },
+  { id: 'infra', label: 'Infrastructure', icon: I.Server, tabs: ['elements', 'gpu', 'topology', 'details', 'assets'] },
   { id: 'business', label: 'Business impact', icon: I.Users, tabs: ['customers', 'revenue'] }
 ];
 const SUB_LABEL: Partial<Record<Tab, string>> = { overview: 'Datacenter layout', attention: 'Needs attention', details: 'Space & ports', metrics: 'Metrics' };
@@ -168,8 +170,6 @@ export function Site() {
             <span className="vw-footer-meta" title="Average health score of the site's discovered devices">{planned ? 'not live' : `device health ${s.healthScore}/100`}</span>
           </div>
           <div className="dch-actions">
-            <Btn icon={I.Network} onClick={() => go('topology')} disabled={!s.discovered}>Topology</Btn>
-            <Btn icon={I.Zap} onClick={() => go('fpower')}>Facilities</Btn>
             <Btn icon={I.ArrowLeftRight} onClick={() => nav(`/changes?dc=${dc.id}`)}>Changes</Btn>
             <Btn icon={I.DraftingCompass} title="Plan capacity, plant or network work for this datacenter" onClick={() => nav(`/planning/new?dc=${dc.id}`)}>Plan</Btn>
             <OpstralBtn title="Ask Opstral AI about this datacenter" onClick={() => ask(`What is at risk in ${dc.id}?`)}>Opstral AI</OpstralBtn>
@@ -206,8 +206,6 @@ export function Site() {
           empty={<span className="vw-footer-meta"><I.CircleCheck size={13} /> all KPIs normal</span>} />}
         {!planned && <span className="dch-bar-fresh" title="Latest telemetry from this site's collectors"><Fresh>{fmtAgo(Math.max(...dc.collectors.map(c => c.lastSeen)), now)}</Fresh></span>}
         <div className="dch-bar-actions">
-          <Btn icon={I.Network} title="Topology" onClick={() => go('topology')} disabled={!s.discovered} />
-          <Btn icon={I.Zap} title="Facilities" onClick={() => go('fpower')} />
           <Btn icon={I.ArrowLeftRight} title="Changes & maintenance" onClick={() => nav(`/changes?dc=${dc.id}`)} />
           <Btn icon={I.DraftingCompass} title="Plan work for this datacenter" onClick={() => nav(`/planning/new?dc=${dc.id}`)} />
           <OpstralBtn title="Ask Opstral AI about this datacenter" onClick={() => ask(`What is at risk in ${dc.id}?`)}>Opstral AI</OpstralBtn>

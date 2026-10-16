@@ -74,3 +74,6 @@
 .acc-trail li > span:last-child { display: flex; flex-direction: column; }
 .acc-trail li.is-denied { color: var(--vw-color-red-700); }
 .acc-p-where small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* inside collapsible sections (16-Oct-2026): the audit trail's own title repeats the section header */
+.fac-sec-b > .acc-log .acc-log-h .vw-card-title { display: none; }
+.fac-sec-b > .acc-log .acc-log-h { padding-top: 12px; }

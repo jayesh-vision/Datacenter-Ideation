@@ -11,5 +11,7 @@
      Assets         — hides the floors / racks / rack-space / ports figures of the strip and the port classes of
                       "Ports & compute" (all on Space & ports); keeps space by room (devices per room are only here),
                       equipment by category, facility assets, compute and lifecycle (RMA, spares, warranty).
+     Needs attention — hides the top-4 "Single points of failure" panel; the full list, resilience tests and what-if are the
+                      Facility → Single points of failure tab (16-Oct-2026, user).
    Roll back: set SHOW_DUPLICATES = true. */
 export const SHOW_DUPLICATES = false;

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { clockNow, getSiteAccess, useQuery } from '../../api';
@@ -8,7 +8,7 @@ import { Loading } from '../../shell/page';
 import { DataTable, type Col } from '../../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
 import { TimeChart } from '../../charts/TimeChart';
-import { SummaryStrip } from './SummaryStrip';
+import { FacSections, FacSection, type SecOpen } from '../../ui/Sections';
 import { fmtAgo, fmtDate, fmtDateTime, fmtDur, fmtNum, fmtShortDate, fmtTime } from '../../lib/format';
 import type { SiteData } from './Site';
 import '../../styles/access.css';
@@ -41,7 +41,9 @@ function AccessBody({ a, reload }: { a: SiteAccess; reload: () => void }) {
   const applyParams = useParamPatch();
   const q = sp.get('aq') ?? '', res = sp.get('ares') ?? '', type = sp.get('atype') ?? '', door = sp.get('adoor') ?? '', dir = sp.get('adir') ?? '';
   const set = (patch: Record<string, string>) => { const n = new URLSearchParams(sp); Object.entries(patch).forEach(([k, v]) => (v ? n.set(k, v) : n.delete(k))); setSp(n, { replace: true }); };
-  const toLog = (patch: Record<string, string>) => { set({ aq: '', ares: '', atype: '', adoor: '', adir: '', ...patch }); requestAnimationFrame(() => document.querySelector('.acc-log')?.scrollIntoView({ behavior: 'smooth', block: 'start' })); };
+  const secs = useRef<SecOpen | null>(null);
+  /* filter the audit trail, open its section if it is closed, and scroll to it */
+  const toLog = (patch: Record<string, string>) => { set({ aq: '', ares: '', atype: '', adoor: '', adir: '', ...patch }); secs.current?.ensure('log'); setTimeout(() => document.querySelector('.acc-log')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60); };
   const [openVisit, setOpenVisit] = useState<AccessVisit | null>(null);
   const [openExc, setOpenExc] = useState<SecException | null>(null);
   const [excView, setExcView] = useState<'open' | 'all'>('open');
@@ -57,7 +59,6 @@ function AccessBody({ a, reload }: { a: SiteAccess; reload: () => void }) {
   const grp = TYPES.filter(k => t.onSiteByType[k]).sort((x, y) => (t.onSiteByType[y] ?? 0) - (t.onSiteByType[x] ?? 0));
   const rest = grp.slice(1).reduce((n, k) => n + (t.onSiteByType[k] ?? 0), 0);
   const byTypeTxt = grp.length ? `${t.onSiteByType[grp[0]]} ${grp[0].toLowerCase()}${rest ? ` · ${rest} other${rest === 1 ? '' : 's'}` : ''}` : '';
-  const entry = a.doors.find(d => d.kind === 'Building entry');
 
   const cols: Col<AccessEvent>[] = [
     { key: 'at', header: 'Time', sort: e => e.at, render: e => <span className="cell-2"><span className="num">{fmtTime(e.at)}</span><small>{fmtShortDate(e.at)}</small></span> },
@@ -71,22 +72,44 @@ function AccessBody({ a, reload }: { a: SiteAccess; reload: () => void }) {
     { key: 'auth', header: 'Authorised by', wrap: true, render: e => <Auth v={visitOf(e.visitId)} /> }
   ];
 
+  const filtered = !!(q || res || type || door || dir);
+  const rv = a.review;
+  type F = { l: string; v: string; tone?: 'bad' | 'warn' | 'ok' };
+  const sums: Record<string, F[]> = {
+    people: [
+      { l: 'On site now', v: t.onSite ? `${t.onSite} · ${byTypeTxt}` : 'nobody' },
+      { l: 'Visitors · 24 h', v: String(t.visitors24h) },
+      { l: 'Unescorted', v: t.unescorted ? String(t.unescorted) : 'none', tone: t.unescorted ? 'warn' : 'ok' },
+      { l: 'Open exceptions', v: String(t.open), tone: t.high ? 'bad' : t.open ? 'warn' : 'ok' },
+      { l: 'High severity', v: t.high ? String(t.high) : 'none', tone: t.high ? 'bad' : 'ok' }
+    ],
+    traffic: [
+      { l: 'Entries · 24 h', v: fmtNum(t.entries24h) },
+      { l: 'Exits · 24 h', v: fmtNum(t.exits24h) },
+      { l: 'Denied · 24 h', v: t.denied24h ? `${t.denied24h} at ${t.deniedDoors} door${t.deniedDoors === 1 ? '' : 's'}` : 'none', tone: t.denied24h >= 4 ? 'warn' : undefined },
+      { l: 'Badge reads · all doors', v: fmtNum(t.events24h) },
+      { l: 'Doors secured', v: `${t.secured} of ${t.doors}`, tone: t.heldOpen ? 'warn' : 'ok' }
+    ],
+    review: [
+      { l: 'Active badges', v: String(rv.badges) },
+      { l: 'Unused 90 days', v: rv.unused90 ? String(rv.unused90) : 'none', tone: rv.unused90 ? 'warn' : 'ok' },
+      { l: 'Expired but active', v: rv.expiredActive ? String(rv.expiredActive) : 'none', tone: rv.expiredActive ? 'bad' : 'ok' },
+      { l: 'Last review', v: fmtDate(rv.lastReview) },
+      { l: 'Next review', v: fmtDate(rv.nextReview), tone: rv.nextReview < now ? 'bad' : undefined }
+    ],
+    log: [
+      { l: 'Badge reads · 24 h', v: fmtNum(a.events.length) },
+      { l: 'Granted', v: fmtNum(a.events.filter(e => e.result === 'Granted').length) },
+      { l: 'Denied', v: fmtNum(t.denied24h), tone: t.denied24h >= 4 ? 'warn' : undefined },
+      { l: filtered ? 'Matching filters' : 'Window', v: filtered ? fmtNum(shown.length) : `24 h to ${fmtTime(a.to)}` }
+    ]
+  };
+
   return (
     <div className="col acc" style={{ gap: 16 }}>
-      <SummaryStrip items={[
-        { key: 'on', label: 'On site now', value: t.onSite, sub: byTypeTxt || 'nobody', info: `${grp.map(k => `${t.onSiteByType[k]} ${k.toLowerCase()}`).join(', ') || 'Nobody'} on site now. ` + 'People whose last badge read at the main entrance was In: the building\'s live occupancy, as used for a fire roll-call. Split by staff, security, contractors, visitors, tenants and couriers.' },
-        { key: 'in', label: 'Entries · 24 h', value: fmtNum(t.entries24h), sub: `${fmtNum(t.exits24h)} exits`, onClick: () => toLog({ adoor: entry?.id ?? '', adir: 'In' }), active: door === entry?.id && dir === 'In',
-          info: 'Granted entries through the main entrance mantrap in the last 24 hours, and the exits recorded there. Click to list the entries in the audit trail.' },
-        { key: 'den', label: 'Denied · 24 h', value: t.denied24h, sub: t.denied24h ? `at ${t.deniedDoors} door${t.deniedDoors === 1 ? '' : 's'}` : 'none refused', tone: t.denied24h >= 4 ? 'warn' : undefined, onClick: () => toLog({ ares: 'Denied' }), active: res === 'Denied',
-          info: 'Badge reads the access-control system refused in the last 24 hours at any door (zone not authorised, expired badge, wrong PIN, biometric mismatch, anti-passback). Click to list them.' },
-        { key: 'exc', label: 'Security exceptions', value: t.open, sub: t.open ? `${t.high} high · ${a.exceptions.length - t.open} closed` : `${a.exceptions.length} closed in 24 h`, tone: t.high ? 'bad' : t.open ? 'warn' : undefined,
-          info: 'Exceptions still open or under review: tailgating, forced or held doors, repeated denials, after-hours entry, unescorted visitors, overstays and badges not returned. Red when a high-severity one is open.' },
-        { key: 'vis', label: 'Visitors · 24 h', value: t.visitors24h, sub: t.unescorted ? `${t.unescorted} unescorted` : t.visitors24h ? 'all escorted' : 'none', tone: t.unescorted ? 'warn' : undefined, onClick: () => toLog({ atype: 'Visitor' }), active: type === 'Visitor',
-          info: 'Visitors signed in at the security desk in the last 24 hours, each with a host and an escort. Click to list their badge events.' },
-        { key: 'doors', label: 'Doors secured', value: `${t.secured}/${t.doors}`, sub: t.heldOpen ? `${t.heldOpen} held open` : 'all locked', tone: t.heldOpen ? 'warn' : undefined,
-          info: 'Controlled doors (mantrap, hall, plant, meet-me and tenant cage doors) that are closed and locked now. A door held open is under an approved change with a guard posted.' }
-      ]} />
-
+      <FacSections ids={['people', 'traffic', 'review', 'log']} scope="access">{open => { secs.current = open; return <>
+      <FacSection id="people" scope="access" open={open} title="People on site & exceptions" icon={I.Users} summary={sums.people}
+        desc="Who is in the building now, on whose authority, and what the security team has flagged for review">
       <div className="acc-two">
         <Panel title="On site now" icon={I.Users} count={onSite.length} className="acc-fixed" sub="Live occupancy from the mantrap · roll-call list"
           info="Everyone in the building now (badged In at the main entrance and not yet Out), with their company, the zone of their last badge read, why they are here and who authorised it. Click a person to see their visit and every badge read.">
@@ -124,17 +147,20 @@ function AccessBody({ a, reload }: { a: SiteAccess; reload: () => void }) {
         </Panel>
       </div>
 
-      <div className="acc-three">
-        <Panel title="Entries and exits · last 24 h" icon={I.ChartColumn} className="acc-chart" sub={`Main entrance, per hour · ${fmtNum(t.events24h)} badge reads at all doors`}
+      </FacSection>
+      <FacSection id="traffic" scope="access" open={open} title="Entries, exits & doors" icon={I.DoorClosed} summary={sums.traffic}
+        desc="Hourly traffic through the main entrance over 24 hours, and badge reads and refusals at every controlled door">
+      <div className="acc-two">
+        <Panel title="Entries and exits · last 24 h" icon={I.ChartColumn} className="acc-fixed acc-chart" sub={`Main entrance, per hour · ${fmtNum(t.events24h)} badge reads at all doors`}
           info="Granted entries and exits at the main entrance mantrap for each hour of the last 24 hours (shift changes show as peaks), with refused badge reads at any door as a line.">
-          <TimeChart labels={a.hourly.map((h, i) => (i % 3 === 0 ? fmtTime(h.at) : ''))} fullLabels={a.hourly.map(h => `${fmtTime(h.at)}–${fmtTime(h.at + 3600e3)}`)} height={210} yMin={0}
+          <TimeChart labels={a.hourly.map((h, i) => (i % 3 === 0 ? fmtTime(h.at) : ''))} fullLabels={a.hourly.map(h => `${fmtTime(h.at)}–${fmtTime(h.at + 3600e3)}`)} height={330} yMin={0}
             series={[
               { key: 'in', label: 'Entries', color: 'var(--primaryColor500)', kind: 'bar', values: a.hourly.map(h => h.in) },
               { key: 'out', label: 'Exits', color: 'var(--vw-color-slate-300)', kind: 'bar', values: a.hourly.map(h => h.out) },
               { key: 'den', label: 'Denied', color: 'var(--vw-color-red-500)', kind: 'line', values: a.hourly.map(h => h.denied) }
             ]} />
         </Panel>
-        <Panel title="Doors and readers" icon={I.DoorClosed} count={a.doors.length} flush className="acc-doors" sub="Badge reads per door · 24 h · click to filter"
+        <Panel title="Doors and readers" icon={I.DoorClosed} count={a.doors.length} flush className="acc-fixed acc-doors" sub="Badge reads per door · 24 h · click to filter"
           info="Every controlled door with its credential (card, PIN, biometric), state, badge reads and refusals in the last 24 hours. The same counts appear on Facilities → Environment. Click a door to list its reads.">
           <ul className="acc-door-list">
             {a.doors.map(d => (
@@ -146,6 +172,10 @@ function AccessBody({ a, reload }: { a: SiteAccess; reload: () => void }) {
             ))}
           </ul>
         </Panel>
+      </div>
+      </FacSection>
+      <FacSection id="review" scope="access" open={open} title="Access rights review" icon={I.ClipboardCheck} summary={sums.review}
+        desc="Quarterly recertification: who holds a badge, expired or unused badges, and how long evidence is kept">
         <Panel title="Access rights review" icon={I.ClipboardCheck} className="acc-review" sub={`${a.review.badges} active badges for this site`}
           info="The quarterly recertification auditors ask for (ISO 27001 A.5.18, SOC 2 CC6.2, TIA-942 physical security): who holds a badge for this site, when access was last reviewed, badges that outlived their contract or went unused, and how long the evidence is kept.">
           <div className="acc-badges">{a.review.byType.map(b => <span key={b.type}><b className="num">{b.n}</b>{b.type.toLowerCase()}</span>)}</div>
@@ -154,8 +184,9 @@ function AccessBody({ a, reload }: { a: SiteAccess; reload: () => void }) {
           </ul>
           <KV cols={2} items={[['Last review', fmtDate(a.review.lastReview)], ['Reviewer', a.review.reviewer], ['CCTV kept', `${a.review.cctvDays} days`], ['Access log kept', `${a.review.logDays / 365} year`]]} />
         </Panel>
-      </div>
-
+      </FacSection>
+      <FacSection id="log" scope="access" open={open} title="Access audit trail" icon={I.ScrollText} summary={sums.log}
+        desc="Every badge read in the last 24 hours, newest first, with who authorised it — search and filter">
       <section className="card acc-log">
         <div className="acc-log-h"><span className="vw-card-title">Access audit trail</span><span className="vw-footer-meta">Every badge read in the last 24 hours, newest first · {fmtDateTime(a.from)} – {fmtTime(a.to)}</span></div>
         <DataTable rows={shown} cols={cols} pageSize={20} defaultSort={{ key: 'at', dir: 'desc' }} onRow={e => { const v = visitOf(e.visitId); if (v) setOpenVisit(v); }}
@@ -172,6 +203,9 @@ function AccessBody({ a, reload }: { a: SiteAccess; reload: () => void }) {
               ]} />
           } />
       </section>
+
+      </FacSection>
+      </>; }}</FacSections>
 
       <VisitDrawer v={openVisit} a={a} onClose={() => setOpenVisit(null)} />
       <ExceptionDrawer x={openExc} a={a} onClose={() => setOpenExc(null)} onVisit={v => { setOpenExc(null); setOpenVisit(v); }} />
