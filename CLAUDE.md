@@ -796,3 +796,8 @@ each Datacenter screen as its own card (Plan to Build: Planner, Capacity, IP & N
 Command Center, Datacenters, Facilities, AI & GPU, Alerts, Compliance · ITSM: Incidents, Change Management · BSS: Revenue Impact · Intelligence
 Hub: Data Model · Platform Engineering: Customization), embed URLs with `?shell=false`, overlaps with platform cards flagged; the old
 "Data Center" and "Datacenter Ops" cards are shown as replaced. Our own left menu is unchanged.
+
+## Ship (19-Oct-2026, user: "save tokens")
+`scripts/ship.sh -m "message" [-c "string in the new build"] [paths…]` = production type-check → commit (default: modified tracked
+files + new files under app/src, docs, app/public, scripts; never app/package-lock.json) → push main → Vercel deploy of HEAD from a
+clean worktree at the repo root → wait for Ready → optional live check (`-c`, searches every JS chunk). `-d` = deploy only.
