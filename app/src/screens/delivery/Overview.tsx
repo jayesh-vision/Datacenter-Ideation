@@ -1,13 +1,14 @@
 /* Delivery command centre (14-Oct-2026, dashboard redesign): KPI tiles with sparklines, project health matrix, programme progress
    (work vs time), needs attention, work throughput, change outcomes, a 14-day change calendar with freezes, portfolio cost curve
    with budget / forecast at completion, next 14 days and recent activity — filterable by programme. */
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useMemo } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { clockNow, getChangeRegister, getDelivery, getProgrammes, useQuery } from '../../api';
 import { Loading } from '../../shell/page';
 import { Panel } from '../../ui/kit';
 import { SevDot } from '../../ui/status';
+import { QuickSelect, useParamPatch } from '../../ui/ListToolbar';
 import { fmtDate, fmtDateTime, fmtMoney } from '../../lib/format';
 import { CostCurve } from './parts';
 import { ChangeCalendar, ChangeOutcomes, HealthMatrix, KpiTile, ProgrammeProgress, Throughput } from './dash';
@@ -20,7 +21,8 @@ export function DeliveryOverview() {
   const { data: d } = useQuery(getDelivery, []);
   const { data: progs } = useQuery(getProgrammes, []);
   const { data: reg } = useQuery(getChangeRegister, []);
-  const [pg, setPg] = useState('');
+  const [sp] = useSearchParams(), patch = useParamPatch();
+  const pg = sp.get('pg') ?? '', setPg = (v: string) => patch({ pg: v });
   const now = clockNow();
   const g = (progs ?? []).find(x => x.programme.id === pg);
   const scope = useMemo(() => (g ? new Set(g.programme.projectIds) : null), [g]);
@@ -58,12 +60,17 @@ export function DeliveryOverview() {
 
   return (
     <div className="dl-dash">
+      {/* a searchable dropdown, not a pill per programme: it must still work with 100 programmes (user, 19-Oct-2026) */}
       <div className="dl-filter dl-span-12">
         <span className="vw-label">Programme</span>
-        <div className="dl-filter-pills">
-          <button type="button" className={!pg ? 'is-on' : ''} onClick={() => setPg('')}>All programmes<b>{d.projects.length}</b></button>
-          {progs.map(x => <button key={x.programme.id} type="button" className={pg === x.programme.id ? 'is-on' : ''} onClick={() => setPg(x.programme.id)}><i className={`dl-rag is-${x.rag}`} />{x.programme.name}<b>{x.projects.length}</b></button>)}
-        </div>
+        <QuickSelect f={{ id: 'pg', label: `All programmes · ${d.projects.length} projects`, value: pg, onChange: setPg, anyLabel: `All programmes · ${d.projects.length} projects`,
+          options: [...progs].sort((a, b) => ({ red: 0, amber: 1, green: 2 }[a.rag] - { red: 0, amber: 1, green: 2 }[b.rag]) || a.programme.name.localeCompare(b.programme.name))
+            .map(x => ({ id: x.programme.id, label: `${x.programme.name} · ${x.rag === 'red' ? 'off track' : x.rag === 'amber' ? 'at risk' : 'on track'}`, count: x.projects.length })) }} />
+        {g ? <>
+          <span className="dl-filter-note"><i className={`dl-rag is-${g.rag}`} />{g.projects.length} project{g.projects.length === 1 ? '' : 's'} · {Math.round(g.completion * 100)}% done</span>
+          <Link className="dl-filter-link" to={`/delivery/programmes/${g.programme.id}`}>Open programme <I.ArrowRight size={13} /></Link>
+          <button type="button" className="dl-filter-link" onClick={() => setPg('')}>Clear</button>
+        </> : <span className="dl-filter-note">{progs.length} programmes{progs.some(x => x.rag !== 'green') ? <> · <i className="dl-rag is-red" />{progs.filter(x => x.rag === 'red').length} off track · <i className="dl-rag is-amber" />{progs.filter(x => x.rag === 'amber').length} at risk</> : null}</span>}
       </div>
 
       <div className="dl-kpis dl-span-12">
