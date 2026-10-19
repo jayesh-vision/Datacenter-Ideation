@@ -428,3 +428,42 @@ button.pn-lead-row:hover { background: var(--vw-color-slate-50); }
   .pn-home .pn-recent-card { padding: 12px 12px 10px; }
 }
 .pn-lib .dt-table td .pn-appr { display: block; min-width: 190px; font-size: 12.5px; }
+
+/* Templates tab: the Plan types / Site types / Modules switch stays on the right of the heading whatever the description's length
+   (user, 19-Oct-2026: it dropped under the long Plan types text but sat on the right for Site types) */
+.pl-tpl > .panel-head { flex-wrap: nowrap; align-items: center; }
+.pl-tpl > .panel-head > div:first-child { flex: 1 1 auto; }
+.pl-tpl > .panel-head > .row { flex: 0 0 auto; }
+.pl-tpl > .panel-head .seg { flex-wrap: nowrap; white-space: nowrap; }
+
+/* card view of the planner lists (Plans, Templates; screens/planning/cards.tsx) — 4 to a row at 1440, 3 at 1280 */
+.plc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: 12px; padding: 14px 16px 16px; background: var(--vw-color-slate-50); }
+.plc-empty { padding: 8px 0; }
+.plc { display: flex; flex-direction: column; gap: 8px; padding: 14px; border: 1px solid var(--vw-color-slate-200); border-radius: 12px; background: #fff; cursor: pointer; min-width: 0; }
+.plc:hover, .plc:focus-visible { border-color: var(--primaryColor300); box-shadow: 0 4px 14px rgba(15, 23, 42, .06); outline: none; }
+.plc.is-static { cursor: default; }
+.plc-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.plc-ic { flex: 0 0 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: var(--primaryColor50); color: var(--primaryColor600); }
+.plc-kind { flex: 1 1 auto; min-width: 0; font-size: 12px; color: var(--vw-color-gray-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.plc-t { font-weight: 500; font-size: 14.5px; line-height: 1.35; color: var(--vw-color-gray-900); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 39px; }
+.plc-t.is-1 { -webkit-line-clamp: 1; min-height: 0; }
+.plc-fig.is-wide { grid-column: 1 / -1; }
+.plc-fig.is-text b { font-family: inherit; font-size: 13px; white-space: normal; }
+.plc-light { color: var(--vw-color-gray-500); font-weight: 400; font-size: 12.5px; }
+.plc-sub { font-size: 12px; color: var(--vw-color-gray-500); margin-top: -4px; }
+.plc-d { margin: -2px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--vw-color-gray-600); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; min-height: 54px; }
+.plc-figs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; padding: 10px 0 2px; border-top: 1px solid var(--vw-color-slate-100); }
+.plc-figs.is-3 { grid-template-columns: repeat(3, 1fr); }
+.plc-fig { display: flex; flex-direction: column; min-width: 0; }
+.plc-fig small { font-size: 11.5px; color: var(--vw-color-gray-500); }
+.plc-fig b { font-family: var(--num); font-weight: 500; font-size: 14px; color: var(--vw-color-gray-800); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.plc-fig.is-bad b { color: var(--vw-color-red-600); } .plc-fig.is-warn b { color: var(--vw-color-amber-700); }
+.plc-ready { display: flex; align-items: center; gap: 10px; } .plc-ready small { font-size: 11.5px; color: var(--vw-color-gray-500); } .plc-ready > :last-child { flex: 1; }
+.plc-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.plc-chips span { font-size: 11px; padding: 2px 8px; border-radius: 9px; background: var(--vw-color-slate-100); color: var(--vw-color-gray-700); }
+.plc-foot { margin-top: auto; display: flex; align-items: center; gap: 12px; padding-top: 8px; border-top: 1px solid var(--vw-color-slate-100); font-size: 12px; color: var(--vw-color-gray-500); min-width: 0; }
+.plc-foot > span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.plc-foot .plc-appr { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; display: block; }
+.plc-foot .plc-appr svg { vertical-align: -2px; margin-right: 5px; }
+.plc-menu { margin-left: auto; }
+.plc-menu .nst-btn, .plc-menu button { height: 28px; }

@@ -691,7 +691,8 @@ screens are rebuilt in our kit (PageHead, StatGrid, ListToolbar, DataTable, NST 
   **Data refresh**: `planner/compat/query.ts` re-runs every mounted query on any planner or Delivery change; `mock/server.ts` re-reads Delivery,
   Change management and Capacity on planner writes. Demo seed on our estate: PLN-0007's 12 edge sites come from the estate's planned /
   in-progress edge locations (plan region first); approved demo baselines are re-frozen from their parameters as placed (`mock/p2b/index.ts`).
-  Not ported: AI assist. Typecheck with `npx tsc --noEmit -p tsconfig.app.json` (not `-p .`). Checks: `node .qa/p2b-pack.mjs <persona> <geo>`
+  Not ported: AI assist. Card view (19-Oct-2026, user): Plans and every Templates view (plan types, site types, modules) have a list ⇄ tiles
+  switch (ListToolbar `layout`, remembered per list `dco.pn.layout.plans|templates`); cards in `screens/planning/cards.tsx` (`plc-` classes), 4 per row at 1440, 3 at 1280. Typecheck with `npx tsc --noEmit -p tsconfig.app.json` (not `-p .`). Checks: `node .qa/p2b-pack.mjs <persona> <geo>`
   (every plan × pack section, CSVs, record links), `node .qa/p2b-families.mjs <persona> <geo> [ids]` (family wizard steps and plan-page tabs);
   the scripts honour `PW_CHROME` (or point `PLAYWRIGHT_BROWSERS_PATH` at a folder aliasing the cached browser build).
 - **Planner round 2 (14-Oct-2026, branch planner-gaps)**: the best of DCOS and ours, visuals first. Hub + library (`Planner.tsx`, `Plans.tsx`,
@@ -788,3 +789,10 @@ screens are rebuilt in our kit (PageHead, StatGrid, ListToolbar, DataTable, NST 
   policy's commit label; withdraw and revision always go through the review dialog), `usePending` keeps unsaved edits per plan across tabs.
   Styles `planning-equipment.css` (`peq-`). Check: `W=1280|1440 node .qa/p2b-plan-edit-eq.mjs <persona> <geo>`. Planner CSS is global: never
   reuse a class name another planner stylesheet already styles (`.pn-params` / `.pn-figs` clashes broke the wizard twice).
+
+## Platform menu proposal (19-Oct-2026, user: "place the Datacenter menus in the platform launcher's sections")
+`docs/dco-platform-menu.html` (served at `/platform-menu.html`; copy to `app/public/` after editing): the platform launcher's 8 sections with
+each Datacenter screen as its own card (Plan to Build: Planner, Capacity, IP & Network, DCIM, Programmes & Projects, Work Orders · Ops Toolkit:
+Command Center, Datacenters, Facilities, AI & GPU, Alerts, Compliance · ITSM: Incidents, Change Management · BSS: Revenue Impact · Intelligence
+Hub: Data Model · Platform Engineering: Customization), embed URLs with `?shell=false`, overlaps with platform cards flagged; the old
+"Data Center" and "Datacenter Ops" cards are shown as replaced. Our own left menu is unchanged.

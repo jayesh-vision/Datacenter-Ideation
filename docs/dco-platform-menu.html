@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Datacenter Platform Menu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<style>
+  /* Where each Datacenter screen goes in the platform launcher (user, 19-Oct-2026: "place the Datacenter menus in the
+     respective sections, like Planner, IP & Network, Programmes & projects in Plan to Build"). Edit here, then copy to
+     app/public/platform-menu.html. */
+  :root {
+    --bg: #f8fafc; --card: #fff; --line: #e2e8f0; --ink: #0f172a; --ink2: #475569; --ink3: #94a3b8;
+    --brand: #2563eb; --brand-50: #eff6ff; --brand-200: #bfdbfe;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 Poppins, system-ui, sans-serif; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 20px 60px; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 6px; }
+  .lead { color: var(--ink2); margin: 0 0 18px; max-width: 860px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 18px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; background: #fff; padding: 3px; }
+  .seg button { all: unset; cursor: pointer; padding: 6px 12px; border-radius: 7px; font-size: 13px; color: var(--ink2); }
+  .seg button.on { background: var(--brand-50); color: var(--brand); font-weight: 500; }
+  .key { display: inline-flex; gap: 14px; font-size: 12.5px; color: var(--ink2); margin-left: auto; flex-wrap: wrap; }
+  .key span { display: inline-flex; align-items: center; gap: 6px; }
+  .sw { width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--line); background: #fff; }
+  .sw.dc { border: 1.5px solid var(--brand); background: var(--brand-50); }
+  .sw.gone { background: repeating-linear-gradient(135deg, #fff 0 3px, #e2e8f0 3px 5px); }
+
+  .sec { border: 1px solid var(--line); border-radius: 12px; background: #fff; margin-bottom: 16px; overflow: hidden; }
+  .sec-h { display: flex; align-items: center; gap: 10px; padding: 11px 14px; font-weight: 600; font-size: 13px; letter-spacing: .06em;
+           text-transform: uppercase; border-left: 4px solid var(--c); background: var(--cb); }
+  .sec-h em { font-style: normal; font-weight: 500; letter-spacing: 0; text-transform: none; font-size: 12px; color: var(--ink2); margin-left: auto; }
+  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 10px; }
+  .card { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border: 1px solid var(--line); border-radius: 10px;
+          color: inherit; text-decoration: none; min-height: 74px; position: relative; }
+  .card .ic { flex: 0 0 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--cb); color: var(--c); }
+  .card .ic svg { width: 18px; height: 18px; }
+  .card b { display: block; font-weight: 500; font-size: 14px; }
+  .card p { margin: 2px 0 0; font-size: 11.5px; color: var(--ink2); line-height: 1.4; }
+  .card.pf { opacity: .55; }
+  .card.pf.gone { opacity: .6; background: repeating-linear-gradient(135deg, #fff 0 6px, #f1f5f9 6px 10px); }
+  .card.pf.gone b { text-decoration: line-through; }
+  .card.dc { border: 1.5px solid var(--brand-200); background: linear-gradient(#fff, #fbfdff); }
+  .card.dc:hover { border-color: var(--brand); box-shadow: 0 4px 14px rgba(37, 99, 235, .12); }
+  .tag { display: inline-block; margin-top: 6px; font-size: 10px; font-weight: 500; padding: 1px 7px; border-radius: 8px;
+         background: var(--brand-50); color: var(--brand); }
+  .tag.ov { background: #fffbeb; color: #b45309; }
+  body.only .card.pf, body.only .sec.empty { display: none; }
+
+  h2 { font-size: 16px; font-weight: 600; margin: 34px 0 10px; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; font-size: 13px; }
+  th { text-align: left; font-weight: 400; color: var(--ink2); background: #f8fafc; padding: 9px 10px; border-bottom: 1px solid var(--line); }
+  td { padding: 9px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+  td code { font-size: 12px; background: #f1f5f9; padding: 1px 5px; border-radius: 4px; word-break: break-all; }
+  td button { all: unset; cursor: pointer; color: var(--brand); font-size: 12px; margin-left: 6px; }
+  .note { margin-top: 14px; padding: 12px 14px; border-radius: 10px; background: #fffbeb; border: 1px solid #fde68a; color: #78350f; font-size: 13px; }
+  .note ul { margin: 6px 0 0; padding-left: 18px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } .tblwrap { overflow-x: auto; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Datacenter screens in the platform menu</h1>
+  <p class="lead">Today the whole Datacenter solution is one <b>Data Center</b> card in Plan to Build (plus <b>Datacenter Ops</b> in Ops Toolkit).
+    Below, each Datacenter screen becomes its own card in the section where it belongs. Blue cards are the Datacenter screens
+    (click one to open it as the platform would, without our header and menu); grey cards are the platform's existing ones.</p>
+
+  <div class="bar">
+    <div class="seg"><button class="on" data-v="all">Whole menu</button><button data-v="only">Datacenter cards only</button></div>
+    <div class="key">
+      <span><i class="sw dc"></i>Datacenter screen (new card)</span>
+      <span><i class="sw"></i>Existing platform card</span>
+      <span><i class="sw gone"></i>Replaced by the Datacenter cards</span>
+      <span><b class="tag ov" style="margin:0">overlaps</b>Same name as a platform card</span>
+    </div>
+  </div>
+
+  <div id="menu"></div>
+
+  <h2>Card list for the platform team</h2>
+  <div class="tblwrap"><table id="tbl"><thead><tr><th>Section</th><th>Card title</th><th>Description</th><th>Embed URL</th></tr></thead><tbody></tbody></table></div>
+
+  <div class="note"><b>To decide with the platform team</b>
+    <ul>
+      <li><b>Incidents, Change Management, Alerts, IP & Network, DCIM</b> have a platform card with a similar name. The proposal keeps both,
+        with "DC" in our title; the alternative is that the platform card opens the datacenter view when the user is in a datacenter context.</li>
+      <li><b>Revenue impact</b> sits in Operate to Acquire (BSS) because it is customers, SLAs and credits; it could also go to Ops Toolkit beside Fin Ops.</li>
+      <li><b>Work orders</b> sits in Plan to Build (build and maintenance work); Supply Chain → Field Force Management is the other candidate.</li>
+      <li>The two old cards (<b>Data Center</b>, <b>Datacenter Ops</b>) are removed once the new cards are live.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+const BASE = 'https://datacenter-ideation.vercel.app';
+const SECTIONS = [
+  { id: 'hub', name: 'Intelligence Hub', c: '#6366f1', cb: '#eef2ff', pf: [['Sentinel', 'AI-based incident investigation & remediation', 'bot'], ['Semantic Ontology', 'Domain classes, properties, life cycle, relationships & configs', 'database'], ['Sherlock', 'Auto root cause analysis and corrective procedure execution', 'scan-search']],
+    dc: [['DC Data Model', 'Datacenter ontology: sites, racks, devices, power, cabling and services and how they link', '/data-model', 'waypoints']] },
+  { id: 'p2b', name: 'Plan to Build', c: '#7c3aed', cb: '#f5f3ff', pf: [['Inventory Planning', 'Templates for active & passive elements & equipment', 'clipboard-list'], ['Inventory', 'Physical and logical info with life cycle management', 'monitor'], ['IP Management', 'Schema & templates for VLAN, VRF & network resources', 'network'], ['Data Center', 'Plan, Deliver & Operate. A unified operating system…', 'database', 1]],
+    dc: [['DC Planner', 'Plan halls, racks, plant, refreshes and migrations with cost, schedule and approvals', '/planning', 'drafting-compass'],
+         ['DC Capacity', 'Space, power, cooling and GPU headroom, reservations, PUE and energy', '/capacity', 'gauge'],
+         ['DC IP & Network', 'Datacenter prefixes, VRFs, VLANs, ASNs and address exhaustion forecast', '/ipam', 'network', 'IP Management'],
+         ['DCIM', 'Floors, halls, racks, devices, cabling and power records under change control', '/dcim', 'server', 'Inventory'],
+         ['Programmes & Projects', 'Programmes, projects, purchase orders, L1–L5 commissioning and handover', '/delivery', 'folder-kanban'],
+         ['DC Work Orders', 'Build and maintenance field work, process tasks and sign-off', '/workorders', 'clipboard-check']] },
+  { id: 'sc', name: 'Supply Chain', c: '#10b981', cb: '#ecfdf5', pf: [['Materials', 'Master info with BOM for material planning', 'package'], ['Vendors', 'Onboarding, RFx, assignments, contracts, ratings', 'users'], ['Contracts', 'Life cycle management & supplier engagement', 'file-text'], ['Procurement', 'PR / PO, acceptance, invoice & payment', 'hand-coins'], ['Warehouses', 'Inbound receipts, stock movements & dispatches', 'warehouse'], ['Field Force Management', 'Workforce, jobs and executing tasks', 'hard-hat'], ['Logistics', 'Plan & track shipments to delivery', 'truck']], dc: [] },
+  { id: 'bss', name: 'Operate to Acquire (BSS)', c: '#ec4899', cb: '#fdf2f8', pf: [['CRM', 'Customer interactions, leads and engagement', 'contact'], ['Plans & Products Catalog', 'Plans, features and services as offers', 'book-open'], ['Orders', 'Enterprise customer orders through their lifecycle', 'shopping-cart'], ['Customers', 'Provisioning, subscriptions, usage & payment', 'users'], ['Experience and Care', 'Customer information & issue management', 'heart-handshake'], ['Case Management', 'Customer complaints with structured resolution', 'gavel']],
+    dc: [['DC Revenue Impact', 'Revenue at risk and SLA credits that each open datacenter issue is costing', '/revenue', 'coins']] },
+  { id: 'itsm', name: 'Services & ITSM Catalogue', c: '#14b8a6', cb: '#f0fdfa', pf: [['Change Management', 'Changes via structured & controlled process', 'git-pull-request'], ['Incidents', 'End-to-end life cycle of network incidents', 'siren'], ['Maintenance', 'Manage, track & resolve operational performance', 'wrench'], ['Knowledge Center', 'Knowledge assets with access controls', 'graduation-cap'], ['Tickets', 'Trouble ticket lifecycle with automation', 'ticket']],
+    dc: [['DC Incidents', 'Datacenter incidents with impact, root cause, on-call and problems', '/incidents', 'siren', 'Incidents'],
+         ['DC Change Management', 'Datacenter changes, approvals, freezes, calendar and maintenance windows', '/changes', 'arrow-left-right', 'Change Management']] },
+  { id: 'pe', name: 'Platform Engineering', c: '#64748b', cb: '#f1f5f9', pf: [['Ingesters', 'Big data scale intake of raw data', 'download'], ['Transformers', 'Big data transformations and persistence', 'shuffle'], ['Integration Connectors', 'Secure and scalable integrations', 'plug'], ['Platform config', 'Administrative features across modules', 'settings'], ['Builders & Modellers', 'No-code builder interfaces', 'blocks']],
+    dc: [['DC Customization', 'Custom fields and tags for datacenter records', '/customization', 'sliders-horizontal']] },
+  { id: 'ops', name: 'Ops Toolkit', c: '#ef4444', cb: '#fef2f2', pf: [['Fin Ops', 'Cluster utilization & congestion stats', 'piggy-bank'], ['Explainability', 'Traceable, verifiable actions', 'shield'], ['Proc Bots', 'SoP / MoP scripts execution', 'scroll'], ['Security Ops', 'Detect threats, automate response', 'shield-alert'], ['Agent Ops', 'Telemetry for ML models and agents', 'bot'], ['Infra Ops', 'Workload, network, security & storage', 'boxes'], ['System Alerts', 'Notifications for important events', 'alert-square'], ['Datacenter Ops', 'Monitor, Manage & Optimize…', 'database', 1], ['Service Ops', 'Logs, traces, alerts and APM', 'activity'], ['Telemetry Ops', 'Telemetry dashboards', 'line-chart'], ['Data Ops', 'Monitoring of ingest & transform', 'database']],
+    dc: [['DC Command Center', 'Live health of every datacenter: incidents, who is affected, recommendations', '/', 'layout-dashboard'],
+         ['Datacenters', 'Every site: 3D layout, facility, infrastructure and business impact', '/datacenters', 'building-2'],
+         ['DC Facilities', 'Power path, UPS and DG ride-through, cooling, environment, single points of failure', '/facilities', 'zap'],
+         ['AI & GPU', 'GPU clusters, jobs, DCGM telemetry and GPU time lost', '/gpu', 'cpu'],
+         ['DC Alerts', 'Datacenter alarms in scope: site, edge links and dependencies', '/alerts', 'bell-ring', 'System Alerts'],
+         ['DC Compliance', 'Policy checks and ISO 27001 / 22237, TIA-942, SOC 2 controls on the estate', '/compliance', 'shield-check']] },
+  { id: 'ai', name: 'AI Foundry', c: '#d946ef', cb: '#fdf4ff', pf: [['Agent Studio', 'Generative AI operational management', 'layout-grid'], ['ML Studio', 'Feature engineering, ML models', 'flask-conical'], ['Omnis', 'Researcher & reporter for long tasks', 'zap'], ['Intelligence Orchestrator', 'Multi-agent orchestration flows', 'workflow'], ['Prompt Analyzer', 'Testing & release of prompts', 'file-search'], ['Anomaly Detector', 'Anomalous behaviour with alerts', 'radar'], ['Forecaster', 'Time series forecasting', 'trending-up'], ['Vision AI', 'Computer vision components', 'eye']], dc: [] },
+];
+const url = p => `${BASE}${p}${p.includes('?') ? '&' : '?'}shell=false`;
+const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+document.getElementById('menu').innerHTML = SECTIONS.map(s => `
+  <section class="sec${s.dc.length ? '' : ' empty'}" style="--c:${s.c};--cb:${s.cb}">
+    <div class="sec-h">${esc(s.name)}<em>${s.dc.length ? `${s.dc.length} Datacenter card${s.dc.length > 1 ? 's' : ''}` : 'no Datacenter card'}</em></div>
+    <div class="grid">
+      ${s.dc.map(([t, d, p, ic, ov]) => `<a class="card dc" href="${url(p)}" target="_blank" rel="noopener"><span class="ic"><i data-lucide="${ic}"></i></span><span><b>${esc(t)}</b><p>${esc(d)}</p><span class="tag${ov ? ' ov' : ''}">${ov ? 'overlaps ' + esc(ov) : 'Datacenter'}</span></span></a>`).join('')}
+      ${s.pf.map(([t, d, ic, gone]) => `<div class="card pf${gone ? ' gone' : ''}"><span class="ic"><i data-lucide="${ic}"></i></span><span><b>${esc(t)}</b><p>${esc(d)}</p></span></div>`).join('')}
+    </div>
+  </section>`).join('');
+document.querySelector('#tbl tbody').innerHTML = SECTIONS.flatMap(s => s.dc.map(([t, d, p]) =>
+  `<tr><td>${esc(s.name)}</td><td>${esc(t)}</td><td>${esc(d)}</td><td><code>${url(p)}</code><button data-u="${url(p)}">Copy</button></td></tr>`)).join('');
+document.querySelector('#tbl').addEventListener('click', e => { const u = e.target.dataset?.u; if (u) { navigator.clipboard?.writeText(u); e.target.textContent = 'Copied'; setTimeout(() => (e.target.textContent = 'Copy'), 1200); } });
+document.querySelectorAll('.seg button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.seg button').forEach(x => x.classList.toggle('on', x === b));
+  document.body.classList.toggle('only', b.dataset.v === 'only');
+});
+window.lucide?.createIcons();
+</script>
+</body>
+</html>

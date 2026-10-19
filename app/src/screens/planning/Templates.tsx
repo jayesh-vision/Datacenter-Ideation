@@ -19,6 +19,7 @@ import { CLIMATE_LABEL, COOLING_LABEL, RULE_PLAIN } from '../../planner/lib/labe
 import { DC_TYPE_CATALOG, type DcTypeProfile } from '../../planner/p2b/dcTypes';
 import type * as T from '../../planner/p2b/types';
 import { Sub } from './parts';
+import { CardGrid, ModuleCard, PlanTypeCard, SiteTypeCard, useListLayout } from './cards';
 import { ASPECT_LABEL, NumInput, PlanStatusChip, SCOPE_LABEL, SelectInput, TemplateStatusChip, TextInput, date, kw, money, num } from './common';
 import { StackBar, Tip } from './charts/library';
 import { SERIES } from './charts/chartKit';
@@ -67,6 +68,7 @@ export function TemplatesTab() {
   const view = (sp.get('view') as View) || 'plans';
   const q = sp.get('q') ?? '', status = sp.get('status') ?? '';
   const openId = sp.get('template');
+  const [layout, setLayout] = useListLayout('templates');
   /* the drawer lives in the URL: opening pushes a history entry (back closes it), closing pops it when we pushed it */
   const openTpl = (id: string) => { const n = new URLSearchParams(sp); n.set('template', id); setSp(n, { state: { tplOpen: true } }); };
   const closeTpl = () => { if ((loc.state as { tplOpen?: boolean } | null)?.tplOpen) nav(-1); else { const n = new URLSearchParams(sp); n.delete('template'); setSp(n, { replace: true }); } };
@@ -113,15 +115,21 @@ export function TemplatesTab() {
 
   const intro = INTRO[view];
   const shownCount = view === 'sites' ? shownSites.length : shownTpl.length;
-  const toolbar = <ListToolbar shown={shownCount} total={totals[view]} noun={intro.noun} onApply={apply} search={{ value: q, onChange: v => apply({ q: v }), placeholder: view === 'sites' ? 'Name, segment, cooling' : 'Name, description, label' }}
+  const toolbar = <ListToolbar layout={{ value: layout, onChange: setLayout }} shown={shownCount} total={totals[view]} noun={intro.noun} onApply={apply} search={{ value: q, onChange: v => apply({ q: v }), placeholder: view === 'sites' ? 'Name, segment, cooling' : 'Name, description, label' }}
     filters={[{ id: 'status', label: 'Status', quick: true, value: status, anyLabel: 'Any status', onChange: v => apply({ status: v }), options: (['published', 'draft', 'deprecated'] as const).filter(s => s === status || statuses.includes(s)).map(s => ({ id: s, label: STATUS_LABEL[s], count: statuses.filter(x => x === s).length })) }]} />;
   const empty = <Empty icon={intro.icon} title={`No ${intro.noun} match`} action={(q || status) ? <Btn onClick={() => apply({ q: '', status: '' })}>Clear filters</Btn> : undefined}>Clear the search or the status filter to see every one.</Empty>;
   const open = openId ? byId.get(openId) : undefined;
   return (
     <div className="pn-lib">
-      <Panel flush title={intro.title} sub={intro.sub} icon={intro.icon} count={totals[view]} info="Templates make the planner consistent: a plan type fixes the questions, rules and approvers; a site type sets typical sizes and the benchmarks that apply; modules are the reusable parts plan types are built from."
+      <Panel flush className="pl-tpl" title={intro.title} sub={intro.sub} icon={intro.icon} count={totals[view]} info="Templates make the planner consistent: a plan type fixes the questions, rules and approvers; a site type sets typical sizes and the benchmarks that apply; modules are the reusable parts plan types are built from."
         actions={<Seg<View> size="sm" value={view} onChange={v => apply({ view: v === 'plans' ? '' : v, status: '', q: '' })} options={[{ id: 'plans', label: `Plan types · ${totals.plans}` }, { id: 'sites', label: `Site types · ${totals.sites}` }, { id: 'modules', label: `Modules & rules · ${totals.modules}` }]} />}>
-        {view === 'sites'
+        {layout === 'tiles'
+          ? <CardGrid toolbar={toolbar} empty={empty}>{view === 'sites'
+            ? shownSites.map(p => <SiteTypeCard key={p.id} p={p} uses={p.uses} status={p.profile?.status} range={range} onOpen={p.profile ? () => openTpl(p.profile!.id) : undefined} />)
+            : view === 'plans'
+              ? shownTpl.map(t => <PlanTypeCard key={t.id} t={t} uses={t.uses} variantOf={t.inheritsFrom ? byId.get(t.inheritsFrom)?.name ?? 'a standard' : undefined} aspects={a => ASPECT_LABEL[a]} onOpen={() => openTpl(t.id)} />)
+              : [...shownTpl].sort((a, b) => KIND_LABEL[a.kind].localeCompare(KIND_LABEL[b.kind])).map(t => <ModuleCard key={t.id} t={t} kind={KIND_LABEL[t.kind]} onOpen={() => openTpl(t.id)} />)}</CardGrid>
+          : view === 'sites'
           ? <DataTable<SiteRow> rows={shownSites} cols={siteCols} pageSize={25} onRow={p => { if (p.profile) openTpl(p.profile.id); }} toolbar={toolbar} empty={empty} />
           : <DataTable<TplRow> rows={shownTpl} cols={view === 'plans' ? planCols : modCols} pageSize={25} defaultSort={view === 'modules' ? { key: 'kind', dir: 'asc' } : undefined} onRow={t => openTpl(t.id)} toolbar={toolbar} empty={empty} />}
       </Panel>
