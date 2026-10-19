@@ -164,6 +164,45 @@ th { font-weight: 500; color: var(--ink-500); font-size: 12.5px; background: var
     <p class="small-note" style="margin:8px 0 0">Open any combination: <code>https://datacenter-ideation.vercel.app/?shell=false&amp;persona=&lt;persona&gt;&amp;geo=&lt;geo&gt;</code> — add any screen path from the embed guide in place of <code>/</code>.</p>
   </section>
 
+  <h2>Sub-menus (19-Oct-2026)</h2>
+  <p class="lead">The platform launcher lists these screens with sub-menus. Each sub-menu is a <code>?tab=</code> link below (add <code>shell=false</code>, <code>persona</code>
+    and <code>geo</code> as for any screen). Opened this way the screen draws no tab row of its own; where a sub-menu merges several former tabs they stay as a short tab row.
+    The ids are the screens' existing <code>?tab=</code> values, so every older link still works.</p>
+  <div class="card table"><table><thead><tr><th style="width:22%">Screen</th><th>Sub-menu</th><th>Tabs</th><th style="width:30%">Path</th></tr></thead><tbody>
+        <tr><td rowspan="4"><b>Planner</b><br><span class="mono path">/planning</span></td><td>Insights</td><td>no tab row</td><td><code>/planning</code></td></tr>
+        <tr><td>Plans</td><td>no tab row</td><td><code>/planning?tab=plans</code></td></tr>
+        <tr><td>Templates</td><td>no tab row</td><td><code>/planning?tab=templates</code></td></tr>
+        <tr><td>Benchmarks</td><td>no tab row</td><td><code>/planning?tab=benchmarks</code></td></tr>
+        <tr><td rowspan="6"><b>Capacity</b><br><span class="mono path">/capacity</span></td><td>Insights</td><td>tabs overview · financial shown as a tab row</td><td><code>/capacity</code></td></tr>
+        <tr><td>Power</td><td>tabs power · energy shown as a tab row</td><td><code>/capacity?tab=power</code></td></tr>
+        <tr><td>Space</td><td>no tab row</td><td><code>/capacity?tab=space</code></td></tr>
+        <tr><td>Network</td><td>no tab row</td><td><code>/capacity?tab=network</code></td></tr>
+        <tr><td>Compute</td><td>no tab row</td><td><code>/capacity?tab=compute</code></td></tr>
+        <tr><td>Reservations</td><td>no tab row</td><td><code>/capacity?tab=reservations</code></td></tr>
+        <tr><td rowspan="5"><b>IP &amp; Network</b><br><span class="mono path">/ipam</span></td><td>Insights</td><td>no tab row</td><td><code>/ipam</code></td></tr>
+        <tr><td>IP Space</td><td>tabs prefixes · addresses shown as a tab row</td><td><code>/ipam?tab=prefixes</code></td></tr>
+        <tr><td>Routing</td><td>tabs vrfs · vlans · asns shown as a tab row</td><td><code>/ipam?tab=vrfs</code></td></tr>
+        <tr><td>Gateways</td><td>no tab row</td><td><code>/ipam?tab=services</code></td></tr>
+        <tr><td>Registers</td><td>tabs registers · integrations shown as a tab row</td><td><code>/ipam?tab=registers</code></td></tr>
+        <tr><td rowspan="7"><b>DCIM</b><br><span class="mono path">/dcim</span></td><td>Sites</td><td>tabs sites · hierarchy shown as a tab row</td><td><code>/dcim</code></td></tr>
+        <tr><td>Racks</td><td>tabs racks · floorplan shown as a tab row</td><td><code>/dcim?tab=racks</code></td></tr>
+        <tr><td>Devices</td><td>tabs devices · explorer shown as a tab row</td><td><code>/dcim?tab=devices</code></td></tr>
+        <tr><td>Cabling</td><td>no tab row</td><td><code>/dcim?tab=cabling</code></td></tr>
+        <tr><td>Power</td><td>no tab row</td><td><code>/dcim?tab=power</code></td></tr>
+        <tr><td>Catalogue</td><td>no tab row</td><td><code>/dcim?tab=types</code></td></tr>
+        <tr><td>Changes</td><td>no tab row</td><td><code>/dcim?tab=changes</code></td></tr>
+        <tr><td rowspan="6"><b>Programmes &amp; Projects (Delivery)</b><br><span class="mono path">/delivery</span></td><td>Insights</td><td>tabs overview · todo shown as a tab row</td><td><code>/delivery</code></td></tr>
+        <tr><td>Programs</td><td>no tab row</td><td><code>/delivery?tab=programmes</code></td></tr>
+        <tr><td>Projects</td><td>tabs projects · workorders shown as a tab row</td><td><code>/delivery?tab=projects</code></td></tr>
+        <tr><td>Permits</td><td>no tab row</td><td><code>/delivery?tab=permits</code></td></tr>
+        <tr><td>Design</td><td>no tab row</td><td><code>/delivery?tab=design</code></td></tr>
+        <tr><td>Commissioning (own menu item)</td><td>no tab row</td><td><code>/delivery?tab=commissioning</code></td></tr>
+        <tr><td rowspan="4"><b>Work orders</b><br><span class="mono path">/workorders</span></td><td>My Tasks</td><td>no tab row</td><td><code>/workorders</code></td></tr>
+        <tr><td>Work Orders</td><td>no tab row</td><td><code>/workorders?tab=running</code></td></tr>
+        <tr><td>Processes</td><td>no tab row</td><td><code>/workorders?tab=processes</code></td></tr>
+        <tr><td>Insights</td><td>no tab row</td><td><code>/workorders?tab=kpis</code></td></tr>
+  </tbody></table></div>
+
   <h2>All screens</h2>
   <div class="card table"><table id="routes"><thead><tr><th style="width:30%">Screen</th><th>Parameters</th><th style="width:34%">URL</th></tr></thead><tbody></tbody></table></div>
 

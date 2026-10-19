@@ -7,7 +7,8 @@ import * as I from 'lucide-react';
 import { carvePrefix, getDcim, getIpam, reserveIp, useQuery } from '../../api';
 import type { IpAddr, IpamView, IpAsn, IpFinding, IpPrefix, IpVlan, IpVrf, PrefixRole } from '../../api/types';
 import { usePage, PageHead, Loading } from '../../shell/page';
-import { Btn, Chip, Drawer, Field, KV, Modal, Panel, Seg, Tabs } from '../../ui/kit';
+import { SubTabs, subCrumb } from '../../shell/submenus';
+import { Btn, Chip, Drawer, Field, KV, Modal, Panel, Seg } from '../../ui/kit';
 import { DataTable, type Col } from '../../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
 import { Facts, SoftMeter, Split, StatGrid, StatTile } from '../../ui/Analytics';
@@ -39,7 +40,7 @@ export function Ipam() {
   const tab = (get('tab') as Tab) || 'overview';
   const dcId = get('dc');
   const go = (patch: Record<string, string>) => { const n = new URLSearchParams(sp); Object.entries(patch).forEach(([k, v]) => (v ? n.set(k, v) : n.delete(k))); setSp(n, { replace: true }); };
-  usePage([{ label: 'Plan & Build' }, { label: 'IP & Network', to: '/ipam' }, ...(dcId ? [{ label: dcId }] : [])], dcId ? { dcId } : {});
+  usePage([{ label: 'Plan & Build' }, { label: 'IP & Network', to: '/ipam' }, ...subCrumb('ipam', tab), ...(dcId ? [{ label: dcId }] : [])], dcId ? { dcId } : {});
   const { data: sites } = useQuery(() => getDcim(), []);
   const { data: m } = useQuery(() => getIpam({ dcId: dcId || undefined }), [dcId]);
   const [prefix, setPrefix] = useState<string | null>(null);
@@ -90,7 +91,7 @@ export function Ipam() {
           <Facts items={[{ n: fmtNum(bgp - bgpUp), label: `of ${fmtNum(bgp)} sessions down`, tone: bgpUp < bgp ? 'warn' : undefined }, { n: m.asns.length, label: 'ASNs' }, { n: m.fhrp.length, label: 'gateways (VRRP / HSRP)' }]} />
         </StatTile>
       </StatGrid>
-      <Tabs value={tab} onChange={v => setTab(v)} tabs={TABS.map(t => ({ ...t, count: t.id === 'prefixes' ? leaf.length : t.id === 'vlans' ? m.vlans.length : undefined }))} />
+      <SubTabs screen="ipam" value={tab} onChange={v => setTab(v)} tabs={TABS.map(t => ({ ...t, count: t.id === 'prefixes' ? leaf.length : t.id === 'vlans' ? m.vlans.length : undefined }))} />
       {tab === 'overview' && <Overview m={m} onPrefix={setPrefix} crud={crud} />}
       {tab === 'prefixes' && <Prefixes m={m} onPrefix={setPrefix} onNew={() => setNewPfx(true)} crud={crud} />}
       {tab === 'addresses' && <Addresses m={m} onAddress={setAddr} crud={crud} />}

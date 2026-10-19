@@ -7,7 +7,8 @@ import * as I from 'lucide-react';
 import { clockNow, getDcim, getWfKpis, getWorkflow, useQuery } from '../../api';
 import type { WfInstance, WfProcess, WfTask } from '../../api/types';
 import { usePage, PageHead, Loading } from '../../shell/page';
-import { Chip, Drawer, Panel, Tabs } from '../../ui/kit';
+import { SubTabs, subCrumb } from '../../shell/submenus';
+import { Chip, Drawer, Panel } from '../../ui/kit';
 import { DataTable, type Col } from '../../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
 import { BarList } from '../../charts/BarList';
@@ -26,14 +27,14 @@ export function WorkOrders() {
   const [sp, setSp] = useSearchParams();
   const tab = (sp.get('tab') as Tab) || 'tasks';
   const setTab = (t: Tab) => { const n = new URLSearchParams(); if (t !== 'tasks') n.set('tab', t); setSp(n, { replace: true }); };
-  usePage([{ label: 'Plan & Build' }, { label: 'Work orders', to: '/workorders' }]);
+  usePage([{ label: 'Plan & Build' }, { label: 'Work orders', to: '/workorders' }, ...subCrumb('workorders', tab)]);
   const { data } = useQuery(getWorkflow, []);
   if (!data) return <Loading />;
   const mine = data.tasks.filter(t => t.assignee === data.me), lanes = data.tasks.filter(t => t.candidates.includes(data.me));
   return (
     <div className="page dcim planner">
       <PageHead title="Work orders" sub="Field work and the processes behind it: what waits on you, every running process, the twelve process definitions and how fast they flow" />
-      <Tabs value={tab} onChange={setTab} tabs={[{ id: 'tasks', label: 'My tasks', count: lanes.length }, { id: 'running', label: 'Work orders', count: data.instances.filter(i => i.state !== 'Completed').length }, { id: 'processes', label: 'Processes', count: data.processes.length }, { id: 'kpis', label: 'Process KPIs' }]} />
+      <SubTabs screen="workorders" value={tab} onChange={setTab} tabs={[{ id: 'tasks', label: 'My tasks', count: lanes.length }, { id: 'running', label: 'Work orders', count: data.instances.filter(i => i.state !== 'Completed').length }, { id: 'processes', label: 'Processes', count: data.processes.length }, { id: 'kpis', label: 'Process KPIs' }]} />
       {tab === 'tasks' && <Inbox tasks={data.tasks} me={data.me} mineN={mine.length} instances={data.instances} processes={data.processes} />}
       {tab === 'running' && <Running instances={data.instances} processes={data.processes} tasks={data.tasks} />}
       {tab === 'processes' && <Catalogue processes={data.processes} instances={data.instances} />}

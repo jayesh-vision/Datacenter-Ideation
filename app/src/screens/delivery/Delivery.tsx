@@ -9,7 +9,8 @@ import { NewProgrammeModal, NewProjectWizard, PROG_ICON, RAG_LABEL, RAG_TONE } f
 import '../../styles/delivery.css';
 import type { DeliveryProject, WorkOrder } from '../../api/types';
 import { usePage, PageHead, Loading } from '../../shell/page';
-import { Btn, Chip, Panel, Tabs } from '../../ui/kit';
+import { SubTabs, subCrumb } from '../../shell/submenus';
+import { Btn, Chip, Panel } from '../../ui/kit';
 import { DataTable, type Col } from '../../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
 import { Facts, SoftMeter, Split, StatGrid, StatTile } from '../../ui/Analytics';
@@ -36,7 +37,7 @@ export function Delivery() {
   const q = sp.get('q') ?? '', f1 = sp.get('f1') ?? '', f2 = sp.get('f2') ?? '';
   const set = (patch: Record<string, string>) => { const n = new URLSearchParams(sp); Object.entries(patch).forEach(([k, v]) => (v ? n.set(k, v) : n.delete(k))); setSp(n, { replace: true }); };
   const setTab = (t: Tab) => set({ tab: t === 'overview' ? '' : t, q: '', f1: '', f2: '' });
-  usePage([{ label: 'Plan & Build' }, { label: 'Delivery', to: '/delivery' }]);
+  usePage([{ label: 'Plan & Build' }, { label: 'Delivery', to: '/delivery' }, ...(tab === 'commissioning' ? [{ label: 'Commissioning' }] : subCrumb('delivery', tab))]);
   const { data: d } = useQuery(getDelivery, []);
   const { data: queue } = useQuery(getPlannerQueue, []);
   const toast = useToast();
@@ -102,7 +103,7 @@ export function Delivery() {
           <Facts items={[{ n: d.tests.filter(t => t.state === 'Scheduled').length, label: 'scheduled in 30 days' }]} />
         </StatTile>
       </StatGrid>}
-      <Tabs value={tab} onChange={setTab} tabs={[{ id: 'overview', label: 'Overview' }, { id: 'programmes', label: 'Programmes', count: progs.length }, { id: 'projects', label: 'Projects', count: ps.length }, { id: 'workorders', label: 'Work orders', count: openWo.length }, { id: 'commissioning', label: 'Commissioning' }, { id: 'permits', label: 'Permits', count: d.permits.filter(p => p.state !== 'Granted').length }, { id: 'design', label: 'Design' }, { id: 'todo', label: 'To do' }]} />
+      <SubTabs screen="delivery" value={tab} onChange={setTab} tabs={[{ id: 'overview', label: 'Overview' }, { id: 'programmes', label: 'Programmes', count: progs.length }, { id: 'projects', label: 'Projects', count: ps.length }, { id: 'workorders', label: 'Work orders', count: openWo.length }, { id: 'commissioning', label: 'Commissioning' }, { id: 'permits', label: 'Permits', count: d.permits.filter(p => p.state !== 'Granted').length }, { id: 'design', label: 'Design' }, { id: 'todo', label: 'To do' }]} />
 
       {tab === 'overview' && <DeliveryOverview />}
       {tab === 'programmes' && <div className="dl-progs">{progs.map(g => { const Ic = PROG_ICON[g.programme.type]; const slip = Math.round((g.forecastFinish - g.baselineFinish) / 864e5); return (

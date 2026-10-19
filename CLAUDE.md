@@ -797,6 +797,18 @@ Command Center, Datacenters, Facilities, AI & GPU, Alerts, Compliance · ITSM: I
 Hub: Data Model · Platform Engineering: Customization), embed URLs with `?shell=false`, overlaps with platform cards flagged; the old
 "Data Center" and "Datacenter Ops" cards are shown as replaced. Our own left menu is unchanged.
 
+## Sub-menus (19-Oct-2026, user: "create sub-menus inside Planner like the tabs on the screen … remove the tabs, keep the ones not in a sub-menu")
+`shell/submenus.tsx` is the one table: per screen (planning, capacity, ipam, dcim, delivery, workorders) its sub-menus, each covering `?tab=`
+ids (merged tabs, e.g. Capacity Power = power + energy, DCIM Racks = racks + floorplan, Delivery Projects = projects + workorders, Insights =
+overview + todo) and a one-line `desc`. The left menu (`shell/Layout.tsx`) renders them as `.rail-sublink`s under the open screen (one lit on the
+screen itself, none on its detail pages); **Commissioning** is its own Plan & Build item bound to `/delivery?tab=commissioning` (`tab` on a NAV
+item). Screens draw their tab row with `<SubTabs screen=…>`: no row when the open sub-menu covers one tab, only that sub-menu's tabs (in its
+order) when it merges several; `subCrumb()` adds the sub-menu to the breadcrumb. `?tab=` ids, defaults, tiles and cross-links are unchanged,
+so every deep link and QA script works; a new tab must be added to a sub-menu (or bound to a menu item) or it has no way in. The platform
+launcher uses the same URLs (`/platform-menu.html` card chips + table rows, embed guide "Sub-menus" table). Platform decisions: Datacenter
+Ops (Ops Toolkit) holds Command Center · Datacenters · Facilities · GPU Fleet (= /gpu) · Compliance as sub-menus; our own menu keeps AI & GPU
+and Compliance where they are.
+
 ## Ship (19-Oct-2026, user: "save tokens")
 `scripts/ship.sh -m "message" [-c "string in the new build"] [paths…]` = production type-check → commit (default: modified tracked
 files + new files under app/src, docs, app/public, scripts; never app/package-lock.json) → push main → Vercel deploy of HEAD from a

@@ -8,7 +8,8 @@ import { getDcim, getDcimCables, getDcimChangeBoard, getDcimDevices, getDcimType
 import { DcimChangesTab } from './Changes';
 import type { DcimSite } from '../../api/types';
 import { usePage, PageHead, Loading } from '../../shell/page';
-import { Btn, Tabs } from '../../ui/kit';
+import { SubTabs, subCrumb } from '../../shell/submenus';
+import { Btn } from '../../ui/kit';
 import { DataTable, type Col } from '../../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
 import { Facts, SoftMeter, Split, StatGrid, StatTile } from '../../ui/Analytics';
@@ -36,7 +37,7 @@ export function Dcim() {
   const dcId = sp.get('dc') ?? '';
   const set = (patch: Record<string, string>) => { const n = new URLSearchParams(sp); Object.entries(patch).forEach(([k, v]) => (v ? n.set(k, v) : n.delete(k))); setSp(n, { replace: true }); };
   const [modal, setModal] = useState<'rack' | 'device' | null>(null);
-  usePage([{ label: 'Plan & Build' }, { label: 'DCIM', to: '/dcim' }, ...(dcId ? [{ label: dcId }] : [])], dcId ? { dcId } : {});
+  usePage([{ label: 'Plan & Build' }, { label: 'DCIM', to: '/dcim' }, ...subCrumb('dcim', tab), ...(dcId ? [{ label: dcId }] : [])], dcId ? { dcId } : {});
   const { data: all } = useQuery(() => getDcim(), []);
   const { data: scoped } = useQuery(() => getDcim({ dcId: dcId || undefined }), [dcId]);
   const { data: devices } = useQuery(() => getDcimDevices({ dcId: dcId || undefined }), [dcId]);
@@ -114,7 +115,7 @@ export function Dcim() {
         </StatTile>
       </StatGrid>
 
-      <Tabs value={tab} onChange={v => go(v)} tabs={TABS.map(t => ({ ...t, count: ({ sites: sites.length, racks: S.racks.length, devices: devices.length, types: typeIds.size, changes: board?.rows.filter(r => r.view !== 'done' && r.view !== 'closed').length || undefined } as Partial<Record<DcimTab, number | undefined>>)[t.id] }))} />
+      <SubTabs screen="dcim" value={tab} onChange={v => go(v)} tabs={TABS.map(t => ({ ...t, count: ({ sites: sites.length, racks: S.racks.length, devices: devices.length, types: typeIds.size, changes: board?.rows.filter(r => r.view !== 'done' && r.view !== 'closed').length || undefined } as Partial<Record<DcimTab, number | undefined>>)[t.id] }))} />
 
       {tab === 'sites' && <SitesTab sites={sites} onOpen={id => set({ tab: 'floorplan', dc: id, hall: '' })} />}
       {tab === 'floorplan' && <FloorPlans dcId={dcId || all.sites.find(s => s.status !== 'planned')?.id || all.sites[0].id} onSite={id => set({ dc: id, hall: '' })} />}

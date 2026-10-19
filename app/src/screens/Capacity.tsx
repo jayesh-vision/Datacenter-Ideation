@@ -4,11 +4,12 @@ import * as I from 'lucide-react';
 import { clockNow, defaultDcId, getCapacity, getDatacenter, getDatacenters, getLinks, useQuery } from '../api';
 import type { CapacityPlan, Rack } from '../api/types';
 import { usePage, PageHead, Loading } from '../shell/page';
+import { SubTabs, subCrumb } from '../shell/submenus';
 import { SummaryStrip } from './site/SummaryStrip';
 import { moneyIcon } from '../ui/Money';
 import { DataTable, type Col } from '../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../ui/ListToolbar';
-import { Btn, Chip, Kpi, Modal, Panel, Seg, Tabs, Field, Empty } from '../ui/kit';
+import { Btn, Chip, Kpi, Modal, Panel, Seg, Field, Empty } from '../ui/kit';
 import { DcLink, Meter, NeLink, LinkStateChip, Legend } from '../ui/status';
 import { fmtDate, fmtMoney, fmtKw, fmtMonth, fmtNum, currencySymbol } from '../lib/format';
 import { dateAfterMonths, monthsTo, WARN } from '../lib/forecast';
@@ -42,7 +43,7 @@ export function Capacity() {
   const dc = sp.get('dc') ?? '';
   const set = (k: string, v: string) => { const n = new URLSearchParams(sp); v ? n.set(k, v) : n.delete(k); setSp(n, { replace: true }); };
   const [planOpen, setPlanOpen] = useState(false);
-  usePage([{ label: 'Plan & Build' }, { label: 'Capacity', to: '/capacity' }, ...(dc ? [{ label: dc }] : [])], { dcId: dc || undefined });
+  usePage([{ label: 'Plan & Build' }, { label: 'Capacity', to: '/capacity' }, ...subCrumb('capacity', tab), ...(dc ? [{ label: dc }] : [])], { dcId: dc || undefined });
   const { data: cap } = useQuery(() => getCapacity(dc || undefined), [dc]);
   const { data: dcs } = useQuery(getDatacenters, []);
   if (!cap || !dcs) return <Loading />;
@@ -55,7 +56,7 @@ export function Capacity() {
           <select className="select" value={dc} onChange={e => set('dc', e.target.value)} aria-label="Datacenter"><option value="">All data centers ({live.length})</option>{live.map(d => <option key={d.id} value={d.id}>{d.id} · {d.city}</option>)}</select>
           <Btn variant="filled" icon={I.Zap} onClick={() => setPlanOpen(true)}>Raise capacity plan</Btn>
         </>} />
-      <Tabs tabs={TABS.map(t => (t.id === 'financial' ? { ...t, icon: moneyIcon() } : t))} value={tab} onChange={v => set('tab', v === 'overview' ? '' : v)} />
+      <SubTabs screen="capacity" tabs={TABS.map(t => (t.id === 'financial' ? { ...t, icon: moneyIcon() } : t))} value={tab} onChange={v => set('tab', v === 'overview' ? '' : v)} />
       {tab === 'overview' && <Overview cap={cap} go={t => set('tab', t)} />}
       {tab === 'power' && <PowerTab cap={cap} />}
       {tab === 'space' && <SpaceTab cap={cap} />}

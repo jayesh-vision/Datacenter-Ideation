@@ -4,7 +4,8 @@ import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { usePage, PageHead, Loading } from '../../shell/page';
-import { Btn, Panel, Tabs, Chip } from '../../ui/kit';
+import { SubTabs, subCrumb } from '../../shell/submenus';
+import { Btn, Panel, Chip } from '../../ui/kit';
 import { Facts, SoftMeter, Split, StatGrid, StatTile, type Part } from '../../ui/Analytics';
 import { useBenchmarks, useEstate, usePlanReviews, usePlans, useReviewComments, useTemplates } from '../../planner/lib/usePlanner';
 import { requestState, reviewerState } from '../../planner/lib/reviews';
@@ -45,7 +46,7 @@ export function Planner() {
   const nav = useNavigate();
   const tab = (sp.get('tab') as Tab) || 'overview';
   const setTab = (t: Tab) => { const n = new URLSearchParams(sp); t === 'overview' ? n.delete('tab') : n.set('tab', t); setSp(n, { replace: true }); };
-  usePage([{ label: 'Plan & Build' }, { label: 'Planner', to: '/planning' }, ...(tab !== 'overview' ? [{ label: tab === 'benchmarks' ? 'Benchmarks & rules' : tab[0].toUpperCase() + tab.slice(1) }] : [])]);
+  usePage([{ label: 'Plan & Build' }, { label: 'Planner', to: '/planning' }, ...subCrumb('planning', tab)]);
   const { rows, ready } = usePlanRows();
   const templates = useTemplates(), benchmarks = useBenchmarks();
   if (!ready) return <Loading />;
@@ -89,7 +90,7 @@ export function Planner() {
         </StatTile>
       </StatGrid>}
 
-      <Tabs value={tab} onChange={setTab} tabs={[{ id: 'overview', label: 'Overview' }, { id: 'plans', label: 'Plans', count: rows.length }, { id: 'templates', label: 'Templates', count: templates.length }, { id: 'benchmarks', label: 'Benchmarks & rules', count: benchmarks.length }]} />
+      <SubTabs screen="planning" value={tab} onChange={setTab} tabs={[{ id: 'overview', label: 'Overview' }, { id: 'plans', label: 'Plans', count: rows.length }, { id: 'templates', label: 'Templates', count: templates.length }, { id: 'benchmarks', label: 'Benchmarks & rules', count: benchmarks.length }]} />
 
       {tab === 'overview' && <Overview rows={rows} />}
       {tab === 'plans' && <PlansTab rows={rows} />}

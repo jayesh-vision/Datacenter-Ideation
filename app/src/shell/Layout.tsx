@@ -13,9 +13,11 @@ import { PageCtx, type PageMeta } from './page';
 import { Palette } from './Palette';
 import { Sentinel } from './Sentinel';
 import { shellVisible } from './embed';
+import { SUBMENUS, subMenuHref } from './submenus';
 
 type Badge = 'incidents' | 'alerts' | 'changes';
-const NAV: { group: string; items: { to: string; label: string; icon: I.LucideIcon; badge?: Badge; match?: RegExp }[] }[] = [
+/* `tab` binds an item to one `?tab=` of its screen (Commissioning); items whose screen is in SUBMENUS get sub-links (19-Oct-2026) */
+const NAV: { group: string; items: { to: string; label: string; icon: I.LucideIcon; badge?: Badge; match?: RegExp; tab?: string }[] }[] = [
   { group: 'Overview', items: [{ to: '/', label: 'Command center', icon: I.LayoutDashboard }, { to: '/revenue', label: 'Revenue impact', icon: I.Coins }] },
   { group: 'Infrastructure', items: [
     { to: '/datacenters', label: 'Datacenters', icon: I.Building2, match: /^\/(datacenters|ne\/)/ },
@@ -34,6 +36,7 @@ const NAV: { group: string; items: { to: string; label: string; icon: I.LucideIc
     { to: '/ipam', label: 'IP & Network', icon: I.Network },
     { to: '/dcim', label: 'DCIM', icon: I.Server, match: /^\/dcim/ },
     { to: '/delivery', label: 'Delivery', icon: I.FolderKanban, match: /^\/delivery/ },
+    { to: '/delivery', tab: 'commissioning', label: 'Commissioning', icon: I.ClipboardCheck, match: /^\/delivery/ },
     { to: '/workorders', label: 'Work orders', icon: I.ClipboardList, match: /^\/workorders/ }
   ] },
   { group: 'Admin', items: [{ to: '/compliance', label: 'Compliance', icon: I.ShieldCheck }, { to: '/customization', label: 'Customization', icon: I.SlidersHorizontal }] },
@@ -176,6 +179,7 @@ export function Layout() {
   const openSentinel = useCallback((q?: string) => setSentinel({ open: true, q }), []);
   const ctxValue = useMemo(() => ({ set: setMeta, openSentinel }), [openSentinel]);
   const now = clockNow();
+  const curTab = new URLSearchParams(loc.search).get('tab') ?? '';
   const crit = (hot ?? []).filter(a => a.severity === 'critical' || a.severity === 'major').slice(0, 30);
 
   return (
@@ -192,13 +196,25 @@ export function Layout() {
                 <div className="rail-group-label">{g.group}</div>
                 {g.items.filter(showItem).map(it => {
                   const b = it.badge ? badge[it.badge] : null;
-                  const active = it.match ? it.match.test(loc.pathname) : it.to === '/' ? loc.pathname === '/' : loc.pathname.startsWith(it.to);
+                  const onRoute = it.match ? it.match.test(loc.pathname) : it.to === '/' ? loc.pathname === '/' : loc.pathname.startsWith(it.to);
+                  /* a tab-bound item owns its tab; the screen's own item takes every other tab */
+                  const boundTabs = NAV.flatMap(x => x.items).filter(x => x.to === it.to && x.tab).map(x => x.tab as string);
+                  const active = onRoute && (it.tab ? curTab === it.tab : !boundTabs.includes(curTab));
+                  const key = it.tab ? undefined : Object.keys(SUBMENUS).find(k => SUBMENUS[k].to === it.to);
+                  const menu = key ? SUBMENUS[key] : undefined;
+                  /* sub-links show under the open screen; one is lit only on the screen itself (not on its detail pages) */
+                  const lit = menu && loc.pathname === menu.to ? menu.items.find(s => s.tabs.includes(curTab || menu.defaultTab)) : undefined;
                   return (
-                    <NavLink key={it.to} to={it.to} end className={() => `rail-link${active ? ' is-active' : ''}`} title={collapsed ? navLabel(it) : undefined}>
-                      {it.to === '/revenue' ? <MoneyIcon size={18} /> : <it.icon size={18} />}<span>{navLabel(it)}</span>
-                      {b && b.n > 0 && <em className={`rail-badge ${b.c}`} style={{ fontStyle: 'normal' }}>{b.n}</em>}
-                      {b && b.n > 0 && <i className="rail-dot" />}
-                    </NavLink>
+                    <div key={it.to + (it.tab ?? '')}>
+                      <NavLink to={it.tab ? `${it.to}?tab=${it.tab}` : it.to} end className={() => `rail-link${active ? ' is-active' : ''}`} title={collapsed ? navLabel(it) : undefined}>
+                        {it.to === '/revenue' ? <MoneyIcon size={18} /> : <it.icon size={18} />}<span>{navLabel(it)}</span>
+                        {b && b.n > 0 && <em className={`rail-badge ${b.c}`} style={{ fontStyle: 'normal' }}>{b.n}</em>}
+                        {b && b.n > 0 && <i className="rail-dot" />}
+                      </NavLink>
+                      {menu && key && active && <div className="rail-sub">
+                        {menu.items.map(s => <NavLink key={s.id} to={subMenuHref(key, s)} className={() => `rail-link rail-sublink${lit?.id === s.id ? ' is-active' : ''}`} title={s.desc}><span>{s.label}</span></NavLink>)}
+                      </div>}
+                    </div>
                   );
                 })}
               </div>
