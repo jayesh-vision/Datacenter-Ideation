@@ -1,7 +1,6 @@
 /* Collapsible sections (ui/Sections.tsx; Power & backup 16-Oct-2026, then Access & security). Closed = a summary card: icon, title + state chip, one-line
    description, then labelled figures; open = the same header without figures, the panels below. */
 .fac-secs { display: flex; flex-direction: column; gap: 12px; }
-.fac-secs-bar { display: flex; justify-content: flex-end; margin-bottom: -4px; }
 .fac-sec { display: flex; flex-direction: column; gap: 12px; }
 .fac-sec-h { position: relative; display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; column-gap: 14px; row-gap: 14px; align-items: center; width: 100%;
   padding: 16px 20px; border: 1px solid var(--vw-color-slate-200); border-radius: var(--vw-radius-md, 12px); background: var(--vw-color-white, #fff);

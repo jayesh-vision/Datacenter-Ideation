@@ -5,16 +5,14 @@ import '../styles/sections.css';
 export type SecOpen = { is: (id: string) => boolean; toggle: (id: string) => void; ensure: (id: string) => void };
 /* Collapsible sections (16-Oct-2026, user: the Power & backup tab had too many widgets to scroll through). Each section is a
    header row with a one-line status summary; open / closed is remembered per viewer (localStorage `dco.fac.<scope>`), the first
-   section starts open, and "Expand all / Collapse all" sits above them. */
+   section starts open. (The "Expand all" bar above them was removed 21-Oct-2026, user: it only added space.) */
 export type SecSummary = { l: string; v: string; tone?: 'bad' | 'warn' | 'ok' }[];
 export function FacSections({ ids, scope, children }: { ids: string[]; scope: string; children: (open: SecOpen) => ReactNode }) {
   const key = `dco.fac.${scope}`;
   const [state, setState] = useState<Record<string, boolean>>(() => { try { return JSON.parse(localStorage.getItem(key) || 'null') ?? { [ids[0]]: true }; } catch { return { [ids[0]]: true }; } });
   const save = (n: Record<string, boolean>) => { setState(n); try { localStorage.setItem(key, JSON.stringify(n)); } catch { /* storage blocked */ } };
-  const allOpen = ids.every(id => state[id]);
   return (
     <div className="fac-secs">
-      <div className="fac-secs-bar"><button type="button" className="panel-link" onClick={() => save(Object.fromEntries(ids.map(id => [id, !allOpen])))}>{allOpen ? 'Collapse all' : 'Expand all'}{allOpen ? <I.ChevronsDownUp size={14} /> : <I.ChevronsUpDown size={14} />}</button></div>
       {children({ is: id => !!state[id], toggle: id => save({ ...state, [id]: !state[id] }), ensure: id => { if (!state[id]) save({ ...state, [id]: true }); } })}
     </div>
   );

@@ -460,8 +460,8 @@ facility strip (`FacilityStrip`: power load, PUE, UPS, cooling, environment, ala
 (`hideStrip`); it heads Overview → Metrics instead (user, 16-Oct-2026) and each tile opens its sub tab. /facilities keeps it on top.
 Power & backup is four collapsible sections (`FacSections` / `FacSection` in Facilities.tsx; user: "too many widgets, user needs to scroll"):
 Power path · Load & ride-through · Cabinet power distribution & what-if · Rack power. A closed section shows a one-line summary as
-status pills (red / amber / green by state); first section open by default, state remembered per viewer (localStorage `dco.fac.power`),
-Expand all / Collapse all above. A section holding one panel hides that panel's own title. The components live in `ui/Sections.tsx` (styles `styles/sections.css`) and
+status pills (red / amber / green by state); first section open by default, state remembered per viewer (localStorage `dco.fac.power`);
+the Expand all / Collapse all bar above them was removed 21-Oct-2026 (user: it only added space). A section holding one panel hides that panel's own title. The components live in `ui/Sections.tsx` (styles `styles/sections.css`) and
 Access & security uses them too: People on site & exceptions · Entries, exits & doors · Access rights review · Access audit trail (the
 summary strip was folded into the section figures; clicking a door or a filter link opens the audit trail section and scrolls to it).
 The Needs attention tab no longer repeats the single points of failure list (Facility → Single points of failure has it, with tests and
