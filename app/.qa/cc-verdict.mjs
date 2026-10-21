@@ -3,7 +3,7 @@ import { chromium } from 'playwright';
 const b = await chromium.launch();
 for (const persona of ['colocation', 'network', 'neocloud']) for (const w of [1440, 1280]) {
   const p = await b.newPage({ viewport: { width: w, height: 900 } });
-  await p.goto(`http://localhost:5181/?geo=in&persona=${persona}`, { waitUntil: 'networkidle' }); await p.waitForTimeout(800);
+  await p.goto(`http://localhost:5181/?geo=in&persona=${persona}`, { waitUntil: 'networkidle' }); await p.waitForSelector('.hero-left', { timeout: 30000 }); await p.waitForTimeout(800);
   const r = await p.evaluate(() => {
     const L = document.querySelector('.hero-left'), g = L.querySelector('.hero-verdict > svg').getBoundingClientRect();
     const top = L.querySelector('.hero-verdict-top'), tr = [...top.children].map(c => Math.round(c.getBoundingClientRect().top));

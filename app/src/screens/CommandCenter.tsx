@@ -72,7 +72,7 @@ function HealthGauge({ value, band }: { value: number; band: string }) {
   );
 }
 
-const AREA_ICON: Record<string, I.LucideIcon> = { response: I.Siren, network: I.Network, power: I.Zap, cooling: I.Thermometer };
+const AREA_ICON: Record<string, I.LucideIcon> = { response: I.Siren, gpu: I.Cpu, network: I.Network, power: I.Zap, cooling: I.Thermometer };
 
 function Situation({ d, lens, setLens, pb }: { d: CC; lens: Lens; setLens: (l: Lens) => void; pb?: PlanBuild }) {
   const nav = useNavigate();

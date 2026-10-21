@@ -626,6 +626,44 @@ export function commandCenter() {
     cooling: { good: units.length - unitsFailed.length + zones.length - zonesHot.length, total: units.length + zones.length, items: `cooling units running and zones within 27°C (${units.length} units + ${zones.length} zones)`,
       why: unitsFailed.length || zonesHot.length ? `Attention because ${[unitsFailed.length && `${unitsFailed.length} cooling unit${unitsFailed.length === 1 ? '' : 's'} failed`, zonesHot.length && `${zonesHot.length} zone${zonesHot.length === 1 ? ' is' : 's are'} above 27°C`].filter(Boolean).join(' and ')}.` : 'Normal: every cooling unit is running and every zone in range.' }
   };
+  /* GPU fleet area (21-Oct-2026, user: the Incident response row repeated the Critical / High / Past SLA tiles, so where the estate runs
+     GPUs it is replaced by the fleet — the product of a GPU cloud). Score = GPUs healthy and running at full speed ÷ installed; the status
+     follows the worst job (a stalled job = Critical); the detail carries the blast radius and the GPU time being lost. */
+  if (db.gpu && [...db.gpu.nodes.values()].some(n => liveDcs.some(d => d.id === n.dcId))) {
+    const gv = gpu();
+    const jobsById = new Map(db.gpu.jobs.map(j => [j.id, j]));
+    const nodes = [...db.gpu.nodes.values()].filter(n => liveDcs.some(d => d.id === n.dcId));
+    const hurt = new Set(['stalled', 'slowed', 'at-risk']);
+    let bad = 0;
+    for (const n of nodes) { const j = n.jobId ? jobsById.get(n.jobId) : undefined; bad += j && hurt.has(j.state) ? n.gpus.length : n.gpus.filter(g => g.health !== 'healthy' || g.throttle !== 'none').length; }
+    const total = nodes.reduce((a, n) => a + n.gpus.length, 0);
+    const stalled = gv.jobs.filter(j => j.state === 'stalled'), slowed = gv.jobs.filter(j => j.state === 'slowed'), atRisk = gv.jobs.filter(j => j.state === 'at-risk'), idleJobs = gv.jobs.filter(j => j.state === 'idle');
+    const stopped = stalled.reduce((a, j) => a + j.gpus, 0);
+    const throttledSites = [...new Set(nodes.filter(n => n.gpus.some(g => g.throttle !== 'none') && !(n.jobId && hurt.has(jobsById.get(n.jobId)?.state ?? ''))).map(n => n.dcId))];
+    const gState: AreaState = stalled.length ? 'critical' : slowed.length || atRisk.length || idleJobs.length || throttledSites.length || gv.fleet.gpuHealth.failed ? 'attention' : 'ok';
+    const gDetail = join([
+      ...(stopped ? [`${fmtNum(stopped)} GPUs stopped by ${stalled.length === 1 ? 'one failed GPU' : `${stalled.length} failed GPUs`}`] : []),
+      ...(slowed.length ? [`${slowed.length} job${slowed.length === 1 ? '' : 's'} slowed`] : []),
+      ...(atRisk.length ? [`${atRisk.length} at risk`] : []),
+      ...(gv.waste.rate ? [`${fmtMoney(gv.waste.rate)}/h lost`] : [])
+    ], `All ${fmtNum(total)} GPUs healthy · ${gv.jobsSummary.running} jobs running at speed`);
+    const gWhy = stalled.length ? `Critical because ${stalled.map(j => `${j.name} (${j.gpus} GPUs) is stalled at ${j.dcId}${j.cause ? `: ${j.cause}` : ''}`).join('; ')}.`
+      : gState === 'attention' ? `Attention because ${join([slowed.length && `${slowed.length} job${slowed.length === 1 ? ' is' : 's are'} slowed`, atRisk.length && `${atRisk.length} at risk`, idleJobs.length && `${idleJobs.length} allocation${idleJobs.length === 1 ? '' : 's'} idle`, throttledSites.length && 'GPUs are throttled', gv.fleet.gpuHealth.failed && `${gv.fleet.gpuHealth.failed} GPU${gv.fleet.gpuHealth.failed === 1 ? '' : 's'} failed`].filter(Boolean) as string[], '')}.`
+      : 'Normal: every GPU is healthy and every job runs at speed.';
+    const gpuArea = {
+      key: 'gpu', label: 'GPU fleet', unit: 'healthy · estate', value: pct(total - bad, total), measure: 'GPUs healthy and running at full speed',
+      detail: gDetail, to: '/gpu?gtab=jobs', state: gState,
+      sites: siteList([
+        ...stalled.map(j => ({ id: j.dcId, crit: true, note: `${j.gpus} GPUs stopped · ${j.name}` })),
+        ...slowed.map(j => ({ id: j.dcId, note: `${j.name} slowed ${j.slowdownPct}%` })),
+        ...atRisk.map(j => ({ id: j.dcId, note: `${j.name} at risk` })),
+        ...idleJobs.map(j => ({ id: j.dcId, note: `${j.gpus} GPUs allocated but idle` })),
+        ...throttledSites.map(id => ({ id, note: 'GPUs throttled' }))
+      ], id => `/gpu?dc=${id}&gtab=jobs`)
+    } as (typeof domains)[number];
+    domains.splice(0, 1, gpuArea);
+    explain.gpu = { good: total - bad, total, items: `GPUs healthy and running at full speed (${fmtNum(total)} installed)`, why: gWhy };
+  }
   const areas = domains.map(d => ({ ...d, ...explain[d.key] }));
   const facilityAlarms = al.filter(a => !a.neId && (a.source === 'Power' || a.source === 'Cooling' || a.source === 'Environment')).length;
   const activeChanges = db.changes.filter(c => c.status === 'In progress' || (c.status === 'Approved' && c.windowStart <= db.now && c.windowEnd >= db.now));

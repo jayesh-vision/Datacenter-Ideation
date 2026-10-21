@@ -18,7 +18,10 @@ for (const g of ['in', 'us'] as const) for (const p of ['network', 'colocation',
     ['live datacenters', c.pulse.liveDcs === live.length, `${c.pulse.liveDcs}`],
     ['past SLA = list breaching view', c.pulse.breaching === all.filter(i => i.sla.breaching).length, `${c.pulse.breaching} vs ${all.filter(i => i.sla.breaching).length}`],
     ['open = list open', c.pulse.open === open.length, `${c.pulse.open}`],
-    ['incident area chips = sites with breaching', c.domains.find((d: any) => d.key === 'response').sites.length === new Set(open.filter(i => i.sla.breaching).map(i => i.dcId)).size, ''],
+    /* the first area is Incident response, or the GPU fleet where the estate runs GPUs (21-Oct-2026) */
+    ...(c.domains.find((d: any) => d.key === 'response')
+      ? [['incident area chips = sites with breaching', c.domains.find((d: any) => d.key === 'response').sites.length === new Set(open.filter(i => i.sla.breaching).map(i => i.dcId)).size, '']]
+      : [['gpu area present with a stalled-job chip', (() => { const a = c.domains.find((d: any) => d.key === 'gpu'); return !!a && a.sites.some((x: any) => x.state === 'critical') === (a.state === 'critical'); })(), '']]),
     ['datacenter list crit/high sites', live.filter(d => (d as any).openIncidents && open.some(i => i.dcId === d.id && i.sev <= 2)).length === s.critSites, ''],
   ];
   for (const [n, ok, v] of checks) if (!ok) { fail++; console.log('FAIL', g, p, n, v); }

@@ -4,7 +4,7 @@ import { chromium } from 'playwright';
 const b = await chromium.launch();
 for (const w of [1440, 1280]) {
   const p = await b.newPage({ viewport: { width: w, height: 900 } });
-  await p.goto('http://localhost:5181/?geo=us&persona=neocloud', { waitUntil: 'networkidle' }); await p.waitForTimeout(800);
+  await p.goto('http://localhost:5181/?geo=us&persona=neocloud', { waitUntil: 'networkidle' }); await p.waitForSelector('.hero-dcs-list .cmd-inc', { timeout: 30000 }); await p.waitForTimeout(800);
   const r = await p.evaluate(() => {
     const cols = [...document.querySelector('.hero').children].map(c => { const r = c.getBoundingClientRect(); return [c.className.split(' ').pop(), Math.round(r.width), Math.round(r.height)]; });
     const list = document.querySelector('.hero-dcs-list');

@@ -154,6 +154,13 @@ Each area also carries `good` / `total` / `items` / `why` (server.ts `explain`):
 score bar is always neutral blue. Power story (12-Oct-2026 data fix): at dcAt(9) only utility feed A is lost and the ATS has moved its load
 onto standby feed B; UPS-2 is on battery (before, both feeds were marked lost, which contradicted the alarm / incident / RCA).
 
+GPU fleet area (21-Oct-2026, user: "we already show incident counts with severity in the tiles … replace Incident response with GPU details"): where the
+estate runs GPU nodes (cloud, enterprise, NeoCloud; not network, not colocation's tenant cages) the first hero area is **GPU fleet** instead of Incident
+response: % = GPUs healthy and running at full speed ÷ installed (a GPU in a stalled / slowed / at-risk job, failed, degraded or throttled counts bad;
+deliberate spares are good), status = Critical when a job is stalled, Attention for slowed / at-risk / idle allocations / throttling / failed GPUs, detail
+"152 GPUs stopped by one failed GPU · 2 jobs slowed · $625/h lost", chips = sites with a hurt job or throttled GPUs → `/gpu?dc=&gtab=jobs`. Operations
+health then averages GPU fleet · Network · Power · Cooling. `cc-numbers.ts` checks whichever first area is present.
+
 Hero numbers must add up (12-Oct-2026, user caught "7 of 23" next to 1 Critical + 8 High): the verdict line reads "N critical or high incidents at
 S of 23 datacenters" (N = Critical + High tiles; a site can carry several) with an info bubble listing each site (`situation.critBySite`). The High
 tile opens `/incidents?view=high` (new view, open + High), the premium-customer tile scrolls to "Who is affected" (`.cc-affected`), never an

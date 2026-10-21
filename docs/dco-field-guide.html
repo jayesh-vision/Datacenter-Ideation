@@ -493,7 +493,7 @@ const T = [
 
 /* tool */
 ['Command center', '', 'tool', 'The landing page: operations health, live map, six vitals, critical incidents, impact, recommendations and causes.', 'Left menu, first item.', '', ['Operations health']],
-['Operations health', '', 'tool', 'A 0–100 score with four areas: incident response, network or fabric, power, cooling. Watch, Attention or Critical.', 'Command center health ring.', '', []],
+['Operations health', '', 'tool', 'A 0–100 score with four areas: GPU fleet (incident response where the estate runs no GPUs), network or fabric, power, cooling. Watch, Attention or Critical.', 'Command center health ring.', '', []],
 ['Opstral AI', '', 'tool', 'The built-in assistant: answers questions about the estate, ranks fixes and explains root causes.', '"Ask Opstral AI" buttons.', 'You can ask the tool in plain language what is costing the most right now.', ['RCA']],
 ['Persona switch', '', 'tool', 'Top-bar dropdown that shows the same estate as one of five business models.', 'Top bar "Persona"; URL ?persona=neocloud.', '', ['NeoCloud']],
 ['Geography switch', '', 'tool', 'Shows the estate in India (₹) or the USA ($).', 'Top bar "Geography"; URL ?geo=us.', '', []],
@@ -669,7 +669,7 @@ const METRICS = [
 ['Open incidents by severity', 'ops', 'count', 'Open incidents, by Critical / High / Medium / Low.', 'Created by the platform; synced to ITSM', 'Platform; ITSM API', 'live', 'Incidents; command center headline', 'Incident'],
 ['Incidents past SLA', 'ops', 'count', 'Open incidents beyond their response or resolution target.', 'Platform, using ITSM SLA policy', 'Platform calculation', 'live', 'Command center; Incidents "SLA clock"', 'Response / resolution SLA'],
 ['MTTR', 'ops', 'hours', 'Average time to resolve incidents over 30 days.', 'Platform incident history', 'Platform calculation', 'daily', 'Incidents "Resolution · 30 days"', 'MTTR'],
-['Operations health', 'ops', '0–100', 'Overall score from incident response, network or fabric, power and cooling.', 'Calculated by the platform', 'Platform calculation', '1 min', 'Command center health ring', 'Operations health'],
+['Operations health', 'ops', '0–100', 'Overall score from the GPU fleet (or incident response where there are no GPUs), network or fabric, power and cooling.', 'Calculated by the platform', 'Platform calculation', '1 min', 'Command center health ring', 'Operations health'],
 ['Telemetry freshness', 'ops', 'minutes', 'Age of the newest data from each site; over 15 minutes is stale.', 'Collectors', 'Platform', '1 min', 'Datacenter bar "2 m ago"; "collector stale"', 'Telemetry freshness'],
 ['Changes in progress', 'ops', 'count', 'Change and maintenance windows open now.', 'ITSM tool', 'ITSM API', 'on change', 'Changes & maintenance; command center pulse', 'Change / maintenance'],
 
