@@ -4,8 +4,7 @@
 import { sevLabel } from '../lib/vocab';
 import type { NewPrefixInput, DcimModuleType, DcimCr, DcimCrOption, DcimOp, DcimChangeBoard, DcimCrRow, DcimPlanRow, DcimRunResult, DcimWorkItem, ChangeRecord,
   ActionStep, Alert, AlertScope, EdgeStatus, OpsState, AuditEntry, CapacityPlan, Change, ChangeStatus, Datacenter, DcSummary, Incident, IncidentStatus, Interface, Link, Location,
-  ImpactCause, NetworkElement, NeRole, Persona, PrefixRole, ReconTask, RevDomain, RevIssue, RevenueView, RolloutStatus, Service, Severity, TimelineEvent
-} from '../api/types';
+  ImpactCause, NetworkElement, NeRole, Persona, PrefixRole, ReconTask, RevDomain, RevIssue, RevenueView, RolloutStatus, Service, Severity, TimelineEvent, PowerEconomics } from '../api/types';
 import { NE_CATEGORY } from '../api/types';
 import { generate, finaliseHealth, type Db } from './generate';
 import { edgeId, isPersona } from './personas';
@@ -28,6 +27,7 @@ import { addCustomType, clearDcim, customTypeById, dcimCatalog as dcimCatalog_, 
 import { ipamSave as ipamSave_, ipamRemove as ipamRemove_, type IpamKind } from './ipam';
 import { addressDetail, assignToDevice, carvePrefix, clearIpam, createPrefix, integrations, ipamModel, reserveNextIp, resetIpamOverlay, setPrimaryAddress, syncIntegration, unassignAddress } from './ipam';
 import { capacityHolds, gpuCapacity, siteEnergy } from './capacity';
+import { powerEconomics as buildPowerEconomics } from './power-econ';
 import { setPlannerClock } from '../planner/compat/clock';
 import { registerPlannerMoney, registerPlannerStore } from '../planner/compat/registry';
 import { USD_RATE } from './p2b/adapter';
@@ -125,6 +125,14 @@ export function revenue(q: { dcId?: string } = {}): RevenueView {
 }
 /* AI & GPU read model (estate or one datacenter) and one node's detail */
 const gpuViews = new Map<string, GpuView>();
+/* power economics (21-Oct-2026): tariff × live load, the seeded power contract per site, GPU power cost per GPU-hour; per data version and scope */
+const powerEconViews = new Map<string, PowerEconomics>();
+export function powerEconomics(dcId?: string): PowerEconomics {
+  const k = `${version}|${dcId ?? '*'}`;
+  let v = powerEconViews.get(k);
+  if (!v) { if (powerEconViews.size > 40) powerEconViews.clear(); v = buildPowerEconomics(db, persona, dcId); powerEconViews.set(k, v); }
+  return v;
+}
 export function gpu(q: { dcId?: string } = {}): GpuView {
   const k = `${version}|${q.dcId ?? '*'}`;
   let v = gpuViews.get(k);

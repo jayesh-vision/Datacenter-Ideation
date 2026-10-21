@@ -17,6 +17,7 @@ import { GPU_VENDORS, gpuName, gpuSpec } from '../lib/gpuSpec';
 import { fmtAgo, fmtDur, fmtMoney, fmtNum } from '../lib/format';
 import { OpstralBtn } from '../ui/OpstralMark';
 import { downloadCsv } from './ops/shared';
+import { GpuPowerCost } from './capacity/PowerEconomics';
 import '../styles/revenue.css';
 import '../styles/gpu.css';
 
@@ -401,6 +402,7 @@ function CoolingPower({ v }: { v: GpuView }) {
   const nav = useNavigate();
   return (
     <div className="col" style={{ gap: 16 }}>
+      <GpuPowerCost dcId={v.dcId} />
       {v.cdus.length > 0 && (
         <Panel title="Liquid-cooling loops" icon={I.Droplets} sub="Coolant distribution units feeding direct-to-chip GPU racks · flow against design, supply and return temperature"
           info="One card per coolant distribution unit: flow as a share of nominal (red under 75%, amber under 90%), supply and return temperature, load = heat removed ÷ capacity, pump state and the racks it feeds. Click a card to open the site's Cooling tab in Facilities.">

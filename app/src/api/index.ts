@@ -198,6 +198,7 @@ export const previewChangeImpact = (scope: string[], dcId: string, excludeId?: s
 export const getReconciliation = (q: Parameters<typeof S.recon>[0] = {}) => wait(() => S.recon(q)); // GET /reconciliation
 export const getAudit = (object?: string) => wait(() => S.audit(object));                          // GET /audit?object
 export const getCapacity = (dcId?: string) => wait(() => S.capacity(dcId));                        // GET /capacity?dcId
+export const getPowerEconomics = (dcId?: string) => wait(() => S.powerEconomics(dcId));          // GET /capacity/power-economics?dcId
 export const getGpu = (q: Parameters<typeof S.gpu>[0] = {}) => wait(() => S.gpu(q));                // GET /ai-infrastructure?dcId
 export const getGpuNode = (neId: string) => wait(() => S.gpuNode(neId));                          // GET /ai-infrastructure/nodes/:id
 export const hasGpuNow = (dcId?: string) => S.hasGpu(dcId);

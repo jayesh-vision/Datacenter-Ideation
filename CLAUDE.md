@@ -832,6 +832,20 @@ integration, embed and platform menu guides). A card's "Read" opens the HTML doc
 section chips set the doc's `#hash`, which the guides read on load; the iframe is re-keyed on each change); downloads open directly. New docs go in
 `DOCS` there; new questions in `FAQ`. The embed guide lists the route and every served document.
 
+## Power economics (21-Oct-2026, user: "build the power economics screens" after reviewing the neocloud pitch deck)
+Read model `mock/power-econ.ts` (derived per data version and scope, server `powerEconomics(dcId?)`, API `getPowerEconomics`, types `SitePowerEcon ·
+GpuPodPowerEcon · GpuPowerEcon · PowerEconomics`). Per live site: a TARIFF per state (US EIA industrial averages $/kWh; India DISCOM HT ₹/kWh — real
+local prices, never run through `money()`), a seeded POWER CONTRACT (`draw(id|field)` hash, never the generator's stream): utility = connection sized a
+little above design capacity, take-or-pay floor 60–85%, demand charge $14 / ₹420 per kW-month; colocation (NeoCloud ~half the sites, cloud a quarter) =
+a block 10–45% above today's peak billed per committed kW-month ($145 / ₹7,800), floor 100%; escalator, term end. Bill = energy (facility load × 24 h × 30.4 ×
+tariff) + capacity (demand charge on max(peak, floor) or the whole block); idle kW = billed − peak; sold kW = GPU nodes in a running job + tenant contracted
+power; cost per sold MW-month (null when nothing is sold → cost per IT MW). GPU: per pod kW/GPU × site PUE × tariff = power per installed GPU-hour, the same
+power over earning GPUs = per sold GPU-hour, against the model's price (`jobRate`), share %, "left after power", idle GPUs' power cost; `deck` = the pitch
+deck's 1.2 kW · PUE 1.46 line at the blended tariff. Screens: Capacity → Power sub-menu tab **Power economics** (`?tab=economics`, `screens/capacity/
+PowerEconomics.tsx`: strip, idle-cost BarList, bill Donut + facts, site table → Facilities power) and GPU Fleet → Cooling & power opens with `GpuPowerCost`
+(strip + pods table → `/capacity?tab=economics&dc=`). Styles `styles/power-econ.css`. Tariffs are marked illustrative on screen; a customer's tariff sheets
+and contracts replace them. Not yet built (deck items 3–5): energy and cost per job / tenant, power anomaly → incident, power-aware placement hints.
+
 ## Ship (19-Oct-2026, user: "save tokens")
 `scripts/ship.sh -m "message" [-c "string in the new build"] [paths…]` = production type-check → commit (default: modified tracked
 files + new files under app/src, docs, app/public, scripts; never app/package-lock.json) → push main → Vercel deploy of HEAD from a

@@ -19,7 +19,7 @@ export const SUBMENUS: Record<string, ScreenMenu> = {
   ] },
   capacity: { to: '/capacity', defaultTab: 'overview', items: [
     { id: 'insights', label: 'Insights', tabs: ['overview', 'financial'], desc: 'Headroom by dimension, forecast and the financial view' },
-    { id: 'power', label: 'Power', tabs: ['power', 'energy'], desc: 'Power and cooling headroom, PUE and energy' },
+    { id: 'power', label: 'Power', tabs: ['power', 'energy', 'economics'], desc: 'Power and cooling headroom, PUE and energy, what power costs' },
     { id: 'space', label: 'Space', tabs: ['space'], desc: 'Rack space and ports by hall' },
     { id: 'network', label: 'Network', tabs: ['network'], desc: 'Bandwidth and port headroom' },
     { id: 'compute', label: 'Compute', tabs: ['compute'], desc: 'Compute and GPU capacity' },

@@ -14,17 +14,18 @@ import { DcLink, Meter, NeLink, LinkStateChip, Legend } from '../ui/status';
 import { fmtDate, fmtMoney, fmtKw, fmtMonth, fmtNum, currencySymbol } from '../lib/format';
 import { dateAfterMonths, monthsTo, WARN } from '../lib/forecast';
 import { ForecastChart } from './plan/charts';
+import { PowerEconomicsTab } from './capacity/PowerEconomics';
 import { Facts, SoftMeter, Split, StatGrid, StatTile } from '../ui/Analytics';
 import '../styles/plan.css';
 
 type Cap = NonNullable<Awaited<ReturnType<typeof getCapacity>>>;
 type Dim = Cap['dims'][number];
 type DimName = CapacityPlan['dimension'];
-type TabId = 'overview' | 'power' | 'space' | 'network' | 'compute' | 'reservations' | 'energy' | 'financial';
+type TabId = 'overview' | 'power' | 'space' | 'network' | 'compute' | 'reservations' | 'energy' | 'economics' | 'financial';
 const TABS: { id: TabId; label: string; icon: I.LucideIcon }[] = [
   { id: 'overview', label: 'Overview & forecast', icon: I.Gauge }, { id: 'power', label: 'Power & cooling', icon: I.Zap }, { id: 'space', label: 'Space & racks', icon: I.Server },
   { id: 'network', label: 'Network & bandwidth', icon: I.Cable }, { id: 'compute', label: 'Compute & GPU', icon: I.Cpu }, { id: 'reservations', label: 'Reservations', icon: I.CalendarClock },
-  { id: 'energy', label: 'PUE & energy', icon: I.Leaf }, { id: 'financial', label: 'Financial', icon: I.IndianRupee }
+  { id: 'energy', label: 'PUE & energy', icon: I.Leaf }, { id: 'economics', label: 'Power economics', icon: I.ReceiptText }, { id: 'financial', label: 'Financial', icon: I.IndianRupee }
 ];
 const DIM_TAB: Record<DimName, TabId> = { Power: 'power', Cooling: 'power', Space: 'space', Ports: 'space', Bandwidth: 'network' };
 /* CapEx rate card per delivered unit (mock, derived from the plan ledger) */
@@ -64,6 +65,7 @@ export function Capacity() {
       {tab === 'compute' && <ComputeTab cap={cap} />}
       {tab === 'reservations' && <ReservationsTab cap={cap} />}
       {tab === 'energy' && <EnergyTab cap={cap} />}
+      {tab === 'economics' && <PowerEconomicsTab dc={dc} />}
       {tab === 'financial' && <FinancialTab cap={cap} dc={dc} onDc={id => nav(`/capacity?tab=financial&dc=${id}`)} />}
       <PlanModal open={planOpen} onClose={() => setPlanOpen(false)} dcs={live.map(d => ({ id: d.id, city: d.city }))} initialDc={dc || defaultDcId()} />
     </div>

@@ -1,0 +1,11 @@
+/* Power economics (21-Oct-2026): Capacity → Power → Power economics, GPU Fleet → Cooling & power */
+.pe-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.pe-row > .panel { min-height: 0; }
+.pe-donut { display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: center; }
+.pe-note { display: flex; gap: 8px; align-items: flex-start; margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--ink-500); }
+.pe-note svg { flex: none; margin-top: 3px; }
+.pe-sharecell { display: inline-flex; align-items: center; gap: 8px; }
+.pe-share { display: inline-block; width: 44px; height: 6px; border-radius: 3px; background: var(--vw-color-slate-100); overflow: hidden; vertical-align: middle; }
+.pe-share i { display: block; height: 100%; border-radius: 3px; }
+.pe-pods td .faint { color: var(--ink-400); }
+@media (max-width: 1360px) { .pe-row { grid-template-columns: 1fr; } }

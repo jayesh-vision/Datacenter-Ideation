@@ -570,6 +570,54 @@ export interface CapacityHold {
 export interface GpuCapacity { gpus: number; inJob: number; allocatedIdle: number; free: number; out: number; byModel: { model: string; gpus: number; inJob: number; free: number }[] }
 export interface SiteEnergy { id: string; city: string; itKw: number; facilityKw: number; pue: number; coolingKw: number; mwhDay: number; tco2Day: number; liquidRacks: number }
 
+/* ---- Power economics (21-Oct-2026, from the neocloud pitch deck: committed MW, take-or-pay, idle megawatts, cost per sold MW,
+   power cost per GPU-hour). Derived per site from the live power split, a tariff table per state and a seeded power contract
+   (mock/power-econ.ts). Money is in the geography's currency; tariffs are published industrial averages, marked illustrative. */
+export type PowerContractKind = 'utility' | 'colocation';
+export interface SitePowerEcon {
+  id: string; city: string; state: string; status: RolloutStatus;
+  kind: PowerContractKind; supplier: string;
+  tariff: number;                 // energy price per kWh (local currency)
+  demandRate: number;             // utility: demand charge per kW-month; colocation: all-in rate per committed kW-month
+  committedKw: number;            // contracted capacity (utility connection or colocation power block)
+  floorPct: number;               // take-or-pay: minimum billed share of the committed kW (colocation = 100)
+  floorKw: number;
+  escalatorPct: number;           // yearly price escalator in the contract
+  termEnd: number;                // contract end
+  peakKw: number;                 // highest facility draw today
+  nowKw: number;                  // facility draw now
+  itKw: number; pue: number;
+  headroomKw: number;             // committed − peak
+  idleKw: number;                 // kW paid for but not drawn: utility = floor − peak when the floor binds, colocation = committed − peak
+  mwhDay: number; energyCostMonth: number; capacityCostMonth: number; idleCostMonth: number; billMonth: number;
+  soldKw: number;                 // IT power that is billed to customers now (GPU nodes in a running job, tenant contracted power)
+  costPerSoldMwMonth: number | null; costPerItMwMonth: number;
+  gpuKw: number;                  // node power of the GPU fleet at the site
+}
+export interface GpuPodPowerEcon {
+  clusterId: string; name: string; dcId: string; model: string; vendor: string; cooling: 'air' | 'liquid';
+  gpus: number; inJob: number; nodeKw: number; kwPerGpu: number; pue: number; tariff: number;
+  costPerGpuHour: number;         // per installed GPU-hour: kW per GPU × PUE × tariff
+  costPerSoldGpuHour: number | null; // the whole pod's power over the GPUs that are earning now
+  price: number;                  // price per GPU-hour for the pod's model
+  powerSharePct: number | null;   // costPerSoldGpuHour ÷ price
+  leftPerGpuHour: number | null;  // price − power cost per sold GPU-hour
+  earningDay: number; powerCostDay: number; idlePowerCostDay: number;
+}
+export interface GpuPowerEcon {
+  gpus: number; inJobGpus: number; nodeKw: number; facilityKw: number; powerCostDay: number; idlePowerCostDay: number;
+  costPerGpuHour: number; costPerSoldGpuHour: number | null; avgPrice: number; powerSharePct: number | null; earningDay: number;
+  deck: { kwPerGpu: number; pue: number; tariff: number; costPerGpuHour: number };  // the deck's slide-16 assumption at this geography's blended tariff
+  pods: GpuPodPowerEcon[];
+  sites: { dcId: string; gpus: number; inJob: number; nodeKw: number; pue: number; tariff: number; costPerGpuHour: number; costPerSoldGpuHour: number | null; powerCostDay: number; earningDay: number }[];
+}
+export interface PowerEconomics {
+  sites: SitePowerEcon[];
+  totals: { billMonth: number; energyCostMonth: number; capacityCostMonth: number; idleCostMonth: number; committedKw: number; peakKw: number; idleKw: number; soldKw: number; mwhDay: number; blendedTariff: number; costPerSoldMwMonth: number | null; costPerItMwMonth: number; colocationSites: number };
+  sources: { tariff: string; demand: string; colocation: string };
+  gpu: GpuPowerEcon | null;
+}
+
 /* ---- Planner (13-Oct-2026, P2B merge phase 4): design plans sized and checked against the estate (mock/planner.ts) */
 export type PlanScope = 'rack-expansion' | 'ai-pod' | 'new-hall' | 'new-site' | 'plant-upgrade' | 'refresh';
 export type PlanStatus = 'Draft' | 'In review' | 'Approved' | 'Executing' | 'Delivered' | 'Rejected';
