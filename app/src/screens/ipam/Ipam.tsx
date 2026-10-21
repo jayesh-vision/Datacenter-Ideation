@@ -7,7 +7,7 @@ import * as I from 'lucide-react';
 import { carvePrefix, getDcim, getIpam, reserveIp, useQuery } from '../../api';
 import type { IpAddr, IpamView, IpAsn, IpFinding, IpPrefix, IpVlan, IpVrf, PrefixRole } from '../../api/types';
 import { usePage, PageHead, Loading } from '../../shell/page';
-import { SubTabs, subCrumb } from '../../shell/submenus';
+import { SubTabs, subCrumb, subHead } from '../../shell/submenus';
 import { Btn, Chip, Drawer, Field, KV, Modal, Panel, Seg } from '../../ui/kit';
 import { DataTable, type Col } from '../../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
@@ -59,7 +59,7 @@ export function Ipam() {
 
   return (
     <div className="page dcim ipam">
-      <PageHead title="IP & Network" sub="Prefixes, addresses, VRFs, VLANs, ASNs and gateways — the address plan, read from the devices, links and services it serves"
+      <PageHead {...subHead('ipam', tab, { title: 'IP & Network', sub: 'Prefixes, addresses, VRFs, VLANs, ASNs and gateways — the address plan, read from the devices, links and services it serves' })}
         actions={<select className="select" value={dcId} onChange={e => go({ dc: e.target.value })} aria-label="Datacenter scope">
           <option value="">All datacenters ({sites.sites.length})</option>{sites.sites.map(s => <option key={s.id} value={s.id}>{s.id} · {s.city}</option>)}
         </select>} />

@@ -9,7 +9,7 @@ import { NewProgrammeModal, NewProjectWizard, PROG_ICON, RAG_LABEL, RAG_TONE } f
 import '../../styles/delivery.css';
 import type { DeliveryProject, WorkOrder } from '../../api/types';
 import { usePage, PageHead, Loading } from '../../shell/page';
-import { SubTabs, subCrumb } from '../../shell/submenus';
+import { SubTabs, subCrumb, subHead } from '../../shell/submenus';
 import { Btn, Chip, Panel } from '../../ui/kit';
 import { DataTable, type Col } from '../../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
@@ -75,7 +75,7 @@ export function Delivery() {
 
   return (
     <div className="page dcim planner">
-      <PageHead title="Delivery" sub="Approved plans become projects; projects raise work orders (each with its change request), place purchase orders, pass L1–L5 commissioning and hand over to operations"
+      <PageHead {...subHead('delivery', tab, { title: 'Delivery', sub: 'Approved plans become projects; projects raise work orders (each with its change request), place purchase orders, pass L1–L5 commissioning and hand over to operations' })}
         actions={<>{/* one action per sub-menu (user, 21-Oct-2026): the planner from Insights, New programme on Programs, New project on Projects */}
           {(tab === 'overview' || tab === 'todo') && <Btn icon={I.DraftingCompass} onClick={() => nav('/planning')}>Open the planner</Btn>}
           {tab === 'programmes' && <Btn variant="filled" icon={I.FolderPlus} onClick={() => setForm('programme')}>New programme</Btn>}

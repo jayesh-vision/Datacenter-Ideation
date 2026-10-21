@@ -85,6 +85,9 @@ ok(await p.locator('[data-crbar]').count() === 1, 'change-request notice under t
 ok(await p.locator('.dt-table tbody tr').count() > 0, `change requests listed (${await p.locator('.dt-table tbody tr').count()})`);
 await p.locator('.dt-table tbody tr').first().click(); await p.waitForTimeout(500);
 ok((await p.locator('.drawer').innerText()).includes('Touches in DCIM'), 'CR drawer'); await p.keyboard.press('Escape');
+ok(await p.getByRole('button', { name: 'Raise change request' }).count() === 1, 'Changes screen offers Raise change request (no New rack there since 21-Oct-2026)');
+/* a new rack is raised from the Racks screen (the header shows New rack on Insights · Sites · Racks) */
+await go(`/dcim?dc=${site}&tab=racks`);
 await p.getByRole('button', { name: 'New rack' }).click(); await p.waitForTimeout(400);
 await p.locator('.modal [data-cr-field] .seg button', { hasText: 'Raise new' }).click(); await p.waitForTimeout(200);
 await p.locator('.modal').getByRole('button', { name: 'Raise CR and plan rack' }).click(); await p.waitForTimeout(700);

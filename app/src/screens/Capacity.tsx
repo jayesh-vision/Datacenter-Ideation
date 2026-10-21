@@ -4,7 +4,7 @@ import * as I from 'lucide-react';
 import { clockNow, defaultDcId, getCapacity, getDatacenter, getDatacenters, getLinks, useQuery } from '../api';
 import type { CapacityPlan, Rack } from '../api/types';
 import { usePage, PageHead, Loading } from '../shell/page';
-import { SubTabs, subCrumb } from '../shell/submenus';
+import { SubTabs, subCrumb, subHead } from '../shell/submenus';
 import { SummaryStrip } from './site/SummaryStrip';
 import { moneyIcon } from '../ui/Money';
 import { DataTable, type Col } from '../ui/DataTable';
@@ -49,10 +49,11 @@ export function Capacity() {
   const { data: dcs } = useQuery(getDatacenters, []);
   if (!cap || !dcs) return <Loading />;
   const live = dcs.filter(d => d.status !== 'planned');
+  const head = subHead('capacity', tab, { title: 'Capacity', sub: `Power, cooling, space, ports and bandwidth headroom across ${live.length} live datacenters, forecast against the 85% warning line, with the plans that will change it.` });
 
   return (
     <div className="page">
-      <PageHead title="Capacity" sub={`Power, cooling, space, ports and bandwidth headroom${dc ? ` for ${dc}` : ` across ${live.length} live datacenters`}, forecast against the 85% warning line, with the plans that will change it.`}
+      <PageHead title={head.title} sub={`${head.sub}${dc ? ` Scope: ${dc}.` : ''}`}
         actions={<>
           <select className="select" value={dc} onChange={e => set('dc', e.target.value)} aria-label="Datacenter"><option value="">All data centers ({live.length})</option>{live.map(d => <option key={d.id} value={d.id}>{d.id} · {d.city}</option>)}</select>
           <Btn variant="filled" icon={I.Zap} onClick={() => setPlanOpen(true)}>Raise capacity plan</Btn>

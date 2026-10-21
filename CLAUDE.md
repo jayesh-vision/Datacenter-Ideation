@@ -816,6 +816,11 @@ launcher uses the same URLs (`/platform-menu.html` card chips + table rows, embe
 Ops (Ops Toolkit) holds Command Center · Datacenters · Facilities · GPU Fleet (= /gpu) · Compliance as sub-menus. The /gpu screen, its menu
 item, the datacenter sub tab and the docs are called **GPU Fleet** since 21-Oct-2026 (user; was "AI & GPU" — code comments, ids and `gtab=` keep the old name).
 
+## Sub-menu headings (21-Oct-2026, user: "in the platform each sub-menu is its own menu screen; Capacity → Power still showed the Capacity heading")
+Every sub-menu in `shell/submenus.tsx` carries `title` + `sub`; `subHead(screen, tab, fallback)` returns them (or `BOUND_HEADS` for a tab bound to a menu
+item, e.g. Commissioning) and the six screens spread it into `PageHead`. Insights screens are titled just "Insights" (user: no module prefix). Capacity appends
+"Scope: <dc>." when a datacenter is picked. Platform embeds (`?shell=false`) therefore read "Power", "Racks", "Projects" …, never the module name twice.
+
 ## Insights-only strips and the DCIM Insights screen (21-Oct-2026, user)
 Planner, IP & Network and DCIM show their analytics strip (StatGrid) on the **Insights** sub-menu only; Plans, IP space etc. open straight on
 the list. Benchmarks has one ListToolbar per view above its panels (search, Reference value / Site type quick filters, Cooling / Tier / Region /

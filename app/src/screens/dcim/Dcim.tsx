@@ -8,7 +8,7 @@ import { getDcim, getDcimCables, getDcimChangeBoard, getDcimDevices, getDcimType
 import { DcimChangesTab } from './Changes';
 import type { DcimSite } from '../../api/types';
 import { usePage, PageHead, Loading } from '../../shell/page';
-import { SubTabs, subCrumb } from '../../shell/submenus';
+import { SubTabs, subCrumb, subHead } from '../../shell/submenus';
 import { DcimInsights } from './Insights';
 import { Btn, Drawer } from '../../ui/kit';
 import { NewChange } from '../changes/parts';
@@ -64,7 +64,7 @@ export function Dcim() {
 
   return (
     <div className="page dcim">
-      <PageHead title="DCIM" sub="Sites, floor plans, racks, devices, cabling and power — the inventory record behind every operations screen"
+      <PageHead {...subHead('dcim', tab, { title: 'DCIM', sub: 'Sites, floor plans, racks, devices, cabling and power — the inventory record behind every operations screen' })}
         actions={<>
           <select className="select" value={dcId} onChange={e => set({ dc: e.target.value, hall: '' })} aria-label="Datacenter scope">
             <option value="">All datacenters ({all.sites.length})</option>

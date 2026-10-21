@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { usePage, PageHead, Loading } from '../../shell/page';
-import { SubTabs, subCrumb } from '../../shell/submenus';
+import { SubTabs, subCrumb, subHead } from '../../shell/submenus';
 import { Btn, Panel, Chip } from '../../ui/kit';
 import { Facts, SoftMeter, Split, StatGrid, StatTile, type Part } from '../../ui/Analytics';
 import { useBenchmarks, useEstate, usePlanReviews, usePlans, useReviewComments, useTemplates } from '../../planner/lib/usePlanner';
@@ -62,7 +62,7 @@ export function Planner() {
 
   return (
     <div className="page planning">
-      <PageHead title="Planner" sub="Plan anything from one rack to a new datacenter: a plan type fixes the questions, the rules and who approves; every figure is sized against the estate."
+      <PageHead {...subHead('planning', tab, { title: 'Planner', sub: 'Plan anything from one rack to a new datacenter: a plan type fixes the questions, the rules and who approves; every figure is sized against the estate.' })}
         actions={<Btn variant="filled" icon={I.Plus} onClick={() => nav('/planning/new')}>New plan</Btn>} />
       {tab === 'overview' && <StatGrid>
         <StatTile label="Plans" value={num(rows.length)} sub={`${active.length} active`} onClick={() => goPlans({})} info="Every plan in the planner, by status. Click a status to open the list filtered to it.">

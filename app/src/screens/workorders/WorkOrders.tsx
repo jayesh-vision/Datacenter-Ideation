@@ -7,7 +7,7 @@ import * as I from 'lucide-react';
 import { clockNow, getDcim, getWfKpis, getWorkflow, useQuery } from '../../api';
 import type { WfInstance, WfProcess, WfTask } from '../../api/types';
 import { usePage, PageHead, Loading } from '../../shell/page';
-import { SubTabs, subCrumb } from '../../shell/submenus';
+import { SubTabs, subCrumb, subHead } from '../../shell/submenus';
 import { Chip, Drawer, Panel } from '../../ui/kit';
 import { DataTable, type Col } from '../../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
@@ -33,7 +33,7 @@ export function WorkOrders() {
   const mine = data.tasks.filter(t => t.assignee === data.me), lanes = data.tasks.filter(t => t.candidates.includes(data.me));
   return (
     <div className="page dcim planner">
-      <PageHead title="Work orders" sub="Field work and the processes behind it: what waits on you, every running process, the twelve process definitions and how fast they flow" />
+      <PageHead {...subHead('workorders', tab, { title: 'Work orders', sub: 'Field work and the processes behind it: what waits on you, every running process, the twelve process definitions and how fast they flow' })} />
       <SubTabs screen="workorders" value={tab} onChange={setTab} tabs={[{ id: 'tasks', label: 'My tasks', count: lanes.length }, { id: 'running', label: 'Work orders', count: data.instances.filter(i => i.state !== 'Completed').length }, { id: 'processes', label: 'Processes', count: data.processes.length }, { id: 'kpis', label: 'Process KPIs' }]} />
       {tab === 'tasks' && <Inbox tasks={data.tasks} me={data.me} mineN={mine.length} instances={data.instances} processes={data.processes} />}
       {tab === 'running' && <Running instances={data.instances} processes={data.processes} tasks={data.tasks} />}
