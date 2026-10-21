@@ -609,9 +609,32 @@ export interface GpuPowerEcon {
   costPerGpuHour: number; costPerSoldGpuHour: number | null; avgPrice: number; powerSharePct: number | null; earningDay: number;
   deck: { kwPerGpu: number; pue: number; tariff: number; costPerGpuHour: number };  // the deck's slide-16 assumption at this geography's blended tariff
   pods: GpuPodPowerEcon[];
+  jobs: GpuJobPowerEcon[]; tenants: GpuTenantPowerEcon[]; placement: PlacementHint[];
   sites: { dcId: string; gpus: number; inJob: number; nodeKw: number; pue: number; tariff: number; costPerGpuHour: number; costPerSoldGpuHour: number | null; powerCostDay: number; earningDay: number }[];
 }
+/* energy and power cost per job and per tenant (deck item 3) */
+export interface GpuJobPowerEcon {
+  id: string; name: string; kind: GpuJob['kind']; state: GpuJobState; owner: string; customerId: string; premium: boolean; dcId: string; cluster: string; model: string;
+  gpus: number; nodeKw: number; facilityKw: number; kwhDay: number; powerCostDay: number; earningDay: number; costPerGpuHour: number; price: number; powerSharePct: number | null;
+  wasted: boolean;                // an idle allocation: billed, drawing power, doing no work
+  cappedGpus: number; capSavesKw: number; slowdownCostH: number;   // a power cap: the kW it saves against the GPU time it costs per hour
+  incidentId?: string;
+}
+export interface GpuTenantPowerEcon { customerId: string; name: string; premium: boolean; jobs: number; gpus: number; nodeKw: number; kwhDay: number; powerCostDay: number; earningDay: number; powerSharePct: number | null; idleCostDay: number }
+/* a power finding against the contract (deck item 4); the generator raises an alarm for each and an incident for the worst */
+export type PowerAnomalyKind = 'block-near-limit' | 'demand-ratchet' | 'unexplained-rise' | 'idle-block';
+export interface PowerAnomaly {
+  id: string; dcId: string; kind: PowerAnomalyKind; severity: 'major' | 'minor' | 'warning'; title: string; detail: string;
+  exposure: number; exposureLabel: string; evidence: { label: string; value: string }[]; alertId?: string; incidentId?: string; to: string;
+}
+/* where the next job should land (deck item 5): free GPUs with rack, cooling and contracted power headroom, at the lowest marginal power cost */
+export interface PlacementHint {
+  clusterId: string; name: string; dcId: string; model: string; vendor: string; cooling: 'air' | 'liquid'; scheduler: string;
+  freeGpus: number; freeNodes: number; rackHeadroomKw: number; rackLoadPct: number; coolingHeadroomPct: number; coolingState: 'ok' | 'warn' | 'bad';
+  siteHeadroomKw: number; paidIdleKw: number; tariff: number; pue: number; marginalCostPerGpuHour: number; fit: 'good' | 'tight' | 'no'; why: string[];
+}
 export interface PowerEconomics {
+  anomalies: PowerAnomaly[];
   sites: SitePowerEcon[];
   totals: { billMonth: number; energyCostMonth: number; capacityCostMonth: number; idleCostMonth: number; committedKw: number; peakKw: number; idleKw: number; soldKw: number; mwhDay: number; blendedTariff: number; costPerSoldMwMonth: number | null; costPerItMwMonth: number; colocationSites: number };
   sources: { tariff: string; demand: string; colocation: string };

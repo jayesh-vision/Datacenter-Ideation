@@ -851,7 +851,20 @@ power over earning GPUs = per sold GPU-hour, against the model's price (`jobRate
 deck's 1.2 kW · PUE 1.46 line at the blended tariff. Screens: Capacity → Power sub-menu tab **Power economics** (`?tab=economics`, `screens/capacity/
 PowerEconomics.tsx`: strip, idle-cost BarList, bill Donut + facts, site table → Facilities power) and GPU Fleet → Cooling & power opens with `GpuPowerCost`
 (strip + pods table → `/capacity?tab=economics&dc=`). Styles `styles/power-econ.css`. Tariffs are marked illustrative on screen; a customer's tariff sheets
-and contracts replace them. Not yet built (deck items 3–5): energy and cost per job / tenant, power anomaly → incident, power-aware placement hints.
+and contracts replace them.
+Round 2 (21-Oct-2026, deck items 3–5, same module): **per job / tenant** (`gpu.jobs`, `gpu.tenants`: node kW × PUE × tariff per day against what the job
+earns; idle allocations = billed, drawing, doing nothing; a power cap's kW saved against the GPU time it costs) → GPU Fleet → Cooling & power "Energy and power
+cost by job" (By job / By tenant, callouts; `screens/gpu/PowerUse.tsx`). **Findings** (`anomalies`, `buildAnomalies`): colocation block ≥ 85% drawn (overage
+1.5×, exposure = next 100 kW tranche / yr), new 12-month demand peak above the take-or-pay floor (prior peak = max(history12m[0..10]) × 1.06; exposure =
+Δ × demand rate × 12), draw > 12% above the 24 h mean with no change in progress and no job started in 24 h, block ≥ 30% idle. The generator's last phase
+`raisePowerContractAlerts` (generate.ts, after `raiseOperatorServerAlerts`, NOT for the network persona so its fingerprint holds) raises one alarm per finding
+(`PWR-<site>-<KIND>`, source Power, Facility) and one Medium Power incident for the costliest block / ratchet finding (RCA: recent GPU job starts, cooling
+overhead, meter error; actions: cap inference pods in the peak window, place new jobs where power is already paid, supplier confirmation / block uplift;
+impact = the money exposure, no services). Shown as "Power findings against the contracts" on Capacity → Power economics (alarm + incident links); cloud /
+colocation may have none. **Placement** (`gpu.placement`): per pod free healthy GPUs, rack headroom, cooling state (CDU for liquid), contracted headroom,
+"already paid" kW (idle block or below the floor), marginal power per GPU-hour (kW per busy GPU × PUE × tariff), fit good / tight / no → GPU Fleet tab
+**Where to place** (`?gtab=placement`: GPUs needed 8–256 + model picker, strip, ranked pods). Opstral AI: "Where should the next GPU job go?", "What is power
+costing us / <site>?" (sentinel.ts, before the GPU branch). Checks: `node .qa/gpu.mjs neocloud`, `node .qa/capacity.mjs neocloud us`, `npx tsx .qa/fingerprint.ts network`.
 
 ## Ship (19-Oct-2026, user: "save tokens")
 `scripts/ship.sh -m "message" [-c "string in the new build"] [paths…]` = production type-check → commit (default: modified tracked

@@ -3,7 +3,7 @@
    operator can open. A real LLM/RAG service would return the same shape. */
 
 import { sevLabel } from '../lib/vocab';
-import { raw, isOpen, impactOf, linksOf, summarize, slaState, changes as listChanges, revenue, getPersona, gpu, geoDef, heroNeId } from './server';
+import { raw, isOpen, impactOf, linksOf, summarize, slaState, changes as listChanges, revenue, getPersona, gpu, geoDef, heroNeId, powerEconomics } from './server';
 import { PERSONA_BY_ID } from './personas';
 import { fmtMoney, fmtDur, fmtNum } from '../lib/format';
 import { HOUR, DAY } from './seed';
@@ -23,6 +23,8 @@ export function suggestions(ctx: Ctx): string[] {
   if (dc) s.push(`What is at risk in ${dc.city}?`, `Summarise ${dc.id}`);
   if (ctx.incidentId) s.push(`What is ${ctx.incidentId} costing us?`);
   if (db.gpu && (db.gpu.nodes.size || db.gpu.cages.length)) s.push(db.gpu.nodes.size ? 'Which GPU job is losing the most?' : 'Which AI cages are at risk?');
+  if (db.gpu?.nodes.size) s.push('Where should the next GPU job go?');
+  s.push(dc ? `What is power costing ${dc.id}?` : 'What is power costing us?');
   s.push(dc ? `Which issue costs the most in ${dc.id}?` : 'Which issue is costing the most revenue?');
   s.push(`What is at risk in ${geoDef().heroCity}?`, 'Which links will exhaust first?', 'What changed in the last 24 hours?');
   return [...new Set(s)].slice(0, 5);
@@ -35,6 +37,34 @@ export function ask(q: string, ctx: Ctx): Answer {
   const neId = q.match(/[A-Z]{2}-DC-\d{3}-[A-Z0-9-]+/i)?.[0]?.toUpperCase() ?? ctx.neId;
   const lnk = q.match(/LNK-\d{5}/i)?.[0]?.toUpperCase() ?? ctx.linkId;
   const dcByText = db.datacenters.filter(d => t.includes(d.id.toLowerCase()) || t.includes(d.city.toLowerCase()) || t.includes(d.state.toLowerCase()));
+
+  /* power economics (21-Oct-2026): where the next job should go, what power costs and the findings against the contracts */
+  if (/\b(place|placement|where should|next (gpu )?job)\b/.test(t) && db.gpu?.nodes.size) {
+    const scopeDc = dcByText[0]?.id ?? ctx.dcId;
+    const e = powerEconomics(scopeDc);
+    const g = e.gpu;
+    const fit = (g?.placement ?? []).filter(p => p.fit !== 'no' && p.freeGpus >= 64).slice(0, 3);
+    if (!g || !fit.length) return { title: 'No pod can take a 64-GPU job right now', confidence: 85, lines: [scopeDc ? `${scopeDc} has no pod with 64 free healthy GPUs and working cooling.` : 'No pod has 64 free healthy GPUs with working cooling.'], evidence: [], actions: [{ label: 'Open placement', to: '/gpu?gtab=placement' }], followups: ['What is power costing us?'] };
+    const b = fit[0];
+    return { title: `Place the next job at ${b.dcId} · ${b.name}`, confidence: 82,
+      lines: [`${b.freeGpus} free ${b.model} GPUs, racks at ${b.rackLoadPct}% of budget, cooling ${b.coolingState === 'ok' ? 'normal' : b.coolingState}, ${fmtNum(b.siteHeadroomKw)} kW of contracted headroom${b.paidIdleKw ? ` of which ${fmtNum(b.paidIdleKw)} kW is already paid for` : ''}.`,
+        `Marginal power cost there is ${b.marginalCostPerGpuHour.toFixed(3)} per GPU-hour (PUE ${b.pue}, tariff ${b.tariff} per kWh)${fit[1] ? `; next best ${fit[1].dcId} · ${fit[1].name} at ${fit[1].marginalCostPerGpuHour.toFixed(3)}` : ''}.`,
+        ...(e.anomalies.length ? [`Avoid ${[...new Set(e.anomalies.filter(a => a.kind === 'block-near-limit' || a.kind === 'demand-ratchet').map(a => a.dcId))].slice(0, 3).join(', ')}: their power contracts are at their limit.`] : [])],
+      evidence: fit.map(p => ({ label: `${p.dcId} ${p.name} · ${p.freeGpus} free · ${p.why[0]}`, to: `/gpu?dc=${p.dcId}&gtab=clusters` })),
+      actions: [{ label: 'Open placement', to: '/gpu?gtab=placement' }, { label: 'Power economics', to: '/capacity?tab=economics' }], followups: ['What is power costing us?', 'Which GPU job is losing the most?'] };
+  }
+  if (/\bpower (cost|bill|contract|economics)|costing (us|[a-z]{2}-dc-\d{3})|idle (mw|megawatt|power|block)|take-or-pay|demand (charge|peak)|tariff|kwh/.test(t) && !/gpu job|losing/.test(t)) {
+    const scopeDc = dcByText[0]?.id ?? ctx.dcId;
+    const e = powerEconomics(scopeDc);
+    const tt = e.totals, top = e.anomalies[0], g = e.gpu;
+    return { title: scopeDc ? `Power at ${scopeDc}: ${fmtMoney(tt.billMonth)} a month` : `Power costs ${fmtMoney(tt.billMonth)} a month across ${e.sites.length} sites`, confidence: 88,
+      lines: [`${fmtNum(Math.round(tt.mwhDay))} MWh a day at a blended ${tt.blendedTariff < 1 ? tt.blendedTariff.toFixed(3) : tt.blendedTariff.toFixed(2)} per kWh; ${fmtNum(tt.peakKw)} of ${fmtNum(tt.committedKw)} contracted kW drawn at peak, ${fmtNum(tt.idleKw)} kW paid for but idle (${fmtMoney(tt.idleCostMonth)} a month).`,
+        ...(tt.costPerSoldMwMonth !== null ? [`Cost per sold MW is ${fmtMoney(tt.costPerSoldMwMonth)} a month.`] : []),
+        ...(g ? [`The GPU fleet draws ${fmtNum(g.nodeKw)} kW: ${fmtMoney(g.powerCostDay)} a day, ${g.powerSharePct ?? 0}% of what it earns; idle GPUs burn ${fmtMoney(g.idlePowerCostDay)} a day.`] : []),
+        ...(top ? [`Biggest finding: ${top.title} at ${top.dcId} — ${fmtMoney(top.exposure)} ${top.exposureLabel}${top.incidentId ? ` (${top.incidentId})` : ''}.`] : ['No finding against the power contracts.'])],
+      evidence: [...e.anomalies.slice(0, 3).map(a => ({ label: `${a.dcId} · ${a.title}`, to: a.incidentId ? `/incidents/${a.incidentId}` : a.to })), ...e.sites.filter(s => s.idleKw > 0).slice(0, 2).map(s => ({ label: `${s.id} · ${fmtNum(s.idleKw)} kW idle of ${fmtNum(s.committedKw)}`, to: `/facilities?dc=${s.id}&tab=power` }))],
+      actions: [{ label: 'Power economics', to: `/capacity?tab=economics${scopeDc ? `&dc=${scopeDc}` : ''}` }, ...(g ? [{ label: 'GPU power cost', to: '/gpu?gtab=cooling' }] : [])], followups: [...(g ? ['Where should the next GPU job go?'] : []), 'Which issue is costing the most revenue?'] };
+  }
 
   /* AI & GPU: which job is losing GPU time, fleet health, AI cages */
   if (/\bgpu|\bjob\b|\bjobs\b|\bcage|xid|nvlink|cdu|infiniband|\bai\b/.test(t) && !incId) {

@@ -18,6 +18,7 @@ import { fmtAgo, fmtDur, fmtMoney, fmtNum } from '../lib/format';
 import { OpstralBtn } from '../ui/OpstralMark';
 import { downloadCsv } from './ops/shared';
 import { GpuPowerCost } from './capacity/PowerEconomics';
+import { GpuJobPower, Placement } from './gpu/PowerUse';
 import '../styles/revenue.css';
 import '../styles/gpu.css';
 
@@ -26,7 +27,7 @@ import '../styles/gpu.css';
    fleet as a heat map, then the nodes, cooling, power and the InfiniBand fabric.
    Colocation operators host tenant AI cages instead: power, coolant and inlet only. */
 
-type TabId = 'clusters' | 'jobs' | 'nodes' | 'models' | 'telemetry' | 'cooling' | 'fabric';
+type TabId = 'clusters' | 'jobs' | 'nodes' | 'models' | 'telemetry' | 'cooling' | 'fabric' | 'placement';
 type NodeR = GpuNodeRow & { id: string };
 const short = (id: string) => id.replace(/^[A-Z]{2}-DC-\d{3}-/, '');
 const perH = (n: number) => `${fmtMoney(n)}/h`;
@@ -80,7 +81,7 @@ export function GpuBody({ v, embedded }: { v: GpuView; embedded?: boolean }) {
 function Fleet({ v, embedded }: { v: GpuView; embedded?: boolean }) {
   const [sp, setSp] = useSearchParams();
   const { vocab: V } = usePersona();
-  const tab = (['clusters', 'jobs', 'nodes', 'models', 'telemetry', 'cooling', 'fabric'].includes(sp.get('gtab') ?? '') ? sp.get('gtab') : 'clusters') as TabId;
+  const tab = (['clusters', 'jobs', 'nodes', 'models', 'telemetry', 'cooling', 'fabric', 'placement'].includes(sp.get('gtab') ?? '') ? sp.get('gtab') : 'clusters') as TabId;
   const go = (t: TabId, patch: Record<string, string> = {}) => { const n = new URLSearchParams(sp); ['gtab', 'gstate', 'q', 'gview', 'gmodel'].forEach(k => n.delete(k)); if (t !== 'clusters') n.set('gtab', t); Object.entries(patch).forEach(([k, x]) => n.set(k, x)); setSp(n, { replace: true }); };
   const [node, setNode] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
@@ -141,7 +142,8 @@ function Fleet({ v, embedded }: { v: GpuView; embedded?: boolean }) {
         { id: 'models', label: 'GPU models', icon: I.Cpu, count: f.models.length },
         { id: 'telemetry', label: 'Telemetry', icon: I.Activity },
         { id: 'cooling', label: 'Cooling & power', icon: I.Thermometer, count: cduBad.length + v.racks.filter(r => r.state !== 'ok').length || undefined },
-        { id: 'fabric', label: 'Network', icon: I.Network }
+        { id: 'fabric', label: 'Network', icon: I.Network },
+        { id: 'placement', label: 'Where to place', icon: I.MapPinned }
       ]} />
       {tab === 'clusters' && <Clusters v={v} onNode={setNode} />}
       {tab === 'jobs' && <Jobs v={v} onJob={setJobId} hideDc={!!v.dcId} />}
@@ -150,6 +152,7 @@ function Fleet({ v, embedded }: { v: GpuView; embedded?: boolean }) {
       {tab === 'telemetry' && v.telemetry && <Telemetry t={v.telemetry} v={v} onNode={setNode} />}
       {tab === 'cooling' && <CoolingPower v={v} />}
       {tab === 'fabric' && <Fabric v={v} onNode={setNode} />}
+      {tab === 'placement' && <Placement dcId={v.dcId} />}
 
       <NodeDrawer id={node} onClose={() => setNode(null)} onJob={id => { setNode(null); setJobId(id); }} />
       <JobDrawer j={job} v={v} onClose={() => setJobId(null)} onNode={id => { setJobId(null); setNode(id); }} />
@@ -403,6 +406,7 @@ function CoolingPower({ v }: { v: GpuView }) {
   return (
     <div className="col" style={{ gap: 16 }}>
       <GpuPowerCost dcId={v.dcId} />
+      <GpuJobPower dcId={v.dcId} />
       {v.cdus.length > 0 && (
         <Panel title="Liquid-cooling loops" icon={I.Droplets} sub="Coolant distribution units feeding direct-to-chip GPU racks · flow against design, supply and return temperature"
           info="One card per coolant distribution unit: flow as a share of nominal (red under 75%, amber under 90%), supply and return temperature, load = heat removed ÷ capacity, pump state and the racks it feeds. Click a card to open the site's Cooling tab in Facilities.">

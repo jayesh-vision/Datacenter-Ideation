@@ -9,3 +9,27 @@
 .pe-share i { display: block; height: 100%; border-radius: 3px; }
 .pe-pods td .faint { color: var(--ink-400); }
 @media (max-width: 1360px) { .pe-row { grid-template-columns: 1fr; } }
+
+/* findings, callouts, job states, placement */
+.pe-findings td small.pe-wrap, .pe-wrap { white-space: normal; line-height: 1.45; }
+.pe-wrap.small { font-size: 12.5px; color: var(--ink-600); display: block; max-width: 320px; }
+.pe-evidence { display: flex; flex-wrap: wrap; gap: 4px 14px; max-width: 320px; }
+.pe-evidence > span { display: inline-flex; flex-direction: column; line-height: 1.3; }
+.pe-evidence small { font-size: 11px; color: var(--ink-500); }
+.pe-evidence b { font-weight: 500; font-size: 12.5px; }
+.pe-callouts { display: flex; flex-direction: column; gap: 8px; padding: 12px 16px 4px; }
+.pe-callout { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 10px; background: var(--vw-color-slate-50); border: 1px solid var(--vw-color-slate-100); font-size: 13px; line-height: 1.5; color: var(--ink-700); }
+.pe-callout svg { flex: none; margin-top: 3px; color: var(--ink-500); }
+.pe-bad { color: #b21313 !important; } .pe-good { color: var(--vw-color-emerald-700) !important; }
+.pe-state { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.pe-state i { width: 8px; height: 8px; border-radius: 50%; background: var(--vw-color-emerald-500); }
+.pe-state.is-slowed i, .pe-state.is-at-risk i, .pe-state.is-idle i { background: var(--vw-color-amber-500); }
+.pe-state.is-stalled i { background: var(--vw-color-red-500); }
+.pe-dim td { opacity: .55; }
+.pe-place-ask { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 14px 18px; }
+.pe-place-q { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
+.pe-place-q svg { color: var(--primary); }
+.pe-place-q b { font-size: 15px; font-weight: 600; color: var(--ink-900); }
+.pe-place-q .muted { font-size: 13px; }
+.pe-place-ctl { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.pe-place-ctl label { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-600); }

@@ -12,6 +12,7 @@ import { activeGeo, dcAt, money, placeCustomer, type DcRow } from './geo';
 import { buildIncidents, impactOf, RESOLVE_SLA, RESPONSE_SLA } from './incidents';
 import { agePreviousGeneration, ageOperatorServers, isLegacyModel } from './vintage';
 import { addGpuChange, addGpuServices, buildGpuFleet, buildGpuHistory, buildGpuIncidents, injectGpuFaults, LIQUID_SITES, type GpuState } from './gpu';
+import { raisePowerContractAlerts } from './power-econ';
 import { PERSONA_BY_ID, edgeId } from './personas';
 
 /* a host (compute / storage / GPU) or an opaque block of tenant equipment */
@@ -861,6 +862,8 @@ export function generate(persona: Persona = 'network'): Db {
   buildIncidents(db, def.incidentTitles, persona);
   buildGpuIncidents(db, persona, { impactOf: sc => impactOf(db, sc), responseSla: RESPONSE_SLA, resolveSla: RESOLVE_SLA });
   raiseOperatorServerAlerts(db);
+  /* power findings against the contract (21-Oct-2026): one alarm each, one incident for the costliest; appended last so nothing else moves; not in the network persona */
+  raisePowerContractAlerts(db, persona, a => addAlert(db, a), { response: RESPONSE_SLA, resolve: RESOLVE_SLA });
   buildRecon(db);
   buildPlans(db);
   finaliseHealth(db);

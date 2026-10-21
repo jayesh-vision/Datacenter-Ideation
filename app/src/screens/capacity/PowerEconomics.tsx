@@ -11,6 +11,7 @@ import { Facts } from '../../ui/Analytics';
 import { BarList } from '../../charts/BarList';
 import { Donut } from '../../charts/Donut';
 import { currencySymbol, fmtDate, fmtKw, fmtMoney, fmtNum } from '../../lib/format';
+import { PowerFindings } from '../gpu/PowerUse';
 import '../../styles/power-econ.css';
 
 /* Capacity → Power → Power economics (21-Oct-2026). What the estate pays for power and where committed power sits idle:
@@ -43,6 +44,7 @@ export function PowerEconomicsTab({ dc }: { dc: string }) {
           ? { key: 'cps', label: 'Cost per sold MW', value: `${fmtMoney(t.costPerSoldMwMonth!)} / mo`, sub: `${fmtMw(t.soldKw)} sold`, info: 'The whole power bill over the IT power customers are billed for right now (GPU nodes in a running job, tenant contracted power). The IT-MW figure spreads the bill over all IT load instead.' }
           : { key: 'cps', label: 'Cost per IT MW', value: `${fmtMoney(t.costPerItMwMonth)} / mo`, sub: 'nothing sold', info: 'The whole power bill over the IT load. Sold MW needs customers billed for power or GPU capacity.' }
       ]} />
+      <PowerFindings e={e} />
       <div className="pe-row">
         <Panel title="Where committed power sits idle" icon={I.PlugZap} sub="Sites paying most for power they do not draw, per month"
           info="Idle cost per site = idle kW × the capacity rate (demand charge, or the colocation per-kW-month rate). Click a site to open its power path in Facilities.">
