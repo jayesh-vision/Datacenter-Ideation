@@ -260,11 +260,17 @@ const R = [
   ['/dcim/racks/{id}', 'DCIM rack', 'Front elevation by U, rack PDUs with every cord, data cables and patch panels; Install device', [['tab', 'devices · power · cables · panels', 'side tab']], '?tab=power', 'MH-DC-001-RACK-A'],
   ['/dcim/types/{id}', 'DCIM device type', 'One model: port template, supplies, modules that fit, every device of the type', [], '', 'juniper-mx204'],
   ['/data-model', 'Data model', 'Every entity and how it links: Ontology, Full map and Hierarchy views (counts follow the persona)', [], ''],
+  ['/help', 'Help & FAQ', 'Questions people ask first, and every Datacenter document (field guide, GPU anatomy, playbook, personas, data model, import template, backups, integration / embed / platform menu guides) read inside the app', [['tab', 'faq · docs', 'tab (default faq)'], ['doc', 'field-guide · gpu-anatomy · demo-playbook · personas · data-model · integration · embed · platform-menu', 'docs: the document open in the reader'], ['s', 'section id (the document\'s #hash, e.g. glossary · explain · questions · metrics · inventory · cards for the field guide; map · tech for the integration guide)', 'docs: section']], '?tab=docs&doc=field-guide&s=glossary'],
   ['Drill-downs'],
   ['/customers/{id}', 'Customer', 'Customer / tenant / account / business unit page', [], '', 'CUST-1202'],
   ['/services/{id}', 'Service', 'One service, its path and SLA', [], '', 'SVC-L3-1807', 'network'],
   ['Documents'],
   ['/demo-playbook.html', 'Demo playbook', 'The customer demo script ("The 13:20 call")', [], '', '', '', false, true],
+  ['/field-guide.html', 'Field guide', 'Glossary, how it fits together, customer questions, metrics & sources, inventory, flashcards; #glossary|explain|questions|metrics|inventory|cards', [], '', '', '', false, true],
+  ['/gpu-anatomy.html', 'GPU datacenter anatomy', 'GPUs from the chip to the building, how they are bought, a failure followed through the cluster, sizing, glossary', [], '', '', '', false, true],
+  ['/integration-guide.html', 'Integration guide', 'Platform map (30 modules), journeys, matrix, ownership, waves; #tech = the technical data-source guide', [], '', '', '', false, true],
+  ['/platform-menu.html', 'Platform menu', 'Where each Datacenter screen and sub-menu sits in the platform launcher', [], '', '', '', false, true],
+  ['/datacenter-personas.html', 'Datacenter personas', 'The business models one estate runs under', [], '', '', '', false, true],
   ['/data-model.html', 'Data model (standalone)', 'The same explorer without the app shell; hash #view=ontology|map|tree&e=<entity>&persona=', [], '', '', '', false, true],
   ['/embed-guide.html', 'This guide', 'Routes and embedding', [], '', '', '', false, true]
 ];

@@ -16,6 +16,7 @@ import { Revenue } from './screens/Revenue';
 import { GpuPage } from './screens/Gpu';
 import { NotFound } from './screens/NotFound';
 import { DataModel } from './screens/DataModel';
+import { Help } from './screens/Help';
 import { Dcim } from './screens/dcim/Dcim';
 import { RackPage } from './screens/dcim/RackPage';
 import { TypePage } from './screens/dcim/TypePage';
@@ -105,6 +106,7 @@ export default function App() {
           <Route path="compliance" element={<Compliance />} />
           <Route path="customization" element={<Customization />} />
           <Route path="data-model" element={<DataModel />} />
+          <Route path="help" element={<Help />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

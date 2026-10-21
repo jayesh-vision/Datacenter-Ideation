@@ -824,6 +824,14 @@ Devices, nothing on Cabling / Power / Catalogue (they have in-tab actions). Faci
 `/changes?new=maintenance`. Delivery's strip was removed from its sub-menus (Insights has its own tiles). Not added, flagged only: a manual
 Raise incident (incidents come from alarms), Start a process on Work orders, Request permit / Add design document on Delivery.
 
+## Help & FAQ (21-Oct-2026, user: "add a FAQ section as a menu and keep all the Datacenter docs in this help section")
+Menu Reference → **Help & FAQ** (`/help`, `screens/Help.tsx`, styles `styles/help.css`). Tabs FAQ (19 questions in six categories, search + category
+pills, `<details>` accordion, answers link to screens and into the reader) · Documents (cards in three groups: Understand the product = field guide,
+GPU anatomy, demo playbook, personas, platform overview PDF / Word · Data = data model, import template, the 10 estate backups · Integrate and embed =
+integration, embed and platform menu guides). A card's "Read" opens the HTML doc from `app/public` in an in-app reader (`?tab=docs&doc=<id>&s=<hash>`;
+section chips set the doc's `#hash`, which the guides read on load; the iframe is re-keyed on each change); downloads open directly. New docs go in
+`DOCS` there; new questions in `FAQ`. The embed guide lists the route and every served document.
+
 ## Ship (19-Oct-2026, user: "save tokens")
 `scripts/ship.sh -m "message" [-c "string in the new build"] [paths…]` = production type-check → commit (default: modified tracked
 files + new files under app/src, docs, app/public, scripts; never app/package-lock.json) → push main → Vercel deploy of HEAD from a

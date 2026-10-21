@@ -1,0 +1,57 @@
+/* Help & FAQ (21-Oct-2026): the question list, the document library and the in-app reader */
+.help .page-head > .row { flex: 1; min-width: 0; }
+.help .page-head p { max-width: 720px; }
+.help-chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--vw-color-slate-200); background: var(--vw-color-white); color: var(--ink-700); font: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer; text-decoration: none; white-space: nowrap; }
+.help-chip:hover { border-color: var(--primaryColor300); color: var(--primary); }
+.help-chip.is-active { background: var(--vw-color-slate-900); border-color: var(--vw-color-slate-900); color: var(--vw-color-white); }
+
+/* FAQ */
+.help-faq { padding: 0; overflow: clip; }
+.help-faq-tb { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 14px 20px; border-bottom: 1px solid var(--vw-color-slate-100); }
+.help-cats .pill { height: 32px; padding: 0 12px; font-size: 13px; }
+.help-qs { display: flex; flex-direction: column; }
+.help-q { border-bottom: 1px solid var(--vw-color-slate-100); }
+.help-q:last-child { border-bottom: 0; }
+.help-q > summary { list-style: none; display: grid; grid-template-columns: 150px 1fr 20px; align-items: center; gap: 16px; padding: 16px 20px; cursor: pointer; }
+.help-q > summary::-webkit-details-marker { display: none; }
+.help-q > summary:hover { background: var(--vw-color-slate-50); }
+.help-q-cat { font-size: 12px; font-weight: 500; color: var(--ink-500); text-transform: uppercase; letter-spacing: .02em; }
+.help-q-t { font-size: 15px; font-weight: 500; color: var(--ink-900); }
+.help-q-chev { color: var(--ink-400); transition: transform .15s; }
+.help-q[open] > .help-q-chev, .help-q[open] > summary .help-q-chev { transform: rotate(180deg); }
+.help-a { padding: 0 20px 18px 186px; }
+.help-a p { margin: 0; font-size: 14px; line-height: 1.6; color: var(--ink-700); max-width: 960px; }
+.help-a-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+/* Documents */
+.help-lib { display: flex; flex-direction: column; gap: 24px; }
+.help-group-h { margin-bottom: 12px; }
+.help-group-h h2 { margin: 0; font-size: 16px; font-weight: 600; color: var(--ink-900); }
+.help-group-h p { margin: 2px 0 0; font-size: 13.5px; }
+.help-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.help-card { display: flex; flex-direction: column; gap: 12px; padding: 18px 20px; min-height: 0; }
+.help-card.is-doc { cursor: pointer; }
+.help-card.is-doc:hover { border-color: var(--primaryColor300); box-shadow: 0 2px 10px rgba(15, 23, 42, .06); }
+.help-card-h { display: flex; align-items: center; gap: 12px; }
+.help-card-h h3 { margin: 0; font-size: 15.5px; font-weight: 600; color: var(--ink-900); }
+.help-card-ic { width: 40px; height: 40px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; background: var(--primaryColor50); color: var(--primary); flex: none; }
+.help-card-b { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--ink-600); flex: 1; }
+.help-card-secs { display: flex; flex-wrap: wrap; gap: 6px; }
+.help-card-f { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 4px; }
+
+/* Reader */
+.help-reader { padding: 0; overflow: clip; display: flex; flex-direction: column; }
+.help-reader-h { display: flex; align-items: center; gap: 14px; padding: 14px 20px; border-bottom: 1px solid var(--vw-color-slate-100); flex-wrap: wrap; }
+.help-reader-h > div { flex: 1 1 360px; }
+.help-reader-h h3 { margin: 0; font-size: 15.5px; font-weight: 600; color: var(--ink-900); }
+.help-reader-h p { margin: 2px 0 0; font-size: 13px; line-height: 1.45; }
+.help-reader-secs { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.help-frame { height: max(600px, calc(100vh - var(--top-h) - 250px)); display: flex; }
+.help-frame iframe { flex: 1; width: 100%; border: 0; display: block; background: var(--vw-color-white); }
+
+@media (max-width: 1360px) {
+  .help-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .help-q > summary { grid-template-columns: 130px 1fr 20px; }
+  .help-a { padding-left: 166px; }
+  .help-reader-secs { margin-left: 0; flex-basis: 100%; }
+}

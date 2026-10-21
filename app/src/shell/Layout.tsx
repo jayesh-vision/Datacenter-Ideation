@@ -41,7 +41,7 @@ const NAV: { group: string; items: { to: string; label: string; icon: I.LucideIc
   ] },
   { group: 'Admin', items: [{ to: '/compliance', label: 'Compliance', icon: I.ShieldCheck }, { to: '/customization', label: 'Customization', icon: I.SlidersHorizontal }] },
   /* how every record links to the others (user, 12-Oct-2026) */
-  { group: 'Reference', items: [{ to: '/data-model', label: 'Data model', icon: I.Waypoints }] },
+  { group: 'Reference', items: [{ to: '/data-model', label: 'Data model', icon: I.Waypoints }, { to: '/help', label: 'Help & FAQ', icon: I.CircleHelp }] },
 ];
 /* Services and customers appear only as impact (incident, device, site pages);
    capacity planning lives in the separate Plan & Build section. */
