@@ -599,10 +599,6 @@ export function commandCenter() {
     { key: 'response', label: 'Incident response', unit: 'in SLA · estate', value: pct(open.length - breaching.length, open.length), measure: 'Open incidents still within their resolution SLA',
       detail: `${breaching.length} of ${open.length} open incidents past SLA${n1 ? ` · ${n1} critical` : ''}`, to: '/incidents?view=breaching', state: (breaching.some(i => i.sev === 1) ? 'critical' : breaching.length ? 'attention' : 'ok') as AreaState,
       sites: siteList(breaching.map(i => ({ id: i.dcId, crit: i.sev === 1, note: `${i.id} ${sevLabel(i.sev)} past SLA` })), id => `/incidents?view=breaching&dc=${id}`) },
-    { key: 'network', label: 'Network', unit: 'estate healthy', value: pct(lldp.length - linksDown.length + live.length - unreachable.length, lldp.length + live.length), measure: neo ? 'Network cables up (InfiniBand, Ethernet, OOB) and nodes reachable' : 'Physical links up and devices reachable',
-      detail: netDetail, to: '/datacenters?view=edge', state: (edgeIsolated.length ? 'critical' : linksDown.length || unreachable.length || edgeLost.length ? 'attention' : 'ok') as AreaState,
-      sites: siteList([...linksDown.map(l => ({ id: l.dcId, note: neo ? `${PLANE_SHORT[planeOf(l)]} cable down` : 'link down' })), ...unreachable.map(n => ({ id: n.dcId, note: 'device unreachable' })),
-        ...edgeLost.map(x => ({ id: x.id, note: 'edge redundancy lost' })), ...edgeIsolated.map(x => ({ id: x.id, crit: true, note: 'isolated — no edge link up' }))], id => `/datacenters/${id}?tab=topology`) },
     { key: 'power', label: 'Power', unit: 'estate healthy', value: pct(upsAll.length - upsBad.length + feeds.length - feedsBad.length, upsAll.length + feeds.length), measure: 'UPS units online and utility feeds normal',
       detail: join([...upsBad.map(u => `${u.name} ${u.state.toLowerCase()}`), ...(feedsBad.length ? [`${feedsBad.length} utility feed${feedsBad.length > 1 ? 's' : ''} lost`] : [])], `All ${upsAll.length} UPS online · all feeds normal`),
       to: upsBad[0] ? `/facilities?dc=${upsBad[0].dc}` : '/facilities', state: (upsBad.some(u => u.state === 'On battery' || u.state === 'Fault') ? 'critical' : upsBad.length || feedsBad.length ? 'attention' : 'ok') as AreaState,
@@ -610,7 +606,11 @@ export function commandCenter() {
     { key: 'cooling', label: 'Cooling & environment', unit: 'estate healthy', value: pct(units.length - unitsFailed.length + zones.length - zonesHot.length, units.length + zones.length), measure: 'Cooling units running and zones within 27°C',
       detail: join([...unitsFailed.map(u => `${u.name} failed`), ...(zonesHot.length ? [`${zonesHot.length} zone${zonesHot.length > 1 ? 's' : ''} >27°C`] : []), ...(unitsMaint.length ? [`${unitsMaint.length} in maint.`] : [])], 'All cooling units running · all zones in range'),
       to: unitsFailed[0] ? `/facilities?dc=${unitsFailed[0].dc}&tab=cooling` : '/facilities?tab=cooling', state: (unitsFailed.length || zonesHot.length ? 'attention' : 'ok') as AreaState,
-      sites: siteList([...unitsFailed.map(u => ({ id: u.dc, note: `${u.name} failed` })), ...zonesHot.map(z => ({ id: z.dc, note: `${z.zone} ${z.tempC}°C` }))], id => `/facilities?dc=${id}&tab=cooling`) }
+      sites: siteList([...unitsFailed.map(u => ({ id: u.dc, note: `${u.name} failed` })), ...zonesHot.map(z => ({ id: z.dc, note: `${z.zone} ${z.tempC}°C` }))], id => `/facilities?dc=${id}&tab=cooling`) },
+    { key: 'network', label: 'Network', unit: 'estate healthy', value: pct(lldp.length - linksDown.length + live.length - unreachable.length, lldp.length + live.length), measure: neo ? 'Network cables up (InfiniBand, Ethernet, OOB) and nodes reachable' : 'Physical links up and devices reachable',
+      detail: netDetail, to: '/datacenters?view=edge', state: (edgeIsolated.length ? 'critical' : linksDown.length || unreachable.length || edgeLost.length ? 'attention' : 'ok') as AreaState,
+      sites: siteList([...linksDown.map(l => ({ id: l.dcId, note: neo ? `${PLANE_SHORT[planeOf(l)]} cable down` : 'link down' })), ...unreachable.map(n => ({ id: n.dcId, note: 'device unreachable' })),
+        ...edgeLost.map(x => ({ id: x.id, note: 'edge redundancy lost' })), ...edgeIsolated.map(x => ({ id: x.id, crit: true, note: 'isolated — no edge link up' }))], id => `/datacenters/${id}?tab=topology`) }
   ];
   /* what the % counts and why the status word is what it is (12-Oct-2026, user: "97.7% and Critical — healthy or at risk?").
      The % is the share of items in a good state (higher is better); the status follows the worst single issue, so one UPS on
@@ -661,7 +661,7 @@ export function commandCenter() {
         ...throttledSites.map(id => ({ id, note: 'GPUs throttled' }))
       ], id => `/gpu?dc=${id}&gtab=jobs`)
     } as (typeof domains)[number];
-    domains.splice(0, 1, gpuArea);
+    domains.splice(0, 1, gpuArea); // order: GPU fleet · Power · Cooling · Network (user, 21-Oct-2026: the product first, then what fails fastest)
     explain.gpu = { good: total - bad, total, items: `GPUs healthy and running at full speed (${fmtNum(total)} installed)`, why: gWhy };
   }
   const areas = domains.map(d => ({ ...d, ...explain[d.key] }));

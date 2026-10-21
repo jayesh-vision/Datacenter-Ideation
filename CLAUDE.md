@@ -159,7 +159,7 @@ estate runs GPU nodes (cloud, enterprise, NeoCloud; not network, not colocation'
 response: % = GPUs healthy and running at full speed ÷ installed (a GPU in a stalled / slowed / at-risk job, failed, degraded or throttled counts bad;
 deliberate spares are good), status = Critical when a job is stalled, Attention for slowed / at-risk / idle allocations / throttling / failed GPUs, detail
 "152 GPUs stopped by one failed GPU · 2 jobs slowed · $625/h lost", chips = sites with a hurt job or throttled GPUs → `/gpu?dc=&gtab=jobs`. Operations
-health then averages GPU fleet · Network · Power · Cooling. `cc-numbers.ts` checks whichever first area is present.
+health then averages the four. Row order (user, 21-Oct-2026): GPU fleet (or Incident response) · Power · Cooling & environment · Network — the product first, then what fails fastest, the fabric last. `cc-numbers.ts` checks whichever first area is present.
 
 Hero numbers must add up (12-Oct-2026, user caught "7 of 23" next to 1 Critical + 8 High): the verdict line reads "N critical or high incidents at
 S of 23 datacenters" (N = Critical + High tiles; a site can carry several) with an info bubble listing each site (`situation.critBySite`). The High
