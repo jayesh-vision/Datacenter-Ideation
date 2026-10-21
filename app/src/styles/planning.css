@@ -404,6 +404,8 @@ button.pn-lead-row:hover { background: var(--vw-color-slate-50); }
 .planning .dt-table td .pn-nowrap { white-space: nowrap; }
 .pn-lib { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .pn-lib-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+/* the one toolbar above a library view's panels (Benchmarks: search, quick filters, Filters panel) */
+.pn-lib-tb { padding: 12px 16px; }
 .pn-lib > .panel > .panel-body.is-flush > .dt .dt-toolbar { border-top: 1px solid var(--vw-color-slate-100); }
 .pn-lib .panel-body.is-flush > .pn-pue { padding: 4px 8px 10px; }
 .pn-lib .dt-table td .pn-name-cell { min-width: 220px; }

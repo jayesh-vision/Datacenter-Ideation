@@ -64,7 +64,7 @@ export function Planner() {
     <div className="page planning">
       <PageHead title="Planner" sub="Plan anything from one rack to a new datacenter: a plan type fixes the questions, the rules and who approves; every figure is sized against the estate."
         actions={<Btn variant="filled" icon={I.Plus} onClick={() => nav('/planning/new')}>New plan</Btn>} />
-      {(tab === 'overview' || tab === 'plans') && <StatGrid>
+      {tab === 'overview' && <StatGrid>
         <StatTile label="Plans" value={num(rows.length)} sub={`${active.length} active`} onClick={() => goPlans({})} info="Every plan in the planner, by status. Click a status to open the list filtered to it.">
           <Split parts={([{ key: 'Draft', label: 'Draft', n: by('Draft').length, tone: 'neutral' }, { key: 'In review', label: 'In review', n: review.length, tone: 'info' }, { key: 'Approved', label: 'Approved', n: approved.length, tone: 'success' }, { key: 'Executing', label: 'Executing', n: executing.length, tone: 'warning' }, { key: 'Completed', label: 'Completed', n: by('Completed').length, tone: 'purple' }] as Part[]).filter(p => p.n)} onPick={k => goPlans({ status: k })} />
         </StatTile>

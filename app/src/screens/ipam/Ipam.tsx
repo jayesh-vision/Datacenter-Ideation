@@ -63,12 +63,13 @@ export function Ipam() {
         actions={<select className="select" value={dcId} onChange={e => go({ dc: e.target.value })} aria-label="Datacenter scope">
           <option value="">All datacenters ({sites.sites.length})</option>{sites.sites.map(s => <option key={s.id} value={s.id}>{s.id} · {s.city}</option>)}
         </select>} />
-      <StatGrid fit>
-        <StatTile label="Prefixes" value={fmtNum(leaf.length)} sub="active" onClick={() => setTab('prefixes')} active={tab === 'prefixes'}
+      {/* the analytics strip belongs to the Insights sub-menu only (user, 21-Oct-2026) */}
+      {tab === 'overview' && <StatGrid fit>
+        <StatTile label="Prefixes" value={fmtNum(leaf.length)} sub="active" onClick={() => setTab('prefixes')}
           info="Prefixes in use (not counting the containers that hold them), by role. Click to open the prefix tree.">
           <Split parts={[{ key: 'm', label: 'Management', n: leaf.filter(p => p.role === 'Management').length, tone: 'info' as const }, { key: 'h', label: 'Hosts', n: leaf.filter(p => p.role === 'Production' || p.role === 'Storage').length, tone: 'neutral' as const }, { key: 'o', label: 'Links & other', n: leaf.filter(p => !['Management', 'Production', 'Storage'].includes(p.role)).length, tone: 'neutral' as const }].filter(x => x.n)} />
         </StatTile>
-        <StatTile label="Addresses" value={fmtNum(m.addresses.length)} sub="bound" onClick={() => setTab('addresses')} active={tab === 'addresses'}
+        <StatTile label="Addresses" value={fmtNum(m.addresses.length)} sub="bound" onClick={() => setTab('addresses')}
           info="Every address recorded: device management addresses, loopbacks, link /31s, host addresses, gateways and customer links. Reserved = held for a planned device or by hand.">
           <Split parts={[{ key: 'a', label: 'Active', n: st('Active'), tone: 'info' as const }, { key: 'r', label: 'Reserved', n: st('Reserved'), tone: 'neutral' as const }, { key: 'g', label: 'Gateways', n: st('Gateway'), tone: 'neutral' as const }, { key: 'o', label: 'Outside plan', n: st('Outside plan') + st('Conflict'), tone: 'orange' as const }].filter(x => x.n)} />
         </StatTile>
@@ -77,20 +78,20 @@ export function Ipam() {
           <SoftMeter pct={leaf.length ? (full.length / leaf.length) * 100 : 0} tone={full.length ? 'warning' : 'success'} />
           <Facts items={[{ n: hot.length, label: 'between 75% and 90%' }, { n: m.findings.filter(f => f.kind === 'Outside plan' || f.kind === 'Conflict').length, label: 'address findings', tone: m.findings.some(f => f.kind === 'Outside plan' || f.kind === 'Conflict') ? 'warn' : undefined, onClick: () => setTab('overview') }, { n: m.fhrp.filter(g => g.state === 'degraded').length, label: 'degraded gateways', tone: m.fhrp.some(g => g.state === 'degraded') ? 'bad' : undefined }]} />
         </StatTile>
-        <StatTile label="VRFs" value={m.vrfs.length} sub="routing tables" onClick={() => setTab('vrfs')} active={tab === 'vrfs'}
+        <StatTile label="VRFs" value={m.vrfs.length} sub="routing tables" onClick={() => setTab('vrfs')}
           info="Routing tables: one management VRF per site, the global table (DEFAULT) and customer VRFs (layer-3 VPNs, internet).">
           <Split parts={[{ key: 's', label: 'Site', n: m.vrfs.filter(v => v.scope === 'Site').length, tone: 'info' as const }, { key: 'e', label: 'Estate', n: m.vrfs.filter(v => v.scope === 'Estate').length, tone: 'neutral' as const }, { key: 'c', label: 'Customer', n: m.vrfs.filter(v => v.scope === 'Customer').length, tone: 'neutral' as const }]} />
         </StatTile>
-        <StatTile label="VLANs" value={fmtNum(m.vlans.length)} sub={`${m.vlans.filter(v => v.status === 'Unused').length} unused`} onClick={() => setTab('vlans')} active={tab === 'vlans'}
+        <StatTile label="VLANs" value={fmtNum(m.vlans.length)} sub={`${m.vlans.filter(v => v.status === 'Unused').length} unused`} onClick={() => setTab('vlans')}
           info="VLANs per site: management, production per hall, storage, and one per layer-2 customer handoff (L2VPN, leased line, cross-connect).">
           <Split parts={[{ key: 'f', label: 'Fabric & storage', n: m.vlans.filter(v => v.group === 'Fabric' || v.group === 'Storage').length, tone: 'info' as const }, { key: 'm', label: 'Management', n: m.vlans.filter(v => v.group === 'Management').length, tone: 'neutral' as const }, { key: 's', label: 'Service handoffs', n: m.vlans.filter(v => v.group === 'Services').length, tone: 'neutral' as const }]} />
         </StatTile>
-        <StatTile label="BGP" value={bgp ? `${Math.round((bgpUp / bgp) * 100)}%` : '—'} sub="sessions up" subTone={bgpUp < bgp ? 'warn' : undefined} onClick={() => setTab('asns')} active={tab === 'asns'}
+        <StatTile label="BGP" value={bgp ? `${Math.round((bgpUp / bgp) * 100)}%` : '—'} sub="sessions up" subTone={bgpUp < bgp ? 'warn' : undefined} onClick={() => setTab('asns')}
           info="BGP sessions of the operator and site ASNs that are established. Click for every ASN and the private ASN pools.">
           <SoftMeter pct={bgp ? (bgpUp / bgp) * 100 : 0} tone={bgpUp < bgp ? 'warning' : 'success'} />
           <Facts items={[{ n: fmtNum(bgp - bgpUp), label: `of ${fmtNum(bgp)} sessions down`, tone: bgpUp < bgp ? 'warn' : undefined }, { n: m.asns.length, label: 'ASNs' }, { n: m.fhrp.length, label: 'gateways (VRRP / HSRP)' }]} />
         </StatTile>
-      </StatGrid>
+      </StatGrid>}
       <SubTabs screen="ipam" value={tab} onChange={v => setTab(v)} tabs={TABS.map(t => ({ ...t, count: t.id === 'prefixes' ? leaf.length : t.id === 'vlans' ? m.vlans.length : undefined }))} />
       {tab === 'overview' && <Overview m={m} onPrefix={setPrefix} crud={crud} />}
       {tab === 'prefixes' && <Prefixes m={m} onPrefix={setPrefix} onNew={() => setNewPfx(true)} crud={crud} />}
