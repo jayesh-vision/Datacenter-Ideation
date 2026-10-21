@@ -32,7 +32,8 @@ export const SUBMENUS: Record<string, ScreenMenu> = {
     { id: 'gateways', label: 'Gateways', tabs: ['services'], desc: 'Gateway groups and application services' },
     { id: 'registers', label: 'Registers', tabs: ['registers', 'integrations'], desc: 'Registries, roles, route targets and external sources' }
   ] },
-  dcim: { to: '/dcim', defaultTab: 'sites', items: [
+  dcim: { to: '/dcim', defaultTab: 'overview', items: [
+    { id: 'insights', label: 'Insights', tabs: ['overview'], desc: 'What needs attention, where capacity is tight, what the estate is made of' },
     { id: 'sites', label: 'Sites', tabs: ['sites', 'hierarchy'], desc: 'Sites and the containment hierarchy' },
     { id: 'racks', label: 'Racks', tabs: ['racks', 'floorplan'], desc: 'Racks and floor plans' },
     { id: 'devices', label: 'Devices', tabs: ['devices', 'explorer'], desc: 'Devices and the explorer' },

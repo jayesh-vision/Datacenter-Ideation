@@ -214,3 +214,14 @@
 .dcim-drop.is-bad { border-color: var(--vw-color-red-500); background: color-mix(in srgb, var(--vw-color-red-100) 70%, transparent); }
 .dcim-drop.is-bad span { color: var(--vw-color-red-700); }
 .dcim-ex-facts { white-space: nowrap; font-size: 12.5px; }
+
+/* DCIM → Insights (21-Oct-2026): cabling stacks and the change-request tiles; the grid itself is Delivery's dl-dash */
+.dcim-ov-stack { display: flex; flex-direction: column; gap: 12px; margin: 4px 0 14px; }
+.dcim-ov-stack-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 6px; font-size: 13px; }
+.dcim-ov-stack-h small { color: var(--ink-500, var(--vw-color-slate-500)); font-size: 12px; }
+.dcim-ov-cr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 2px 0 14px; }
+.dcim-ov > .dl-span-5 { grid-column: span 5; } .dcim-ov > .dl-span-7 { grid-column: span 7; }
+.dcim-ov-cr-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px; border: 1px solid var(--vw-color-slate-200); border-radius: 10px; background: var(--vw-color-white); cursor: pointer; font: inherit; text-align: left; }
+.dcim-ov-cr-tile:hover { border-color: var(--primaryColor400); }
+.dcim-ov-cr-tile b { font-size: 24px; font-weight: 400; line-height: 1; color: var(--vw-color-gray-900); }
+.dcim-ov .dn { align-items: center; }

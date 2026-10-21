@@ -9,6 +9,7 @@ import { DcimChangesTab } from './Changes';
 import type { DcimSite } from '../../api/types';
 import { usePage, PageHead, Loading } from '../../shell/page';
 import { SubTabs, subCrumb } from '../../shell/submenus';
+import { DcimInsights } from './Insights';
 import { Btn } from '../../ui/kit';
 import { DataTable, type Col } from '../../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
@@ -23,17 +24,17 @@ import { Explorer } from './Explorer';
 import { NewRackModal, InstallDeviceModal } from './forms';
 import '../../styles/dcim.css';
 
-export type DcimTab = 'sites' | 'floorplan' | 'racks' | 'devices' | 'cabling' | 'power' | 'changes' | 'types' | 'hierarchy' | 'explorer';
+export type DcimTab = 'overview' | 'sites' | 'floorplan' | 'racks' | 'devices' | 'cabling' | 'power' | 'changes' | 'types' | 'hierarchy' | 'explorer';
 /* order (user, 15-Oct-2026): the estate top-down (site → hierarchy → hall → rack → device), what connects and powers it, the catalogue,
    then the tools (explorer) and the change requests that act on all of it */
 const TABS: { id: DcimTab; label: string }[] = [
-  { id: 'sites', label: 'Sites' }, { id: 'hierarchy', label: 'Hierarchy' }, { id: 'floorplan', label: 'Floor plans' }, { id: 'racks', label: 'Racks' }, { id: 'devices', label: 'Devices' },
+  { id: 'overview', label: 'Insights' }, { id: 'sites', label: 'Sites' }, { id: 'hierarchy', label: 'Hierarchy' }, { id: 'floorplan', label: 'Floor plans' }, { id: 'racks', label: 'Racks' }, { id: 'devices', label: 'Devices' },
   { id: 'cabling', label: 'Cabling' }, { id: 'power', label: 'Power' }, { id: 'types', label: 'Device types' }, { id: 'explorer', label: 'Explorer' }, { id: 'changes', label: 'Change requests' }
 ];
 
 export function Dcim() {
   const [sp, setSp] = useSearchParams();
-  const tab = (sp.get('tab') as DcimTab) || 'sites';
+  const tab = (sp.get('tab') as DcimTab) || 'overview';
   const dcId = sp.get('dc') ?? '';
   const set = (patch: Record<string, string>) => { const n = new URLSearchParams(sp); Object.entries(patch).forEach(([k, v]) => (v ? n.set(k, v) : n.delete(k))); setSp(n, { replace: true }); };
   const [modal, setModal] = useState<'rack' | 'device' | null>(null);
@@ -58,7 +59,7 @@ export function Dcim() {
   const typeIds = new Set(devices.map(d => d.typeId));
   const mfrs = new Set(types.types.filter(t => typeIds.has(t.id)).map(t => t.manufacturer));
   const sites = S.sites;
-  const go = (t: DcimTab, extra: Record<string, string> = {}) => set({ tab: t === 'sites' ? '' : t, ...extra });
+  const go = (t: DcimTab, extra: Record<string, string> = {}) => set({ tab: t === 'overview' ? '' : t, ...extra });
 
   return (
     <div className="page dcim">
@@ -85,38 +86,40 @@ export function Dcim() {
           <button type="button" className="dcim-crbar-go" onClick={() => open('')}>Open the list →</button></div>;
       })()}
 
-      <StatGrid>
-        <StatTile label="Sites" value={sites.length} sub={`${fmtNum(sites.reduce((a, s) => a + s.halls, 0))} halls · ${fmtNum(sites.reduce((a, s) => a + s.rows, 0))} rows`} onClick={() => go('sites')} active={tab === 'sites'}
+      {/* the analytics strip belongs to Insights only (user, 21-Oct-2026) */}
+      {tab === 'overview' && <StatGrid>
+        <StatTile label="Sites" value={sites.length} sub={`${fmtNum(sites.reduce((a, s) => a + s.halls, 0))} halls · ${fmtNum(sites.reduce((a, s) => a + s.rows, 0))} rows`} onClick={() => go('sites')}
           info="Datacenters in scope by rollout state, with the halls (rooms) and rack rows they contain. Click to open the site list.">
           <Split parts={[{ key: 'on-air', label: 'Live', n: sites.filter(s => s.status === 'on-air').length, tone: 'info' }, { key: 'in-progress', label: 'Building', n: sites.filter(s => s.status === 'in-progress').length, tone: 'neutral' }, { key: 'planned', label: 'Planned', n: sites.filter(s => s.status === 'planned').length, tone: 'neutral' }]} />
         </StatTile>
-        <StatTile label="Rack space" value={`${pct(usedU, totalU)}%`} sub={`${fmtNum(usedU)} of ${fmtNum(totalU)} U`} onClick={() => go('racks')} active={tab === 'racks'}
+        <StatTile label="Rack space" value={`${pct(usedU, totalU)}%`} sub={`${fmtNum(usedU)} of ${fmtNum(totalU)} U`} onClick={() => go('racks')}
           info="Rack units in use (devices plus the ODF patch-panel block) as a share of all rack units in scope. Click to open the rack list.">
           <SoftMeter pct={pct(usedU, totalU)} tone={pct(usedU, totalU) >= 85 ? 'warning' : 'info'} />
           <Facts items={[{ n: fmtNum(S.racks.length), label: 'racks' }, { n: fmtNum(totalU - usedU), label: 'U free' }]} />
         </StatTile>
-        <StatTile label="Devices" value={fmtNum(devices.length)} sub={planned ? `${fmtNum(planned)} planned` : 'all installed'} onClick={() => go('devices')} active={tab === 'devices'}
+        <StatTile label="Devices" value={fmtNum(devices.length)} sub={planned ? `${fmtNum(planned)} planned` : 'all installed'} onClick={() => go('devices')}
           info="Every device placed in a rack, by category. Planned devices hold their rack units but are not yet installed. Click to open the device list.">
           <Split parts={[{ key: 'network', label: 'Network', n: cat('network'), tone: 'info' as const }, { key: 'compute', label: 'Compute', n: cat('compute'), tone: 'neutral' as const }, { key: 'storage', label: 'Storage', n: cat('storage'), tone: 'neutral' as const }, { key: 'tenant', label: 'Tenant', n: cat('tenant'), tone: 'neutral' as const }].filter(x => x.n)} />
         </StatTile>
-        <StatTile label="Rack power" value={`${pct(draw, budget)}%`} sub={`of ${fmtKw(budget)}`} subTone={hot ? 'warn' : undefined} onClick={() => go('power')} active={tab === 'power'}
+        <StatTile label="Rack power" value={`${pct(draw, budget)}%`} sub={`of ${fmtKw(budget)}`} subTone={hot ? 'warn' : undefined} onClick={() => go('power')}
           info="Measured rack draw as a share of the summed rack power budgets (each cabinet side is rated for the whole cabinet). Click to open power distribution.">
           <SoftMeter pct={pct(draw, budget)} tone={pct(draw, budget) >= 85 ? 'warning' : 'info'} />
           <Facts items={[{ n: fmtKw(draw), label: 'drawn' }, { n: hot, label: `rack${hot === 1 ? '' : 's'} ≥ 90%`, tone: hot ? 'warn' : undefined, onClick: () => go('racks', { load: 'hot' }) }]} />
         </StatTile>
-        <StatTile label="Cabling" value={fmtNum(data.length)} sub={`data · ${fmtNum(power.length)} power`} subTone={down ? 'warn' : undefined} onClick={() => go('cabling')} active={tab === 'cabling'}
+        <StatTile label="Cabling" value={fmtNum(data.length)} sub={`data · ${fmtNum(power.length)} power`} subTone={down ? 'warn' : undefined} onClick={() => go('cabling')}
           info="Data cables (one per physical link) by route: inside one cabinet, through the structured cabling (panel → trunk → ODF), or leaving the site. Power cords connect a device supply to a rack PDU outlet.">
           <Split parts={[{ key: 'Structured', label: 'Structured', n: route('Structured'), tone: 'info' }, { key: 'In-rack', label: 'In-rack', n: route('In-rack'), tone: 'neutral' }, { key: 'Inter-site', label: 'Inter-site', n: route('Inter-site'), tone: 'neutral' }]} />
           <Facts items={[{ n: down, label: 'not connected', tone: down ? 'warn' : undefined, onClick: () => go('cabling', { cst: 'issue' }) }]} />
         </StatTile>
-        <StatTile label="Catalogue" value={typeIds.size} sub={`types · ${mfrs.size} makers`} onClick={() => go('types')} active={tab === 'types'}
+        <StatTile label="Catalogue" value={typeIds.size} sub={`types · ${mfrs.size} makers`} onClick={() => go('types')}
           info="Device types in use in scope (one per manufacturer + model) and the manufacturers that make them. Click to open the catalogue.">
           <Split parts={[{ key: 'n', label: 'Network', n: types.types.filter(t => typeIds.has(t.id) && t.category === 'network').length, tone: 'info' as const }, { key: 'c', label: 'Compute', n: types.types.filter(t => typeIds.has(t.id) && t.category === 'compute').length, tone: 'neutral' as const }, { key: 'o', label: 'Storage & tenant', n: types.types.filter(t => typeIds.has(t.id) && (t.category === 'storage' || t.category === 'tenant')).length, tone: 'neutral' as const }].filter(x => x.n)} />
         </StatTile>
-      </StatGrid>
+      </StatGrid>}
 
       <SubTabs screen="dcim" value={tab} onChange={v => go(v)} tabs={TABS.map(t => ({ ...t, count: ({ sites: sites.length, racks: S.racks.length, devices: devices.length, types: typeIds.size, changes: board?.rows.filter(r => r.view !== 'done' && r.view !== 'closed').length || undefined } as Partial<Record<DcimTab, number | undefined>>)[t.id] }))} />
 
+      {tab === 'overview' && <DcimInsights model={S} devices={devices} cables={cables} types={types.types} board={board} dcId={dcId} go={go} />}
       {tab === 'sites' && <SitesTab sites={sites} onOpen={id => set({ tab: 'floorplan', dc: id, hall: '' })} />}
       {tab === 'floorplan' && <FloorPlans dcId={dcId || all.sites.find(s => s.status !== 'planned')?.id || all.sites[0].id} onSite={id => set({ dc: id, hall: '' })} />}
       {tab === 'racks' && <RacksTab racks={S.racks} />}

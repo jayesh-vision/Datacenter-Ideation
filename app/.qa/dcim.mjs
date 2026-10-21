@@ -18,14 +18,16 @@ const check = async (name) => {
   if (process.env.SHOTS || t.length || over || tblOver) await p.screenshot({ path: `.qa/out/dcim-${P}-${W}-${name}.png`, fullPage: true });
 };
 await p.goto(`${base}/dcim?persona=${P}&geo=${G}`, { waitUntil: 'networkidle' });
-for (const t of ['sites', 'floorplan', 'racks', 'devices', 'cabling', 'power', 'changes', 'types', 'hierarchy']) {
-  await p.goto(`${base}/dcim${t === 'sites' ? '' : `?tab=${t}`}`, { waitUntil: 'networkidle' }); await check(t);
+for (const t of ['overview', 'sites', 'floorplan', 'racks', 'devices', 'cabling', 'power', 'changes', 'types', 'hierarchy']) {
+  await p.goto(`${base}/dcim${t === 'overview' ? '' : `?tab=${t}`}`, { waitUntil: 'networkidle' }); await check(t);
 }
 /* scope to the first site: tiles and lists follow */
 await p.goto(`${base}/dcim?tab=racks`, { waitUntil: 'networkidle' });
 const site = await p.locator('select[aria-label="Datacenter scope"] option').nth(1).getAttribute('value');
 await p.selectOption('select[aria-label="Datacenter scope"]', site); await p.waitForTimeout(600);
 const shown = await p.locator('.lt-count').first().innerText();
+/* the analytics strip lives on Insights only (21-Oct-2026) */
+await p.goto(`${base}/dcim?dc=${site}`, { waitUntil: 'networkidle' });
 const tile = await p.locator('.dco-tile').nth(1).innerText();
 ok(/Showing \d+ of \d+ racks/.test(shown) && Number(/(\d+) racks/.exec(tile)?.[1]) === Number(/of ([\d,]+)/.exec(shown)[1].replace(/,/g, '')), `scoped ${site}: ${shown} matches the rack tile`);
 /* floor plan → rack page */

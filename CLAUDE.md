@@ -809,6 +809,16 @@ launcher uses the same URLs (`/platform-menu.html` card chips + table rows, embe
 Ops (Ops Toolkit) holds Command Center · Datacenters · Facilities · GPU Fleet (= /gpu) · Compliance as sub-menus. The /gpu screen, its menu
 item, the datacenter sub tab and the docs are called **GPU Fleet** since 21-Oct-2026 (user; was "AI & GPU" — code comments, ids and `gtab=` keep the old name).
 
+## Insights-only strips and the DCIM Insights screen (21-Oct-2026, user)
+Planner, IP & Network and DCIM show their analytics strip (StatGrid) on the **Insights** sub-menu only; Plans, IP space etc. open straight on
+the list. Benchmarks has one ListToolbar per view above its panels (search, Reference value / Site type quick filters, Cooling / Tier / Region /
+Confidence in the panel; Rules: Area / Severity) filtering every table and chart of the view (`?metric site cooling tier region conf area sev`).
+Delivery's header shows one action per sub-menu (planner on Insights, New programme on Programs, New project on Projects).
+DCIM → Insights (`screens/dcim/Insights.tsx`, `?tab=overview`, now the default `/dcim`): Needs attention (same predicates as the Racks / Cabling /
+Power / Devices list filters, each row opens that filtered list), sites and halls by power pressure (85% marker), rack density and device
+donuts, cabling stacks, power panels by load, makers, change requests (board views). Grid = Delivery's `dl-dash` (+ `.dcim-ov > .dl-span-5/7`).
+`.qa/dcim.mjs` reads the rack tile on Insights.
+
 ## Ship (19-Oct-2026, user: "save tokens")
 `scripts/ship.sh -m "message" [-c "string in the new build"] [paths…]` = production type-check → commit (default: modified tracked
 files + new files under app/src, docs, app/public, scripts; never app/package-lock.json) → push main → Vercel deploy of HEAD from a

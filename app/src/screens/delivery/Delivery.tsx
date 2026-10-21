@@ -80,7 +80,10 @@ export function Delivery() {
   return (
     <div className="page dcim planner">
       <PageHead title="Delivery" sub="Approved plans become projects; projects raise work orders (each with its change request), place purchase orders, pass L1–L5 commissioning and hand over to operations"
-        actions={<><Btn icon={I.DraftingCompass} onClick={() => nav('/planning')}>Open the planner</Btn><Btn icon={I.FolderPlus} onClick={() => setForm('programme')}>New programme</Btn><Btn variant="filled" icon={I.Plus} onClick={() => setForm('project')}>New project</Btn></>} />
+        actions={<>{/* one action per sub-menu (user, 21-Oct-2026): the planner from Insights, New programme on Programs, New project on Projects */}
+          {(tab === 'overview' || tab === 'todo') && <Btn icon={I.DraftingCompass} onClick={() => nav('/planning')}>Open the planner</Btn>}
+          {tab === 'programmes' && <Btn variant="filled" icon={I.FolderPlus} onClick={() => setForm('programme')}>New programme</Btn>}
+          {(tab === 'projects' || tab === 'workorders') && <Btn variant="filled" icon={I.Plus} onClick={() => setForm('project')}>New project</Btn>}</>} />
       {tab !== 'overview' && <StatGrid>
         <StatTile label="Projects" value={ps.length} sub={`${live.length} in delivery`} onClick={() => setTab('projects')} info="A project per approved, executing or delivered plan, by stage: mobilising (approved, not started) → in progress → commissioning → handover → delivered.">
           <Split parts={(['Mobilising', 'In progress', 'Commissioning', 'Delivered'] as const).map((s, i) => ({ key: s, label: s, n: ps.filter(p => p.state === s || (s === 'Commissioning' && p.state === 'Handover')).length, tone: (i === 1 ? 'info' : 'neutral') as 'info' | 'neutral' })).filter(x => x.n)} />
