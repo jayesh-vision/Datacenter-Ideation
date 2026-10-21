@@ -806,8 +806,8 @@ item). Screens draw their tab row with `<SubTabs screen=…>`: no row when the o
 order) when it merges several; `subCrumb()` adds the sub-menu to the breadcrumb. `?tab=` ids, defaults, tiles and cross-links are unchanged,
 so every deep link and QA script works; a new tab must be added to a sub-menu (or bound to a menu item) or it has no way in. The platform
 launcher uses the same URLs (`/platform-menu.html` card chips + table rows, embed guide "Sub-menus" table). Platform decisions: Datacenter
-Ops (Ops Toolkit) holds Command Center · Datacenters · Facilities · GPU Fleet (= /gpu) · Compliance as sub-menus; our own menu keeps AI & GPU
-and Compliance where they are.
+Ops (Ops Toolkit) holds Command Center · Datacenters · Facilities · GPU Fleet (= /gpu) · Compliance as sub-menus. The /gpu screen, its menu
+item, the datacenter sub tab and the docs are called **GPU Fleet** since 21-Oct-2026 (user; was "AI & GPU" — code comments, ids and `gtab=` keep the old name).
 
 ## Ship (19-Oct-2026, user: "save tokens")
 `scripts/ship.sh -m "message" [-c "string in the new build"] [paths…]` = production type-check → commit (default: modified tracked

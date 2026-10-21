@@ -43,7 +43,7 @@ export function GpuPage() {
   const ask = useSentinel();
   const dc = sp.get('dc') ?? '';
   const { def } = usePersona();
-  usePage([{ label: 'Infrastructure' }, { label: 'AI & GPU' }, ...(dc ? [{ label: dc }] : [])], dc ? { dcId: dc } : {});
+  usePage([{ label: 'Infrastructure' }, { label: 'GPU Fleet' }, ...(dc ? [{ label: dc }] : [])], dc ? { dcId: dc } : {});
   const { data: dcs } = useQuery(getDatacenters, []);
   const { data: v } = useQuery(() => getGpu({ dcId: dc || undefined }), [dc]);
   if (!v || !dcs) return <Loading />;
@@ -51,7 +51,7 @@ export function GpuPage() {
   const cages = v.kind === 'cages';
   return (
     <div className="page gpu">
-      <PageHead title="AI & GPU" sub={cages ? 'Tenant AI cages: the high-density, liquid-cooled cabinets your tenants fill with GPUs — their power, coolant and inlet temperature.' : 'The GPU fleet, the AI jobs running on it, and what a single bad GPU costs — health, heat, power and the InfiniBand network.'}
+      <PageHead title="GPU Fleet" sub={cages ? 'Tenant AI cages: the high-density, liquid-cooled cabinets your tenants fill with GPUs — their power, coolant and inlet temperature.' : 'The GPU fleet, the AI jobs running on it, and what a single bad GPU costs — health, heat, power and the InfiniBand network.'}
         actions={<>
           <Fresh>{cages ? 'Live · BMS and CDU telemetry' : v.fleet.models.some(m => m.vendor === 'Intel') ? 'Live · DCGM and Intel GPU telemetry every 30 s' : 'Live · DCGM telemetry every 30 s'}</Fresh>
           <select className="select" value={dc} onChange={e => setDc(e.target.value)} aria-label="Datacenter">

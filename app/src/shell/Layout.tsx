@@ -22,7 +22,7 @@ const NAV: { group: string; items: { to: string; label: string; icon: I.LucideIc
   { group: 'Infrastructure', items: [
     { to: '/datacenters', label: 'Datacenters', icon: I.Building2, match: /^\/(datacenters|ne\/)/ },
     { to: '/facilities', label: 'Facilities', icon: I.Zap },
-    { to: '/gpu', label: 'AI & GPU', icon: I.Cpu }
+    { to: '/gpu', label: 'GPU Fleet', icon: I.Cpu }
   ] },
   { group: 'Operate', items: [
     { to: '/alerts', label: 'Alerts', icon: I.BellRing, badge: 'alerts' },

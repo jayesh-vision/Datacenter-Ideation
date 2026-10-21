@@ -316,7 +316,7 @@ function ComputeTab({ cap }: { cap: Cap }) {
         <Legend items={([['In a job', cap.gpu.inJob, 'var(--primaryColor500)'], ['Allocated, idle', cap.gpu.allocatedIdle, 'var(--vw-color-amber-400)'], ['Free', cap.gpu.free, 'var(--vw-color-emerald-300)'], ['Out of service', cap.gpu.out, 'var(--vw-color-slate-300)']] as const).map(([l, n, c]) => ({ label: <>{l} <b className="num" style={{ fontWeight: 500 }}>{fmtNum(n)}</b></>, color: c }))} />
         <table className="nst-table dt-table" style={{ marginTop: 10 }}><thead><tr><th>Model</th><th className="is-right">GPUs</th><th className="is-right">In a job</th><th className="is-right">Free</th><th>Used</th></tr></thead>
           <tbody>{cap.gpu.byModel.map(m => <tr key={m.model}><td>{m.model}</td><td className="is-right num">{fmtNum(m.gpus)}</td><td className="is-right num">{fmtNum(m.inJob)}</td><td className="is-right num">{fmtNum(m.free)}</td><td><Meter pct={(m.inJob / m.gpus) * 100} width={60} color="var(--primaryColor500)" /></td></tr>)}</tbody></table>
-        <p style={{ margin: '8px 0 0' }}><Link className="ent-link" to="/gpu">Jobs, telemetry and nodes in AI & GPU →</Link></p>
+        <p style={{ margin: '8px 0 0' }}><Link className="ent-link" to="/gpu">Jobs, telemetry and nodes in GPU Fleet →</Link></p>
       </Panel>}
       <Panel title="Estate compute pools" sub="Hosting and platform pools attached to the datacenters in scope" icon={I.Database}>
         {pools.map(([l, [c, u], unit]) => (

@@ -27,7 +27,9 @@ if [ "$DEPLOY_ONLY" = 0 ]; then
   if [ $# -gt 0 ]; then git add -- "$@"
   else
     git add -u -- . ':!app/package-lock.json'
-    git ls-files --others --exclude-standard -- app/src docs app/public scripts CLAUDE.md | grep -v '/~\$' | xargs -r git add --
+    # grep exits 1 when nothing is left (no new files) — don't let pipefail abort the ship
+    NEW=$(git ls-files --others --exclude-standard -- app/src docs app/public scripts CLAUDE.md | { grep -v '/~\$' || true; })
+    [ -z "$NEW" ] || echo "$NEW" | xargs git add --
   fi
   git diff --cached --quiet && { echo "nothing staged"; exit 1; }
   git diff --cached --stat | tail -1

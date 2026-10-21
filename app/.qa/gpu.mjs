@@ -25,8 +25,8 @@ for (const W of [1440, 1280]) {
   };
   await open('/');
   const rail = await p.$$eval('.rail-link span', e => e.map(x => x.textContent));
-  const showsGpu = rail.includes('AI & GPU');
-  if ((persona === 'network') === showsGpu) bad(`menu item AI & GPU ${showsGpu ? 'shown' : 'missing'} for ${persona}`);
+  const showsGpu = rail.includes('GPU Fleet');
+  if ((persona === 'network') === showsGpu) bad(`menu item GPU Fleet ${showsGpu ? 'shown' : 'missing'} for ${persona}`);
   await open('/gpu'); await check('page');
   if (persona === 'cloud' || persona === 'enterprise' || persona === 'neocloud') {
     const tiles = await p.$$eval('.dco-tile', e => e.map(x => Math.round(x.getBoundingClientRect().height)));
@@ -37,7 +37,7 @@ for (const W of [1440, 1280]) {
     if (!(await p.$('.drawer .gpu-gpus'))) bad('node drawer'); await check('node-drawer'); await p.keyboard.press('Escape');
     for (const t of ['jobs', 'nodes', 'telemetry', 'cooling', 'fabric']) { await open(`/gpu?gtab=${t}`); await check(t); if (t === 'telemetry' && !(await p.$('.gpu-lead'))) bad(`${persona}@${W} telemetry tab has no leaders`); }
     /* the device page of a GPU node shows its DCGM detail; the equipment list shows the GPU strip */
-    await open('/gpu?gtab=nodes'); const first = await p.$eval('.dt-table tbody tr .mono', e => e.textContent);
+    await open('/gpu?gtab=nodes'); await p.waitForSelector('.dt-table tbody tr .mono', { timeout: 15000 }); const first = await p.$eval('.dt-table tbody tr .mono', e => e.textContent);
     await open(`/ne/KA-DC-020-${first}?tab=gpus`); await p.waitForSelector('.gpu-gpus', { timeout: 8000 }).catch(() => bad(`${persona}@${W} device page has no GPU tab`)); await check('device-gpus');
     await open('/datacenters/KA-DC-020?tab=elements&role=GPU'); await p.waitForSelector('.gpu-strip', { timeout: 8000 }).catch(() => bad(`${persona}@${W} equipment list has no GPU strip`)); await check('equipment');
     await open('/gpu?gtab=jobs'); await p.click('.dt-table tbody tr'); await p.waitForTimeout(300);
@@ -46,7 +46,7 @@ for (const W of [1440, 1280]) {
     await open('/incidents'); await check('incidents');
   }
   if (persona === 'colocation') { if (!(await p.$('.gpu-cdu'))) bad('no CDU cards'); await open('/datacenters/TN-DC-022?tab=gpu'); await p.waitForSelector('.dco-tile', { timeout: 5000 }).catch(() => bad('colo site tab empty')); await check('site-TN-DC-022'); }
-  if (persona === 'network') { await open('/datacenters/MH-DC-001'); const tabs = await p.$$eval('.pill', e => e.map(x => x.textContent)); if (tabs.some(t => t.includes('AI & GPU'))) bad('telco site shows the AI & GPU tab'); }
+  if (persona === 'network') { await open('/datacenters/MH-DC-001'); const tabs = await p.$$eval('.pill', e => e.map(x => x.textContent)); if (tabs.some(t => t.includes('GPU Fleet'))) bad('telco site shows the GPU Fleet tab'); }
   await ctx.close();
 }
 await b.close();

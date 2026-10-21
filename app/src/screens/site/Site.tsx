@@ -36,7 +36,7 @@ const TABS: { id: Tab; label: string }[] = [
      (Power & space · AI & GPU · Equipment · Assets) → how it connects (Topology) → who and what money it affects
      (Customers · Revenue) → who came in and out (Access & security, 14-Oct-2026) → what happened (Ops log). */
   { id: 'overview', label: 'Overview' }, { id: 'attention', label: 'Attention' }, { id: 'metrics', label: 'Metrics' },
-  { id: 'details', label: 'Space & ports' }, { id: 'gpu', label: 'AI & GPU' }, { id: 'elements', label: 'Equipment' }, { id: 'assets', label: 'Assets' },
+  { id: 'details', label: 'Space & ports' }, { id: 'gpu', label: 'GPU Fleet' }, { id: 'elements', label: 'Equipment' }, { id: 'assets', label: 'Assets' },
   { id: 'topology', label: 'Topology' }, { id: 'customers', label: 'Customers' }, { id: 'revenue', label: 'Revenue' }, { id: 'access', label: 'Access & security' }, { id: 'timeline', label: 'Ops log' },
   /* the Facilities screen's own tabs, shown inside the Facility group (16-Oct-2026, user) */
   { id: 'fpower', label: 'Power & backup' }, { id: 'fcooling', label: 'Cooling' }, { id: 'fenv', label: 'Environment' },

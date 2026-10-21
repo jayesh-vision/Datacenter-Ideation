@@ -412,7 +412,7 @@ const P = {
 /* the AI cluster: GPU fleets in cloud and enterprise, tenant AI cages in colocation; a telco
    audience is shown the same screens on the Cloud estate (telcos increasingly host GPU clouds) */
 const AI_ACT = { n: 9, min: 3, short: 'AI cluster', q: p => p.cages ? '"And the AI tenants?"' : '"What about the AI cluster?"',
-  route: p => (p.gpu || p.cages ? '/gpu' : { to: '/gpu', persona: 'cloud' }), btn: p => (p.gpu || p.cages ? 'AI & GPU' : 'AI & GPU on the Cloud estate'),
+  route: p => (p.gpu || p.cages ? '/gpu' : { to: '/gpu', persona: 'cloud' }), btn: p => (p.gpu || p.cages ? 'GPU Fleet' : 'GPU Fleet on the Cloud estate'),
   say: p => p.gpu ? [
       `"GPUs are now the most expensive and most fragile thing in the building. And they fail differently: a training job is ${p.gpu.jobGpus} GPUs that must all work at once."`,
       `"Here, one GPU — GPU3 on a node in ${p.gpu.site}, Xid 79, 'fell off the bus' — has stopped ${p.gpu.owner}'s <b>${p.gpu.jobGpus}-GPU training run</b>. Every other GPU in the job is waiting: <b>${p.gpu.stalledRate}</b> of GPU time, plus ${p.gpu.redoMin} minutes of training since the last checkpoint to redo (${p.gpu.redo})."`,
@@ -594,7 +594,7 @@ function renderPersona() {
   const rows = [
     ['Who the customer is', x => x.words.customer], ['What they buy', x => x.sell], ['Money view', x => `${x.words.money} · ${x.words.credits}`],
     ['Losing now', x => x.rev.rate], ['At stake', x => x.rev.stake], ['Costliest issue', x => `${x.top.title} (${x.top.site})`],
-    ['UPS on battery hits', x => x.ups.exposed], ['AI & GPU', x => x.gpu ? `${x.gpu.gpus} GPUs · one failed GPU stops ${x.gpu.jobGpus}` : x.cages ? `${x.cages.n} tenant AI cages · ${x.cages.kw}` : 'No GPU fleet — demo on the Cloud estate'], ['Building in 3D', x => `${x.tall.id} · ${x.tall.floors} floors`], ['Why at risk at Pune', x => x.risk.why]
+    ['UPS on battery hits', x => x.ups.exposed], ['GPU Fleet', x => x.gpu ? `${x.gpu.gpus} GPUs · one failed GPU stops ${x.gpu.jobGpus}` : x.cages ? `${x.cages.n} tenant AI cages · ${x.cages.kw}` : 'No GPU fleet — demo on the Cloud estate'], ['Building in 3D', x => `${x.tall.id} · ${x.tall.floors} floors`], ['Why at risk at Pune', x => x.risk.why]
   ];
   document.getElementById('cmp').innerHTML = `<thead><tr><th></th>${Object.entries(P).map(([k, x]) => `<th>${esc(x.label)}</th>`).join('')}</tr></thead><tbody>${rows.map(([l, f]) => `<tr><td>${esc(l)}</td>${Object.entries(P).map(([k, x]) => `<td class="${k === persona ? 'on' : ''}">${esc(f(x))}</td>`).join('')}</tr>`).join('')}</tbody>`;
   watchActs();
