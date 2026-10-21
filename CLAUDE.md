@@ -818,6 +818,11 @@ DCIM → Insights (`screens/dcim/Insights.tsx`, `?tab=overview`, now the default
 Power / Devices list filters, each row opens that filtered list), sites and halls by power pressure (85% marker), rack density and device
 donuts, cabling stacks, power panels by load, makers, change requests (board views). Grid = Delivery's `dl-dash` (+ `.dcim-ov > .dl-span-5/7`).
 `.qa/dcim.mjs` reads the rack tile on Insights.
+Raise actions per screen (21-Oct-2026, user): DCIM → Changes has **Raise change request** (the Change management `NewChange` form in a drawer,
+`origin: 'DCIM'`, lands in Awaiting approval); DCIM header shows New rack / Install device on Insights · Sites · Racks, Install device on
+Devices, nothing on Cabling / Power / Catalogue (they have in-tab actions). Facilities → Maintenance (PM plan) has **Schedule maintenance** →
+`/changes?new=maintenance`. Delivery's strip was removed from its sub-menus (Insights has its own tiles). Not added, flagged only: a manual
+Raise incident (incidents come from alarms), Start a process on Work orders, Request permit / Add design document on Delivery.
 
 ## Ship (19-Oct-2026, user: "save tokens")
 `scripts/ship.sh -m "message" [-c "string in the new build"] [paths…]` = production type-check → commit (default: modified tracked

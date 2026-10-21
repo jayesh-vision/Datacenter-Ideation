@@ -97,8 +97,10 @@ export function PmPlan({ dcId }: { dcId: string }) {
   ];
   return (
     <section className="vw-card-section" style={{ padding: 0, overflow: 'clip' }} data-pm>
-      <div className="panel-h" style={{ padding: '14px 18px 4px' }}><span className="row" style={{ gap: 8 }}><I.ClipboardCheck size={16} /><b className="strong" style={{ fontSize: 15 }}>Preventive maintenance plan</b>
-        <span className="faint" style={{ fontSize: 12.5 }}>{cnt('overdue')} overdue · {cnt('due')} due this week · {cnt('in-progress') + cnt('scheduled')} booked · {all.length} tasks</span></span></div>
+      <div className="panel-h" style={{ padding: '14px 18px 4px', display: 'flex', alignItems: 'center', gap: 12 }}><span className="row" style={{ gap: 8, flexWrap: 'wrap' }}><I.ClipboardCheck size={16} /><b className="strong" style={{ fontSize: 15 }}>Preventive maintenance plan</b>
+        <span className="faint" style={{ fontSize: 12.5 }}>{cnt('overdue')} overdue · {cnt('due')} due this week · {cnt('in-progress') + cnt('scheduled')} booked · {all.length} tasks</span></span>
+        {/* booking = a Maintenance change in Change management (user, 21-Oct-2026: every screen gets its own raise action) */}
+        <Link className="nst-btn nst-btn-sm" to="/changes?new=maintenance" style={{ marginLeft: 'auto', textDecoration: 'none' }}><I.CalendarPlus size={14} /> Schedule maintenance</Link></div>
       <DataTable rows={rows as PmRow[]} cols={cols} pageSize={25} defaultSort={{ key: 'state', dir: 'asc' }}
         toolbar={<ListToolbar shown={rows.length} total={all.length} noun="tasks" search={{ value: q, onChange: setQ, placeholder: 'Asset, task, owner' }}
           filters={[

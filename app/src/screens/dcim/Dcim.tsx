@@ -10,7 +10,8 @@ import type { DcimSite } from '../../api/types';
 import { usePage, PageHead, Loading } from '../../shell/page';
 import { SubTabs, subCrumb } from '../../shell/submenus';
 import { DcimInsights } from './Insights';
-import { Btn } from '../../ui/kit';
+import { Btn, Drawer } from '../../ui/kit';
+import { NewChange } from '../changes/parts';
 import { DataTable, type Col } from '../../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
 import { Facts, SoftMeter, Split, StatGrid, StatTile } from '../../ui/Analytics';
@@ -37,7 +38,7 @@ export function Dcim() {
   const tab = (sp.get('tab') as DcimTab) || 'overview';
   const dcId = sp.get('dc') ?? '';
   const set = (patch: Record<string, string>) => { const n = new URLSearchParams(sp); Object.entries(patch).forEach(([k, v]) => (v ? n.set(k, v) : n.delete(k))); setSp(n, { replace: true }); };
-  const [modal, setModal] = useState<'rack' | 'device' | null>(null);
+  const [modal, setModal] = useState<'rack' | 'device' | 'change' | null>(null);
   usePage([{ label: 'Plan & Build' }, { label: 'DCIM', to: '/dcim' }, ...subCrumb('dcim', tab), ...(dcId ? [{ label: dcId }] : [])], dcId ? { dcId } : {});
   const { data: all } = useQuery(() => getDcim(), []);
   const { data: scoped } = useQuery(() => getDcim({ dcId: dcId || undefined }), [dcId]);
@@ -69,8 +70,10 @@ export function Dcim() {
             <option value="">All datacenters ({all.sites.length})</option>
             {all.sites.map(s => <option key={s.id} value={s.id}>{s.id} · {s.city}</option>)}
           </select>
-          <Btn icon={I.Plus} onClick={() => setModal('rack')}>New rack</Btn>
-          <Btn variant="filled" icon={I.HardDriveDownload} onClick={() => setModal('device')}>Install device</Btn>
+          {/* one action set per sub-menu (user, 21-Oct-2026): racks on Insights / Sites / Racks, devices on Devices, a change request on Changes */}
+          {(tab === 'overview' || tab === 'sites' || tab === 'hierarchy' || tab === 'racks' || tab === 'floorplan') && <Btn icon={I.Plus} onClick={() => setModal('rack')}>New rack</Btn>}
+          {(tab === 'overview' || tab === 'sites' || tab === 'hierarchy' || tab === 'racks' || tab === 'floorplan' || tab === 'devices' || tab === 'explorer') && <Btn variant="filled" icon={I.HardDriveDownload} onClick={() => setModal('device')}>Install device</Btn>}
+          {tab === 'changes' && <Btn variant="filled" icon={I.Plus} onClick={() => setModal('change')}>Raise change request</Btn>}
         </>} />
 
       {board && (() => {
@@ -133,6 +136,10 @@ export function Dcim() {
 
       <NewRackModal open={modal === 'rack'} onClose={() => setModal(null)} dcId={dcId} />
       <InstallDeviceModal open={modal === 'device'} onClose={() => setModal(null)} dcId={dcId} />
+      {/* the same form as Change management, tagged as raised from DCIM; the new CR lands in "Awaiting approval" on this board */}
+      <Drawer open={modal === 'change'} onClose={() => setModal(null)} width={620} title="Raise change request" sub="Scope drives the live impact preview; risk is computed, not chosen. The request waits for approval before any DCIM work runs under it.">
+        {modal === 'change' && <NewChange kind="change" origin="DCIM" onDone={() => { setModal(null); set({ tab: 'changes', cv: 'approval' }); }} />}
+      </Drawer>
     </div>
   );
 }

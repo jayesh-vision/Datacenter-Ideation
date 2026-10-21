@@ -56,7 +56,7 @@ export function ImpactPreview({ im: raw, self }: { im?: Impact; self?: string })
 
 const toLocal = (t: number) => { const d = new Date(t); const p = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
 
-export function NewChange({ kind, onDone }: { kind: 'change' | 'maintenance'; onDone: (id: string) => void }) {
+export function NewChange({ kind, onDone, origin }: { kind: 'change' | 'maintenance'; onDone: (id: string) => void; origin?: 'DCIM' }) {
   const now = clockNow();
   const start0 = new Date(now + 2 * 86400000); start0.setHours(22, 0, 0, 0);
   const [dcId, setDc] = useState(defaultDcId());
@@ -72,7 +72,7 @@ export function NewChange({ kind, onDone }: { kind: 'change' | 'maintenance'; on
   const cands = (nes ?? []).filter(n => n.discovery !== 'not-discovered' && (!q || `${n.id} ${n.model} ${n.ip}`.toLowerCase().includes(q.toLowerCase())));
   const valid = title.trim().length > 4 && new Date(we).getTime() > new Date(ws).getTime() && rollback.trim().length > 2;
   const submit = async () => {
-    const id = await createChange({ kind: kind === 'maintenance' ? 'Maintenance' : 'Change', title: title.trim(), dcId, scope, windowStart: new Date(ws).getTime(), windowEnd: new Date(we).getTime(), rollback: rollback.trim() });
+    const id = await createChange({ kind: kind === 'maintenance' ? 'Maintenance' : 'Change', title: title.trim(), dcId, scope, windowStart: new Date(ws).getTime(), windowEnd: new Date(we).getTime(), rollback: rollback.trim(), ...(origin ? { origin } : {}) });
     onDone(id);
   };
   return (

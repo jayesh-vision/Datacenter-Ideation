@@ -13,7 +13,6 @@ import { SubTabs, subCrumb } from '../../shell/submenus';
 import { Btn, Chip, Panel } from '../../ui/kit';
 import { DataTable, type Col } from '../../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
-import { Facts, SoftMeter, Split, StatGrid, StatTile } from '../../ui/Analytics';
 import { Meter, SevDot } from '../../ui/status';
 import { fmtDate, fmtMoney, fmtNum } from '../../lib/format';
 import { useToast } from '../ops/shared';
@@ -47,11 +46,8 @@ export function Delivery() {
   const pname = useMemo(() => new Map((d?.projects ?? []).map(p => [p.id, p.name])), [d]);
   if (!d || !queue || !progs) return <Loading />;
   const progOf = new Map(progs.flatMap(g => g.programme.projectIds.map(pid => [pid, g.programme] as const)));
-  const ps = d.projects, live = ps.filter(p => p.state !== 'Delivered');
-  const budget = live.reduce((a, p) => a + p.budget, 0), earned = live.reduce((a, p) => a + p.earned, 0), actual = live.reduce((a, p) => a + p.actual, 0);
-  const cpi = actual ? earned / actual : 1;
+  const ps = d.projects;
   const openWo = d.workOrders.filter(w => w.state !== 'Done');
-  const latePo = d.pos.filter(o => o.state === 'Late');
   const waitingApproval = (queue ?? []).filter(p => p.status === 'In review');
   const advance = (w: WorkOrder) => { setBusy(w.id); advanceWorkOrder(w.id).then(st => toast.show(`${w.id} ${st === 'Done' ? 'completed' : 'started'}`, `${w.changeId} ${st === 'Done' ? 'implemented' : 'approved'}; the project's progress updates.`)).catch(e => toast.show('Not started', String(e.message ?? e))).finally(() => setBusy('')); };
 
@@ -84,28 +80,7 @@ export function Delivery() {
           {(tab === 'overview' || tab === 'todo') && <Btn icon={I.DraftingCompass} onClick={() => nav('/planning')}>Open the planner</Btn>}
           {tab === 'programmes' && <Btn variant="filled" icon={I.FolderPlus} onClick={() => setForm('programme')}>New programme</Btn>}
           {(tab === 'projects' || tab === 'workorders') && <Btn variant="filled" icon={I.Plus} onClick={() => setForm('project')}>New project</Btn>}</>} />
-      {tab !== 'overview' && <StatGrid>
-        <StatTile label="Projects" value={ps.length} sub={`${live.length} in delivery`} onClick={() => setTab('projects')} info="A project per approved, executing or delivered plan, by stage: mobilising (approved, not started) → in progress → commissioning → handover → delivered.">
-          <Split parts={(['Mobilising', 'In progress', 'Commissioning', 'Delivered'] as const).map((s, i) => ({ key: s, label: s, n: ps.filter(p => p.state === s || (s === 'Commissioning' && p.state === 'Handover')).length, tone: (i === 1 ? 'info' : 'neutral') as 'info' | 'neutral' })).filter(x => x.n)} />
-        </StatTile>
-        <StatTile label="Cost performance" value={cpi.toFixed(2)} sub={`CPI · ${fmtMoney(earned)} earned of ${fmtMoney(budget)}`} subTone={cpi < 0.95 ? 'warn' : undefined} info="Earned value ÷ actual cost over the projects still in delivery. Below 1 = spending more than the work done is worth.">
-          <SoftMeter pct={budget ? (earned / budget) * 100 : 0} tone={cpi < 0.95 ? 'warning' : 'info'} />
-          <Facts items={[{ n: fmtMoney(actual), label: 'spent' }]} />
-        </StatTile>
-        <StatTile label="Schedule" value={live.filter(p => p.health === 'late').length} sub={`late of ${live.length}`} subTone={live.some(p => p.health === 'late') ? 'bad' : undefined} onClick={() => setTab('projects')} info="Projects whose own schedule finishes after their target, or whose progress is under 90% of plan (SPI < 0.9).">
-          <Split parts={(['late', 'at risk', 'on track'] as const).map(h => ({ key: h, label: h[0].toUpperCase() + h.slice(1), n: live.filter(p => p.health === h).length, tone: (h === 'late' ? 'error' : h === 'at risk' ? 'orange' : 'neutral') as 'error' | 'orange' | 'neutral' })).filter(x => x.n)} />
-        </StatTile>
-        <StatTile label="Work orders open" value={openWo.length} sub={`of ${d.workOrders.length}`} onClick={() => setTab('workorders')} info="Field work by state. Awaiting change = its change request is not approved or its kit is not on site yet.">
-          <Split parts={(['Awaiting change', 'Ready', 'In progress', 'Planned'] as const).map(s => ({ key: s, label: s, n: openWo.filter(w => w.state === s).length, tone: (s === 'Awaiting change' ? 'orange' : s === 'In progress' ? 'info' : 'neutral') as 'orange' | 'info' | 'neutral' })).filter(x => x.n)} />
-        </StatTile>
-        <StatTile label="Purchase orders" value={d.pos.filter(o => o.state !== 'Delivered').length} sub={`open · ${latePo.length} late`} subTone={latePo.length ? 'warn' : undefined} info="Equipment ordered for the projects: plant (UPS, generators, cooling), racks and compute, with their lead times.">
-          <Split parts={(['Late', 'In transit', 'Ordered', 'Draft', 'Delivered'] as const).map(s => ({ key: s, label: s, n: d.pos.filter(o => o.state === s).length, tone: (s === 'Late' ? 'error' : s === 'In transit' ? 'info' : 'neutral') as 'error' | 'info' | 'neutral' })).filter(x => x.n)} />
-        </StatTile>
-        <StatTile label="Commissioning" value={d.tests.filter(t => t.state === 'Passed').length} sub={`of ${d.tests.length} tests passed`} onClick={() => setTab('commissioning')} info="L1 factory witness → L2 site acceptance → L3 pre-functional → L4 functional → L5 integrated systems test, per project.">
-          <SoftMeter pct={d.tests.length ? (d.tests.filter(t => t.state === 'Passed').length / d.tests.length) * 100 : 0} tone="info" />
-          <Facts items={[{ n: d.tests.filter(t => t.state === 'Scheduled').length, label: 'scheduled in 30 days' }]} />
-        </StatTile>
-      </StatGrid>}
+      {/* no analytics strip on the sub-menus (user, 21-Oct-2026); Insights has its own KPI tiles */}
       <SubTabs screen="delivery" value={tab} onChange={setTab} tabs={[{ id: 'overview', label: 'Overview' }, { id: 'programmes', label: 'Programmes', count: progs.length }, { id: 'projects', label: 'Projects', count: ps.length }, { id: 'workorders', label: 'Work orders', count: openWo.length }, { id: 'commissioning', label: 'Commissioning' }, { id: 'permits', label: 'Permits', count: d.permits.filter(p => p.state !== 'Granted').length }, { id: 'design', label: 'Design' }, { id: 'todo', label: 'To do' }]} />
 
       {tab === 'overview' && <DeliveryOverview />}
