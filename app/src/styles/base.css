@@ -490,3 +490,15 @@ body.dm-noscroll { overflow: hidden; }
 .page:has(> .tabs, > .pn-tabrow) .dt-scroll:not([style*="max-height"]) .dt-table thead th { top: calc(var(--top-h) + var(--page-tabs-h)); }
 .page:has(> .tabs, > .pn-tabrow) .dt:has(> .dt-toolbar) > .dt-scroll:not([style*="max-height"]) .dt-table thead th { top: calc(var(--top-h) + var(--page-tabs-h) + var(--dt-tb-h)); }
 .page > .tabs ~ *, .page > .pn-tabrow ~ * { scroll-margin-top: calc(var(--top-h) + var(--page-tabs-h) + 8px); }
+
+/* Big screens / TVs (22-Oct-2026, user): scale the whole UI so it reads like a ~1920 px layout instead of shrinking into the middle */
+:root { --vz: 1; }
+@media (min-width: 2200px) { :root { --vz: 1.25; } }
+@media (min-width: 2880px) { :root { --vz: 1.5; } }
+@media (min-width: 3440px) { :root { --vz: 2; } }
+@media (min-width: 2200px) {
+  html { zoom: var(--vz); }
+  .shell { min-height: calc(100vh / var(--vz)); }
+  .rail { height: calc(100vh / var(--vz)); }
+  .dm-frame { height: max(600px, calc(100vh / var(--vz) - var(--top-h) - 150px)); }
+}
