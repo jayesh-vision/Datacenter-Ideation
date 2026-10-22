@@ -115,7 +115,7 @@ User ask: show revenue degradation caused by datacenter issues and which issue c
   NST pill legend / meter / facts / mini bars / ranked list; tiles and pills click through to the list filters). Datacenters, Alerts,
   Incidents, Changes use it; colours = NST pill palette (200–300 shades for bars). Check: `node .qa/analytics.mjs`.
   Tile rhythm is fixed (label 18 · number 34 · qualifier 18 · bar) so every bar lines up; every tile leads with a bar or meter.
-  Calm palette (05-Oct-2026): bars in a blue-grey ramp, red/amber only for faults; breakdown = one column of ≤3 rows
+  Calm palette (05-Oct-2026; softened 22-Oct-2026, user: "too bright, out of the theme": ramp primaryColor400 → blue-200 → slate, faults red-300 / orange-300 / amber-200, `SOFT` dots one shade lighter): bars in a blue-grey ramp, red/amber only for faults; breakdown = one column of ≤3 rows
   (most severe first, rest folded into "Other"); a breakdown tile shows one fact line at the bottom, a meter tile up to three.
   Check: `node .qa/tiles2.mjs` (equal heights, same bar/fact lines, nothing cut).
 - Facilities (04-Oct-2026 redesign): shared analytics strip, then tabs. Power = single-line power-path diagram (`PowerPath`, measured
@@ -275,6 +275,9 @@ GPU Fleet head (22-Oct-2026, user): one row — title + one-line subtitle left, 
 The two story cards (Biggest blast radius · Slowest job) sit in ONE collapsible section **Jobs needing attention** (`FacSection`, scope `gpu` / `gpu-site` on the
 datacenter tab, open by default, remembered per viewer; closed = four summary facts: GPUs stopped + incident, lost now, slowest job, lost now) so the
 viewer can fold it away above the lists (22-Oct-2026, user). Check: `node .qa/gpu-stories.mjs`.
+The tab bar (`.gpu-tabbar`) is pinned under the top bar on /gpu; list toolbars and grid headers pin below it (`--gpu-tabs-h`); 8 tabs fit one row at 1280.
+Network rails cells are one line (ports · errors). A flush Panel around a plain `.dt-scroll` table now clips instead of scrolling (base.css), which fixed a
+header offset gap inside the panel. Check: `node .qa/gpu-sticky.mjs` (W=1280).
 GPU telemetry follows the NVIDIA DCGM exporter: `Gpu` carries the DCGM fields (comments name them: util / SM active / tensor /
 mem copy / DRAM, FB used, GPU + HBM temp, power + energy, SM + mem clock, P-state, fan, throttle reasons, ECC SBE/DBE, retired
 pages + row remap, PCIe replay + traffic, NVLink errors + traffic, last Xid); `GpuNode.series` = 24 h hourly history built AFTER the

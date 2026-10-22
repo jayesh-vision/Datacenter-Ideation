@@ -73,3 +73,8 @@
   .dcl-load > span { grid-template-columns: 48px auto; }
   .dcl-issue { max-width: 120px; }
 }
+
+/* region name on one line next to its state (22-Oct-2026) */
+.dcr-h { min-width: 0; }
+.dcr-name { display: inline-flex; align-items: center; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14.5px; }
+.dcr-state { flex: none; }

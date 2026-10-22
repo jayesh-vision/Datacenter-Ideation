@@ -477,3 +477,5 @@ body.dm-noscroll { overflow: hidden; }
 .tabs { overflow-y: hidden; scrollbar-width: none; -ms-overflow-style: none; }
 .tabs::-webkit-scrollbar { display: none; }
 .tabs .tab.is-active::after { bottom: 0; }
+/* a flush panel holding a plain table: clip instead of scrolling, else the pinned header is offset inside the panel (22-Oct-2026, GPU rails) */
+.panel-body.is-flush:has(> .dt-scroll:not([style*="max-height"])) { overflow: clip; }

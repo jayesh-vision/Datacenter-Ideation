@@ -156,3 +156,17 @@ button.gpu-node:hover { border-color: var(--primaryColor500); }
 .gpu > .page-head .page-actions { flex: none; display: flex; gap: 10px; align-items: center; white-space: nowrap; }
 .gpu > .page-head .page-actions .select { width: 200px; min-width: 0; text-overflow: ellipsis; }
 @media (max-width: 1320px) { .gpu > .page-head .page-actions .select { width: 170px; } }
+
+/* GPU Fleet tab bar stays pinned under the top bar while the tab content scrolls (22-Oct-2026, user); list toolbars and
+   grid headers pin just below it. Only on the /gpu page (the datacenter tab has its own pinned header). */
+.page.gpu { --gpu-tabs-h: 47px; }
+.page.gpu .gpu-tabbar { position: sticky; top: var(--top-h); z-index: 8; background: var(--page); margin: -8px -4px 0; padding: 8px 4px 0; }
+.page.gpu .gpu-tabbar > .tabs { margin: 0; }
+.page.gpu .dt > .dt-toolbar { top: calc(var(--top-h) + var(--gpu-tabs-h)); }
+.page.gpu .dt-scroll:not([style*="max-height"]) .dt-table thead th { top: calc(var(--top-h) + var(--gpu-tabs-h)); }
+.page.gpu .dt:has(> .dt-toolbar) > .dt-scroll:not([style*="max-height"]) .dt-table thead th { top: calc(var(--top-h) + var(--gpu-tabs-h) + var(--dt-tb-h)); }
+.page.gpu .gpu-tabbar ~ * { scroll-margin-top: calc(var(--top-h) + var(--gpu-tabs-h) + 8px); }
+/* 8 tabs on one row at 1280; rail cells on one line (number · errors) so the rails table is compact */
+@media (max-width: 1360px) { .page.gpu .gpu-tabbar .tab { padding-left: 8px; padding-right: 8px; gap: 5px; font-size: 13px; } .page.gpu .gpu-tabbar .tab .count { margin-left: 2px; } }
+.gpu-rail { flex-direction: row; align-items: baseline; gap: 6px; padding: 3px 8px; white-space: nowrap; }
+.gpu-rails td { padding-top: 8px !important; padding-bottom: 8px !important; }

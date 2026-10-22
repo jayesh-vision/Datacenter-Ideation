@@ -141,6 +141,7 @@ function Fleet({ v, embedded }: { v: GpuView; embedded?: boolean }) {
         )}</FacSections>
       ) : null}
 
+      <div className="gpu-tabbar">
       <Tabs value={tab} onChange={t => go(t)} tabs={[
         { id: 'clusters', label: 'Clusters', icon: I.LayoutGrid, count: v.clusters.length },
         { id: 'jobs', label: 'Jobs', icon: I.BrainCircuit, count: js.total },
@@ -151,6 +152,7 @@ function Fleet({ v, embedded }: { v: GpuView; embedded?: boolean }) {
         { id: 'fabric', label: 'Network', icon: I.Network },
         { id: 'placement', label: 'Where to place', icon: I.MapPinned }
       ]} />
+      </div>
       {tab === 'clusters' && <Clusters v={v} onNode={setNode} />}
       {tab === 'jobs' && <Jobs v={v} onJob={setJobId} hideDc={!!v.dcId} />}
       {tab === 'nodes' && <Nodes v={v} onNode={setNode} hideDc={!!v.dcId} />}
