@@ -78,3 +78,11 @@
 .dcr-h { min-width: 0; }
 .dcr-name { display: inline-flex; align-items: center; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14.5px; }
 .dcr-state { flex: none; }
+
+/* calm region cards (22-Oct-2026, user: "yellow not in our theme, don't use too much colour"): only Critical is coloured */
+.dcl-region.is-attention::before { background: transparent; }
+.dcr-state.is-attention { color: var(--vw-color-gray-700); } .dcr-state.is-attention i { background: var(--primaryColor400); }
+.dcr-state.is-normal i { background: var(--vw-color-blue-200); }
+.dcr-focus.is-attention { background: var(--vw-color-slate-50); color: var(--vw-color-gray-800); }
+.dcr-focus.is-attention svg { color: var(--vw-color-gray-500); }
+.dcr-focus.is-normal { background: var(--vw-color-slate-50); color: var(--vw-color-gray-700); }

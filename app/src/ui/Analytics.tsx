@@ -8,7 +8,7 @@ import { Info } from './kit';
 
 export type Tone = 'error' | 'orange' | 'warning' | 'success' | 'neutral' | 'info' | 'purple' | 'cyan';
 export const SOFT: Record<Tone, string> = {
-  error: 'var(--vw-color-red-200)', orange: 'var(--vw-color-orange-200)', warning: 'var(--vw-color-amber-100)', success: 'var(--vw-color-emerald-100)',
+  error: 'var(--vw-color-red-200)', orange: 'var(--vw-color-orange-200)', warning: 'var(--vw-color-orange-100)', success: 'var(--vw-color-emerald-100)',
   neutral: 'var(--vw-color-slate-200)', info: 'var(--vw-color-blue-200)', purple: 'var(--vw-color-purple-200, #e9d5ff)', cyan: 'var(--vw-color-cyan-200, #a5f3fc)'
 };
 
@@ -35,7 +35,7 @@ export interface Part { key: string; label: string; n: number; tone: Tone; displ
 /* calm palette (22-Oct-2026, user: "too bright, out of the theme"): problems in the NST pastel 300 / 200 shades (the pills' family),
    everything else a soft brand-blue → slate ramp by position */
 const RAMP = ['var(--primaryColor400)', 'var(--vw-color-blue-200)', 'var(--vw-color-slate-300)', 'var(--vw-color-slate-200)', 'var(--vw-color-slate-200)'];
-export const partColor = (tone: Tone, i: number) => (tone === 'error' ? 'var(--vw-color-red-300)' : tone === 'orange' ? 'var(--vw-color-orange-300)' : tone === 'warning' ? 'var(--vw-color-amber-200)' : RAMP[Math.min(i, RAMP.length - 1)]);
+export const partColor = (tone: Tone, i: number) => (tone === 'error' ? 'var(--vw-color-red-300)' : tone === 'orange' ? 'var(--vw-color-orange-300)' : tone === 'warning' ? 'var(--vw-color-orange-200)' : RAMP[Math.min(i, RAMP.length - 1)]);
 /* proportion bar + two-column breakdown (at most four entries); entries can act as filters */
 export function Split({ parts, onPick, active, legend = true, other }: { parts: Part[]; onPick?: (k: string) => void; active?: string; legend?: boolean; other?: (n: number) => ReactNode }) {
   const total = parts.reduce((a, p) => a + p.n, 0) || 1;

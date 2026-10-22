@@ -115,7 +115,7 @@ User ask: show revenue degradation caused by datacenter issues and which issue c
   NST pill legend / meter / facts / mini bars / ranked list; tiles and pills click through to the list filters). Datacenters, Alerts,
   Incidents, Changes use it; colours = NST pill palette (200–300 shades for bars). Check: `node .qa/analytics.mjs`.
   Tile rhythm is fixed (label 18 · number 34 · qualifier 18 · bar) so every bar lines up; every tile leads with a bar or meter.
-  Calm palette (05-Oct-2026; softened 22-Oct-2026, user: "too bright, out of the theme": ramp primaryColor400 → blue-200 → slate, faults red-300 / orange-300 / amber-200, `SOFT` dots one shade lighter): bars in a blue-grey ramp, red/amber only for faults; breakdown = one column of ≤3 rows
+  Calm palette (05-Oct-2026; softened 22-Oct-2026, user: "too bright, out of the theme", then "no yellow": ramp primaryColor400 → blue-200 → slate, faults red-300 / orange-300 / orange-200 (no amber), Datacenters site states = Critical red, Needs attention / Normal on the blue ramp, region cards coloured only when Critical, `SOFT` dots one shade lighter): bars in a blue-grey ramp, red/amber only for faults; breakdown = one column of ≤3 rows
   (most severe first, rest folded into "Other"); a breakdown tile shows one fact line at the bottom, a meter tile up to three.
   Check: `node .qa/tiles2.mjs` (equal heights, same bar/fact lines, nothing cut).
 - Facilities (04-Oct-2026 redesign): shared analytics strip, then tabs. Power = single-line power-path diagram (`PowerPath`, measured

@@ -99,7 +99,7 @@ export function Datacenters() {
         <button type="button" className="dcl-regsec-h" onClick={toggleReg} aria-expanded={regOpen}>
           <I.ChevronDown size={16} className="dcl-fold" />
           <span className="dcl-regsec-t">Regions<Info text="Each region's worst site condition and its site count. Expand for a card per region with incidents, alarms, power load and the site that most needs attention." /></span>
-          <span className="dcl-regsec-sum">{REGIONS().map(r => { const ss = live.filter(d => d.regionId === r.id).map(stateOf); const w: SiteState = ss.includes('critical') ? 'critical' : ss.includes('attention') ? 'attention' : 'normal'; return <span key={r.id} className={`vw-chip vw-chip--${STATE_META[w].tone} dco-pill`}><i className="chip-dot" />{r.name} · {ss.length} sites</span>; })}</span>
+          <span className="dcl-regsec-sum">{REGIONS().map(r => { const ss = live.filter(d => d.regionId === r.id).map(stateOf); const w: SiteState = ss.includes('critical') ? 'critical' : ss.includes('attention') ? 'attention' : 'normal'; return <span key={r.id} className={`vw-chip vw-chip--${w === 'critical' ? 'error' : 'neutral'} dco-pill`}><i className="chip-dot" />{r.name} · {ss.length} sites</span>; })}</span>
           <span className="dcl-regsec-hint">{regOpen ? 'Collapse' : 'Expand'}</span>
         </button>
         {regOpen && <>
@@ -153,7 +153,7 @@ export function Datacenters() {
 
 type SiteState = 'critical' | 'attention' | 'normal';
 const STATE_META: Record<SiteState, { label: string; color: string; tone: Tone }> = {
-  critical: { label: 'Critical', color: SOFT.error, tone: 'error' }, attention: { label: 'Needs attention', color: SOFT.warning, tone: 'warning' }, normal: { label: 'Normal', color: SOFT.success, tone: 'success' }
+  critical: { label: 'Critical', color: SOFT.error, tone: 'error' }, attention: { label: 'Needs attention', color: 'var(--primaryColor400)', tone: 'neutral' }, normal: { label: 'Normal', color: 'var(--vw-color-blue-200)', tone: 'neutral' }
 };
 /* same rule as the datacenter page's site status */
 const stateOf = (d: DcSummary): SiteState => d.worstSev === 1 || d.facilityIssues.some(f => /on battery|fault/i.test(f)) || d.edge.state === 'isolated' ? 'critical'
