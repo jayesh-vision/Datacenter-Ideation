@@ -272,6 +272,9 @@ where they did; drift = a node on its model's `driverOld`; job / service price =
 jobs, node drawer hardware row (`[data-gpu-hw]`), vendor-aware telemetry labels (DCGM / Intel Gaudi hl-smi / Intel XPU Manager).
 Check: `node .qa/gpu-models.mjs <persona>`.
 GPU Fleet head (22-Oct-2026, user): one row — title + one-line subtitle left, live chip · datacenter select (200 px) · Opstral right, centred (`.gpu > .page-head` in `styles/gpu.css`); at 1280 the subtitle wraps inside the row. Check: `node .qa/gpu-head.mjs`.
+The two story cards (Biggest blast radius · Slowest job) sit in ONE collapsible section **Jobs needing attention** (`FacSection`, scope `gpu` / `gpu-site` on the
+datacenter tab, open by default, remembered per viewer; closed = four summary facts: GPUs stopped + incident, lost now, slowest job, lost now) so the
+viewer can fold it away above the lists (22-Oct-2026, user). Check: `node .qa/gpu-stories.mjs`.
 GPU telemetry follows the NVIDIA DCGM exporter: `Gpu` carries the DCGM fields (comments name them: util / SM active / tensor /
 mem copy / DRAM, FB used, GPU + HBM temp, power + energy, SM + mem clock, P-state, fan, throttle reasons, ECC SBE/DBE, retired
 pages + row remap, PCIe replay + traffic, NVLink errors + traffic, last Xid); `GpuNode.series` = 24 h hourly history built AFTER the

@@ -16,6 +16,7 @@ import type { GpuModelRow, GpuTelemetry, Leader } from '../mock/gpu-view';
 import { GPU_VENDORS, gpuName, gpuSpec } from '../lib/gpuSpec';
 import { fmtAgo, fmtDur, fmtMoney, fmtNum } from '../lib/format';
 import { OpstralBtn } from '../ui/OpstralMark';
+import { FacSections, FacSection, type SecSummary } from '../ui/Sections';
 import { downloadCsv } from './ops/shared';
 import { GpuPowerCost } from './capacity/PowerEconomics';
 import { GpuJobPower, Placement } from './gpu/PowerUse';
@@ -129,10 +130,15 @@ function Fleet({ v, embedded }: { v: GpuView; embedded?: boolean }) {
       </StatGrid>
 
       {!embedded || stalled || worstSlow ? (
-        <div className="gpu-heroes">
-          <BlastCard j={stalled} v={v} onOpen={setJobId} />
-          <WasteCard j={worstSlow ?? atRisk} v={v} onOpen={setJobId} />
-        </div>
+        <FacSections ids={['stories']} scope={embedded ? 'gpu-site' : 'gpu'}>{open => (
+          <FacSection id="stories" scope="gpu" open={open} icon={I.Siren} title="Jobs needing attention" summary={storySummary(stalled, worstSlow ?? atRisk)}
+            desc="The job with the biggest blast radius and the job losing the most GPU time, with what each costs per hour.">
+            <div className="gpu-heroes">
+              <BlastCard j={stalled} v={v} onOpen={setJobId} />
+              <WasteCard j={worstSlow ?? atRisk} v={v} onOpen={setJobId} />
+            </div>
+          </FacSection>
+        )}</FacSections>
       ) : null}
 
       <Tabs value={tab} onChange={t => go(t)} tabs={[
@@ -159,6 +165,16 @@ function Fleet({ v, embedded }: { v: GpuView; embedded?: boolean }) {
       <span className="vw-label gpu-foot">GPU time is priced at {fmtMoney(v.rate)} per H100 GPU-hour ({v.rateLabel}); other models are scaled to their list price. A stalled job loses all its GPUs, a slowed job the share of each step it loses, an idle allocation everything it holds. {V.money.impact} counts what {V.customers.toLowerCase()} are billed; this counts productive GPU time.</span>
     </div>
   );
+}
+
+/* summary facts for the collapsed "Jobs needing attention" section (22-Oct-2026, user: the two story cards took too much room above the list) */
+function storySummary(stalled?: GpuJobRow, slow?: GpuJobRow): SecSummary {
+  const out: SecSummary = [];
+  if (stalled) out.push({ l: 'Biggest blast radius', v: `${stalled.gpus} GPUs stopped${stalled.incidentId ? ` · ${stalled.incidentId}` : ''}`, tone: 'bad' }, { l: 'Lost now', v: perH(stalled.wasteRate), tone: 'bad' });
+  else out.push({ l: 'Biggest blast radius', v: 'No job stalled', tone: 'ok' });
+  if (slow) out.push({ l: slow.state === 'idle' ? 'Wasting the most' : slow.state === 'at-risk' ? 'At risk' : 'Slowest job', v: slow.state === 'idle' ? `${slow.gpus} GPUs idle` : slow.state === 'at-risk' ? `${slow.gpus} GPUs one fault from a crash` : `${slow.gpus} GPUs ${slow.slowdownPct}% slower`, tone: 'warn' }, { l: slow.state === 'at-risk' ? 'At stake' : 'Lost now', v: slow.state === 'at-risk' ? fmtMoney(slow.atStake) : perH(slow.wasteRate), tone: 'warn' });
+  else out.push({ l: 'Slowest job', v: 'All at baseline speed', tone: 'ok' });
+  return out;
 }
 
 const BLAST_INFO = 'The stalled job: one failed GPU (red) idles every other GPU in the job (grey), one square per node. Lost now = all its GPUs × the GPU-hour rate; work to redo = that rate × time from the last checkpoint to the stall. Click the title for the recovery plan.';
