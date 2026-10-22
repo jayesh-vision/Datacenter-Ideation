@@ -128,6 +128,8 @@ User ask: show revenue degradation caused by datacenter issues and which issue c
   SEV1/2 and incident sites, animated dashes on backhaul that is down, click → summary popup + that site's backhaul fan-out, expand button fills the content area (Esc closes),
   legend items toggle states, Focus-issues / Reset buttons, wheel-zoom only after clicking the map, a search tool (top of the tool column,
   `MapSearch`: id / city / state / region / tier via `DcPin.place`; pick → fly to the site + open its card). Check: `node .qa/map.mjs`.
+- Page tab bars (`.page > .tabs`, the plan page's `.pn-tabrow`) are pinned under the top bar on every screen (22-Oct-2026, user); list toolbars and grid
+  headers pin below them (`--page-tabs-h` 47px, base.css). Keep a screen's tab row a direct child of `.page`. Check: `node .qa/tabs-survey.mjs` (W=1280).
 - Lists keep their toolbar and column header pinned under the top bar while rows scroll (sticky; wrappers use `overflow: clip`,
   never `hidden`, around a `.dt`). Check: `node .qa/sticky.mjs`.
 - Every list uses `ui/ListToolbar.tsx` (no hand-built toolbars): `Showing N of M` · search · ≤2 quick filters (searchable dropdowns)

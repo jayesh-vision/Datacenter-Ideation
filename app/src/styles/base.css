@@ -479,3 +479,14 @@ body.dm-noscroll { overflow: hidden; }
 .tabs .tab.is-active::after { bottom: 0; }
 /* a flush panel holding a plain table: clip instead of scrolling, else the pinned header is offset inside the panel (22-Oct-2026, GPU rails) */
 .panel-body.is-flush:has(> .dt-scroll:not([style*="max-height"])) { overflow: clip; }
+
+/* Page tab bars stay pinned under the top bar on every screen (22-Oct-2026, user: "tab bar not visible once scrolled");
+   list toolbars and grid headers pin just below them. GPU Fleet (.gpu-tabbar) and the datacenter page (.site-sticky) have their own. */
+.page { --page-tabs-h: 0px; }
+.page:has(> .tabs, > .pn-tabrow) { --page-tabs-h: 47px; }
+.page > .tabs, .page > .pn-tabrow { position: sticky; top: var(--top-h); z-index: 8; background: var(--page); margin-top: -8px; padding-top: 8px; flex: none; }
+.page > .tabs { overflow-y: visible; }
+.page:has(> .tabs, > .pn-tabrow) .dt > .dt-toolbar { top: calc(var(--top-h) + var(--page-tabs-h)); }
+.page:has(> .tabs, > .pn-tabrow) .dt-scroll:not([style*="max-height"]) .dt-table thead th { top: calc(var(--top-h) + var(--page-tabs-h)); }
+.page:has(> .tabs, > .pn-tabrow) .dt:has(> .dt-toolbar) > .dt-scroll:not([style*="max-height"]) .dt-table thead th { top: calc(var(--top-h) + var(--page-tabs-h) + var(--dt-tb-h)); }
+.page > .tabs ~ *, .page > .pn-tabrow ~ * { scroll-margin-top: calc(var(--top-h) + var(--page-tabs-h) + 8px); }
