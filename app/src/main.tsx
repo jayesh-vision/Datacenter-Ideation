@@ -5,5 +5,7 @@ import '../design-system/components.css';
 import './styles/app.css';
 import './styles/base.css';
 import App from './App';
+import { installBigScreen } from './lib/bigscreen';
+installBigScreen();
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);

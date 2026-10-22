@@ -80,7 +80,7 @@
 /* full screen: canvas fills the viewport, panel stays on the right */
 .twin.is-full { position: fixed; top: var(--top-h); left: var(--rail-w); right: 0; bottom: 0; z-index: 40; background: var(--vw-color-slate-50); padding: var(--vw-space-md); height: auto; }
 .twin.is-full .twin-main, .twin.is-full .twin-canvas { height: 100%; }
-.twin.is-full .twin-side { max-height: calc(100vh - var(--top-h) - 2 * var(--vw-space-md)); overflow-y: auto; }
+.twin.is-full .twin-side { max-height: calc(var(--vh100) - var(--top-h) - 2 * var(--vw-space-md)); overflow-y: auto; }
 /* right panel matches the canvas height (600 / 560 at 1280); scrolls inside */
 .twin-side { max-height: 600px; }
 @media (max-width: 1280px) { .twin-side { max-height: 560px; } }

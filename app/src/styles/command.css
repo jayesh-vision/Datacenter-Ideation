@@ -476,7 +476,7 @@
 .dcmap-legend { max-width: calc(100% - 76px); flex-wrap: wrap; }
 
 /* expanded map: fills the content area under the top bar, beside the left menu */
-.dcmap.is-full, .hero-map .dcmap.is-full { position: fixed !important; inset: auto !important; top: var(--top-h) !important; left: var(--rail-w) !important; width: calc(100vw - var(--rail-w)) !important; height: calc(100vh - var(--top-h)) !important; z-index: 60; border-radius: 0; box-shadow: 0 0 0 1px var(--vw-color-slate-200); }
+.dcmap.is-full, .hero-map .dcmap.is-full { position: fixed !important; inset: auto !important; top: var(--top-h) !important; left: var(--rail-w) !important; width: calc(var(--vw100) - var(--rail-w)) !important; height: calc(var(--vh100) - var(--top-h)) !important; z-index: 60; border-radius: 0; box-shadow: 0 0 0 1px var(--vw-color-slate-200); }
 .hero-map:has(.dcmap.is-full) { z-index: 60; }
 .dcmap-fulltitle { position: absolute; top: 12px; left: 12px; z-index: 500; display: flex; flex-direction: column; gap: 1px; padding: 8px 12px; border: 1px solid var(--vw-color-slate-200); border-radius: var(--vw-radius-sm); background: rgba(255, 255, 255, .96); font-size: 12px; color: var(--vw-color-gray-500); }
 .dcmap-fulltitle b { font-size: 14px; font-weight: 500; color: var(--vw-color-gray-900); }
@@ -513,7 +513,7 @@
 .hero-area { flex: 1; }
 
 /* map search (08-Oct-2026): panel to the left of the map tools */
-.dcmap-find { position: absolute; right: 42px; top: 0; width: 300px; max-width: calc(100vw - 80px); display: flex; flex-direction: column; border: 1px solid var(--vw-color-slate-200); border-radius: 12px; background: #fff; box-shadow: 0 12px 28px rgba(15, 23, 42, .16); overflow: hidden; animation: dcpop-in .16s ease-out; }
+.dcmap-find { position: absolute; right: 42px; top: 0; width: 300px; max-width: calc(var(--vw100) - 80px); display: flex; flex-direction: column; border: 1px solid var(--vw-color-slate-200); border-radius: 12px; background: #fff; box-shadow: 0 12px 28px rgba(15, 23, 42, .16); overflow: hidden; animation: dcpop-in .16s ease-out; }
 .dcmap-find-in { display: flex; align-items: center; gap: 8px; padding: 0 10px; height: 40px; border-bottom: 1px solid var(--vw-color-slate-200); color: var(--vw-color-gray-500); }
 .dcmap-find-in input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; font-size: 13px; color: var(--vw-color-gray-900); }
 .dcmap-find-in button { display: grid; place-items: center; width: 22px; height: 22px; border: 0; border-radius: 6px; background: transparent; color: var(--vw-color-gray-500); cursor: pointer; }

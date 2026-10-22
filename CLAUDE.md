@@ -130,6 +130,9 @@ User ask: show revenue degradation caused by datacenter issues and which issue c
   `MapSearch`: id / city / state / region / tier via `DcPin.place`; pick → fly to the site + open its card). Check: `node .qa/map.mjs`.
 - Page tab bars (`.page > .tabs`, the plan page's `.pn-tabrow`) are pinned under the top bar on every screen (22-Oct-2026, user); list toolbars and grid
   headers pin below them (`--page-tabs-h` 47px, base.css). Keep a screen's tab row a direct child of `.page`. Check: `node .qa/tabs-survey.mjs` (W=1280).
+- Big screens / TVs (22-Oct-2026, user): from 2200 px the whole UI scales (`html { zoom }` 1.25 / 1.5 from 2880 / 2 from 3440, base.css). `lib/bigscreen.ts`
+  (installed in main.tsx) makes rects, mouse coordinates, innerWidth/Height and elementFromPoint read in layout pixels while zoomed, so tooltips,
+  charts, the map and 3D stay aligned. Use `var(--vh100)` / `var(--vw100)` in CSS, never raw `vh` / `vw`. Check: `node .qa/bigscreen.mjs`.
 - Lists keep their toolbar and column header pinned under the top bar while rows scroll (sticky; wrappers use `overflow: clip`,
   never `hidden`, around a `.dt`). Check: `node .qa/sticky.mjs`.
 - Every list uses `ui/ListToolbar.tsx` (no hand-built toolbars): `Showing N of M` · search · ≤2 quick filters (searchable dropdowns)

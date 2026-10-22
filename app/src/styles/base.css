@@ -32,7 +32,7 @@
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* palette */
-.modal.palette { --w: 640px; top: 12vh; }
+.modal.palette { --w: 640px; top: calc(var(--vh100) * 0.12); }
 .palette-head { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--line-soft); }
 .palette-head input { flex: 1; border: 0; outline: 0; font-size: 15px; font-family: var(--num); color: var(--ink-900); }
 .palette-head kbd { font-size: 11px; padding: 2px 6px; border: 1px solid var(--line); border-radius: 6px; color: var(--ink-500); }
@@ -463,7 +463,7 @@ td .cell-2 small { font-size: 11.5px; color: var(--ink-500); }
 
 /* Data model screen (screens/DataModel.tsx): toolbar card wrapping the explorer iframe */
 .dm-card { padding: 0; overflow: clip; display: flex; flex-direction: column; }
-.dm-frame { height: max(600px, calc(100vh - var(--top-h) - 150px)); display: flex; border-top: 0; }
+.dm-frame { height: max(600px, calc(var(--vh100) - var(--top-h) - 150px)); display: flex; border-top: 0; }
 .dm-frame iframe { flex: 1; width: 100%; border: 0; display: block; background: var(--vw-color-white); }
 .dm-keys { display: inline-flex; align-items: center; gap: 14px; margin-left: 6px; font-size: 12.5px; color: var(--vw-color-gray-500); white-space: nowrap; }
 .dm-keys > span { display: inline-flex; align-items: center; gap: 6px; }
@@ -492,13 +492,11 @@ body.dm-noscroll { overflow: hidden; }
 .page > .tabs ~ *, .page > .pn-tabrow ~ * { scroll-margin-top: calc(var(--top-h) + var(--page-tabs-h) + 8px); }
 
 /* Big screens / TVs (22-Oct-2026, user): scale the whole UI so it reads like a ~1920 px layout instead of shrinking into the middle */
-:root { --vz: 1; }
+:root { --vz: 1; --vh100: 100vh; --vw100: 100vw; }
 @media (min-width: 2200px) { :root { --vz: 1.25; } }
 @media (min-width: 2880px) { :root { --vz: 1.5; } }
 @media (min-width: 3440px) { :root { --vz: 2; } }
 @media (min-width: 2200px) {
   html { zoom: var(--vz); }
-  .shell { min-height: calc(100vh / var(--vz)); }
-  .rail { height: calc(100vh / var(--vz)); }
-  .dm-frame { height: max(600px, calc(100vh / var(--vz) - var(--top-h) - 150px)); }
+  :root { --vh100: calc(100vh / var(--vz)); --vw100: calc(100vw / var(--vz)); }
 }

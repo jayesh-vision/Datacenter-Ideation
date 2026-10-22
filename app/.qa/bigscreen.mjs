@@ -13,7 +13,7 @@ for (const w of widths) {
     const m = await p.evaluate(() => {
       const page = document.querySelector('.page'); const main = document.querySelector('main') || document.body;
       const pr = page?.getBoundingClientRect(), mr = main.getBoundingClientRect();
-      return { hOver: document.documentElement.scrollWidth > innerWidth + 1, pageW: Math.round(pr?.width ?? 0), mainW: Math.round(mr.width), left: Math.round((pr?.left ?? 0) - mr.left), right: Math.round(mr.right - (pr?.right ?? 0)) };
+      return { hOver: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1, pageW: Math.round(pr?.width ?? 0), mainW: Math.round(mr.width), left: Math.round((pr?.left ?? 0) - mr.left), right: Math.round(mr.right - (pr?.right ?? 0)) };
     });
     console.log(w, n.padEnd(6), JSON.stringify(m));
     if (m.hOver) bad.push(`${w} ${n}: horizontal overflow`);
