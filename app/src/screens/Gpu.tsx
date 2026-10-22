@@ -53,9 +53,9 @@ export function GpuPage() {
   const cages = v.kind === 'cages';
   return (
     <div className="page gpu">
-      <PageHead title="GPU Fleet" sub={cages ? 'Tenant AI cages: the high-density, liquid-cooled cabinets your tenants fill with GPUs — their power, coolant and inlet temperature.' : 'The GPU fleet, the AI jobs running on it, and what a single bad GPU costs — health, heat, power and the InfiniBand network.'}
+      <PageHead title="GPU Fleet" sub={cages ? 'Your tenants\' liquid-cooled AI cages: power, coolant and inlet temperature.' : 'GPU health, heat, power and the InfiniBand network, and what one bad GPU costs.'}
         actions={<>
-          <Fresh>{cages ? 'Live · BMS and CDU telemetry' : v.fleet.models.some(m => m.vendor === 'Intel') ? 'Live · DCGM and Intel GPU telemetry every 30 s' : 'Live · DCGM telemetry every 30 s'}</Fresh>
+          <Fresh>{cages ? 'Live · BMS and CDU telemetry' : v.fleet.models.some(m => m.vendor === 'Intel') ? 'Live · DCGM + Intel telemetry · 30 s' : 'Live · DCGM telemetry · 30 s'}</Fresh>
           <select className="select" value={dc} onChange={e => setDc(e.target.value)} aria-label="Datacenter">
             <option value="">All datacenters</option>
             {v.sites.length ? (dc && !v.sites.some(s => s.id === dc) ? [{ id: dc, nodes: 0, cages: 0 }, ...v.sites] : v.sites).map(s => <option key={s.id} value={s.id}>{s.id} · {dcs.find(d => d.id === s.id)?.city ?? ''}{s.nodes ? ` · ${s.nodes} nodes` : s.cages ? ` · ${s.cages} cages` : ''}</option>) : null}

@@ -148,3 +148,11 @@ button.gpu-node:hover { border-color: var(--primaryColor500); }
 .gpu-strong + .gpu-vendor { margin-left: 4px; margin-right: 4px; }
 .gpu-model-s { font-size: 12px; color: var(--vw-color-gray-700); }
 .gpu-model-cell { min-width: 230px; }
+
+/* GPU Fleet head (22-Oct-2026, user): one row — title + subtitle left, live chip · datacenter · Opstral right, vertically centred */
+.gpu > .page-head { flex-wrap: nowrap; align-items: center; }
+.gpu > .page-head > .row { flex: 1 1 auto; min-width: 0; }
+.gpu > .page-head p { max-width: none; }
+.gpu > .page-head .page-actions { flex: none; display: flex; gap: 10px; align-items: center; white-space: nowrap; }
+.gpu > .page-head .page-actions .select { width: 200px; min-width: 0; text-overflow: ellipsis; }
+@media (max-width: 1320px) { .gpu > .page-head .page-actions .select { width: 170px; } }
