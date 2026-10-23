@@ -1,0 +1,2911 @@
+
+.myDIV {
+  position: absolute;
+  top: -93px;
+  right: 35em;
+  background: white;
+  height: 100%;
+  width: 40%;
+  padding: 3em;
+  /* box-shadow: 5px 10px; */
+  border: 1px solid gray;
+  z-index: 9999;
+}
+.bg-image {
+  filter: blur(8px);
+  -webkit-filter: blur(3);
+  height: 100%;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  width: 100%;
+  height: 53em;
+  background-color: #19191991;
+  position: absolute;
+  z-index: 99;
+  top: -221px;
+  right: 0;
+}
+.barcode {
+  position: absolute;
+  right: 0;
+  width: 11em;
+}
+
+.template-backdrop {
+  display: none;
+  position: fixed;
+  height: 100%;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.32);
+  z-index: 8;
+}
+.login-header {
+  height: 3.61em;
+  color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--8, 8px);
+  border-radius: var(--8, 8px);
+  flex-direction: column;
+}
+.mrg-btm-0 {
+  margin-bottom: 0 !important;
+}
+.mrg-top-3 {
+  margin-top: 3em !important;
+}
+.back-custom {
+  width: 48%;
+  background: none;
+  border: none !important;
+  padding: 0.5em;
+  cursor: pointer;
+  color: #36c3de;
+  font-size: 1.2em;
+}
+.back-custom:focus {
+  border: none !important;
+  outline: none;
+}
+.barcodewrape {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: start;
+}
+
+.bar_img {
+  z-index: 99;
+  width: 9em;
+  position: relative;
+  right: 0.5em;
+}
+
+.alert-msg {
+  width: 60%;
+  position: absolute;
+  right: 2em;
+}
+
+.cust-listyle li {
+  font-size: 12px !important;
+  color: #333333 !important;
+  line-height: 1.5em;
+}
+
+.alert-wrapper {
+  width: 100%;
+  margin-top: 0.5em;
+}
+.alert-wrapper .alert {
+  padding: 1.4em 1em !important;
+  height: 4.7em;
+}
+.alert-wrapper .alert span{
+  font-size: 14px !important;
+  color: #e8f0ff !important;
+}
+
+.kc-feedback-text,
+.alert span {
+  color: #fda29b !important;
+}
+
+.alert-error,
+.alert.alert-error {
+  background: rgba(240, 68, 56, 0.12);
+  border: 1px solid rgba(240, 68, 56, 0.3);
+  border-radius: 10px;
+  color: #fda29b;
+}
+.partitioned{
+  background: linear-gradient(to left, #36c3de 70%, rgba(255, 255, 255, 0) 0%) bottom/49.45px 1.7px repeat-x, 
+  linear-gradient(to left, #36c3de 70%, rgba(255, 255, 255, 0) 0%) top/49.45px 1.7px repeat-x, 
+  linear-gradient(to left, rgba(255, 255, 255, 0) 96%, #36c3de 0) bottom/49.45px 36px repeat-x,
+  linear-gradient(to left, rgba(255, 255, 255, 0) 96%, #36c3de 0%) left/49.45px 36px repeat-x !important;
+color: #333333 !important;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body.main-template-container {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body.main-template-container {
+  display: block;
+}
+
+.main-template-container {
+  font-family: 'Space Grotesk', sans-serif;
+  background: #03275a;
+  color: #e8f0ff;
+}
+
+.bg-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 50%, rgba(0, 238, 213, 0.15) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 80% at 80% 20%, rgba(48, 186, 255, 0.12) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 50% at 50% 90%, rgba(139, 63, 232, 0.15) 0%, transparent 60%),
+    #03275a;
+}
+
+.aurora {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.aurora-1,
+.aurora-2,
+.aurora-3 {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  animation: ops-drift 12s ease-in-out infinite alternate;
+}
+
+.aurora-1 {
+  width: 600px;
+  height: 400px;
+  top: -100px;
+  left: -100px;
+  background: radial-gradient(ellipse, rgba(0, 238, 213, 0.12), transparent 70%);
+  animation-duration: 14s;
+}
+
+.aurora-2 {
+  width: 500px;
+  height: 500px;
+  bottom: -150px;
+  right: -100px;
+  background: radial-gradient(ellipse, rgba(48, 186, 255, 0.1), transparent 70%);
+  animation-duration: 10s;
+  animation-delay: -4s;
+}
+
+.aurora-3 {
+  width: 400px;
+  height: 300px;
+  top: 40%;
+  left: 30%;
+  background: radial-gradient(ellipse, rgba(241, 48, 255, 0.1), transparent 70%);
+  animation-duration: 16s;
+  animation-delay: -8s;
+}
+
+@keyframes ops-drift {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(40px, 30px) scale(1.08); }
+}
+
+.grid-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(0, 238, 213, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 238, 213, 0.03) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+.login-page-container {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 100%;
+  min-height: 100vh;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.main-container {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(24px, 4vw, 40px);
+  box-sizing: border-box;
+}
+
+.login-page-bottom-container {
+  color: black;
+  justify-content: center;
+  display: flex;
+  align-items: center;
+  position: absolute;
+  width: 22em;
+  height: 2.3em;
+  font-size: 10px;
+  background-size: cover;
+  top: 96vh;
+}
+
+.nouros-logo-main-div {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  max-width: 480px;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.ops-left-panel {
+  max-width: 480px;
+}
+
+.ops-eyebrow {
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #00eed5;
+  font-family: 'Space Mono', monospace;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ops-eyebrow::before {
+  content: '';
+  width: 32px;
+  height: 1px;
+  background: #00eed5;
+}
+
+.ops-brand {
+  font-size: clamp(32px, 4vw, 52px);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -1px;
+  margin-bottom: 20px;
+}
+
+.ops-brand-ops {
+  color: #00eed5;
+}
+
+.ops-brand-sing {
+  color: #ffffff;
+}
+
+.ops-brand-dot {
+  color: #f130ff;
+}
+
+.ops-desc {
+  font-size: 14px;
+  color: #a8b5d0;
+  line-height: 1.7;
+  max-width: 340px;
+  margin-bottom: 0;
+}
+
+.ops-field {
+  position: relative;
+  width: 100%;
+  margin-bottom: 14px;
+}
+
+.ops-field-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: #6070a0;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 7px;
+}
+
+.row-forgot {
+  width: 100%;
+  text-align: right;
+  margin-bottom: 20px;
+  display: block;
+  float: none;
+}
+.logo-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.logo-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.logo-wrap {
+  width: 84px;
+  height: 84px;
+  filter: drop-shadow(0 0 12px rgba(0, 238, 213, 0.25));
+}
+
+.ops-card-logo {
+  width: 84px;
+  height: 84px;
+}
+
+.logo-title {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  background: linear-gradient(90deg, #00eed5, #30baff, #f130ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.ops-social-section {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.ops-social-providers {
+  width: 100%;
+  order: 1;
+}
+
+.ops-social-divider-wrap {
+  width: 100%;
+  order: 2;
+  margin-top: 20px;
+  margin-bottom: 16px;
+}
+
+.ops-social-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.custom-social-button {
+  list-style: none;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.custom-social-button .azure-login-button {
+  text-decoration: none;
+}
+
+.custom-social-button .azure-login-button > div {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.social-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.social-icon svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.social-name {
+  line-height: 1;
+}
+
+.azure-login-wrap {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.azure-login-button {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding: 14px 16px;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #30baff;
+  border-radius: 10px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: #30baff;
+  background: transparent;
+  text-decoration: none;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s;
+}
+
+button.azure-login-button {
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+button.azure-login-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+button.azure-login-button:disabled:hover {
+  background: transparent;
+  border-color: #30baff;
+}
+
+.azure-login-button:hover {
+  background: rgba(48, 186, 255, 0.08);
+  border-color: #5cc8ff;
+  transform: translateY(-1px);
+}
+
+.azure-login-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.azure-login-icon img {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.azure-login-text {
+  line-height: 1;
+}
+
+.card-sep {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 238, 213, 0.15), transparent);
+  margin-bottom: 24px;
+}
+
+.card-foot {
+  margin-top: 20px;
+  text-align: center;
+  font-size: 11px;
+  color: #3a4a6a;
+}
+
+.logo {
+  margin-bottom: 2.5em; 
+}
+
+
+.ps-logo{
+margin: auto;
+height: 5em;
+}
+
+.kc-container {
+  width: 420px;
+  flex: 0 0 420px;
+  flex-shrink: 0;
+  order: 2;
+  max-height: none;
+  min-height: auto;
+  max-width: 420px;
+  margin: 0 clamp(24px, 4vw, 64px) 0 0;
+  display: flex;
+  /* padding: 44px 40px 10px; */
+  box-sizing: border-box;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height:calc(100vh - 15em) !important;
+  gap: 0;
+  border-radius: 20px;
+  background: rgba(3, 39, 90, 0.9);
+  border: 1px solid rgba(0, 238, 213, 0.2);
+  backdrop-filter: blur(24px);
+  box-shadow:
+    0 0 0 1px rgba(0, 238, 213, 0.1),
+    0 32px 64px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  animation: ops-slide-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes ops-slide-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.kc-container-child {
+  padding: 0;
+  width: 100%;
+  padding: 44px 40px 10px;
+}
+
+.kc-form-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  background-color: transparent;
+  width: 100%;
+}
+
+.kc-form-container-child {
+  width: 100%;
+  display: flex;
+  background-color: transparent;
+  max-height: 100%;
+  flex-direction: column;
+  top: 0;
+}
+
+.kc-info-container {
+  width: 100%;
+  top: -1em;
+  position: relative;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+  -webkit-text-fill-color: #e8f0ff;
+  -webkit-box-shadow: 0 0 0 1000px rgb(16, 50, 98) inset;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+#displayMsgDiv {
+  display: block;
+  position: absolute;
+  background-color: #ff5959;
+  top: 5%;
+  height: 3%;
+  z-index: 9;
+  width: 384px;
+  right: 7px;
+  padding: 7px;
+  color: white;
+}
+
+.mdc-select:not(.mdc-select--disabled) .mdc-select__native-control {
+  border: none;
+}
+
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+    margin: 0 !important;
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    border-radius: 10px;
+    -webkit-text-fill-color: #e8f0ff !important;
+    -webkit-box-shadow: 0 0 0 1000px rgb(16, 50, 98) inset !important;
+}
+
+.login-form {
+    width: 100%;
+    position: relative;
+    display: inline-block;
+    text-align: left;
+    font-size: inherit;
+    font-weight: 400;
+    line-height: 1.125;
+    font-family: 'Space Grotesk', sans-serif;
+}
+
+.signin-label {
+    font-size: 23px;
+    font-weight: 400;
+    line-height: 1.2em;
+}
+.forgot-password-label{
+  font-size: 23px;
+  font-family: 'Inter' !important;
+  font-weight: 400;
+  line-height: 1.2em;
+  text-align: center;
+  padding: 0.3em;
+}
+.forgot-password-sublabel{
+    display: flex;
+    justify-content: center;
+    color: #aaaeb2;
+    margin-top: 1em;
+    margin-bottom: 22px;
+    font-size: 1em;
+    font-weight: 300;
+    font-family: Inter;
+    font-size: small;
+}
+
+
+.username-input-div{
+  display: flex;
+  margin-top: 0;
+  margin-bottom: 14px;
+  height: auto;
+  min-width: 100%;
+  width: 100%;
+  padding: 0;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 7px;
+  border-radius: 10px;
+  background-color: transparent !important;
+}
+.username-input-div-error{
+  border:1px solid #e60b0b;
+}
+
+.login-text-field{
+  font-family: 'Space Grotesk', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-size: 14px;
+  line-height: 1.4;
+  font-weight: 400;
+  width: 100%;
+  padding: 13px 16px;
+  color: #e8f0ff;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(0, 238, 213, 0.15);
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  appearance: none;
+  box-sizing: border-box;
+}
+
+.login-text-field:focus {
+  border-color: #00eed5;
+  box-shadow: 0 0 0 3px rgba(0, 238, 213, 0.12);
+}
+
+.login-username {
+  display: block;
+  min-height: auto;
+  border: 1px solid rgba(0, 238, 213, 0.15);
+}
+
+input:focus-visible{
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.login-password-div{
+  margin-top: 0;
+  margin-bottom: 0;
+  display: flex;
+  height: auto;
+  min-width: 0;
+  width: 100%;
+  padding: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0;
+  border-radius: 10px;
+  background: transparent !important;
+  position: relative;
+}
+
+.login-password {
+  display: block;
+  min-height: auto;
+  padding-right: 40px;
+  border: 1px solid rgba(0, 238, 213, 0.15);
+}
+
+.login-password-label {
+    font-size: 15px !important;
+    transform: translate(0, -11px) scale(0.75);
+    background: white;
+    position: absolute;
+    font-weight: 500;
+    z-index: 99;
+    color: #606060;
+    color: black;
+    padding: 0px 8px 2px 5px;
+}
+.signin-button{
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    padding: 14px 16px;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    border: none;
+    border-radius: 10px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    color: #030a14 !important;
+    background: linear-gradient(90deg, #00eed5 0%, #30baff 100%) !important;
+    box-shadow: 0 4px 24px rgba(0, 238, 213, 0.3), 0 0 0 1px rgba(0, 238, 213, 0.2);
+    margin-top: 0;
+    cursor: pointer;
+    transition: filter 0.2s, transform 0.15s, box-shadow 0.2s;
+  }
+
+.signin-button:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 32px rgba(0, 238, 213, 0.4);
+}
+
+.register-button{
+    text-decoration: none;
+    font-size: 14px;
+    color: #30baff;
+    float: right;
+    padding-top: 1em;
+  }
+
+.forgot-password{
+    text-decoration: none;
+    color: #30baff;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 20px;
+    margin-top: 0;
+    display: flex;
+}
+
+.forgot-password:hover {
+  opacity: 0.75;
+}
+
+.eyeimg {
+    width: 16px;
+}
+
+.visibility {
+   position: absolute;
+   right: 14px;
+   bottom: 14px;
+   cursor: pointer;
+   width: 1.5em !important;
+   color: #4a5a7a;
+}
+
+.visibility:hover {
+  color: #00eed5;
+}
+
+.password-container {
+  position: relative;
+  width: 100%;
+}
+
+.no-shadow,
+.no-shadow:hover {
+    box-shadow: none !important;
+}
+
+.sign-in-social-label {
+  font-family: Inter;
+  font-size: 14px;
+  margin-left: 5px;
+  font-weight: 600;
+  color: #36c3de;
+  line-height: 2.8em;
+}
+
+.social-oidc-image {
+  height: 30px;
+  width: 40px;
+}
+
+.social-div {
+  font-size: 14px;
+  font-weight: initial;
+  display: flex;
+  height: 2.5em;
+  border-radius: 0.4em;
+  color: white;
+  margin-top: 1.5em;
+  border: 1px solid var(--black-10, #2E343E1A);
+  justify-content: center;
+  align-items: center;
+  margin-left: 4em;
+  margin-right: 4em;
+}
+
+.social-link-url {
+  text-decoration: none;
+  color: var(--black-100, #2E343E);
+  font-family: "Inter", sans-serif;
+  font-size: 17px;
+}
+
+@media (max-width: 768px) {
+  .sign-in-social-label {
+      font-size: 12px;
+      line-height: 2.2em;
+  }
+
+  .social-oidc-image {
+      height: 25px;
+      width: 35px;
+  }
+
+  .social-div {
+      margin-left: 2em;
+      margin-right: 2em;
+      height: 2.2em;
+     width: 17em;
+    
+  }
+
+  .social-link-url {
+      font-size: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .sign-in-social-label {
+      font-size: 10px;
+      line-height: 2em;
+  }
+
+  .social-oidc-image {
+      height: 20px;
+      width: 30px;
+  }
+
+  .social-div {
+      margin-left: 1em;
+      margin-right: 1em;
+      height: 2em;
+  }
+
+  .social-link-url {
+      font-size: 13px;
+  }
+}
+
+
+.forgot_buttons a:active {
+  color: -webkit-link;
+}
+.no-shadow,
+.no-shadow:hover{
+  box-shadow:none !important;
+}
+.no-float {
+  float: initial !important;
+}
+.reset-submit-btn{
+  top:1em !important;
+}
+
+
+
+.reset-password-input{
+    font-family: 'Space Grotesk', sans-serif;
+    padding: 13px 16px;
+    width: 100%;
+    height: auto;
+    border-radius: 10px;
+    font-size: 14px;
+}
+.reset-password-submit-button{
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    height: auto;
+    padding: 14px 16px;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    background-color: #36c3de !important;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 1.125;
+    letter-spacing: 0.3px;
+    border-radius: 10px;
+}
+
+.reset-password-back-button{
+    font-size: 23px;
+    text-decoration: none;
+    color: #36c3de;
+    font-weight: 400;
+    top: 1em;
+    position: relative;
+}
+
+.mdc-text-field--outlined:not(.mdc-text-field--disabled) .mdc-notched-outline__idle{
+  width: 12em;
+  border-color:#000000 !important;
+}
+
+
+
+.update-password-container{
+  margin-top: 0;
+  width: 100%;
+}
+
+.login-update-new-password,
+.login-update-confirm-password{
+    font-family: 'Space Grotesk', sans-serif;
+    padding: 13px 16px;
+    padding-right: 40px;
+    width: 100%;
+    height: auto;
+    border-radius: 10px;
+    font-size: 14px;
+    border: 1px solid rgba(0, 238, 213, 0.15);
+}
+
+
+.login-update-password-submit{
+    width:100%; 
+    background-color: #36c3de !important;
+    color: #fff !important;
+    text-transform: capitalize;
+    font-weight: 600;
+    font-family: sans-serif;
+    float: inline-end;
+    height: 40px;
+    padding: 8px 16px 8px 16px;
+    border-radius: 12px;
+    gap: 8px;
+    font-size: large;
+    border-radius:0.9em;
+    
+}
+
+.login-reset-password-div{
+  margin-top: 0;
+  margin-bottom: 0;
+  display: flex;
+  height: auto;
+  min-width: 0;
+  width: 100%;
+  padding: 0;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0;
+  border-radius: 10px;
+  background: transparent !important;
+  position: relative;
+}
+
+.enteremail-input{
+  display: flex;
+  margin-top: 0;
+  margin-bottom: 14px;
+  height: auto;
+  min-width: 100%;
+  width: 100%;
+  padding: 0;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 7px;
+  border-radius: 10px;
+  background-color: transparent !important;
+}
+
+
+.sing-in-msg-lable{
+font-size:13px;
+color:var(--black-40, #2E343E66);
+text-align: center;
+}
+
+.login-social-message-label{
+  display: flex;
+  flex-direction: row;
+ font-size: 12px;
+ margin-top: 1em;
+ margin-left:2em;
+ margin-right:2em;
+ margin-bottom: 1em;
+ color: var(--white-100, #FFFFFF);
+
+}
+.social-label,
+.ops-social-divider {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 100%;
+  font-size: 13px;
+  font-weight: 500;
+  margin: 0;
+  color: #ffffff;
+  text-align: center;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+.social-label:before,
+.social-label:after,
+.ops-social-divider:before,
+.ops-social-divider:after {
+  content: "";
+  flex: 1 1;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.35);
+  margin: auto;
+}
+
+.social-label:before,
+.ops-social-divider:before {
+  margin-right: 0.75em;
+}
+
+.social-label:after,
+.ops-social-divider:after {
+  margin-left: 0.75em;
+} 
+#kc-login {
+  float: none;
+  width: 100%;
+  height: auto;
+  padding: 14px 16px;
+  border-radius: 10px;
+  gap: 8px;
+  font-size: 15px;
+  text-transform: none;
+}
+
+/* Same override as #kc-login: bootstrap-material-design-alerts.css pins
+   #kc-submit to height:41px / border-radius:12px via an id selector. */
+#kc-submit {
+  float: none;
+  width: 100%;
+  height: auto;
+  padding: 14px 16px;
+  border-radius: 10px;
+  gap: 8px;
+  font-size: 15px;
+  text-transform: none;
+}
+
+@media (max-width: 300px) {
+  .username-input-div {
+      width: 248px;
+  }
+
+  .enteremail-input {
+      min-width: 100%;
+  }
+
+  .login-password-div {
+      min-width: 248px; 
+  }
+
+  .kc-container {
+      min-height: 28em; 
+  }
+}
+
+@media (min-width: 300px) and (max-width: 480px) {
+  .kc-container {
+      width: 100% !important;
+      max-width: 420px !important;
+      min-height: auto !important;
+      z-index: 10;
+  }
+
+  .username-input-div, 
+  .login-password-div {
+      min-width: 232px; 
+  }
+}
+
+@media screen and (max-width: 550px) {
+  .enteremail-input {
+      min-width: 100%;
+  }
+
+  .username-input-div, 
+  .login-password-div {
+      min-width: 258px; 
+  }
+  .mdc-text-field--outlined:not(.mdc-text-field--disabled) .mdc-notched-outline__idle{
+    width: 7em;
+    border-color:#000000 !important;
+  }
+  .cancelBtnStyle{
+    width: 7em;
+  }
+  .registerBtnStyle{
+    width: 7em;
+
+  }
+}
+
+
+@media (min-width: 700px) and (max-width: 850px) {
+  .regActionBtnStyle {
+    justify-content: space-between;
+    width: 82%;
+    }
+
+}
+
+
+
+@media (min-width: 480px) and (max-width: 700px) {
+  .kc-container {
+      width: 100% !important;
+      max-width: 420px !important;
+      min-height: auto !important;
+      z-index: 10;
+  }
+
+  #kc-login {
+      width: 100% !important;
+      font-size: 15px;
+      padding: 14px 16px;
+      min-width: 0 !important;
+  }
+  .cancelBtnStyle{
+    width: 8em;
+  }
+  .registerBtnStyle{
+    width: 8em;
+  }
+
+  .regActionBtnStyle {
+    justify-content: space-between;
+    width: 92%;
+    }
+}
+
+
+
+@media (max-width: 750px) {
+  #kc-login {
+      width: 100%;
+      min-width: 100%;
+  }
+
+  .main-container {
+      flex-direction: column;
+      justify-content: center;
+      gap: 24px;
+      padding: 0;
+  }
+
+  .login-page-container {
+    padding: 40px 20px;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .username-input-div,
+  .login-password-div {
+      min-width: 100%;
+  }
+
+  .nouros-logo-main-div {
+      max-width: 100%;
+      text-align: center;
+      justify-content: center;
+  }
+
+  .ops-left-panel {
+      max-width: 100%;
+  }
+
+  .ops-eyebrow::before {
+      display: none;
+  }
+
+  .ops-desc {
+      max-width: 100%;
+    margin: 0 auto;
+  }
+
+  #nourosorder {
+      position: static;
+      top: auto;
+      left: auto;
+  }
+
+  .kc-container {
+      width: 100%;
+      max-width: 420px;
+      margin-right: 0;
+  }
+  .regActionBtnStyle {
+    justify-content: space-between;
+    width: 92%;
+    }
+}
+
+@media (max-width: 480px) {
+  #kc-login {
+      width: 100%; 
+      font-size: small; 
+      min-width: 248px; 
+  }
+
+  .main-container {
+      flex-direction: column;
+  }
+
+  .username-input-div, 
+  .login-password-div {
+      min-width: 258px; 
+  }
+
+  #nourosorder {
+      position: absolute; 
+      top: 3.5em; 
+      left: 6em; 
+  }
+
+  .mdc-text-field--outlined:not(.mdc-text-field--disabled) .mdc-notched-outline__idle{
+    width: 7em;
+    border-color:#000000 !important;
+  }
+  .cancelBtnStyle{
+    width: 8.5em;
+  }
+  .registerBtnStyle{
+    width: 8.5em;
+
+  }
+  .regActionBtnStyle {
+    justify-content: space-between;
+    width: 92%;
+    }
+}
+
+@media (max-width: 380px) {
+  #kc-login {
+      width: 242px; 
+  }
+
+  .main-container {
+      flex-direction: column; 
+  }
+
+  .username-input-div, 
+  .login-password-div {
+      min-width: 258px; 
+  }
+
+  #nourosorder {
+      position: absolute; 
+      top: 3.5em;
+      left: 6em; 
+  }
+
+  .mdc-text-field--outlined:not(.mdc-text-field--disabled) .mdc-notched-outline__idle{
+    width: 7em;
+    border-color:#000000 !important;
+  }
+  .cancelBtnStyle{
+    width: 8.5em;
+  }
+  .registerBtnStyle{
+    width: 8.5em;
+
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  .kc-container {
+      width: 380px !important;
+      max-width: 380px !important;
+      min-height: auto !important;
+      z-index: 10;
+  }
+
+  .username-input-div, 
+  .login-password-div {
+      min-width: 258px; 
+  }
+
+  #kc-login {
+      padding: 15px; 
+  }
+  .mdc-text-field--outlined:not(.mdc-text-field--disabled) .mdc-notched-outline__idle{
+    width: 7em;
+    border-color:#000000 !important;
+  }
+  .cancelBtnStyle{
+    width: 8.5em;
+  }
+  .registerBtnStyle{
+    width: 8.5em;
+
+  }
+}
+
+@media (min-width: 780px) and (max-width: 850px) {
+  #kc-login {
+      padding: 10px 15px;
+      font-size: medium; 
+  }
+
+  .username-input-div, 
+  .login-password-div {
+      min-width: 258px; 
+  }
+
+  .kc-container {
+      width: 380px !important;
+      max-width: 380px !important;
+  }
+
+  .mdc-text-field--outlined:not(.mdc-text-field--disabled) .mdc-notched-outline__idle{
+    width: 7em;
+    border-color:#000000 !important;
+  }
+  .cancelBtnStyle{
+    width: 8.5em;
+  }
+  .registerBtnStyle{
+    width: 8.5em;
+
+  }
+
+  
+}
+
+@media (max-width: 1100px) and (min-width: 751px) {
+  .login-page-container {
+  }
+
+  .nouros-logo-main-div {
+    max-width: 380px;
+  }
+
+  .kc-container {
+    width: 380px !important;
+    flex: 0 0 380px !important;
+    max-width: 380px !important;
+  }
+}
+
+@media (orientation: landscape) {
+  .main-container {
+      flex-direction: row;
+      width: 90% !important;
+      gap: 30px !important;
+  }
+}
+
+@media (max-height: 750px) {
+  #nourosorder {
+      top: 1em;
+  }
+
+  .kc-container {
+    min-height: auto;
+    height: auto;
+  }
+}
+
+@media (max-width: 380px) {
+    .username-input-div, .login-password-div {
+        min-width: 100%;
+    }
+}
+
+@media (max-width: 1024px) {
+  .login-page-container {
+    /* padding: 0 clamp(40px, 8vw, 100px) 0 5vw; */
+  }
+
+  .main-container {
+    gap: 20px;
+  }
+
+  .nouros-logo-main-div {
+    max-width: 350px;
+  }
+
+  .kc-container {
+    width: 380px;
+    flex: 0 0 380px;
+    max-width: 380px;
+  }
+}
+
+
+
+#password-policy-text{
+  /* color: #6070a0; */
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1.5;
+  margin-left: 2px;
+  margin-top: 7px;
+  }
+
+
+  .description {
+    padding: 0.2em 0em;
+    font-size: 0.9em;
+    line-height: 1.37em;
+    text-align: center;
+    color: #878686;
+    font: 100 14px/20px 'Inter' !important;
+    font-size: 18px !important;
+}
+
+.image-text-wrapper{
+  display: flex;
+  flex-direction: column;
+}
+
+
+.image-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding-bottom: 4em;
+}
+
+/* Legacy email/enterprise logo slots — replaced by .ops-card-logo on login card */
+
+/* OpsSingularity — prevent login card from being clipped on the right */
+.login-form,
+.kc-form-container-child,
+#kc-form-wrapper,
+#kc-form,
+#kc-form-buttons,
+#kc-reset-password-form,
+#kc-passwd-update-form {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.ops-field.username-input-div,
+.ops-field.password-container,
+.ops-field.enteremail-input {
+  background: transparent !important;
+  min-width: 0 !important;
+  height: auto;
+}
+
+#kc-form-buttons {
+  float: none;
+  clear: both;
+}
+
+@media (min-width: 751px) {
+  .kc-container {
+    width: 420px !important;
+    max-width: 420px !important;
+    /* flex: none !important; */
+  }
+
+  #kc-login,
+  .signin-button {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+}
+
+
+/* ================================================================
+   OpsSingularity — theme-wide field & submit normalization
+   Every input and submit control inside the card follows the
+   sign-in card: .login-text-field for fields, .signin-button for
+   the primary action. Scoped to .kc-container so the left brand
+   panel is untouched. !important is required here to beat the
+   inline style="" attributes in register.ftl and the MDC rules.
+   ================================================================ */
+
+/* ---- fields ---------------------------------------------------- */
+.kc-container input[type="text"],
+.kc-container input[type="password"],
+.kc-container input[type="email"],
+.kc-container input[type="tel"],
+.kc-container input[type="number"],
+.kc-container input[type="url"],
+.kc-container input[type="search"],
+.kc-container input:not([type]),
+.kc-container select,
+.kc-container textarea {
+  font-family: 'Space Grotesk', sans-serif !important;
+  -webkit-font-smoothing: antialiased;
+  font-size: 14px !important;
+  line-height: 1.4 !important;
+  font-weight: 400 !important;
+  letter-spacing: normal !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 13px 16px !important;
+  color: #e8f0ff !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(0, 238, 213, 0.15) !important;
+  border-radius: 10px !important;
+  outline: none;
+  box-shadow: none !important;
+  -webkit-box-shadow: none !important;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box !important;
+  display: block !important;
+  position: static !important;
+  top: auto !important;
+  vertical-align: baseline !important;
+  text-align: left !important;
+}
+
+.kc-container input[type="text"]:focus,
+.kc-container input[type="password"]:focus,
+.kc-container input[type="email"]:focus,
+.kc-container input[type="tel"]:focus,
+.kc-container input[type="number"]:focus,
+.kc-container input[type="url"]:focus,
+.kc-container input[type="search"]:focus,
+.kc-container input:not([type]):focus,
+.kc-container select:focus,
+.kc-container textarea:focus {
+  border-color: #00eed5 !important;
+  box-shadow: 0 0 0 3px rgba(0, 238, 213, 0.12) !important;
+}
+
+.kc-container input:disabled,
+.kc-container input[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Reserve room for the eye toggle on any field that carries one */
+.kc-container .login-password-div input,
+.kc-container .login-reset-password-div input,
+.kc-container .InputBox input,
+.kc-container div:has(> .visibility) input {
+  padding-right: 40px !important;
+}
+
+/* ---- neutralize the MDC / notched-outline chrome ---------------- */
+.kc-container .mdc-text-field,
+.kc-container .mdc-text-field--outlined,
+.kc-container .mdc-text-field--with-leading-icon,
+.kc-container .mdc-notched-outline,
+.kc-container .mdc-notched-outline__idle,
+.kc-container .opacityP5,
+.kc-container .borderColorGrey,
+.kc-container .InputBox {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  opacity: 1 !important;
+  overflow: visible !important;
+  /* MDC makes .mdc-notched-outline__idle absolute, which drops the input out
+     of flow and collapses the field wrapper to zero height. Put it back. */
+  position: static !important;
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+}
+
+/* the wrapper stays a positioning context for the eye toggle */
+.kc-container .mdc-text-field {
+  position: relative !important;
+  margin-bottom: 14px !important;
+}
+
+/* ---- labels sit above the field, like .ops-field-label ---------- */
+.kc-container label:not(.visibility):not(.submitbtn):not(.remberMeLabel):not(:has(input)) {
+  display: block;
+  position: static !important;
+  transform: none !important;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: #6070a0;
+  letter-spacing: 1px;
+  line-height: 1.4;
+  text-transform: uppercase;
+  background: transparent !important;
+  padding: 0;
+  margin: 0 0 7px 0;
+  width: auto;
+  pointer-events: auto;
+}
+
+/* Field groups get consistent vertical rhythm */
+.kc-container .form-group,
+.kc-container .ops-field {
+  width: 100%;
+  margin-bottom: 14px;
+}
+
+/* ---- primary submit = .signin-button --------------------------- */
+.kc-container button[type="submit"],
+.kc-container input[type="submit"],
+.kc-container .registerBtnStyle,
+.kc-container .login-update-password-submit,
+.kc-container .reset-password-submit-button,
+.kc-container #kc-login,
+.kc-container #kc-submit,
+.kc-container #kc-accept,
+.kc-container #updateProfile,
+.kc-container #linkAccount {
+  display: flex !important;
+  float: none !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 14px 16px !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 8px;
+  border: none !important;
+  border-radius: 10px !important;
+  font-family: 'Space Grotesk', sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  line-height: 1.125 !important;
+  letter-spacing: 0.3px !important;
+  text-transform: none !important;
+  color: #030a14 !important;
+  background: linear-gradient(90deg, #00eed5 0%, #30baff 100%) !important;
+  box-shadow: 0 4px 24px rgba(0, 238, 213, 0.3), 0 0 0 1px rgba(0, 238, 213, 0.2) !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  cursor: pointer;
+  transition: filter 0.2s, transform 0.15s, box-shadow 0.2s;
+}
+
+.kc-container button[type="submit"]:hover,
+.kc-container input[type="submit"]:hover,
+.kc-container .registerBtnStyle:hover,
+.kc-container #kc-login:hover,
+.kc-container #kc-submit:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 32px rgba(0, 238, 213, 0.4) !important;
+}
+
+.kc-container button[type="submit"] .submitbtn,
+.kc-container button[type="submit"] span,
+.kc-container button[type="submit"] label {
+  color: #030a14 !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  text-transform: none !important;
+  letter-spacing: 0.3px !important;
+  margin: 0 !important;
+  cursor: pointer;
+}
+
+/* ---- secondary action: same geometry, quiet fill ---------------- */
+.kc-container #kc-cancel,
+.kc-container #kc-decline,
+.kc-container input[name="cancel"],
+.kc-container .cancelBtnStyle {
+  display: flex !important;
+  float: none !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  height: auto !important;
+  padding: 13px 16px !important;
+  justify-content: center !important;
+  align-items: center !important;
+  border-radius: 10px !important;
+  font-family: 'Space Grotesk', sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  line-height: 1.125 !important;
+  text-transform: none !important;
+  color: #30baff !important;
+  background: transparent !important;
+  border: 1px solid rgba(0, 238, 213, 0.25) !important;
+  box-shadow: none !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.kc-container #kc-cancel:hover,
+.kc-container #kc-decline:hover,
+.kc-container .cancelBtnStyle:hover {
+  background: rgba(0, 238, 213, 0.07) !important;
+  border-color: rgba(0, 238, 213, 0.45) !important;
+}
+
+.kc-container .cancelBtnStyle span { color: #30baff !important; }
+
+/* Stacked actions keep even spacing */
+.kc-container #kc-form-buttons {
+  float: none;
+  clear: both;
+  width: 100%;
+}
+
+/* ---- checkboxes stay checkboxes -------------------------------- */
+.kc-container input[type="checkbox"],
+.kc-container input[type="radio"] {
+  width: auto !important;
+  height: auto !important;
+  padding: 0 !important;
+  margin-right: 8px !important;
+  accent-color: #00eed5;
+}
+
+/* material-components-web.min.css forces width:99%/height:94%/dark text on
+   .mdc-text-field .mdc-text-field__input at specificity (0,3,0). Outrank it. */
+.kc-container .mdc-text-field:not(.mdc-text-field--disabled) .mdc-text-field__input,
+.kc-container .mdc-text-field .mdc-text-field__input,
+.kc-container .mdc-text-field--outlined .mdc-text-field__input {
+  width: 100% !important;
+  height: auto !important;
+  color: #e8f0ff !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(0, 238, 213, 0.15) !important;
+  border-radius: 10px !important;
+  padding: 13px 16px !important;
+}
+
+/* Floating labels that have been replaced by a real placeholder stay in the
+   DOM for screen readers but must not paint. !important beats the inline
+   style="position:absolute;background:white" left on some of them. */
+.ops-visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+  background: transparent !important;
+  transform: none !important;
+  font-size: 0 !important;
+}
+
+/* Placeholders read exactly like the sign-in card's: 14px Space Grotesk,
+   regular weight, no letter-spacing or casing, vertically centred by the
+   field's own 13px padding. */
+.kc-container input::placeholder,
+.kc-container textarea::placeholder {
+  font-family: 'Space Grotesk', sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  font-style: normal !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  text-align: left !important;
+  color: #b7b3b3 !important;
+  opacity: 1 !important;
+}
+
+
+
+/* ---- register: field labels sit above the input, like .ops-field-label ----
+   These labels are MDC floating labels: absolutely positioned, transformed
+   over the box, and coloured #ff5722 by
+   "#kc-register-form .mdc-text-field--invalid ... .mdc-floating-label" at
+   (1,3,0) !important, since MDC marks every empty required field invalid.
+   Matching that specificity is what pins them back above the field.        */
+.kc-container .ops-field-label,
+.kc-container .inputLabelStyling {
+  display: block !important;
+  position: static !important;
+  transform: none !important;
+  transform-origin: left top !important;
+  float: none !important;
+  width: auto !important;
+  max-width: 100% !important;
+  font-family: 'Space Grotesk', sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  line-height: 1.4 !important;
+  letter-spacing: 1px !important;
+  text-transform: uppercase !important;
+  color: #6070a0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 0 7px 0 !important;
+  pointer-events: auto !important;
+  overflow: visible !important;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* the .Inputlabel wrapper is just a row above the field */
+.kc-container .Inputlabel {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* ---- register field structure (now off MDC, same shape as the sign-in card)
+   .ops-field > .ops-field-label + .ops-field-control > input                */
+.kc-container .ops-field-control {
+  display: block;
+  position: relative;
+  width: 100%;
+}
+
+/* password rows: input flexes, the eye toggle pins to the right of the row */
+.kc-container .InputBox.login-password-div > div:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+}
+.kc-container .InputBox.login-password-div > div:last-child {
+  flex: 0 0 auto;
+}
+
+/* long placeholders (Confirm password) truncate with an ellipsis instead of
+   running under the eye toggle */
+.kc-container input {
+  text-overflow: ellipsis;
+}
+
+/* ================================================================
+   Browser autofill — keep the dark field, never Chrome's white.
+
+   Chrome paints autofilled inputs with an opaque #E8F0FE that
+   background-color cannot override; the only reliable mask is a
+   full-size inset box-shadow, and it must be OPAQUE. rgb(16,50,98)
+   is rgba(255,255,255,.05) composited over the #03275a card, so a
+   filled field is indistinguishable from an empty one.
+
+   The field normalization above sets box-shadow:none !important at
+   (0,2,1), which is what was letting the white through — these rules
+   sit later at equal or higher specificity and win it back.
+
+   :-webkit-autofill and :autofill are in SEPARATE rules on purpose:
+   a browser that doesn't know one pseudo-class discards the whole
+   selector list it appears in.
+   ================================================================ */
+.kc-container input:-webkit-autofill,
+.kc-container input:-webkit-autofill:hover,
+.kc-container input:-webkit-autofill:active,
+.kc-container select:-webkit-autofill,
+.kc-container select:-webkit-autofill:hover,
+.kc-container textarea:-webkit-autofill,
+.kc-container textarea:-webkit-autofill:hover {
+  -webkit-box-shadow: 0 0 0 1000px rgb(16, 50, 98) inset !important;
+  box-shadow: 0 0 0 1000px rgb(16, 50, 98) inset !important;
+  -webkit-text-fill-color: #e8f0ff !important;
+  color: #e8f0ff !important;
+  caret-color: #e8f0ff !important;
+  background-color: rgb(16, 50, 98) !important;
+  background-image: none !important;
+  border: 1px solid rgba(0, 238, 213, 0.15) !important;
+  border-radius: 10px !important;
+  /* Chrome re-applies its own background on interaction; parking the
+     transition far in the future stops it ever arriving. */
+  transition: background-color 600000s 0s, color 600000s 0s !important;
+}
+
+/* autofilled AND focused: keep the mask, put the teal ring back on top */
+.kc-container input:-webkit-autofill:focus,
+.kc-container select:-webkit-autofill:focus,
+.kc-container textarea:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px rgb(16, 50, 98) inset, 0 0 0 3px rgba(0, 238, 213, 0.12) !important;
+  box-shadow: 0 0 0 1000px rgb(16, 50, 98) inset, 0 0 0 3px rgba(0, 238, 213, 0.12) !important;
+  -webkit-text-fill-color: #e8f0ff !important;
+  caret-color: #e8f0ff !important;
+  background-color: rgb(16, 50, 98) !important;
+  border: 1px solid #00eed5 !important;
+  transition: background-color 600000s 0s, color 600000s 0s !important;
+}
+
+/* standard pseudo-class (Firefox 86+, and Chrome as it migrates) */
+.kc-container input:autofill,
+.kc-container select:autofill,
+.kc-container textarea:autofill {
+  -webkit-box-shadow: 0 0 0 1000px rgb(16, 50, 98) inset !important;
+  box-shadow: 0 0 0 1000px rgb(16, 50, 98) inset !important;
+  -webkit-text-fill-color: #e8f0ff !important;
+  color: #e8f0ff !important;
+  caret-color: #e8f0ff !important;
+  background-color: rgb(16, 50, 98) !important;
+  background-image: none !important;
+  border: 1px solid rgba(0, 238, 213, 0.15) !important;
+  border-radius: 10px !important;
+}
+
+.kc-container input:autofill:focus,
+.kc-container select:autofill:focus,
+.kc-container textarea:autofill:focus {
+  box-shadow: 0 0 0 1000px rgb(16, 50, 98) inset, 0 0 0 3px rgba(0, 238, 213, 0.12) !important;
+  border: 1px solid #00eed5 !important;
+}
+
+/* ================================================================
+   Feedback banner (Keycloak message area)
+
+   "Password confirmation doesn't match." was wrapping onto three
+   lines: the text inherits 16px, and bootstrap's .alert{width:93%}
+   was resolving against the wrong box, leaving the banner ~196px
+   wide inside a 338px card. Full width + the theme's 13px
+   supporting-text size puts the common messages on one line
+   without nowrap, so a genuinely long message can still wrap
+   instead of being clipped.
+   ================================================================ */
+.kc-container #error-message-divId,
+.kc-container .alert-wrapper {
+  width: 100%;
+  max-width: 100%;
+}
+
+.kc-container .alert,
+.kc-container .alert-wrapper .alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  box-sizing: border-box !important;
+  padding: 12px 14px !important;
+  margin: 0 0 16px 0 !important;
+  border-radius: 10px !important;
+}
+
+.kc-container .alert .kc-feedback-text,
+.kc-container .alert span {
+  font-family: 'Space Grotesk', sans-serif !important;
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+  letter-spacing: normal !important;
+}
+
+/* ================================================================
+   Truncated-placeholder tooltip
+
+   The registration password fields are half-width AND reserve 40px
+   for the eye toggle, so "Enter password" / "Confirm password"
+   render clipped. Hovering (or focusing) the field shows the full
+   text. It hides itself once the field has content, because the
+   placeholder is gone by then and the hint would be stale.
+   ================================================================ */
+.kc-container .ops-field-control[data-tip] {
+  position: relative;
+}
+
+.kc-container .ops-field-control[data-tip]:hover::after,
+.kc-container .ops-field-control[data-tip]:focus-within::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 9px);
+  z-index: 30;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #0b1c38;
+  border: 1px solid rgba(0, 238, 213, 0.28);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+  color: #e8f0ff;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.3;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* little pointer under the bubble */
+.kc-container .ops-field-control[data-tip]:hover::before,
+.kc-container .ops-field-control[data-tip]:focus-within::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  bottom: calc(100% + 4px);
+  z-index: 31;
+  width: 9px;
+  height: 9px;
+  background: #0b1c38;
+  border-right: 1px solid rgba(0, 238, 213, 0.28);
+  border-bottom: 1px solid rgba(0, 238, 213, 0.28);
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+
+/* once something is typed the placeholder is gone — drop the hint */
+.kc-container .ops-field-control[data-tip]:has(input:not(:placeholder-shown))::after,
+.kc-container .ops-field-control[data-tip]:has(input:not(:placeholder-shown))::before {
+  content: none;
+}
+
+/* Vendor-prefixed aliases, so the same values apply in engines that never
+   shipped the standard pseudo-element. Each needs its own rule: an unknown
+   pseudo-element invalidates the entire selector list it appears in. */
+.kc-container input::-webkit-input-placeholder,
+.kc-container textarea::-webkit-input-placeholder {
+  font-family: 'Space Grotesk', sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  color: #b7b3b3 !important;
+  opacity: 1 !important;
+}
+
+.kc-container input::-moz-placeholder,
+.kc-container textarea::-moz-placeholder {
+  font-family: 'Space Grotesk', sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  color: #b7b3b3 !important;
+  opacity: 1 !important;
+}
+
+.kc-container input:-ms-input-placeholder,
+.kc-container textarea:-ms-input-placeholder {
+  font-family: 'Space Grotesk', sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  color: #b7b3b3 !important;
+  opacity: 1 !important;
+}
+
+/* ---- card title used by the MFA / verification cards ---------------- */
+.kc-container .ops-card-title {
+  width: 100%;
+  margin: 0 0 6px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: 0.2px;
+  color: #e8f0ff;
+  text-align: center;
+  background: transparent;
+}
+
+.kc-container .ops-back-row {
+  width: 100%;
+  margin-top: 16px;
+  text-align: center;
+}
+
+.kc-container .ops-back-link {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: #30baff;
+  text-decoration: none;
+}
+
+.kc-container .ops-back-link:hover { opacity: 0.75; }
+
+/* the reset card's heading used 'Inter', which is never loaded and fell back
+   to a serif — bring it onto the same face as every other card title */
+.forgot-password-label {
+  font-family: 'Space Grotesk', sans-serif !important;
+  font-size: 20px;
+  font-weight: 500;
+  color: #e8f0ff;
+}
+
+/* ---- MFA / verification card ---------------------------------------- */
+.kc-container .ops-field-wrap {
+  width: 100%;
+  max-width: 100%;
+  padding: 0;
+}
+
+/* the TOTP setup instructions were #333 on the dark card — unreadable */
+.kc-container .cust-listyle li,
+.kc-container #kc-totp-settings li,
+.kc-container #kc-totp-supported-apps li {
+  color: #a8b5d0 !important;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 13px !important;
+  line-height: 1.6;
+}
+
+.kc-container #kc-totp-settings,
+.kc-container .barCodeStyle,
+.kc-container .barCodeStyle a {
+  color: #a8b5d0;
+}
+
+/* a QR code has to stay light to be scannable — keep it on a white plate */
+.kc-container #kc-totp-secret-qr-code {
+  background: #ffffff;
+  padding: 8px;
+  border-radius: 10px;
+}
+
+/* no spinner on the 6-digit code field */
+.kc-container input[type="number"]::-webkit-outer-spin-button,
+.kc-container input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.kc-container input[type="number"] { -moz-appearance: textfield; }
+
+/* material-keycloak-theme.css indents .QRCode by 96px, which squeezed the
+   verification-code field to 242px inside a 338px card. */
+.kc-container .QRCode {
+  padding-left: 0 !important;
+  width: 100%;
+}
+
+/* ---- MFA setup steps ------------------------------------------------- */
+.kc-container .ops-steps {
+  width: 100%;
+  margin: 4px 0 18px;
+  padding: 0 0 0 20px;
+  list-style: decimal;
+  color: #a8b5d0;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.kc-container .ops-steps > li {
+  margin-bottom: 16px;
+  padding-left: 4px;
+}
+
+/* The marker already matched the step text at 13px/400; what made the
+   numbers read as larger and heavier was the saturated teal against the
+   muted body colour. Same colour as the text now, so the numbering sits
+   in the copy instead of competing with it. */
+.kc-container .ops-steps > li::marker {
+  color: #a8b5d0;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.55;
+}
+
+.kc-container .ops-step-text {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #a8b5d0;
+}
+
+.kc-container .ops-app-list {
+  margin: 0;
+  padding-left: 18px;
+  list-style: disc;
+}
+
+.kc-container .ops-app-list li {
+  font-size: 13px !important;
+  line-height: 1.7;
+  color: #e8f0ff !important;
+}
+
+/* a QR has to stay light to scan — give it a proper plate, centred */
+.kc-container .ops-qr {
+  display: flex;
+  justify-content: center;
+  margin: 4px 0 10px;
+}
+
+.kc-container .ops-qr img {
+  display: block;
+  width: 150px;
+  height: 150px;
+  background: #ffffff;
+  padding: 10px;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+
+.kc-container .ops-link {
+  display: inline-block;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: #30baff;
+  text-decoration: none;
+}
+
+.kc-container .ops-link:hover { opacity: 0.75; }
+
+/* manual-entry values, when the user can't scan */
+.kc-container .ops-manual-panel {
+  margin: 4px 0 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(0, 238, 213, 0.15);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.kc-container .ops-manual-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+/* the secret is long — give it its own line rather than crowding the label */
+.kc-container .ops-manual-row.is-stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+}
+
+.kc-container .ops-manual-row.is-stacked .ops-manual-val {
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.kc-container .ops-manual-key {
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #6070a0;
+  white-space: nowrap;
+}
+
+.kc-container .ops-manual-val {
+  font-family: 'Space Mono', ui-monospace, monospace;
+  font-size: 12px;
+  color: #e8f0ff;
+  word-break: break-all;
+  text-align: right;
+}
+
+/* the two actions stack with even spacing */
+.kc-container #kc-totp-settings-form #kc-form-buttons,
+.kc-container #kc-totp-settings-form > button {
+  margin-top: 10px;
+}
+
+/* ================================================================
+   Components introduced by the templates ported from nst 2.
+   Fields and buttons are already covered by the normalization
+   block above; these are the list / panel / notice patterns that
+   had no counterpart in this theme.
+   ================================================================ */
+
+/* --- authenticator chooser (select-authenticator.ftl) --------------- */
+.kc-container .ops-auth-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kc-container .ops-auth-list button.ops-auth-item,
+.kc-container .ops-auth-item {
+  display: flex !important;
+  align-items: center;
+  gap: 12px;
+  width: 100% !important;
+  height: auto !important;
+  padding: 14px 16px !important;
+  text-align: left !important;
+  border: 1px solid rgba(0, 238, 213, 0.15) !important;
+  border-radius: 10px !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  color: #e8f0ff !important;
+  font-family: 'Space Grotesk', sans-serif !important;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+}
+
+.kc-container .ops-auth-item:hover {
+  border-color: rgba(0, 238, 213, 0.45) !important;
+  background: rgba(0, 238, 213, 0.07) !important;
+  transform: translateY(-1px);
+}
+
+.kc-container .ops-auth-item:focus-visible {
+  outline: 2px solid #00eed5;
+  outline-offset: 2px;
+}
+
+.kc-container .ops-auth-icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: rgba(0, 238, 213, 0.12);
+  color: #00eed5;
+  font-size: 15px;
+}
+
+.kc-container .ops-auth-body { flex: 1 1 auto; min-width: 0; }
+
+.kc-container .ops-auth-heading {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #e8f0ff;
+}
+
+.kc-container .ops-auth-desc {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #8a9ac4;
+}
+
+.kc-container .ops-auth-fill { flex: 0 0 auto; }
+
+.kc-container .ops-auth-arrow { flex: 0 0 auto; color: #30baff; font-size: 13px; }
+
+/* --- panel / list (recovery codes, account deletion) ---------------- */
+.kc-container .ops-panel {
+  width: 100%;
+  margin: 4px 0 14px;
+  border: 1px solid rgba(0, 238, 213, 0.15);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.kc-container .ops-panel-main,
+.kc-container .ops-panel-body { padding: 14px 16px; }
+
+.kc-container .ops-list {
+  margin: 0;
+  padding-left: 18px;
+  color: #a8b5d0;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.kc-container .ops-list li { color: #a8b5d0 !important; }
+
+/* recovery codes read better as a monospace grid */
+.kc-container #kc-recovery-codes-list,
+.kc-container .ops-panel ol {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 16px;
+  font-family: 'Space Mono', ui-monospace, monospace;
+  font-size: 12px;
+  color: #e8f0ff;
+}
+
+/* --- inline notice (warnings that are not server messages) ---------- */
+.kc-container .ops-notice {
+  width: 100%;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(240, 173, 78, 0.35);
+  border-radius: 10px;
+  background: rgba(240, 173, 78, 0.12);
+  color: #f5c77e;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* --- action rows --------------------------------------------------- */
+.kc-container .ops-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+/* --- instruction / info copy on the ported pages -------------------- */
+.kc-container .instruction,
+.kc-container #kc-info-message p,
+.kc-container .content-area > p {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #a8b5d0;
+  margin: 0 0 14px;
+}
+
+.kc-container #kc-info-message a,
+.kc-container .content-area a {
+  color: #30baff;
+  text-decoration: none;
+}
+
+.kc-container #kc-info-message a:hover,
+.kc-container .content-area a:hover { opacity: 0.75; }
+
+/* ---- alert variants that were never brought onto the dark card ------
+   .alert-error was themed long ago; warning/info/success were still on
+   bootstrap's light palette, so a warning rendered as a pink block. */
+.kc-container .alert-warning,
+.kc-container .alert.alert-warning {
+  background: rgba(240, 173, 78, 0.12) !important;
+  border: 1px solid rgba(240, 173, 78, 0.32) !important;
+  color: #f5c77e !important;
+}
+.kc-container .alert-warning .kc-feedback-text,
+.kc-container .alert-warning span { color: #f5c77e !important; }
+
+.kc-container .alert-info,
+.kc-container .alert.alert-info {
+  background: rgba(48, 186, 255, 0.12) !important;
+  border: 1px solid rgba(48, 186, 255, 0.32) !important;
+  color: #9ad6ff !important;
+}
+.kc-container .alert-info .kc-feedback-text,
+.kc-container .alert-info span { color: #9ad6ff !important; }
+
+.kc-container .alert-success,
+.kc-container .alert.alert-success {
+  background: rgba(0, 238, 213, 0.12) !important;
+  border: 1px solid rgba(0, 238, 213, 0.32) !important;
+  color: #7ff0e2 !important;
+}
+.kc-container .alert-success .kc-feedback-text,
+.kc-container .alert-success span { color: #7ff0e2 !important; }
+
+/* ---- secondary controls introduced by the ported templates --------- */
+.kc-container #cancelRecoveryAuthnCodesBtn,
+.kc-container input[name="cancel-aia"],
+.kc-container button[name="cancel-aia"] {
+  display: flex !important;
+  float: none !important;
+  width: 100% !important;
+  height: auto !important;
+  padding: 13px 16px !important;
+  justify-content: center !important;
+  align-items: center !important;
+  border-radius: 10px !important;
+  font-family: 'Space Grotesk', sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  line-height: 1.125 !important;
+  text-transform: none !important;
+  color: #30baff !important;
+  background: transparent !important;
+  background-image: none !important;
+  border: 1px solid rgba(0, 238, 213, 0.25) !important;
+  box-shadow: none !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  cursor: pointer;
+}
+
+.kc-container #cancelRecoveryAuthnCodesBtn:hover,
+.kc-container input[name="cancel-aia"]:hover,
+.kc-container button[name="cancel-aia"]:hover {
+  background: rgba(0, 238, 213, 0.07) !important;
+  border-color: rgba(0, 238, 213, 0.45) !important;
+}
+
+/* ---- authenticator apps shown as icons (exact set from nst 2) ------- */
+/* icons only, one row — the app name stays in alt/title for screen readers
+   and on hover, so nothing is lost by dropping the visible labels */
+.kc-container .ops-app-icons {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: center;
+  gap: 10px;
+  margin: 10px 0 2px;
+  padding: 0;
+  list-style: none;
+}
+
+.kc-container .ops-app-icons li {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid rgba(0, 238, 213, 0.15);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.kc-container .ops-app-icons li:hover {
+  border-color: rgba(0, 238, 213, 0.4);
+  background: rgba(0, 238, 213, 0.07);
+}
+
+.kc-container .ops-app-icons img {
+  width: 22px;
+  height: 22px;
+  display: block;
+  flex: 0 0 auto;
+}
+
+/* ---- per-field validation message (messagesPerField) ---------------- */
+.kc-container .ops-field-error {
+  display: block;
+  margin-top: 6px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #fda29b;
+}
+
+/* ---- "sign out from other devices" checkbox row -------------------- */
+.kc-container .checkbox {
+  width: 100%;
+  margin: 2px 0 14px;
+}
+
+.kc-container .checkbox label {
+  display: flex !important;
+  align-items: center;
+  gap: 9px;
+  font-family: 'Space Grotesk', sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  color: #a8b5d0 !important;
+  margin: 0 !important;
+  cursor: pointer;
+}
+
+/* ================================================================
+   Spacing / alignment corrections for the ported cards
+   ================================================================ */
+
+/* Keycloak's stock markup puts the field and the submit in separate
+   .form-group blocks with no gap of their own — give the action row
+   real separation from the field above it. */
+.kc-container #kc-form-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  margin-top: 18px;
+}
+
+/* an empty options wrapper sits between the two and would add a stray gap */
+.kc-container #kc-form-options:empty,
+.kc-container #kc-form-options > div:empty { display: none; }
+
+/* the login card stacks its own actions, so keep its original rhythm */
+.kc-container #kc-form-login #kc-form-buttons { margin-top: 0; }
+
+/* every action stack shares one gap */
+.kc-container .ops-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  margin-top: 18px;
+}
+
+/* the second action in a stack is the quiet one, whatever it is called */
+.kc-container .ops-actions > *,
+.kc-container #kc-form-buttons > * { margin: 0 !important; float: none !important; }
+
+/* --- authenticator chooser: give the card room and real icons ------- */
+.kc-container .ops-auth-list { margin-top: 14px; }
+
+.kc-container .ops-auth-icon svg { width: 18px; height: 18px; display: block; }
+.kc-container .ops-auth-arrow svg { width: 15px; height: 15px; display: block; }
+
+.kc-container .ops-auth-item:hover .ops-auth-arrow { transform: translateX(2px); }
+.kc-container .ops-auth-arrow { transition: transform 0.15s; }
+
+/* --- delete-account card: readable list, spaced sections ------------ */
+.kc-container .delete-account-text { margin: 14px 0 0; }
+.kc-container .ops-list { margin: 6px 0 0; }
+
+/* ================================================================
+   PAIRED ACTION BUTTONS
+   Three cards put two buttons together and each got it wrong in a
+   different way:
+
+   register   Cancel and Submit live in SEPARATE wrappers
+              (#kc-form-options and #kc-form-buttons) inside
+              .regActionBtnStyle, so each was sized by its own
+              container instead of by the other. The em widths in the
+              media queries further down predate the width:100%
+              normalization above and fought it.
+   terms      Accept / Decline are plain siblings, both width:100%,
+   consent    Yes / No likewise — so the two buttons touched.
+
+   One flex container with a real gap fixes all three. flex:1 on the
+   register wrappers makes that pair equal width; the column stacks
+   keep the same 12px rhythm.
+   ================================================================ */
+
+/* --- register: Cancel + Submit, side by side, equal width ---------- */
+.kc-container .regActionBtnStyle {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: stretch !important;
+  gap: 12px !important;
+  width: 100% !important;
+  margin-top: 18px;
+}
+
+.kc-container .regActionBtnStyle > #kc-form-options,
+.kc-container .regActionBtnStyle > #kc-form-buttons {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  float: none !important;
+}
+
+/* the Cancel button sits three wrappers deep — carry the width down */
+.kc-container .regActionBtnStyle #kc-form-options > div,
+.kc-container .regActionBtnStyle #kc-form-options span {
+  display: block !important;
+  width: 100% !important;
+}
+
+/* outrank the 7em / 8em / 8.5em widths in the media queries above */
+.kc-container .regActionBtnStyle .cancelBtnStyle,
+.kc-container .regActionBtnStyle .registerBtnStyle {
+  width: 100% !important;
+  max-width: none !important;
+}
+
+/* --- terms (Accept/Decline): stacked, with breathing room ---------- */
+.kc-container form.form-actions {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  width: 100% !important;
+  margin-top: 18px;
+}
+
+.kc-container form.form-actions > input[type="submit"],
+.kc-container form.form-actions > button {
+  margin: 0 !important;
+  float: none !important;
+}
+
+/* --- consent (Yes/No): same rhythm, one wrapper deeper ------------- */
+.kc-container #kc-form-buttons > div {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  width: 100% !important;
+}
+
+.kc-container #kc-oauth ul {
+  margin: 0 0 4px;
+  padding-left: 20px;
+}
+
+/* --- verify-email: inline link inside instruction copy ------------- */
+.kc-container .instruction a,
+.kc-container .ops-inline-link {
+  color: #30baff;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.kc-container .instruction a:hover,
+.kc-container .ops-inline-link:hover { text-decoration: underline; }
+
+/* ================================================================
+   RESPONSIVE CARD HEIGHT
+
+   .kc-container had max-height:none, so a tall form (registration,
+   authenticator setup) grew the card past the viewport: the page
+   scrolled instead, and the card's own top and bottom — border,
+   radius, shadow — ran off screen.
+
+   Cap the card at the viewport and let #kc-content-wrapper scroll
+   instead. That is the single wrapper every template's content sits
+   inside, so this needs no template changes. The card's padding,
+   border, radius, blur and shadow stay fixed; only the content moves.
+
+   Short forms are unaffected: the card has no fixed height, so there
+   is no free space for flex-grow to act on — the card still shrinks
+   to its content and stays vertically centred, pixel for pixel.
+   ================================================================ */
+.kc-container {
+  /* dvh follows mobile browser chrome as it hides/shows; vh is the
+     fallback for browsers that don't support it */
+  max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
+}
+
+.kc-container > #kc-content-wrapper {
+  flex: 1 1 auto;
+  width: 100%;
+  /* Without min-height:0 a flex item refuses to shrink below its own
+     content height, and the scroll never engages. This is the line
+     that makes the whole thing work. */
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Scrollbar themed to the card, so it reads as part of the UI rather
+   than an OS artifact. Deliberately no scrollbar-gutter: reserving
+   space would shift content on every screen, including the short ones
+   that never scroll. */
+.kc-container > #kc-content-wrapper {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 238, 213, 0.35) transparent;
+}
+
+.kc-container > #kc-content-wrapper::-webkit-scrollbar {
+  width: 6px;
+}
+
+.kc-container > #kc-content-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.kc-container > #kc-content-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(0, 238, 213, 0.35);
+  border-radius: 3px;
+}
+
+.kc-container > #kc-content-wrapper::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 238, 213, 0.55);
+}
+
+/* Phones and short landscape viewports: claw back the outer margin. */
+@media (max-width: 700px), (max-height: 600px) {
+  .kc-container {
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+  }
+}
+
+/* ---- "Don’t have an account? Sign up" ------------------------------
+   The link previously used float:right to sit under the Sign In button.
+   With a label in front of it, a float would drop the two onto separate
+   lines, so the row becomes a flex line instead — right-aligned, so the
+   link stays exactly where it was. The float and its padding are
+   neutralised only inside this row. */
+.kc-container .register-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+  padding-top: 1em;
+}
+
+.kc-container .register-row .no-account-text {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  color: #a8b5d0;
+}
+
+.kc-container .register-row .register-button {
+  float: none;
+  padding-top: 0;
+}
+
+/* ---- forgot password: Back sits closer under Submit -----------------
+   .reset-password-back-button (~line 989) carries position:relative with
+   top:1em. At its 23px font-size that pushes Back a full 23px down the
+   page on top of its natural leading, giving a 35px visible gap.
+
+   Neutralised here rather than by editing that rule, for two reasons:
+   this block is late in the cascade AND more specific (0,2,0 vs 0,1,0),
+   so it wins either way — and an in-place edit up there can't silently
+   drop it again. */
+.kc-container .reset-password-back-button {
+  top: 0;
+  display: inline-block;
+  margin-top: 2px;
+  line-height: 1.2;
+}

@@ -1,0 +1,344 @@
+
+body {
+    background: #d2d6de;
+
+}
+
+.title {
+    margin-bottom: 15px;
+}
+
+.mdc-text-field {
+    margin-top: 16px;
+}
+
+#kc-header,
+#kc-content {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#kc-header {
+    width: 90%;
+    font-size: 12px;
+    text-align: justify;
+    font-weight: 300;
+    color: rgb(68, 68, 68);
+    height: 100%;
+}
+
+#kc-content {
+    background: white;
+    padding: 20px;
+    box-shadow: 0 5px 6px -3px rgba(0, 0, 0, 0.2),
+        0 9px 12px 1px rgba(0, 0, 0, 0.14), 0 3px 16px 2px rgba(0, 0, 0, 0.12);
+}
+
+#kc-reset-password-form #kc-form-options {
+    float: left;
+}
+
+#kc-register-form #kc-form-options {
+    float: left;
+}
+
+#kc-register-form #kc-form-buttons {
+    float: right;
+}
+
+.clearfix {
+    float: none;
+    clear: both;
+}
+
+hr {
+    margin-top: 20px;
+    margin-bottom: 20px;
+    border: 0;
+    border-top: 1px solid rgba(0, 0, 0, 0.24);
+}
+
+@media (max-width: 768px) {
+    #kc-content {
+        width: 90%;
+    }
+}
+
+@media (min-width: 769px) {
+    #kc-content {
+        min-width: 26.7em;
+        max-width: 35.6em;
+    }
+}
+
+.mdc-text-field {
+    width: 94% ;
+}
+
+#kc-form-login #kc-form-options {
+    margin-top: 20px;
+     margin-bottom: 1em;
+}
+
+#kc-login {
+    float: right;
+    width: 395px;
+    height: 40px;
+    padding: 8px 16px 8px 16px;
+    border-radius: 12px;
+    gap: 8px;
+    font-size: large;
+}
+
+
+#kc-error-message p {
+    margin: 0;
+}
+
+.remember-me-checkbox {
+    float: left;
+}
+
+.register .register-field {
+    margin-bottom: 15px;
+}
+
+.register .register-button-container {
+    margin-top: 20px;
+}
+
+.reset-password .reset-password-field {
+    margin-bottom: 15px;
+}
+.reset-password .forgot_buttons{
+    position: relative;
+    top: 5em;
+}
+.update-password .update-password-field {
+    margin-bottom: 15px;
+}
+
+.update-password .update-password-button-container {
+    margin-top: 20px;
+}
+
+.config-totp .config-totp-button-container {
+    margin-top: 15px;
+}
+
+.totp .totp-button-container {
+    margin-top: 18px;
+}
+
+.update-profile .update-profile-field {
+    margin-top: 15px;
+}
+
+.update-profile .update-profile-button-container {
+    margin-top: 20px;
+}
+
+.template .language-picker {
+    position: relative !important;
+    margin: 0 auto !important;
+    margin-top: 20px !important;
+    margin-bottom: 18px !important;
+    width: 146px !important;
+}
+
+.template .language-picker .language-icon {
+    float: left;
+    color: rgba(0, 0, 0, 0.54);
+}
+
+.template .language-picker .mdc-select {
+    float: right;
+    margin-top: -25px;
+}
+
+.template .language-picker .mdc-select option {
+    font-weight: normal;
+    display: block;
+    white-space: pre;
+    min-height: 1.2em;
+    padding: 0px 2px 1px;
+}
+
+.headline {
+    font-family: sans-serif;
+    font-size: 2.5em;
+    font-weight: 700;
+    line-height: 1.15em;
+    padding: 0;
+    width: 100%;
+    padding-bottom: 0.4em;
+}
+
+
+.description {
+    font-size: 1.8em;
+    line-height: 1.45em;
+    width: 100%
+}
+
+
+
+.signInBtn button#kc-login {
+    text-transform: capitalize;
+    box-shadow: none;
+    height: 36px !important;
+    border-radius: 4px;
+}
+
+.mdc-floating-label {
+    font-size: 15px !important;
+}
+
+button.mdc-button {
+    text-transform: capitalize;
+}
+
+
+.partitioned {
+    letter-spacing: 40.4px;
+    border: 0;
+    background: linear-gradient(to left, #36c3de 70%, rgba(255, 255, 255, 0) 0%) bottom/49.45px 1.7px repeat-x, 
+                linear-gradient(to left, #36c3de 70%, rgba(255, 255, 255, 0) 0%) top/49.45px 1.7px repeat-x, 
+                linear-gradient(to left, rgba(255, 255, 255, 0) 96%, #36c3de 0) bottom/49.45px 36px repeat-x,
+                linear-gradient(to left, rgba(255, 255, 255, 0) 96%, #36c3de 0%) left/49.45px 36px repeat-x;
+    width: 317px;
+    min-width: 317px;
+    padding: 0 0 0 13px !important;
+    outline: none;
+    border: none !important;
+    margin-left: 3px;
+    height: 36px !important;
+    color: #36c3de;
+    font-weight: 600;
+  }
+  
+  .divInner{
+    left: 0;
+    position: sticky;
+  }
+  
+  .divOuter{
+    width: 288px; 
+    overflow: hidden;
+    /* margin-bottom: 90px; */
+  }
+
+  .divOuter.mrb30 {
+      margin-bottom: 30px;
+  }
+
+  input.partitioned:focus, input.partitioned:active {
+    outline: none !important;
+}
+
+label.enterCodeHere {
+    margin-left: 2px;
+    color: #969494;
+    margin-bottom: 15px;
+    display: block;
+    margin-top: 5px;
+}
+
+input[type=number].partitioned {
+    text-align: left;
+    border: none;
+    width: 317px;
+    font-size: 16px;
+}
+
+.QRCode {
+    padding-left: 96px;
+}
+
+.unableToScan, .urllink {
+    color: #969494;
+    margin-left: 8px;
+    text-decoration: none;
+    margin-top: -2px;
+    display: inline-block;
+}
+
+.otpLiStyle li {
+    font-size: 11px;
+    color: #635757;
+}
+
+.myDIV li {
+    font-size: 12px;
+}
+
+.remberMeLabel {
+    color: #36c3de;
+    padding: 2px 0 0 0 !important;
+}
+
+.remberMePosition {
+    margin: -1em 0 0 -0px;
+}
+
+a.crossHover:hover {
+    background: whitesmoke;
+}
+
+a:focus {
+    outline: none;
+}
+
+.backToPage {
+    vertical-align: middle;
+    margin-right: 10px;
+    line-height: 21px;
+    font-size: 22px;
+    cursor: pointer;
+    margin-left: -3px;
+}
+
+.mdc-text-field:not(.mdc-text-field--disabled) .mdc-floating-label {
+    color: #ababab;
+}
+
+label.mdc-floating-label {
+    color: #9c9c9c;
+}
+
+.mdc-text-field--invalid:not(.mdc-text-field--disabled) .mdc-floating-label {
+    color: #9c9c9c;
+}
+
+
+.mdc-text-field--outlined.mdc-text-field--invalid:not(.mdc-text-field--disabled) .mdc-notched-outline__idle, .mdc-text-field--textarea.mdc-text-field--invalid:not(.mdc-text-field--disabled), .mdc-text-field--textarea.mdc-text-field--invalid:not(.mdc-text-field--disabled) .mdc-text-field__input:focus {
+    border-color: #0a5c56 !important;
+    border-width: 1px;
+}
+
+
+
+.mdc-text-field--focused .mdc-notched-outline__idle {
+    border-color: #0a5953 !important;
+    border-width: 1px;
+  }
+
+
+.username-container.fieldMargin:hover .mdc-notched-outline__idle{
+    border-width: 1px !important;
+}
+
+.password-container{
+ label.mdc-floating-label,
+.enteremail-input:hover label.mdc-floating-label {
+}
+
+.password-container:hover .mdc-notched-outline__idle,
+.enteremail-input:hover .mdc-notched-outline__idle{
+    border-width: 1px !important;
+}
+
+}
+
+
+  

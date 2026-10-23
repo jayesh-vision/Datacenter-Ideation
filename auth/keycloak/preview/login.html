@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<!-- Static preview of the Synapse Keycloak login, built by tools/preview.py -->
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    
+
+    <title>Synapse &ndash; Sign in</title>
+    <link rel="shortcut icon" href="../themes/synapse/login/resources/img/synapse-mark.svg" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&family=Inter:wght@400;500;600&display=swap" />
+
+    <link rel="stylesheet" href="../themes/synapse/login/resources/css/material-components-web.min.css" /><link rel="stylesheet" href="../themes/synapse/login/resources/css/bootstrap-material-design-alerts.css" /><link rel="stylesheet" href="../themes/synapse/login/resources/css/material-keycloak-theme.css" />
+    
+    <link rel="stylesheet" href="../themes/synapse/login/resources/css/synapse.css?v=1.0" />
+    <link rel="stylesheet" href="../themes/synapse/login/resources/css/synapse-shell.css?v=1.1" />
+
+    
+    
+</head>
+<body class="op-body">
+<main class="op-stage syn-stage">
+
+    <div class="syn-scene" aria-hidden="true" style="background-image:url(../themes/synapse/login/resources/img/synapse-aisle.svg)"></div>
+
+    <section class="op-hero syn-hero" aria-label="Synapse">
+
+        <div class="op-brand syn-brand">
+            <img class="syn-logo" src="../themes/synapse/login/resources/img/synapse-logo-white.svg" alt="Synapse" />
+        </div>
+
+        <div class="op-hero__mid">
+            <div class="op-eyebrow">Plan · Build · Operate</div>
+            <h1 class="op-display">Synapse<span class="op-display__dot">.</span></h1>
+            <p class="op-lede">Every site, rack, power path, GPU and customer in one live view, from the first alarm to the root cause and the fix.</p>
+        </div>
+    </section>
+
+    <section class="op-auth">
+        <div class="op-auth__inner">
+            <div class="syn-mobile-brand"><img src="../themes/synapse/login/resources/img/synapse-logo-white.svg" alt="Synapse" /></div>
+
+            
+            
+
+            <div class="op-card">
+                <div class="op-card__body" id="kc-content-wrapper">
+
+                    
+                    <div id="kc-form" class=" kc-form-container">
+                        <div id="kc-form-wrapper" class=" kc-form-container-child">
+                            <header class="op-card__head"><h1 class="op-card__title">Sign In</h1><p class="op-card__sub">Sign in to your Synapse workspace.</p></header>
+<form id="kc-form-login" class="form op-form login-form" onsubmit="return false"><div class="ops-social-section"><div id="kc-social-providers" class="ops-social-providers"><div class="ops-social-list">
+<div class="custom-social-button"><a id="social-Azure" class="azure-login-button" href="#"><div style="display:flex; gap:10px;"><span class="social-icon"><svg xmlns="http://www.w3.org/2000/svg" width="25" height="24" viewBox="0 0 25 24" fill="none"><path fill="currentColor" d="M9.5 11.4999L11.5 13.4999L16 8.99987M20.5 11.9999C20.5 16.9083 15.146 20.4783 13.198 21.6147C12.9766 21.7439 12.8659 21.8085 12.7097 21.842C12.5884 21.868 12.4116 21.868 12.2903 21.842C12.1341 21.8085 12.0234 21.7439 11.802 21.6147C9.85396 20.4783 4.5 16.9083 4.5 11.9999V7.21747C4.5 6.41796 4.5 6.0182 4.63076 5.67457C4.74627 5.37101 4.93398 5.10015 5.17766 4.8854C5.4535 4.64231 5.8278 4.50195 6.5764 4.22122L11.9382 2.21054C12.1461 2.13258 12.25 2.0936 12.357 2.07815C12.4518 2.06444 12.5482 2.06444 12.643 2.07815C12.75 2.0936 12.8539 2.13258 13.0618 2.21054L18.4236 4.22122C19.1722 4.50195 19.5465 4.64231 19.8223 4.8854C20.066 5.10015 20.2537 5.37101 20.3692 5.67457C20.5 6.0182 20.5 6.41796 20.5 7.21747V11.9999Z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="social-name">Sign in with Azure</span></div></a></div>
+</div></div><div class="ops-social-divider-wrap"><div class="social-label ops-social-divider" style="margin-bottom:1em" role="separator">Or with username or email</div></div></div>
+<div class="op-field ops-field username-input-div"><label class="op-label ops-field-label" for="username">Email Address</label><div class="op-input-wrap"><input id="username" name="username" type="text" class="op-input login-text-field login-username" placeholder="you@company.com" /></div></div>
+<div class="op-field ops-field password-container form-group"><label class="op-label ops-field-label" for="password">Password</label><div class="op-input-wrap login-password-div"><input id="password" name="password" type="password" class="op-input login-text-field login-password" placeholder="Enter your password" /><label class="op-eye visibility" id="v" onclick="var x=document.getElementById('password');x.type=x.type==='password'?'text':'password'"><img class="eyeimg" alt="view" id="vi" src="../themes/synapse/login/resources/img/eye-off.png" width="16" height="16" /></label></div></div>
+<div class="op-options" id="kc-form-options"><label class="op-check remberMePosition" for="rememberMe"><input type="checkbox" name="rememberMe" id="rememberMe" /><span class="remberMeLabel">Remember me</span></label><a class="op-link forgot-password" href="#">Forgot Password</a></div>
+<div id="kc-form-buttons"><button class="op-submit signin-button" id="kc-login" type="submit">Sign In</button></div>
+</form>
+                        </div>
+                    </div>
+
+                    
+
+                </div>
+            </div>
+
+            
+
+
+        </div>
+    </section>
+
+</main>
+</body>
+</html>
