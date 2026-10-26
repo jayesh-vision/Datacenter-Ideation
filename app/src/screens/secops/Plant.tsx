@@ -51,7 +51,7 @@ export function OtView({ v, q, set, go, dcId }: SecProps) {
             { key: 'z', header: 'Zone', wrap: true, sort: a => a.zoneId, render: a => <span className="cell-2"><span>{zoneName.get(a.zoneId)}</span><small>{a.dcId}</small></span> },
             { key: 'p', header: 'Protocols', wrap: true, render: a => <span className="row wrap" style={{ gap: 4 }}>{a.protocols.map(x => <Chip key={x} tone={/Modbus|BACnet|v2c|RTSP/.test(x) ? 'warning' : 'neutral'} size="xs">{x}</Chip>)}</span> },
             { key: 'u', header: 'Units', sort: a => a.units, render: a => fmtNum(a.units) },
-            { key: 'c', header: 'Findings', wrap: true, render: a => <span className="cell-2">{a.defaultCreds ? <span className="so-bad">{fmtNum(a.defaultCreds)} default credential{a.defaultCreds === 1 ? '' : 's'}</span> : <span className="vw-label">credentials changed</span>}<small>{a.reachableFromIt ? 'reachable from IT' : 'behind the conduit'}{a.cleartext ? ' · cleartext protocol' : ''}</small></span> },
+            { key: 'c', header: 'Findings', wrap: true, render: a => { const f = [...(a.defaultCreds ? [<span key="c" className="so-bad">{fmtNum(a.defaultCreds)} default credential{a.defaultCreds === 1 ? '' : 's'}</span>] : []), ...(a.reachableFromIt ? [<span key="r" className="so-bad">reachable from IT outside the conduit</span>] : []), ...(a.cleartext ? [<span key="p">cleartext protocol</span>] : [])]; return f.length ? <span className="cell-2">{f}</span> : <span className="vw-label">—</span>; } },
             { key: 'r', header: 'Risk', sort: a => SEVS.indexOf(a.risk), render: a => <SevChip s={a.risk} /> },
             { key: 'l', header: 'Last seen', sort: a => a.lastSeen, render: a => fmtAgo(a.lastSeen, v.now) }
           ]} />

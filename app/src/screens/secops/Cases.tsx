@@ -92,7 +92,7 @@ function CaseDrawer({ c, p, onClose }: { c: SecCase; p: SecProps; onClose: () =>
 export function PlaybooksView({ v }: SecProps) {
   return (
     <div className="so-pbs">{v.playbooks.map(p => (
-      <Panel key={p.id} title={<>{p.name} <span className="mono vw-label">{p.id}</span></>} icon={I.Workflow} sub={`Trigger: ${p.trigger}`}
+      <Panel key={p.id} title={p.name} icon={I.Workflow} sub={<><span className="mono">{p.id}</span> · trigger: {p.trigger}</>}
         actions={<Chip tone="info" size="xs">{p.autoPct}% automated</Chip>} info="A response playbook (SOAR): its steps per NIST SP 800-61 phase; ⚡ steps run by automation, the others are done by a person. Runs = cases and detections it ran on in 30 days.">
         <div className="so-pb-f"><span><b>{fmtNum(p.runs30d)}</b><em>runs, 30 days</em></span><span><b>{p.medianMin} min</b><em>median to contain</em></span><span><DomainTag d={p.domain} /></span></div>
         <ol className="so-steps is-compact">{p.steps.map((s, i) => <li key={i}><i>{s.auto ? <I.Zap size={12} /> : <I.User size={12} />}</i><span className="cell-2"><b>{s.title}</b><small>{s.phase} · {s.system}</small></span></li>)}</ol>

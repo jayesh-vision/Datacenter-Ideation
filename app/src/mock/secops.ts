@@ -234,11 +234,13 @@ const PLAYBOOKS: Omit<SecPlaybook, 'runs30d' | 'autoPct' | 'medianMin'>[] = [
 
 /* illustrative advisories (ids are not real CVEs; a live NVD / CISA KEV / FIRST EPSS / vendor PSIRT feed replaces them) */
 interface AdvDef { id: string; title: string; vendor: string; product: string; kind: SecAdvisory['kind']; cvss: number; vector: string; epss: number; kev: boolean; ageD: number; fixedIn: string; match: (a: Asset) => boolean; p: number }
-const isV = (a: Asset, v: RegExp) => v.test(a.vendor);
+const isV = (a: Asset, v: RegExp) => new RegExp(v.source, 'i').test(a.vendor);
 const ADVS: AdvDef[] = [
   { id: 'SA-2026-0412', title: 'Web management authentication bypass', vendor: 'Cisco', product: 'IOS XR', kind: 'Firmware', cvss: 9.3, vector: 'AV:N/AC:L/AT:N/PR:N/UI:N', epss: 0.41, kev: true, ageD: 38, fixedIn: '7.11.2', match: a => a.kind === 'Router' && isV(a, /Cisco/), p: 0.55 },
   { id: 'SA-2026-0388', title: 'NX-API command injection', vendor: 'Cisco', product: 'NX-OS', kind: 'Firmware', cvss: 7.4, vector: 'AV:N/AC:L/AT:N/PR:L/UI:N', epss: 0.06, kev: false, ageD: 55, fixedIn: '10.4(3)', match: a => (a.kind === 'Switch' || a.kind === 'Access') && isV(a, /Cisco/), p: 0.4 },
   { id: 'SA-2026-0371', title: 'J-Web remote code execution', vendor: 'Juniper', product: 'Junos OS', kind: 'Firmware', cvss: 9.2, vector: 'AV:N/AC:L/AT:N/PR:N/UI:N', epss: 0.33, kev: true, ageD: 61, fixedIn: '23.4R2', match: a => isV(a, /Juniper/), p: 0.45 },
+  { id: 'SA-2026-0417', title: 'SR OS management-plane authentication bypass', vendor: 'Nokia', product: 'SR OS', kind: 'Firmware', cvss: 8.7, vector: 'AV:N/AC:L/AT:N/PR:N/UI:N', epss: 0.11, kev: false, ageD: 44, fixedIn: '24.3.R3', match: a => a.kind === 'Router' && isV(a, /Nokia/), p: 0.4 },
+  { id: 'SA-2026-0446', title: 'DWDM controller remote code execution', vendor: 'Ciena / Nokia', product: 'Optical node controller', kind: 'Firmware', cvss: 8.0, vector: 'AV:N/AC:L/AT:N/PR:L/UI:N', epss: 0.03, kev: false, ageD: 58, fixedIn: '13.1', match: a => a.kind === 'DWDM', p: 0.35 },
   { id: 'SA-2026-0455', title: 'eAPI privilege escalation', vendor: 'Arista', product: 'EOS', kind: 'Firmware', cvss: 7.7, vector: 'AV:N/AC:L/AT:N/PR:L/UI:N', epss: 0.03, kev: false, ageD: 22, fixedIn: '4.32.2F', match: a => isV(a, /Arista/), p: 0.4 },
   { id: 'SA-2026-0420', title: 'Switch management-plane denial of service', vendor: 'NVIDIA', product: 'Cumulus Linux / Onyx', kind: 'Firmware', cvss: 6.9, vector: 'AV:N/AC:L/AT:N/PR:N/UI:N', epss: 0.02, kev: false, ageD: 30, fixedIn: '5.9.1', match: a => (a.kind === 'Switch' || a.kind === 'Access') && isV(a, /NVIDIA|Mellanox/), p: 0.35 },
   { id: 'SA-2026-0301', title: 'SSL-VPN heap overflow', vendor: 'Fortinet', product: 'FortiOS', kind: 'Firmware', cvss: 9.6, vector: 'AV:N/AC:L/AT:N/PR:N/UI:N', epss: 0.62, kev: true, ageD: 90, fixedIn: '7.4.5', match: a => a.kind === 'Firewall' && isV(a, /Fortinet/), p: 0.6 },
@@ -263,6 +265,7 @@ const BASELINES: Omit<SecBaseline, 'assets' | 'passPct'>[] = [
   { id: 'BL-EOS', name: 'DISA STIG Arista MLS EOS (NDM)', standard: 'DISA STIG', platform: 'Arista EOS switches', checks: [] },
   { id: 'BL-NV', name: 'NVIDIA switch hardening guide', standard: 'Vendor hardening guide', platform: 'NVIDIA Spectrum / Quantum switches', checks: [] },
   { id: 'BL-FW', name: 'CIS firewall benchmark (FortiGate / PAN-OS)', standard: 'CIS Benchmark', platform: 'Firewalls', checks: [] },
+  { id: 'BL-SROS', name: 'Nokia SR OS hardening guide', standard: 'Vendor hardening guide', platform: 'Nokia SR OS routers', checks: [] },
   { id: 'BL-NET', name: 'Network device baseline (vendor guide)', standard: 'Vendor hardening guide', platform: 'Other network devices (DWDM, access)', checks: [] },
   { id: 'BL-LNX', name: 'CIS Ubuntu Linux 22.04 LTS Benchmark (Level 1 Server)', standard: 'CIS Benchmark', platform: 'Linux servers, storage and GPU hosts', checks: [] },
   { id: 'BL-BMC', name: 'BMC hardening (Redfish / vendor guides)', standard: 'Vendor hardening guide', platform: 'iDRAC, iLO, XCC, Supermicro BMC', checks: [] }
@@ -279,8 +282,8 @@ const checksOf = (id: string) => (id === 'BL-LNX' ? LNX_CHECKS : id === 'BL-BMC'
 
 /* ------------------------------------------------------------------ assets */
 interface Asset { id: string; name: string; kind: string; domain: SecDomain; dcId: string; neId?: string; room?: string; rack?: string; vendor: string; model: string; fw: string; zone: SecZone; owner: string; tenant?: string; crit: SecContext['criticality']; old: boolean; ip: string; units?: number; zoneId?: string; protocols?: string[]; defaultCreds?: number }
-const BMC_NAME = (v: string) => (/Dell/.test(v) ? 'iDRAC9' : /HPE|Hewlett/.test(v) ? 'iLO 6' : /Lenovo/.test(v) ? 'XClarity Controller' : /Supermicro/.test(v) ? 'BMC' : /NVIDIA/.test(v) ? 'DGX BMC' : 'BMC');
-const BMC_VENDOR = (v: string) => (/NVIDIA/.test(v) ? 'Supermicro' : v);
+const BMC_NAME = (v: string) => (/Dell/i.test(v) ? 'iDRAC9' : /HPE|Hewlett/i.test(v) ? 'iLO 6' : /Lenovo/i.test(v) ? 'XClarity Controller' : /Supermicro/i.test(v) ? 'BMC' : /NVIDIA/i.test(v) ? 'DGX BMC' : 'BMC');
+const BMC_VENDOR = (v: string) => (/NVIDIA/i.test(v) ? 'Supermicro' : v);
 const ipOf = (r: Rnd, a: number) => `10.${a}.${intBetween(r, 0, 255)}.${intBetween(r, 2, 254)}`;
 
 function siteAssets(db: Db, dc: Datacenter, rackRoom: Map<string, string>): Asset[] {
@@ -624,7 +627,7 @@ function build(db: Db): SecOpsView {
 
   /* ---- hardening */
   const baseOf = (a: Asset): string | null => a.kind === 'BMC' ? 'BL-BMC' : ['Server', 'GPU', 'Storage'].includes(a.kind) ? 'BL-LNX' : a.kind === 'Firewall' ? 'BL-FW'
-    : /Cisco/.test(a.vendor) ? (a.kind === 'Router' ? 'BL-XR' : 'BL-NX') : /Juniper/.test(a.vendor) ? 'BL-JUN' : /Arista/.test(a.vendor) ? 'BL-EOS' : /NVIDIA|Mellanox/.test(a.vendor) ? 'BL-NV' : NET_KINDS.includes(a.kind) ? 'BL-NET' : null;
+    : /Cisco/i.test(a.vendor) ? (a.kind === 'Router' ? 'BL-XR' : 'BL-NX') : /Juniper/i.test(a.vendor) ? 'BL-JUN' : /Arista/i.test(a.vendor) ? 'BL-EOS' : /NVIDIA|Mellanox/i.test(a.vendor) ? 'BL-NV' : /Nokia/i.test(a.vendor) ? 'BL-SROS' : NET_KINDS.includes(a.kind) ? 'BL-NET' : null;
   const hardening: SecHardening[] = [];
   const heroNe = edgeId(persona, dcAt(1), 1);
   for (const a of assets) {

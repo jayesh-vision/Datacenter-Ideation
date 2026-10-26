@@ -58,12 +58,14 @@ function TechDrawer({ t, p, onClose }: { t: SecTechnique; p: Pick<SecProps, 'v' 
   );
 }
 
+/* short sensor names for the table; the drawer shows the full ones */
+const SHORT: Record<string, string> = { tacacs: 'TACACS+', netsyslog: 'Syslog', configs: 'Config backups', redfish: 'Redfish', osquery: 'osquery', falco: 'Falco', k8saudit: 'K8s audit', trivy: 'Trivy', suricata: 'Suricata', zeek: 'Zeek', netflow: 'NetFlow', ot: 'OT sensor', pacs: 'PACS', vms: 'VMS', itsm: 'Change context', dcim: 'Asset context' };
 export function RulesView({ all, q, set, toast }: SecProps) {
   const apply = useParamPatch();
   const dom = q('dom'), on = q('on'), search = q('q');
   const rows = all.rules.filter(r => (!dom || r.domain === dom) && (!on || (on === 'on' ? r.enabled : !r.enabled)) && (!search || `${r.id} ${r.title} ${r.techniques.join(' ')} ${r.sensors.join(' ')}`.toLowerCase().includes(search.toLowerCase())));
   const cur = q('rule') ? all.rules.find(r => r.id === q('rule')) : undefined;
-  const sensor = new Map(all.sensors.map(s => [s.id, s.name]));
+  const sensor = new Map(all.sensors.map(s => [s.id, SHORT[s.id] ?? s.name]));
   return (
     <>
       <section className="vw-card-section dcim-table">
@@ -72,7 +74,7 @@ export function RulesView({ all, q, set, toast }: SecProps) {
             filters={[{ id: 'dom', label: 'Domain', quick: true, value: dom, anyLabel: 'Any domain', onChange: x => set({ dom: x }), options: DOMAINS.map(d => ({ id: d, label: d, count: all.rules.filter(r => r.domain === d).length })).filter(o => o.count) },
               { id: 'on', label: 'State', quick: true, value: on, anyLabel: 'Enabled or not', onChange: x => set({ on: x }), options: [{ id: 'on', label: 'Enabled', count: all.rules.filter(r => r.enabled).length }, { id: 'off', label: 'Disabled', count: all.rules.filter(r => !r.enabled).length }] }]} />}
           cols={[
-            { key: 'r', header: 'Rule', wrap: true, sort: r => r.id, render: r => <span className="cell-2"><b>{r.title}</b><small><span className="mono">{r.id}</span> · {r.status}{r.context ? ' · needs datacenter context' : ''}</small></span> },
+            { key: 'r', header: 'Rule', wrap: true, sort: r => r.id, render: r => <span className="cell-2 so-wide"><b>{r.title}</b><small><span className="mono">{r.id}</span> · {r.status}{r.context ? <> · <span className="so-ctx" title="Joins the datacenter context dictionaries (assets, change windows, tickets)"><I.Building2 size={11} />datacenter context</span></> : null}</small></span> },
             { key: 'l', header: 'Level', sort: r => SEVS.indexOf(r.level), render: r => <SevChip s={r.level} /> },
             { key: 'd', header: 'Domain', sort: r => r.domain, render: r => <DomainTag d={r.domain} /> },
             { key: 't', header: 'ATT&CK / control', wrap: true, render: r => r.techniques.length ? <span className="row wrap" style={{ gap: 4 }}>{r.techniques.map(t => <Tech key={t} id={t} />)}</span> : <span className="vw-label">{r.control}</span> },

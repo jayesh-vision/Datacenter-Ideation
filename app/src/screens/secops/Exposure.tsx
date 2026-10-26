@@ -9,9 +9,10 @@ import { Btn, Chip, Drawer, KV, Seg } from '../../ui/kit';
 import { DataTable } from '../../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
 import { DcLink, Meter, NeLink } from '../../ui/status';
+import { SoftMeter } from '../../ui/Analytics';
 import { fmtAgo, fmtDate, fmtDateTime, fmtNum } from '../../lib/format';
 import type { SecProps } from './SecOps';
-import { SSVC_INFO, SSVC_TONE, SEV_TONE } from './common';
+import { SSVC_INFO, SSVC_TONE, SEV_TONE, SEVS } from './common';
 
 const SSVCS: SecSsvc[] = ['Act', 'Attend', 'Track*', 'Track'];
 const SSVC_SUB: Record<SecSsvc, string> = { Act: 'fix within 7 days', Attend: 'fix within 30 days', 'Track*': 'watch, 90 days', Track: 'next cycle' };
@@ -34,7 +35,7 @@ export function VulnsView(p: SecProps) {
         <div className="so-ssvc-n"><I.Info size={14} /><span>{SSVC_INFO} Advisories here are illustrative; a live NVD, CISA KEV, FIRST EPSS and vendor PSIRT feed replaces them.</span></div>
       </div>
       <section className="vw-card-section dcim-table">
-        {vv === 'advisories' ? <DataTable rows={all.advisories} pageSize={30} defaultSort={{ key: 'c', dir: 'desc' }} onRow={a => set({ vv: '', q: a.id })}
+        {vv === 'advisories' ? <DataTable rows={all.advisories} pageSize={30} defaultSort={{ key: 'n', dir: 'desc' }} onRow={a => a.affected && set({ vv: '', q: a.id })} rowClass={a => (a.affected ? '' : 'is-muted')}
           toolbar={<ListToolbar shown={all.advisories.length} total={all.advisories.length} noun="advisories" tools={<Seg size="sm" value={vv} onChange={x => set({ vv: x === 'findings' ? '' : x })} options={[{ id: 'findings', label: 'Findings' }, { id: 'advisories', label: 'Advisories' }]} />} />}
           cols={[
             { key: 'a', header: 'Advisory', wrap: true, sort: a => a.id, render: a => <span className="cell-2"><b>{a.title}</b><small><span className="mono">{a.id}</span> · {a.vendor} {a.product} · {a.kind}</small></span> },
@@ -42,7 +43,7 @@ export function VulnsView(p: SecProps) {
             { key: 'e', header: 'EPSS', sort: a => a.epss, render: a => `${(a.epss * 100).toFixed(0)}%` },
             { key: 'k', header: 'CISA KEV', sort: a => Number(a.kev), render: a => a.kev ? <Chip tone="error" size="xs" dot>Known exploited</Chip> : <span className="vw-label">—</span> },
             { key: 'f', header: 'Fixed in', render: a => <span className="mono">{a.fixedIn}</span> },
-            { key: 'n', header: 'Affected', sort: a => a.affected, render: a => fmtNum(a.affected) },
+            { key: 'n', header: 'Affected', sort: a => a.affected * 100 + a.cvss, render: a => a.affected ? fmtNum(a.affected) : <span className="vw-label">not in this estate</span> },
             { key: 'p', header: 'Published', sort: a => a.published, render: a => fmtDate(a.published) }
           ]} />
         : <DataTable rows={rows} pageSize={30} defaultSort={{ key: 'ss', dir: 'asc' }} onRow={x => set({ vuln: x.id })} rowClass={x => (x.state === 'Open' ? '' : 'is-muted')}
@@ -101,17 +102,17 @@ export function HardeningView({ v, all, q, set }: SecProps) {
         <button key={b.id} type="button" className={`so-bl${bl === b.id ? ' is-on' : ''}`} onClick={() => set({ bl: bl === b.id ? '' : b.id })}>
           <span className="so-bl-h"><Chip tone={b.standard === 'CIS Benchmark' ? 'info' : b.standard === 'DISA STIG' ? 'purple' : 'neutral'} size="xs">{b.standard}</Chip><b>{b.passPct}%</b></span>
           <b>{b.name}</b><small>{b.platform} · {fmtNum(b.assets)} assets · {b.checks.length} checks</small>
-          <Meter pct={b.passPct} width={200} color={b.passPct >= 90 ? 'var(--primaryColor400)' : 'var(--vw-color-orange-300)'} />
+          <SoftMeter pct={b.passPct} tone={b.passPct >= 90 ? 'info' : 'warning'} />
         </button>))}</div>
       <section className="vw-card-section dcim-table">
         <DataTable rows={rows} pageSize={30} defaultSort={{ key: 's', dir: 'asc' }}
           toolbar={<ListToolbar shown={rows.length} total={v.hardening.length} noun="assets failing a check" onApply={apply} search={{ value: search, onChange: x => set({ q: x }), placeholder: 'Asset, datacenter, check id' }}
             filters={[{ id: 'bl', label: 'Baseline', quick: true, value: bl, anyLabel: 'Any baseline', onChange: x => set({ bl: x }), options: all.baselines.map(b => ({ id: b.id, label: b.name, count: v.hardening.filter(h => h.baselineId === b.id).length })) }]} />}
           cols={[
-            { key: 'a', header: 'Asset', wrap: true, sort: h => h.asset, render: h => <span className="cell-2">{h.neId && h.assetKind !== 'BMC' ? <NeLink id={h.neId}>{h.asset}</NeLink> : <span>{h.asset}</span>}<small>{h.assetKind} · {h.dcId}</small></span> },
+            { key: 'a', header: 'Asset', wrap: true, sort: h => h.asset, render: h => <span className="cell-2 so-wide">{h.neId && h.assetKind !== 'BMC' ? <NeLink id={h.neId}>{h.asset}</NeLink> : <span>{h.asset}</span>}<small>{h.assetKind} · {h.dcId}</small></span> },
             { key: 'b', header: 'Baseline', wrap: true, sort: h => h.baselineId, render: h => bname.get(h.baselineId)?.name },
             { key: 's', header: 'Score', sort: h => h.score, render: h => <Meter pct={h.score} width={90} label={`${h.score}%`} color={h.score >= 85 ? 'var(--primaryColor400)' : 'var(--vw-color-orange-300)'} /> },
-            { key: 'f', header: 'Failed checks', wrap: true, render: h => <span className="so-fails">{h.failed.map(id => { const c = checks.get(id); return <span key={id} title={c?.title}><Chip tone={SEV_TONE[c?.severity ?? 'Low']} size="xs">{id}</Chip>{c?.title}</span>; })}</span> },
+            { key: 'f', header: 'Failed checks', wrap: true, render: h => { const worst = [...h.failed].map(id => checks.get(id)).filter(Boolean).sort((a, b) => SEVS.indexOf(a!.severity) - SEVS.indexOf(b!.severity))[0]; return <span className="cell-2"><span className="so-fails">{h.failed.map(id => { const c = checks.get(id); return <span key={id} title={`${c?.severity}: ${c?.title}`}><Chip tone={SEV_TONE[c?.severity ?? 'Low']} size="xs">{id}</Chip></span>; })}</span><small>{worst ? `${worst.severity}: ${worst.title}` : ''}{h.failed.length > 1 ? ` · +${h.failed.length - 1} more (hover a chip)` : ''}</small></span>; } },
             { key: 't', header: 'Scanned', sort: h => h.scanned, render: h => <span className="cell-2"><span>{fmtAgo(h.scanned, v.now)}</span><small>{h.passed} of {h.total} pass</small></span> }
           ]} />
       </section>
