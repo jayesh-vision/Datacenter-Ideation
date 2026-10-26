@@ -38,6 +38,7 @@ import { templateInfo } from './delivery-templates';
 import { assignWorkOrder, claimTask, completeTask, failWorkOrder, instances as wfInstances, kpis as wfKpis, processes as wfProcesses, requestAccess, resetWorkflow, retryInstance, retryWorkOrder, signOffWorkOrder, tasks as wfTasks, tickCheck, workOrderDetail } from './workflow';
 import { approveStep, changeRegister, clearChangeMgmt, resetChangeMgmt, stepsApproved } from './changemgmt';
 import { addControl, addFramework, addPolicy, attestControl, clearCompliance, complianceView, resetCompliance, setPolicyActive } from './compliance';
+import { clearSecOps, resetSecOps, secCaseAdvance, secCaseNote, secCaseStep, secEscalate, secopsView, secRuleToggle, secTriage, secVulnSet } from './secops';
 import { addField as addField_, addTag as addTag_, customization as customization_, resetCustomization } from './customization';
 import { monthsTo, dateAfterMonths, WARN, CRIT } from '../lib/forecast';
 
@@ -95,9 +96,9 @@ let db: Db = generate(persona);
 let version = 0;
 const listeners = new Set<() => void>();
 export const subscribe = (f: () => void) => { listeners.add(f); return () => { listeners.delete(f); }; };
-const changed = () => { version++; clearPhysical(); clearDcim(); clearIpam(); clearChangeMgmt(); clearCompliance(); clearSafety(); clearLifecycle(); clearMaintenance(); clearOps(); finaliseHealth(db); summaryCache.clear(); revModel = null; revViews.clear(); listeners.forEach(f => f()); };
+const changed = () => { version++; clearPhysical(); clearDcim(); clearIpam(); clearChangeMgmt(); clearCompliance(); clearSecOps(); clearSafety(); clearLifecycle(); clearMaintenance(); clearOps(); finaliseHealth(db); summaryCache.clear(); revModel = null; revViews.clear(); listeners.forEach(f => f()); };
 export const getVersion = () => version;
-const rebuild = () => { db = generate(persona); edgeCache.clear(); resetDcimCustom(); resetDcimCr(); resetIpamOverlay(); resetPlanner2(); resetDelivery(); resetWorkflow(); resetCompliance(); resetChangeMgmt(); resetCustomization(); changed(); };
+const rebuild = () => { db = generate(persona); edgeCache.clear(); resetDcimCustom(); resetDcimCr(); resetIpamOverlay(); resetPlanner2(); resetDelivery(); resetWorkflow(); resetCompliance(); resetSecOps(); resetChangeMgmt(); resetCustomization(); changed(); };
 export const reset = () => rebuild();
 export const getPersona = () => persona;
 export function setPersona(p: Persona) {
@@ -1524,6 +1525,17 @@ export function decideChange(id: string, approve: boolean) {
   audit_({ actor: ME, object: id, field: 'approval', prev: step?.role ?? '—', next: 'approved', source: 'Change management' });
   if (stepsApproved(id) >= steps.length) setChangeStatus(id, 'Approved'); else changed();
 }
+
+/* ---- Security Ops (26-Oct-2026): detections, cases, vulnerabilities, hardening, OT, physical, data sources (mock/secops.ts) */
+export const secops = () => secopsView(db);
+const secAudit = (object: string, field: string, next: string) => audit_({ actor: ME, object, field, prev: '—', next, source: 'Security Ops' });
+export function secTriageDet(id: string, action: Parameters<typeof secTriage>[2]) { secTriage(db, id, action, ME); secAudit(id, 'triage', action); changed(); }
+export function secEscalateDets(ids: string[]) { const id = secEscalate(db, ids, ME); secAudit(id, 'case', `opened from ${ids.join(', ')}`); changed(); return id; }
+export function secAdvanceCase(id: string, outcome?: string) { secCaseAdvance(db, id, outcome); secAudit(id, 'phase', 'advanced'); changed(); }
+export function secRunStep(id: string, idx: number) { secCaseStep(db, id, idx); secAudit(id, 'step', String(idx + 1)); changed(); }
+export function secAddNote(id: string, text: string) { secCaseNote(db, id, text); changed(); }
+export function secSetVuln(id: string, state: Parameters<typeof secVulnSet>[2], note?: string) { secVulnSet(db, id, state, note); secAudit(id, 'vulnerability', state); changed(); }
+export function secSetRule(id: string, on: boolean) { secRuleToggle(db, id, on); secAudit(id, 'rule', on ? 'enabled' : 'disabled'); changed(); }
 
 /* ---- Compliance and Customization (P2B merge, phase 7) */
 export const compliance = () => complianceView(db);

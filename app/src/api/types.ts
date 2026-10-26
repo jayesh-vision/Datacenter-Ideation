@@ -779,3 +779,71 @@ export interface DcimCrRow {
 }
 export interface DcimPlanRow { id: string; title: string; status: string; scope: string; dcId: string }
 export interface DcimChangeBoard { rows: DcimCrRow[]; plans: DcimPlanRow[]; rackOpen: Record<string, string[]>; ghosts: { hallId: string; changeId: string; label: string; itemId: string }[] }
+
+/* ---- Security Ops (26-Oct-2026, user: "Security Ops module as a new menu … use the industry standards datacenter Security Ops uses"; mock/secops.ts).
+   One security data lake (OTel collectors → OCSF-normalised tables in ClickHouse) fed by the sensors a datacenter needs: device AAA / syslog /
+   config backups for the network, Redfish for BMCs, osquery / Falco / Trivy on hosts and Kubernetes, Suricata / Zeek on mirror ports, a passive
+   OT sensor for the facility plant, PACS / VMS for physical security. Detections = Sigma rules tagged with MITRE ATT&CK (Enterprise + ICS);
+   cases follow the NIST SP 800-61 incident lifecycle; vulnerabilities are prioritised with CVSS v4 + EPSS + CISA KEV into SSVC decisions;
+   hardening checks follow CIS Benchmarks / DISA STIGs; the plant is zoned per IEC 62443; posture rolls up to the NIST CSF 2.0 functions. */
+export type SecDomain = 'Network' | 'Management' | 'Compute' | 'Kubernetes' | 'Facility OT' | 'Physical' | 'Cross-domain';
+export type SecSev = 'Critical' | 'High' | 'Medium' | 'Low';
+export type SecDetState = 'New' | 'Investigating' | 'Escalated' | 'Closed';
+export type SecDisposition = 'True positive' | 'False positive' | 'Benign';
+export type SecZone = 'Internet edge' | 'Production' | 'Management' | 'Out-of-band' | 'Facility OT' | 'Physical security';
+export interface SecTechnique { id: string; name: string; tactic: string; matrix: 'Enterprise' | 'ICS'; rules: number; hits: number }
+export interface SecSensor { id: string; name: string; kind: string; collector: string }
+export interface SecRule {
+  id: string; title: string; description: string; domain: SecDomain; sensors: string[]; matrix: 'Enterprise' | 'ICS' | 'Physical'; techniques: string[]; control?: string;
+  level: SecSev; status: 'Stable' | 'Test' | 'Experimental'; context: boolean; enabled: boolean; sigma: string; sql: string; hits7d: number; tp7d: number; fp7d: number; playbookId?: string;
+}
+export interface SecContext {
+  room?: string; rack?: string; owner: string; tenant?: string; criticality: 'Crown jewel' | 'High' | 'Standard'; zone: SecZone;
+  /* the change request covering this asset at that time, or none */
+  change?: { id: string; title: string; status: string } | null;
+  /* people badged into the site at that time (PACS) and whether one was in the asset's room */
+  onSite?: number; inRoom?: string[]; services: number; customers: number;
+}
+export interface SecDetection {
+  id: string; ruleId: string; title: string; domain: SecDomain; severity: SecSev; state: SecDetState; disposition?: SecDisposition; at: number; lastAt: number; count: number;
+  dcId: string; asset: string; assetKind: string; neId?: string; techniques: string[]; sensor: string; ocsf: string; summary: string;
+  actor?: string; srcIp?: string; dstIp?: string; caseId?: string; accessRef?: string; assignee?: string; context: SecContext; event: Record<string, unknown>;
+}
+export type SecPhase = 'Detection & analysis' | 'Containment' | 'Eradication' | 'Recovery' | 'Post-incident' | 'Closed';
+export interface SecCaseStep { phase: SecPhase; title: string; auto: boolean; done: boolean; by?: string; at?: number; system?: string }
+export interface SecCaseNote { at: number; by: string; text: string }
+export interface SecCase {
+  id: string; title: string; severity: SecSev; phase: SecPhase; dcId: string; opened: number; firstEvent: number; acked: number; closed?: number; owner: string;
+  detectionIds: string[]; techniques: string[]; domain: SecDomain; playbookId?: string; steps: SecCaseStep[]; notes: SecCaseNote[]; summary: string; impact: string;
+  assets: string[]; slaDue: number; incidentId?: string; outcome?: string; story?: boolean;
+}
+export interface SecPlaybook { id: string; name: string; trigger: string; domain: SecDomain; steps: { phase: SecPhase; title: string; auto: boolean; system: string }[]; runs30d: number; autoPct: number; medianMin: number }
+export interface SecAdvisory { id: string; title: string; vendor: string; product: string; kind: 'Firmware' | 'OS' | 'Package' | 'Container image'; cvss: number; vector: string; epss: number; kev: boolean; published: number; fixedIn: string; affected: number }
+export type SecSsvc = 'Act' | 'Attend' | 'Track*' | 'Track';
+export interface SecVuln {
+  id: string; advisoryId: string; title: string; asset: string; assetKind: string; neId?: string; dcId: string; zone: SecZone; current: string; fixedIn: string;
+  cvss: number; epss: number; kev: boolean; ssvc: SecSsvc; due: number; state: 'Open' | 'Remediation planned' | 'Risk accepted'; changeId?: string; note?: string;
+}
+export interface SecBaseline { id: string; name: string; standard: 'CIS Benchmark' | 'DISA STIG' | 'Vendor hardening guide'; platform: string; checks: { id: string; title: string; severity: SecSev }[]; assets: number; passPct: number }
+export interface SecHardening { id: string; asset: string; assetKind: string; neId?: string; dcId: string; baselineId: string; passed: number; total: number; failed: string[]; score: number; scanned: number }
+export interface SecDrift { id: string; asset: string; neId?: string; dcId: string; at: number; lines: number; summary: string; diff: string[]; authorised: boolean; changeId?: string; who: string; detectionId?: string }
+export interface SecOtZone { id: string; dcId: string; name: string; systems: string; slT: 1 | 2 | 3 | 4; slA: 1 | 2 | 3 | 4; assets: number; conduits: { to: string; via: string; rules: number; open: number }[]; findings: string[] }
+export interface SecOtAsset {
+  id: string; dcId: string; zoneId: string; name: string; kind: string; vendor: string; protocols: string[]; firmware: string; units: number;
+  defaultCreds: number; cleartext: boolean; reachableFromIt: boolean; lastSeen: number; risk: SecSev;
+}
+export interface SecSource {
+  id: string; name: string; sensor: string; collector: string; domain: SecDomain; ocsf: string[]; table: string; covered: number; expected: number; eps: number; gbDay: number;
+  hotDays: number; coldDays: number; lastEvent: number; state: 'Healthy' | 'Lagging' | 'Silent'; gap?: string;
+}
+export interface SecPhysLayer { layer: 'Perimeter' | 'Building' | 'Data hall' | 'Cage' | 'Rack'; controls: string; protectionClass: 1 | 2 | 3 | 4; state: 'OK' | 'Degraded' | 'Breach'; note: string }
+export interface SecPhysSite { dcId: string; live: boolean; layers: SecPhysLayer[]; exceptions: number; open: number; high: number; correlated: number; badges: number; unused90: number; expiredActive: number; nextReview: number; cctvDays: number }
+export interface SecSite { dcId: string; score: number; open: number; critical: number; cases: number; act: number; unauthorised: number; physical: number; hardening: number; coverage: number }
+export interface SecCsf { fn: 'Govern' | 'Identify' | 'Protect' | 'Detect' | 'Respond' | 'Recover'; score: number; basis: string; items: { label: string; value: string; bad?: boolean }[] }
+export interface SecOpsView {
+  now: number; sensors: SecSensor[]; sites: SecSite[]; detections: SecDetection[]; cases: SecCase[]; playbooks: SecPlaybook[]; rules: SecRule[]; techniques: SecTechnique[];
+  advisories: SecAdvisory[]; vulns: SecVuln[]; baselines: SecBaseline[]; hardening: SecHardening[]; drift: SecDrift[]; otZones: SecOtZone[]; otAssets: SecOtAsset[];
+  sources: SecSource[]; physical: SecPhysSite[]; csf: SecCsf[];
+  metrics: { mttdMin: number; mttaMin: number; mttrH: number; fpPct: number; autoPct: number; closed30d: number; trend: { day: number; network: number; compute: number; ot: number; physical: number }[] };
+  team: string[];
+}

@@ -887,3 +887,21 @@ costing us / <site>?" (sentinel.ts, before the GPU branch). Checks: `node .qa/gp
 `scripts/ship.sh -m "message" [-c "string in the new build"] [paths…]` = production type-check → commit (default: modified tracked
 files + new files under app/src, docs, app/public, scripts; never app/package-lock.json) → push main → Vercel deploy of HEAD from a
 clean worktree at the repo root → wait for Ready → optional live check (`-c`, searches every JS chunk). `-d` = deploy only.
+
+## Security Ops (26-Oct-2026, user: "Security Ops module as a new menu … use the industry standards datacenter Security Ops uses")
+Menu group **Security** → **Security Ops** (`/secops`, `screens/secops/*`, styles `styles/secops.css`), sub-menus in `shell/submenus.tsx` `secops`:
+Insights (`overview`) · Detections · Cases (+ Playbooks) · Threat coverage (`attack` + `rules`) · Vulnerabilities · Hardening & drift (`hardening` + `drift`) ·
+OT security · Physical security · Data sources. `?dc=` scopes every view to one datacenter. Decided with the user: Wazuh is not used (its state lives in
+OpenSearch; the target store is ClickHouse only) — sensors (TACACS+ / syslog / Oxidized config backups for the network, Redfish for BMCs, osquery,
+Falco, k8s audit, Trivy, Suricata, Zeek, NetFlow, a passive OT sensor, PACS, VMS) → OTel collectors → OCSF tables in ClickHouse; Sigma rules compiled
+to ClickHouse SQL; datacenter context (DCIM / IPAM / change windows / tickets) as ClickHouse dictionaries.
+Read model `mock/secops.ts` (derived per data version, cleared in `changed()`, overlay of the user's triage / case / vulnerability / rule moves reset on
+regenerate; never changes generated collections). Sites = every site not planned (MH-/VA-DC-001 is in-progress). Standards: MITRE ATT&CK Enterprise + ICS
+(technique ids in `TECH`), NIST SP 800-61 case phases, NIST CSF 2.0 functions, CISA SSVC from CVSS v4 + EPSS + CISA KEV (advisories `SA-2026-nnnn` are
+illustrative, marked on screen), CIS Benchmarks / DISA STIGs / vendor guides (check ids are ours, not CIS numbering), IEC 62443 zones / SL-T vs SL-A,
+EN 50600-2-5-style physical protection classes, ISO 27001 A.7 for physical detections.
+Reconciliation: physical detections = the access log's security exceptions (mock/access.ts); unauthorised config drifts = SR-002 detections; devices not
+discovered send no telemetry (coverage gaps). Five story cases per persona: SEC-0001 hero site badge-in → unapproved ACL change on the WAN edge router
+(SR-060 cross-domain rule) · SEC-0002 crypto-mining on idle GPU nodes (GPU estates) or a jump-host compromise (network / colocation) · SEC-0003 rogue
+device on the OOB network probing BMCs · SEC-0004 default credentials + Modbus write on a UPS network card (dcAt(9)) · SEC-0005 the worst open physical
+exception; closed cases come from true-positive detections. Check: `npx tsx .qa/secops-check.ts [persona]` (`GEO=us`).

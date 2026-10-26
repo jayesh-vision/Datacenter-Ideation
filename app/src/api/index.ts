@@ -168,6 +168,17 @@ export const decideChangeOrder = (id: string, d: 'Approved' | 'Rejected', note: 
 export const addProjectRisk = (pid: string, x: Parameters<typeof S.deliveryAddRisk>[1]) => mutate(() => S.deliveryAddRisk(pid, x)); // POST /delivery/projects/:id/risks
 export const setRiskState = (id: string, to: 'Open' | 'Mitigating' | 'Closed') => mutate(() => S.deliveryRiskState(id, to)); // PATCH /delivery/risks/:id
 
+/* ---- Security Ops (26-Oct-2026): one security data lake (OTel → OCSF tables in ClickHouse), Sigma rules tagged with MITRE ATT&CK,
+   NIST SP 800-61 cases, SSVC-prioritised vulnerabilities, CIS / STIG hardening, IEC 62443 OT zones, physical security, NIST CSF 2.0 posture */
+export const getSecOps = () => wait(S.secops);                                                       // GET /secops (detections, cases, rules, vulnerabilities, hardening, OT, physical, sources, posture)
+export const triageDetection = (id: string, action: 'assign' | 'investigate' | 'fp' | 'benign' | 'tp') => mutate(() => S.secTriageDet(id, action)); // POST /secops/detections/:id/triage
+export const escalateDetections = (ids: string[]) => mutate(() => S.secEscalateDets(ids));            // POST /secops/cases { detectionIds }
+export const advanceSecCase = (id: string, outcome?: string) => mutate(() => S.secAdvanceCase(id, outcome)); // POST /secops/cases/:id/advance
+export const runSecCaseStep = (id: string, idx: number) => mutate(() => S.secRunStep(id, idx));       // POST /secops/cases/:id/steps/:n
+export const addSecCaseNote = (id: string, text: string) => mutate(() => S.secAddNote(id, text));     // POST /secops/cases/:id/notes
+export const setSecVuln = (id: string, state: 'Open' | 'Remediation planned' | 'Risk accepted', note?: string) => mutate(() => S.secSetVuln(id, state, note)); // PATCH /secops/vulnerabilities/:id
+export const setSecRule = (id: string, on: boolean) => mutate(() => S.secSetRule(id, on));            // PATCH /secops/rules/:id { enabled }
+
 /* ---- Compliance and Customization (Admin) */
 export const getCompliance = () => wait(S.compliance);                                             // GET /compliance (frameworks, controls, policies, violations)
 export const setPolicyActive = (id: string, on: boolean) => mutate(() => S.compPolicyActive(id, on));  // PATCH /compliance/policies/:id { active }

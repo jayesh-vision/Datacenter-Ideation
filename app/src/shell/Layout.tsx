@@ -29,6 +29,8 @@ const NAV: { group: string; items: { to: string; label: string; icon: I.LucideIc
     { to: '/incidents', label: 'Incidents', icon: I.Siren, badge: 'incidents' },
     { to: '/changes', label: 'Change management', icon: I.ArrowLeftRight, badge: 'changes', match: /^\/changes/ }
   ] },
+  /* the datacenter SOC (26-Oct-2026, user) */
+  { group: 'Security', items: [{ to: '/secops', label: 'Security Ops', icon: I.ShieldHalf, match: /^\/secops/ }] },
   /* the inventory record behind operations (P2B merge, 13-Oct-2026) */
   { group: 'Plan & Build', items: [
     { to: '/planning', label: 'Planner', icon: I.DraftingCompass, match: /^\/plann(er|ing)/ },
