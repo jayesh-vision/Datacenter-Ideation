@@ -35,7 +35,8 @@ body.op-body { background: #060b16; }
 .syn-hero .op-eyebrow { color: var(--syn-sky); }
 .syn-hero .op-eyebrow::before { background: var(--syn-sky); }
 .syn-hero .op-display { color: #fff; text-shadow: 0 8px 40px rgba(6,11,22,.6); }
-.syn-hero .op-display__dot { color: var(--syn-blue-hi); }
+.syn-hero .syn-headline { font-size: clamp(40px, 4.2vw, 64px); line-height: 1.08; letter-spacing: -0.025em; }
+.syn-headline__hi { background: linear-gradient(90deg, #60a5fa, #93c5fd); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .syn-hero .op-lede { color: #c3cddd; }
 
 .syn-hero .op-hero__foot { color: #6b7a93; }

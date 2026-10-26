@@ -29,7 +29,7 @@
     <#-- Synapse loads last so it wins over material-components-web: synapse.css = the shared form styling (re-coloured
          from the Opstral theme), synapse-shell.css = the Synapse page layout and brand panel -->
     <link rel="stylesheet" href="${url.resourcesPath}/css/synapse.css?v=1.0" />
-    <link rel="stylesheet" href="${url.resourcesPath}/css/synapse-shell.css?v=1.1" />
+    <link rel="stylesheet" href="${url.resourcesPath}/css/synapse-shell.css?v=1.2" />
 
     <#if properties.scripts?has_content>
         <#list properties.scripts?split(' ') as script>
@@ -57,7 +57,7 @@
 
         <div class="op-hero__mid">
             <div class="op-eyebrow">${msg("opsEyebrow")}</div>
-            <h1 class="op-display">${msg("opsBrandName")}<span class="op-display__dot">.</span></h1>
+            <h1 class="op-display syn-headline">${msg("opsHeadline1")}<br/><span class="syn-headline__hi">${msg("opsHeadline2")}</span></h1>
             <p class="op-lede">${msg("opsBrandDesc")}</p>
         </div>
     </section>
