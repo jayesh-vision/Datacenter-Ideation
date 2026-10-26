@@ -17,8 +17,8 @@ What changed
 - `login/resources/img/synapse-aisle.svg` — the datacenter scene: a cold aisle between two rack rows, devices with
   blinking status LEDs, lit floor tiles, cable trays. Drawn, not a photo (no licence, works offline, ~400 KB).
   Rebuild with `python3 tools/aisle.py` (seeded; change the seed or the constants at the top for another look).
-- `login/resources/img/synapse-logo*.svg`, `synapse-mark*.svg` — the design team's Synapse logo, vectorised from their PNG
-  (`tools/trace_logo.py <png>`, needs pillow + numpy + potracer): lockup in ink / white / currentColor, the mark in white / ink, and
+- `login/resources/img/synapse-logo*.svg`, `synapse-mark*.svg` — the design team's Synapse DC logo, built from their master SVG
+  `brand/synapse-logo-source.svg` with `python3 tools/brand_logo.py`: lockup in ink / white / currentColor, the mark in white / ink, and
   `synapse-mark.svg` = white mark on a brand-blue tile (the favicon). The login uses `synapse-logo-white.svg`.
 - `login/messages/messages_en.properties` — brand texts (`opsBrandName=Synapse`, eyebrow, description, welcome line)
   and the new `syn*` keys. Other languages: add the same keys (French has no `ops*` keys today either).
