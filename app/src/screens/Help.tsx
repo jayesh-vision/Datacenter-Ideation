@@ -8,9 +8,13 @@ import '../styles/help.css';
 /* Help & FAQ (user, 21-Oct-2026: "add a FAQ section as a menu and keep all the docs related to Datacenter in this help
    section"). One place for every Datacenter document (the HTML guides served from app/public, the downloads) and the
    questions people ask first. A document opens inside the app in a reader (`?tab=docs&doc=<id>`), with its sections as
-   chips (the guides read their `#hash` on load) and an "Open in new tab" link; downloads open directly. */
+   chips (the guides read their `#hash` on load) and an "Open in new tab" link; downloads open directly.
+   Facility integration tab (`?tab=survey`, user 26-Oct-2026): the site integration survey (`/site-integration-survey.html`, source in
+   docs/) that captures what we need to connect one datacenter's BMS, power, cooling and server BMCs through the on-site
+   collector. It keeps surveys in the browser and moves them between people as JSON files. */
 
-type Tab = 'faq' | 'docs';
+type Tab = 'faq' | 'docs' | 'survey';
+const SURVEY = '/site-integration-survey.html';
 interface Doc {
   id: string; title: string; blurb: string; href: string; icon: I.LucideIcon; group: string;
   sections?: { label: string; hash: string }[]; download?: boolean; route?: string; files?: { label: string; href: string }[];
@@ -73,33 +77,35 @@ const FAQ: Faq[] = [
   { cat: 'Data & integration', q: 'How do I onboard my own datacenter data?', a: 'Fill the inventory import template: one sheet per entity from sites and floors down to racks, plant, devices, interfaces, links, GPUs, customers and services, with a field dictionary, dropdown lookups and summary checks. The field guide\'s Inventory tab explains why monitoring depends on this inventory and the order to onboard it in.', links: [{ label: 'Import template', to: '/downloads/dco-inventory-import-template.xlsx' }, { label: 'Field guide · Inventory', to: '/help?tab=docs&doc=field-guide&s=inventory' }] },
   { cat: 'Data & integration', q: 'How do the records connect to each other?', a: 'The data model explorer shows every entity from region to cable, its fields marked Import, Live or Derived, and the relationships between them in three views: ontology around one entity, the full map by domain, and the containment hierarchy. Record counts follow the persona.', links: [{ label: 'Data model', to: '/data-model' }] },
   { cat: 'Data & integration', q: 'Which platform modules does Datacenter integrate with?', a: 'Thirty modules across Plan to Build, Supply Chain, BSS, Services & ITSM and the Opstral Ops Toolkit. Where a function overlaps, the platform module owns the record and Datacenter reads it; the integration guide lists each module, the journeys, the screens × modules matrix, ownership and the delivery waves, plus the technical data-source guide.', links: [{ label: 'Integration guide', to: '/help?tab=docs&doc=integration' }] },
+  { cat: 'Data & integration', q: 'How will the BMS, UPS, cooling and server data be collected?', a: 'One collector runs inside each datacenter, as a VM on the customer\'s virtualization or a small appliance in a management rack. It reads read-only: the BMS over BACnet (or Modbus / OPC UA), UPS and rack PDUs over SNMP, meters, generators and transfer switches over Modbus, servers through their BMC over Redfish, GPUs from DCGM. It sends the readings out over one HTTPS connection; nothing connects in. The Facility integration tab lists everything to collect from the customer before a site is connected.', links: [{ label: 'Facility integration', to: '/help?tab=survey' }, { label: 'Integration guide · Technical guide', to: '/help?tab=docs&doc=integration&s=tech' }] },
   { cat: 'Embedding', q: 'How do I open a screen inside the platform without the menu?', a: 'Add ?shell=false to any screen URL to hide the left menu and the top bar for an iframe; ?persona= and ?geo= fix the persona and geography. Every route and its parameters, including the sub-menu URLs, are in the embed guide; the platform menu page shows where each card goes.', links: [{ label: 'Embed guide', to: '/help?tab=docs&doc=embed' }, { label: 'Platform menu', to: '/help?tab=docs&doc=platform-menu' }] }
 ];
 const CATS = [...new Set(FAQ.map(f => f.cat))];
 
 const TABS: { id: Tab; label: string; icon: I.LucideIcon; count?: number }[] = [
   { id: 'faq', label: 'FAQ', icon: I.CircleHelp, count: FAQ.length },
-  { id: 'docs', label: 'Documents', icon: I.Library, count: DOCS.length }
+  { id: 'docs', label: 'Documents', icon: I.Library, count: DOCS.length },
+  { id: 'survey', label: 'Facility integration', icon: I.ClipboardList }
 ];
 
 export function Help() {
   const [sp, setSp] = useSearchParams();
-  const tab: Tab = sp.get('tab') === 'docs' ? 'docs' : 'faq';
+  const tab: Tab = sp.get('tab') === 'docs' ? 'docs' : sp.get('tab') === 'survey' ? 'survey' : 'faq';
   const doc = DOCS.find(d => d.id === sp.get('doc') && !d.download);
   const section = sp.get('s') ?? '';
-  usePage([{ label: 'Help & FAQ' }, ...(tab === 'docs' ? [{ label: doc ? doc.title : 'Documents' }] : [])]);
+  usePage([{ label: 'Help & FAQ' }, ...(tab === 'docs' ? [{ label: doc ? doc.title : 'Documents' }] : tab === 'survey' ? [{ label: 'Facility integration' }] : [])]);
   const set = (patch: Record<string, string | null>) => { const n = new URLSearchParams(sp); for (const [k, v] of Object.entries(patch)) { if (v) n.set(k, v); else n.delete(k); } setSp(n, { replace: true }); };
   const open = (d: Doc, s?: string) => set({ tab: 'docs', doc: d.id, s: s ?? null });
 
   return (
     <div className="page help">
       <PageHead title="Help & FAQ" sub="Answers to the questions people ask first, and every Datacenter document in one place: guides, glossary, GPU anatomy, data model, downloads and integration."
-        actions={doc && <>
+        actions={tab === 'survey' ? <a className="nst-btn nst-btn--sm" href={SURVEY} target="_blank" rel="noreferrer"><I.ExternalLink size={15} />Open in new tab</a> : doc && <>
           <button type="button" className="nst-btn nst-btn--sm" onClick={() => set({ doc: null, s: null })}><I.ArrowLeft size={15} />All documents</button>
           <a className="nst-btn nst-btn--sm" href={`${doc.href}${section ? `#${section}` : ''}`} target="_blank" rel="noreferrer"><I.ExternalLink size={15} />Open in new tab</a>
         </>} />
       <Tabs value={tab} onChange={t => set({ tab: t === 'faq' ? null : t, doc: null, s: null })} tabs={TABS} />
-      {tab === 'faq' ? <FaqView open={open} /> : doc ? <Reader doc={doc} section={section} onSection={s => set({ s })} /> : <Library open={open} />}
+      {tab === 'faq' ? <FaqView open={open} /> : tab === 'survey' ? <SurveyView /> : doc ? <Reader doc={doc} section={section} onSection={s => set({ s })} /> : <Library open={open} />}
     </div>
   );
 }
@@ -179,6 +185,21 @@ function DocCard({ d, open }: { d: Doc; open: (d: Doc, s?: string) => void }) {
         {!d.download && <a className="nst-btn nst-btn--sm" href={d.href} target="_blank" rel="noreferrer"><I.ExternalLink size={15} />New tab</a>}
       </div>
     </article>
+  );
+}
+
+function SurveyView() {
+  return (
+    <section className="vw-card-section help-reader">
+      <div className="help-reader-h">
+        <span className="help-card-ic"><I.ClipboardList size={20} /></span>
+        <div style={{ minWidth: 0 }}>
+          <h3>Facility integration</h3>
+          <p className="muted">One survey per datacenter: where the collector goes, the BMS, power and cooling equipment, server BMCs, firewall rules, the records we need and the sign-off. Each survey keeps a list of what is still missing or awaited. Surveys are saved in this browser; Download JSON and Import JSON move one between people.</p>
+        </div>
+      </div>
+      <div className="help-frame"><iframe src={SURVEY} title="Facility integration" /></div>
+    </section>
   );
 }
 

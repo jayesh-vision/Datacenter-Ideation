@@ -855,6 +855,10 @@ GPU anatomy, demo playbook, personas, platform overview PDF / Word · Data = dat
 integration, embed and platform menu guides). A card's "Read" opens the HTML doc from `app/public` in an in-app reader (`?tab=docs&doc=<id>&s=<hash>`;
 section chips set the doc's `#hash`, which the guides read on load; the iframe is re-keyed on each change); downloads open directly. New docs go in
 `DOCS` there; new questions in `FAQ`. The embed guide lists the route and every served document.
+Tab **Facility integration** (`?tab=survey`, 26-Oct-2026, user) frames `/site-integration-survey.html` (source `docs/site-integration-survey.html`, copy to
+`app/public/`): one survey per datacenter for connecting BMS, power, cooling and server BMCs through the on-site collector (collector placement,
+BMS, equipment, BMCs, firewall rules, records, sign-off; progress + outstanding list). In the app it saves to localStorage and moves surveys as
+JSON (Download / Import); a shared copy runs on claude.ai (artifact JG6dwedyHcwM8nxSWhJfe8, db store). Keep both copies' form in step.
 
 ## Power economics (21-Oct-2026, user: "build the power economics screens" after reviewing the neocloud pitch deck)
 Read model `mock/power-econ.ts` (derived per data version and scope, server `powerEconomics(dcId?)`, API `getPowerEconomics`, types `SitePowerEcon ·

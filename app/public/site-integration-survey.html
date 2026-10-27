@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Site Integration Survey</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: slim header with the survey picker, then a section rail beside one working form card; stacks on phones. */
+:root {
+  --bg: #f3f6f8; --surface: #ffffff; --sunken: #f7f9fb; --fg: #14202b; --muted: #5a6876; --line: #dbe2e8;
+  --accent: #0d6a8a; --accent-ink: #ffffff; --accent-soft: #e3f1f6;
+  --ok: #1c7a4b; --ok-soft: #e4f4ec; --warn: #9a5a00; --warn-soft: #fbf0dc; --bad: #b42318; --bad-soft: #fbe7e5;
+  --f-ui: "Poppins", "Segoe UI", system-ui, sans-serif; --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --r: 8px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e141a; --surface: #151d25; --sunken: #111820; --fg: #e4ebf1; --muted: #93a2b0; --line: #26323e;
+  --accent: #4db1d3; --accent-ink: #06222c; --accent-soft: #123341;
+  --ok: #5ccc90; --ok-soft: #12301f; --warn: #e3a64a; --warn-soft: #33260f; --bad: #f08a80; --bad-soft: #3a1714; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0e141a; --surface: #151d25; --sunken: #111820; --fg: #e4ebf1; --muted: #93a2b0; --line: #26323e;
+  --accent: #4db1d3; --accent-ink: #06222c; --accent-soft: #123341;
+  --ok: #5ccc90; --ok-soft: #12301f; --warn: #e3a64a; --warn-soft: #33260f; --bad: #f08a80; --bad-soft: #3a1714; color-scheme: dark }
+
+* { box-sizing: border-box }
+[hidden] { display: none !important }
+body { background: var(--bg); color: var(--fg); font: 13.5px/1.5 var(--f-ui); margin: 0 }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 18px 16px 48px; display: grid; gap: 16px }
+h1, h2, h3 { margin: 0; text-wrap: balance; font-weight: 600 }
+h1 { font-size: 18px } h2 { font-size: 17px } h3 { font-size: 14px }
+.muted { color: var(--muted) }
+.mono { font-family: var(--f-mono); font-size: 12.5px }
+button, input, select, textarea { font: inherit; color: inherit }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+
+/* header */
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; justify-content: space-between }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0 }
+.brand svg { flex: none }
+.brand p { margin: 0; font-size: 12.5px }
+.picker { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+.picker select { width: auto; min-width: 220px; max-width: 100% }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 7px 12px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; white-space: nowrap }
+.btn:hover { border-color: var(--accent) }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink) }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--muted) }
+.btn.ghost:hover { color: var(--fg) }
+.btn.danger { color: var(--bad) }
+.btn:disabled { opacity: .5; cursor: not-allowed }
+.notice { border: 1px solid var(--line); background: var(--warn-soft); color: var(--fg); border-radius: var(--r); padding: 9px 12px; font-size: 12.5px }
+
+/* main grid */
+.main { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 16px; align-items: start }
+.rail { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); display: grid; gap: 12px }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r) }
+.sitecard { padding: 14px; display: grid; gap: 8px }
+.sitecard .name { font-weight: 600; font-size: 14.5px; overflow-wrap: anywhere }
+.ready { display: flex; align-items: baseline; gap: 6px }
+.ready b { font-size: 26px; font-weight: 500; font-variant-numeric: tabular-nums }
+.bar { height: 6px; border-radius: 3px; background: var(--sunken); border: 1px solid var(--line); overflow: hidden }
+.bar > i { display: block; height: 100%; background: var(--accent) }
+.save { font-size: 12px; color: var(--muted); display: flex; gap: 6px; align-items: center }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex: none }
+.dot.busy { background: var(--warn) } .dot.err { background: var(--bad) }
+.nav { padding: 6px; display: grid; gap: 2px }
+.nav button { border: 0; background: transparent; text-align: left; padding: 8px 10px; border-radius: 6px; cursor: pointer; display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: center }
+.nav button:hover { background: var(--sunken) }
+.nav button[aria-current="true"] { background: var(--accent-soft); color: var(--fg); font-weight: 500 }
+.nav .n { font-family: var(--f-mono); font-size: 11.5px; color: var(--muted) }
+.nav .pc { font-size: 11.5px; font-variant-numeric: tabular-nums; color: var(--muted) }
+.nav .pc.done { color: var(--ok); font-weight: 600 }
+
+.sec { padding: 20px; display: grid; gap: 18px; min-width: 0 }
+.sechead { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: flex-start }
+.sechead p { margin: 4px 0 0; max-width: 70ch }
+.eyebrow { font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted) }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px 16px }
+.fld { display: grid; gap: 5px; min-width: 0 }
+.fld.wide { grid-column: 1 / -1 }
+.fld label, .fld .lab { font-size: 12.5px; font-weight: 500 }
+.req { color: var(--bad); margin-left: 2px }
+.hint { font-size: 11.5px; color: var(--muted) }
+input[type=text], input[type=number], input[type=date], input[type=email], select, textarea {
+  width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 7px 9px; min-width: 0 }
+textarea { min-height: 70px; resize: vertical }
+input:disabled, select:disabled, textarea:disabled { background: var(--sunken) }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; width: max-content; max-width: 100% }
+.seg button { border: 0; background: var(--surface); padding: 6px 12px; cursor: pointer; border-right: 1px solid var(--line) }
+.seg button:last-child { border-right: 0 }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink) }
+.chips { display: flex; flex-wrap: wrap; gap: 6px }
+.chip { border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; cursor: pointer; background: var(--surface); font-size: 12.5px }
+.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--fg) }
+.chip[aria-pressed="true"]::before { content: "✓ "; color: var(--accent) }
+select.st-done { border-color: var(--ok); background: var(--ok-soft) }
+select.st-wait { border-color: var(--warn); background: var(--warn-soft) }
+
+/* tables */
+.tbl { display: grid; gap: 8px; min-width: 0 }
+.tblhead { display: flex; justify-content: space-between; align-items: end; gap: 10px; flex-wrap: wrap }
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px }
+table { border-collapse: collapse; width: 100%; font-size: 12.5px }
+th { text-align: left; font-weight: 500; background: var(--sunken); padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap }
+td { padding: 5px 6px; border-bottom: 1px solid var(--line); vertical-align: top; min-width: 110px }
+tr:last-child td { border-bottom: 0 }
+td input, td select { padding: 5px 7px; font-size: 12.5px }
+td:first-child { min-width: 180px }
+td.x { min-width: 0; width: 34px; text-align: center }
+td.fixed { color: var(--muted); padding-top: 9px; min-width: 90px }
+.icon { border: 0; background: transparent; cursor: pointer; color: var(--muted); padding: 4px 6px; border-radius: 4px }
+.icon:hover { color: var(--bad); background: var(--bad-soft) }
+
+/* summary */
+.flow { display: grid; grid-template-columns: 1fr auto 1.1fr auto 1fr; gap: 10px; align-items: center }
+.node { border: 1px solid var(--line); border-radius: var(--r); padding: 12px; background: var(--sunken); display: grid; gap: 4px; min-width: 0 }
+.node.us { border-color: var(--accent); background: var(--accent-soft) }
+.node b { font-weight: 600 }
+.arrow { text-align: center; font-size: 11.5px; color: var(--muted); display: grid; gap: 2px; justify-items: center }
+.arrow span:first-child { font-family: var(--f-mono); color: var(--fg) }
+.ports { display: flex; flex-wrap: wrap; gap: 4px }
+.port { font-family: var(--f-mono); font-size: 11px; border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; background: var(--surface) }
+.sumgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px }
+.panel { border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: grid; gap: 10px; align-content: start; min-width: 0 }
+.prow { display: grid; grid-template-columns: minmax(0, 1fr) 90px 40px; gap: 10px; align-items: center; cursor: pointer; padding: 3px 0; border: 0; background: none; text-align: left }
+.prow:hover span:first-child { color: var(--accent) }
+.prow .pc { text-align: right; font-variant-numeric: tabular-nums; font-size: 12px }
+.open { display: grid; gap: 6px; max-height: 360px; overflow: auto; margin: 0; padding: 0; list-style: none }
+.open li { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: start; font-size: 12.5px }
+.tag { font-size: 11px; border-radius: 4px; padding: 1px 6px; white-space: nowrap }
+.tag.wait { background: var(--warn-soft); color: var(--warn) }
+.tag.miss { background: var(--bad-soft); color: var(--bad) }
+.empty { padding: 40px 20px; text-align: center; display: grid; gap: 12px; justify-items: center }
+.empty p { max-width: 56ch; margin: 0 }
+.foot { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 14px }
+.confirm { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: var(--bad-soft); border-radius: 6px; padding: 6px 10px; font-size: 12.5px }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); background: var(--fg); color: var(--bg); padding: 8px 14px; border-radius: 6px; font-size: 12.5px; z-index: 5 }
+
+@media (max-width: 860px) {
+  .main { grid-template-columns: 1fr }
+  .rail { position: static }
+  .nav { grid-auto-flow: column; grid-auto-columns: max-content; overflow-x: auto }
+  .sumgrid { grid-template-columns: 1fr }
+  .flow { grid-template-columns: 1fr }
+  .arrow { transform: none }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect x="1" y="1" width="28" height="28" rx="7" fill="var(--accent)"/><g fill="var(--accent-ink)"><rect x="8" y="7" width="14" height="3" rx="1"/><rect x="8" y="13.5" width="14" height="3" rx="1"/><rect x="8" y="20" width="14" height="3" rx="1"/></g><circle cx="19.5" cy="8.5" r="1" fill="var(--accent)"/><circle cx="19.5" cy="15" r="1" fill="var(--accent)"/><circle cx="19.5" cy="21.5" r="1" fill="var(--accent)"/></svg>
+      <div><h1>Site Integration Survey</h1><p class="muted">What we need to connect one datacenter's BMS, power, cooling and server BMCs, read-only, through an on-site collector.</p></div>
+    </div>
+    <div class="picker">
+      <label for="pick" class="muted" style="font-size:12.5px">Site</label>
+      <select id="pick"></select>
+      <button class="btn primary" id="new" type="button">New site survey</button>
+    </div>
+  </header>
+  <div id="note" class="notice" hidden></div>
+  <div id="app"></div>
+</div>
+<div id="toast" class="toast" hidden></div>
+<input type="file" id="importFile" accept=".json,application/json" hidden>
+
+<script>
+const STATUS = ['Not started', 'Requested', 'Received', 'Not available'];
+const FW = ['Not requested', 'Requested', 'Approved', 'Open and tested'];
+const APPROVAL = ['Not started', 'In review', 'Approved', 'Rejected'];
+const DONE = new Set(['Received', 'Not available', 'Approved', 'Open and tested', 'N/A']);
+const YN = ['Yes', 'No', 'Unknown'];
+const PROTOCOLS = ['SNMPv3', 'SNMPv2c', 'Modbus TCP', 'Modbus RTU (gateway)', 'BACnet/IP', 'BACnet/SC', 'Redfish', 'REST / JSON', 'OPC UA', 'Relay contact', 'Unknown'];
+const EQUIP = ['UPS', 'Generator', 'Transfer switch (ATS)', 'Switchgear and meters', 'Rack PDU', 'CRAH / CRAC', 'Chiller / plant controller', 'CDU (liquid cooling)', 'Room and rack sensors', 'Fire panel / VESDA', 'Leak detection', 'Battery monitoring', 'DC power plant (-48 V)', 'Other'];
+
+const SECTIONS = [
+  { id: 'summary', title: 'Summary', intro: 'Where the collector sits, how complete this survey is, and what we are still waiting for.' },
+  { id: 'site', title: 'Customer and site', intro: 'Who the customer is, where the datacenter is, and who we work with at the site.',
+    fields: [
+      { k: 'customer', label: 'Customer', req: 1 },
+      { k: 'site', label: 'Site name', req: 1, hint: 'As the customer calls it, e.g. "Ashburn campus, building 2"' },
+      { k: 'code', label: 'Site code', hint: 'Their internal id, if any' },
+      { k: 'address', label: 'Street address', req: 1, wide: 1 },
+      { k: 'city', label: 'City', req: 1 },
+      { k: 'country', label: 'Country', req: 1 },
+      { k: 'type', label: 'Business model', type: 'select', options: ['Enterprise', 'Colocation', 'Cloud / GPU (NeoCloud)', 'Telco / network', 'Mixed'] },
+      { k: 'tier', label: 'Tier', type: 'select', options: ['Tier I', 'Tier II', 'Tier III', 'Tier IV', 'Not certified', 'Unknown'] },
+      { k: 'itkw', label: 'IT load today (kW)', type: 'number' },
+      { k: 'racks', label: 'Racks in use', type: 'number' },
+      { k: 'golive', label: 'Target go-live', type: 'date' }
+    ],
+    tables: [{ k: 'contacts', title: 'Contacts', need: ['name', 'email'],
+      cols: [{ k: 'role', label: 'Role', type: 'select', options: ['Facility manager', 'IT / server lead', 'Network lead', 'Security / IT risk', 'Project sponsor', 'Our project lead', 'Other'] },
+        { k: 'name', label: 'Name' }, { k: 'email', label: 'Email', type: 'email' }, { k: 'phone', label: 'Phone' }],
+      rows: () => ['Facility manager', 'IT / server lead', 'Network lead', 'Security / IT risk', 'Our project lead'].map(role => ({ role })) }]
+  },
+  { id: 'collector', title: 'Collector placement', intro: 'One collector runs inside this datacenter. It reads the equipment on site and sends readings out over one HTTPS connection. Nothing connects in from outside.',
+    fields: [
+      { k: 'deploy', label: 'How it is installed', req: 1, type: 'select', options: ['VM on the customer\'s virtualization', 'Appliance we supply (1U)', 'Not decided'] },
+      { k: 'hyper', label: 'Hypervisor', req: 1, type: 'select', options: ['VMware vSphere', 'Microsoft Hyper-V', 'Nutanix AHV', 'Proxmox VE', 'Other'], when: s => (s.f['collector.deploy'] || '').startsWith('VM') },
+      { k: 'size', label: 'Resources agreed', hint: 'Recommended start: 4 vCPU · 16 GB RAM · 200 GB disk', when: s => (s.f['collector.deploy'] || '').startsWith('VM') },
+      { k: 'rack', label: 'Rack and U position', req: 1, hint: 'Management or network rack', when: s => (s.f['collector.deploy'] || '').startsWith('Appliance') },
+      { k: 'rackpower', label: 'Power for the appliance', type: 'select', options: ['A + B feeds (2 × C13)', 'A feed only', 'Not confirmed'], when: s => (s.f['collector.deploy'] || '').startsWith('Appliance') },
+      { k: 'standby', label: 'Second collector as standby', type: 'yesno', hint: 'Recommended for large or GPU sites' },
+      { k: 'zone', label: 'Network zone / VLAN', req: 1, hint: 'The management zone (DMZ) it sits in' },
+      { k: 'ip', label: 'Collector IP address', req: 1, mono: 1 },
+      { k: 'gw', label: 'Gateway / subnet', mono: 1 },
+      { k: 'out', label: 'Outbound HTTPS to the platform', req: 1, type: 'select', options: ['Allowed directly', 'Through a proxy', 'Not allowed yet'] },
+      { k: 'proxy', label: 'Proxy address', mono: 1, req: 1, when: s => s.f['collector.out'] === 'Through a proxy' },
+      { k: 'dns', label: 'DNS servers', mono: 1 },
+      { k: 'ntp', label: 'NTP servers', mono: 1, hint: 'Equipment timestamps depend on it' },
+      { k: 'notes', label: 'Notes', type: 'textarea', wide: 1 }
+    ]
+  },
+  { id: 'bms', title: 'Building management system', intro: 'Where the facility team already gathers cooling, fire, leak and often power points, we read the BMS instead of each unit.',
+    fields: [
+      { k: 'has', label: 'Is there a BMS at this site?', req: 1, type: 'yesno' },
+      { k: 'product', label: 'BMS product', req: 1, type: 'select', options: ['Schneider EcoStruxure Building Operation', 'Siemens Desigo CC', 'Johnson Controls Metasys', 'Honeywell EBI / WEBs', 'Tridium Niagara', 'Vertiv Environet', 'Other'], when: bmsOn },
+      { k: 'version', label: 'Version', when: bmsOn },
+      { k: 'ip', label: 'BMS server IP address', req: 1, mono: 1, when: bmsOn },
+      { k: 'proto', label: 'What the BMS can share', req: 1, type: 'multi', options: ['BACnet/IP', 'BACnet/SC', 'Modbus TCP', 'OPC UA', 'SNMP', 'REST API', 'CSV export'], when: bmsOn, wide: 1 },
+      { k: 'bacnet', label: 'BACnet device instance / network number', mono: 1, when: s => bmsOn(s) && (s.f['bms.proto'] || []).some(p => p.startsWith('BACnet')) },
+      { k: 'covers', label: 'Equipment the BMS already monitors', req: 1, type: 'multi', options: ['UPS', 'Generators', 'Transfer switches', 'Switchgear and meters', 'Rack PDUs', 'CRAH / CRAC', 'Chillers', 'CDUs', 'Room sensors', 'Fire / VESDA', 'Leak detection', 'Access control'], when: bmsOn, wide: 1 },
+      { k: 'points', label: 'Points list export', req: 1, type: 'status', when: bmsOn, hint: 'The names of every reading the BMS holds' },
+      { k: 'account', label: 'Read-only BMS account', req: 1, type: 'status', when: bmsOn },
+      { k: 'epms', label: 'Separate power monitoring (EPMS / DCIM)', hint: 'e.g. Schneider EcoStruxure Power, Eaton Brightlayer, Sunbird' },
+      { k: 'notes', label: 'Notes', type: 'textarea', wide: 1 }
+    ]
+  },
+  { id: 'equipment', title: 'Facility equipment', intro: 'Every kind of power and cooling equipment at the site. For anything the BMS does not cover we connect to the device\'s network card, so we need its IP address and a read-only login.',
+    tables: [{ k: 'equip', title: 'Equipment list', need: ['make', 'protocol', 'access'],
+      cols: [{ k: 'cat', label: 'Equipment', type: 'select', options: EQUIP }, { k: 'make', label: 'Make' }, { k: 'model', label: 'Model' },
+        { k: 'qty', label: 'Qty', type: 'number' }, { k: 'bms', label: 'In the BMS', type: 'select', options: ['Yes', 'No', 'Partly'] },
+        { k: 'protocol', label: 'Protocol', type: 'select', options: PROTOCOLS }, { k: 'card', label: 'Network card' },
+        { k: 'ips', label: 'IP address(es)', mono: 1 }, { k: 'access', label: 'Read-only access', type: 'status' }],
+      rows: () => EQUIP.slice(0, 11).map(cat => ({ cat })) }]
+  },
+  { id: 'servers', title: 'Servers and BMCs', intro: 'Every server has a management chip (BMC: iDRAC, iLO, XClarity…). We read power supplies, temperatures, fans and the hardware log from it over Redfish.',
+    fields: [
+      { k: 'net', label: 'BMC network (VLAN / subnet)', req: 1, mono: 1 },
+      { k: 'list', label: 'Where the BMC address list comes from', req: 1, type: 'select', options: ['CMDB', 'DCIM', 'Spreadsheet from the IT team', 'Scan of the BMC subnet', 'Unknown'] },
+      { k: 'account', label: 'Read-only Redfish account', req: 1, type: 'status' },
+      { k: 'gpu', label: 'GPU servers at this site?', type: 'yesno' },
+      { k: 'dcgm', label: 'NVIDIA DCGM exporter', req: 1, type: 'select', options: ['Already running', 'Can be installed', 'Not allowed'], when: s => s.f['servers.gpu'] === 'Yes' },
+      { k: 'agent', label: 'In-band agent allowed (node_exporter)', type: 'yesno', hint: 'Optional: adds the operating-system view' }
+    ],
+    tables: [{ k: 'fleet', title: 'Server fleet', need: ['vendor', 'count', 'redfish'],
+      cols: [{ k: 'vendor', label: 'Vendor', type: 'select', options: ['Dell', 'HPE', 'Lenovo', 'Supermicro', 'NVIDIA DGX', 'Cisco UCS', 'Other'] },
+        { k: 'model', label: 'Model' }, { k: 'count', label: 'Count', type: 'number' },
+        { k: 'bmc', label: 'BMC', type: 'select', options: ['iDRAC9', 'iDRAC10', 'iLO 5', 'iLO 6', 'XClarity (XCC)', 'Supermicro BMC', 'DGX BMC', 'Cisco CIMC', 'Other'] },
+        { k: 'redfish', label: 'Redfish on', type: 'select', options: YN }, { k: 'fw', label: 'BMC firmware' }],
+      rows: () => [{}] }]
+  },
+  { id: 'network', title: 'Network and firewall', intro: 'The firewall rules the collector needs. All are read-only traffic; the only connection that leaves the site is HTTPS to the platform.',
+    fields: [
+      { k: 'change', label: 'Firewall change number', mono: 1 },
+      { k: 'review', label: 'Security review', req: 1, type: 'select', options: APPROVAL, approval: 1 },
+      { k: 'notes', label: 'Notes', type: 'textarea', wide: 1 }
+    ],
+    tables: [{ k: 'rules', title: 'Firewall rules', need: ['status'], fixed: ['from', 'to', 'port', 'why'],
+      cols: [{ k: 'from', label: 'From' }, { k: 'to', label: 'To' }, { k: 'port', label: 'Port', mono: 1 }, { k: 'why', label: 'Purpose' },
+        { k: 'status', label: 'Status', type: 'select', options: FW }, { k: 'ref', label: 'Notes / ref' }],
+      rows: () => [
+        ['Collector', 'UPS, PDUs, sensors', 'UDP 161', 'SNMP polling'],
+        ['Facility devices', 'Collector', 'UDP 162', 'SNMP traps (on battery, breaker trip…)'],
+        ['Collector', 'Meters, generators, ATS', 'TCP 502', 'Modbus TCP'],
+        ['Collector', 'BMS', 'UDP 47808', 'BACnet/IP (BACnet/SC uses TCP 443)'],
+        ['Collector', 'Server BMCs', 'TCP 443', 'Redfish'],
+        ['Server BMCs', 'Collector', 'TCP 443', 'Redfish events (optional)'],
+        ['Collector', 'GPU hosts', 'TCP 9400', 'NVIDIA DCGM exporter'],
+        ['Collector', 'NTP / DNS', 'UDP 123 / 53', 'Time and name lookup'],
+        ['Collector', 'Platform (internet)', 'TCP 443', 'HTTPS out: the only external connection']
+      ].map(([from, to, port, why]) => ({ from, to, port, why, status: 'Not requested', custom: false })) }]
+  },
+  { id: 'records', title: 'Records and documents', intro: 'Some facts no protocol can discover, such as which UPS feeds which rack, or which server cord is in which PDU outlet. These come from drawings, DCIM or our import template.',
+    fields: [
+      { k: 'sld', label: 'Single-line power diagram', req: 1, type: 'status' },
+      { k: 'floor', label: 'Floor plan with rack positions', req: 1, type: 'status' },
+      { k: 'powermap', label: 'Power map: UPS → PDU → rack', req: 1, type: 'status' },
+      { k: 'cords', label: 'Cord map: server PSU → PDU outlet', req: 1, type: 'status', hint: 'Recorded at installation; often only in DCIM' },
+      { k: 'cooling', label: 'Cooling layout: which unit serves which room', type: 'status' },
+      { k: 'dcim', label: 'DCIM export', type: 'status' },
+      { k: 'dcimtool', label: 'DCIM product', hint: 'e.g. Sunbird dcTrack, Nlyte, Schneider EcoStruxure IT, NetBox' },
+      { k: 'template', label: 'Inventory import template filled in', req: 1, type: 'status' }
+    ]
+  },
+  { id: 'signoff', title: 'Approvals and go-live', intro: 'Who has approved the integration, and when we switch from test to live.',
+    fields: [
+      { k: 'ro', label: 'Read-only access confirmed for every system', req: 1, type: 'yesno', hint: 'We never send commands to power, cooling or fire equipment' },
+      { k: 'security', label: 'IT security approval', req: 1, type: 'select', options: APPROVAL, approval: 1 },
+      { k: 'facility', label: 'Facility manager approval', req: 1, type: 'select', options: APPROVAL, approval: 1 },
+      { k: 'install', label: 'Collector install date', type: 'date' },
+      { k: 'validate', label: 'Validation period (days)', type: 'number', hint: 'Compare our readings with the BMS screens; usually 3–5 days' },
+      { k: 'live', label: 'Go-live date', type: 'date' },
+      { k: 'by', label: 'Signed off by' },
+      { k: 'notes', label: 'Notes', type: 'textarea', wide: 1 }
+    ]
+  }
+];
+function bmsOn(s) { return s.f['bms.has'] !== 'No' }
+
+/* ---------- state ---------- */
+let db = null, mode = 'loading', canWrite = true;
+const surveys = new Map();           // id -> survey body
+let cur = null, secId = 'summary';
+let pending = null, saveTimer = 0, saving = false, saveState = 'saved', lastSaved = null, confirmDel = false;
+const LS = 'site-survey.local';
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => Math.random().toString(36).slice(2, 10);
+
+function blank(extra = {}) {
+  const s = { f: {}, t: {}, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+  for (const sec of SECTIONS) for (const t of sec.tables || []) s.t[t.k] = t.rows().map(r => ({ _id: uid(), ...r }));
+  return Object.assign(s, extra);
+}
+function example() {
+  const s = blank({ example: true });
+  Object.assign(s.f, {
+    'site.customer': 'Example customer (sample data)', 'site.site': 'Example · Ashburn campus, building 2', 'site.code': 'ASH-02',
+    'site.address': '21571 Beaumeade Circle', 'site.city': 'Ashburn', 'site.country': 'United States', 'site.type': 'Cloud / GPU (NeoCloud)',
+    'site.tier': 'Tier III', 'site.itkw': '4200', 'site.racks': '310',
+    'collector.deploy': 'VM on the customer\'s virtualization', 'collector.hyper': 'VMware vSphere', 'collector.size': '4 vCPU · 16 GB · 200 GB',
+    'collector.standby': 'Yes', 'collector.zone': 'VLAN 940 · OT-DMZ', 'collector.ip': '10.94.0.21', 'collector.out': 'Through a proxy', 'collector.proxy': 'proxy.example.net:3128',
+    'bms.has': 'Yes', 'bms.product': 'Schneider EcoStruxure Building Operation', 'bms.version': '2024', 'bms.ip': '10.90.1.10',
+    'bms.proto': ['BACnet/IP', 'Modbus TCP'], 'bms.covers': ['CRAH / CRAC', 'Chillers', 'CDUs', 'Fire / VESDA', 'Leak detection', 'Generators'],
+    'bms.points': 'Requested', 'bms.account': 'Not started',
+    'servers.net': '10.96.0.0/22', 'servers.list': 'CMDB', 'servers.account': 'Requested', 'servers.gpu': 'Yes', 'servers.dcgm': 'Can be installed',
+    'network.review': 'In review', 'records.sld': 'Received', 'records.floor': 'Received', 'records.powermap': 'Requested', 'records.cords': 'Not started', 'records.template': 'Not started',
+    'signoff.ro': 'Yes', 'signoff.security': 'In review', 'signoff.facility': 'Not started', 'signoff.validate': '5'
+  });
+  const eq = { 'UPS': ['Vertiv', 'Liebert EXL S1 1200 kVA', '4', 'No', 'SNMPv3', 'IntelliSlot Unity', '10.91.2.11–14', 'Requested'],
+    'Generator': ['Caterpillar', 'C175-16 3 MW', '3', 'Yes', 'BACnet/IP', 'via BMS', '', 'Received'],
+    'Rack PDU': ['Raritan', 'PX3 metered outlet', '620', 'No', 'SNMPv3', 'built in', '10.92.0.0/22', 'Requested'],
+    'CRAH / CRAC': ['Vertiv', 'Liebert PDX', '18', 'Yes', 'BACnet/IP', 'via BMS', '', 'Received'] };
+  s.t.equip.forEach(r => { const v = eq[r.cat]; if (v) Object.assign(r, { make: v[0], model: v[1], qty: v[2], bms: v[3], protocol: v[4], card: v[5], ips: v[6], access: v[7] }); });
+  s.t.fleet = [{ _id: uid(), vendor: 'Dell', model: 'PowerEdge R760', count: '180', bmc: 'iDRAC9', redfish: 'Yes', fw: '7.10' },
+    { _id: uid(), vendor: 'Supermicro', model: 'SYS-821GE-TNHR (8 × H100)', count: '96', bmc: 'Supermicro BMC', redfish: 'Yes', fw: '' }];
+  s.t.rules[8].status = 'Approved'; s.t.rules[0].status = 'Requested';
+  s.t.contacts[0].name = 'Facility manager (example)';
+  return s;
+}
+
+/* ---------- progress ---------- */
+function visible(sec, s) { return (sec.fields || []).filter(f => !f.when || f.when(s)) }
+function filled(f, v) {
+  if (f.type === 'multi') return Array.isArray(v) && v.length > 0;
+  if (f.type === 'status') return DONE.has(v);
+  if (f.approval) return v === 'Approved';
+  return v !== undefined && v !== null && String(v).trim() !== '';
+}
+function rowDone(t, r) { return t.need.every(k => { const c = t.cols.find(c => c.k === k); return c.type === 'status' || c.options === FW ? DONE.has(r[k]) : String(r[k] ?? '').trim() !== '' }) }
+function progress(sec, s) {
+  let have = 0, need = 0;
+  for (const f of visible(sec, s)) if (f.req) { need++; if (filled(f, s.f[sec.id + '.' + f.k])) have++; }
+  for (const t of sec.tables || []) for (const r of s.t[t.k] || []) { need++; if (rowDone(t, r)) have++; }
+  return { have, need, pct: need ? Math.round(have / need * 100) : 100 };
+}
+function overall(s) { let h = 0, n = 0; for (const sec of SECTIONS.slice(1)) { const p = progress(sec, s); h += p.have; n += p.need; } return n ? Math.round(h / n * 100) : 0 }
+function openItems(s) {
+  const out = [];
+  for (const sec of SECTIONS.slice(1)) {
+    for (const f of visible(sec, s)) {
+      const v = s.f[sec.id + '.' + f.k];
+      if (!f.req || filled(f, v)) continue;
+      const waiting = (f.type === 'status' && v && v !== 'Not started') || (f.approval && v && v !== 'Not started');
+      out.push({ sec, kind: waiting ? 'wait' : 'miss', text: f.label + (v && typeof v === 'string' ? ' · ' + v : '') });
+    }
+    for (const t of sec.tables || []) for (const r of s.t[t.k] || []) {
+      if (rowDone(t, r)) continue;
+      const name = r.cat || r.role || r.vendor || (r.port ? r.port + ' ' + (r.to || '') : 'Row');
+      const st = r.access || r.status;
+      const waiting = st && !['Not started', 'Not requested'].includes(st);
+      out.push({ sec, kind: waiting ? 'wait' : 'miss', text: t.title + ': ' + name + (st ? ' · ' + st : ' · details missing') });
+    }
+  }
+  return out;
+}
+
+/* ---------- rendering ---------- */
+function render() {
+  renderPicker();
+  const app = $('#app');
+  if (mode === 'loading') { app.innerHTML = '<div class="card empty"><p class="muted">Loading surveys…</p></div>'; return; }
+  if (!cur || !surveys.has(cur)) {
+    app.innerHTML = `<div class="card empty">
+      <h2>No site surveys yet</h2>
+      <p class="muted">Start one survey per datacenter. It walks through the collector placement, the BMS, power and cooling equipment, server BMCs, firewall rules and the records we need, and keeps a list of what is still outstanding.</p>
+      <div class="picker"><button class="btn primary" type="button" data-act="new" ${canWrite ? '' : 'disabled'}>New site survey</button>
+      <button class="btn" type="button" data-act="example" ${canWrite ? '' : 'disabled'}>Open a filled-in example</button>
+      <button class="btn" type="button" data-act="import" ${canWrite ? '' : 'disabled'}>Import JSON</button></div></div>`;
+    return;
+  }
+  const s = surveys.get(cur);
+  const sec = SECTIONS.find(x => x.id === secId) || SECTIONS[0];
+  const all = overall(s);
+  app.innerHTML = `<div class="main">
+    <aside class="rail">
+      <div class="card sitecard">
+        <div class="eyebrow">${s.example ? 'Example survey' : 'Site survey'}</div>
+        <div class="name">${esc(s.f['site.site'] || 'Untitled site')}</div>
+        <div class="muted" style="font-size:12.5px">${esc([s.f['site.customer'], s.f['site.city']].filter(Boolean).join(' · ') || 'Customer and city not set')}</div>
+        <div class="ready"><b>${all}%</b><span class="muted">ready</span></div>
+        <div class="bar" role="img" aria-label="${all}% ready"><i style="width:${all}%"></i></div>
+        <div class="save" id="save">${saveHtml()}</div>
+      </div>
+      <nav class="card nav" aria-label="Survey sections">
+        ${SECTIONS.map((x, i) => { const p = i ? progress(x, s) : null; return `<button type="button" data-sec="${x.id}" aria-current="${x.id === sec.id}">
+          <span class="n">${i ? String(i).padStart(2, '0') : '◎'}</span><span>${x.title}</span>
+          <span class="pc ${p && p.pct === 100 ? 'done' : ''}">${p ? p.pct + '%' : ''}</span></button>` }).join('')}
+      </nav>
+    </aside>
+    <section class="card sec">${sec.id === 'summary' ? summary(s) : form(sec, s)}</section>
+  </div>`;
+}
+function saveHtml() {
+  if (mode === 'local') return '<span class="dot busy"></span>Saved in this browser only';
+  if (saveState === 'saving') return '<span class="dot busy"></span>Saving…';
+  if (saveState === 'error') return '<span class="dot err"></span>Not saved. Check your connection and edit again.';
+  if (!canWrite) return '<span class="dot"></span>View only';
+  return '<span class="dot"></span>' + (lastSaved ? 'Saved ' + lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'All changes saved');
+}
+function renderPicker() {
+  const pick = $('#pick');
+  const list = [...surveys.entries()].sort((a, b) => String(b[1].updatedAt).localeCompare(String(a[1].updatedAt)));
+  pick.innerHTML = list.length ? list.map(([id, s]) => `<option value="${id}" ${id === cur ? 'selected' : ''}>${esc(s.f['site.site'] || 'Untitled site')}${s.f['site.customer'] ? ' · ' + esc(s.f['site.customer']) : ''}</option>`).join('') : '<option value="">No surveys yet</option>';
+  pick.disabled = !list.length;
+  $('#new').disabled = !canWrite || mode === 'loading';
+}
+
+function summary(s) {
+  const items = openItems(s);
+  const p = id => progress(SECTIONS.find(x => x.id === id), s).pct;
+  const dep = s.f['collector.deploy'] || 'VM or appliance (not decided)';
+  return `<div class="sechead"><div><div class="eyebrow">Overview</div><h2>${esc(s.f['site.site'] || 'Untitled site')}</h2>
+      <p class="muted">${SECTIONS[0].intro}</p></div>
+      <div class="picker">
+        <button class="btn" type="button" data-act="copy">Copy summary</button>
+        <button class="btn" type="button" data-act="csv">Download CSV</button>
+        <button class="btn" type="button" data-act="json">Download JSON</button>
+        <button class="btn" type="button" data-act="import" ${canWrite ? '' : 'disabled'}>Import JSON</button>
+      </div></div>
+    <div class="flow" aria-label="How the collector connects">
+      <div class="node"><b>Facility network</b><span class="muted" style="font-size:12px">${esc(s.f['bms.product'] || 'BMS')}${(s.t.equip || []).some(r => r.make) ? ', ' + (s.t.equip || []).filter(r => r.make).map(r => esc(r.cat)).slice(0, 3).join(', ') : ', UPS, PDUs, meters, gensets'}</span>
+        <div class="ports"><span class="port">161</span><span class="port">502</span><span class="port">47808</span></div></div>
+      <div class="arrow"><span>read-only</span><span>→</span></div>
+      <div class="node us"><b>Collector</b><span style="font-size:12px">${esc(dep)}</span>
+        <span class="mono">${esc(s.f['collector.ip'] || 'IP to be assigned')}${s.f['collector.zone'] ? ' · ' + esc(s.f['collector.zone']) : ''}</span></div>
+      <div class="arrow"><span>HTTPS 443 out</span><span>→</span><span>${esc(s.f['collector.out'] === 'Through a proxy' ? 'via proxy' : '')}</span></div>
+      <div class="node"><b>Datacenter Operations</b><span class="muted" style="font-size:12px">Facilities, power path, cooling, alarms, server health</span></div>
+    </div>
+    <div class="node" style="background:var(--surface)"><b>Server BMCs</b><span class="muted" style="font-size:12px">${esc(s.f['servers.net'] ? 'BMC network ' + s.f['servers.net'] : 'BMC network not given yet')} · Redfish over TCP 443${s.f['servers.gpu'] === 'Yes' ? ' · GPU hosts: DCGM on TCP 9400' : ''}</span></div>
+    <div class="sumgrid">
+      <div class="panel"><h3>Progress by section</h3>
+        ${SECTIONS.slice(1).map(x => { const q = progress(x, s); return `<button type="button" class="prow" data-sec="${x.id}"><span>${x.title}</span>
+          <span class="bar"><i style="width:${q.pct}%;${q.pct === 100 ? 'background:var(--ok)' : ''}"></i></span><span class="pc">${q.pct}%</span></button>` }).join('')}
+        <span class="hint">Counts required answers, received documents and accounts, and approved firewall rules.</span>
+      </div>
+      <div class="panel"><h3>Still outstanding <span class="muted" style="font-weight:400">· ${items.length}</span></h3>
+        ${items.length ? `<ul class="open">${items.map(i => `<li><span class="tag ${i.kind}">${i.kind === 'wait' ? 'Waiting' : 'Missing'}</span><span>${esc(i.text)} <span class="muted">· ${i.sec.title}</span></span></li>`).join('')}</ul>` : '<p class="muted" style="margin:0">Nothing outstanding. This site is ready to connect.</p>'}
+      </div>
+    </div>
+    <div class="foot"><span class="hint">Created ${new Date(s.createdAt).toLocaleDateString()} · last change ${new Date(s.updatedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</span>
+      ${canWrite ? (confirmDel ? `<span class="confirm">Delete this survey for everyone? <button class="btn danger" type="button" data-act="del-yes">Delete</button><button class="btn" type="button" data-act="del-no">Keep</button></span>` : '<button class="btn ghost danger" type="button" data-act="del">Delete survey</button>') : ''}</div>`;
+}
+
+function form(sec, s) {
+  const i = SECTIONS.indexOf(sec), next = SECTIONS[i + 1], prev = SECTIONS[i - 1];
+  const dis = canWrite ? '' : 'disabled';
+  const fields = visible(sec, s).map(f => field(sec, f, s.f[sec.id + '.' + f.k], dis)).join('');
+  const tables = (sec.tables || []).map(t => table(t, s.t[t.k] || [], dis)).join('');
+  const pr = progress(sec, s);
+  return `<div class="sechead"><div><div class="eyebrow">Section ${i} of ${SECTIONS.length - 1}</div><h2>${sec.title}</h2><p class="muted">${sec.intro}</p></div>
+      <span class="muted" style="font-size:12.5px">${pr.have} of ${pr.need} done</span></div>
+    ${fields ? `<div class="grid">${fields}</div>` : ''}
+    ${tables}
+    <div class="foot"><button class="btn" type="button" data-sec="${prev.id}">← ${prev.title}</button>
+      ${next ? `<button class="btn primary" type="button" data-sec="${next.id}">${next.title} →</button>` : `<button class="btn primary" type="button" data-sec="summary">Back to summary</button>`}</div>`;
+}
+
+function field(sec, f, v, dis) {
+  const id = `f-${sec.id}-${f.k}`, key = sec.id + '.' + f.k;
+  const lab = `${esc(f.label)}${f.req ? '<span class="req" title="Required">*</span>' : ''}`;
+  const hint = f.hint ? `<span class="hint">${esc(f.hint)}</span>` : '';
+  let ctl;
+  if (f.type === 'select' || f.type === 'status') {
+    const opts = f.type === 'status' ? STATUS : f.options;
+    const cls = f.type === 'status' || f.approval ? (DONE.has(v) ? 'st-done' : v && v !== 'Not started' ? 'st-wait' : '') : '';
+    ctl = `<select id="${id}" data-key="${key}" class="${cls}" ${dis}><option value="">Choose…</option>${opts.map(o => `<option ${o === v ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+  } else if (f.type === 'yesno') {
+    ctl = `<div class="seg" role="group" aria-labelledby="${id}-l">${YN.map(o => `<button type="button" id="${id}-${o}" data-key="${key}" data-val="${o}" aria-pressed="${o === v}" ${dis}>${o}</button>`).join('')}</div>`;
+    return `<div class="fld ${f.wide ? 'wide' : ''}"><span class="lab" id="${id}-l">${lab}</span>${ctl}${hint}</div>`;
+  } else if (f.type === 'multi') {
+    const set = new Set(v || []);
+    ctl = `<div class="chips" role="group" aria-labelledby="${id}-l">${f.options.map((o, n) => `<button type="button" class="chip" id="${id}-${n}" data-key="${key}" data-multi="${esc(o)}" aria-pressed="${set.has(o)}" ${dis}>${esc(o)}</button>`).join('')}</div>`;
+    return `<div class="fld ${f.wide ? 'wide' : ''}"><span class="lab" id="${id}-l">${lab}</span>${ctl}${hint}</div>`;
+  } else if (f.type === 'textarea') {
+    ctl = `<textarea id="${id}" data-key="${key}" ${dis}>${esc(v)}</textarea>`;
+  } else {
+    ctl = `<input id="${id}" type="${f.type || 'text'}" data-key="${key}" value="${esc(v)}" class="${f.mono ? 'mono' : ''}" ${dis}>`;
+  }
+  return `<div class="fld ${f.wide ? 'wide' : ''}"><label for="${id}">${lab}</label>${ctl}${hint}</div>`;
+}
+
+function table(t, rows, dis) {
+  const done = rows.filter(r => rowDone(t, r)).length;
+  return `<div class="tbl"><div class="tblhead"><div><h3>${t.title}</h3><span class="hint">${done} of ${rows.length} rows complete · needs ${t.need.map(k => t.cols.find(c => c.k === k).label.toLowerCase()).join(', ')}</span></div>
+    ${dis ? '' : `<button class="btn" type="button" data-add="${t.k}">Add row</button>`}</div>
+    <div class="scroll"><table><thead><tr>${t.cols.map(c => `<th>${c.label}</th>`).join('')}<th><span class="muted" style="font-weight:400">Remove</span></th></tr></thead><tbody>
+    ${rows.map(r => `<tr>${t.cols.map(c => {
+      const id = `t-${t.k}-${r._id}-${c.k}`, v = r[c.k];
+      if (t.fixed && t.fixed.includes(c.k) && r.custom === false) return `<td class="fixed ${c.mono ? 'mono' : ''}">${esc(v)}</td>`;
+      const data = `data-tbl="${t.k}" data-row="${r._id}" data-col="${c.k}"`;
+      if (c.type === 'select' || c.type === 'status') {
+        const opts = c.type === 'status' ? STATUS : c.options;
+        const st = c.type === 'status' || c.options === FW ? (DONE.has(v) ? 'st-done' : v && !['Not started', 'Not requested'].includes(v) ? 'st-wait' : '') : '';
+        return `<td><select id="${id}" ${data} class="${st}" aria-label="${c.label}" ${dis}><option value="">—</option>${opts.map(o => `<option ${o === v ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></td>`;
+      }
+      return `<td><input id="${id}" ${data} type="${c.type || 'text'}" value="${esc(v)}" class="${c.mono ? 'mono' : ''}" aria-label="${c.label}" ${dis}></td>`;
+    }).join('')}<td class="x">${dis ? '' : `<button class="icon" type="button" data-del="${t.k}" data-row="${r._id}" aria-label="Remove row">✕</button>`}</td></tr>`).join('')}
+    </tbody></table></div></div>`;
+}
+
+/* ---------- edits ---------- */
+function edit(fn, rerender) {
+  if (!canWrite || !cur) return;
+  const s = surveys.get(cur);
+  fn(s);
+  s.updatedAt = new Date().toISOString();
+  schedule();
+  if (rerender) keepFocus(render); else refreshProgress();
+}
+function refreshProgress() {
+  // update the numbers without rebuilding the form under the cursor
+  const s = surveys.get(cur); if (!s) return;
+  document.querySelectorAll('.nav button[data-sec]').forEach(b => {
+    const sec = SECTIONS.find(x => x.id === b.dataset.sec); if (sec.id === 'summary') return;
+    const p = progress(sec, s); const pc = b.querySelector('.pc'); pc.textContent = p.pct + '%'; pc.classList.toggle('done', p.pct === 100);
+  });
+  const all = overall(s); const rb = document.querySelector('.ready b'); if (rb) rb.textContent = all + '%';
+  const bi = document.querySelector('.sitecard .bar i'); if (bi) bi.style.width = all + '%';
+  const nm = document.querySelector('.sitecard .name'); if (nm) nm.textContent = s.f['site.site'] || 'Untitled site';
+}
+function keepFocus(fn) {
+  const a = document.activeElement, id = a && a.id, sel = a && 'selectionStart' in a ? [a.selectionStart, a.selectionEnd] : null;
+  fn();
+  if (id) { const el = document.getElementById(id); if (el) { el.focus({ preventScroll: true }); if (sel && el.setSelectionRange) try { el.setSelectionRange(...sel) } catch {} } }
+}
+function schedule() {
+  saveState = 'saving'; paintSave();
+  pending = cur; clearTimeout(saveTimer); saveTimer = setTimeout(flush, 700);
+}
+async function flush() {
+  if (!pending) return;
+  if (saving) { saveTimer = setTimeout(flush, 300); return; }
+  const id = pending; pending = null; saving = true;
+  const body = JSON.parse(JSON.stringify(surveys.get(id) || null));
+  try {
+    if (!body) return;
+    if (mode === 'db') await db.collection('surveys').doc(id).set(body);
+    else writeLocal();
+    saveState = 'saved'; lastSaved = new Date();
+  } catch (e) {
+    saveState = 'error';
+    if (e && e.code === 'invalid_argument' && mode === 'db') { canWrite = false; render(); }
+    if (e && e.code === 'quota_exceeded') toast('The survey store is full. Delete an old survey, then edit again.');
+  } finally { saving = false; paintSave(); }
+}
+function paintSave() { const el = $('#save'); if (el) el.innerHTML = saveHtml(); }
+function writeLocal() { try { localStorage.setItem(LS, JSON.stringify(Object.fromEntries(surveys))) } catch {} }
+
+async function create(body) {
+  const id = 'site-' + Date.now().toString(36) + uid().slice(0, 4);
+  surveys.set(id, body); cur = id; secId = body.example ? 'summary' : 'site'; confirmDel = false;
+  render();
+  try {
+    if (mode === 'db') await db.collection('surveys').doc(id).set(body); else writeLocal();
+    lastSaved = new Date(); saveState = 'saved'; paintSave();
+  } catch (e) {
+    saveState = 'error'; paintSave();
+    toast(e && e.code === 'quota_exceeded' ? 'The survey store is full. Delete an old survey first.' : 'Could not create the survey. Try again.');
+  }
+}
+async function remove() {
+  const id = cur; if (!id) return;
+  surveys.delete(id); cur = [...surveys.keys()][0] || null; confirmDel = false; secId = 'summary'; render();
+  try { if (mode === 'db') await db.collection('surveys').doc(id).delete(); else writeLocal(); toast('Survey deleted'); } catch { toast('Could not delete the survey. Try again.'); }
+}
+
+/* ---------- exports ---------- */
+function flat(s) {
+  const rows = [['Section', 'Item', 'Value']];
+  for (const sec of SECTIONS.slice(1)) {
+    for (const f of visible(sec, s)) { const v = s.f[sec.id + '.' + f.k]; rows.push([sec.title, f.label, Array.isArray(v) ? v.join('; ') : (v ?? '')]); }
+    for (const t of sec.tables || []) (s.t[t.k] || []).forEach((r, n) => rows.push([sec.title, `${t.title} ${n + 1}`, t.cols.map(c => `${c.label}: ${r[c.k] ?? ''}`).join(' | ')]));
+  }
+  return rows;
+}
+const csvCell = v => /[",\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v);
+function fileBase(s) { return 'site-survey-' + (s.f['site.code'] || s.f['site.site'] || 'site').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) }
+async function save(filename, data) {
+  const dl = window.claude ? await claude.use('downloads').catch(() => null) : null;
+  if (!dl) {
+    if (window.claude) { await copy(data); toast('Downloads are not available here, so the file contents were copied instead.'); return; }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([data], { type: filename.endsWith('.csv') ? 'text/csv' : 'application/json' }));
+    a.download = filename; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); toast('File downloaded'); return;
+  }
+  try { await dl.save({ filename, data }); toast('File ready'); }
+  catch (e) { if (e && e.code !== 'declined') toast('The file could not be saved here.'); }
+}
+async function copy(text) {
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch { const ta = document.createElement('textarea'); ta.value = text; document.body.append(ta); ta.select(); try { document.execCommand('copy') } catch {} ta.remove(); return false; }
+}
+function summaryText(s) {
+  const items = openItems(s);
+  return [`Site integration survey: ${s.f['site.site'] || 'Untitled site'}${s.f['site.customer'] ? ' (' + s.f['site.customer'] + ')' : ''}`,
+    `Ready: ${overall(s)}%`, `Collector: ${s.f['collector.deploy'] || 'not decided'}${s.f['collector.ip'] ? ', ' + s.f['collector.ip'] : ''}`,
+    `BMS: ${s.f['bms.product'] || 'not given'}`, '', `Still outstanding (${items.length}):`, ...items.map(i => `- [${i.kind === 'wait' ? 'Waiting' : 'Missing'}] ${i.text} (${i.sec.title})`)].join('\n');
+}
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => t.hidden = true, 3200); }
+
+/* ---------- events ---------- */
+document.addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.sec) { secId = b.dataset.sec; confirmDel = false; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+  const s = cur && surveys.get(cur);
+  if (b.dataset.val && b.dataset.key) { const k = b.dataset.key, v = b.dataset.val; edit(x => { x.f[k] = x.f[k] === v ? '' : v }, true); return; }
+  if (b.dataset.multi && b.dataset.key) { const k = b.dataset.key, v = b.dataset.multi; edit(x => { const a = new Set(x.f[k] || []); a.has(v) ? a.delete(v) : a.add(v); x.f[k] = [...a] }, true); return; }
+  if (b.dataset.add) { const k = b.dataset.add; edit(x => { (x.t[k] ||= []).push({ _id: uid(), ...(k === 'rules' ? { custom: true, status: 'Not requested' } : {}) }) }, true); return; }
+  if (b.dataset.del) { const k = b.dataset.del, r = b.dataset.row; edit(x => { x.t[k] = (x.t[k] || []).filter(y => y._id !== r) }, true); return; }
+  switch (b.dataset.act || b.id) {
+    case 'new': return create(blank());
+    case 'example': return create(example());
+    case 'import': return $('#importFile').click();
+    case 'del': confirmDel = true; return render();
+    case 'del-no': confirmDel = false; return render();
+    case 'del-yes': return remove();
+    case 'copy': if (s) { const ok = await copy(summaryText(s)); toast(ok ? 'Summary copied' : 'Summary selected. Press Copy if it did not copy.'); } return;
+    case 'csv': if (s) save(fileBase(s) + '.csv', '﻿' + flat(s).map(r => r.map(csvCell).join(',')).join('\n')); return;
+    case 'json': if (s) save(fileBase(s) + '.json', JSON.stringify(s, null, 2)); return;
+  }
+});
+document.addEventListener('input', e => {
+  const el = e.target;
+  if (el.dataset.key) { const k = el.dataset.key; edit(x => { x.f[k] = el.value }, el.tagName === 'SELECT'); }
+  else if (el.dataset.tbl) { const { tbl, row, col } = el.dataset; edit(x => { const r = (x.t[tbl] || []).find(y => y._id === row); if (r) r[col] = el.value }, el.tagName === 'SELECT'); }
+});
+$('#importFile').addEventListener('change', async e => {
+  const file = e.target.files[0]; e.target.value = ''; if (!file) return;
+  try {
+    const body = JSON.parse(await file.text());
+    if (!body || typeof body.f !== 'object' || typeof body.t !== 'object') throw new Error('shape');
+    body.updatedAt = new Date().toISOString(); body.createdAt ||= body.updatedAt;
+    await create(body); toast('Survey imported');
+  } catch { toast('That file is not a survey exported from this page. Use a file from Download JSON.'); }
+});
+$('#pick').addEventListener('change', e => { cur = e.target.value; secId = 'summary'; confirmDel = false; render(); });
+
+/* ---------- boot ---------- */
+function boot(list) { for (const [id, s] of list) surveys.set(id, s); if (!cur) cur = [...surveys.keys()][0] || null; }
+function sortedFirst() { return [...surveys.entries()].sort((a, b) => String(b[1].updatedAt).localeCompare(String(a[1].updatedAt)))[0]?.[0] || null }
+function goLocal(msg) {
+  mode = 'local';
+  try { const raw = JSON.parse(localStorage.getItem(LS) || '{}'); boot(Object.entries(raw)); } catch {}
+  cur = sortedFirst();
+  const n = $('#note'); n.textContent = msg; n.hidden = false; render();
+}
+// framed by Help & FAQ, whose reader already carries the title: keep only the site picker
+try { if (window.self !== window.top) { document.querySelector('.brand').hidden = true; document.querySelector('.top').style.justifyContent = 'flex-end'; } } catch {}
+render();
+(async () => {
+  db = window.claude ? await claude.use('db') : null;
+  if (!db) return goLocal('Surveys are saved in this browser. To share one, use Download JSON on its summary and send the file; the receiver opens it with Import JSON.');
+  const user = await claude.use('user');
+  const w = user ? await user.can('data.write') : null;
+  if (w === false) canWrite = false;
+  let first = true;
+  db.collection('surveys').onSnapshot(snap => {
+    for (const ch of snap.docChanges()) {
+      const id = ch.doc.id;
+      if (ch.type === 'removed') { surveys.delete(id); if (cur === id) cur = null; continue; }
+      if (id === cur && (pending === id || saving) && !first) continue;   // keep what this person is typing
+      surveys.set(id, JSON.parse(JSON.stringify(ch.doc.data())));
+    }
+    if (first) { mode = 'db'; cur = sortedFirst(); first = false; render(); return; }
+    if (!cur) cur = sortedFirst();
+    const a = document.activeElement;
+    if (a && a.matches('input, textarea')) { renderPicker(); refreshProgress(); } else keepFocus(render);
+  }, () => goLocal('The shared survey store stopped responding. Changes from now on are kept in this browser only; reload to reconnect.'));
+  if (!canWrite) { const n = $('#note'); n.textContent = 'You can view these surveys. Ask the owner for edit access to change them.'; n.hidden = false; }
+})();
+</script>
+
+</body>
+</html>
