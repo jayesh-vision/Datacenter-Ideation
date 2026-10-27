@@ -371,7 +371,7 @@ const E = [
 
 { s: 'pitch', id: 'not', t: 'What SynapseDC does not do, and where it fits with their systems', d: 'Clear limits on the plant; integrate or offer for business systems.', k: 'limits scope not replace bms control billing crm itsm honest integrate offer platform',
   b: h('Firm limits (say them early)') + ul(['<b>Not a BMS or a control system.</b> It reads from the BMS, UPS, PDUs and meters; it never changes set points or switches anything.',
-      '<b>Not a monitoring agent inside tenant gear.</b> In colocation, tenant equipment is opaque: we never poll it (' + see('c-privacy', 'tenant privacy') + ').']) +
+      '<b>Never inside equipment the customer owns, never their data.</b> In colocation, tenant gear is sealed: we never poll it. In a GPU cloud the GPUs are the operator\'s, so we do monitor GPUs and customer jobs, but never the job\'s data, model or code (' + see('c-privacy', 'by business model') + ').']) +
     h('Business systems: integrate with theirs, or offer ours') + '<p>SynapseDC is part of a complete platform. For CRM and ITSM the rule is simple: <b>if the customer already has one, we integrate with it; if they do not, we offer the platform\'s own module.</b> See ' + see('platform-modules', 'platform modules') + '.</p>' +
     tbl(['Need', 'They already have one', 'They don\'t have one'], [
       ['CRM, tenants, orders', 'Integrate with Salesforce / Dynamics / HubSpot: tenants and contracts flow in', 'Offer <b>Operate to Acquire (BSS)</b>: CRM, Plans & Products Catalog, Orders, Customers, Experience and Care'],
@@ -470,17 +470,21 @@ const E = [
     ['"One UPS fault and we panic"', 'Nobody knows the power path to each cabinet', 'Power path utility → UPS → busway → PDU → outlet; what-if per asset', 'Facilities → Power path, what-if'],
     ['"AI tenants want 40–100 kW racks"', 'Air cooling and power limits', 'Liquid / CDU loops, rack density, placement', go('/gpu', 'GPU Fleet') + ', Capacity']]) },
 
-{ s: 'colo', id: 'c-privacy', t: 'Tenant equipment is opaque: what we see and what we never touch', d: 'Answer to every tenant-privacy question.', k: 'tenant privacy data protection opaque never polled gdpr dpdp confidentiality',
-  b: tbl(['We see', 'We never see or touch'], [
+{ s: 'colo', id: 'c-privacy', t: 'What we see and what we never touch, by business model', d: 'Colocation: tenant gear sealed. GPU cloud: GPUs and jobs monitored, data never.', k: 'tenant privacy data protection opaque never polled gdpr dpdp confidentiality jobs gpu neocloud dcgm scheduler',
+  b: tbl(['Business model', 'Who owns the equipment', 'What we monitor', 'What we never see'], [
+      ['Colocation (cabinets, cages, suites)', 'The tenant', 'The building and what is sold: space, power per operator PDU / circuit, cooling, inlet temperature, cross-connects, doors. Tenant gear is a sealed "Tenant gear" block, never polled', 'Anything inside the tenant\'s equipment'],
+      ['GPU cloud / NeoCloud (GPU as a service)', 'The operator: the customer rents GPUs', 'The operator\'s own GPU nodes, per GPU (DCGM-style health, temperature, power, ECC, Xid errors, NVLink, throttling) and each customer job as the scheduler sees it: job name, customer, GPUs and nodes, state, speed (MFU), last checkpoint, GPU time lost', 'The customer\'s data, model weights, code or traffic'],
+      ['Cloud / enterprise / managed hosting', 'The operator', 'Operator-owned servers, storage, network and the services running on them', 'Customer application data'],
+      ['Mixed site (colo halls + own GPU cloud)', 'Both', 'Each hall by its own rule: tenant cages sealed, operator GPU pods fully monitored', '—']]) +
+    h('In a colocation hall') + tbl(['We see', 'We never see or touch'], [
       ['Cabinet / cage, owner, contracted kW', 'Tenant servers, switches, storage inside the cabinet'],
       ['Power drawn per PDU / circuit (operator-owned PDUs)', 'Tenant operating systems, apps, traffic or data'],
       ['Inlet temperature and humidity at the cabinet', 'Tenant network configuration'],
       ['Cross-connects through the MMR (operator\'s panels)', 'What runs over a tenant\'s cross-connect'],
       ['Badge reads at doors and cage doors (operator PACS)', 'Tenant-owned access systems inside a private suite']]) +
-    '<p>In the product, tenant gear is a "Tenant gear" block with state <i>tenant-owned</i>; it is never polled.</p>' +
-    say('"We monitor the building and the services you sell: space, power, cooling, connectivity and access. Your tenants\' equipment stays a sealed box to us."') +
-    warn('If the operator\'s PDUs are tenant-owned in some cabinets, we have no draw data there. Ask about it in ' + see('q-facility', 'power questions') + '.') },
-
+    h('In a GPU cloud') + ul(['Per GPU telemetry from the operator\'s nodes (DCGM exporter or vendor equivalent).', 'Job metadata from the scheduler (e.g. Slurm, Kubernetes): job, customer, GPUs, state, checkpoint; speed from GPU telemetry.',
+      'This is what powers GPU Fleet → Jobs, "GPU time lost" and the job-stalled incidents.', 'Never inside the job: no data, model weights, code or network payloads.']) +
+    warn('If some PDUs in colocation cabinets are tenant-owned, we have no draw data there. Ask about it in ' + see('q-facility', 'power questions') + '.') },
 { s: 'colo', id: 'c-power', t: 'Power billing and contracted power: the story to tell', d: 'Draw vs contract, overage, stranded power, the power bill.', k: 'power billing contracted kw overage metered tenant over power budget stranded invoice',
   b: ol(['Every cabinet carries its contracted kW (from the contract schedule) and its live draw (from the PDUs).',
       'Above contract → flagged as "over contracted power". All-in tenants are an overage conversation; metered tenants are billed correctly.',
@@ -521,12 +525,13 @@ const E = [
       'Security Ops ties a badge-in to a change on equipment in the same room (cross-domain rule), and physical detections map to ISO 27001 A.7.']) +
     '<p>Show: Datacenter → Facility → Access & security, then ' + go('/secops?tab=physical', 'Security Ops → Physical security') + '.</p>' },
 
-{ s: 'colo', id: 'c-ai', t: 'AI / GPU tenants in a colocation hall', d: 'High-density cages, liquid cooling, power blocks.', k: 'ai gpu tenant liquid cooling cdu high density 40 kw 100 kw neocloud',
-  b: ul(['AI tenants ask for 40–130 kW per rack, liquid cooling (rear-door or direct-to-chip with CDUs), and large power blocks.',
-      'In colocation the GPUs are tenant gear: we monitor the cage\'s power, CDU loops, inlet temperatures and the contracted block, not the GPUs.',
-      'If the operator also runs its own GPU cloud, GPU Fleet shows jobs, GPU health and GPU-hours lost.']) +
-    h('Ask') + qs(['Do you have, or plan, liquid-cooled halls? Which CDU make and model?', 'What density do AI tenants ask for, and what can each hall deliver?', 'How are AI power blocks contracted (committed kW, ramp schedule)?']) },
-
+{ s: 'colo', id: 'c-ai', t: 'AI / GPU customers: tenant GPUs vs your own GPU cloud', d: 'Who owns the GPUs decides what we monitor.', k: 'ai gpu tenant liquid cooling cdu high density 40 kw 100 kw neocloud jobs mfu checkpoint',
+  b: ul(['AI customers ask for 40–130 kW per rack, liquid cooling (rear-door or direct-to-chip with CDUs), and large power blocks.',
+      '<b>AI tenant in a colocation cage</b> (they bring their own GPUs): the GPUs are tenant gear. We monitor the cage\'s power, CDU loops, inlet temperatures and the contracted block, not the GPUs or jobs.',
+      '<b>The operator runs its own GPU cloud</b> (customers rent GPUs): the GPUs are the operator\'s. GPU Fleet monitors every GPU and every customer job: GPUs and nodes, state, speed (MFU), checkpoint, GPU time lost, and which failure stalled which job.',
+      'Many colocation operators are adding a GPU cloud hall; then both rules apply in the same site.']) +
+    h('Ask') + qs(['Do the AI customers bring their own GPUs, or rent yours?', 'Do you have, or plan, liquid-cooled halls? Which CDU make and model?', 'What density do AI tenants ask for, and what can each hall deliver?',
+      'How are AI power blocks contracted (committed kW, ramp schedule)?', 'For your own GPUs: which scheduler (Slurm, Kubernetes, Run:ai…) and is DCGM telemetry exported today?']) },
 { s: 'colo', id: 'c-demo', t: 'Colocation demo script (40 minutes)', d: 'One story, eight stops, every role sees their screen.', k: 'demo script storyline screens order click path colocation',
   b: '<p>Set the persona to <b>Colocation</b> in the top bar (in the hosted demo the persona can be pinned; if so, switch it there after the page loads).</p>' +
     tbl(['#', 'Screen', 'What to say', 'Time'], [
@@ -720,6 +725,11 @@ const E = [
       'IPAM: import prefixes, VLANs and addresses (Infoblox / BlueCat / NetBox APIs or export).',
       'Operator-owned servers: BMC via Redfish (HTTPS 443) for health, power and temperature. Tenant servers: never.']) },
 
+{ s: 'tools', id: 't-gpu', t: 'GPU telemetry and job schedulers (GPU cloud operators)', d: 'NVIDIA DCGM exporter, Intel tools; Slurm, Kubernetes, Run:ai.', k: 'gpu dcgm exporter nvidia intel gaudi slurm kubernetes run:ai scheduler jobs mfu checkpoint neocloud',
+  b: tbl(['', ''], [['When', 'Only where the operator owns the GPUs (GPU cloud / NeoCloud). Tenant GPUs in colocation are never polled'],
+      ['We take', 'Per GPU: utilisation, SM activity, memory, temperature, power, clocks, throttle reasons, ECC, Xid errors, NVLink / PCIe errors; per job: name, customer, GPUs / nodes, state, checkpoint'],
+      ['Connect', 'DCGM exporter (Prometheus format) or vendor equivalents (Intel Gaudi hl-smi, XPU Manager) scraped by the collector; scheduler API (Slurm REST, Kubernetes API) for jobs'],
+      ['Ask for', 'Which scheduler, whether DCGM is already exported, how jobs map to customers, checkpoint policy']]) },
 { s: 'tools', id: 't-siem', t: 'Identity, SIEM and security tools', d: 'Entra ID / AD, Okta; Splunk, QRadar, Sentinel, Wazuh.', k: 'identity sso ad azure entra okta adfs siem splunk qradar sentinel wazuh soc security',
   b: ul(['SSO through SAML 2.0 or OIDC (the platform uses Keycloak and federates with their IdP); roles mapped from their groups.',
       'Security Ops normalises events to OCSF and stores them in ClickHouse; detections can be forwarded to their SIEM (syslog / HTTP) if their SOC stays the main console.',
@@ -777,7 +787,7 @@ const E = [
 
 { s: 'data', id: 'd-devices', t: 'Operator devices', d: 'Equipment the operator owns and runs.', k: 'devices equipment switch router firewall server operator inventory serial model',
   b: tbl(['Field', 'Need'], [['Hostname, role, make, model, serial', P.rec], ['Rack, U position, height', P.rec], ['Management IP, SNMP / Redfish access', P.rec], ['PSUs and their PDU outlets', P.opt], ['Install date, warranty end, support contract', P.opt]]) +
-    '<p>Tenant equipment is not listed device by device: each tenant cabinet is a "Tenant gear" block.</p>' },
+    '<p>Colocation: tenant equipment is not listed device by device; each tenant cabinet is a "Tenant gear" block. GPU cloud: every operator GPU node is listed, with its GPUs.</p>' },
 
 { s: 'data', id: 'd-network', t: 'Cabling, panels and cross-connects', d: 'Physical paths through the MMR.', k: 'cabling patch panel odf trunk cross-connect mmr port link fibre',
   b: tbl(['Entity', 'Key fields', 'Need'], [['Patch panel / ODF', 'Rack, id, ports, media', P.rec], ['Trunk cable', 'From panel, to panel, cores, route', P.opt],
@@ -826,7 +836,7 @@ const E = [
 
 { s: 'integ', id: 'i-security', t: 'Security posture: what we ask of the customer', d: 'Least privilege and segmentation.', k: 'security posture read-only least privilege segmentation credentials vault snmpv3 tls mfa',
   b: ul(['Read-only accounts everywhere (BACnet read-only, Modbus read functions only, SNMP v3 authPriv read view, API read scopes).', 'Collector in the management / OT zone, behind their firewall; outbound TLS only.',
-    'Credentials stored in a vault; rotated on their schedule.', 'SSO with MFA for all users; roles least-privilege.', 'Tenant gear never polled.', 'Audit log of every user action and every record change.']) },
+    'Credentials stored in a vault; rotated on their schedule.', 'SSO with MFA for all users; roles least-privilege.', 'Colocation: tenant gear never polled. GPU cloud: operator GPUs and job metadata only, never the customer\'s data, model or code.', 'Audit log of every user action and every record change.']) },
 
 { s: 'integ', id: 'i-fw', t: 'Firewall request (template)', d: 'Copy, fill and send to their network team.', k: 'firewall request rule change template ports network team',
   b: tpl(`Firewall change request — SynapseDC collector at <SITE>
@@ -876,8 +886,16 @@ No inbound rules from the internet are required.`) },
 { s: 'objections', id: 'o-cloud', t: '"Our security team won\'t allow cloud / OT data leaving the site."', d: 'Outbound only, least privilege, deployment options.', k: 'security cloud saas on-prem deployment data residency objection ot',
   b: ul(['Explain outbound-only TLS, read-only accounts, no inbound ports (' + see('i-arch', 'architecture') + ').', 'Offer a meeting with their security team and our ' + see('i-security', 'security posture') + '.',
     'Data residency: confirm the hosting region; private or on-premise deployment options must be confirmed with the product team before you promise them.']) },
-{ s: 'objections', id: 'o-tenant', t: '"Our tenants won\'t like you monitoring them."', d: 'We monitor the building, not the tenants.', k: 'tenant privacy objection monitoring',
-  b: '<p>See ' + see('c-privacy', 'tenant equipment is opaque') + '. We read operator PDUs, sensors and doors, never tenant equipment.</p>' + say('"Your tenants get better service from it: you will know about a hot cabinet before they do."') },
+{ s: 'objections', id: 'o-tenant', t: '"Our customers won\'t like you monitoring them."', d: 'It depends on who owns the equipment: colocation vs GPU cloud.', k: 'tenant customer privacy objection monitoring jobs gpu neocloud',
+  b: '<p>Answer it by business model. The rule: <b>we monitor what the operator owns and sells; we never see the customer\'s data.</b></p>' +
+    tbl(['Business model', 'Who owns the equipment', 'What we monitor', 'What we never see'], [
+      ['Colocation (cabinets, cages, suites)', 'The tenant', 'The building and what is sold: space, power per operator PDU / circuit, cooling, inlet temperature, cross-connects, doors. Tenant gear is a sealed "Tenant gear" block, never polled', 'Anything inside the tenant\'s equipment'],
+      ['GPU cloud / NeoCloud (GPU as a service)', 'The operator: the customer rents GPUs', 'The operator\'s own GPU nodes, per GPU (DCGM-style health, temperature, power, ECC, Xid errors, NVLink, throttling) and each customer job as the scheduler sees it: job name, customer, GPUs and nodes, state, speed (MFU), last checkpoint, GPU time lost', 'The customer\'s data, model weights, code or traffic'],
+      ['Cloud / enterprise / managed hosting', 'The operator', 'Operator-owned servers, storage, network and the services running on them', 'Customer application data'],
+      ['Mixed site (colo halls + own GPU cloud)', 'Both', 'Each hall by its own rule: tenant cages sealed, operator GPU pods fully monitored', '—']]) +
+    h('Colocation') + say('"We monitor the building and the services you sell: space, power, cooling, connectivity and access. Your tenants\' equipment stays a sealed box to us. They get better service from it: you will know about a hot cabinet before they do."') +
+    h('GPU cloud / NeoCloud') + say('"Yes, we watch every GPU and every job, because they are your GPUs and your service. We see a job the way your scheduler does: how many GPUs, is it running, how fast, when it last checkpointed. That is what lets you tell a customer their training run stalled because one GPU failed, before they open a ticket. We never see their data, model or code."') +
+    warn('Never say "we don\'t monitor customers" to a GPU cloud operator: GPU Fleet → Jobs shows customer jobs by name. Customer contracts usually allow operational telemetry; check their terms.') + '<p>See ' + see('c-privacy', 'what we see, by business model') + '.</p>' },
 { s: 'objections', id: 'o-time', t: '"How long does onboarding take?"', d: 'Pilot 6–10 weeks; waves of 4–12 weeks.', k: 'how long onboarding duration timeline time weeks',
   b: ul(['Pilot site: 6–10 weeks, mostly waiting on access and firewall changes, not on us.', 'Following sites: 4–12 weeks per wave depending on data quality and BMS type.', 'The fastest lever is on their side: firewall approval and a filled import template.']) +
     warn('Give ranges, not dates, until the site survey is done.') },
