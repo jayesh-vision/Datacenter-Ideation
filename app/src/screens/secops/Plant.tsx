@@ -1,48 +1,91 @@
-/* Security Ops → OT security (IEC 62443 zones and conduits: target vs achieved security level, the facility controllers and their findings),
-   Physical security (defence-in-depth layers per datacenter with EN 50600-2-5 style protection classes, the access-rights review) and
-   Data sources (every sensor → OTel collector → OCSF table in ClickHouse: coverage, volume, retention, health). */
-import { Link } from 'react-router-dom';
+/* Security Ops → OT security, Physical security and Data sources.
+   27-Oct-2026 review (user: "too much data … user needs to scroll down and down"): OT and Physical open with one analytics strip (tiles with an
+   info icon, each a filter) and then ONE view at a time behind a switch — OT: Zones (estate = one row per datacenter, a datacenter = its zone
+   cards) · Controllers; Physical: Layers · Exceptions · Access review. OT = IEC 62443 zones and conduits (target SL-T vs achieved SL-A);
+   physical = defence in depth with EN 50600-2-5 style protection classes; data sources = sensor → OTel → OCSF table in ClickHouse. */
 import * as I from 'lucide-react';
-import type { SecPhysLayer, SecSource } from '../../api/types';
-import { Chip, Panel } from '../../ui/kit';
+import type { SecOtZone, SecPhysLayer, SecSource } from '../../api/types';
+import { Chip, Panel, Seg } from '../../ui/kit';
 import { DataTable } from '../../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
+import { Facts, Split, StatGrid, StatTile } from '../../ui/Analytics';
 import { DcLink, Meter } from '../../ui/status';
-import { fmtAgo, fmtDate, fmtNum } from '../../lib/format';
+import { fmtAgo, fmtDate, fmtDateTime, fmtNum } from '../../lib/format';
 import type { SecProps } from './SecOps';
 import { DomainTag, SEVS, SevChip, StateChip, pct } from './common';
 
 /* ---------------------------------------------------------------- OT */
+const ZONE_KEYS: [string, string][] = [['EL', 'Electrical'], ['ME', 'Mechanical'], ['FS', 'Fire & life safety'], ['PS', 'Physical security'], ['MON', 'DCIM & monitoring']];
+const SlChip = ({ z }: { z?: SecOtZone }) => !z ? <span className="vw-label">—</span>
+  : <span className={`so-sl-chip${z.slA < z.slT ? ' is-short' : ''}`} title={`${z.name}: achieved SL ${z.slA} of target SL ${z.slT}${z.findings.length ? ' · ' + z.findings.join(' · ') : ''}`}><b>SL {z.slA}</b><small>of {z.slT}</small></span>;
+
 export function OtView({ v, q, set, go, dcId }: SecProps) {
   const apply = useParamPatch();
+  const view = q('otv') || 'zones';
   const otf = q('otf'), search = q('q');
   const short = v.otZones.filter(z => z.slA < z.slT);
   const creds = v.otAssets.reduce((s, a) => s + a.defaultCreds, 0), reach = v.otAssets.filter(a => a.reachableFromIt).length;
+  const units = v.otAssets.reduce((s, a) => s + a.units, 0), clear = v.otAssets.filter(a => a.cleartext).length;
+  const otDet = v.detections.filter(d => d.domain === 'Facility OT'), otOpen = otDet.filter(d => d.state !== 'Closed');
+  const risk = (r: string) => v.otAssets.filter(a => a.risk === r).length;
   const rows = v.otAssets.filter(a => (!otf || (otf === 'creds' ? a.defaultCreds > 0 : otf === 'reach' ? a.reachableFromIt : otf === 'risk' ? a.risk === 'Critical' || a.risk === 'High' : true))
     && (!search || `${a.name} ${a.kind} ${a.vendor} ${a.dcId} ${a.protocols.join(' ')}`.toLowerCase().includes(search.toLowerCase())));
-  const otDet = v.detections.filter(d => d.domain === 'Facility OT');
   const zoneName = new Map(v.otZones.map(z => [z.id, z.name.replace(/ \(.*$/, '')]));
+  const sites = [...new Set(v.otZones.map(z => z.dcId))].map(dc => ({ id: dc, zones: v.otZones.filter(z => z.dcId === dc) }))
+    .map(s => ({ ...s, short: s.zones.filter(z => z.slA < z.slT).length, findings: s.zones.reduce((n, z) => n + z.findings.length, 0) }))
+    .sort((a, b) => b.short - a.short || b.findings - a.findings);
+  const toCtl = (f: string) => set({ otv: 'controllers', otf: f });
   return (
     <div className="so-stack">
-      <section className="vw-card-section so-otsum">
-        <span><small>Zones below target</small><b className={short.length ? 'is-bad' : ''}>{short.length} of {v.otZones.length}</b><em>achieved SL-A &lt; target SL-T</em></span>
-        <span><small>Controllers with default credentials</small><b className={creds ? 'is-bad' : ''}>{fmtNum(creds)}</b><em>IEC 62443-3-3 SR 1.5</em></span>
-        <span><small>Reachable from IT outside a conduit</small><b className={reach ? 'is-warn' : ''}>{fmtNum(reach)}</b><em>SR 5.1 network segmentation</em></span>
-        <span><small>OT detections, 14 days</small><b>{fmtNum(otDet.length)}</b><em>{otDet.filter(d => d.state !== 'Closed').length} open · ATT&CK for ICS</em></span>
-        <button type="button" className="ent-link" onClick={() => go('attack', { mx: 'ICS' })}>ICS coverage →</button>
-      </section>
-      <Panel title="Zones and conduits" icon={I.Network} count={v.otZones.length} sub={dcId ? undefined : 'Every datacenter · the zones furthest below target first'} info="IEC 62443-3-2: the plant split into zones of like risk, each with a target security level (SL-T, 1–4) and the level its controls achieve (SL-A). Conduits are the only paths in and out (the OT firewall from IT management, a read-only path to DCIM).">
-        <div className="so-zones">{[...v.otZones].sort((a, b) => (a.slA - a.slT) - (b.slA - b.slT)).slice(0, dcId ? 99 : 15).map(z => (
-          <div key={z.id} className={`so-zone${z.slA < z.slT ? ' is-short' : ''}`}>
-            <span className="so-zone-h"><b>{z.name}</b>{!dcId && <DcLink id={z.dcId} />}</span>
-            <span className="so-sl"><span><small>Target</small><b>SL {z.slT}</b></span><span className="so-sl-bar">{[1, 2, 3, 4].map(n => <i key={n} className={n <= z.slA ? 'is-a' : n <= z.slT ? 'is-t' : ''} />)}</span><span><small>Achieved</small><b>SL {z.slA}</b></span></span>
-            <small>{z.systems} · {fmtNum(z.assets)} units</small>
-            <ul>{z.conduits.map(c => <li key={c.to}><I.ArrowLeftRight size={12} />{c.to} via {c.via} · {c.rules} rules{c.open ? <b className="so-bad"> · {c.open} any-any</b> : ''}</li>)}</ul>
-            {z.findings.length ? <ul className="so-zone-f">{z.findings.map(f => <li key={f}>{f}</li>)}</ul> : <p className="vw-label">No finding.</p>}
-          </div>))}</div>
-        {!dcId && v.otZones.length > 15 && <p className="vw-label">Showing the 15 zones furthest below target; pick a datacenter at the top to see all of its zones.</p>}
-      </Panel>
-      <section className="vw-card-section dcim-table">
+      <StatGrid>
+        <StatTile label="Zones below target" value={short.length} sub={`of ${v.otZones.length} zones`} subTone={short.length ? 'warn' : undefined} onClick={() => set({ otv: '' })}
+          info="IEC 62443-3-2 zones (electrical, mechanical, fire, physical security, DCIM) whose achieved security level SL-A is below the target SL-T set for them. Click for the zones view.">
+          <Split parts={[{ key: 's', label: 'Below target', n: short.length, tone: 'orange' }, { key: 'o', label: 'At target', n: v.otZones.length - short.length, tone: 'info' }]} />
+        </StatTile>
+        <StatTile label="Default credentials" value={fmtNum(creds)} sub="controllers" subTone={creds ? 'bad' : undefined} onClick={() => toCtl('creds')} info="UPS cards, PDUs, cooling controllers and cameras still on the vendor's factory account (IEC 62443-3-3 SR 1.5). Click to list them.">
+          <Facts items={[{ n: v.otAssets.filter(a => a.defaultCreds).length, label: 'controller groups' }, { n: new Set(v.otAssets.filter(a => a.defaultCreds).map(a => a.dcId)).size, label: 'datacenters' }]} />
+        </StatTile>
+        <StatTile label="Reachable from IT" value={fmtNum(reach)} sub="outside a conduit" subTone={reach ? 'warn' : undefined} onClick={() => toCtl('reach')} info="Controllers an IT network can reach without passing the OT firewall or data diode (IEC 62443-3-3 SR 5.1 segmentation). Click to list them.">
+          <Facts items={[{ n: clear, label: 'cleartext protocol' }]} />
+        </StatTile>
+        <StatTile label="Controllers by risk" value={fmtNum(v.otAssets.length)} sub={`${fmtNum(units)} units`} onClick={() => toCtl('risk')} info="Every facility controller (or fleet, e.g. a site's rack PDUs) by risk: Critical = default credentials and reachable from IT, High = default credentials or a firmware flaw to act on.">
+          <Split parts={[{ key: 'c', label: 'Critical', n: risk('Critical'), tone: 'error' }, { key: 'h', label: 'High', n: risk('High'), tone: 'orange' }, { key: 'o', label: 'Medium / low', n: risk('Medium') + risk('Low'), tone: 'info' }]} />
+        </StatTile>
+        <StatTile label="OT detections" value={fmtNum(otOpen.length)} sub={`open of ${otDet.length}`} onClick={() => go('detections', { dom: 'Facility OT' })} info="Detections from the passive OT sensor (Modbus / BACnet writes, default-credential logins, new hosts, setpoint and alarm changes), mapped to ATT&CK for ICS. Click for the queue.">
+          <Facts items={[{ n: otDet.filter(d => d.severity === 'Critical').length, label: 'critical' }, { n: otDet.filter(d => d.caseId).length, label: 'in a case' }]} />
+        </StatTile>
+        <StatTile label="ICS coverage" value={`${pct(v.techniques.filter(t => t.matrix === 'ICS' && t.rules).length, v.techniques.filter(t => t.matrix === 'ICS').length)}%`} sub="ATT&CK for ICS" onClick={() => go('attack', { mx: 'ICS' })} info="Share of the ATT&CK for ICS techniques in scope that an enabled rule detects. Click for the coverage view.">
+          <Facts items={[{ n: v.techniques.filter(t => t.matrix === 'ICS' && !t.rules).length, label: 'techniques without a rule' }]} />
+        </StatTile>
+      </StatGrid>
+
+      <div className="so-viewbar">
+        <Seg value={view} onChange={x => set({ otv: x === 'zones' ? '' : x, otf: '', q: '' })} options={[{ id: 'zones', label: `Zones & conduits · ${v.otZones.length}` }, { id: 'controllers', label: `Controllers · ${v.otAssets.length}` }]} />
+        <span className="vw-label">{view === 'zones' ? (dcId ? `${dcId}: each zone's target against achieved security level, its conduits and findings` : 'One row per datacenter, worst first · click a datacenter for its zone detail') : 'Every facility controller with its protocols and findings'}</span>
+      </div>
+
+      {view === 'zones' && !dcId && <section className="vw-card-section dcim-table">
+        <table className="so-ztab"><thead><tr><th>Datacenter</th>{ZONE_KEYS.map(([, n]) => <th key={n}>{n}</th>)}<th>Below target</th><th>Findings</th><th /></tr></thead>
+          <tbody>{sites.map(s => (
+            <tr key={s.id} onClick={() => set({ dc: s.id })}>
+              <td><span className="mono ent-link">{s.id}</span></td>
+              {ZONE_KEYS.map(([k]) => <td key={k}><SlChip z={s.zones.find(z => z.id === `${s.id}-${k}`)} /></td>)}
+              <td className={s.short ? 'so-bad' : ''}>{s.short ? `${s.short} zone${s.short === 1 ? '' : 's'}` : '—'}</td>
+              <td>{s.findings || '—'}</td><td><I.ChevronRight size={14} className="ipam-chev" /></td>
+            </tr>))}</tbody></table>
+        <p className="vw-label so-tnote">SL = IEC 62443 security level achieved, "of" = the zone's target. Hover a cell for its findings.</p>
+      </section>}
+
+      {view === 'zones' && dcId && <div className="so-zones">{v.otZones.map(z => (
+        <div key={z.id} className={`so-zone${z.slA < z.slT ? ' is-short' : ''}`}>
+          <span className="so-zone-h"><b>{z.name}</b><SlChip z={z} /></span>
+          <span className="so-sl"><span className="so-sl-bar">{[1, 2, 3, 4].map(n => <i key={n} className={n <= z.slA ? 'is-a' : n <= z.slT ? 'is-t' : ''} />)}</span></span>
+          <small>{z.systems} · {fmtNum(z.assets)} units</small>
+          <ul>{z.conduits.map(c => <li key={c.to}><I.ArrowLeftRight size={12} />{c.to} via {c.via} · {c.rules} rules{c.open ? <b className="so-bad"> · {c.open} any-any</b> : ''}</li>)}</ul>
+          {z.findings.length ? <ul className="so-zone-f">{z.findings.map(f => <li key={f}>{f}</li>)}</ul> : <p className="vw-label">No finding.</p>}
+        </div>))}</div>}
+
+      {view === 'controllers' && <section className="vw-card-section dcim-table">
         <DataTable rows={rows} pageSize={25} defaultSort={{ key: 'r', dir: 'asc' }}
           toolbar={<ListToolbar shown={rows.length} total={v.otAssets.length} noun="controllers" onApply={apply} search={{ value: search, onChange: x => set({ q: x }), placeholder: 'Controller, vendor, protocol, datacenter' }}
             filters={[{ id: 'otf', label: 'Finding', quick: true, value: otf, anyLabel: 'Any', onChange: x => set({ otf: x }), options: [{ id: 'risk', label: 'High or critical risk', count: v.otAssets.filter(a => a.risk === 'Critical' || a.risk === 'High').length }, { id: 'creds', label: 'Default credentials', count: v.otAssets.filter(a => a.defaultCreds).length }, { id: 'reach', label: 'Reachable from IT', count: reach }] }]} />}
@@ -55,48 +98,90 @@ export function OtView({ v, q, set, go, dcId }: SecProps) {
             { key: 'r', header: 'Risk', sort: a => SEVS.indexOf(a.risk), render: a => <SevChip s={a.risk} /> },
             { key: 'l', header: 'Last seen', sort: a => a.lastSeen, render: a => fmtAgo(a.lastSeen, v.now) }
           ]} />
-      </section>
+      </section>}
     </div>
   );
 }
 
 /* ---------------------------------------------------------------- physical */
 const LAYER_TONE: Record<SecPhysLayer['state'], 'success' | 'warning' | 'error'> = { OK: 'success', Degraded: 'warning', Breach: 'error' };
-export function PhysicalView({ v, go, dcId }: SecProps) {
+const LAYERS: SecPhysLayer['layer'][] = ['Perimeter', 'Building', 'Data hall', 'Cage', 'Rack'];
+const LAYER_CLASS: Record<SecPhysLayer['layer'], number> = { Perimeter: 1, Building: 2, 'Data hall': 3, Cage: 4, Rack: 4 };
+export function PhysicalView({ v, q, set, go, dcId }: SecProps) {
+  const apply = useParamPatch();
+  const view = q('pv') || 'layers';
   const det = v.detections.filter(d => d.domain === 'Physical');
   const open = det.filter(d => d.state !== 'Closed');
-  const kinds = [...det.reduce((m, d) => m.set(d.title, (m.get(d.title) ?? 0) + 1), new Map<string, number>())].sort((a, b) => b[1] - a[1]);
-  const LAYERS: SecPhysLayer['layer'][] = ['Perimeter', 'Building', 'Data hall', 'Cage', 'Rack'];
+  const breach = v.physical.filter(p => p.layers.some(l => l.state === 'Breach')), degraded = v.physical.filter(p => !breach.includes(p) && p.layers.some(l => l.state === 'Degraded'));
+  const expired = v.physical.reduce((s, p) => s + p.expiredActive, 0), unused = v.physical.reduce((s, p) => s + p.unused90, 0), badges = v.physical.reduce((s, p) => s + p.badges, 0);
+  const overdue = v.physical.filter(p => p.nextReview < v.now).length, corr = v.physical.reduce((s, p) => s + p.correlated, 0);
+  const pst = q('pst'), search = q('q');
+  const rows = det.filter(d => (!pst || (pst === 'open' ? d.state !== 'Closed' : d.severity === pst)) && (!search || `${d.title} ${d.summary} ${d.dcId} ${d.actor ?? ''}`.toLowerCase().includes(search.toLowerCase())));
+  const site = dcId ? v.physical[0] : undefined;
   return (
-    <div className="dl-dash">
-      <Panel className="dl-span-8" title="Layers of defence" icon={I.Layers} count={v.physical.length} sub="Perimeter → building → data hall → cage → rack; protection class rises inwards"
-        info="Defence in depth per datacenter, protection classes 1–4 in the EN 50600-2-5 style. A layer is Breach when a door in it is forced or has an open high-severity exception, Degraded when a door is held open or an exception of its kind is open. Click a datacenter for its Access & security tab.">
-        <table className="so-layers"><thead><tr><th>Datacenter</th>{LAYERS.map(l => <th key={l}>{l}<small>class {({ Perimeter: 1, Building: 2, 'Data hall': 3, Cage: 4, Rack: 4 })[l]}</small></th>)}<th>Open</th></tr></thead>
+    <div className="so-stack">
+      <StatGrid>
+        <StatTile label="Layers holding" value={v.physical.length - breach.length - degraded.length} sub={`of ${v.physical.length} all OK`} onClick={() => set({ pv: '' })}
+          info="Per datacenter, the five layers of defence (perimeter → building → data hall → cage → rack). A layer is Breach when a door in it was forced or has an open high-severity exception, Degraded when a door is held open or an exception of its kind is open.">
+          <Split parts={[{ key: 'b', label: 'Breach', n: breach.length, tone: 'error' }, { key: 'd', label: 'Degraded', n: degraded.length, tone: 'orange' }, { key: 'o', label: 'All OK', n: v.physical.length - breach.length - degraded.length, tone: 'info' }]} />
+        </StatTile>
+        <StatTile label="Open exceptions" value={fmtNum(open.length)} sub={`${det.length} in 24 h`} onClick={() => set({ pv: 'exceptions', pst: 'open' })} info="Security exceptions the access-control system raised (tailgating, forced or held doors, denials, unescorted visitors…) that are not closed. They are the same records as each datacenter's Access & security tab.">
+          <Split parts={SEVS.slice(1).map(s => ({ key: s, label: s, n: open.filter(d => d.severity === s).length, tone: s === 'High' ? 'orange' as const : 'info' as const }))} onPick={k => set({ pv: 'exceptions', pst: k })} />
+        </StatTile>
+        <StatTile label="Physical + cyber" value={corr} sub="correlated" subTone={corr ? 'bad' : undefined} onClick={() => go('detections', { dom: 'Cross-domain' })} info="Detections that join a badge-in with a logical action on equipment in the same room (rule SR-060): the strongest sign of an insider or a misused visit.">
+          <Facts items={[{ n: open.filter(d => d.caseId).length, label: open.filter(d => d.caseId).length === 1 ? 'exception in a case' : 'exceptions in a case' }]} />
+        </StatTile>
+        <StatTile label="Expired badges active" value={expired} sub="badges" subTone={expired ? 'bad' : undefined} onClick={() => set({ pv: 'review' })} info="Badges past their end date that the access-control system still accepts (ISO 27001 A.5.18). Found by the quarterly access-rights review.">
+          <Facts items={[{ n: fmtNum(unused), label: 'unused for 90 days' }, { n: fmtNum(badges), label: 'badges issued' }]} />
+        </StatTile>
+        <StatTile label="Reviews overdue" value={overdue} sub={overdue ? 'overdue' : 'all on time'} subTone={overdue ? 'warn' : undefined} onClick={() => set({ pv: 'review' })} info="The quarterly access-rights review per datacenter: who holds a badge, which zones it opens and whether it is still needed. Overdue = the next review date has passed.">
+          <Facts items={[{ n: '90 d', label: 'CCTV retention' }, { n: '1 y', label: 'access log retention' }]} />
+        </StatTile>
+      </StatGrid>
+
+      <div className="so-viewbar">
+        <Seg value={view} onChange={x => set({ pv: x === 'layers' ? '' : x, pst: '', q: '' })} options={[{ id: 'layers', label: 'Layers of defence' }, { id: 'exceptions', label: `Exceptions · ${det.length}` }, { id: 'review', label: 'Access review' }]} />
+        <span className="vw-label">{view === 'layers' ? (site ? `${dcId}: the controls in each layer and their state` : 'Which layer is weak at which datacenter, worst first · click a datacenter for its controls') : view === 'exceptions' ? 'What the access-control system flagged in the last 24 hours' : 'Badges, unused and expired access, review dates'}</span>
+      </div>
+
+      {view === 'layers' && site && <div className="so-layer-cards">{site.layers.map(l => <div key={l.layer} className={`so-lc is-${LAYER_TONE[l.state]}`}><span><b>{l.layer}</b><Chip tone={LAYER_TONE[l.state]} size="xs" dot>{l.state}</Chip></span><small>Protection class {l.protectionClass}</small><p>{l.controls}</p><em>{l.note}</em></div>)}</div>}
+      {view === 'layers' && !site && <section className="vw-card-section dcim-table">
+        <table className="so-ztab"><thead><tr><th>Datacenter</th>{LAYERS.map(l => <th key={l}>{l}<small>class {LAYER_CLASS[l]}</small></th>)}<th>Open exceptions</th><th /></tr></thead>
           <tbody>{[...v.physical].sort((a, b) => b.high - a.high || b.open - a.open).map(p => (
-            <tr key={p.dcId}><td><Link className="ent-link mono" to={`/datacenters/${p.dcId}?tab=access`}>{p.dcId}</Link></td>
+            <tr key={p.dcId} onClick={() => set({ dc: p.dcId })}><td><span className="mono ent-link">{p.dcId}</span></td>
               {p.layers.map(l => <td key={l.layer} title={`${l.controls} · ${l.note}`}><Chip tone={LAYER_TONE[l.state]} size="xs" dot>{l.state}</Chip></td>)}
-              <td className={p.high ? 'so-bad' : ''}>{p.open}{p.high ? ` · ${p.high} high` : ''}</td></tr>))}</tbody></table>
-      </Panel>
-      <Panel className="dl-span-4" title="Physical detections" icon={I.DoorClosedLocked} count={det.length} sub={`${open.length} open · from access control and CCTV`} actions={<button type="button" className="ent-link" onClick={() => go('detections', { dom: 'Physical' })}>All →</button>}
-        info="Each one is a security exception raised by the access-control system (the same records as the datacenter's Access & security tab), mapped to ISO 27001 A.7 physical controls.">
-        <ul className="so-kinds">{kinds.map(([k, n]) => <li key={k}><span>{k}</span><b>{n}</b></li>)}</ul>
-        <b className="dcim-sub-h">Open now</b>
-        <ul className="ipam-find">{open.slice(0, 6).map(d => <li key={d.id}><button type="button" onClick={() => go('detections', { det: d.id })}><SevChip s={d.severity} /><span className="cell-2"><b>{d.summary}</b><small>{d.dcId} · {fmtAgo(d.at, v.now)}</small></span><StateChip s={d.state} /></button></li>)}</ul>
-      </Panel>
-      {dcId && v.physical[0] && <Panel className="dl-span-12" title={`${dcId}: controls per layer`} icon={I.ShieldCheck}>
-        <div className="so-layer-cards">{v.physical[0].layers.map(l => <div key={l.layer} className={`so-lc is-${LAYER_TONE[l.state]}`}><span><b>{l.layer}</b><Chip tone={LAYER_TONE[l.state]} size="xs" dot>{l.state}</Chip></span><small>Protection class {l.protectionClass}</small><p>{l.controls}</p><em>{l.note}</em></div>)}</div>
+              <td className={p.high ? 'so-bad' : ''}>{p.open ? `${p.open}${p.high ? ` · ${p.high} high` : ''}` : '—'}</td><td><I.ChevronRight size={14} className="ipam-chev" /></td></tr>))}</tbody></table>
+        <p className="vw-label so-tnote">Protection class rises inwards (EN 50600-2-5 style). Hover a cell for the controls in that layer.</p>
+      </section>}
+      {view === 'layers' && site && <Panel title="Open exceptions here" icon={I.DoorClosedLocked} count={open.length}>
+        {open.length ? <ul className="ipam-find">{open.map(d => <li key={d.id}><button type="button" onClick={() => go('detections', { det: d.id })}><SevChip s={d.severity} /><span className="cell-2"><b>{d.summary}</b><small>{fmtAgo(d.at, v.now)}</small></span><StateChip s={d.state} /></button></li>)}</ul> : <p className="vw-label">Nothing open at {dcId}.</p>}
       </Panel>}
-      <Panel className="dl-span-12" title="Access-rights review" icon={I.IdCard} info="ISO 27001 A.5.18 access rights: badges issued, unused for 90 days and expired but still active per datacenter, with the next quarterly review. CCTV is kept 90 days.">
-        <DataTable compact rows={v.physical.map(p => ({ ...p, id: p.dcId }))} pageSize={30} cols={[
+
+      {view === 'exceptions' && <section className="vw-card-section dcim-table">
+        <DataTable rows={rows} pageSize={25} defaultSort={{ key: 'at', dir: 'desc' }} onRow={d => go('detections', { det: d.id })}
+          toolbar={<ListToolbar shown={rows.length} total={det.length} noun="exceptions" onApply={apply} search={{ value: search, onChange: x => set({ q: x }), placeholder: 'Door, person, datacenter' }}
+            filters={[{ id: 'pst', label: 'Show', quick: true, value: pst, anyLabel: 'All', onChange: x => set({ pst: x }), options: [{ id: 'open', label: 'Open', count: open.length }, ...SEVS.slice(1).map(s => ({ id: s, label: s, count: det.filter(d => d.severity === s).length }))] }]} />}
+          cols={[
+            { key: 'at', header: 'When', sort: d => d.at, render: d => <span className="cell-2"><span className="nowrap">{fmtAgo(d.at, v.now)}</span><small>{fmtDateTime(d.at)}</small></span> },
+            { key: 's', header: 'Severity', sort: d => SEVS.indexOf(d.severity), render: d => <SevChip s={d.severity} /> },
+            { key: 'k', header: 'Exception', wrap: true, sort: d => d.title, render: d => <span className="cell-2"><b>{d.title}</b><small>{d.asset}</small></span> },
+            { key: 'p', header: 'Person', wrap: true, render: d => d.actor ?? <span className="vw-label">—</span> },
+            { key: 'd', header: 'Datacenter', sort: d => d.dcId, render: d => <DcLink id={d.dcId} tab="access" /> },
+            { key: 'st', header: 'State', sort: d => d.state, render: d => <span className="cell-2"><StateChip s={d.state} /><small>{d.caseId ?? d.assignee ?? ''}</small></span> }
+          ]} />
+      </section>}
+
+      {view === 'review' && <section className="vw-card-section dcim-table">
+        <DataTable rows={v.physical.map(p => ({ ...p, id: p.dcId }))} pageSize={30} defaultSort={{ key: 'e', dir: 'desc' }} cols={[
           { key: 'd', header: 'Datacenter', render: p => <DcLink id={p.dcId} tab="access" /> },
-          { key: 'b', header: 'Badges', sort: p => p.badges, render: p => fmtNum(p.badges) },
+          { key: 'b', header: 'Badges issued', sort: p => p.badges, render: p => fmtNum(p.badges) },
           { key: 'u', header: 'Unused 90 days', sort: p => p.unused90, render: p => fmtNum(p.unused90) },
           { key: 'e', header: 'Expired, still active', sort: p => p.expiredActive, render: p => <span className={p.expiredActive ? 'so-bad' : ''}>{fmtNum(p.expiredActive)}</span> },
-          { key: 'r', header: 'Next review', sort: p => p.nextReview, render: p => <span className={p.nextReview < v.now ? 'so-bad' : ''}>{fmtDate(p.nextReview)}</span> },
+          { key: 'r', header: 'Next review', sort: p => p.nextReview, render: p => <span className={p.nextReview < v.now ? 'so-bad' : ''}>{fmtDate(p.nextReview)}{p.nextReview < v.now ? ' · overdue' : ''}</span> },
           { key: 'x', header: 'Exceptions, 24 h', sort: p => p.exceptions, render: p => `${p.exceptions} (${p.open} open)` },
           { key: 'c', header: 'Physical + cyber', sort: p => p.correlated, render: p => p.correlated ? <span className="so-bad">{p.correlated} correlated</span> : <span className="vw-label">—</span> }
         ]} />
-      </Panel>
+      </section>}
     </div>
   );
 }

@@ -177,6 +177,8 @@ export const advanceSecCase = (id: string, outcome?: string) => mutate(() => S.s
 export const runSecCaseStep = (id: string, idx: number) => mutate(() => S.secRunStep(id, idx));       // POST /secops/cases/:id/steps/:n
 export const addSecCaseNote = (id: string, text: string) => mutate(() => S.secAddNote(id, text));     // POST /secops/cases/:id/notes
 export const setSecVuln = (id: string, state: 'Open' | 'Remediation planned' | 'Risk accepted', note?: string) => mutate(() => S.secSetVuln(id, state, note)); // PATCH /secops/vulnerabilities/:id
+export const saveSecRule = (x: import('./types').SecRuleInput, id?: string) => mutate(() => S.secSaveRule(x, id)); // POST /secops/rules · PUT /secops/rules/:id
+export const deleteSecRule = (id: string) => mutate(() => S.secDeleteRule(id));                    // DELETE /secops/rules/:id (hand-written rules only)
 export const setSecRule = (id: string, on: boolean) => mutate(() => S.secSetRule(id, on));            // PATCH /secops/rules/:id { enabled }
 
 /* ---- Compliance and Customization (Admin) */

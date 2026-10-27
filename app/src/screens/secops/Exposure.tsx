@@ -9,12 +9,18 @@ import { Btn, Chip, Drawer, KV, Seg } from '../../ui/kit';
 import { DataTable } from '../../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
 import { DcLink, Meter, NeLink } from '../../ui/status';
-import { SoftMeter } from '../../ui/Analytics';
+import { Facts, SoftMeter, StatGrid, StatTile } from '../../ui/Analytics';
 import { fmtAgo, fmtDate, fmtDateTime, fmtNum } from '../../lib/format';
 import type { SecProps } from './SecOps';
 import { SSVC_INFO, SSVC_TONE, SEV_TONE, SEVS } from './common';
 
 const SSVCS: SecSsvc[] = ['Act', 'Attend', 'Track*', 'Track'];
+const SSVC_TILE: Record<SecSsvc, string> = {
+  Act: 'Fix within 7 days: exploited in the wild (CISA KEV) on an internet-edge or crown-jewel asset. Click to list them.',
+  Attend: 'Fix within 30 days: exploited in the wild on other assets, or likely to be exploited (EPSS 10% or more) on an exposed one. Click to list them.',
+  'Track*': 'Watch closely, fix within 90 days: likely to be exploited, or critical (CVSS 9+) on an important asset. Click to list them.',
+  Track: 'Fix in the next maintenance cycle (180 days): no exploitation signal and low exposure. Click to list them.'
+};
 const SSVC_SUB: Record<SecSsvc, string> = { Act: 'fix within 7 days', Attend: 'fix within 30 days', 'Track*': 'watch, 90 days', Track: 'next cycle' };
 const cvssTone = (s: number) => (s >= 9 ? 'error' : s >= 7 ? 'orange' : s >= 4 ? 'warning' : 'neutral');
 
@@ -29,11 +35,18 @@ export function VulnsView(p: SecProps) {
   const adv = new Map(all.advisories.map(a => [a.id, a]));
   return (
     <>
-      <div className="so-ssvc">{SSVCS.map(s => { const n = v.vulns.filter(x => x.ssvc === s && x.state === 'Open').length; return (
-        <button key={s} type="button" className={`so-ssvc-t is-${SSVC_TONE[s]}${ssvc === s ? ' is-on' : ''}`} onClick={() => set({ ssvc: ssvc === s ? '' : s, vv: '' })}>
-          <span>{s}</span><b>{fmtNum(n)}</b><em>{SSVC_SUB[s]} · {new Set(v.vulns.filter(x => x.ssvc === s && x.state === 'Open').map(x => `${x.dcId}|${x.asset}`)).size} assets</em></button>); })}
-        <div className="so-ssvc-n"><I.Info size={14} /><span>{SSVC_INFO} Advisories here are illustrative; a live NVD, CISA KEV, FIRST EPSS and vendor PSIRT feed replaces them.</span></div>
-      </div>
+      <StatGrid>
+        {SSVCS.map(s => { const xs = v.vulns.filter(x => x.ssvc === s && x.state === 'Open'); const kev = xs.filter(x => x.kev).length; return (
+          <StatTile key={s} label={`SSVC ${s}`} value={fmtNum(xs.length)} sub={SSVC_SUB[s]} subTone={s === 'Act' && xs.length ? 'bad' : s === 'Attend' && xs.length ? 'warn' : undefined} active={ssvc === s} onClick={() => set({ ssvc: ssvc === s ? '' : s, vv: '' })} info={SSVC_TILE[s]}>
+            <Facts items={[{ n: fmtNum(new Set(xs.map(x => `${x.dcId}|${x.asset}`)).size), label: 'assets' }, { n: new Set(xs.map(x => x.advisoryId)).size, label: 'advisories' }, { n: kev, label: 'known exploited', tone: kev && s === 'Act' ? 'bad' : undefined }]} />
+          </StatTile>); })}
+        <StatTile label="Overdue" value={fmtNum(v.vulns.filter(x => x.state === 'Open' && x.due < v.now).length)} sub="findings" onClick={() => set({ vst: 'Open', vv: '' })} info="Open findings whose fix-by date (Act 7 days, Attend 30, Track* 90, Track 180 from the advisory's publication) has passed.">
+          <Facts items={[{ n: v.vulns.filter(x => x.state === 'Remediation planned').length, label: 'remediation planned' }, { n: v.vulns.filter(x => x.state === 'Risk accepted').length, label: 'risk accepted' }]} />
+        </StatTile>
+        <StatTile label="Advisories" value={all.advisories.filter(x => x.affected).length} sub={`of ${all.advisories.length}`} onClick={() => set({ vv: 'advisories' })} info={`${SSVC_INFO} Advisories here are illustrative; a live NVD, CISA KEV, FIRST EPSS and vendor PSIRT feed replaces them.`}>
+          <Facts items={[{ n: all.advisories.filter(x => x.kev && x.affected).length, label: 'known exploited' }, { n: all.advisories.filter(x => x.cvss >= 9 && x.affected).length, label: 'CVSS 9 or more' }]} />
+        </StatTile>
+      </StatGrid>
       <section className="vw-card-section dcim-table">
         {vv === 'advisories' ? <DataTable rows={all.advisories} pageSize={30} defaultSort={{ key: 'n', dir: 'desc' }} onRow={a => a.affected && set({ vv: '', q: a.id })} rowClass={a => (a.affected ? '' : 'is-muted')}
           toolbar={<ListToolbar shown={all.advisories.length} total={all.advisories.length} noun="advisories" tools={<Seg size="sm" value={vv} onChange={x => set({ vv: x === 'findings' ? '' : x })} options={[{ id: 'findings', label: 'Findings' }, { id: 'advisories', label: 'Advisories' }]} />} />}

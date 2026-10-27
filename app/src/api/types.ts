@@ -796,7 +796,9 @@ export interface SecSensor { id: string; name: string; kind: string; collector: 
 export interface SecRule {
   id: string; title: string; description: string; domain: SecDomain; sensors: string[]; matrix: 'Enterprise' | 'ICS' | 'Physical'; techniques: string[]; control?: string;
   level: SecSev; status: 'Stable' | 'Test' | 'Experimental'; context: boolean; enabled: boolean; sigma: string; sql: string; hits7d: number; tp7d: number; fp7d: number; playbookId?: string;
+  version: number; custom: boolean; updated?: number; by?: string; ocsf: string;
 }
+export interface SecRuleInput { title: string; description: string; domain: SecDomain; level: SecSev; status: SecRule['status']; sensors: string[]; techniques: string[]; control?: string; context: boolean; playbookId?: string; sigma: string; sql: string }
 export interface SecContext {
   room?: string; rack?: string; owner: string; tenant?: string; criticality: 'Crown jewel' | 'High' | 'Standard'; zone: SecZone;
   /* the change request covering this asset at that time, or none */

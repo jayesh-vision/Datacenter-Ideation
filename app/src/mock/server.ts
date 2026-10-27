@@ -38,7 +38,7 @@ import { templateInfo } from './delivery-templates';
 import { assignWorkOrder, claimTask, completeTask, failWorkOrder, instances as wfInstances, kpis as wfKpis, processes as wfProcesses, requestAccess, resetWorkflow, retryInstance, retryWorkOrder, signOffWorkOrder, tasks as wfTasks, tickCheck, workOrderDetail } from './workflow';
 import { approveStep, changeRegister, clearChangeMgmt, resetChangeMgmt, stepsApproved } from './changemgmt';
 import { addControl, addFramework, addPolicy, attestControl, clearCompliance, complianceView, resetCompliance, setPolicyActive } from './compliance';
-import { clearSecOps, resetSecOps, secCaseAdvance, secCaseNote, secCaseStep, secEscalate, secopsView, secRuleToggle, secTriage, secVulnSet } from './secops';
+import { clearSecOps, resetSecOps, secCaseAdvance, secCaseNote, secCaseStep, secEscalate, secopsView, secRuleDelete, secRuleSave, secRuleToggle, secTriage, secVulnSet } from './secops';
 import { addField as addField_, addTag as addTag_, customization as customization_, resetCustomization } from './customization';
 import { monthsTo, dateAfterMonths, WARN, CRIT } from '../lib/forecast';
 
@@ -1535,6 +1535,8 @@ export function secAdvanceCase(id: string, outcome?: string) { secCaseAdvance(db
 export function secRunStep(id: string, idx: number) { secCaseStep(db, id, idx); secAudit(id, 'step', String(idx + 1)); changed(); }
 export function secAddNote(id: string, text: string) { secCaseNote(db, id, text); changed(); }
 export function secSetVuln(id: string, state: Parameters<typeof secVulnSet>[2], note?: string) { secVulnSet(db, id, state, note); secAudit(id, 'vulnerability', state); changed(); }
+export function secSaveRule(x: Parameters<typeof secRuleSave>[1], id?: string) { const r = secRuleSave(db, x, ME, id); secAudit(r, 'rule', id ? 'edited' : 'created'); changed(); return r; }
+export function secDeleteRule(id: string) { secRuleDelete(db, id); secAudit(id, 'rule', 'deleted'); changed(); }
 export function secSetRule(id: string, on: boolean) { secRuleToggle(db, id, on); secAudit(id, 'rule', on ? 'enabled' : 'disabled'); changed(); }
 
 /* ---- Compliance and Customization (P2B merge, phase 7) */

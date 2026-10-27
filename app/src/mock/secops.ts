@@ -34,11 +34,13 @@ const ov = {
   newCases: [] as SecCase[],
   vuln: new Map<string, { state: SecVuln['state']; note?: string; changeId?: string }>(),
   rules: new Map<string, boolean>(),
+  /* rule edits and rules written by hand (27-Oct-2026, user: "add a new rule or edit an existing one") */
+  ruleEdits: new Map<string, RuleEdit>(), newRules: [] as RuleDef[],
   seq: 0
 };
 let cache: SecOpsView | null = null, cacheDb: Db | null = null;
 export const clearSecOps = () => { cache = null; };
-export const resetSecOps = () => { ov.det.clear(); ov.cases.clear(); ov.newCases.length = 0; ov.vuln.clear(); ov.rules.clear(); ov.seq = 0; cache = null; };
+export const resetSecOps = () => { ov.det.clear(); ov.cases.clear(); ov.newCases.length = 0; ov.vuln.clear(); ov.rules.clear(); ov.ruleEdits.clear(); ov.newRules.length = 0; ov.seq = 0; cache = null; };
 export function secopsView(db: Db): SecOpsView {
   if (cache && cacheDb === db) return cache;
   cacheDb = db; cache = build(db); return cache;
@@ -93,7 +95,10 @@ const TECH: [string, string, string, 'Enterprise' | 'ICS'][] = [
 
 /* rule = a Sigma rule compiled to ClickHouse SQL. `kinds` = the asset kinds it runs on; `rate` = background detections per matching site per week */
 interface RuleDef { id: string; title: string; description: string; domain: SecDomain; sensors: string[]; techniques: string[]; control?: string; level: SecSev; status: SecRule['status'];
-  context?: boolean; kinds: string[]; rate: number; ocsf: string; product: string; service: string; sel: string[]; cond: string; sql: string; playbookId?: string; burst?: [number, number] }
+  context?: boolean; kinds: string[]; rate: number; ocsf: string; product: string; service: string; sel: string[]; cond: string; sql: string; playbookId?: string; burst?: [number, number];
+  /* hand-written Sigma source (edited or new rules), version, who changed it last */
+  sigma?: string; version?: number; custom?: boolean; updated?: number; by?: string }
+export interface RuleEdit { title: string; description: string; domain: SecDomain; level: SecSev; status: SecRule['status']; sensors: string[]; techniques: string[]; control?: string; context: boolean; playbookId?: string; sigma: string; sql: string }
 const R = (x: RuleDef) => x;
 const NET_KINDS = ['Router', 'Switch', 'Firewall', 'DWDM', 'Access'];
 const RULES: RuleDef[] = [
@@ -361,7 +366,7 @@ function build(db: Db): SecOpsView {
     const sv = a.neId ? svcOf.get(a.neId) : undefined;
     return { room: a.room, rack: a.rack, owner: a.owner, tenant: a.tenant, criticality: a.crit, zone: a.zone, change: ch, onSite: inLog ? visits.length : undefined, inRoom: inRoom.slice(0, 4), services: sv?.s ?? 0, customers: sv?.c.size ?? 0 };
   };
-  const rules = RULES.map(r => r);
+  const rules: RuleDef[] = [...RULES.map(r => { const e = ov.ruleEdits.get(r.id); return e ? { ...r, ...e } : r; }), ...ov.newRules];
   const ruleBy = new Map(rules.map(r => [r.id, r]));
 
   /* ---- detections */
@@ -696,7 +701,7 @@ function build(db: Db): SecOpsView {
     const h7 = D.filter(d => d.ruleId === rd.id && d.at > now - 7 * DAY);
     const on = ov.rules.get(rd.id) ?? true;
     return { id: rd.id, title: rd.title, description: rd.description, domain: rd.domain, sensors: rd.sensors, matrix: rd.techniques.length ? (rd.techniques[0].startsWith('T0') ? 'ICS' : 'Enterprise') : 'Physical', techniques: rd.techniques, control: rd.control, level: rd.level, status: rd.status,
-      context: !!rd.context, enabled: on, sigma: sigmaOf(rd), sql: rd.sql, hits7d: h7.length, tp7d: h7.filter(d => d.disposition === 'True positive' || d.caseId).length, fp7d: h7.filter(d => d.disposition === 'False positive').length, playbookId: rd.playbookId };
+      context: !!rd.context, enabled: on, sigma: rd.sigma ?? sigmaOf(rd), sql: rd.sql, version: rd.version ?? 1, custom: !!rd.custom, updated: rd.updated, by: rd.by, ocsf: rd.ocsf, hits7d: h7.length, tp7d: h7.filter(d => d.disposition === 'True positive' || d.caseId).length, fp7d: h7.filter(d => d.disposition === 'False positive').length, playbookId: rd.playbookId };
   });
   const techniques: SecTechnique[] = TECH.map(([id, name, tactic, matrix]) => ({ id, name, tactic, matrix, rules: outRules.filter(r => r.enabled && r.techniques.includes(id)).length, hits: D.filter(d => d.techniques.includes(id)).length }));
 
@@ -850,3 +855,33 @@ export function secVulnSet(db: Db, id: string, state: SecVuln['state'], note?: s
   ov.vuln.set(id, { state, note, changeId: state === 'Remediation planned' ? `CHG-FW-${String(seedOf(id) % 9000 + 1000)}` : undefined }); cache = null;
 }
 export function secRuleToggle(_db: Db, id: string, on: boolean) { if (!RULES.some(r => r.id === id)) throw new Error(`${id} not found`); ov.rules.set(id, on); cache = null; }
+
+/* create / edit a detection rule: validated like a rule repository would (unique title, at least one sensor, techniques in scope,
+   Sigma source with title / logsource / detection / condition); edits bump the version */
+export function secRuleSave(db: Db, x: RuleEdit, by: string, id?: string): string {
+  const v = secopsView(db);
+  if (!x.title.trim()) throw new Error('Give the rule a title');
+  if (v.rules.some(r => r.id !== id && r.title.toLowerCase() === x.title.trim().toLowerCase())) throw new Error('Another rule has this title');
+  if (!x.sensors.length) throw new Error('Pick at least one sensor the rule reads');
+  const bad = x.techniques.filter(t => !TECH.some(k => k[0] === t)); if (bad.length) throw new Error(`Not a technique in scope: ${bad.join(', ')}`);
+  if (x.domain !== 'Physical' && !x.techniques.length) throw new Error('Map the rule to at least one ATT&CK technique');
+  for (const k of ['title:', 'logsource:', 'detection:', 'condition:']) if (!x.sigma.includes(k)) throw new Error(`The Sigma source needs a "${k}" line`);
+  if (!x.sql.trim()) throw new Error('Add the ClickHouse query the rule compiles to');
+  const clean: RuleEdit = { ...x, title: x.title.trim(), description: x.description.trim() };
+  if (id) {
+    const cur = v.rules.find(r => r.id === id); if (!cur) throw new Error(`${id} not found`);
+    const nr = ov.newRules.find(r => r.id === id);
+    if (nr) Object.assign(nr, clean, { version: (nr.version ?? 1) + 1, updated: db.now, by });
+    else ov.ruleEdits.set(id, { ...clean, ...({ version: cur.version + 1, updated: db.now, by } as object) } as RuleEdit);
+    cache = null; return id;
+  }
+  const n = Math.max(...v.rules.map(r => Number(r.id.slice(3)) || 0)) + 1;
+  const nid = `SR-${String(Math.max(100, n)).padStart(3, '0')}`;
+  ov.newRules.push({ id: nid, ...clean, kinds: [], rate: 0, ocsf: 'Detection Finding [2004]', product: 'custom', service: 'custom', sel: [], cond: '', custom: true, version: 1, updated: db.now, by });
+  cache = null; return nid;
+}
+export function secRuleDelete(_db: Db, id: string) {
+  const i = ov.newRules.findIndex(r => r.id === id);
+  if (i < 0) throw new Error('Only rules written here can be deleted; disable a built-in rule instead');
+  ov.newRules.splice(i, 1); ov.rules.delete(id); cache = null;
+}
