@@ -41,7 +41,7 @@ const NAV: { group: string; items: { to: string; label: string; icon: I.LucideIc
     { to: '/delivery', tab: 'commissioning', label: 'Commissioning', icon: I.ClipboardCheck, match: /^\/delivery/ },
     { to: '/workorders', label: 'Work orders', icon: I.ClipboardList, match: /^\/workorders/ }
   ] },
-  { group: 'Admin', items: [{ to: '/compliance', label: 'Compliance', icon: I.ShieldCheck }, { to: '/customization', label: 'Customization', icon: I.SlidersHorizontal }] },
+  { group: 'Admin', items: [{ to: '/compliance', label: 'Compliance', icon: I.ShieldCheck }, { to: '/security-sources', label: 'Security data sources', icon: I.DatabaseZap }, { to: '/customization', label: 'Customization', icon: I.SlidersHorizontal }] },
   /* how every record links to the others (user, 12-Oct-2026) */
   { group: 'Reference', items: [{ to: '/data-model', label: 'Data model', icon: I.Waypoints }, { to: '/help', label: 'Help & FAQ', icon: I.CircleHelp }] },
 ];

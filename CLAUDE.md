@@ -895,7 +895,7 @@ clean worktree at the repo root → wait for Ready → optional live check (`-c`
 ## Security Ops (26-Oct-2026, user: "Security Ops module as a new menu … use the industry standards datacenter Security Ops uses")
 Menu group **Security** → **Security Ops** (`/secops`, `screens/secops/*`, styles `styles/secops.css`), sub-menus in `shell/submenus.tsx` `secops`:
 Insights (`overview`) · Detections · Cases (+ Playbooks) · Threat coverage (`attack` + `rules`) · Vulnerabilities · Hardening & drift (`hardening` + `drift`) ·
-OT security · Physical security · Data sources. `?dc=` scopes every view to one datacenter. Decided with the user: Wazuh is not used (its state lives in
+OT security · Physical security. Data sources moved to **Admin → Security data sources** (`/security-sources`, `SecuritySources` in SecOps.tsx; 27-Oct-2026, user: it serves the SOC engineer, not the analyst; `/secops?tab=sources` redirects; Insights keeps the gaps and links there). `?dc=` scopes every view to one datacenter. Decided with the user: Wazuh is not used (its state lives in
 OpenSearch; the target store is ClickHouse only) — sensors (TACACS+ / syslog / Oxidized config backups for the network, Redfish for BMCs, osquery,
 Falco, k8s audit, Trivy, Suricata, Zeek, NetFlow, a passive OT sensor, PACS, VMS) → OTel collectors → OCSF tables in ClickHouse; Sigma rules compiled
 to ClickHouse SQL; datacenter context (DCIM / IPAM / change windows / tickets) as ClickHouse dictionaries.

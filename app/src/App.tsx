@@ -31,7 +31,7 @@ import { WorkOrders } from './screens/workorders/WorkOrders';
 import { InstancePage } from './screens/workorders/InstancePage';
 import { Compliance } from './screens/admin/Compliance';
 import { Customization } from './screens/admin/Customization';
-import { SecOps } from './screens/secops/SecOps';
+import { SecOps, SecuritySources } from './screens/secops/SecOps';
 
 /* Estate → Datacenter → Infrastructure → Connectivity → Services → Customers
    → Events → Impact → Diagnosis → Recommended action */
@@ -105,6 +105,7 @@ export default function App() {
           <Route path="dcim/racks/:id" element={<RackPage />} />
           <Route path="dcim/types/:id" element={<TypePage />} />
           <Route path="secops" element={<SecOps />} />
+          <Route path="security-sources" element={<SecuritySources />} />
           <Route path="compliance" element={<Compliance />} />
           <Route path="customization" element={<Customization />} />
           <Route path="data-model" element={<DataModel />} />

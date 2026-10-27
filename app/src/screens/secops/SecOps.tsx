@@ -5,7 +5,7 @@
    NIST CSF 2.0 posture. Sub-menus (shell/submenus.tsx `secops`) map to `?tab=`; `?dc=` scopes every view to one datacenter.
    Data: mock/secops.ts (derived from the estate; physical detections = the access log's exceptions, unauthorised drifts = SR-002). */
 import { useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { getSecOps, useQuery } from '../../api';
 import type { SecOpsView } from '../../api/types';
@@ -18,6 +18,7 @@ import { CasesView, PlaybooksView } from './Cases';
 import { AttackView, RulesView } from './Coverage';
 import { VulnsView, HardeningView, DriftView } from './Exposure';
 import { OtView, PhysicalView, SourcesView } from './Plant';
+export { SourcesView };
 import '../../styles/dcim.css';
 import '../../styles/delivery.css';
 import '../../styles/ipam.css';
@@ -51,6 +52,8 @@ export function SecOps() {
   const { data: all } = useQuery(getSecOps, []);
   const toast = useToast();
   const v = useMemo(() => (all ? scope(all, dcId) : null), [all, dcId]);
+  /* Data sources moved to Admin → Security data sources (27-Oct-2026, user); old links land there */
+  if (tab === 'sources') return <Navigate to="/security-sources" replace />;
   if (!all || !v) return <Loading />;
   const p: SecProps = { v, all, dcId, q: k => sp.get(k) ?? '', set, go, toast: toast.show };
   const open = v.detections.filter(d => d.state !== 'Closed');
@@ -82,7 +85,22 @@ export function SecOps() {
       {tab === 'drift' && <DriftView {...p} />}
       {tab === 'ot' && <OtView {...p} />}
       {tab === 'physical' && <PhysicalView {...p} />}
-      {tab === 'sources' && <SourcesView {...p} />}
+      {toast.node}
+    </div>
+  );
+}
+
+/* Admin → Security data sources: the SOC engineer's view of the sensors, collectors, OCSF tables, coverage and retention behind Security Ops */
+export function SecuritySources() {
+  usePage([{ label: 'Admin' }, { label: 'Security data sources', to: '/security-sources' }]);
+  const { data: all } = useQuery(getSecOps, []);
+  const toast = useToast();
+  if (!all) return <Loading />;
+  const p: SecProps = { v: all, all, dcId: '', q: () => '', set: () => {}, go: () => {}, toast: toast.show };
+  return (
+    <div className="page dcim secops">
+      <PageHead title="Security data sources" sub="Every sensor feeding Security Ops (OTel collectors into OCSF tables in ClickHouse): what it covers, what it misses, volume, retention and health." />
+      <SourcesView {...p} />
       {toast.node}
     </div>
   );

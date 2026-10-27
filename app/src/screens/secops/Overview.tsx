@@ -1,6 +1,7 @@
 /* Security Ops → Insights: a posture dashboard, not a list. NIST CSF 2.0 functions on top, then the SOC's numbers (open detections, cases,
    response times, exposure, drift, coverage), what was detected over 14 days, the cases being worked, the sites at most risk, what needs
    action and the ATT&CK techniques seen most. Every figure links to the list filtered to the rows behind it. */
+import { useNavigate } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { Panel } from '../../ui/kit';
 import { Facts, SoftMeter, Split, StatGrid, StatTile } from '../../ui/Analytics';
@@ -11,10 +12,13 @@ import type { SecCsf } from '../../api/types';
 import type { SecProps, SecTab } from './SecOps';
 import { DomainTag, PhaseChip, Ring, SevChip, pct, plural, SSVC_INFO } from './common';
 
-const CSF_TAB: Record<SecCsf['fn'], SecTab> = { Govern: 'physical', Identify: 'sources', Protect: 'vulns', Detect: 'attack', Respond: 'cases', Recover: 'drift' };
+const CSF_TAB: Record<SecCsf['fn'], SecTab | 'sources'> = { Govern: 'physical', Identify: 'sources', Protect: 'vulns', Detect: 'attack', Respond: 'cases', Recover: 'drift' };
 const CSF_ICON: Record<SecCsf['fn'], I.LucideIcon> = { Govern: I.Landmark, Identify: I.ScanSearch, Protect: I.ShieldCheck, Detect: I.Radar, Respond: I.Siren, Recover: I.RotateCcw };
 
-export function SecOverview({ v, all, dcId, go }: SecProps) {
+export function SecOverview({ v, all, dcId, go: goTab }: SecProps) {
+  const nav = useNavigate();
+  /* Data sources live under Admin now */
+  const go = (t: SecTab | 'sources', extra?: Record<string, string>) => (t === 'sources' ? nav('/security-sources') : goTab(t, extra));
   const now = v.now;
   const open = v.detections.filter(d => d.state !== 'Closed');
   const sev = (s: string) => open.filter(d => d.severity === s).length;
