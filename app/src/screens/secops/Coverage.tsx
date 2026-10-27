@@ -12,6 +12,20 @@ import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
 import { fmtDateTime, fmtNum } from '../../lib/format';
 import type { SecProps } from './SecOps';
 import { DOMAINS, DomainTag, SEVS, SevChip, TACTICS, Tech, pct } from './common';
+import { FacSection, FacSections } from '../../ui/Sections';
+
+/* the adversary's goal per tactic (MITRE ATT&CK wording, shortened) */
+const TAC_GOAL: Record<'Enterprise' | 'ICS', Record<string, string>> = {
+  Enterprise: { 'Initial Access': 'Getting into the network', Execution: 'Running malicious code', Persistence: 'Keeping a foothold', 'Privilege Escalation': 'Gaining higher permissions',
+    'Defense Evasion': 'Avoiding being detected', 'Credential Access': 'Stealing account names and passwords', Discovery: 'Learning the environment', 'Lateral Movement': 'Moving through the environment',
+    Collection: 'Gathering data of interest', 'Command and Control': 'Talking to compromised systems', Exfiltration: 'Stealing data', Impact: 'Disrupting or destroying systems and data' },
+  ICS: { 'Initial Access': 'Getting into the facility control network', Execution: 'Running code on or manipulating controllers', Persistence: 'Keeping a foothold on controllers', Discovery: 'Mapping the plant and its controllers',
+    'Lateral Movement': 'Moving between controllers and zones', Collection: 'Gathering plant data and setpoints', 'Inhibit Response Function': 'Stopping alarms and safety functions from responding',
+    'Impair Process Control': 'Manipulating power or cooling control', Impact: 'Causing loss of power, cooling or control' }
+};
+const TAC_ICON: Record<string, I.LucideIcon> = { 'Initial Access': I.DoorOpen, Execution: I.Terminal, Persistence: I.Anchor, 'Privilege Escalation': I.TrendingUp, 'Defense Evasion': I.EyeOff,
+  'Credential Access': I.KeyRound, Discovery: I.Search, 'Lateral Movement': I.ArrowLeftRight, Collection: I.FolderDown, 'Command and Control': I.RadioTower, Exfiltration: I.Upload, Impact: I.Flame,
+  'Inhibit Response Function': I.BellOff, 'Impair Process Control': I.SlidersHorizontal };
 
 /* ---------------------------------------------------------------- ATT&CK coverage */
 export function AttackView(p: SecProps) {
@@ -38,23 +52,32 @@ export function AttackView(p: SecProps) {
         </div>
         <Seg size="sm" value={show} onChange={x => set({ tf: x === 'all' ? '' : x })} options={[{ id: 'all', label: `All ${ts.length}` }, { id: 'gaps', label: `Gaps ${gaps}` }, { id: 'seen', label: `Seen ${seen}` }]} />
       </section>
-      <section className="vw-card-section so-cov">
-        <div className="so-cov-leg"><span><i className="is-cov" />Covered by a rule</span><span><i className="is-gap" />Gap: no rule yet</span><span><i className="is-hot" />Detections in 14 days (darker = more)</span></div>
-        {TACTICS[mx].map(tac => {
-          const all_ = ts.filter(t => t.tactic === tac), col = all_.filter(keep), c = all_.filter(t => t.rules).length;
-          if (!col.length) return null;
-          return (
-            <div key={tac} className="so-cov-row">
-              <div className="so-cov-tac"><b>{tac}</b><small>{c} of {all_.length} covered</small><span className="so-cov-bar"><i style={{ width: `${pct(c, all_.length)}%` }} /></span></div>
+      <div className="so-cov-leg"><span><i className="is-cov" />Covered by a rule</span><span><i className="is-gap" />Gap: no rule yet</span><span><i className="is-hot" />Detections in 14 days (darker = more)</span></div>
+      <FacSections key={`${mx}-${show}`} scope={`secops-attack-${mx}`} ids={TACTICS[mx]}>{open => TACTICS[mx].map(tac => {
+        const all_ = ts.filter(t => t.tactic === tac), col = all_.filter(keep), c = all_.filter(t => t.rules).length, g = all_.length - c;
+        if (!col.length) return null;
+        const seenHere = all_.map(t => [t, hits.get(t.id) ?? 0] as const).filter(([, h]) => h).sort((x, y) => y[1] - x[1]);
+        const det = seenHere.reduce((n, [, h]) => n + h, 0), rules = new Set(all.rules.filter(r => r.enabled && r.techniques.some(id => all_.some(t => t.id === id))).map(r => r.id)).size;
+        return (
+          <FacSection key={tac} id={tac} scope={`secops-attack-${mx}`} open={open} title={tac} icon={TAC_ICON[tac] ?? I.Crosshair} desc={TAC_GOAL[mx][tac] ?? ''}
+            summary={[
+              { l: 'Coverage', v: `${c} of ${all_.length} · ${pct(c, all_.length)}%`, tone: c === 0 ? 'bad' : g ? 'warn' : 'ok' },
+              { l: 'Gaps', v: g ? `${g} technique${g === 1 ? '' : 's'}` : 'none', tone: g ? (c === 0 ? 'bad' : 'warn') : 'ok' },
+              { l: 'Rules', v: String(rules) },
+              { l: 'Detections, 14 d', v: fmtNum(det) },
+              { l: 'Seen most', v: seenHere[0] ? `${seenHere[0][0].id} · ${seenHere[0][1]}` : '—' }
+            ]}>
+            <div className="vw-card-section so-cov-in">
+              <div className="so-cov-tac"><b>{c} of {all_.length} covered</b><small>{g ? `${g} gap${g === 1 ? '' : 's'} to close` : 'Every technique has a rule'}</small><span className="so-cov-bar"><i style={{ width: `${pct(c, all_.length)}%` }} /></span></div>
               <div className="so-cov-ts">{col.map(t => { const h = hits.get(t.id) ?? 0; return (
                 <button key={t.id} type="button" className={`so-tt ${t.rules ? 'is-cov' : 'is-gap'}${h ? ` is-h${h >= 30 ? 3 : h >= 8 ? 2 : 1}` : ''}${cur?.id === t.id ? ' is-on' : ''}`} onClick={() => set({ tq: t.id })} title={`${t.id} ${t.name}`}>
                   <span className="so-tt-top"><span className="mono">{t.id}</span>{h > 0 && <em>{h}</em>}</span>
                   <b>{t.name.replace(/^.*?: /, '')}</b>
                   <small>{t.rules ? `${t.rules} rule${t.rules === 1 ? '' : 's'}` : 'No rule'}</small>
                 </button>); })}</div>
-            </div>);
-        })}
-      </section>
+            </div>
+          </FacSection>);
+      })}</FacSections>
       {cur && <TechDrawer t={cur} p={p} onClose={() => set({ tq: '' })} onWrite={() => setForm({ techniques: [cur.id], domain: cur.matrix === 'ICS' ? 'Facility OT' : 'Network', title: `${cur.name.replace(/^.*?: /, '')} detected` })} />}
       {form && <RuleForm p={p} init={form} onClose={() => setForm(null)} onSaved={id => { setForm(null); set({ tq: '' }); p.go('rules', { rule: id }); }} />}
     </div>

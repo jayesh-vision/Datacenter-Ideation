@@ -5,11 +5,11 @@ import { Link } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { setSecVuln } from '../../api';
 import type { SecSsvc, SecVuln } from '../../api/types';
-import { Btn, Chip, Drawer, KV, Seg } from '../../ui/kit';
+import { Btn, Chip, Drawer, KV, Tabs } from '../../ui/kit';
 import { DataTable } from '../../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
 import { DcLink, Meter, NeLink } from '../../ui/status';
-import { Facts, SoftMeter, StatGrid, StatTile } from '../../ui/Analytics';
+import { Facts, SoftMeter, Split, StatGrid, StatTile, type Part } from '../../ui/Analytics';
 import { fmtAgo, fmtDate, fmtDateTime, fmtNum } from '../../lib/format';
 import type { SecProps } from './SecOps';
 import { SSVC_INFO, SSVC_TONE, SEV_TONE, SEVS } from './common';
@@ -22,6 +22,8 @@ const SSVC_TILE: Record<SecSsvc, string> = {
   Track: 'Fix in the next maintenance cycle (180 days): no exploitation signal and low exposure. Click to list them.'
 };
 const SSVC_SUB: Record<SecSsvc, string> = { Act: 'fix within 7 days', Attend: 'fix within 30 days', 'Track*': 'watch, 90 days', Track: 'next cycle' };
+/* findings by asset type for a tile bar: the two biggest, the rest as Other */
+const byKind = (xs: SecVuln[], tone: Part['tone']): Part[] => { const m = [...xs.reduce((a, x) => a.set(x.assetKind, (a.get(x.assetKind) ?? 0) + 1), new Map<string, number>())].sort((a, b) => b[1] - a[1]); const rest = m.slice(2).reduce((a, [, n]) => a + n, 0); return [...m.slice(0, 2).map(([k, n]) => ({ key: k, label: k === 'UPS NMC' ? 'UPS cards' : k, n, tone })), ...(rest ? [{ key: '_o', label: 'Other', n: rest, tone: 'neutral' as const }] : [])]; };
 const cvssTone = (s: number) => (s >= 9 ? 'error' : s >= 7 ? 'orange' : s >= 4 ? 'warning' : 'neutral');
 
 export function VulnsView(p: SecProps) {
@@ -35,21 +37,25 @@ export function VulnsView(p: SecProps) {
   const adv = new Map(all.advisories.map(a => [a.id, a]));
   return (
     <>
-      <StatGrid>
+      <Tabs value={vv} onChange={x => set({ vv: x === 'findings' ? '' : x })} tabs={[{ id: 'findings', label: 'Findings', count: v.vulns.length }, { id: 'advisories', label: 'Advisories', count: all.advisories.length }]} />
+      <StatGrid fit>
         {SSVCS.map(s => { const xs = v.vulns.filter(x => x.ssvc === s && x.state === 'Open'); const kev = xs.filter(x => x.kev).length; return (
           <StatTile key={s} label={`SSVC ${s}`} value={fmtNum(xs.length)} sub={SSVC_SUB[s]} subTone={s === 'Act' && xs.length ? 'bad' : s === 'Attend' && xs.length ? 'warn' : undefined} active={ssvc === s} onClick={() => set({ ssvc: ssvc === s ? '' : s, vv: '' })} info={SSVC_TILE[s]}>
-            <Facts items={[{ n: fmtNum(new Set(xs.map(x => `${x.dcId}|${x.asset}`)).size), label: 'assets' }, { n: new Set(xs.map(x => x.advisoryId)).size, label: 'advisories' }, { n: kev, label: 'known exploited', tone: kev && s === 'Act' ? 'bad' : undefined }]} />
+            <Split parts={byKind(xs, s === 'Act' ? 'error' : s === 'Attend' ? 'orange' : 'info')} />
+            <Facts items={[{ n: kev, label: 'known exploited', tone: kev && s === 'Act' ? 'bad' : undefined }]} />
           </StatTile>); })}
         <StatTile label="Overdue" value={fmtNum(v.vulns.filter(x => x.state === 'Open' && x.due < v.now).length)} sub="findings" onClick={() => set({ vst: 'Open', vv: '' })} info="Open findings whose fix-by date (Act 7 days, Attend 30, Track* 90, Track 180 from the advisory's publication) has passed.">
-          <Facts items={[{ n: v.vulns.filter(x => x.state === 'Remediation planned').length, label: 'remediation planned' }, { n: v.vulns.filter(x => x.state === 'Risk accepted').length, label: 'risk accepted' }]} />
+          <Split parts={SSVCS.slice(0, 3).map(k => ({ key: k, label: k, n: v.vulns.filter(x => x.ssvc === k && x.state === 'Open' && x.due < v.now).length, tone: k === 'Act' ? 'error' as const : k === 'Attend' ? 'orange' as const : 'info' as const }))} />
+          <Facts items={[{ n: v.vulns.filter(x => x.state === 'Remediation planned').length, label: 'planned · ' + v.vulns.filter(x => x.state === 'Risk accepted').length + ' accepted' }]} />
         </StatTile>
         <StatTile label="Advisories" value={all.advisories.filter(x => x.affected).length} sub={`of ${all.advisories.length}`} onClick={() => set({ vv: 'advisories' })} info={`${SSVC_INFO} Advisories here are illustrative; a live NVD, CISA KEV, FIRST EPSS and vendor PSIRT feed replaces them.`}>
-          <Facts items={[{ n: all.advisories.filter(x => x.kev && x.affected).length, label: 'known exploited' }, { n: all.advisories.filter(x => x.cvss >= 9 && x.affected).length, label: 'CVSS 9 or more' }]} />
+          <Split parts={(['Firmware', 'Package', 'Container image'] as const).map(k => ({ key: k, label: k === 'Container image' ? 'Container' : k, n: all.advisories.filter(x => x.affected && x.kind === k).length, tone: 'info' as const }))} />
+          <Facts items={[{ n: all.advisories.filter(x => x.kev && x.affected).length, label: 'known exploited' }]} />
         </StatTile>
       </StatGrid>
       <section className="vw-card-section dcim-table">
         {vv === 'advisories' ? <DataTable rows={all.advisories} pageSize={30} defaultSort={{ key: 'n', dir: 'desc' }} onRow={a => a.affected && set({ vv: '', q: a.id })} rowClass={a => (a.affected ? '' : 'is-muted')}
-          toolbar={<ListToolbar shown={all.advisories.length} total={all.advisories.length} noun="advisories" tools={<Seg size="sm" value={vv} onChange={x => set({ vv: x === 'findings' ? '' : x })} options={[{ id: 'findings', label: 'Findings' }, { id: 'advisories', label: 'Advisories' }]} />} />}
+          toolbar={<ListToolbar shown={all.advisories.length} total={all.advisories.length} noun="advisories" />}
           cols={[
             { key: 'a', header: 'Advisory', wrap: true, sort: a => a.id, render: a => <span className="cell-2"><b>{a.title}</b><small><span className="mono">{a.id}</span> · {a.vendor} {a.product} · {a.kind}</small></span> },
             { key: 'c', header: 'CVSS v4', sort: a => a.cvss, render: a => <span className="cell-2"><Chip tone={cvssTone(a.cvss)} size="xs">{a.cvss.toFixed(1)}</Chip><small className="mono">{a.vector.replace('CVSS:4.0/', '')}</small></span> },
@@ -61,7 +67,6 @@ export function VulnsView(p: SecProps) {
           ]} />
         : <DataTable rows={rows} pageSize={30} defaultSort={{ key: 'ss', dir: 'asc' }} onRow={x => set({ vuln: x.id })} rowClass={x => (x.state === 'Open' ? '' : 'is-muted')}
           toolbar={<ListToolbar shown={rows.length} total={v.vulns.length} noun="findings" onApply={apply} search={{ value: search, onChange: x => set({ q: x }), placeholder: 'Advisory, asset, version, datacenter' }}
-            tools={<Seg size="sm" value={vv} onChange={x => set({ vv: x === 'findings' ? '' : x })} options={[{ id: 'findings', label: 'Findings' }, { id: 'advisories', label: 'Advisories' }]} />}
             filters={[{ id: 'ssvc', label: 'SSVC', quick: true, value: ssvc, anyLabel: 'Any decision', onChange: x => set({ ssvc: x }), options: SSVCS.map(s => ({ id: s, label: s, count: v.vulns.filter(x => x.ssvc === s).length })) },
               { id: 'vk', label: 'Asset type', quick: true, value: kind, anyLabel: 'Any asset type', onChange: x => set({ vk: x }), options: kinds.map(k => ({ id: k, label: k, count: v.vulns.filter(x => x.assetKind === k).length })) },
               { id: 'vst', label: 'State', value: vst, anyLabel: 'Any state', onChange: x => set({ vst: x }), options: (['Open', 'Remediation planned', 'Risk accepted'] as const).map(s => ({ id: s, label: s, count: v.vulns.filter(x => x.state === s).length })) }]} />}

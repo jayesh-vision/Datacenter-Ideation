@@ -5,10 +5,15 @@
    physical = defence in depth with EN 50600-2-5 style protection classes; data sources = sensor → OTel → OCSF table in ClickHouse. */
 import * as I from 'lucide-react';
 import type { SecOtZone, SecPhysLayer, SecSource } from '../../api/types';
-import { Chip, Panel, Seg } from '../../ui/kit';
+import { Chip, Panel, Tabs } from '../../ui/kit';
 import { DataTable } from '../../ui/DataTable';
 import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
-import { Facts, Split, StatGrid, StatTile } from '../../ui/Analytics';
+import { Facts, SoftMeter, Split, StatGrid, StatTile, type Part } from '../../ui/Analytics';
+
+/* at most three bar parts from a count map, biggest first, the rest folded into "Other" */
+const top3 = (m: Map<string, number>, tone: Part['tone'] = 'info'): Part[] => { const xs = [...m].sort((a, b) => b[1] - a[1]); const head = xs.slice(0, 2).map(([k, n]) => ({ key: k, label: k, n, tone })); const rest = xs.slice(2).reduce((a, [, n]) => a + n, 0); return rest ? [...head, { key: '_o', label: 'Other', n: rest, tone: 'neutral' }] : head; };
+const countBy = <T,>(xs: T[], f: (x: T) => string, w: (x: T) => number = () => 1) => xs.reduce((m, x) => m.set(f(x), (m.get(f(x)) ?? 0) + w(x)), new Map<string, number>());
+const KIND_SHORT: Record<string, string> = { 'UPS NMC': 'UPS cards', 'PDU fleet': 'Rack PDUs', 'Cooling controller': 'Cooling', 'Power controller': 'Power', VMS: 'Cameras', 'PACS controller': 'Access control', 'Fire panel': 'Fire', BMS: 'BMS', Monitoring: 'DCIM' };
 import { DcLink, Meter } from '../../ui/status';
 import { fmtAgo, fmtDate, fmtDateTime, fmtNum } from '../../lib/format';
 import type { SecProps } from './SecOps';
@@ -35,34 +40,34 @@ export function OtView({ v, q, set, go, dcId }: SecProps) {
     .map(s => ({ ...s, short: s.zones.filter(z => z.slA < z.slT).length, findings: s.zones.reduce((n, z) => n + z.findings.length, 0) }))
     .sort((a, b) => b.short - a.short || b.findings - a.findings);
   const toCtl = (f: string) => set({ otv: 'controllers', otf: f });
+  const kindN = (xs: typeof v.otAssets, w: (a: typeof v.otAssets[number]) => number) => top3(countBy(xs.filter(a => w(a) > 0), a => KIND_SHORT[a.kind] ?? a.kind, w), 'orange');
+  const icsAll = v.techniques.filter(t => t.matrix === 'ICS'), icsCov = icsAll.filter(t => t.rules).length;
   return (
-    <div className="so-stack">
-      <StatGrid>
+    <>
+      <Tabs value={view} onChange={x => set({ otv: x === 'zones' ? '' : x, otf: '', q: '' })} tabs={[{ id: 'zones', label: 'Zones & conduits', count: v.otZones.length }, { id: 'controllers', label: 'Controllers', count: v.otAssets.length }]} />
+      <StatGrid fit>
         <StatTile label="Zones below target" value={short.length} sub={`of ${v.otZones.length} zones`} subTone={short.length ? 'warn' : undefined} onClick={() => set({ otv: '' })}
           info="IEC 62443-3-2 zones (electrical, mechanical, fire, physical security, DCIM) whose achieved security level SL-A is below the target SL-T set for them. Click for the zones view.">
           <Split parts={[{ key: 's', label: 'Below target', n: short.length, tone: 'orange' }, { key: 'o', label: 'At target', n: v.otZones.length - short.length, tone: 'info' }]} />
         </StatTile>
         <StatTile label="Default credentials" value={fmtNum(creds)} sub="controllers" subTone={creds ? 'bad' : undefined} onClick={() => toCtl('creds')} info="UPS cards, PDUs, cooling controllers and cameras still on the vendor's factory account (IEC 62443-3-3 SR 1.5). Click to list them.">
-          <Facts items={[{ n: v.otAssets.filter(a => a.defaultCreds).length, label: 'controller groups' }, { n: new Set(v.otAssets.filter(a => a.defaultCreds).map(a => a.dcId)).size, label: 'datacenters' }]} />
+          <Split parts={kindN(v.otAssets, a => a.defaultCreds)} />
         </StatTile>
         <StatTile label="Reachable from IT" value={fmtNum(reach)} sub="outside a conduit" subTone={reach ? 'warn' : undefined} onClick={() => toCtl('reach')} info="Controllers an IT network can reach without passing the OT firewall or data diode (IEC 62443-3-3 SR 5.1 segmentation). Click to list them.">
-          <Facts items={[{ n: clear, label: 'cleartext protocol' }]} />
+          <Split parts={kindN(v.otAssets, a => (a.reachableFromIt ? 1 : 0))} />
         </StatTile>
         <StatTile label="Controllers by risk" value={fmtNum(v.otAssets.length)} sub={`${fmtNum(units)} units`} onClick={() => toCtl('risk')} info="Every facility controller (or fleet, e.g. a site's rack PDUs) by risk: Critical = default credentials and reachable from IT, High = default credentials or a firmware flaw to act on.">
           <Split parts={[{ key: 'c', label: 'Critical', n: risk('Critical'), tone: 'error' }, { key: 'h', label: 'High', n: risk('High'), tone: 'orange' }, { key: 'o', label: 'Medium / low', n: risk('Medium') + risk('Low'), tone: 'info' }]} />
         </StatTile>
         <StatTile label="OT detections" value={fmtNum(otOpen.length)} sub={`open of ${otDet.length}`} onClick={() => go('detections', { dom: 'Facility OT' })} info="Detections from the passive OT sensor (Modbus / BACnet writes, default-credential logins, new hosts, setpoint and alarm changes), mapped to ATT&CK for ICS. Click for the queue.">
-          <Facts items={[{ n: otDet.filter(d => d.severity === 'Critical').length, label: 'critical' }, { n: otDet.filter(d => d.caseId).length, label: 'in a case' }]} />
+          <Split parts={[{ key: 'c', label: 'Critical', n: otDet.filter(d => d.severity === 'Critical').length, tone: 'error' }, { key: 'h', label: 'High', n: otDet.filter(d => d.severity === 'High').length, tone: 'orange' }, { key: 'o', label: 'Medium / low', n: otDet.filter(d => d.severity === 'Medium' || d.severity === 'Low').length, tone: 'info' }]} />
         </StatTile>
-        <StatTile label="ICS coverage" value={`${pct(v.techniques.filter(t => t.matrix === 'ICS' && t.rules).length, v.techniques.filter(t => t.matrix === 'ICS').length)}%`} sub="ATT&CK for ICS" onClick={() => go('attack', { mx: 'ICS' })} info="Share of the ATT&CK for ICS techniques in scope that an enabled rule detects. Click for the coverage view.">
-          <Facts items={[{ n: v.techniques.filter(t => t.matrix === 'ICS' && !t.rules).length, label: 'techniques without a rule' }]} />
+        <StatTile label="ICS coverage" value={`${pct(icsCov, icsAll.length)}%`} sub={`${icsCov} of ${icsAll.length} techniques`} onClick={() => go('attack', { mx: 'ICS' })} info="Share of the ATT&CK for ICS techniques in scope that an enabled rule detects. Click for the coverage view.">
+          <SoftMeter pct={pct(icsCov, icsAll.length)} tone={pct(icsCov, icsAll.length) >= 60 ? 'info' : 'warning'} />
+          <Facts items={[{ n: icsAll.length - icsCov, label: 'techniques without a rule', tone: icsAll.length - icsCov ? 'warn' : undefined }, { n: clear, label: 'controllers on a cleartext protocol' }]} />
         </StatTile>
       </StatGrid>
 
-      <div className="so-viewbar">
-        <Seg value={view} onChange={x => set({ otv: x === 'zones' ? '' : x, otf: '', q: '' })} options={[{ id: 'zones', label: `Zones & conduits · ${v.otZones.length}` }, { id: 'controllers', label: `Controllers · ${v.otAssets.length}` }]} />
-        <span className="vw-label">{view === 'zones' ? (dcId ? `${dcId}: each zone's target against achieved security level, its conduits and findings` : 'One row per datacenter, worst first · click a datacenter for its zone detail') : 'Every facility controller with its protocols and findings'}</span>
-      </div>
 
       {view === 'zones' && !dcId && <section className="vw-card-section dcim-table">
         <table className="so-ztab"><thead><tr><th>Datacenter</th>{ZONE_KEYS.map(([, n]) => <th key={n}>{n}</th>)}<th>Below target</th><th>Findings</th><th /></tr></thead>
@@ -99,7 +104,7 @@ export function OtView({ v, q, set, go, dcId }: SecProps) {
             { key: 'l', header: 'Last seen', sort: a => a.lastSeen, render: a => fmtAgo(a.lastSeen, v.now) }
           ]} />
       </section>}
-    </div>
+    </>
   );
 }
 
@@ -118,9 +123,11 @@ export function PhysicalView({ v, q, set, go, dcId }: SecProps) {
   const pst = q('pst'), search = q('q');
   const rows = det.filter(d => (!pst || (pst === 'open' ? d.state !== 'Closed' : d.severity === pst)) && (!search || `${d.title} ${d.summary} ${d.dcId} ${d.actor ?? ''}`.toLowerCase().includes(search.toLowerCase())));
   const site = dcId ? v.physical[0] : undefined;
+  const inUse = badges - unused - expired;
   return (
-    <div className="so-stack">
-      <StatGrid>
+    <>
+      <Tabs value={view} onChange={x => set({ pv: x === 'layers' ? '' : x, pst: '', q: '' })} tabs={[{ id: 'layers', label: 'Layers of defence' }, { id: 'exceptions', label: 'Exceptions', count: det.length }, { id: 'review', label: 'Access review' }]} />
+      <StatGrid cols={5} fit>
         <StatTile label="Layers holding" value={v.physical.length - breach.length - degraded.length} sub={`of ${v.physical.length} all OK`} onClick={() => set({ pv: '' })}
           info="Per datacenter, the five layers of defence (perimeter → building → data hall → cage → rack). A layer is Breach when a door in it was forced or has an open high-severity exception, Degraded when a door is held open or an exception of its kind is open.">
           <Split parts={[{ key: 'b', label: 'Breach', n: breach.length, tone: 'error' }, { key: 'd', label: 'Degraded', n: degraded.length, tone: 'orange' }, { key: 'o', label: 'All OK', n: v.physical.length - breach.length - degraded.length, tone: 'info' }]} />
@@ -129,20 +136,17 @@ export function PhysicalView({ v, q, set, go, dcId }: SecProps) {
           <Split parts={SEVS.slice(1).map(s => ({ key: s, label: s, n: open.filter(d => d.severity === s).length, tone: s === 'High' ? 'orange' as const : 'info' as const }))} onPick={k => set({ pv: 'exceptions', pst: k })} />
         </StatTile>
         <StatTile label="Physical + cyber" value={corr} sub="correlated" subTone={corr ? 'bad' : undefined} onClick={() => go('detections', { dom: 'Cross-domain' })} info="Detections that join a badge-in with a logical action on equipment in the same room (rule SR-060): the strongest sign of an insider or a misused visit.">
-          <Facts items={[{ n: open.filter(d => d.caseId).length, label: open.filter(d => d.caseId).length === 1 ? 'exception in a case' : 'exceptions in a case' }]} />
+          <Split parts={[{ key: 'c', label: 'In a case', n: open.filter(d => d.caseId).length, tone: 'orange' }, { key: 'i', label: 'Investigating', n: open.filter(d => !d.caseId && d.state === 'Investigating').length, tone: 'info' }, { key: 'n', label: 'New', n: open.filter(d => d.state === 'New').length, tone: 'info' }]} />
         </StatTile>
-        <StatTile label="Expired badges active" value={expired} sub="badges" subTone={expired ? 'bad' : undefined} onClick={() => set({ pv: 'review' })} info="Badges past their end date that the access-control system still accepts (ISO 27001 A.5.18). Found by the quarterly access-rights review.">
-          <Facts items={[{ n: fmtNum(unused), label: 'unused for 90 days' }, { n: fmtNum(badges), label: 'badges issued' }]} />
+        <StatTile label="Expired badges active" value={expired} sub={`of ${fmtNum(badges)} badges`} subTone={expired ? 'bad' : undefined} onClick={() => set({ pv: 'review' })} info="Badges past their end date that the access-control system still accepts (ISO 27001 A.5.18). Found by the quarterly access-rights review.">
+          <Split parts={[{ key: 'e', label: 'Expired, active', n: expired, tone: 'error' }, { key: 'u', label: 'Unused 90 days', n: unused, tone: 'orange' }, { key: 'k', label: 'In use', n: inUse, tone: 'info' }]} />
         </StatTile>
-        <StatTile label="Reviews overdue" value={overdue} sub={overdue ? 'overdue' : 'all on time'} subTone={overdue ? 'warn' : undefined} onClick={() => set({ pv: 'review' })} info="The quarterly access-rights review per datacenter: who holds a badge, which zones it opens and whether it is still needed. Overdue = the next review date has passed.">
-          <Facts items={[{ n: '90 d', label: 'CCTV retention' }, { n: '1 y', label: 'access log retention' }]} />
+        <StatTile label="Reviews overdue" value={overdue} sub={`of ${v.physical.length} datacenters`} subTone={overdue ? 'warn' : undefined} onClick={() => set({ pv: 'review' })} info="The quarterly access-rights review per datacenter: who holds a badge, which zones it opens and whether it is still needed. Overdue = the next review date has passed.">
+          <Split parts={[{ key: 'o', label: 'Overdue', n: overdue, tone: 'orange' }, { key: 't', label: 'On time', n: v.physical.length - overdue, tone: 'info' }]} />
+          <Facts items={[{ n: '90 d', label: 'CCTV · 1 y access log kept' }]} />
         </StatTile>
       </StatGrid>
 
-      <div className="so-viewbar">
-        <Seg value={view} onChange={x => set({ pv: x === 'layers' ? '' : x, pst: '', q: '' })} options={[{ id: 'layers', label: 'Layers of defence' }, { id: 'exceptions', label: `Exceptions · ${det.length}` }, { id: 'review', label: 'Access review' }]} />
-        <span className="vw-label">{view === 'layers' ? (site ? `${dcId}: the controls in each layer and their state` : 'Which layer is weak at which datacenter, worst first · click a datacenter for its controls') : view === 'exceptions' ? 'What the access-control system flagged in the last 24 hours' : 'Badges, unused and expired access, review dates'}</span>
-      </div>
 
       {view === 'layers' && site && <div className="so-layer-cards">{site.layers.map(l => <div key={l.layer} className={`so-lc is-${LAYER_TONE[l.state]}`}><span><b>{l.layer}</b><Chip tone={LAYER_TONE[l.state]} size="xs" dot>{l.state}</Chip></span><small>Protection class {l.protectionClass}</small><p>{l.controls}</p><em>{l.note}</em></div>)}</div>}
       {view === 'layers' && !site && <section className="vw-card-section dcim-table">
@@ -182,7 +186,7 @@ export function PhysicalView({ v, q, set, go, dcId }: SecProps) {
           { key: 'c', header: 'Physical + cyber', sort: p => p.correlated, render: p => p.correlated ? <span className="so-bad">{p.correlated} correlated</span> : <span className="vw-label">—</span> }
         ]} />
       </section>}
-    </div>
+    </>
   );
 }
 

@@ -65,7 +65,7 @@ export function SecOverview({ v, all, dcId, go }: SecProps) {
       </section>
 
       <div className="dl-span-12">
-        <StatGrid>
+        <StatGrid fit>
           <StatTile label="Open detections" value={fmtNum(open.length)} sub={`${fmtNum(t14.length)} in 14 days`} onClick={() => go('detections', { st: 'open' })} info="Detections not closed yet, by severity. Each severity opens the queue filtered to it.">
             <Split parts={[{ key: 'Critical', label: 'Critical', n: sev('Critical'), tone: 'error' }, { key: 'High', label: 'High', n: sev('High'), tone: 'orange' }, { key: 'Medium', label: 'Medium', n: sev('Medium'), tone: 'info' }, { key: 'Low', label: 'Low', n: sev('Low'), tone: 'neutral' }]} onPick={k => go('detections', { st: 'open', sev: k })} />
           </StatTile>
@@ -73,17 +73,19 @@ export function SecOverview({ v, all, dcId, go }: SecProps) {
             <Split parts={[{ key: 'da', label: 'Analysis', n: ph('Detection & analysis'), tone: 'info' }, { key: 'co', label: 'Containment', n: ph('Containment'), tone: 'orange' }, { key: 'er', label: 'Eradication / recovery', n: ph('Eradication') + ph('Recovery') + ph('Post-incident'), tone: 'neutral' }]} />
           </StatTile>
           <StatTile label="Mean time to detect" value={`${v.metrics.mttdMin} min`} sub="to open a case" info="MTTD = first event to case opened; MTTA = case opened to acknowledged; MTTR = opened to closed, over the cases of the last 14 days.">
-            <Facts items={[{ n: `${v.metrics.mttaMin} min`, label: 'to acknowledge' }, { n: `${v.metrics.mttrH} h`, label: 'to resolve' }, { n: `${v.metrics.autoPct}%`, label: 'steps automated' }]} />
+            <SoftMeter pct={v.metrics.autoPct} tone="info" />
+            <Facts items={[{ n: `${v.metrics.autoPct}%`, label: 'of response steps automated' }, { n: `${v.metrics.mttaMin} min`, label: 'to acknowledge' }, { n: `${v.metrics.mttrH} h`, label: 'to resolve' }]} />
           </StatTile>
-          <StatTile label="Act now" value={act.length} sub={`${attend.length} attend · SSVC`} subTone={act.length ? 'bad' : undefined} onClick={() => go('vulns', { ssvc: 'Act' })} info={SSVC_INFO}>
-            <Facts items={[{ n: new Set(act.map(x => x.advisoryId)).size, label: new Set(act.map(x => x.advisoryId)).size === 1 ? 'advisory' : 'advisories', tone: act.length ? 'bad' : undefined }, { n: act.filter(x => x.kev).length, label: 'known exploited' }, { n: new Set(act.map(x => x.dcId)).size, label: 'datacenters' }]} />
+          <StatTile label="Act now" value={act.length} sub={`fix in 7 days · ${attend.length} attend`} subTone={act.length ? 'bad' : undefined} onClick={() => go('vulns', { ssvc: 'Act' })} info={SSVC_INFO}>
+            <Split parts={(() => { const m = [...act.reduce((a, x) => a.set(x.assetKind, (a.get(x.assetKind) ?? 0) + 1), new Map<string, number>())].sort((a, b) => b[1] - a[1]); const rest = m.slice(2).reduce((a, [, n]) => a + n, 0); return [...m.slice(0, 2).map(([k, n]) => ({ key: k, label: k === 'UPS NMC' ? 'UPS cards' : k, n, tone: 'error' as const })), ...(rest ? [{ key: '_o', label: 'Other', n: rest, tone: 'neutral' as const }] : [])]; })()} onPick={() => go('vulns', { ssvc: 'Act' })} />
           </StatTile>
           <StatTile label="Unapproved changes" value={un7.length} sub="last 7 days" subTone={un7.length ? 'warn' : undefined} onClick={() => go('drift', { auth: 'no' })} info="Running configs that differ from the last approved backup with no change request in the window (each one is an SR-002 detection).">
-            <Facts items={[{ n: v.drift.filter(x => x.authorised).length, label: 'authorised by a change' }, { n: v.drift.filter(x => !x.authorised).length, label: 'unauthorised, 14 days' }]} />
+            <Split parts={[{ key: 'u', label: 'No change request', n: v.drift.filter(x => !x.authorised).length, tone: 'orange' }, { key: 'a', label: 'Under a change', n: v.drift.filter(x => x.authorised).length, tone: 'info' }]} onPick={k => go('drift', { auth: k === 'u' ? 'no' : 'yes' })} />
+            <Facts items={[{ n: v.drift.length, label: 'config changes in 14 days' }]} />
           </StatTile>
           <StatTile label="Telemetry coverage" value={`${pct(cov, exp)}%`} sub={`${silent.length} degraded`} subTone={silent.length ? 'warn' : undefined} onClick={() => go('sources')} info="Assets each sensor actually hears from ÷ assets it should hear from, over every data source. Devices not discovered yet send nothing.">
             <SoftMeter pct={pct(cov, exp)} tone={pct(cov, exp) >= 90 ? 'info' : 'warning'} />
-            <Facts items={[{ n: fmtNum(exp - cov), label: 'assets not reporting' }]} />
+            <Facts items={[{ n: fmtNum(exp - cov), label: 'assets not reporting' }, { n: `${all.sources.length - silent.length} of ${all.sources.length}`, label: 'sources healthy', tone: silent.length ? 'warn' : undefined }]} />
           </StatTile>
         </StatGrid>
       </div>

@@ -231,8 +231,8 @@
 .so-cov-figs span { display: flex; flex-direction: column; }
 .so-cov-figs b { font: 300 24px/1.1 Inter, sans-serif; color: var(--vw-color-gray-900); } .so-cov-figs b.is-bad { color: var(--vw-color-red-600); } .so-cov-figs b.is-warn { color: var(--vw-color-orange-600, #c2410c); }
 .so-cov-figs em { font-style: normal; font-size: 12px; color: var(--vw-color-gray-500); }
-.so-cov { padding: 0; }
-.so-cov-leg { display: flex; gap: 18px; padding: 10px 18px; border-bottom: 1px solid var(--vw-color-slate-100); font-size: 12px; color: var(--vw-color-gray-500); }
+.so-cov-leg { display: flex; gap: 18px; padding: 0 4px; font-size: 12px; color: var(--vw-color-gray-500); }
+.so-cov-in { display: grid; grid-template-columns: 180px 1fr; gap: 18px; padding: 16px 18px; }
 .so-cov-leg span { display: inline-flex; align-items: center; gap: 6px; }
 .so-cov-leg i { width: 14px; height: 10px; border-radius: 3px; display: inline-block; }
 .so-cov-leg .is-cov { background: var(--vw-color-blue-50, #eff6ff); border: 1px solid var(--vw-color-blue-200); } .so-cov-leg .is-gap { border: 1px dashed var(--vw-color-slate-300); background: #fff; } .so-cov-leg .is-hot { background: var(--primaryColor400, #3d8ff2); }
