@@ -19,7 +19,7 @@
 **How to read this document**
 
 - Section 1–6 set the business case, the scope and the module split against the existing platform.
-- Section 7 holds one chapter per module that is **built**: purpose, scope, business rules, numbered functional requirements, user stories with acceptance criteria, data, integrations, reports and screens.
+- Section 7 holds one chapter per module that is **built** (7.1–7.11) plus the cross-cutting shell capabilities (7.12): purpose, scope, business rules, numbered functional requirements, user stories with acceptance criteria, data, integrations, reports and screens.
 - Section 8 holds the **analytics-only** pages that sit over existing platform modules.
 - Section 9 lists, per **existing platform module**, what SynapseDC reads from it, sends to it and through which interface.
 - Sections 10–15: data, non-functional requirements, phasing, risks and open decisions, traceability, glossary.
@@ -57,6 +57,7 @@ Requirement identifiers: `<PFX>-nnn` (functional), `BRULE-<PFX>-nn` (business ru
 - 7.9 Planner
 - 7.10 DCIM — racks, power chain and cabling
 - 7.11 Compliance
+- 7.12 Cross-cutting: shell, business models, geography, Opstral AI, search, help
 - 8 Analytics-only pages over existing modules
   - 8.1 Programs & Projects insights
   - 8.2 Work orders and process KPIs
@@ -80,6 +81,8 @@ Requirement identifiers: `<PFX>-nnn` (functional), `BRULE-<PFX>-nn` (business ru
   - 10.3 Retention
 - 11 Non-functional requirements
 - 12 Phasing and release plan
+  - 12.1 Onboarding a customer site (the delivery approach)
+  - 12.2 Release contents by chapter
 - 13 Assumptions, dependencies, risks and open decisions
   - 13.1 Assumptions
   - 13.2 Dependencies
@@ -90,6 +93,8 @@ Requirement identifiers: `<PFX>-nnn` (functional), `BRULE-<PFX>-nn` (business ru
   - 14.2 Blueprint requirement families → BRD chapters
   - 14.3 Requirement index
 - 15 Glossary
+- 16 Approvals and sign-off
+- Appendix A — Requirement index
 
 ---
 
@@ -172,7 +177,8 @@ The platform module that already owns an object is its **system of record**. Syn
 | AI models and agents | — | AI Foundry | — |
 | Customisation (fields, tags), identity | — | Platform Engineering | — |
 | Data model, data layer, BI | — | Intelligence Hub (Command Center excluded: built here) | — |
-| Help & FAQ, documents | **Build** (reference, not a module) | Knowledge Center (articles) | — |
+| Cross-cutting: shell, business-model and geography switches, Opstral AI, search, info bubbles, embedding, Help & FAQ and documents | **Build** (7.12) | Platform Engineering (identity, flags, customisation), AI Foundry (models), Knowledge Center (articles) | — |
+| Materials, vendors, contracts, procurement, warehouses, field force, logistics | — | Supply Chain | — |
 
 ### 3.3 Out of scope (all releases unless re-decided)
 
@@ -273,20 +279,24 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 
 ### 7.1.1 Scope
 - In scope: estate health ring and verdict, four health areas, clickable headline numbers, live estate map, datacenter column (worst first), What is happening · Who is affected · Recommendations, Plan & build strip and build lens, info text on every widget.
-- Out of scope: incident and change records themselves (Services & ITSM Incidents / Change Management); customer master data (BSS CRM / Customers); generic platform dashboards (Intelligence Hub); revenue detail (7.x Revenue Impact).
+- Out of scope: incident and change records themselves (Services & ITSM Incidents / Change Management); customer master data (BSS CRM / Customers); generic platform dashboards (Intelligence Hub); revenue detail (7.6 Revenue Impact).
 
 ### 7.1.2 Business rules
 | ID | Rule |
 | --- | --- |
 | BRULE-CC-01 | An alarm counts against a datacenter only when its scope is site, edge or dependency. Downstream alarms are never counted; they appear only as impact under the causing incident. |
-| BRULE-CC-02 | Area score = good ÷ total × 100 (higher is better). The area status follows the worst single issue in it, not the percentage (one UPS on battery = Critical even at 98 %). |
+| BRULE-CC-02 | Area score = good ÷ total × 100 (higher is better). The area status follows the worst single issue in it, not the percentage (one UPS on battery = Critical even at 98 %); the score bar is always neutral blue. |
+| BRULE-CC-14 | What each area counts: Incident response = open incidents still within their resolution SLA ÷ open incidents; Power = UPS modules online + utility feeds normal ÷ (UPS modules + feeds); Cooling & environment = cooling units running + zones at or below 27 °C ÷ (units + zones); Network = physical links (NeoCloud: InfiniBand, Ethernet and OOB cables) up + devices reachable ÷ (links + devices). |
 | BRULE-CC-03 | Operations health = the average of the four area scores. |
 | BRULE-CC-04 | Area order: GPU fleet (or Incident response where no GPU estate) · Power · Cooling & environment · Network. |
 | BRULE-CC-05 | GPU fleet: a GPU counts bad when it is in a stalled, slowed or at-risk job, failed, degraded or throttled; deliberate spares count good. Status = Critical when any job is stalled; Attention for slowed / at-risk jobs, idle allocations, throttling or failed GPUs. |
 | BRULE-CC-06 | Verdict line = "N critical or high incidents at S of T datacenters", where N = Critical tile + High tile (a site may carry several). |
-| BRULE-CC-07 | Every headline number opens a list filtered to exactly that number (Critical → open Critical incidents; High → open High; Past SLA → open past SLA; premium customers → Who is affected). |
+| BRULE-CC-07 | Every headline number opens a list filtered to exactly that number (Critical → open Critical incidents; High → open High; Past SLA → open incidents whose resolution SLA clock has run out; premium customers → the Who is affected panel). A site can carry several incidents, so the verdict's site count has an info bubble listing each site with its Critical + High counts. |
 | BRULE-CC-08 | The datacenter column is sorted worst first by the worst open incident per site; quick filter All / Critical / High. |
-| BRULE-CC-09 | Network area = InfiniBand · Ethernet · OOB links down and devices unreachable (NeoCloud); links up ÷ links (colocation). |
+| BRULE-CC-09 | The Network area's detail reads by plane in NeoCloud (InfiniBand · Ethernet · OOB cables down · nodes unreachable) and as physical links down · devices unreachable elsewhere; the score follows BRULE-CC-14 in both. |
+| BRULE-CC-11 | Recommendations = the first pending or awaiting-approval action of every open Critical / High incident (Critical rank 1, High rank 2), every change pending approval ("Approve CHG…", emergency rank 1, else rank 3), a batch RMA when an incident's similar-failure analysis names other nodes on the same optics lot, and plan approvals waiting on the viewer; ranked, de-duplicated by title, top 5. |
+| BRULE-CC-12 | What is happening = all open incidents across the estate, most severe first then by premium-customer impact, each with its resolution SLA clock (time left, red when overdue) and its services · customers · premium impact. Who is affected = services whose path crosses an open incident or active alarm, split Active / Degraded / Down / Disabled, and the exposed customers premium first (12 shown, total counted). |
+| BRULE-CC-13 | A datacenter card shows its worst open incident (Critical red, High amber accent) or, with none, a quiet card: Attention (conditions to watch: active and critical alarms, degraded services) or Normal. |
 | BRULE-CC-10 | Plan & build strip: plans by stage planned → approved → in build → commissioning → live, with decisions due. |
 
 ### 7.1.3 Functional requirements
@@ -322,8 +332,15 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | CC-028 | The system shall show telemetry gaps (collector stale or down) as a state distinct from healthy. | M | Both | P1 |
 | CC-029 | The system shall render on large screens and TVs (2200 px and above) scaled up, with tooltips and the map still aligned. | S | Both | P2 |
 | CC-030 | The system shall restrict sites shown to those the viewer's role may see. | M | Both | P1 |
-| CC-031 | The system shall answer estate questions in the assistant ("Which issue is costing the most?", "Where should the next GPU job go?") from the same figures. | C | Both | P3 |
+| CC-031 | The system shall answer estate questions in the Opstral AI assistant ("What is at risk in <site>?", "Which issue is costing the most revenue?", "What is <incident> costing us?", "Where should the next GPU job go?", "Which GPU job is losing the most?", "What is power costing us?", "What changed in the last 24 hours?") from the same read models, with evidence links and follow-up questions. | S | Both | P2 |
 | CC-032 | The system shall be embeddable in the platform portal without its own menu and top bar. | M | Both | P1 |
+| CC-033 | The system shall show in "What is happening" each open incident's resolution SLA clock as a bar (time left; red when overdue) and its impact counts (services · customers · premium), per BRULE-CC-12. | M | Both | P1 |
+| CC-034 | The system shall show in "Who is affected" the split of impacted services by status (Active / Degraded / Down / Disabled) and the count of exposed premium customers, with the first 12 customers listed and a link to the rest. | M | Both | P1 |
+| CC-035 | The system shall build Recommendations per BRULE-CC-11 and show for each the reason (incident or change), the expected benefit and a link to where it is done. | M | Both | P1 |
+| CC-036 | The system shall keep the Plan & build strip to one slim row by default so the hero stays above the fold at 1280 × 800, with "More" opening the full strip (remembered per viewer). | S | Both | P2 |
+| CC-037 | The system shall show the datacenter column cards in a compact variant (at least 1.5 cards visible) and the same card on the Datacenters tiles view. | S | Both | P1 |
+| CC-038 | The system shall let the viewer switch business model (persona) and geography from the top bar, regenerating every figure, and honour `persona` / `geo` URL parameters and a deployment default. | M | Both | P1 |
+| CC-039 | The system shall provide a ⌘K palette search over sites, devices, incidents, customers and screens. | S | Both | P1 |
 
 ### 7.1.4 User stories and acceptance criteria
 **US-CC-01** As a NOC manager I want one verdict and four areas so that I know where to look first (CC-001, CC-002, CC-005).
@@ -350,6 +367,12 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 **US-CC-08** As a platform user I want the screen embedded in the portal (CC-032).
 - Given the portal frames the Command Center with shell off, then no menu or top bar shows and links stay inside the frame.
 
+**US-CC-09** As a NOC manager I want to know what to do first (CC-035).
+- Given a Critical incident with a pending action and an emergency change awaiting approval, then Recommendations lists both at rank 1, each with its reason and benefit, and clicking opens the incident or the change.
+
+**US-CC-10** As a head of operations I want to ask the assistant (CC-031).
+- Given I ask "Which issue is costing the most revenue?", then the answer names the issue, its money per hour and links to it, and the figure equals the Revenue impact screen.
+
 ### 7.1.5 Data
 | Entity | Read / write | System of record | Notes |
 | --- | --- | --- | --- |
@@ -374,8 +397,8 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 ### 7.1.7 Reports and KPIs
 - Operations health % = mean(area scores).
 - GPU fleet % = GPUs healthy and at full speed ÷ GPUs installed.
-- Response within SLA % = open incidents within response SLA ÷ open incidents.
-- Power % = plant online ÷ plant installed; Cooling & environment % = zones in range ÷ zones; Network % = links up ÷ links.
+- Incident response % = open incidents still within their resolution SLA ÷ open incidents.
+- Power % = (UPS modules online + utility feeds normal) ÷ (UPS modules + feeds); Cooling & environment % = (cooling units running + zones ≤ 27 °C) ÷ (units + zones); Network % = (links up + devices reachable) ÷ (links + devices).
 - Sites with Critical or High incidents = count of distinct sites.
 - GPU time lost per hour = Σ (stalled job GPUs + slowed job GPUs × step-time share lost + idle allocated GPUs) × GPU rate.
 
@@ -384,6 +407,7 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | --- | --- | --- |
 | Command Center | estate landing | `/` |
 | Command Center · build lens | build pipeline | `/?lens=build` |
+| Incidents list views opened by the tiles | Critical / High / past SLA | `/incidents?view=sev1\|high\|breaching` |
 
 ---
 
@@ -415,13 +439,18 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | BRULE-SITE-11 | Access log retention 1 year; CCTV references 90 days; the access-rights review is quarterly (badges by type, expired and unused badges). |
 | BRULE-SITE-12 | Planned sites show an empty state on live-only tabs (no telemetry, no access log). |
 | BRULE-SITE-13 | A figure shown on a Facility tab is not repeated on Metrics / Assets (single place per figure); the Metrics tab opens with the six-tile facility strip, each tile opening its sub tab. |
+| BRULE-SITE-14 | Site condition: Critical = a Critical incident, a UPS on battery, a plant fault or an isolated edge; Needs attention = any open incident, critical alarm, link down, unreachable device or facility issue; else Normal. Edge redundancy = redundant / redundancy lost / isolated from the site's backhaul links. |
+| BRULE-SITE-15 | Metrics thresholds: a zone is red above 27 °C and amber above 25.5 °C; a device chassis is red at 55 °C; device load is red when any device is at 90 % CPU; humidity band 40–60 % RH. |
+| BRULE-SITE-16 | Diesel figures without a tank meter are estimates and shown as such: tank litres = DG kVA × 3.2 (rounded to 50 L), burn ≈ 0.2 L per kVA-hour at 75 % load, 30-day use from generator run hours. A tank reading replaces them. |
+| BRULE-SITE-17 | Access log people: guards two per 12 h shift (07:00 / 19:00), field technicians per 12 h shift, site engineers on days, change crews escorted and tagged with their change, the on-call engineer responding to an open incident tagged with it, PM vendors, couriers, cleaners, visitors with host and escort, colocation tenants at their cage. Exception severities: door forced High; tailgating, held open, anti-passback Medium; badge not returned Low. |
+| BRULE-SITE-18 | Rack record on Assets: type (a ~1 in 10 share of live non-GPU racks is an old shallow 600 × 1000 type), purchase date and condition (Damaged at audit, with the note); GPU / liquid racks are never the old type. |
 
 ### 7.2.3 Functional requirements
 | ID | Requirement | Priority | Model | Phase |
 | --- | --- | --- | --- | --- |
-| SITE-001 | The system shall list all datacenters with analytics tiles, search, quick filters and a list ⇄ tiles switch. | M | Both | P1 |
+| SITE-001 | The system shall list all datacenters with analytics tiles (site status by condition, edge redundancy Full / Partial / Isolated, links down, devices unreachable, incidents, facility issues), search, quick filters Condition (All / With incidents / Facility issue / Edge redundancy lost / Clear) and Region, and a list ⇄ tiles switch remembered per viewer. | M | Both | P1 |
 | SITE-002 | The system shall show per datacenter its state, worst open incident, money at risk and power / cooling flags in the list. | M | Both | P1 |
-| SITE-003 | The system shall show a site header (slim by default, expandable, remembered) with flagged KPI chips, "+N more" and telemetry freshness. | M | Both | P1 |
+| SITE-003 | The system shall show a site header (slim by default, expandable, remembered) with flagged KPI chips that auto-fit with "+N more", telemetry freshness, the collectors line (each collector's state and last seen) and the actions Changes, Plan and Opstral AI. | M | Both | P1 |
 | SITE-004 | The system shall keep the header and tab row pinned while the tab body scrolls. | S | Both | P1 |
 | SITE-005 | The system shall show four tab groups with sub tabs per BRULE-SITE-01 and keep every sub tab deep-linkable. | M | Both | P1 |
 | SITE-006 | The system shall show Needs attention: open incidents with four figure tiles (past SLA, unacknowledged, oldest open, MTTR 30 d), resolved in the last 7 days, and alarm categories with scope and severity. | M | Both | P1 |
@@ -444,11 +473,11 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | SITE-023 | The system shall show the 8-GPU strip with per-GPU state for GPU nodes on Equipment. | M | Neo | P1 |
 | SITE-024 | The system shall show Topology of the site's network devices and links (hosts counted per switch), by plane (InfiniBand, Ethernet front-end, OOB) for GPU fabrics. | M | Both | P1 |
 | SITE-025 | The system shall show Space & ports (rack space, ports, floors / rooms / racks table) and Assets (space by room, equipment by category, facility assets, lifecycle). | M | Both | P1 |
-| SITE-026 | The system shall show a device page with overview, interfaces, hardware modules, alarms, services and links. | M | Both | P1 |
+| SITE-026 | The system shall show a device page with tabs Overview · 3D view · Hardware & interfaces (modules, lifecycle) · Power & cabling · GPUs (GPU nodes only) · Links (fabric-connection plane cards InfiniBand / Ethernet front-end / Management for NeoCloud; routing-protocol cards on border routers) · Impact (services) · Alerts & diagnostics (ICMP, NTP, AAA probes). | M | Both | P1 |
 | SITE-027 | The system shall show on the device page Power & cabling: each PSU → outlet → PDU side → UPS / plant, and each port's cable path. | M | Both | P1 |
 | SITE-028 | The system shall show a device 3D view with modes Device · Open lid · Exploded · One accelerator · In the rack, Health / Heat overlay, and Power / Cables chips. | S | Both | P2 |
-| SITE-029 | The system shall show GPUs · DCGM on GPU nodes: per-GPU health and profiling fields with 24 h sparklines. | M | Neo | P1 |
-| SITE-030 | The system shall show Access & security: on site now, security exceptions, entries / exits 24 h chart, doors and readers, access-rights review and the audit trail with filters. | S | Both | P2 |
+| SITE-029 | The system shall show GPUs · DCGM (GPUs · Intel for Gaudi / Data Center GPU Max nodes) on GPU nodes: per-GPU health and profiling fields with 24 h sparklines, vendor-aware labels. | M | Neo | P1 |
+| SITE-030 | The system shall show Access & security as four collapsible sections: People on site & exceptions · Entries, exits & doors (24 h chart, doors and readers) · Access rights review (quarterly: badges by type, expired and unused badges, CCTV 90 d, log 1 y) · Access audit trail (search and filters: result, person type, door, direction); a door or filter link opens the audit trail at that filter. | S | Both | P2 |
 | SITE-031 | The system shall link visits to their change (CHG) or incident (INC) where a crew or on-call engineer entered for one. | S | Both | P2 |
 | SITE-032 | The system shall show colocation tenants' badge reads at their cage doors. | S | Colo | P2 |
 | SITE-033 | The system shall open a person drawer and an exception drawer from the Access tab. | S | Both | P2 |
@@ -457,6 +486,15 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | SITE-036 | The system shall show GPU customers with their jobs and GPU time lost on the Customers tab. | S | Neo | P1 |
 | SITE-037 | The system shall show an empty state on live-only tabs for planned sites. | M | Both | P1 |
 | SITE-038 | The system shall provide "Plan" and "Changes" actions from the header into the Planner and Change Management. | S | Both | P2 |
+| SITE-039 | The system shall show a customer page: identity header (state, facts, one-line verdict with the main cause), six analytics tiles, "What is impacting this customer" (issues with money per issue), "Where they are served" and the service grid. | M | Both | P1 |
+| SITE-040 | The system shall show on the customer page (Colo) cross-connect orders and remote-hands tickets with their state. | S | Colo | P2 |
+| SITE-041 | The system shall show on Assets the rack type, purchase date and condition per BRULE-SITE-18, plus RMA cases, spares, warranty and support (the site lifecycle view). | S | Both | P2 |
+| SITE-042 | The system shall show on Equipment the operator's own servers with their purpose (management, applications, BMS / EPMS, access control, NVR, DCIM, monitoring) distinct from tenant gear. | S | Colo | P1 |
+| SITE-043 | The system shall mark on the schematic layout, when a rack is open, its facing row as glass with no clicks, and in the realistic view leave the facing row and cold-aisle frame out entirely. | C | Both | P2 |
+| SITE-044 | The system shall place the realistic view's controls as: floor picker top-left, tools and a "?" help (mouse / keyboard) top-right, one dock bottom-left (Colour by · Power path / Cable paths · foldable legend Health · Power · Cables), path card bottom-right; labels keep clear of the dock. | C | Both | P2 |
+| SITE-045 | The system shall render on the device 3D view one model per family (router, switch, firewall, optical, server, storage, GPU node, tenant block) with hardware parts coloured by kind (compute · power · cooling · network · memory · storage · management), state from modules, interfaces, GPU telemetry and rack power, cameras ¾ · Front · Rear · Top. | S | Both | P2 |
+| SITE-046 | The system shall show the Space & ports tab's floors / rooms / racks table and rack space and port totals, and the datacenter Topology tab with the same view as the former topology page (`/topology?dc=` redirects to it). | M | Both | P1 |
+| SITE-047 | The system shall keep every figure on the datacenter page reconciled with the Command Center and the lists (same incident, alarm, service and money counts). | M | Both | P1 |
 
 ### 7.2.4 User stories and acceptance criteria
 **US-SITE-01** As a NOC engineer I want to go from an alarm to its place so that I can send the right technician (SITE-010, SITE-011).
@@ -483,6 +521,12 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 **US-SITE-08** As a user without WebGL I still want the layout (SITE-020).
 - Given WebGL is unavailable, then a 2D view with the same attention items is shown.
 
+**US-SITE-09** As an account manager I want one page per customer (SITE-034, SITE-039, SITE-040).
+- Given a tenant with one cabinet on a tripped PDU-A, then the customer page verdict names that cause, "What is impacting" lists the issue with its money, and the cross-connect orders and remote-hands tickets are listed with their state.
+
+**US-SITE-10** As a head of operations I want the list to show where to look (SITE-001, BRULE-SITE-14).
+- Given a site with a UPS on battery and no open incident, then the list shows it as Critical; filtering Condition = Facility issue keeps it; filtering Clear hides it.
+
 ### 7.2.5 Data
 | Entity | Read / write | System of record | Notes |
 | --- | --- | --- | --- |
@@ -492,7 +536,9 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | PDU, outlet, power connection | Read | SynapseDC DCIM | A/B side, outlet per PSU |
 | GPU node, GPU, job | Read | SynapseDC GPU Fleet | DCGM fields, job metadata |
 | Alarm, incident, change | Read | System Alerts / Services & ITSM | |
-| Access event, visit, exception, door | Read | customer PACS / visitor system | 1 y retention |
+| Access event, visit, exception, door | Read | customer PACS / visitor system | 1 y retention; exceptions also feed Security Ops physical detections |
+| Rack type, purchase date, condition; device install / warranty / support | Read | Inventory + Supply Chain Contracts | lifecycle read model |
+| Cross-connect order, remote-hands ticket | Read | BSS Orders / ITSM Tickets | Colo |
 | Customer, service | Read | BSS | cause of risk from SynapseDC |
 | Timeline event | Read | SynapseDC | ops log |
 
@@ -524,7 +570,9 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | Access & security | people and doors | `?tab=access` |
 | Equipment · Topology · Space & ports · Assets | installed base | `?tab=equipment\|topology\|details\|assets` |
 | Customers · Revenue | business impact | `?tab=customers\|revenue` |
-| Device page | one device | `/ne/:id?tab=physical\|twin\|gpus` |
+| Device page | one device | `/ne/:id?tab=overview\|twin\|hardware\|physical\|gpus\|links\|impact\|alerts` |
+| Customer page | one customer | `/customers/:id` |
+| Topology (redirect) | site topology tab | `/topology?dc=` → `/datacenters/:id?tab=topology` |
 
 ---
 
@@ -545,8 +593,8 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | --- | --- |
 | BRULE-FAC-01 | Power chain: utility feed → ATS → UPS module (A side = UPS-2/4, B side = UPS-1/3) → busway per room → rack PDU A / B → breaker bank → outlet → PSU. Each PDU side is rated at the rack budget. |
 | BRULE-FAC-02 | Odd PSUs connect to PDU A, even to PDU B; Σ PDU load = rack draw. |
-| BRULE-FAC-03 | Ride-through: UPS minimum autonomy at current load → DG kW → fuel hours. Fuel ≥ 50 % = OK, 30–50 % = warning, < 30 % = fault; runtime quoted at 60 % load. |
-| BRULE-FAC-04 | Cooling redundancy: operating units ≥ units needed for the heat load + 1 when the design is N+1. A floor is "No spare" when it holds a down unit or a hot room; "Short" when the site cannot carry the load. |
+| BRULE-FAC-03 | Ride-through sequence: UPS batteries (the shortest module's autonomy at current load) → the DG at 80 % of its kVA rating (kW) → fuel hours at the tested runtime (quoted at 60 % load). Readiness checks: UPS redundancy (every module online), utility feeds, DG test passed, battery test in date, fuel: ≥ 50 % OK, 30–50 % warning, < 30 % fault. |
+| BRULE-FAC-04 | Cooling redundancy (heat balance): operating units ≥ units needed for the heat load + 1 when the design is N+1. Units on a floor share its air (one zone per floor). A room is hot when a unit in it is down or a sensor reads above 27 °C. A floor reads "N+1 holds", "No spare" (the design margin is lost and a unit is down, or it has a hot room) or "Short" (the site's running capacity is below its heat load and a unit is down). |
 | BRULE-FAC-05 | Each rack has a nearest cooling unit; liquid racks send 75 % of their heat to their CDU. |
 | BRULE-FAC-06 | Single points of failure: both cords on A, failed PSU, tripped PDU, cabinet that one side cannot carry (≥ 90 % of budget), UPS not online, Tier II single feed / tray route / building entry, cooling spare lost. |
 | BRULE-FAC-07 | What-if assets: feed, UPS, side A|B, PDU, cooling unit, trunk; result = devices, racks, services and customers that lose power, cooling or connectivity. |
@@ -554,20 +602,25 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | BRULE-FAC-09 | Lifecycle state: End of support; Out of warranty (no warranty, no live contract); Expiring (contract ends < 90 days or end of support < 1 year); else Covered. |
 | BRULE-FAC-10 | RMA cases come from modules in fault and GPU nodes flagged for RMA; an RMA never passes "Engineer booked" while the fault is live. |
 | BRULE-FAC-11 | Leak detection: rope under cooling units, CDUs and liquid racks. Fire zone per room with detection (VESDA / point), suppression (Novec / IG-541 / pre-action), quarterly inspection. |
-| BRULE-FAC-12 | PUE = facility power ÷ IT power from the site's power split. |
+| BRULE-FAC-12 | PUE = facility power ÷ IT power from the site's power split (IT, cooling, lighting & other). |
+| BRULE-FAC-14 | Rack power list: budget = the rating of one PDU side; Over budget at ≥ 85 % of budget, High at ≥ 75 %; Hot when the rack inlet is above 27 °C. The site power-load tile is red at ≥ 85 % of design capacity. |
+| BRULE-FAC-15 | Environment safe band: 18–27 °C and 40–60 % RH per zone sensor; red = over temperature, smoke or leak; amber = humidity out of band. Moving to the ASHRAE dew-point envelope is to discuss. |
+| BRULE-FAC-16 | Spares per part family: out when on hand − reserved ≤ 0, low when below the minimum, else OK. RMA status advances Opened → Part shipped → Engineer booked → Replaced · verifying, and never passes Engineer booked while the fault is live. |
+| BRULE-FAC-17 | What-if on a utility feed drops nothing: the UPS and the DG carry it, so it is shown as a ride-through. What-if on a UPS takes every PDU it feeds; on a PDU its outlets; on a cooling unit its zone's spare; on a trunk every link in it. |
+| BRULE-FAC-18 | PM intervals: UPS inspection and thermal scan, cooling filter and coil, CDU coolant and filter, fire inspection every 91 days; battery and DG tests on their own dates; a booked Maintenance change counts as scheduled, not overdue. |
 | BRULE-FAC-13 | A closed section shows a one-line summary as status pills (red / amber / green); state remembered per viewer. |
 
 ### 7.3.3 Functional requirements
 | ID | Requirement | Priority | Model | Phase |
 | --- | --- | --- | --- | --- |
 | FAC-001 | The system shall show a facility strip: power load, PUE, UPS, cooling, environment, alarms & maintenance; each tile opens its tab. | M | Both | P1 |
-| FAC-002 | The system shall draw a single-line power path (feeds, ATS, DG, UPS modules, battery, busways, distribution) with live states and animated flow. | M | Both | P1 |
+| FAC-002 | The system shall draw a single-line power path (utility feeds, DG set with fuel and runtime, ATS with source in use, LT panel with AC / DC split, UPS modules with load and battery minutes, battery bank, IT racks PDU A + B, −48 V DC loads where present) with live states and animated flow. | M | Both | P1 |
 | FAC-003 | The system shall trace upstream and downstream on hover of any power node. | S | Both | P1 |
 | FAC-004 | The system shall show a 24 h load chart against capacity. | M | Both | P1 |
 | FAC-005 | The system shall show "If utility power fails": UPS minutes, DG kW, fuel hours and readiness checks per BRULE-FAC-03. | M | Both | P1 |
 | FAC-006 | The system shall raise a clear note when any UPS is on battery with the minutes left at current load. | M | Both | P1 |
 | FAC-007 | The system shall group Power & backup into collapsible sections (Power path · Load & ride-through · Cabinet distribution & what-if · Rack power) with summary pills when closed. | S | Both | P1 |
-| FAC-008 | The system shall list rack power with search and filters (state, location, role, PDU sides): draw, budget, A / B load, % of budget. | M | Both | P1 |
+| FAC-008 | The system shall list rack power with search and filters (state, location, role, PDU sides): draw, budget, A / B PDU state, % of budget, Over budget / High / Hot flags per BRULE-FAC-14, URL-addressable. | M | Both | P1 |
 | FAC-009 | The system shall show a rack PDU drawer with the outlet map (outlet, device, PSU, current, breaker). | S | Both | P1 |
 | FAC-010 | The system shall flag devices with both cords on the same PDU side. | M | Both | P1 |
 | FAC-011 | The system shall show tenant cabinet draw against contracted kW and flag cabinets over budget. | M | Colo | P1 |
@@ -578,7 +631,7 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | FAC-016 | The system shall show CDU loops with flow, supply / return temperature and the GPU racks they serve. | M | Neo | P1 |
 | FAC-017 | The system shall link a CDU flow fault to the GPU slowdown it causes. | S | Neo | P1 |
 | FAC-018 | The system shall show cooling coverage by floor (N+1 / No spare / Short) and each rack's nearest unit. | S | Both | P2 |
-| FAC-019 | The system shall show environment zones with temperature and humidity against the safe band. | M | Both | P1 |
+| FAC-019 | The system shall show environment zone cards with temperature and humidity on their scale against the safe band (BRULE-FAC-15), smoke and leak detectors and the racks in the zone with their highest inlet. | M | Both | P1 |
 | FAC-020 | The system shall show fire zones (detection, suppression, agent %, release mode, last and next inspection). | S | Both | P2 |
 | FAC-021 | The system shall show leak detection lines and their state. | S | Both | P2 |
 | FAC-022 | The system shall show access points (mantrap, room doors, cage doors) with events and denials in 24 h, consistent with the Access tab. | S | Both | P2 |
@@ -594,6 +647,12 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | FAC-032 | The system shall show the −48 V DC plant where present (rectifiers, BDFB, battery). | C | Both | P3 |
 | FAC-033 | The system shall never send a write or control command to plant. | M | Both | P1 |
 | FAC-034 | The system shall mark every facility value with its freshness and show stale values as stale. | M | Both | P1 |
+| FAC-035 | The system shall show the Maintenance & alarms tab with the site's active facility alarms and its open maintenance changes alongside the PM plan. | M | Both | P1 |
+| FAC-036 | The system shall show on Cooling the running capacity after losing the largest unit and the margin in kW, and on each unit card its zone and the racks it is nearest to. | S | Both | P1 |
+| FAC-037 | The system shall list spares per part family with on hand, reserved, minimum and state per BRULE-FAC-16, and show whether a spare exists on site for each open RMA. | S | Both | P2 |
+| FAC-038 | The system shall show the Facility strip at the top of the Facilities page and on Overview → Metrics, and not repeat it on the five Facility sub tabs of the datacenter page. | S | Both | P1 |
+| FAC-039 | The system shall list the datacenter's support contracts (level, expiry) and the vendor end-of-sale / end-of-support dates per model, with totals Covered / Expiring / Out of warranty / End of support. | S | Both | P2 |
+| FAC-040 | The system shall treat diesel litres, burn rate, PDUs per rack, one DG and one battery bank per site, the 0.8 generator power factor and the 75 % liquid heat share as estimates to be replaced by records or readings, and label them as estimates on screen. | M | Both | P1 |
 
 ### 7.3.4 User stories and acceptance criteria
 **US-FAC-01** As a facilities engineer I want to know how long the site lasts if utility power fails (FAC-005, FAC-006).
@@ -619,6 +678,12 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 
 **US-FAC-08** As an operator I want assurance the platform never controls plant (FAC-033).
 - Given any facility screen, then no control or set action is offered and the collector holds read-only credentials only.
+
+**US-FAC-09** As a mechanical engineer I want to know which floor has no cooling spare (FAC-018, BRULE-FAC-04).
+- Given a CRAH on floor 2 is down and the site's design is N+1, then floor 2 reads "No spare", its hot room is listed, and the heat balance shows capacity after losing the largest unit.
+
+**US-FAC-10** As a store keeper I want to know when spares run low (FAC-037).
+- Given the SFP spare's on hand minus reserved is below its minimum, then the spare reads Low and the open RMA for that part shows whether a spare is on site.
 
 ### 7.3.5 Data
 | Entity | Read / write | System of record | Notes |
@@ -656,11 +721,12 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 ### 7.3.8 Screens
 | Screen / tab | Purpose | Reference route |
 | --- | --- | --- |
-| Facilities · Power | power path, ride-through, racks | `/facilities?tab=power` |
+| Facilities · Power & backup | power path, ride-through, cabinet distribution, rack power (`rq · rstate · rroom · rrole · rpdu`) | `/facilities?dc=` (default tab) |
 | Facilities · Cooling | heat balance, units, CDUs | `/facilities?tab=cooling` |
 | Facilities · Environment | zones, fire, leak, doors | `/facilities?tab=environment` |
 | Facilities · Single points of failure | SPOF, tests | `/facilities?tab=resilience&domain=` |
-| Facilities · Maintenance | PM plan | `/facilities?tab=maintenance` |
+| Facilities · Maintenance & alarms | PM plan, facility alarms, maintenance changes | `/facilities?tab=maintenance` |
+| Schedule maintenance | raise a Maintenance change | `/changes?new=maintenance` |
 | Datacenter · Facility group | same views per site | `/datacenters/:id?tab=fpower\|fcooling\|fenv\|fspof\|fmaint` |
 
 ## 7.4 GPU Fleet
@@ -694,13 +760,13 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 ### 7.4.2 Business rules
 | ID | Rule |
 |---|---|
-| BRULE-GPU-01 | Job states are Running, Slowed, Stalled, At risk and Idle. **Stalled** means the job has stopped because one of its GPUs or nodes failed (for example Xid 79, GPU fell off the bus). **Slowed** means the step time is above the baseline (straggler, thermal or hardware slowdown, rail flapping). **At risk** means a node in the job carries a fault where the next event crashes the job (for example uncorrectable ECC with a row remap pending). **Idle** means the job holds an allocation but has run below 5 % utilisation for 6 hours or more. |
-| BRULE-GPU-02 | Job price per hour = GPUs × (persona rate per GPU-month ÷ 730) × the model's price factor (rateX; H100 = H200 = 1). The NeoCloud reference rate is ₹1,50,000 per GPU-month. |
+| BRULE-GPU-01 | Job states are Running, Slowed, Stalled, At risk and Idle. **Stalled** means the job has stopped because one of its GPUs or nodes failed (for example Xid 79, GPU fell off the bus): every rank waits at the step barrier. **Slowed** means the step time is above the baseline (an NVLink straggler, thermal or hardware slowdown from low coolant flow, an InfiniBand rail flapping); MFU falls by the same factor. **At risk** means the job still runs but a node in it carries a fault where the next event crashes it (uncorrectable ECC with a row remap pending). **Idle** means the job holds an allocation but has run below 5 % utilisation for 6 hours or more; no alarm is raised for it (it is waste, not a fault) and it is shown on the jobs list and the Command Center GPU area instead. Job kinds are training, fine-tuning and inference; inference-only models (L40S, T4) run inference jobs only. |
+| BRULE-GPU-02 | Job price per hour = GPUs × (persona rate per GPU-month ÷ 730) × the model's price factor (H100 = H200 = 1; B200 1.45, A100 0.55, L40S 0.38, T4 0.08, Gaudi 3 0.6, Max 1550 0.45). The NeoCloud reference rate is ₹1,50,000 per GPU-month (cloud list ₹1,75,000, enterprise charge-back ₹85,000 for the later variants); the customer's own product rate from the catalogue replaces it. The same figure is the job's service charge for Revenue Impact. |
 | BRULE-GPU-03 | GPU time lost now (per hour) = the full job price per hour when Stalled or Idle; the job price per hour × the share of step time lost when Slowed (share = 1 − baseline ÷ current step time); 0 when Running. |
-| BRULE-GPU-04 | Lost so far = the lost-now rate × hours since the state began. |
+| BRULE-GPU-04 | Lost so far = the lost-now rate × hours since the state began. The fleet's "lost so far" total adds the work to redo of stalled jobs (BRULE-GPU-05). |
 | BRULE-GPU-05 | Work to redo (Stalled job) = the job price per hour × hours between the last checkpoint and the stall. |
 | BRULE-GPU-06 | At stake (At-risk job) = the job price per hour × the checkpoint interval in hours (the work lost if it crashes now). |
-| BRULE-GPU-07 | A GPU counts as healthy and at full speed unless it is in a Stalled / Slowed / At-risk job, failed, degraded, or throttled. Deliberate spares (about 10 % of each pod) count as healthy. Fleet health % = healthy ÷ installed. |
+| BRULE-GPU-07 | Node states are In a job, Spare (idle, about 10 % of each pod kept as hot spares), Drained, Failed (open RMA; the failed GPU shows Xid 79 for NVIDIA parts) and Burn-in (24 h after a repair). A GPU counts as healthy and at full speed unless it is in a Stalled / Slowed / At-risk job, failed, degraded, or throttled. Spares count as healthy; drained, failed and burn-in nodes are out of service. Fleet health % = healthy ÷ installed; the Command Center GPU fleet area shows this figure with the detail "N GPUs stopped by one failed GPU · N jobs slowed · money lost per hour". |
 | BRULE-GPU-08 | Fleet status is Critical when any job is Stalled. It is Attention when any job is Slowed or At risk, any allocation is Idle, any GPU is throttled, or any GPU has failed. Otherwise it is Normal. |
 | BRULE-GPU-09 | Throttle reasons are taken from the DCGM throttle field and reported as thermal, hardware slowdown or power cap. |
 | BRULE-GPU-10 | Xid buckets: 48, 64, 79 and 95 = reset the GPU / restart the node (Critical). 74 = NVLink (Major). 94 = contained (Minor). 63 = ignored. |
@@ -710,6 +776,8 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | BRULE-GPU-14 | Placement fit for N GPUs of a model is judged per pod on: free healthy GPUs, rack power headroom, cooling state (CDU for liquid racks), contracted power headroom, "already paid" kW (an idle block, or demand below the take-or-pay floor) and the marginal power cost per GPU-hour. Fit is Good, Tight or No. |
 | BRULE-GPU-15 | Each job is a customer service on every node of the job, so a fault on any of its nodes affects that service and appears in Revenue Impact under the GPU domain (see 7.6). |
 | BRULE-GPU-16 | Telemetry is read-only. The platform never resets a GPU, drains a node or changes a power cap. It recommends these, and people carry them out through a change. |
+| BRULE-GPU-17 | Pods are at most 32 nodes of 8 GPUs, one GPU model per pod; the GPU host takes the pod's server model (NVIDIA, Supermicro or Dell OEM). Liquid-cooled halls have one CDU loop per three GPU racks (capacity = load × 1.6 rounded up to 50 kW; nominal flow = capacity × 1.45 L/min); liquid nodes report no fan. Cluster state is bad when a job in it is stalled or a GPU is failed in a job, warn when any GPU needs attention, else ok. |
+| BRULE-GPU-18 | Reference scenarios the acceptance tests use (seeded on NVIDIA training pods): Xid 79 stalls the biggest training job at the GPU-fault site, last checkpoint 52 min before; Xid 48 row remap pending puts a fine-tune At risk; Xid 74 NVLink errors make one node a straggler and the job 22 % slower; CDU flow low (pump A seized) puts liquid-cooled GPUs into hardware slowdown with a Cooling incident; an InfiniBand rail flapping slows a job 12 % with **no incident on purpose** (the job is slowed, nothing is down); a rack near its breaker runs its GPUs power-capped at 550 W (Warning alarm, 6 h); an inference service has held its GPUs idle for 6 h (no alarm). A driver rollout change covers the nodes on the old driver. |
 
 ### 7.4.3 Functional requirements
 | ID | Requirement | Priority | Model | Phase |
@@ -721,7 +789,7 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | GPU-005 | The system shall list jobs with kind, customer, premium flag, cluster, GPUs, state, step time against baseline, MFU, last checkpoint, cause and the linked incident. | M | Neo | P1 |
 | GPU-006 | The system shall compute GPU time lost now, lost so far, work to redo and at stake per job, as in BRULE-GPU-03 to 06. | M | Neo | P1 |
 | GPU-007 | The system shall sort jobs by lost-now rate, then at stake, then GPUs. | S | Neo | P1 |
-| GPU-008 | The system shall show a collapsible "Jobs needing attention" section with the Biggest blast radius card and the Slowest job card. Its open / closed state is remembered per viewer. When closed it shows four summary figures. | S | Neo | P1 |
+| GPU-008 | The system shall show a collapsible "Jobs needing attention" section with the Biggest blast radius card (the stalled job stopping the most GPUs, its incident, lost per hour, work to redo, the spare node to restart on) and the Slowest job card (the slowed job with the largest step-time share lost, its cause and lost per hour). Its open / closed state is remembered per viewer; when closed it shows four summary figures: GPUs stopped + incident, lost now, slowest job, lost now. The same section heads the datacenter GPU sub tab for one site. | S | Neo | P1 |
 | GPU-009 | The system shall show a fleet summary strip: GPUs installed, in a job, healthy %, jobs by state, GPU time lost per hour and work to redo. | M | Neo | P1 |
 | GPU-010 | The system shall ingest the DCGM fields per GPU: utilisation, SM active, tensor active, memory copy, DRAM active, frame-buffer used, GPU and HBM temperature, power and energy, SM and memory clock, P-state, fan, throttle reasons, ECC single / double bit, retired pages, row remap, PCIe replay and traffic, NVLink errors and traffic, last Xid. | M | Neo | P1 |
 | GPU-011 | The system shall ingest the vendor equivalents for Intel Gaudi (hl-smi / exporter) and Intel XPU Manager, and label telemetry by its source. | S | Neo | P2 |
@@ -736,7 +804,7 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | GPU-020 | The system shall show GPU racks with draw against budget, liquid / air, node count, maximum temperature, CDU and state. | M | Neo | P1 |
 | GPU-021 | The system shall show tenant AI cages (contracted kW, draw, CDU, inlet temperature, state, note) for colocation, without polling tenant GPUs. | M | Colo | P1 |
 | GPU-022 | The system shall link a job affected by a fault to the open GPU incident and show the incident severity and status on the job. | M | Neo | P1 |
-| GPU-023 | The system shall open from the Command Center GPU fleet area at the jobs tab, filtered to the selected datacenter. | M | Neo | P1 |
+| GPU-023 | The system shall feed the Command Center GPU fleet area (the first hero area where the estate runs operator GPUs; colocation tenant cages do not qualify): % = healthy GPUs ÷ installed, status Critical when a job is stalled and Attention for slowed / at-risk / idle allocations, throttling or failed GPUs, the detail line and one chip per site with a hurt job or throttled GPUs that opens the jobs tab filtered to that datacenter. | M | Neo | P1 |
 | GPU-024 | The system shall show power cost per installed and per sold GPU-hour per pod, against the model's price (share %, left after power) and the cost of idle GPUs' power (BRULE-GPU-12). | S | Neo | P2 |
 | GPU-025 | The system shall show energy and power cost by job and by tenant per day, against what the job earns, with call-outs for idle allocations and power-capped racks (BRULE-GPU-13). | S | Neo | P2 |
 | GPU-026 | The system shall provide a "Where to place" tab: input GPUs needed (8–256) and a model, output pods ranked by fit with free GPUs, rack headroom, cooling, contracted headroom, already-paid kW and marginal power cost per GPU-hour. | S | Neo | P2 |
@@ -746,9 +814,15 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | GPU-030 | The system shall scope every tab to one datacenter or the whole estate from a datacenter selector. | M | Both | P1 |
 | GPU-031 | The system shall read job metadata from the scheduler (Slurm REST or the Kubernetes API) and never read job inputs, outputs, models or code. | M | Neo | P1 |
 | GPU-032 | The system shall show step time, MFU and checkpoint figures only when the customer's AI platform exports them, and otherwise mark them "not available" (to discuss per customer). | M | Neo | P1 |
-| GPU-033 | The system shall answer Opstral AI questions "Where should the next GPU job go?" and "What is power costing us?" from the same placement and power data. | C | Neo | P2 |
+| GPU-033 | The system shall answer Opstral AI questions "Where should the next GPU job go?", "What is power costing us / at <site>?" and "Which GPU job is losing the most?" from the same placement, power and job data, with evidence links to the jobs, incidents and placement tab; in an estate without GPUs it shall say so. | C | Neo | P2 |
 | GPU-034 | The system shall show recommended actions per affected job (for example drain the failed node and restart from the last checkpoint on a spare; reseat or replace the NVLink part; restore CDU flow). These are carried out through incident actions, not by the system. | S | Neo | P1 |
 | GPU-035 | The system shall export GPU job hours delivered and lost per customer per day to the billing interface. | C | Neo | P3 |
+| GPU-036 | The system shall head the GPU Fleet screen with one row: title and a one-line subtitle, a live chip, a datacenter selector and the Opstral AI button; the tab bar (Clusters · Jobs · Nodes · GPU models · Telemetry · Cooling & power · Network · Where to place) fits one row at 1280 px. | S | Neo | P1 |
+| GPU-037 | The system shall filter the jobs list by state (stalled, slowed, at risk, idle, running) and kind (training, fine-tuning, inference), and the nodes list by GPU model, condition (needs attention, failed, in a job, spare, drained, burn-in) and view (throttled, old driver, liquid-cooled), with free-text search. | M | Neo | P1 |
+| GPU-038 | The system shall show the open driver-rollout change on nodes running their model's old driver and link to it in Change Management; the pod's standard driver is named in the filter. | S | Neo | P1 |
+| GPU-039 | The system shall count node states (in a job, spare, drained, failed, burn-in) and GPU health (healthy, degraded, failed), throttle reasons (thermal, hardware slowdown, power cap), ECC single / double bit, row remaps pending, drift nodes, open RMAs and liquid-cooled nodes in the fleet summary, and show the DCGM field list the telemetry follows on the Telemetry tab. | S | Neo | P1 |
+| GPU-040 | The system shall show per-counter leaders on the Telemetry tab: hottest GPUs, most PCIe replays, most NVLink errors, most correctable ECC errors and GPUs in a job under 5 % utilisation, each linking to its node. | S | Neo | P1 |
+| GPU-041 | The system shall show a cluster's nodes on the datacenter Equipment tab with the 8-GPU strip for GPU nodes, and open a node by name from a cluster or GPU-models row (`?gtab=nodes&q=`). | S | Neo | P1 |
 
 ### 7.4.4 User stories and acceptance criteria
 **US-GPU-01** As a GPU operations engineer, I want to see which jobs are stalled or slowed and why, so that I fix the costliest first (GPU-005, GPU-006, GPU-007).
@@ -764,7 +838,11 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 - Given a node with a row remap pending, when I open it, then the GPU strip marks that GPU, the ECC and row remap counters are shown, and a 24 h sparkline ends on the current value.
 
 **US-GPU-04** As a facility engineer, I want to see the liquid loops feeding GPU racks, so that I catch low flow before GPUs throttle (GPU-019, GPU-020).
-- Given a CDU at 62 % of nominal flow, when I open Cooling & power, then the CDU shows warn / bad, lists its racks, and the jobs on those racks show Slowed with the thermal cause.
+- Given a CDU whose pump A has seized and flow is below 90 % of nominal, when I open Cooling & power, then the CDU shows warn / bad, lists its racks, the jobs on those racks show Slowed with the hardware-slowdown cause, and a Cooling incident links them.
+
+**US-GPU-09** As a GPU operations engineer, I want a slowed job to show even when no incident is open, so that waste is not hidden behind ticketing (GPU-005, GPU-008, BRULE-GPU-18).
+- Given an InfiniBand rail flapping on one node of a job and no incident, then the job shows Slowed with the rail as its cause, its lost-now rate, and "no incident open".
+- Given an inference allocation idle for 6 h, then it shows Idle with its lost-now rate and no alarm is raised.
 
 **US-GPU-05** As a capacity planner, I want to know where a 64-GPU H100 job fits best, so that new work goes where power is already paid (GPU-026).
 - Given I enter 64 GPUs and H100, when the list renders, then each pod shows its fit (Good / Tight / No) and the reasons, and pods with idle contracted power rank above pods that need new demand.
@@ -788,7 +866,7 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | Customer, price per GPU | Read | BSS Customers / Plans & Products Catalog | rate × model factor |
 | CDU / cooling loop | Read | BMS (live), DCIM (record) | flow, temperatures, racks fed |
 | Tenant AI cage | Read | DCIM + CRM contract (contracted kW), PDUs (draw) | colocation only |
-| Tariff, PUE, power contract | Read | Power economics (7.x Capacity), EPMS meters | per site |
+| Tariff, PUE, power contract | Read | Power economics (7.8), EPMS meters | per site |
 | GPU alarm / incident | Read | Ops Toolkit System Alerts / ITSM Incidents | enriched per 7.5 |
 | GPU model catalogue | Read | SynapseDC reference data | memory, TDP, links, price factor |
 
@@ -821,7 +899,7 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 ### 7.4.8 Screens
 | Screen / tab | Purpose | Reference route |
 |---|---|---|
-| GPU Fleet → Overview | strip, Jobs needing attention, clusters | `/gpu` |
+| GPU Fleet → Clusters (default) | head row, strip, Jobs needing attention, cluster cards with per-node cells | `/gpu` (`?gtab=clusters`) |
 | Jobs | jobs and their money effect | `/gpu?gtab=jobs&dc=` |
 | Clusters / Nodes | pods, heat map, node list, node drawer | `/gpu?gtab=clusters`, `/gpu?gtab=nodes` |
 | Telemetry | DCGM fleet view | `/gpu?gtab=telemetry` |
@@ -830,7 +908,9 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | Cooling & power | CDUs, GPU racks, power cost, energy by job / tenant | `/gpu?gtab=cooling` |
 | Where to place | ranked pods for a new job | `/gpu?gtab=placement` |
 | Datacenter → Infrastructure → GPU Fleet | the same views for one site | `/datacenters/:id?tab=gpu` |
-| Device → GPUs · DCGM | per-node health and profiling | `/ne/:id?tab=gpus` |
+| Device → GPUs · DCGM (GPUs · Intel for Gaudi / Max) | per-node health and profiling | `/ne/:id?tab=gpus` |
+| Command Center → GPU fleet area | % healthy, status, detail, site chips | `/` |
+| Datacenter → Equipment | 8-GPU strip on GPU nodes | `/datacenters/:id?tab=equipment` |
 
 ---
 
@@ -839,7 +919,7 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 **Purpose.** Turn the raw alarms from every source into one normalised, de-duplicated stream that is placed on the datacenter. Decide whether each alarm counts against the site. Group related alarms into incidents enriched with impact, ranked root-cause hypotheses (with change evidence), recommended actions and verification. The alarm and the incident remain records of the existing platform modules; SynapseDC adds the datacenter intelligence.
 **Lifecycle stage:** Operate.
 **Primary users:** NOC engineer, facility engineer, incident manager, on-call engineer, operations head.
-**Builds on:** Ops Toolkit System Alerts (alarm record, routing), Services & ITSM Incidents, Problems and Change Management (records, workflow, approvals), Ops Toolkit Service Ops (notifications).
+**Builds on:** Ops Toolkit System Alerts (alarm record, routing, paging), Services & ITSM Incidents, Problems and Change Management (records, workflow, approvals), BSS Experience and Care (customer notices).
 
 **Colocation:** tenant gear is never polled, so tenant-cabinet alarms come only from power (PDU, breaker, cabinet over contracted power) and environment (inlet, leak, door). A tenant over its own power budget is an alarm and a commercial matter, not a datacenter fault. Cross-connect and remote-hands tickets sit beside incidents.
 **NeoCloud:** GPU alarms (Xid, ECC, NVLink, throttle, CDU) are a domain of their own (incident type GPU). A job's service is hit by a fault on any of its nodes. Fabric alarms are reported by plane (InfiniBand, Ethernet front-end, OOB).
@@ -867,20 +947,22 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 |---|---|
 | BRULE-ALM-01 | Alarm identity = source + node + resource + alarm type. A repeat updates last-seen and count; a clear closes the alarm. Sources without a clear close the alarm after the condition has been absent for two polling intervals. |
 | BRULE-ALM-02 | Flapping: more than 3 raise / clear cycles in 15 minutes holds the alarm open, marked flapping (feeds flaps-24h per interface and the "rail flapping" state). |
-| BRULE-ALM-03 | Alarm severities are Critical / Major / Minor / Warning, mapped from the source scale by a configuration table: syslog 0–2 / 3 / 4 / 5; UPS on battery / depleted / overload = Critical; Xid per BRULE-GPU-10; VESDA Fire 1/2 = Critical. |
+| BRULE-ALM-03 | Alarm severities are Critical / Major / Minor / Warning, mapped from the source scale by a configuration table: syslog 0–2 / 3 / 4 / 5 (6–7 are not alarms); ServiceNow Event Management 1 / 2 / 3 / 4; Redfish Critical / Warning on a redundancy loss / Warning; UPS on battery, depleted, overload = Critical, low battery, bypass, charger = Major, fan = Minor; Xid per BRULE-GPU-10; VESDA Fire 1/2 = Critical, Action = Major, Alert = Minor. |
 | BRULE-ALM-04 | Scope **site** = inside the datacenter (facility, racked devices, internal links). **edge** = a link with exactly one end in the site, counted at both ends. **dependency** = the far-end node as it affects the edge link, shared AAA / NTP, collectors. **downstream** = remote PoPs and sites that depend on this datacenter. Downstream alarms are never counted. When the datacenter is the cause, they appear as `symptomOf` impact under its incident. |
 | BRULE-ALM-05 | Only site, edge and dependency alarms count in a datacenter's issue counts. |
-| BRULE-ALM-06 | Edge redundancy per site is Redundant (≥ 2 edge paths up), Redundancy lost (1 up) or Isolated (0 up). |
+| BRULE-ALM-06 | Edge redundancy per site: Isolated when no edge link is up; Redundancy lost when at least one edge link is down and at least one is up; else Redundant. Isolated makes the site Critical; Redundancy lost makes it Attention. |
 | BRULE-ALM-07 | A rack-level fault (PDU breaker, cabinet power, inlet temperature) carries the rack, so every service hosted in that rack is affected. One physical fault seen on several devices carries a shared fault id and location. |
 | BRULE-ALM-08 | Alarms that share a fault, a rack, a link, or a power / cooling upstream within a short window are grouped into one incident. |
-| BRULE-ALM-09 | Incident severities are Critical / High / Medium / Low (stored 1–4). Priority is shown only when it differs from severity. |
+| BRULE-ALM-09 | Incident severities are Critical / High / Medium / Low (stored 1–4); statuses Open, Investigating, Mitigated, Resolved, Closed; types Network, Power, Cooling, Rack, Capacity, Security, GPU. Priority P1–P4 is shown only when it differs from severity. Response SLA = 15 / 30 / 60 / 240 min and resolve SLA = 4 / 8 / 24 / 72 h for Critical / High / Medium / Low; an incident is past SLA when the open clock exceeds its target. |
 | BRULE-ALM-10 | RCA hypotheses are ranked by confidence (the shares of 100 % across the listed hypotheses). Evidence = alarms, a change completed within 3 days before detection at the site or on the path, topology (an upstream device or power stage explains its downstream alarms), and the optics lot from inventory. |
 | BRULE-ALM-11 | A completed change cited by an incident's leading hypothesis is marked "Caused an incident" in Change Management and counts as a failed change. |
-| BRULE-ALM-12 | Incidents grouped by a common cause (for example an optics lot) form one problem record. |
-| BRULE-ALM-13 | Customer notices: the initial notice is due 15 / 30 / 60 min after detection by severity, then updates every 1 / 2 / 4 h. An overdue update is flagged. |
+| BRULE-ALM-12 | Incidents grouped by a common cause (for example every incident whose evidence or plan names the same optics lot, else type + normalised title) form one problem record with a workaround and a fix; its state is Fix in change (a change is open for it), Investigating (an incident is still open) or Known error. |
+| BRULE-ALM-13 | Customer notices: the initial notice is due 15 / 30 / 60 min after detection for Critical / High / Medium or Low, then updates every 1 / 2 / 4 h until resolved, and a resolution notice 20 min after resolution. A missed update is flagged overdue from the minute it was due. |
 | BRULE-ALM-14 | Default verification: all correlated alarms cleared; health checks green for 15 minutes; affected services back within SLA. |
 | BRULE-ALM-15 | A source silent for two intervals marks its values stale and raises a monitoring-gap alarm. A device with no poll for 15 minutes becomes unmonitored. A collector silent for 15 minutes turns the site's collector chip stale. |
 | BRULE-ALM-16 | An open Critical incident at a site freezes non-emergency changes there (Change Management policy). |
+| BRULE-ALM-17 | On-call per region: the geography's people rotate weekly, day shift 08–20 and night shift 20–08, in the roles NOC shift lead (tier 1, escalate after 15 min), network engineer, facility engineer and field technician (tier 2, 30 / 30 / 60 min), AI infrastructure engineer at GPU sites (tier 2, 30 min) and duty manager (tier 3, 60 min, whole week). Paging chain: L1 at once; the owner's role (L2) when acknowledged or after L1's escalation time; the duty manager at 30 min for a Critical incident. Next escalation = the duty manager at 60 min while unacknowledged, else at 75 % of the resolve SLA for Critical / High. The customer's paging tool replaces the rota where one exists. |
+| BRULE-ALM-18 | Similar incidents: an incident names other devices with the same signature (for example four nodes on the same optics vendor batch), which suggests a batch-level RMA rather than separate ones. |
 
 ### 7.5.3 Functional requirements
 | ID | Requirement | Priority | Model | Phase |
@@ -896,9 +978,9 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | ALM-009 | The system shall compute edge redundancy per site per BRULE-ALM-06. | M | Both | P1 |
 | ALM-010 | The system shall attach rack and shared-fault references per BRULE-ALM-07. | M | Both | P1 |
 | ALM-011 | The system shall publish normalised alarms to Ops Toolkit System Alerts and keep the identity as the de-duplication key. | M | Both | P1 |
-| ALM-012 | The system shall provide an Alerts list (ListToolbar, analytics strip) filterable by site, device, severity, state, scope, category and source, with acknowledge. | M | Both | P1 |
+| ALM-012 | The system shall provide an Alerts list with an analytics strip of six tiles (active alarms by severity with the unacknowledged count, acknowledged %, correlated into incidents, categories active, raised in the last 24 h by hour, top three datacenters), filters by site, device, severity, state (open / active only / acknowledged / cleared / all), scope, category and source, and the actions Acknowledge and Correlate into incident on selected alarms. | M | Both | P1 |
 | ALM-013 | The system shall correlate alarms into incidents per BRULE-ALM-08 and create or update the incident in Services & ITSM Incidents. | M | Both | P1 |
-| ALM-014 | The system shall assign the incident type (Network, Power, Cooling, Rack, Capacity, Security, GPU) and severity Critical / High / Medium / Low. | M | Both | P1 |
+| ALM-014 | The system shall assign the incident type (Network, Power, Cooling, Rack, Capacity, Security, GPU), severity Critical / High / Medium / Low, priority, owner and reporter (Monitoring, BMS, DCIM, Capacity forecaster, Discovery), and show priority only when it differs from severity. | M | Both | P1 |
 | ALM-015 | The system shall list affected objects per incident (device, link, rack, service, customer, facility). | M | Both | P1 |
 | ALM-016 | The system shall compute incident impact: services, customers, premium customers, revenue at risk and a one-line summary with level High / Medium / Low. | M | Both | P1 |
 | ALM-017 | The system shall produce ranked RCA hypotheses with confidence and evidence links per BRULE-ALM-10. | M | Both | P1 |
@@ -917,9 +999,13 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | ALM-030 | The system shall raise GPU alarms (Xid, ECC, NVLink, throttle) and create GPU-type incidents that list the affected jobs. | M | Neo | P1 |
 | ALM-031 | The system shall raise tenant cabinet alarms from power and environment only, and treat a tenant inside its own contracted power as not a datacenter fault. | M | Colo | P1 |
 | ALM-032 | The system shall raise power-contract findings (block ≥ 85 % drawn, new demand peak above the floor, unexplained draw > 12 % over the 24 h mean, block ≥ 30 % idle) as Power alarms, and one Medium Power incident for the costliest block or ratchet finding. | S | Both | P2 |
-| ALM-033 | The system shall show incident views: open, Critical, High, past SLA, unacknowledged, and resolved in the last 7 days. | M | Both | P1 |
+| ALM-033 | The system shall show incident list views Open, Critical open, High open, Breaching SLA and All, a datacenter filter and a Problems tab; the datacenter Needs attention tab shall open with four figure tiles (past SLA, unacknowledged, oldest open, MTTR 30 d) and the list "Resolved · last 7 days". | M | Both | P1 |
 | ALM-034 | The system shall emit `dco.alert.*` and `dco.incident.*` events for every lifecycle change. | M | Both | P1 |
-| ALM-035 | The system shall answer Opstral AI questions about an incident's cause and impact from the same RCA and impact data. | C | Both | P2 |
+| ALM-035 | The system shall answer Opstral AI questions about an incident's cause, what changed before it and its impact from the same RCA, change and impact data. | C | Both | P2 |
+| ALM-036 | The system shall let a user correlate selected uncorrelated alarms that share a cause into one incident by hand, and show per alarm the incident it belongs to. | S | Both | P1 |
+| ALM-037 | The system shall show per alarm its severity, scope, category, source, title, device and port or link, site, start time, state, count and acknowledged-by, and open the device, link or incident from the row. | M | Both | P1 |
+| ALM-038 | The system shall raise hardware alarms (failed disk, failed PSU) on the operator's own servers with the RMA case they open, never marking a server unreachable for a part fault. | S | Both | P1 |
+| ALM-039 | The system shall show the incident's similar incidents (BRULE-ALM-18) and the on-call rota of the site's region with the current shift. | S | Both | P2 |
 
 ### 7.5.4 User stories and acceptance criteria
 **US-ALM-01** As a NOC engineer, I want a single alarm for a repeating trap, so that the list is not flooded (ALM-003, ALM-004).
@@ -941,7 +1027,7 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 - Given a check is still open, when I try to resolve, then the system blocks it and lists the open checks.
 
 **US-ALM-07** As a customer success manager, I want to see when the next customer update is due, so that notices are never late (ALM-026).
-- Given a Critical incident open for 70 min with no update since the initial notice, then the update shows as overdue.
+- Given a Critical incident open for 80 min with no update since the initial notice at 15 min, then the update due at 75 min shows as overdue, and the next escalation names the duty manager.
 
 **US-ALM-08** As a GPU operations engineer, I want GPU faults as GPU incidents listing the hurt jobs, so that I see the business effect immediately (ALM-030).
 - Given Xid 79 on a node in a 152-GPU job, then a GPU incident lists that job as Stalled with its lost-now rate.
@@ -985,7 +1071,7 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | Screen / tab | Purpose | Reference route |
 |---|---|---|
 | Alerts | normalised alarms with scope | `/alerts` |
-| Incidents | list with views and revenue column | `/incidents?view=high` |
+| Incidents | list with views and revenue column | `/incidents?view=open|sev1|high|breaching|all&dc=` |
 | Incident page | impact, RCA, actions, verification, on call & communications, revenue | `/incidents/:id` |
 | Incidents → Problems | problem records | `/incidents?tab=problems&prb=` |
 | Datacenter → Needs attention | open incidents, alarms by category, on call now | `/datacenters/:id?tab=attention` |
@@ -1028,8 +1114,8 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | BRULE-REV-05 | Lost = rate × hours since the alarm began. |
 | BRULE-REV-06 | SLA credit: the 30-day uptime drops by the impacted minutes (÷ 43,200 min). The shortfall below the SLA target picks the tier: > 0 → 10 %, ≥ 0.5 pt → 25 %, ≥ 2 pt → 50 % of the monthly charge. The issue is charged only the extra tier it causes. |
 | BRULE-REV-07 | Credits already owed before this fault (uptime30d already below target) are "locked in". They are reported separately and booked to an earlier incident at the site, never to the current issue. |
-| BRULE-REV-08 | Next cliff = the time until the next credit tier step and its amount; cliffs within 30 minutes of the first are grouped. |
-| BRULE-REV-09 | Forecast 24 h = lost + credits if the issue is still open 24 h from now. |
+| BRULE-REV-08 | Next cliff = the time until the next credit tier step and its amount; cliffs within 30 minutes of the first are grouped into one; the strip also counts the cliffs within 60 minutes. |
+| BRULE-REV-09 | Forecast 24 h = lost + credits if the issue is still open 24 h from now. The cost-of-delay curve samples from the fault start to 24 h ahead (48 points, the past share by elapsed time); an exposed-only issue's curve starts at now and reads "if it fails now". |
 | BRULE-REV-10 | Exposed: potential rate = Σ hourly charge of the exposed services. Potential credits = the tier step caused by a 4-hour outage (the Critical resolution target). |
 | BRULE-REV-11 | Losses are charged to the datacenter where the fault is. A backhaul fault that degrades services homed at the far-end site is charged to the faulty site. |
 | BRULE-REV-12 | Reconciliation: Σ issues = Σ causes = Σ datacenters = Σ customers = Σ site views = total. |
@@ -1037,6 +1123,8 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | BRULE-REV-14 | 30-day history = resolved incidents (duration × severity weight 0.6 for Critical / High, 0.3 Medium, 0.12 Low × site average) + locked-in credits + today's open impact. |
 | BRULE-REV-15 | Money is written in the geography's currency and number format. Enterprise wording is Business value / Cost of downtime / OLA rebates. |
 | BRULE-REV-16 | GPU jobs: the service's monthly charge = GPUs × persona rate × model price factor. A fault on any node of the job hits that service. |
+| BRULE-REV-17 | Within SLA · 30 d = the share of monthly revenue whose services meet their SLA target over 30 days. Credits owed = credits triggered by open issues + credits locked in over 30 days. |
+| BRULE-REV-18 | Customer state = the worst of the customer's services: losing now (down / degraded), running on a critical fault (exposed), below SLA over 30 days, on an open incident's path, else normal; the verdict line names the main cause and opens the fault. Running hot is never a loss. |
 
 ### 7.6.3 Functional requirements
 | ID | Requirement | Priority | Model | Phase |
@@ -1046,7 +1134,7 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | REV-003 | The system shall compute rate, lost, credits, locked-in credits, next cliff, forecast 24 h, potential rate and potential credits per BRULE-REV-04 to 10. | M | Both | P1 |
 | REV-004 | The system shall charge losses to the datacenter where the fault is (BRULE-REV-11). | M | Both | P1 |
 | REV-005 | The system shall reconcile totals across issues, causes, datacenters, customers and site views (BRULE-REV-12) and fail the build check when they differ. | M | Both | P1 |
-| REV-006 | The system shall show a strip of 6 tiles: losing now (rate), lost so far, credits triggered, forecast 24 h, at stake if it fails, and customers affected (premium count). | M | Both | P1 |
+| REV-006 | The system shall show a strip of six tiles, each opening the matching view: Losing now (per hour, split down / degraded), Impact so far (lost + credits, with the +24 h forecast), At stake (monthly charge of exposed services by domain, with the hourly loss if they fail), Credits owed (open issues + locked in 30 d, with the next cliff), Costliest cause · 30 d (by domain) and Within SLA · 30 d (% of monthly revenue). | M | Both | P1 |
 | REV-007 | The system shall show the answer cards "Costing the most right now" and "Most at stake", each with a cost-of-delay curve from the fault start to 24 h ahead. | M | Both | P1 |
 | REV-008 | The system shall list issues ranked per BRULE-REV-13 with services down / degraded / exposed, customers, premium, rate, lost, credits, next cliff and forecast. | M | Both | P1 |
 | REV-009 | The system shall open a cost-breakdown drawer per issue, listing every service, its state, rate, minutes, credit tier step and cliff. | M | Both | P1 |
@@ -1069,6 +1157,9 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | REV-026 | The system shall support per-contract credit rules in place of the single tier table (to discuss). | C | Both | P3 |
 | REV-027 | The system shall answer Opstral AI questions "Which issue is costing the most revenue?" and "What is INC-n costing us?". | C | Both | P2 |
 | REV-028 | The system shall show a premium-customer impact figure on the Command Center that opens "Who is affected". | M | Both | P1 |
+| REV-029 | The system shall provide the customer page: an identity header (avatar, state, facts row, a one-line verdict naming the main cause with a link to the fault), a strip of six tiles (services by status, impacted now, SLA 30 d against target with credits owed, utilisation, monthly revenue by service type, open issues), "What is impacting this customer" (issues with money per issue) beside "Where they are served", then the service grid with per-service state, path and cause. | M | Both | P1 |
+| REV-030 | The system shall show on a colocation customer's page their cross-connect orders and remote-hands tickets beside the impact panels. | S | Colo | P2 |
+| REV-031 | The system shall show "Why at risk" per customer on customer lists (the causes of their impacted services) and open the customer page from any list, incident or site. | S | Both | P1 |
 
 ### 7.6.4 User stories and acceptance criteria
 **US-REV-01** As an operations head, I want to know which issue costs the most right now, so that it is fixed first (REV-007, REV-008).
@@ -1125,7 +1216,7 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 ### 7.6.8 Screens
 | Screen / tab | Purpose | Reference route |
 |---|---|---|
-| Revenue impact | strip, answer cards, tabs Issues · Customers · Datacenters · Causes & trend · One failure away | `/revenue` |
+| Revenue impact | strip, answer cards, tabs Issues · Customers · Datacenters · Causes & trend · One failure away | `/revenue?tab=&rview=losing|stake&cview=owed` |
 | Issue drawer | cost breakdown | `/revenue` (row opens the drawer) |
 | Datacenter → Business impact → Revenue | site view | `/datacenters/:id?tab=revenue` |
 | Incident page → Revenue impact | per incident | `/incidents/:id` |
@@ -1177,9 +1268,12 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | BRULE-SEC-11 | Case phases (NIST SP 800-61): Detection & analysis → Containment → Eradication → Recovery → Post-incident. |
 | BRULE-SEC-12 | OT zone achieved level (SL-A) = target level (SL-T) minus 1 for each of: an open Act / Attend firmware finding in the zone, reachability from the IT network (when SL-T > 2), an any-any conduit rule. Minimum 1. |
 | BRULE-SEC-13 | OT asset risk: default credentials and reachable from IT → Critical. Default credentials, or an Act vulnerability → High. Cleartext protocol and reachable from IT → Medium. Otherwise Low. |
-| BRULE-SEC-14 | Posture rolls up to the six NIST CSF 2.0 functions (Govern, Identify, Protect, Detect, Respond, Recover). Respond = 70 % open cases within SLA + 30 % MTTA score. |
-| BRULE-SEC-15 | Technique ids are MITRE ATT&CK Enterprise and ICS. Hardening check ids are SynapseDC's own, mapped to CIS / STIG sections (not CIS numbering). Advisories shown before a live feed is connected are marked illustrative. |
+| BRULE-SEC-14 | Posture rolls up to the six NIST CSF 2.0 functions (Govern, Identify, Protect, Detect, Respond, Recover), each with its basis and items. Respond = 0.7 × (open cases within SLA ÷ open cases × 100) + 0.3 × max(0, 100 − MTTA in minutes); Protect = hardening pass % − min(25, 0.4 × open Act findings) − min(10, 0.3 × OT default credentials); Identify = (inventory coverage % + 100) ÷ 2; Govern = 100 − 5 × access reviews due − min(20, expired badges still active). |
+| BRULE-SEC-15 | Technique ids are MITRE ATT&CK Enterprise and ICS; physical rules carry an ISO 27001 control instead (A.7.1 perimeter, A.7.2 entry, A.7.3 offices and rooms, A.5.18 access rights). Hardening check ids are SynapseDC's own, mapped to CIS / STIG sections (not CIS numbering). Advisories shown before a live feed is connected are marked illustrative. |
 | BRULE-SEC-16 | The system never blocks traffic, disables accounts or changes configuration. Containment steps are done by people, through a change or the SOC's own tools. |
+| BRULE-SEC-17 | Site security score = 100 − 9 × open Critical detections − 3 × High − min(14, 1.2 × Act vulnerabilities) − 6 × unauthorised drifts (7 d) − 1.5 × open physical exceptions − 0.35 × (100 − hardening pass %) − 0.3 × (100 − sensor coverage %), floored at 0. |
+| BRULE-SEC-18 | Rules are Sigma rules (log source, selection, condition) compiled to a query on the security data store; each keeps its source, the compiled query, its version, status (Stable / Test / Off) and who changed it last. Wazuh is not used; the security data store is ClickHouse with OCSF tables and datacenter context as dictionaries. |
+| BRULE-SEC-19 | Reference story cases the acceptance tests use, per site: SEC-0001 a badge-in at the hero site followed by an unapproved ACL change opening management access on the WAN edge router (SR-060, Critical, Containment); SEC-0002 crypto-mining on idle GPU nodes (GPU estates) or a jump-host compromise by password spraying, a new admin and cleared logs (colocation); SEC-0003 an unknown device on the OOB network probing BMCs; SEC-0004 default credentials and a Modbus write on a UPS network card; SEC-0005 the worst open physical exception. Closed cases come from true-positive detections. |
 
 ### 7.7.3 Functional requirements
 | ID | Requirement | Priority | Model | Phase |
@@ -1199,11 +1293,11 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | SEC-013 | The system shall offer playbooks per case type and show each step's owner. | S | Both | P2 |
 | SEC-014 | The system shall sync cases with Ops Toolkit Security Ops (or the customer's SOAR) as the case record. | M | Both | P2 |
 | SEC-015 | The system shall show ATT&CK coverage (techniques with an enabled rule and a live sensor) for Enterprise and ICS. | S | Both | P2 |
-| SEC-016 | The system shall provide a rules catalogue: enable / disable, edit and create a rule (title, domain, sensors, techniques, level, logic). | S | Both | P2 |
+| SEC-016 | The system shall provide a rules catalogue: enable / disable, edit and create a rule (title, description, domain, sensors, techniques or ISO control, level, status, playbook, Sigma source and compiled query), with version history and detections per rule over 7 days (BRULE-SEC-18). | S | Both | P2 |
 | SEC-017 | The system shall match advisories to firmware, OS and packages per asset and list vulnerabilities with CVSS v4, EPSS, KEV, exposure, SSVC decision and due date (BRULE-SEC-09/10). | M | Both | P2 |
 | SEC-018 | The system shall let a user set a vulnerability state (Open, In remediation with a change link, Accepted with a note, Fixed). | M | Both | P2 |
 | SEC-019 | The system shall replace the illustrative advisories with live NVD / CISA KEV / FIRST EPSS / vendor PSIRT feeds when they are connected. | S | Both | P3 |
-| SEC-020 | The system shall run hardening checks per baseline (CIS / STIG / vendor guide) per asset and show pass / fail with remediation. | S | Both | P2 |
+| SEC-020 | The system shall run hardening checks per baseline (for example CIS Cisco IOS XR, DISA STIG NX-OS, CIS Junos, vendor guides for BMCs, UPS cards and PDUs) per asset and show pass / fail with remediation and the pass % per baseline and site. | S | Both | P2 |
 | SEC-021 | The system shall show configuration drift per device (running vs last approved) as authorised (with a change) or unauthorised. | M | Both | P2 |
 | SEC-022 | The system shall show IEC 62443 zones and conduits per site with SL-T, SL-A (BRULE-SEC-12), assets and findings. | S | Both | P2 |
 | SEC-023 | The system shall list OT assets (UPS cards, PDUs, BMS / CDU controllers, meters, DG controllers) with default credentials, cleartext, IT reachability and risk (BRULE-SEC-13). | M | Both | P2 |
@@ -1214,6 +1308,10 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | SEC-028 | The system shall exclude tenant-owned equipment from assets, detections and vulnerabilities. | M | Colo | P2 |
 | SEC-029 | The system shall show metrics: MTTA, MTTR, open cases within SLA, true-positive rate. | S | Both | P2 |
 | SEC-030 | The system shall map security posture to ISO 27001 controls for Compliance (A.5–A.8, A.7 physical). | C | Both | P3 |
+| SEC-031 | The system shall show a site security score per datacenter (BRULE-SEC-17) and rank sites by it on Insights. | S | Both | P2 |
+| SEC-032 | The system shall keep every triage, case, vulnerability and rule move as the analyst's work in the Security Ops record so it survives a data refresh, and audit who made it. | M | Both | P2 |
+| SEC-033 | The system shall list, per detection, the datacenter context it was raised with: site, room, rack, owner or tenant, the change request covering the asset, and who was badged into the room. | M | Both | P2 |
+| SEC-034 | The system shall show per playbook its trigger rules and steps by phase with the system each step runs on and whether it is automatic; automatic steps run in the SOC platform, never in SynapseDC (BRULE-SEC-16). | S | Both | P2 |
 
 ### 7.7.4 User stories and acceptance criteria
 **US-SEC-01** As a SOC analyst, I want an unapproved config change flagged with the person who badged in, so that I can investigate insider activity (SEC-006, SEC-008).
@@ -1301,7 +1399,9 @@ Each chapter follows the same layout: purpose · scope · business rules · func
   - capacity per datacenter, hall and dimension (space U, power kW, cooling kW, ports, GPUs);
   - reservations and holds from every source;
   - net available capacity;
-  - forecast against thresholds;
+  - forecast against the 85 % warning line, with approved and executing plans netted in;
+  - network bandwidth and port headroom (links in countdown);
+  - the financial view: CapEx approved and committed, OpEx per month, per site;
   - PUE, energy per day and CO₂;
   - power tariffs and power contracts per site, and the monthly power bill (energy and capacity charges);
   - idle committed kW and its cost, and cost per sold MW-month;
@@ -1326,13 +1426,16 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | BRULE-CAP-07 | Sold kW = the power of GPU nodes in a running (not idle) job + tenant contracted power. Cost per sold MW-month = bill ÷ sold MW. When nothing is sold, the cost per IT MW is shown instead. |
 | BRULE-CAP-08 | Power per installed GPU-hour = kW per GPU × site PUE × tariff. Power per sold GPU-hour = the same power spread over earning GPUs only. Both are compared with the GPU model's price (share %, and what is left after power). |
 | BRULE-CAP-09 | Job or tenant power per day = node kW × PUE × tariff × 24, compared with what the job earns. An idle allocation is billed and drawing power but doing no work. |
-| BRULE-CAP-10 | Finding "block near limit": a colocation block is ≥ 85 % drawn. Severity is Major at ≥ 90 %, otherwise Minor. Exposure = the next 100 kW tranche per year; overage is billed at 1.5×. |
-| BRULE-CAP-11 | Finding "demand ratchet": a new 12-month demand peak is above the take-or-pay floor. Exposure = (new peak − prior peak) × demand rate × 12. |
-| BRULE-CAP-12 | Finding "unexplained rise": draw is more than 12 % above the 24 h mean, with no change in progress and no job started in the last 24 h. |
-| BRULE-CAP-13 | Finding "idle block": ≥ 30 % of the committed block is never drawn. Exposure = idle cost × 12. |
-| BRULE-CAP-14 | Each finding raises one alarm (source Power, category Facility). The costliest block or ratchet finding also opens one Medium Power incident, whose impact is the money exposure. |
-| BRULE-CAP-15 | Placement fit for a GPU request uses free healthy GPUs of the chosen model, rack headroom, cooling state (CDU for liquid cooling), contracted headroom and already-paid kW. Fit is good, tight or no. Rank by fit, then by marginal power cost per GPU-hour. |
+| BRULE-CAP-10 | Finding "block near limit" (colocation block): peak ≥ 85 % of the committed block. Severity Major at ≥ 90 %, otherwise Minor. Exposure = the next 100 kW tranche for a year (100 kW × rate per committed kW-month × 12); power above the block bills at 1.5× the block rate. |
+| BRULE-CAP-11 | Finding "demand ratchet" (utility contract): a new 12-month demand peak above the take-or-pay floor. Prior peak = the highest of the first eleven months of history × 1.06. Exposure = (new peak − prior peak) × demand rate × 12. Severity Major when the exposure exceeds half a monthly bill, otherwise Minor. |
+| BRULE-CAP-12 | Finding "unexplained rise": current draw more than 12 % above the 24 h mean, with no change in progress at the site and no job started in the last 24 h. Severity Minor. Exposure = the rise × tariff × 24 h × 30.4 days per month if it holds. |
+| BRULE-CAP-13 | Finding "idle block" (colocation block): idle kW ≥ 30 % of the committed block. Severity Warning. Exposure = idle cost per month × 12. |
+| BRULE-CAP-14 | Each finding raises one alarm, code `PWR-<site>-<KIND>` (source Power, category Facility, scope site). The costliest block-near-limit or demand-ratchet finding also opens one Medium Power incident (reported by the EPMS meter check) whose impact is the money exposure and no services; its hypotheses are recent GPU job starts, cooling overhead and meter error; its actions are to cap inference pods in the peak window, place new jobs where power is already paid, and get the supplier's confirmation or a block uplift. |
+| BRULE-CAP-15 | Placement of a GPU request (8–256 GPUs of a chosen model) is ranked per pod. Fit = **no** when the pod has no free healthy node of the model or its cooling loop (CDU for liquid pods) is in fault; **tight** when cooling is degraded in the room, a rack is at ≥ 90 % of budget, or the contracted headroom is below the request's load; else **good**. Each pod also shows free healthy GPUs, rack headroom, cooling headroom, already-paid kW (idle block, or draw below the take-or-pay floor) and marginal power per GPU-hour (kW per busy GPU × PUE × tariff). Rank by fit, then by marginal cost. |
 | BRULE-CAP-16 | Tariffs and contract values are marked illustrative until the customer's tariff sheets and contracts are loaded. Local prices are never currency-converted. |
+| BRULE-CAP-17 | Capacity forecast per dimension = compound growth on today's use over 12 months, with approved and executing plans landing about 3 months out; 12 months of history (metered for power, back-computed from the trend for the rest). The warning line is 85 %; a dimension within 9 months of it is flagged. Links: compound growth of the last six monthly peaks, flagged when 85 % is crossed within 6 months. |
+| BRULE-CAP-18 | Illustrative contract seeding until replaced: a colocation block = peak × (1.10–1.45) rounded up to 100 kW, never above site capacity, floor 100 %, escalator 2.5–4 %; a utility connection = design capacity × (1.00–1.15), floor 60–85 %, escalator 2–4.5 %; demand charge $14 per kW-month (₹420 per kVA-month); block rate $145 (₹7,800) per committed kW-month. |
+| BRULE-CAP-19 | The pitch-deck reference line (1.2 kW per GPU at PUE 1.46 at the blended tariff) is shown beside the measured cost per GPU-hour. |
 
 ### 7.8.3 Functional requirements
 | ID | Requirement | Priority | Model | Phase |
@@ -1345,7 +1448,7 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | CAP-006 | The system shall treat colocation contracted kW above draw as a Committed hold per cabinet. | M | Colo | P2 |
 | CAP-007 | The system shall show GPU capacity per model as in a job, allocated and idle, free, and out of service. | M | Neo | P2 |
 | CAP-008 | The system shall show PUE, energy per day and CO₂ per site and for the estate (BRULE-CAP-03, BRULE-CAP-04). | M | Both | P2 |
-| CAP-009 | The system shall forecast each dimension against 80 % / 90 % thresholds and publish `dco.capacity.threshold` when one is crossed. | S | Both | P2 |
+| CAP-009 | The system shall forecast each dimension 12 months forward against the 85 % warning line (BRULE-CAP-17), show the month it is crossed, and publish `dco.capacity.threshold` when a dimension crosses it. | S | Both | P2 |
 | CAP-010 | The system shall hold a tariff per state or region and a power contract per live site: supplier, type (utility or colocation block), committed kW, take-or-pay floor, rate, escalator and term end. | M | Both | P2 |
 | CAP-011 | The system shall let an authorised user replace the illustrative tariff and contract values with the customer's own, with an as-of date. | M | Both | P2 |
 | CAP-012 | The system shall compute the monthly power bill per site and for the estate, split into energy and capacity charges (BRULE-CAP-05). | M | Both | P2 |
@@ -1370,6 +1473,11 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | CAP-031 | The system shall send metered kWh and peak kW per tenant cabinet to billing (NB-07). | S | Colo | P3 |
 | CAP-032 | The system shall send delivered and lost GPU-hours per customer job to billing (NB-07). | S | Neo | P3 |
 | CAP-033 | The system shall add an info text to every widget saying how its figure is computed. | M | Both | P2 |
+| CAP-034 | The system shall show network headroom: links in countdown (utilisation, growth of the last six monthly peaks, the month 85 % is crossed) and port headroom per site, each link opening its forecast on the device. | S | Both | P2 |
+| CAP-035 | The system shall show a financial view per site: CapEx approved and committed, OpEx per month, power capacity, racks and backhaul bandwidth, with totals. | S | Both | P2 |
+| CAP-036 | The system shall open the capacity overview with a reservation ledger (Submitted → Approved → Executing → Delivered) and the months to the 85 % line per dimension at the current growth rate. | M | Both | P2 |
+| CAP-037 | The system shall show the deck reference line beside the measured GPU power cost (BRULE-CAP-19) and label every tariff and contract figure as illustrative until replaced. | S | Neo | P2 |
+| CAP-038 | The system shall show no power findings and no incident for a site whose draw and contract give none, and shall never raise contract findings for an estate without power contracts. | M | Both | P2 |
 
 ### 7.8.4 User stories and acceptance criteria
 **US-CAP-01** As a capacity planner, I want net available power per hall after every hold, so that I don't sell capacity that is already promised. (CAP-003, CAP-004, CAP-005)
@@ -1388,7 +1496,7 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 - Given a pod with idle GPUs, then the cost per sold GPU-hour is higher than the cost per installed GPU-hour, and both are shown against the model price.
 
 **US-CAP-06** As a NOC engineer, I want an alarm when a power block nears its limit, so that the overage is avoided. (CAP-019, CAP-020)
-- Given a block drawn at 91 %, then a Major alarm `PWR-<site>-BLOCK` is active, and Power economics links to it.
+- Given a block drawn at 91 %, then a Major alarm `PWR-<site>-BLOCKNEARLIMIT` is active, and Power economics links to it and to the Medium incident it opened.
 
 **US-CAP-07** As a GPU scheduler owner, I want a ranked list of pods for 64 H100 GPUs, so that the job lands where power is already paid for and cooling has headroom. (CAP-023)
 - Given the request, when I open Where to place, then the pods are ranked by fit (good, tight, no) and then by marginal cost per GPU-hour, and a pod with a CDU fault is marked no fit.
@@ -1433,12 +1541,12 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 ### 7.8.8 Screens
 | Screen / tab | Purpose | Reference route |
 | --- | --- | --- |
-| Capacity · Overview | tiles per dimension and holds | `/capacity` |
-| Capacity · Space | space and power by hall | `/capacity?tab=space` |
-| Capacity · Power / PUE & energy | power, PUE, energy, CO₂ | `/capacity?tab=power`, `?tab=energy` |
-| Capacity · Power economics | bill, idle cost, findings, sites | `/capacity?tab=economics&dc=` |
-| Capacity · Compute & GPU | GPU capacity per model | `/capacity?tab=compute` |
-| Capacity · Reservations | every hold | `/capacity?tab=reservations` |
+| Capacity · Insights (Overview & forecast, Financial) | tiles per dimension and holds, ledger, forecast, financial view | `/capacity`, `/capacity?tab=financial` |
+| Capacity · Space | space and racks by hall | `/capacity?tab=space` |
+| Capacity · Power (Power & cooling, PUE & energy, Power economics) | power and cooling headroom, PUE, energy, CO₂, bill, idle cost, findings, sites | `/capacity?tab=power`, `?tab=energy`, `?tab=economics&dc=` |
+| Capacity · Network | bandwidth and port headroom, links in countdown | `/capacity?tab=network` |
+| Capacity · Compute | compute and GPU capacity per model | `/capacity?tab=compute` |
+| Capacity · Reservations | every hold, by kind and state | `/capacity?tab=reservations` |
 | GPU Fleet · Cooling & power | GPU power cost, job / tenant energy | `/gpu?gtab=cooling` |
 | GPU Fleet · Where to place | placement ranking | `/gpu?gtab=placement` |
 
@@ -1500,15 +1608,18 @@ It sizes the plan from templates and benchmarks, checks it against rules, compar
 | BRULE-PLN-06 | Schedule = phases from lead-time benchmarks. An item is late when its order-by date has passed. An approved plan that has not started is scheduled no earlier than today. |
 | BRULE-PLN-07 | Figures follow the scenario in order: approved → in review → preferred → base. |
 | BRULE-PLN-08 | The bill of materials is priced once from the catalogue. Sourcing order per line: spare site capacity, then unheld stock, then the catalogue vendor under its contract. Edits to the bill add one CapEx line, "Bill of materials changes". |
-| BRULE-PLN-09 | Edit policy:<br>• Draft / Rejected = edit in place;<br>• In review = "Withdraw and save";<br>• Approved / Executing = "Draft revision B", with changes applied to the revision;<br>• On hold / Completed / Cancelled = read-only.<br>Risks and permits are a live register on any status. |
+| BRULE-PLN-09 | Edit policy, the same for every editor on the plan page:<br>• Draft / Rejected = edit in place;<br>• In review = "Withdraw and save" (the round stays in History);<br>• Approved / Executing = "Draft revision B" (the edit is applied to the revision, audited "Raised to change: …"; map fields are re-based so the revision keeps its approved overrides); an open draft revision takes further edits ("Save to revision B"); a revision in review makes the plan read-only until it is decided;<br>• On hold / Completed / Cancelled / superseded = read-only, with the reason.<br>Risks and permits are a live register: status, rating, owner and mitigation save straight to any plan; adding, removing or renaming items drafts a revision. |
 | BRULE-PLN-10 | On approval a baseline is frozen: CapEx, contingency, OpEx, schedule, scenario and template version. Capacity and rack-unit holds are written. |
 | BRULE-PLN-11 | "Start the build" hands the plan to Programs & Projects with the sourced BoM, vendor orders (one per vendor and phase), stock and rack holds, IP and the plan type's records. Handover in delivery completes the plan, and completing the plan signs the handover. |
 | BRULE-PLN-12 | Money is held in USD in the engine and shown in the geography's currency (India rate 50). |
+| BRULE-PLN-13 | Reviewers for "Send for review" = the holders of the approval path's roles minus the requester and the submitter. The request records who answered; the hub shows "Your review" to a reviewer who has not answered and "Review sent" to the planner. No e-mail is sent by the prototype (to discuss). |
+| BRULE-PLN-14 | A plan's tab bar always fits one row: tabs that do not fit fold into "More". Family tabs use short labels (Equipment, Inventory, Waves, Plant, Paths, Site fit). |
+| BRULE-PLN-15 | Record changes at closeout (wave close, disposal certificates, the migration meter reading, site retirement) go through one audited action, allowed on executing and completed plans only. |
 
 ### 7.9.3 Functional requirements
 | ID | Requirement | Priority | Model | Phase |
 | --- | --- | --- | --- | --- |
-| PLN-001 | The system shall offer the plan families and types in BRULE-PLN-01's scope, each with its own wizard steps and plan-page tabs. | M | Both | P2 |
+| PLN-001 | The system shall offer the six plan families and their plan types listed in 7.9.1, each with its own wizard steps and plan-page tabs. | M | Both | P2 |
 | PLN-002 | The system shall keep a template library (plan types, site types, modules) with inheritance, versions, variants, publish and retire. | M | Both | P2 |
 | PLN-003 | The system shall show, for each template: its inheritance chain, wizard areas, approval path, outputs, inputs with defaults, rules, the plans using it and its versions. | M | Both | P2 |
 | PLN-004 | The system shall keep versioned benchmarks for costs, efficiency (PUE), lead times, sizing and staffing, and rules, filterable by site type, cooling, tier, region and confidence. | M | Both | P2 |
@@ -1544,6 +1655,18 @@ It sizes the plan from templates and benchmarks, checks it against rules, compar
 | PLN-034 | The system shall size tenant cage or hall plans from contracted kW per cabinet and the cabinet count. | M | Colo | P2 |
 | PLN-035 | The system shall publish `dco.plan.decided` and write every plan change to the audit trail. | M | Both | P2 |
 | PLN-036 | The system shall offer AI-assisted plan drafting (to discuss). | C | Both | P3 |
+| PLN-037 | The system shall show the review status on the plan (reviewers, who has answered, open comments) and list plans that need action in the hub: your decision, your review, review sent, blockers (BRULE-PLN-13). | M | Both | P2 |
+| PLN-038 | The system shall offer, in Send for review, the attachment choice PDF / ZIP / link only, a message, an e-mail preview with the real attachment sizes, and the option to submit a draft at the same time. | S | Both | P2 |
+| PLN-039 | The system shall open scenarios on demand from the plan header as a What-if drawer, and show figures from the approved → in review → preferred → base scenario (BRULE-PLN-07). | M | Both | P2 |
+| PLN-040 | The system shall warn before leaving the wizard with unsaved changes, and let the user jump to any completed step. | S | Both | P2 |
+| PLN-041 | The system shall keep Delivery's purchase orders equal to the plan's vendor orders (one per vendor and phase) both before execution (Draft orders from the same sourcing) and after. | M | Both | P2 |
+| PLN-042 | The system shall record closeout changes through the audited action in BRULE-PLN-15 and show closeout checks (ready when every check passes or is marked for handover). | S | Both | P2 |
+| PLN-043 | The system shall let a template owner make a variant, publish or retire a template and edit input defaults on drafts; a content change bumps the version. | M | Both | P2 |
+| PLN-044 | The system shall filter benchmarks per view (reference value, site type, cooling, tier, region, confidence; rules by area and severity) across every table and chart of the view. | S | Both | P2 |
+| PLN-045 | The system shall show on the Command Center a Plan & build strip (capacity pipeline planned → approved → in build → commissioning → live, decisions due, week ahead) and a build lens, with plan approvals in Recommendations. | S | Both | P2 |
+| PLN-046 | The system shall show per plan an Overview dashboard: what and why with the Draft → In review → Approved → In delivery → Completed tracker, key dates, needs attention (failing rules, late items, conditions, decision due, review comments, submit blockers), phases, cost · capacity · readiness, inputs changed from the template, what the plan produces. | M | Both | P2 |
+| PLN-047 | The system shall show on every plan ONE status line: state in words, whose decision, blockers, conditions, template drift, the build in Delivery, an open review and an open revision. | M | Both | P2 |
+| PLN-048 | The system shall list in the plan pack what the plan creates with links into Delivery, IP Management and DCIM once the build has started. | S | Both | P2 |
 
 ### 7.9.4 User stories and acceptance criteria
 **US-PLN-01** As a capacity planner, I want to create a GPU pod plan from a template, so that sizing, cost and schedule come from agreed benchmarks. (PLN-005, PLN-006, PLN-033)
@@ -1603,8 +1726,9 @@ It sizes the plan from templates and benchmarks, checks it against rules, compar
 | Plans | list / cards | `/planning?tab=plans` |
 | Templates / Benchmarks | library | `/planning?tab=templates`, `?tab=benchmarks` |
 | New plan wizard | create | `/planning/new` |
-| Plan page | overview, project plan, design, cost, materials, risks & permits, rules, approvals, plan pack, delivery, history | `/planning/plans/:id` |
-| Review portal | review and decide | `/planning/plans/:id/review` |
+| Plan page | overview, project plan, family tabs, design, cost, materials, risks & permits, rules, approvals, plan pack, delivery, history; What-if drawer | `/planning/plans/:id` |
+| Review portal | review, comment and decide | `/planning/plans/:id/review` |
+| Command Center · Plan & build | pipeline strip and build lens | `/?lens=build` |
 
 ---
 
@@ -1649,19 +1773,21 @@ These datacenter-specific records extend the Plan to Build Inventory asset recor
 | BRULE-DCIM-01 | Hierarchy: site → floor → hall (a room; its kind comes from its name: meet-me room, data hall…) → row → rack → device → components. Racks per row = max(2, min(8, ⌈√(n × 2.2)⌉)) for n racks in the hall. Rows are paired face to face around a cold aisle. |
 | BRULE-DCIM-02 | Device status is one of: Active, Planned, Maintenance, Decommissioning, Tenant-owned. A Planned device reserves its U range and its type's typical power. |
 | BRULE-DCIM-03 | U occupancy is checked on install and move: no clash with devices, the ODF block or reservations, and the device must fit within the rack height. |
-| BRULE-DCIM-04 | Power: each rack PDU side (A / B) is rated at the rack budget. Σ PDU load = rack draw, and Σ feeds on a panel = panel load. Odd PSUs go to A and even PSUs to B. A feed's rating = V × A × √3 × 0.8. |
+| BRULE-DCIM-04 | Power: each rack PDU side (A / B) is rated at the rack budget. Σ PDU load = rack draw, and Σ feeds on a panel = panel load. Odd PSUs go to A and even PSUs to B. A new feed's rating = V × A × 0.8 (× √3 when three-phase), the 80 % continuous rating. Panel A of a hall is fed by one UPS module (UPS-2 / 4) and panel B by another (UPS-1 / 3). |
 | BRULE-DCIM-05 | A single point of failure is flagged when a device has both cords on one side, a PSU has failed, a PDU is tripped, or a cabinet is at ≥ 90 % of budget (one side cannot carry it). |
 | BRULE-DCIM-06 | Cabling (TIA-942): port → optic → patch cord → cabinet panel → trunk (2 tray routes; Tier II = 1) → ODF → cross-connect → far end. In-rack = one cord. Backhaul adds the outside-plant core. Cables = every LLDP link + every power cord. |
 | BRULE-DCIM-07 | Connect: only a free port to a free port of the same speed at the same site. Disconnect frees both ends. |
-| BRULE-DCIM-08 | Every DCIM edit except the catalogue runs under a change request. There are three options:<br>• **Standard** (pre-approved record work: patch cords, space holds, port label / enable, hot-swap PSU or fan) is raised and closed as a Standard change. It is refused at a site under an incident freeze.<br>• **Open CR** at the site: Approved / In progress = applied now; Draft / Pending = saved as planned work.<br>• **Raise new**: a change request in Pending approval, origin DCIM. |
+| BRULE-DCIM-08 | Every DCIM edit except the catalogue runs under a change request. There are three options:<br>• **Standard** (pre-approved record work: patch cords, space holds, port label / enable, hot-swap PSU or fan) is raised and closed at once as a Standard change on template STD-07 "DCIM record:" (STD-02 / STD-05 for cords and hot swaps). It is refused at a site under a freeze that allows emergency changes only (an open Critical incident).<br>• **Open CR** at the site: Approved / In progress = applied now; Draft / Pending = saved as planned work.<br>• **Raise new**: a change request in Pending approval, origin DCIM. |
 | BRULE-DCIM-09 | Planned work runs once its change is approved and not blocked by policy. A DCIM-raised change completes when all its work is done. Records are tagged with the change id (rack, device, interface, module, reservation, panel, feed), and audit lines carry it. |
 | BRULE-DCIM-10 | A rack can be retired only when it is empty. A reserved U range is respected by install and move until it is released. |
+| BRULE-DCIM-11 | A planned device that was recorded before DCIM change control carries the open delivery change request of its rack. Records touched by a change are tagged (rack, device, port, module slot, reservation, panel, feed) and every audit line names the change. |
+| BRULE-DCIM-12 | Invariants checked on every data change: racks and devices equal the estate; Σ hall = site; rows partition a hall's racks; a rack's U = Σ devices + the ODF block, with no U clash; Σ feeds = rack draw; Σ panel = Σ feeds; cables = LLDP links + power cords; Σ devices per type = devices. |
 
 ### 7.10.3 Functional requirements
 | ID | Requirement | Priority | Model | Phase |
 | --- | --- | --- | --- | --- |
 | DCIM-001 | The system shall hold the hierarchy site → floor → hall → row → rack → device → components, keyed to the Inventory asset ids. | M | Both | P1 |
-| DCIM-002 | The system shall store rack grid position, row, U height, budget kW, type, condition, owner and tenant, and contracted kW. | M | Both | P1 |
+| DCIM-002 | The system shall store rack grid position, row, U height, budget kW, type (e.g. a legacy 600 × 1000 shallow type), purchase date, condition (including Damaged at audit, with the note), owner and tenant, and contracted kW. | M | Both | P1 |
 | DCIM-003 | The system shall store each device's rack, U position, height and status (BRULE-DCIM-02). | M | Both | P1 |
 | DCIM-004 | The system shall store device components: ports with speed and admin state, power ports with their PDU outlet, management, console, module bays and inventory items. | M | Both | P1 |
 | DCIM-005 | The system shall store power panels (busway A / B per hall or −48 V distribution), feeds (rack PDUs) and PSU cords to outlets (BRULE-DCIM-04). | M | Both | P1 |
@@ -1694,6 +1820,14 @@ These datacenter-specific records extend the Plan to Build Inventory asset recor
 | DCIM-032 | The system shall write the DCIM extensions back to, or sync them with, Inventory (or the customer's NetBox / dcTrack / Nlyte) per the system-of-record decision (to discuss). | M | Both | P1 |
 | DCIM-033 | The system shall publish `dco.dcim.record-changed` with before / after and the change id. | S | Both | P2 |
 | DCIM-034 | The system shall show an Insights page (see 8.6). | S | Both | P2 |
+| DCIM-035 | The system shall show in the device drawer the device's lifecycle (installed, warranty end, vendor support, open RMA) read from the lifecycle record, and link to the device page rather than keep a second device page. | S | Both | P2 |
+| DCIM-036 | The system shall, when connecting a port, offer only devices at the site that have a free port of the same speed. | M | Both | P2 |
+| DCIM-037 | The system shall check the invariants of BRULE-DCIM-12 on every data change and report a breach as a data-quality finding. | M | Both | P1 |
+| DCIM-038 | The system shall let a user raise a change request from the Changes board with the same form as Change Management; it lands in Awaiting approval with origin DCIM. | M | Both | P2 |
+| DCIM-039 | The system shall filter the Changes board by view (ready, awaiting approval, in progress, next days, done, all) and source, show which racks and devices each change touches, and list "Plans in review" (planner plans in Draft or In review at the site). | S | Both | P2 |
+| DCIM-040 | The system shall show per sub-menu the actions that apply (New rack / Install device on Insights, Sites and Racks; Install device on Devices; none on Cabling, Power and Catalogue, which have in-tab actions). | S | Both | P2 |
+| DCIM-041 | The system shall show on the change page the DCIM work it carries with Execute all, and complete a DCIM-raised change when all its work is done (BRULE-DCIM-09). | M | Both | P2 |
+| DCIM-042 | The system shall reject a DCIM write that fails validation (U clash, budget, reserved range, freeze, missing change request) with a message naming the reason, and leave the record unchanged. | M | Both | P1 |
 
 ### 7.10.4 User stories and acceptance criteria
 **US-DCIM-01** As a datacenter engineer, I want to see which UPS, busway, PDU and outlet feed a server, so that I know what a power fault hits. (DCIM-005, DCIM-008)
@@ -1753,9 +1887,9 @@ These datacenter-specific records extend the Plan to Build Inventory asset recor
 ### 7.10.8 Screens
 | Screen / tab | Purpose | Reference route |
 | --- | --- | --- |
-| DCIM · Insights | needs attention, pressure, density | `/dcim` |
-| Sites / Racks (+ floor plan) / Devices / Cabling / Power / Catalogue / Hierarchy / Explorer | records | `/dcim?tab=…` |
-| DCIM · Changes | change request board | `/dcim?tab=changes` |
+| DCIM · Insights | needs attention, pressure, density, makers, change requests | `/dcim` |
+| Sites (+ Hierarchy) · Racks (+ Floor plan) · Devices (+ Explorer) · Cabling · Power · Catalogue | records | `/dcim?tab=sites|hierarchy|racks|floorplan|devices|explorer|cabling|power|types` |
+| DCIM · Changes | change request board, Raise change request | `/dcim?tab=changes&cv=ready|approval|progress|soon|done|all` |
 | Rack page | elevation, PDUs, cables, reservations, change requests, activity | `/dcim/racks/:id` |
 | Type page | device type and component templates | `/dcim/types/:id` |
 | Device drawer | ports, bays, move, addresses | from any list |
@@ -1796,7 +1930,8 @@ These datacenter-specific records extend the Plan to Build Inventory asset recor
 | BRULE-CMP-07 | CP-07: no open change breaks a blocking change policy (rollback plan, freeze). Block. |
 | BRULE-CMP-08 | CP-08: every fire zone has its quarterly inspection done or booked. Warn. |
 | BRULE-CMP-09 | CP-09: no plant preventive maintenance is overdue. Warn. |
-| BRULE-CMP-10 | A control's status follows the policies that evidence it: all pass = Compliant, any warn = Attention, any block = Non-compliant. A control evidenced only by switched-off policies = Not assessed. Manual controls follow their attestation date. |
+| BRULE-CMP-10 | An automated control's status follows the policies that evidence it: no active policy (switched off, or only user-added policies) = **Not assessed**; no finding = **Compliant**; a finding on a blocking policy, or findings on more than 5 % of the evaluated resources = **Non-compliant**; otherwise **Partial**. A manual control is **Compliant** while attested within a year, else **Evidence due**; a user-added manual control is Evidence due until first attested. |
+| BRULE-CMP-12 | Frameworks and controls: ISO/IEC 27001:2022 (A.7.11 supporting utilities ← CP-02, CP-04; A.7.13 equipment maintenance ← CP-09; A.8.32 change management ← CP-07; A.8.9 configuration management ← CP-05; A.7.2 physical entry and A.5.30 ICT readiness, manual), ISO/IEC 22237 (22237-3 power ← CP-01, CP-02, CP-04; 22237-4 environmental ← CP-03; 22237-6 security systems ← CP-08; 22237-7 management information ← CP-09, CP-06), TIA-942-C (Electrical ← CP-02, CP-01; Mechanical ← CP-03; Telecom structured cabling records, manual), SOC 2 (CC8.1 ← CP-07; A1.2 ← CP-03, CP-04, CP-08; CC7.1 ← CP-06, CP-05; CC6.4 physical access, manual). A control is evidenced only by policies that actually test it. |
 | BRULE-CMP-11 | Each finding is a decision record (deny or warn). Passing resources give one allow per policy and site, with the evaluated input kept. |
 
 ### 7.11.3 Functional requirements
@@ -1819,6 +1954,8 @@ These datacenter-specific records extend the Plan to Build Inventory asset recor
 | CMP-015 | The system shall send compliance decisions to the SIEM feed (NB-10). | C | Both | P3 |
 | CMP-016 | The system shall show colocation tenant-facing controls (physical access, power resilience) as a shareable view (to discuss). | C | Colo | P3 |
 | CMP-017 | The system shall record every policy, control and attestation change in the audit trail. | M | Both | P3 |
+| CMP-018 | The system shall list every violation (policy, resource, site, message, outcome, raised time, change link) with search and a policy filter, and show the audit of compliance changes. | M | Both | P3 |
+| CMP-019 | The system shall evidence each control only by the policies that test it (BRULE-CMP-12) and show the evidence text (resources evaluated, findings, or the attestation). | M | Both | P3 |
 
 ### 7.11.4 User stories and acceptance criteria
 **US-CMP-01** As a compliance officer, I want ISO 27001 A.7.11 status from live power data, so that the evidence is current. (CMP-003, CMP-004)
@@ -1834,7 +1971,7 @@ These datacenter-specific records extend the Plan to Build Inventory asset recor
 - When I open a finding, then I see the policy, the resource, the outcome and the input values.
 
 **US-CMP-05** As a risk officer, I want manual controls attested with a date, so that the due ones are visible. (CMP-008)
-- Given an attestation older than its interval, then the control shows Evidence due.
+- Given an attestation older than one year, then the control shows Evidence due.
 
 **US-CMP-06** As a change manager, I want a change that breaks a blocking policy flagged, so that it cannot start. (CMP-011)
 - Given a change with no rollback plan, then CP-07 denies it and links to the change.
@@ -1859,7 +1996,7 @@ These datacenter-specific records extend the Plan to Build Inventory asset recor
 
 ### 7.11.7 Reports and KPIs
 - Overall posture %.
-- Controls Compliant / Attention / Non-compliant / Not assessed per framework.
+- Controls Compliant / Partial / Non-compliant / Not assessed / Evidence due per framework.
 - Violations per policy and site.
 - Blocked changes.
 - Attestations due.
@@ -1870,9 +2007,131 @@ These datacenter-specific records extend the Plan to Build Inventory asset recor
 | Compliance · Overview | posture dashboard | `/compliance` |
 | Policies | policies, code, switch | `/compliance?tab=policies` |
 | Frameworks / Controls | mappings and status | `/compliance?tab=controls` |
+| Violations | every finding with its outcome and change link | `/compliance?tab=violations` |
 | Decisions | decision records | `/compliance?tab=decisions` |
+| Audit | compliance change audit | `/compliance?tab=audit` |
 
 ---
+
+## 7.12 Cross-cutting: shell, business models, geography, Opstral AI, search, help
+
+**Purpose.** The capabilities every SynapseDC screen shares: the shell it runs in (menu, breadcrumbs, pinned bars, embedding), the business-model and geography switches that change vocabulary, data and money everywhere, the Opstral AI copilot, global search, the info bubble on every widget, and the Help & FAQ centre that holds every document. **Lifecycle stage:** Plan, Build and Operate. **Primary users:** every role; product and platform teams for configuration. **Builds on:** Platform Engineering (identity, feature flags, customisation), AI Foundry (models for the copilot), Knowledge Center (articles), the platform portal (embedding).
+**Colocation:** vocabulary Tenant / cabinet / cage / cross-connect; capacity in kW; the GPU Fleet menu item and site tab are hidden; the site page has a Tenants tab. **NeoCloud:** vocabulary Customer / GPU cluster / job; capacity in GPUs; GPU Fleet shown; the Command Center's first area is GPU fleet.
+
+### 7.12.1 Scope
+**In scope**
+- Left menu in groups (Operations, Plan & Build, Security, Admin, Reference) with sub-menus per screen; top bar with breadcrumbs, persona and geography switches, global search, Opstral AI.
+- Business model (persona) and geography as first-class settings that regenerate vocabulary, customers, service types, money and the capacity unit everywhere.
+- Opstral AI copilot: natural-language questions answered from the read models with deep links.
+- Global search (⌘K) across sites, devices, customers, services, incidents, changes.
+- Info bubble on every widget; pinned tab bars and list headers; big-screen scaling; embedding with `shell=false`.
+- Help & FAQ: FAQ, Documents (every guide read in the app), Customer guide, Facility integration survey.
+- Deployment configuration: default persona, persona / geography overrides for embedded use.
+
+**Out of scope**
+- Identity, roles and SSO (Platform Engineering).
+- Custom fields and tags as records (Platform Engineering Customization); SynapseDC evaluates them over the estate (DCIM 7.10).
+- Knowledge articles as records (Knowledge Center).
+- Model hosting and training (AI Foundry).
+
+### 7.12.2 Business rules
+| ID | Rule |
+| --- | --- |
+| BRULE-XC-01 | The business model is set by, in order: the URL `?persona=`, a deployment override, the viewer's saved choice, the deployment default. A saved choice made under a different deployment default is dropped once so returning viewers see the new default. |
+| BRULE-XC-02 | The geography is set by `?geo=` or the saved choice (`in` India, `us` USA); it decides currency, number locale, date style, regions, map bounds, place names, people, carbon factor and tariffs. |
+| BRULE-XC-03 | Changing persona or geography regenerates the whole estate view and every open screen refetches; the physical estate (sites, power, cooling, alarms, incidents) is the same, the vocabulary, customers, service types, room names and money differ. |
+| BRULE-XC-04 | Money is written in the base currency and converted by the geography's rate; formatting always goes through the geography's formatter (₹ Cr / L, $ K / M); the currency symbol never appears as a literal in a screen. |
+| BRULE-XC-05 | Every screen URL carries its state (tab, filters, selected object, scope) so a link reproduces the view; new URL parameters are added to the embed guide. |
+| BRULE-XC-06 | `?shell=false` hides the menu and top bar for an iframe and is remembered for that tab / frame; `?shell=true` shows them; with neither, the shell is shown unless the frame already chose. |
+| BRULE-XC-07 | Opstral AI answers only from the read models (deterministic, grounded in the data on screen) and every answer links to the screen that holds the figure; it never invents a number. |
+| BRULE-XC-08 | Every widget carries an info bubble of 1–2 sentences: what it shows, how the number is computed, what clicking does, in the persona's vocabulary. |
+| BRULE-XC-09 | From 2200 px the whole UI scales (1.25× from 2200, 1.5× from 2880, 2× from 3440) with charts, maps, tooltips and 3D aligned. |
+| BRULE-XC-10 | Tab bars, list toolbars and grid headers stay pinned under the top bar while content scrolls; nothing is clipped at 1280 or 1440 px. |
+
+### 7.12.3 Functional requirements
+| ID | Requirement | Priority | Model | Phase |
+| --- | --- | --- | --- | --- |
+| XC-001 | The system shall present a left menu grouped Operations · Plan & Build · Security · Admin · Reference, with sub-menus under the open screen covering its tabs, and breadcrumbs that include the sub-menu. | M | Both | P1 |
+| XC-002 | The system shall offer a business-model switch (network, colocation, cloud, enterprise, NeoCloud) and a geography switch (India, USA) in the top bar, remembered per viewer, honouring `?persona=` and `?geo=` on load. | M | Both | P1 |
+| XC-003 | The system shall regenerate vocabulary (customer, service, premium words, capacity unit, money words), customers, service types, room names and incident titles per business model, and every open screen shall refetch on a switch. | M | Both | P1 |
+| XC-004 | The system shall apply a deployment default persona and optional persona / geography overrides (rules `[geo:]from=to`) after the URL and the saved choice, so embedded links from other systems open the intended model. | M | Both | P1 |
+| XC-005 | The system shall hide GPU Fleet (menu item, site tab, Command Center GPU area) when the estate has no GPU infrastructure, and show the colocation Tenants tab only for colocation. | M | Both | P1 |
+| XC-006 | The system shall format every money figure through the geography's formatter and show the geography's currency icon in headers; no literal currency symbol in screen code. | M | Both | P1 |
+| XC-007 | The system shall provide global search (⌘K) over datacenters, devices, interfaces, links, customers, services, incidents and changes, opening the object on selection. | M | Both | P1 |
+| XC-008 | The system shall provide the Opstral AI drawer on every page with the page's context; it shall answer at least: which issue is costing the most revenue; what a given incident is costing; where the next GPU job should go (NeoCloud); what power is costing us / a site; and open the relevant screen from the answer. | S | Both | P2 |
+| XC-009 | Every widget (panel, KPI, tile, summary-strip item) shall carry an info bubble; the bubble shall flip near the bottom of the viewport and a click inside a link shall only toggle it. | M | Both | P1 |
+| XC-010 | The system shall pin the page tab bar under the top bar on every screen, and list toolbars and grid headers below it, while rows scroll. | M | Both | P1 |
+| XC-011 | The system shall run every screen inside an iframe with `shell=false` (no menu, no top bar, sticky headers and full-screen map / 3D pinned to the frame) and silent single sign-on from the host portal. | M | Both | P1 |
+| XC-012 | The system shall scale the UI for TVs from 2200 px with charts, map, tooltips and 3D aligned. | S | Both | P2 |
+| XC-013 | The system shall show no horizontal overflow, no cut text and no NaN / undefined at 1280 and 1440 px on any screen (automated check per screen). | M | Both | P1 |
+| XC-014 | The system shall provide Help & FAQ with a FAQ (categories, search, answers linking to screens and documents), a Documents library (field guide, GPU anatomy, demo playbook, personas, platform overview, data model explorer, import template, estate backups, integration guide, interface specification, embed guide, platform menu, customer engagement guide) read inside the app with section chips, and tabs Customer guide and Facility integration. | M | Both | P1 |
+| XC-015 | The Facility integration tab shall hold one site integration survey per datacenter (collector placement, BMS, equipment, BMCs, firewall rules, records, sign-off) with progress and an outstanding list, saved and exchanged as JSON. | M | Both | P1 |
+| XC-016 | The data model explorer shall show every entity and relationship (ontology around one entity, full map by domain, containment hierarchy) with fields marked Import / Live / Derived and counts from the live estate. | S | Both | P1 |
+| XC-017 | The system shall provide a demo playbook ("The 13:20 call") per business model with "Open in tool" deep links carrying the persona, and a platform-menu proposal placing each screen in the launcher's sections with its embed URL. | C | Both | P1 |
+| XC-018 | The system shall use the NST / Vision Waves design system (Poppins chrome, Inter tabular numbers, NST colour tokens, `.nst-table`, `.nst-btn`, `.vw-chip`), with no secondary left menus inside screens. | M | Both | P1 |
+| XC-019 | Status words shall be consistent: incidents Critical / High / Medium / Low, alarms Critical / Major / Minor / Warning; priority shown only when it differs from severity; red / amber reserved for faults. | M | Both | P1 |
+| XC-020 | Every list shall use the common list toolbar (Showing N of M, search, ≤ 2 quick filters, refresh, Filters panel with Reset / Apply, actions) with URL-backed filters, and the common grid (header band, wrapping text cells, left-aligned columns, equal-width status pills). | M | Both | P1 |
+| XC-021 | List pages shall open with an analytics strip of six tiles whose bars, pills and facts click through to the filtered list; closed sections shall show one-line status summaries. | S | Both | P1 |
+| XC-022 | The system shall keep per-viewer conveniences (collapsed sections, chosen layout, legend state, last sub tab per group) in the browser and never use them for shared state. | S | Both | P1 |
+| XC-023 | The system shall expose the Help documents and the survey at stable URLs so the portal and the customer can link to them (`/customer-guide.html`, `/interface-spec.html`, `/site-integration-survey.html`, …). | S | Both | P1 |
+| XC-024 | The customer engagement guide shall be searchable by keyword or problem with synonyms, deep-linkable per entry, and shall carry the per-model monitoring statements (colocation: tenant gear sealed; GPU cloud: GPU telemetry and job metadata, never data / model / code). | S | Both | P1 |
+
+### 7.12.4 User stories and acceptance criteria
+**US-XC-01** As a NeoCloud operator opening a link from the platform portal, I want the screen to open in my business model and currency without the menu, so that it fits inside the portal (XC-002, XC-004, XC-011).
+- Given the portal frames `/gpu?shell=false&persona=neocloud&geo=us`, when the page loads, then no menu or top bar is shown, GPU Fleet opens, money is in $ and the viewer is signed in silently.
+- Given the deployment override `persona=neocloud`, when a link carries `?persona=colocation`, then NeoCloud still opens and the in-app switch still works until the next reload.
+
+**US-XC-02** As an operations head, I want to ask "Which issue is costing the most revenue?" and be taken there, so that I don't search through lists (XC-008).
+- Given open issues with money, when I ask in Opstral AI, then the answer names the issue, its lost-to-date and credits exposure, and a link opens the Revenue impact drawer for it.
+- Given no open impact, then the answer says so and links to the 30-day history.
+
+**US-XC-03** As a new user, I want every widget to explain itself, so that I don't need training to read a number (XC-009).
+- Given any panel, KPI or tile, when I click its "i", then a bubble explains what it shows, how it is computed and what clicking does, in my model's words.
+
+**US-XC-04** As a colocation operator, I want the product to speak of tenants, cabinets and cross-connects everywhere, so that it reads like my business (XC-003, XC-005).
+- Given persona colocation, when I open any screen, then customers are "Tenants", capacity is in kW, GPU Fleet is absent and the site page shows a Tenants tab with cross-connect orders and remote hands.
+
+**US-XC-05** As a sales engineer, I want one place for every guide and the site survey, so that onboarding uses the same documents (XC-014, XC-015).
+- Given Help & FAQ → Documents, when I open the interface specification, then it renders inside the app with section chips and "Open in new tab".
+- Given Facility integration, when I fill the survey for a site and download it, then the JSON re-imports with the same progress and outstanding list.
+
+**US-XC-06** As a NOC on a video wall, I want the Command Center readable on a 4K TV, so that the room sees it (XC-012).
+- Given a 3440 px screen, when the Command Center opens, then the UI is scaled 2× and the map, tooltips and charts align with the pointer.
+
+### 7.12.5 Data
+| Entity | Read / write | System of record | Notes |
+| --- | --- | --- | --- |
+| Persona definition (vocabulary, customers, service types, room names, SLA, scale) | read | SynapseDC configuration | one per business model |
+| Geography (places, currency, locale, dates, factors) | read | SynapseDC configuration | India, USA |
+| Viewer preferences | write (browser) | viewer's browser | never shared |
+| FAQ entries, document catalogue | read | SynapseDC (Help) | articles themselves may come from Knowledge Center |
+| Site integration survey | write | SynapseDC (Help) / JSON file | one per datacenter |
+| Identity, roles, scopes | read | Platform Engineering IdP | OIDC claims |
+
+### 7.12.6 Integrations
+| System / module | Direction | Data | Interface |
+| --- | --- | --- | --- |
+| Platform portal | in | framed screens with `shell=false`, SSO session, postMessage navigation | NB-11 |
+| Platform Engineering | in | identity, roles, site scope, tenant claim, feature flags, deployment config | INTG-029, INTG-031 |
+| AI Foundry | in / out | models for Opstral AI; tool definitions over the read API | INTG-027 |
+| Knowledge Center | in | articles linked from FAQ answers and runbooks | INTG-015 |
+| Intelligence Hub | out | the data model registration | INTG-032 |
+
+### 7.12.7 Reports and KPIs
+- Screens passing the layout check at 1280 / 1440 (target 100 %).
+- Opstral AI answers with a deep link (target 100 % of supported questions).
+- Help documents opened per week; survey completion per site = answered ÷ required questions.
+
+### 7.12.8 Screens
+| Screen / tab | Purpose | Reference route |
+| --- | --- | --- |
+| Shell: menu, sub-menus, breadcrumbs, persona and geography switches, search, Opstral AI | navigation and context | every route |
+| Help & FAQ · FAQ | questions by category with links | `/help` |
+| Help & FAQ · Documents | every guide read in the app | `/help?tab=docs&doc=<id>&s=<section>` |
+| Help & FAQ · Customer guide | the engagement guide framed | `/help?tab=customer` |
+| Help & FAQ · Facility integration | the site integration survey | `/help?tab=survey` |
+| Data model | entity and relationship explorer | `/data-model` |
+| Embedded screen | any screen without the shell | `<route>?shell=false&persona=&geo=` |
 
 ## 8 Analytics-only pages over existing modules
 
@@ -1891,19 +2150,26 @@ These pages add datacenter analytics on top of records held by existing platform
 | Next 14 days | milestones, deliveries, commissioning tests | Programs & Projects | milestone |
 | Change outcomes / calendar | delivery change requests by state; 14-day calendar | Change Management | change |
 | Capacity coming online | kW / racks / GPUs by expected go-live | Programs & Projects + Planner | plan |
+| Permits | permits by authority and state, due within 6 weeks and not granted | Programs & Projects | permit |
+| Design documents | documents per project and scope, state | Programs & Projects | document |
+| Materials | purchase orders open / late / in transit / delivered, value, per project | Supply Chain Procurement | PO |
 
 | ID | Requirement | Priority | Model | Phase |
 | --- | --- | --- | --- | --- |
 | ANL-001 | The system shall show the widgets above, read from Programs & Projects, without storing project records. | M | Both | P2 |
-| ANL-002 | The system shall mark a project late only when its own dates say so, and at risk when a milestone falls within its risk window (to agree with the module team). | M | Both | P2 |
+| ANL-002 | The system shall mark a project **late** when its forecast finish is after its target or SPI < 0.90, **at risk** when CPI < 0.95 or SPI < 0.97, else **on track**; a programme is red with a late project, amber with one at risk, else green. An approved project not yet started is scheduled no earlier than today. | M | Both | P2 |
 | ANL-003 | The system shall compute EV = budget × progress, CPI and SPI from the module's figures. | M | Both | P2 |
 | ANL-004 | The system shall link each project to its source Planner plan (one plan per project). | S | Both | P2 |
 | ANL-005 | The system shall show capacity coming online as GPUs for NeoCloud and as cabinets / kW for colocation. | S | Both | P2 |
+| ANL-006 | The system shall show change orders with their approver by size: ≤ 5 % of budget the project manager, ≤ 15 % the programme sponsor, else the investment committee; an approved change order moves the approved budget and the finish. | S | Both | P2 |
+| ANL-007 | The system shall rank project risks by likelihood × impact and show derived risks (late POs, permits not granted within 6 weeks, CPI < 0.97, SPI < 0.95 or finish after target, waiting on a predecessor). | S | Both | P2 |
+| ANL-008 | The system shall show programme start gates: a project waits until its predecessors are delivered, and long-lead MEP orders at kick-off for greenfield phases. | S | Both | P2 |
+| ANL-009 | The system shall show work orders by state (Planned, Ready, Awaiting change, In progress, Done) and kit (Ready, Partial, Not ordered), and never show a work order of a project that has not started as more than Ready. | M | Both | P2 |
 
-**Data needed from Programs & Projects:** programmes, projects (stage, dates, budget, progress, health), milestones, risks, change orders, the planner plan id. **From Supply Chain:** purchase orders (state, due date).
+**Data needed from Programs & Projects:** programmes (dependencies, phases), projects (stage, start, finish, target, budget approved, progress, planned progress, earned, actual), milestones, work orders (state, kit, crew, change request), commissioning tests, permits, design documents, risks, change orders, the planner plan id. **From Supply Chain:** purchase orders (supplier, lines, ordered, due, state, value).
 
 ### 8.2 Work orders and process KPIs
-**Purpose.** A view of field work and datacenter processes (P01 site onboarding … P12 access request) across the estate, with targets. The work orders and process instances stay in the existing modules (Field Force Management, Change / Maintenance).
+**Purpose.** A view of field work and the twelve datacenter processes across the estate, with targets: P01 Site onboarding, P02 Hall fit-out, P03 Customer onboarding, P04 Major incident, P05 Change, P06 Capacity expansion, P07 Firmware campaign, P08 Decommission, P09 Reconciliation, P10 Work order, P11 Maintenance mode, P12 Access request. Each has lanes (candidate roles), user steps with hour targets and automatic steps. The process definitions and instances run over the existing records (delivery work orders = P10, contractor visits = P12, open changes = P05, maintenance = P11, Critical / High incidents = P04, projects = P02 / P03 / P07 / P08, sites being built = P01); which platform module owns the process engine is to discuss (Programs & Projects, Field Force Management or Ops Toolkit Proc Bots).
 
 | Widget | Measure / formula | Source module | Drill-down |
 | --- | --- | --- | --- |
@@ -1920,6 +2186,9 @@ These pages add datacenter analytics on top of records held by existing platform
 | ANL-012 | The system shall list work orders blocked by kit, with their PO state. | S | Both | P2 |
 | ANL-013 | The system shall link each item to the owning module's record. | M | Both | P2 |
 | ANL-014 | The system shall show remote-hands tickets for colocation tenants per site, with SLA. | S | Colo | P2 |
+| ANL-015 | The system shall show a My tasks inbox: user steps as tasks with candidate role, due time and overdue flag; a user can claim a task and complete it with the step's form, which advances the instance (completing P10 "Start work" / "Complete with evidence" moves the delivery work order). | M | Both | P2 |
+| ANL-016 | The system shall retry a failed automatic step and show the retry in the instance's event history. | S | Both | P2 |
+| ANL-017 | The system shall show a swimlane view per process definition and KPIs from closed runs of the last quarter (cycle time vs target, on-time %). | S | Both | P2 |
 
 **Data needed:** process definitions (steps, lanes, targets), instances with step history, work orders (state, crew, site, kit status), remote-hands tickets.
 
@@ -1942,8 +2211,8 @@ Test records stay in Programs & Projects.
 
 | ID | Requirement | Priority | Model | Phase |
 | --- | --- | --- | --- | --- |
-| ANL-020 | The system shall show commissioning by level, in order (a level cannot pass before the one below it). | M | Both | P2 |
-| ANL-021 | The system shall show a project as handover-ready only when every work order is done and L5 has passed. | M | Both | P2 |
+| ANL-020 | The system shall show commissioning by level, in order (a level cannot pass before the one below it; L3 and above need installation done). | M | Both | P2 |
+| ANL-021 | The system shall show a project as handover-ready only when every work order is done and L1–L5 have passed; handover marks the plan and its capacity plans Delivered. | M | Both | P2 |
 | ANL-022 | The system shall list open snags per project and level. | S | Both | P2 |
 | ANL-023 | The system shall show liquid-cooling (CDU loop) and GPU burn-in tests as named L4 / L5 tests for GPU halls (to discuss). | C | Neo | P2 |
 
@@ -1955,7 +2224,7 @@ Test records stay in Programs & Projects.
 | Widget | Measure / formula | Source module | Drill-down |
 | --- | --- | --- | --- |
 | Prefix utilisation | used = addresses actually bound ÷ size | IP Management | prefix |
-| Exhaustion forecast | growth = addresses on devices installed in the last 12 months ÷ 12; full by = free ÷ growth | IP Management + Inventory install dates | prefix |
+| Exhaustion forecast | growth = addresses on devices installed in the last 12 months ÷ 12; full by = free ÷ growth (containers, point-to-point prefixes and prefixes smaller than 8 addresses are not forecast) | IP Management + Inventory install dates | prefix |
 | Prefix state | Consumed when ≥ 90 % or nothing free; Committed when ≥ 75 % or full within 12 months; else Available | IP Management | prefix list |
 | Outside plan | management addresses outside the site's management prefixes | IP Management + discovery | address |
 | Integration differences | records differing from Infoblox / BlueCat / DNS / DHCP | IP Management connectors | difference |
@@ -1967,6 +2236,7 @@ Test records stay in Programs & Projects.
 | ANL-032 | The system shall list addresses outside the site plan as findings (feeding CP-05). | M | Both | P2 |
 | ANL-033 | The system shall show differences between IP Management and the connected DNS / DHCP / IPAM systems. | S | Both | P2 |
 | ANL-034 | The system shall show InfiniBand and front-end fabric address space per GPU pod. | S | Neo | P2 |
+| ANL-035 | The system shall show each site's management space as its own VRF (sites may reuse management ranges) under one container, and the fabric plan per site (loopbacks, point-to-point /31s, a /22 per hall, storage). | S | Both | P2 |
 
 **Data needed from IP Management:** VRFs, prefixes (parent, size, role, site), addresses (device, interface, primary), VLANs, ASNs, connector differences. **From Inventory:** device install dates.
 
@@ -1989,7 +2259,10 @@ Test records stay in Programs & Projects.
 | ANL-041 | The system shall count a change as failed when it rolled back or was cited by an incident's leading hypothesis. | M | Both | P2 |
 | ANL-042 | The system shall show site freezes derived from open Critical incidents, alongside the calendar freezes. | M | Both | P2 |
 | ANL-043 | The system shall flag conflicting windows on the same devices at the same site. | S | Both | P2 |
-| ANL-044 | The system shall show policy checks on changes: rollback plan and freeze = Block; maintenance hours, SPOF, overlap and overdue review = Warn. | S | Both | P2 |
+| ANL-044 | The system shall show policy checks on changes: POL-01 no rollback plan and POL-02 inside a freeze = Block; POL-03 high-risk window outside 22:00–06:00 (not emergency or delivery changes), POL-04 touches a single point of failure (not standard changes), POL-05 overlapping window on the same devices, POL-06 post-implementation review overdue on a completed emergency change = Warn. | S | Both | P2 |
+| ANL-046 | The system shall apply freezes as the module does: a site with an open Critical incident allows emergency changes only; peak-season and year-end calendar freezes allow standard and emergency changes; freezes hold live sites only and never civil works. | M | Both | P2 |
+| ANL-047 | The system shall measure lead time on normal changes implemented each week: median days from raised to the last approval, then from approval to the window. | S | Both | P2 |
+| ANL-048 | The system shall include preventive maintenance done in the last 12 weeks as completed standard changes (template STD-03) in volume and outcome. | S | Both | P2 |
 | ANL-045 | The system shall include DCIM-raised changes and delivery change requests in all measures. | M | Both | P2 |
 
 **Data needed from Change Management:** changes (class, risk, status, window, devices, site, approvals, rollback, origin, template), approval matrix, calendar freezes, standard templates. **From SynapseDC:** incidents and RCA hypotheses.
@@ -2190,6 +2463,40 @@ The inventory import template (one sheet per entity, 35 data sheets, field dicti
 | **P2** | Resilience, money, plan & build | Realistic twin, walk, power & cable paths, device popup and trace views; Access & security tab; SPOF and what-if; maintenance (PM plan, resilience tests); lifecycle, RMA, spares; environment & safety panels; Capacity & reservations; power economics (contracts, bill, findings, GPU cost per GPU-hour, by job / tenant, placement); Planner (all families, templates, benchmarks, governance, materials, plan pack, review pack and portal, edit policy) with hand-off to Programs & Projects; DCIM change control (open CR / raise new), drag-move, reservations, explorer, insights; analytics pages 8.1–8.6; Datacenter Security Ops; notices and credits to BSS; metered usage export; customer-side connectors INTG-040, 048–053; Opstral AI on AI Foundry. | Planner → Programs & Projects round trip on a real plan; power findings validated against a real bill; Security Ops cases on real detections |
 | **P3** | Govern and extend | Compliance (policies as code, frameworks, decision records, attestations); tenant-scoped API; Knowledge Center runbooks; AI Foundry model training on RCA feedback; cloud, enterprise and telco variants; further vendor connectors. | Compliance evidence accepted by an auditor for one framework; one tenant portal live on NB-12 |
 
+### 12.1 Onboarding a customer site (the delivery approach)
+
+Each site follows the engagement journey in the customer engagement guide; the BRD requirements that each step relies on are listed.
+
+| Step | What happens | Relies on |
+| --- | --- | --- |
+| 1 Prepare and first meeting | Pitch by role, value formulas, the colocation / NeoCloud playbook and demo (demo playbook, persona switch) | XC-002, XC-017 |
+| 2 Discovery workshops | Question banks: business, estate, their systems and tools (BMS, EPMS, UPS, PDUs, DCIM, ITSM, CRM, PACS, NMS, SSO, SIEM; GPU: DCGM, scheduler), Integrate-or-Offer decision per system | section 9, interface spec |
+| 3 Site survey | The Facility integration survey per datacenter: collector placement, BMS, equipment, BMCs, firewall rules, records, sign-off | XC-015, NFR-004, NFR-005 |
+| 4 Proposal and pilot | Scope = P1 operate core on one site; success criteria from section 2.3 | section 12 |
+| 5 Onboarding data | Import template in load order (Core → Recommended → Optional); DCIM records; service placement from BSS / OSS | DATA-012, DATA-013, 7.10, INTG-003, INTG-035 |
+| 6 Integrations in waves | Wave 1 collector + network + UPS / PDUs + BMS; wave 2 BMCs + GPU + scheduler; wave 3 ITSM, paging, CRM; wave 4 DCIM / IPAM / PACS / OEM; each with contract tests and failure drills | section 9, NFR-017, NFR-020 |
+| 7 Go-live | Reconciliation checks green; collector heartbeat; alarms in scope; first incidents with impact | NFR-007, 7.5 |
+| 8 Expand | More sites, P2 capabilities, further business models | section 12 |
+
+### 12.2 Release contents by chapter
+
+| Chapter | P1 | P2 | P3 |
+| --- | --- | --- | --- |
+| 7.1 Command Center | hero, map, DC column, trio | Plan & build strip and lens | — |
+| 7.2 Datacenters | site page core tabs, schematic layout, device page | realistic twin, walk, paths, trace views, Access & security | — |
+| 7.3 Facilities | power, cooling, environment | SPOF, what-if, maintenance, lifecycle, safety panels | — |
+| 7.4 GPU Fleet | jobs, nodes, clusters, telemetry, models, rails | cooling & power cost, placement | — |
+| 7.5 Alarms & incidents | scope, normalisation, correlation, enrichment | problems, on-call, notices | runbooks |
+| 7.6 Revenue Impact | full model and screens | credits and usage to BSS / billing | — |
+| 7.7 Security Ops | — | all | — |
+| 7.8 Capacity & power economics | — | all | — |
+| 7.9 Planner | — | all, hand-off to Programs & Projects | AI assist |
+| 7.10 DCIM | records, standard-CR path | open / new CR, drag-move, reservations, explorer, insights | — |
+| 7.11 Compliance | — | — | all |
+| 7.12 Cross-cutting | shell, switches, search, info, embed, Help | Opstral AI, big screens | — |
+| 8 Analytics pages | — | all | — |
+| 9 Integrations | BSS core, ITSM, System Alerts, Telemetry / Data Ops, identity, Inventory, embed | the rest | tenant API, AI Foundry training |
+
 ---
 
 ## 13 Assumptions, dependencies, risks and open decisions
@@ -2250,14 +2557,14 @@ The inventory import template (one sheet per entity, 35 data sheets, field dicti
 
 | Goal | Modules |
 | --- | --- |
-| G-01 One operational picture | 7.1, 7.2, 7.3, 7.5 |
+| G-01 One operational picture | 7.1, 7.2, 7.3, 7.5, 7.12 |
 | G-02 Impact and cost | 7.5, 7.6, 9.1 |
 | G-03 GPU jobs | 7.4, 7.8, 7.6 |
 | G-04 Resilience | 7.3, 7.2, 7.10 |
 | G-05 Plan and build | 7.8, 7.9, 8.1–8.3, 9.7, 9.8 |
 | G-06 Records | 7.10, 8.6, 9.7 |
 | G-07 Secure and compliant | 7.7, 7.11, 7.2 (Access) |
-| G-08 Reuse the platform | 9, 3.2 |
+| G-08 Reuse the platform | 9, 3.2, 7.12 |
 
 ### 14.2 Blueprint requirement families → BRD chapters
 
@@ -2304,9 +2611,29 @@ The requirement index (every FR, business rule and user story by chapter, with m
 
 ---
 
+## 16 Approvals and sign-off
+
+| Role | Name | Decision | Date |
+| --- | --- | --- | --- |
+| Product owner, SynapseDC | | | |
+| Head of engineering | | | |
+| Platform architecture (module split, section 3 and 9) | | | |
+| Operate to Acquire (BSS) module owner | | | |
+| Services & ITSM module owner | | | |
+| Opstral Ops Toolkit module owner | | | |
+| Plan to Build module owner | | | |
+| Supply Chain module owner | | | |
+| Platform Engineering / Intelligence Hub / AI Foundry owners | | | |
+| Design partner — colocation operator | | | |
+| Design partner — NeoCloud operator | | | |
+
+**Review checklist for approvers:** the module split in section 3.2 is right for your module; the data SynapseDC reads from and sends to your module (section 9) exists or can be provided; the open decisions in 13.4 that name you have an owner and a date; the P1 scope is what the pilot sites need.
+
+---
+
 ## Appendix A — Requirement index
 
-377 functional requirements, 149 business rules, 82 user stories. By phase: P1 164, P2 186, P3 27. By priority: M 241, S 118, C 18.
+478 functional requirements, 191 business rules, 95 user stories, 54 integration requirements, 14 data requirements, 20 non-functional requirements. By phase: P1 213, P2 237, P3 28. By priority: M 289, S 169, C 20. By model: Both 401, Colo 20, Neo 57.
 
 | ID | Requirement | Pri | Model | Phase |
 | --- | --- | --- | --- | --- |
@@ -2340,9 +2667,16 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | CC-028 | The system shall show telemetry gaps (collector stale or down) as a state distinct from he… | M | Both | P1 |
 | CC-029 | The system shall render on large screens and TVs (2200 px and above) scaled up, with toolt… | S | Both | P2 |
 | CC-030 | The system shall restrict sites shown to those the viewer's role may see. | M | Both | P1 |
-| CC-031 | The system shall answer estate questions in the assistant ("Which issue is costing the mos… | C | Both | P3 |
+| CC-031 | The system shall answer estate questions in the Opstral AI assistant ("What is at risk in | S | Both | P2 |
 | CC-032 | The system shall be embeddable in the platform portal without its own menu and top bar. | M | Both | P1 |
-| SITE-001 | The system shall list all datacenters with analytics tiles, search, quick filters and a li… | M | Both | P1 |
+| CC-033 | The system shall show in "What is happening" each open incident's resolution SLA clock as | M | Both | P1 |
+| CC-034 | The system shall show in "Who is affected" the split of impacted services by status (Activ… | M | Both | P1 |
+| CC-035 | The system shall build Recommendations per BRULE-CC-11 and show for each the reason (incid… | M | Both | P1 |
+| CC-036 | The system shall keep the Plan & build strip to one slim row by default so the hero stays | S | Both | P2 |
+| CC-037 | The system shall show the datacenter column cards in a compact variant (at least 1.5 cards… | S | Both | P1 |
+| CC-038 | The system shall let the viewer switch business model (persona) and geography from the top… | M | Both | P1 |
+| CC-039 | The system shall provide a ⌘K palette search over sites, devices, incidents, customers and… | S | Both | P1 |
+| SITE-001 | The system shall list all datacenters with analytics tiles (site status by condition, edge… | M | Both | P1 |
 | SITE-002 | The system shall show per datacenter its state, worst open incident, money at risk and pow… | M | Both | P1 |
 | SITE-003 | The system shall show a site header (slim by default, expandable, remembered) with flagged… | M | Both | P1 |
 | SITE-004 | The system shall keep the header and tab row pinned while the tab body scrolls. | S | Both | P1 |
@@ -2367,11 +2701,11 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | SITE-023 | The system shall show the 8-GPU strip with per-GPU state for GPU nodes on Equipment. | M | Neo | P1 |
 | SITE-024 | The system shall show Topology of the site's network devices and links (hosts counted per | M | Both | P1 |
 | SITE-025 | The system shall show Space & ports (rack space, ports, floors / rooms / racks table) and | M | Both | P1 |
-| SITE-026 | The system shall show a device page with overview, interfaces, hardware modules, alarms, s… | M | Both | P1 |
+| SITE-026 | The system shall show a device page with tabs Overview · 3D view · Hardware & interfaces (… | M | Both | P1 |
 | SITE-027 | The system shall show on the device page Power & cabling: each PSU → outlet → PDU side → U… | M | Both | P1 |
 | SITE-028 | The system shall show a device 3D view with modes Device · Open lid · Exploded · One accel… | S | Both | P2 |
-| SITE-029 | The system shall show GPUs · DCGM on GPU nodes: per-GPU health and profiling fields with 2… | M | Neo | P1 |
-| SITE-030 | The system shall show Access & security: on site now, security exceptions, entries / exits… | S | Both | P2 |
+| SITE-029 | The system shall show GPUs · DCGM (GPUs · Intel for Gaudi / Data Center GPU Max nodes) on | M | Neo | P1 |
+| SITE-030 | The system shall show Access & security as four collapsible sections: People on site & exc… | S | Both | P2 |
 | SITE-031 | The system shall link visits to their change (CHG) or incident (INC) where a crew or on-ca… | S | Both | P2 |
 | SITE-032 | The system shall show colocation tenants' badge reads at their cage doors. | S | Colo | P2 |
 | SITE-033 | The system shall open a person drawer and an exception drawer from the Access tab. | S | Both | P2 |
@@ -2380,8 +2714,17 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | SITE-036 | The system shall show GPU customers with their jobs and GPU time lost on the Customers tab… | S | Neo | P1 |
 | SITE-037 | The system shall show an empty state on live-only tabs for planned sites. | M | Both | P1 |
 | SITE-038 | The system shall provide "Plan" and "Changes" actions from the header into the Planner and… | S | Both | P2 |
+| SITE-039 | The system shall show a customer page: identity header (state, facts, one-line verdict wit… | M | Both | P1 |
+| SITE-040 | The system shall show on the customer page (Colo) cross-connect orders and remote-hands ti… | S | Colo | P2 |
+| SITE-041 | The system shall show on Assets the rack type, purchase date and condition per BRULE-SITE-… | S | Both | P2 |
+| SITE-042 | The system shall show on Equipment the operator's own servers with their purpose (manageme… | S | Colo | P1 |
+| SITE-043 | The system shall mark on the schematic layout, when a rack is open, its facing row as glas… | C | Both | P2 |
+| SITE-044 | The system shall place the realistic view's controls as: floor picker top-left, tools and | C | Both | P2 |
+| SITE-045 | The system shall render on the device 3D view one model per family (router, switch, firewa… | S | Both | P2 |
+| SITE-046 | The system shall show the Space & ports tab's floors / rooms / racks table and rack space | M | Both | P1 |
+| SITE-047 | The system shall keep every figure on the datacenter page reconciled with the Command Cent… | M | Both | P1 |
 | FAC-001 | The system shall show a facility strip: power load, PUE, UPS, cooling, environment, alarms… | M | Both | P1 |
-| FAC-002 | The system shall draw a single-line power path (feeds, ATS, DG, UPS modules, battery, busw… | M | Both | P1 |
+| FAC-002 | The system shall draw a single-line power path (utility feeds, DG set with fuel and runtim… | M | Both | P1 |
 | FAC-003 | The system shall trace upstream and downstream on hover of any power node. | S | Both | P1 |
 | FAC-004 | The system shall show a 24 h load chart against capacity. | M | Both | P1 |
 | FAC-005 | The system shall show "If utility power fails": UPS minutes, DG kW, fuel hours and readine… | M | Both | P1 |
@@ -2398,7 +2741,7 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | FAC-016 | The system shall show CDU loops with flow, supply / return temperature and the GPU racks t… | M | Neo | P1 |
 | FAC-017 | The system shall link a CDU flow fault to the GPU slowdown it causes. | S | Neo | P1 |
 | FAC-018 | The system shall show cooling coverage by floor (N+1 / No spare / Short) and each rack's n… | S | Both | P2 |
-| FAC-019 | The system shall show environment zones with temperature and humidity against the safe ban… | M | Both | P1 |
+| FAC-019 | The system shall show environment zone cards with temperature and humidity on their scale | M | Both | P1 |
 | FAC-020 | The system shall show fire zones (detection, suppression, agent %, release mode, last and | S | Both | P2 |
 | FAC-021 | The system shall show leak detection lines and their state. | S | Both | P2 |
 | FAC-022 | The system shall show access points (mantrap, room doors, cage doors) with events and deni… | S | Both | P2 |
@@ -2414,6 +2757,12 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | FAC-032 | The system shall show the −48 V DC plant where present (rectifiers, BDFB, battery). | C | Both | P3 |
 | FAC-033 | The system shall never send a write or control command to plant. | M | Both | P1 |
 | FAC-034 | The system shall mark every facility value with its freshness and show stale values as sta… | M | Both | P1 |
+| FAC-035 | The system shall show the Maintenance & alarms tab with the site's active facility alarms | M | Both | P1 |
+| FAC-036 | The system shall show on Cooling the running capacity after losing the largest unit and th… | S | Both | P1 |
+| FAC-037 | The system shall list spares per part family with on hand, reserved, minimum and state per… | S | Both | P2 |
+| FAC-038 | The system shall show the Facility strip at the top of the Facilities page and on Overview… | S | Both | P1 |
+| FAC-039 | The system shall list the datacenter's support contracts (level, expiry) and the vendor en… | S | Both | P2 |
+| FAC-040 | The system shall treat diesel litres, burn rate, PDUs per rack, one DG and one battery ban… | M | Both | P1 |
 | GPU-001 | The system shall show the GPU Fleet menu item and the datacenter GPU sub tab only when the… | M | Both | P1 |
 | GPU-002 | The system shall list clusters / pods with GPU model, vendor, nodes, GPUs in a job, spare,… | M | Neo | P1 |
 | GPU-003 | The system shall show a per-node heat map for each cluster, coloured by worst GPU state, w… | S | Neo | P1 |
@@ -2436,7 +2785,7 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | GPU-020 | The system shall show GPU racks with draw against budget, liquid / air, node count, maximu… | M | Neo | P1 |
 | GPU-021 | The system shall show tenant AI cages (contracted kW, draw, CDU, inlet temperature, state,… | M | Colo | P1 |
 | GPU-022 | The system shall link a job affected by a fault to the open GPU incident and show the inci… | M | Neo | P1 |
-| GPU-023 | The system shall open from the Command Center GPU fleet area at the jobs tab, filtered to | M | Neo | P1 |
+| GPU-023 | The system shall feed the Command Center GPU fleet area (the first hero area where the est… | M | Neo | P1 |
 | GPU-024 | The system shall show power cost per installed and per sold GPU-hour per pod, against the | S | Neo | P2 |
 | GPU-025 | The system shall show energy and power cost by job and by tenant per day, against what the… | S | Neo | P2 |
 | GPU-026 | The system shall provide a "Where to place" tab: input GPUs needed (8–256) and a model, ou… | S | Neo | P2 |
@@ -2446,9 +2795,15 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | GPU-030 | The system shall scope every tab to one datacenter or the whole estate from a datacenter s… | M | Both | P1 |
 | GPU-031 | The system shall read job metadata from the scheduler (Slurm REST or the Kubernetes API) a… | M | Neo | P1 |
 | GPU-032 | The system shall show step time, MFU and checkpoint figures only when the customer's AI pl… | M | Neo | P1 |
-| GPU-033 | The system shall answer Opstral AI questions "Where should the next GPU job go?" and "What… | C | Neo | P2 |
+| GPU-033 | The system shall answer Opstral AI questions "Where should the next GPU job go?", "What is… | C | Neo | P2 |
 | GPU-034 | The system shall show recommended actions per affected job (for example drain the failed n… | S | Neo | P1 |
 | GPU-035 | The system shall export GPU job hours delivered and lost per customer per day to the billi… | C | Neo | P3 |
+| GPU-036 | The system shall head the GPU Fleet screen with one row: title and a one-line subtitle, a | S | Neo | P1 |
+| GPU-037 | The system shall filter the jobs list by state (stalled, slowed, at risk, idle, running) a… | M | Neo | P1 |
+| GPU-038 | The system shall show the open driver-rollout change on nodes running their model's old dr… | S | Neo | P1 |
+| GPU-039 | The system shall count node states (in a job, spare, drained, failed, burn-in) and GPU hea… | S | Neo | P1 |
+| GPU-040 | The system shall show per-counter leaders on the Telemetry tab: hottest GPUs, most PCIe re… | S | Neo | P1 |
+| GPU-041 | The system shall show a cluster's nodes on the datacenter Equipment tab with the 8-GPU str… | S | Neo | P1 |
 | ALM-001 | The system shall convert every incoming event (trap, syslog, Redfish event, DCGM Xid, BACn… | M | Both | P1 |
 | ALM-002 | The system shall store both the normalised alarm and the raw event for audit and replay. | M | Both | P1 |
 | ALM-003 | The system shall de-duplicate and clear alarms per BRULE-ALM-01. | M | Both | P1 |
@@ -2460,7 +2815,7 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | ALM-009 | The system shall compute edge redundancy per site per BRULE-ALM-06. | M | Both | P1 |
 | ALM-010 | The system shall attach rack and shared-fault references per BRULE-ALM-07. | M | Both | P1 |
 | ALM-011 | The system shall publish normalised alarms to Ops Toolkit System Alerts and keep the ident… | M | Both | P1 |
-| ALM-012 | The system shall provide an Alerts list (ListToolbar, analytics strip) filterable by site,… | M | Both | P1 |
+| ALM-012 | The system shall provide an Alerts list with an analytics strip of six tiles (active alarm… | M | Both | P1 |
 | ALM-013 | The system shall correlate alarms into incidents per BRULE-ALM-08 and create or update the… | M | Both | P1 |
 | ALM-014 | The system shall assign the incident type (Network, Power, Cooling, Rack, Capacity, Securi… | M | Both | P1 |
 | ALM-015 | The system shall list affected objects per incident (device, link, rack, service, customer… | M | Both | P1 |
@@ -2481,15 +2836,19 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | ALM-030 | The system shall raise GPU alarms (Xid, ECC, NVLink, throttle) and create GPU-type inciden… | M | Neo | P1 |
 | ALM-031 | The system shall raise tenant cabinet alarms from power and environment only, and treat a | M | Colo | P1 |
 | ALM-032 | The system shall raise power-contract findings (block ≥ 85 % drawn, new demand peak above | S | Both | P2 |
-| ALM-033 | The system shall show incident views: open, Critical, High, past SLA, unacknowledged, and | M | Both | P1 |
+| ALM-033 | The system shall show incident list views Open, Critical open, High open, Breaching SLA an… | M | Both | P1 |
 | ALM-034 | The system shall emit `dco.alert.*` and `dco.incident.*` events for every lifecycle change… | M | Both | P1 |
-| ALM-035 | The system shall answer Opstral AI questions about an incident's cause and impact from the… | C | Both | P2 |
+| ALM-035 | The system shall answer Opstral AI questions about an incident's cause, what changed befor… | C | Both | P2 |
+| ALM-036 | The system shall let a user correlate selected uncorrelated alarms that share a cause into… | S | Both | P1 |
+| ALM-037 | The system shall show per alarm its severity, scope, category, source, title, device and p… | M | Both | P1 |
+| ALM-038 | The system shall raise hardware alarms (failed disk, failed PSU) on the operator's own ser… | S | Both | P1 |
+| ALM-039 | The system shall show the incident's similar incidents (BRULE-ALM-18) and the on-call rota… | S | Both | P2 |
 | REV-001 | The system shall classify every service as down, degraded, exposed or not impacted per BRU… | M | Both | P1 |
 | REV-002 | The system shall charge each impacted service to exactly one issue per BRULE-REV-03. | M | Both | P1 |
 | REV-003 | The system shall compute rate, lost, credits, locked-in credits, next cliff, forecast 24 h… | M | Both | P1 |
 | REV-004 | The system shall charge losses to the datacenter where the fault is (BRULE-REV-11). | M | Both | P1 |
 | REV-005 | The system shall reconcile totals across issues, causes, datacenters, customers and site v… | M | Both | P1 |
-| REV-006 | The system shall show a strip of 6 tiles: losing now (rate), lost so far, credits triggere… | M | Both | P1 |
+| REV-006 | The system shall show a strip of six tiles, each opening the matching view: Losing now (pe… | M | Both | P1 |
 | REV-007 | The system shall show the answer cards "Costing the most right now" and "Most at stake", e… | M | Both | P1 |
 | REV-008 | The system shall list issues ranked per BRULE-REV-13 with services down / degraded / expos… | M | Both | P1 |
 | REV-009 | The system shall open a cost-breakdown drawer per issue, listing every service, its state,… | M | Both | P1 |
@@ -2512,6 +2871,9 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | REV-026 | The system shall support per-contract credit rules in place of the single tier table (to d… | C | Both | P3 |
 | REV-027 | The system shall answer Opstral AI questions "Which issue is costing the most revenue?" an… | C | Both | P2 |
 | REV-028 | The system shall show a premium-customer impact figure on the Command Center that opens "W… | M | Both | P1 |
+| REV-029 | The system shall provide the customer page: an identity header (avatar, state, facts row, | M | Both | P1 |
+| REV-030 | The system shall show on a colocation customer's page their cross-connect orders and remot… | S | Colo | P2 |
+| REV-031 | The system shall show "Why at risk" per customer on customer lists (the causes of their im… | S | Both | P1 |
 | SEC-001 | The system shall provide a Security Ops menu with sub-menus Insights, Detections, Cases, T… | M | Both | P2 |
 | SEC-002 | The system shall show Insights: NIST CSF 2.0 function scores with their basis, open detect… | M | Both | P2 |
 | SEC-003 | The system shall evaluate datacenter detection rules across the domains Network, Managemen… | M | Both | P2 |
@@ -2531,7 +2893,7 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | SEC-017 | The system shall match advisories to firmware, OS and packages per asset and list vulnerab… | M | Both | P2 |
 | SEC-018 | The system shall let a user set a vulnerability state (Open, In remediation with a change | M | Both | P2 |
 | SEC-019 | The system shall replace the illustrative advisories with live NVD / CISA KEV / FIRST EPSS… | S | Both | P3 |
-| SEC-020 | The system shall run hardening checks per baseline (CIS / STIG / vendor guide) per asset a… | S | Both | P2 |
+| SEC-020 | The system shall run hardening checks per baseline (for example CIS Cisco IOS XR, DISA STI… | S | Both | P2 |
 | SEC-021 | The system shall show configuration drift per device (running vs last approved) as authori… | M | Both | P2 |
 | SEC-022 | The system shall show IEC 62443 zones and conduits per site with SL-T, SL-A (BRULE-SEC-12)… | S | Both | P2 |
 | SEC-023 | The system shall list OT assets (UPS cards, PDUs, BMS / CDU controllers, meters, DG contro… | M | Both | P2 |
@@ -2542,6 +2904,10 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | SEC-028 | The system shall exclude tenant-owned equipment from assets, detections and vulnerabilitie… | M | Colo | P2 |
 | SEC-029 | The system shall show metrics: MTTA, MTTR, open cases within SLA, true-positive rate. | S | Both | P2 |
 | SEC-030 | The system shall map security posture to ISO 27001 controls for Compliance (A.5–A.8, A.7 p… | C | Both | P3 |
+| SEC-031 | The system shall show a site security score per datacenter (BRULE-SEC-17) and rank sites b… | S | Both | P2 |
+| SEC-032 | The system shall keep every triage, case, vulnerability and rule move as the analyst's wor… | M | Both | P2 |
+| SEC-033 | The system shall list, per detection, the datacenter context it was raised with: site, roo… | M | Both | P2 |
+| SEC-034 | The system shall show per playbook its trigger rules and steps by phase with the system ea… | S | Both | P2 |
 | CAP-001 | The system shall show capacity per datacenter for space, power, cooling, ports and GPUs as… | M | Both | P2 |
 | CAP-002 | The system shall open the capacity overview with one summary tile per dimension plus a hol… | M | Both | P2 |
 | CAP-003 | The system shall show space and power by hall, with an 85 % pressure marker and a link to | M | Both | P2 |
@@ -2550,7 +2916,7 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | CAP-006 | The system shall treat colocation contracted kW above draw as a Committed hold per cabinet… | M | Colo | P2 |
 | CAP-007 | The system shall show GPU capacity per model as in a job, allocated and idle, free, and ou… | M | Neo | P2 |
 | CAP-008 | The system shall show PUE, energy per day and CO₂ per site and for the estate (BRULE-CAP-0… | M | Both | P2 |
-| CAP-009 | The system shall forecast each dimension against 80 % / 90 % thresholds and publish `dco.c… | S | Both | P2 |
+| CAP-009 | The system shall forecast each dimension 12 months forward against the 85 % warning line (… | S | Both | P2 |
 | CAP-010 | The system shall hold a tariff per state or region and a power contract per live site: sup… | M | Both | P2 |
 | CAP-011 | The system shall let an authorised user replace the illustrative tariff and contract value… | M | Both | P2 |
 | CAP-012 | The system shall compute the monthly power bill per site and for the estate, split into en… | M | Both | P2 |
@@ -2575,7 +2941,12 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | CAP-031 | The system shall send metered kWh and peak kW per tenant cabinet to billing (NB-07). | S | Colo | P3 |
 | CAP-032 | The system shall send delivered and lost GPU-hours per customer job to billing (NB-07). | S | Neo | P3 |
 | CAP-033 | The system shall add an info text to every widget saying how its figure is computed. | M | Both | P2 |
-| PLN-001 | The system shall offer the plan families and types in BRULE-PLN-01's scope, each with its | M | Both | P2 |
+| CAP-034 | The system shall show network headroom: links in countdown (utilisation, growth of the las… | S | Both | P2 |
+| CAP-035 | The system shall show a financial view per site: CapEx approved and committed, OpEx per mo… | S | Both | P2 |
+| CAP-036 | The system shall open the capacity overview with a reservation ledger (Submitted → Approve… | M | Both | P2 |
+| CAP-037 | The system shall show the deck reference line beside the measured GPU power cost (BRULE-CA… | S | Neo | P2 |
+| CAP-038 | The system shall show no power findings and no incident for a site whose draw and contract… | M | Both | P2 |
+| PLN-001 | The system shall offer the six plan families and their plan types listed in 7.9.1, each wi… | M | Both | P2 |
 | PLN-002 | The system shall keep a template library (plan types, site types, modules) with inheritanc… | M | Both | P2 |
 | PLN-003 | The system shall show, for each template: its inheritance chain, wizard areas, approval pa… | M | Both | P2 |
 | PLN-004 | The system shall keep versioned benchmarks for costs, efficiency (PUE), lead times, sizing… | M | Both | P2 |
@@ -2611,8 +2982,20 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | PLN-034 | The system shall size tenant cage or hall plans from contracted kW per cabinet and the cab… | M | Colo | P2 |
 | PLN-035 | The system shall publish `dco.plan.decided` and write every plan change to the audit trail… | M | Both | P2 |
 | PLN-036 | The system shall offer AI-assisted plan drafting (to discuss). | C | Both | P3 |
+| PLN-037 | The system shall show the review status on the plan (reviewers, who has answered, open com… | M | Both | P2 |
+| PLN-038 | The system shall offer, in Send for review, the attachment choice PDF / ZIP / link only, a… | S | Both | P2 |
+| PLN-039 | The system shall open scenarios on demand from the plan header as a What-if drawer, and sh… | M | Both | P2 |
+| PLN-040 | The system shall warn before leaving the wizard with unsaved changes, and let the user jum… | S | Both | P2 |
+| PLN-041 | The system shall keep Delivery's purchase orders equal to the plan's vendor orders (one pe… | M | Both | P2 |
+| PLN-042 | The system shall record closeout changes through the audited action in BRULE-PLN-15 and sh… | S | Both | P2 |
+| PLN-043 | The system shall let a template owner make a variant, publish or retire a template and edi… | M | Both | P2 |
+| PLN-044 | The system shall filter benchmarks per view (reference value, site type, cooling, tier, re… | S | Both | P2 |
+| PLN-045 | The system shall show on the Command Center a Plan & build strip (capacity pipeline planne… | S | Both | P2 |
+| PLN-046 | The system shall show per plan an Overview dashboard: what and why with the Draft → In rev… | M | Both | P2 |
+| PLN-047 | The system shall show on every plan ONE status line: state in words, whose decision, block… | M | Both | P2 |
+| PLN-048 | The system shall list in the plan pack what the plan creates with links into Delivery, IP | S | Both | P2 |
 | DCIM-001 | The system shall hold the hierarchy site → floor → hall → row → rack → device → components… | M | Both | P1 |
-| DCIM-002 | The system shall store rack grid position, row, U height, budget kW, type, condition, owne… | M | Both | P1 |
+| DCIM-002 | The system shall store rack grid position, row, U height, budget kW, type (e.g. a legacy 6… | M | Both | P1 |
 | DCIM-003 | The system shall store each device's rack, U position, height and status (BRULE-DCIM-02). | M | Both | P1 |
 | DCIM-004 | The system shall store device components: ports with speed and admin state, power ports wi… | M | Both | P1 |
 | DCIM-005 | The system shall store power panels (busway A / B per hall or −48 V distribution), feeds (… | M | Both | P1 |
@@ -2645,6 +3028,14 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | DCIM-032 | The system shall write the DCIM extensions back to, or sync them with, Inventory (or the c… | M | Both | P1 |
 | DCIM-033 | The system shall publish `dco.dcim.record-changed` with before / after and the change id. | S | Both | P2 |
 | DCIM-034 | The system shall show an Insights page (see 8.6). | S | Both | P2 |
+| DCIM-035 | The system shall show in the device drawer the device's lifecycle (installed, warranty end… | S | Both | P2 |
+| DCIM-036 | The system shall, when connecting a port, offer only devices at the site that have a free | M | Both | P2 |
+| DCIM-037 | The system shall check the invariants of BRULE-DCIM-12 on every data change and report a b… | M | Both | P1 |
+| DCIM-038 | The system shall let a user raise a change request from the Changes board with the same fo… | M | Both | P2 |
+| DCIM-039 | The system shall filter the Changes board by view (ready, awaiting approval, in progress, | S | Both | P2 |
+| DCIM-040 | The system shall show per sub-menu the actions that apply (New rack / Install device on In… | S | Both | P2 |
+| DCIM-041 | The system shall show on the change page the DCIM work it carries with Execute all, and co… | M | Both | P2 |
+| DCIM-042 | The system shall reject a DCIM write that fails validation (U clash, budget, reserved rang… | M | Both | P1 |
 | CMP-001 | The system shall evaluate policies CP-01 to CP-09 on every data cycle (BRULE-CMP-01 to BRU… | M | Both | P3 |
 | CMP-002 | The system shall show each policy with its resources checked, violations, outcome (Blocked… | M | Both | P3 |
 | CMP-003 | The system shall map controls of ISO/IEC 27001:2022, ISO/IEC 22237, TIA-942 and SOC 2 to t… | M | Both | P3 |
@@ -2662,16 +3053,49 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | CMP-015 | The system shall send compliance decisions to the SIEM feed (NB-10). | C | Both | P3 |
 | CMP-016 | The system shall show colocation tenant-facing controls (physical access, power resilience… | C | Colo | P3 |
 | CMP-017 | The system shall record every policy, control and attestation change in the audit trail. | M | Both | P3 |
+| CMP-018 | The system shall list every violation (policy, resource, site, message, outcome, raised ti… | M | Both | P3 |
+| CMP-019 | The system shall evidence each control only by the policies that test it (BRULE-CMP-12) an… | M | Both | P3 |
+| XC-001 | The system shall present a left menu grouped Operations · Plan & Build · Security · Admin | M | Both | P1 |
+| XC-002 | The system shall offer a business-model switch (network, colocation, cloud, enterprise, Ne… | M | Both | P1 |
+| XC-003 | The system shall regenerate vocabulary (customer, service, premium words, capacity unit, m… | M | Both | P1 |
+| XC-004 | The system shall apply a deployment default persona and optional persona / geography overr… | M | Both | P1 |
+| XC-005 | The system shall hide GPU Fleet (menu item, site tab, Command Center GPU area) when the es… | M | Both | P1 |
+| XC-006 | The system shall format every money figure through the geography's formatter and show the | M | Both | P1 |
+| XC-007 | The system shall provide global search (⌘K) over datacenters, devices, interfaces, links, | M | Both | P1 |
+| XC-008 | The system shall provide the Opstral AI drawer on every page with the page's context; it s… | S | Both | P2 |
+| XC-009 | Every widget (panel, KPI, tile, summary-strip item) shall carry an info bubble; the bubble… | M | Both | P1 |
+| XC-010 | The system shall pin the page tab bar under the top bar on every screen, and list toolbars… | M | Both | P1 |
+| XC-011 | The system shall run every screen inside an iframe with `shell=false` (no menu, no top bar… | M | Both | P1 |
+| XC-012 | The system shall scale the UI for TVs from 2200 px with charts, map, tooltips and 3D align… | S | Both | P2 |
+| XC-013 | The system shall show no horizontal overflow, no cut text and no NaN / undefined at 1280 a… | M | Both | P1 |
+| XC-014 | The system shall provide Help & FAQ with a FAQ (categories, search, answers linking to scr… | M | Both | P1 |
+| XC-015 | The Facility integration tab shall hold one site integration survey per datacenter (collec… | M | Both | P1 |
+| XC-016 | The data model explorer shall show every entity and relationship (ontology around one enti… | S | Both | P1 |
+| XC-017 | The system shall provide a demo playbook ("The 13:20 call") per business model with "Open | C | Both | P1 |
+| XC-018 | The system shall use the NST / Vision Waves design system (Poppins chrome, Inter tabular n… | M | Both | P1 |
+| XC-019 | Status words shall be consistent: incidents Critical / High / Medium / Low, alarms Critica… | M | Both | P1 |
+| XC-020 | Every list shall use the common list toolbar (Showing N of M, search, ≤ 2 quick filters, r… | M | Both | P1 |
+| XC-021 | List pages shall open with an analytics strip of six tiles whose bars, pills and facts cli… | S | Both | P1 |
+| XC-022 | The system shall keep per-viewer conveniences (collapsed sections, chosen layout, legend s… | S | Both | P1 |
+| XC-023 | The system shall expose the Help documents and the survey at stable URLs so the portal and… | S | Both | P1 |
+| XC-024 | The customer engagement guide shall be searchable by keyword or problem with synonyms, dee… | S | Both | P1 |
 | ANL-001 | The system shall show the widgets above, read from Programs & Projects, without storing pr… | M | Both | P2 |
-| ANL-002 | The system shall mark a project late only when its own dates say so, and at risk when a mi… | M | Both | P2 |
+| ANL-002 | The system shall mark a project **late** when its forecast finish is after its target or S… | M | Both | P2 |
 | ANL-003 | The system shall compute EV = budget × progress, CPI and SPI from the module's figures. | M | Both | P2 |
 | ANL-004 | The system shall link each project to its source Planner plan (one plan per project). | S | Both | P2 |
 | ANL-005 | The system shall show capacity coming online as GPUs for NeoCloud and as cabinets / kW for… | S | Both | P2 |
+| ANL-006 | The system shall show change orders with their approver by size: ≤ 5 % of budget the proje… | S | Both | P2 |
+| ANL-007 | The system shall rank project risks by likelihood × impact and show derived risks (late PO… | S | Both | P2 |
+| ANL-008 | The system shall show programme start gates: a project waits until its predecessors are de… | S | Both | P2 |
+| ANL-009 | The system shall show work orders by state (Planned, Ready, Awaiting change, In progress, | M | Both | P2 |
 | ANL-010 | The system shall show running work and KPIs for the 12 datacenter processes, against each | M | Both | P2 |
 | ANL-011 | The system shall show work-order throughput, first-time fix and re-plans per site. | S | Both | P2 |
 | ANL-012 | The system shall list work orders blocked by kit, with their PO state. | S | Both | P2 |
 | ANL-013 | The system shall link each item to the owning module's record. | M | Both | P2 |
 | ANL-014 | The system shall show remote-hands tickets for colocation tenants per site, with SLA. | S | Colo | P2 |
+| ANL-015 | The system shall show a My tasks inbox: user steps as tasks with candidate role, due time | M | Both | P2 |
+| ANL-016 | The system shall retry a failed automatic step and show the retry in the instance's event | S | Both | P2 |
+| ANL-017 | The system shall show a swimlane view per process definition and KPIs from closed runs of | S | Both | P2 |
 | ANL-020 | The system shall show commissioning by level, in order (a level cannot pass before the one… | M | Both | P2 |
 | ANL-021 | The system shall show a project as handover-ready only when every work order is done and L… | M | Both | P2 |
 | ANL-022 | The system shall list open snags per project and level. | S | Both | P2 |
@@ -2681,9 +3105,13 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | ANL-032 | The system shall list addresses outside the site plan as findings (feeding CP-05). | M | Both | P2 |
 | ANL-033 | The system shall show differences between IP Management and the connected DNS / DHCP / IPA… | S | Both | P2 |
 | ANL-034 | The system shall show InfiniBand and front-end fabric address space per GPU pod. | S | Neo | P2 |
+| ANL-035 | The system shall show each site's management space as its own VRF (sites may reuse managem… | S | Both | P2 |
 | ANL-040 | The system shall show the overview widgets in equal-height pairs, with a tabbed detail tab… | M | Both | P2 |
 | ANL-041 | The system shall count a change as failed when it rolled back or was cited by an incident'… | M | Both | P2 |
 | ANL-042 | The system shall show site freezes derived from open Critical incidents, alongside the cal… | M | Both | P2 |
 | ANL-043 | The system shall flag conflicting windows on the same devices at the same site. | S | Both | P2 |
-| ANL-044 | The system shall show policy checks on changes: rollback plan and freeze = Block; maintena… | S | Both | P2 |
+| ANL-044 | The system shall show policy checks on changes: POL-01 no rollback plan and POL-02 inside | S | Both | P2 |
+| ANL-046 | The system shall apply freezes as the module does: a site with an open Critical incident a… | M | Both | P2 |
+| ANL-047 | The system shall measure lead time on normal changes implemented each week: median days fr… | S | Both | P2 |
+| ANL-048 | The system shall include preventive maintenance done in the last 12 weeks as completed sta… | S | Both | P2 |
 | ANL-045 | The system shall include DCIM-raised changes and delivery change requests in all measures.… | M | Both | P2 |
