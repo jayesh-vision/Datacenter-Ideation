@@ -11,10 +11,13 @@ import '../styles/help.css';
    chips (the guides read their `#hash` on load) and an "Open in new tab" link; downloads open directly.
    Facility integration tab (`?tab=survey`, user 26-Oct-2026): the site integration survey (`/site-integration-survey.html`, source in
    docs/) that captures what we need to connect one datacenter's BMS, power, cooling and server BMCs through the on-site
-   collector. It keeps surveys in the browser and moves them between people as JSON files. */
+   collector. It keeps surveys in the browser and moves them between people as JSON files.
+   Customer guide tab (`?tab=customer`, user 27-Oct-2026): the customer engagement guide (`/customer-guide.html`) framed in embed
+   mode; its own search, `?q=` and `#e-<id>` links work inside the frame (`q` / `s` on this page pass through). */
 
-type Tab = 'faq' | 'docs' | 'survey';
+type Tab = 'faq' | 'docs' | 'survey' | 'customer';
 const SURVEY = '/site-integration-survey.html';
+const CUSTOMER = '/customer-guide.html';
 interface Doc {
   id: string; title: string; blurb: string; href: string; icon: I.LucideIcon; group: string;
   sections?: { label: string; hash: string }[]; download?: boolean; route?: string; files?: { label: string; href: string }[];
@@ -88,27 +91,30 @@ const CATS = [...new Set(FAQ.map(f => f.cat))];
 const TABS: { id: Tab; label: string; icon: I.LucideIcon; count?: number }[] = [
   { id: 'faq', label: 'FAQ', icon: I.CircleHelp, count: FAQ.length },
   { id: 'docs', label: 'Documents', icon: I.Library, count: DOCS.length },
+  { id: 'customer', label: 'Customer guide', icon: I.Handshake },
   { id: 'survey', label: 'Facility integration', icon: I.ClipboardList }
 ];
 
 export function Help() {
   const [sp, setSp] = useSearchParams();
-  const tab: Tab = sp.get('tab') === 'docs' ? 'docs' : sp.get('tab') === 'survey' ? 'survey' : 'faq';
+  const t0 = sp.get('tab');
+  const tab: Tab = t0 === 'docs' || t0 === 'survey' || t0 === 'customer' ? t0 : 'faq';
   const doc = DOCS.find(d => d.id === sp.get('doc') && !d.download);
   const section = sp.get('s') ?? '';
-  usePage([{ label: 'Help & FAQ' }, ...(tab === 'docs' ? [{ label: doc ? doc.title : 'Documents' }] : tab === 'survey' ? [{ label: 'Facility integration' }] : [])]);
+  usePage([{ label: 'Help & FAQ' }, ...(tab === 'docs' ? [{ label: doc ? doc.title : 'Documents' }] : tab === 'survey' ? [{ label: 'Facility integration' }] : tab === 'customer' ? [{ label: 'Customer guide' }] : [])]);
+  const customerSrc = `${CUSTOMER}?embed=1${sp.get('q') ? `&q=${encodeURIComponent(sp.get('q')!)}` : ''}${section ? `#${section}` : ''}`;
   const set = (patch: Record<string, string | null>) => { const n = new URLSearchParams(sp); for (const [k, v] of Object.entries(patch)) { if (v) n.set(k, v); else n.delete(k); } setSp(n, { replace: true }); };
   const open = (d: Doc, s?: string) => set({ tab: 'docs', doc: d.id, s: s ?? null });
 
   return (
     <div className="page help">
       <PageHead title="Help & FAQ" sub="Answers to the questions people ask first, and every Datacenter document in one place: guides, glossary, GPU anatomy, data model, downloads and integration."
-        actions={tab === 'survey' ? <a className="nst-btn nst-btn--sm" href={SURVEY} target="_blank" rel="noreferrer"><I.ExternalLink size={15} />Open in new tab</a> : doc && <>
+        actions={tab === 'customer' ? <a className="nst-btn nst-btn--sm" href={customerSrc.replace('?embed=1&', '?').replace('?embed=1', '')} target="_blank" rel="noreferrer"><I.ExternalLink size={15} />Open in new tab</a> : tab === 'survey' ? <a className="nst-btn nst-btn--sm" href={SURVEY} target="_blank" rel="noreferrer"><I.ExternalLink size={15} />Open in new tab</a> : doc && <>
           <button type="button" className="nst-btn nst-btn--sm" onClick={() => set({ doc: null, s: null })}><I.ArrowLeft size={15} />All documents</button>
           <a className="nst-btn nst-btn--sm" href={`${doc.href}${section ? `#${section}` : ''}`} target="_blank" rel="noreferrer"><I.ExternalLink size={15} />Open in new tab</a>
         </>} />
-      <Tabs value={tab} onChange={t => set({ tab: t === 'faq' ? null : t, doc: null, s: null })} tabs={TABS} />
-      {tab === 'faq' ? <FaqView open={open} /> : tab === 'survey' ? <SurveyView /> : doc ? <Reader doc={doc} section={section} onSection={s => set({ s })} /> : <Library open={open} />}
+      <Tabs value={tab} onChange={t => set({ tab: t === 'faq' ? null : t, doc: null, s: null, q: null })} tabs={TABS} />
+      {tab === 'faq' ? <FaqView open={open} /> : tab === 'survey' ? <SurveyView /> : tab === 'customer' ? <CustomerView src={customerSrc} /> : doc ? <Reader doc={doc} section={section} onSection={s => set({ s })} /> : <Library open={open} />}
     </div>
   );
 }
@@ -202,6 +208,21 @@ function SurveyView() {
         </div>
       </div>
       <div className="help-frame"><iframe src={SURVEY} title="Facility integration" /></div>
+    </section>
+  );
+}
+
+function CustomerView({ src }: { src: string }) {
+  return (
+    <section className="vw-card-section help-reader">
+      <div className="help-reader-h">
+        <span className="help-card-ic"><I.Handshake size={20} /></span>
+        <div style={{ minWidth: 0 }}>
+          <h3>Customer engagement guide</h3>
+          <p className="muted">How to present SynapseDC to a datacenter customer, colocation as the worked example: the 10-step journey, pitch and value, discovery questions, their systems and tools, onboarding data, integrations, objections and templates. Search any keyword or problem inside the guide.</p>
+        </div>
+      </div>
+      <div className="help-frame"><iframe key={src} src={src} title="Customer engagement guide" /></div>
     </section>
   );
 }
