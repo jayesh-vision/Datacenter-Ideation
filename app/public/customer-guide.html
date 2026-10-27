@@ -368,13 +368,26 @@ const E = [
     h('2 minutes') + say('"Most operators run a BMS for the plant, a DCIM or a spreadsheet for space, a ticketing tool for incidents, an access system at the doors and a billing system for tenants. None of them talk to each other. So when a UPS goes on battery, the NOC sees an alarm, but nobody can say in that moment which cabinets are on that UPS, which tenants own them, whose SLA is at risk, or how much it will cost.<br><br>SynapseDC connects those systems read-only and builds one model of the estate: power paths, cooling, racks, cross-connects, tenants and contracts. On top of it you get a command center, a datacenter view with a 3D layout, revenue impact per issue, capacity you can sell, and audit-ready evidence for access and compliance. Our AI assistant explains the likely cause and the next step, using your own data.<br><br>We start with one site, read-only, and prove it in about eight weeks."') +
     tip('Change the nouns for other customer types: enterprise → "business services" and "cost of downtime"; GPU cloud → "GPU jobs" and "GPU-hours lost".') },
 
-{ s: 'pitch', id: 'not', t: 'What SynapseDC is not (say it early)', d: 'Being clear about limits builds trust.', k: 'limits scope not replace bms control billing crm honest',
-  b: ul(['<b>Not a BMS or a control system.</b> It reads from the BMS, UPS, PDUs and meters; it never changes set points or switches anything.',
-      '<b>Not a billing or ERP system.</b> It can export metered power per circuit and show revenue at risk; invoices stay in their billing system.',
-      '<b>Not a CRM or a tenant portal.</b> Tenants and contracts are imported so impact can be calculated. A tenant-facing portal is not in the product today: note it as "to discuss with the product team".',
-      '<b>Not a replacement for their ITSM.</b> Incidents and changes can be raised in or synced with ServiceNow / Jira; the ITSM stays the system of record for tickets if they want.',
+{ s: 'pitch', id: 'not', t: 'What SynapseDC does not do, and where it fits with their systems', d: 'Clear limits on the plant; integrate or offer for business systems.', k: 'limits scope not replace bms control billing crm itsm honest integrate offer platform',
+  b: h('Firm limits (say them early)') + ul(['<b>Not a BMS or a control system.</b> It reads from the BMS, UPS, PDUs and meters; it never changes set points or switches anything.',
       '<b>Not a monitoring agent inside tenant gear.</b> In colocation, tenant equipment is opaque: we never poll it (' + see('c-privacy', 'tenant privacy') + ').']) +
-    say('"We sit on top of the systems you already have and connect them. Your BMS keeps running your plant; we make its data mean something to the business."') },
+    h('Business systems: integrate with theirs, or offer ours') + '<p>SynapseDC is part of a complete platform. For CRM and ITSM the rule is simple: <b>if the customer already has one, we integrate with it; if they do not, we offer the platform\'s own module.</b> See ' + see('platform-modules', 'platform modules') + '.</p>' +
+    tbl(['Need', 'They already have one', 'They don\'t have one'], [
+      ['CRM, tenants, orders', 'Integrate with Salesforce / Dynamics / HubSpot: tenants and contracts flow in', 'Offer <b>Operate to Acquire (BSS)</b>: CRM, Plans & Products Catalog, Orders, Customers, Experience and Care'],
+      ['ITSM: incidents, changes, tickets, maintenance', 'Integrate with ServiceNow / Jira / BMC: tickets in sync both ways', 'Offer <b>Services & ITSM catalogue</b>: Incidents, Change Management, Maintenance, Tickets, Knowledge Center'],
+      ['Billing / ERP', 'Export metered power per circuit, SLA credits and charges to their billing system', 'Discuss with the commercial team: the BSS Customers module holds subscriptions and usage; invoicing scope to confirm'],
+      ['Tenant-facing portal', 'Embed SynapseDC views in their portal (shell=false)', 'Not in the product today: note it as "to discuss with the product team"']]) +
+    say('"We never force you to replace what works. If you run ServiceNow and Salesforce, we plug into them. If you don\'t, the same platform gives you CRM and ITSM already connected to the datacenter, so there is nothing to integrate."') },
+
+{ s: 'pitch', id: 'platform-modules', t: 'The complete platform: modules we can offer', d: 'Datacenter Ops plus BSS, ITSM, Plan to Build, Supply Chain and Ops Toolkit.', k: 'platform modules suite bss itsm crm orders catalogue supply chain plan to build ops toolkit offer bundle',
+  b: tbl(['Suite', 'Modules', 'Use it when the customer…'], [
+      ['Operate to Acquire (BSS)', 'CRM · Plans & Products Catalog · Orders · Customers · Experience and Care', 'has no CRM, sells from spreadsheets, or wants tenant orders (cabinets, power, cross-connects) tied to the datacenter'],
+      ['Services & ITSM catalogue', 'Incidents · Change Management · Maintenance · Tickets · Knowledge Center', 'has no ITSM, or runs incidents and changes in email / spreadsheets'],
+      ['Plan to Build', 'Inventory Planning · Inventory · IP Management (+ Planner, Capacity, DCIM, Delivery in Datacenter)', 'is expanding or building new halls / sites'],
+      ['Supply Chain', 'Materials · Vendors · Contracts · Procurement · Warehouses · Field Force Management · Logistics', 'needs spares, vendor contracts, field technicians for remote hands and maintenance'],
+      ['Opstral · Ops Toolkit', 'System Alerts · Telemetry Ops · Data Ops · Infra Ops · Fin Ops · Security Ops · Service Ops · Agent Ops · Explainability …', 'wants one operations toolkit across datacenter, network and IT']]) +
+    '<p>Discovery tells you which way to go: in ' + see('q-tools', 'the systems inventory') + ' mark each category <b>Integrate</b> (they have a system they trust) or <b>Offer</b> (none, or one they want to retire).</p>' +
+    tip('The Integration guide in Help & FAQ maps all 30 platform modules to the Datacenter screens and says who owns each record.') },
 
 { s: 'pitch', id: 'value-roles', t: 'Value by role', d: 'What each person in the room cares about, and the screen that answers it.', k: 'persona role stakeholder ceo cfo coo cio ciso noc facilities sales',
   b: tbl(['Role', 'What keeps them up at night', 'What SynapseDC gives them', 'Show them'], [
@@ -404,10 +417,11 @@ const E = [
   b: tbl(['They have', 'What it does well', 'What SynapseDC adds'], [
     ['BMS / SCADA', 'Controls and monitors plant, alarms on points', 'Turns a point alarm into impact: which racks, tenants and contracts, what it costs, what to do'],
     ['DCIM (Sunbird, Nlyte, EcoStruxure IT…)', 'Asset records, space, power capacity planning', 'Live operations: incidents, revenue impact, access, security, change control in one view; can import their DCIM'],
-    ['ITSM (ServiceNow, Jira…)', 'Ticket workflow, approvals, CMDB', 'Datacenter context on every ticket: power path, tenants, root-cause hypotheses; syncs with it'],
+    ['ITSM (ServiceNow, Jira…)', 'Ticket workflow, approvals, CMDB', 'Datacenter context on every ticket: power path, tenants, root-cause hypotheses; syncs with it. No ITSM? The platform\'s Services & ITSM catalogue covers it'],
+    ['CRM (Salesforce, Dynamics…)', 'Accounts, opportunities, contacts', 'Tenant impact and capacity tied to every account. No CRM? The platform\'s BSS (CRM, Orders, Customers) covers it'],
     ['Network / IT monitoring', 'Device and port health', 'Physical context: which cable, which panel, which UPS and PDU feed that device'],
     ['Spreadsheets', 'Flexible, everyone has one', 'One reconciled model, live, with history and audit trail']]) +
-    say('"We are not asking you to throw anything away. We make the tools you already paid for work together, and we answer the business question none of them answers alone: what does this cost us and what do we do first?"') },
+    say('"We are not asking you to throw anything away. Where you have a tool that works, we integrate with it; where you have a gap, the platform fills it. We make it all work together, and we answer the business question none of them answers alone: what does this cost us and what do we do first?"') },
 
 { s: 'pitch', id: 'ai', t: 'How the AI assistant helps (and how to talk about it)', d: 'Grounded answers, explained causes, recommended actions.', k: 'ai opstral sentinel assistant rca root cause recommendation hype llm',
   b: ul(['Answers plain questions from the estate\'s own data: "Which issue is costing the most revenue?", "Where should the next GPU job go?", "What is power costing us at this site?"',
@@ -555,7 +569,8 @@ const E = [
     ['SLA terms: availability %, temperature / humidity bands, credit tiers, notice times.', 'Feeds revenue impact and SLA tracking.'],
     ['SLA credits paid in the last 12 months, and their causes.', 'Value number.'],
     ['How are tenants notified of incidents and maintenance today?', 'Customer notices.'],
-    ['Do tenants have a portal? What does it show? Who built it?', 'Integration, not replacement.'],
+    ['Do tenants have a portal? What does it show? Who built it?', 'Integrate (embed views) or note as "to discuss".'],
+    ['Do you have a CRM and an ITSM you want to keep, or would you consider the platform\'s own?', 'Decides Integrate vs Offer for BSS and ITSM.'],
     ['Billing system and cycle; how metered power gets into invoices.', 'Billing export.'],
     ['Pipeline: what large deals are waiting on capacity answers?', 'Capacity value.']]) },
 
@@ -596,7 +611,7 @@ const E = [
       ['Who owns it (business) and who administers it (technical)?', 'Two names per system.'], ['Is it the system of record, or a copy?', 'Avoid importing from a stale copy.'],
       ['How can data come out: API (REST, SOAP), protocol (BACnet, SNMP, Modbus), database view, scheduled export (CSV, SFTP), syslog?', ''],
       ['Read-only accounts possible? Rate limits? Licence cost for API access?', 'Some vendors license the API separately.'],
-      ['Data quality: how up to date, and how much do you trust it (1–5)?', ''], ['Any plans to replace it in the next 18 months?', 'Avoid building on a system leaving.']]) +
+      ['Data quality: how up to date, and how much do you trust it (1–5)?', ''], ['Any plans to replace it in the next 18 months?', 'A system on its way out is a chance to offer the platform module (CRM, ITSM).'], ['Decision for this category: Integrate (keep theirs) or Offer (platform module)?', '']]) +
     h('Categories to cover') + ul(['BMS / SCADA · EPMS / power monitoring · UPS / battery monitoring · DG / switchgear', 'Rack PDUs · environment sensors · leak / fire panels',
       'DCIM / asset / cabling records · CMDB', 'ITSM (incidents, changes, requests) · CMMS (maintenance)', 'Network monitoring · IPAM / DNS', 'Access control (PACS) · visitor management · CCTV / VMS',
       'CRM · contracts · billing / ERP · tenant portal', 'Identity / SSO · SIEM / SOC', 'Drawings / documents (CAD, SharePoint)']) },
@@ -679,16 +694,17 @@ const E = [
       ['Connect', 'REST API (dcTrack, Nlyte, Device42, NetBox all have one), or an export mapped into the import template'], ['Ask for', 'Export of one site, field list, how current it is']]) +
     say('"Keep your DCIM if your team uses it. We import from it and link it to live operations. If it has gone stale, our DCIM screens with change control can become the record."') },
 
-{ s: 'tools', id: 't-itsm', t: 'ITSM, CMDB and CMMS', d: 'ServiceNow, Jira Service Management, BMC Helix, Freshservice; IBM Maximo, SAP PM.', k: 'itsm servicenow jira bmc helix remedy freshservice cmdb cmms maximo sap pm ticket incident change maintenance work order',
+{ s: 'tools', id: 't-itsm', t: 'ITSM, CMDB and CMMS', d: 'ServiceNow, Jira, BMC Helix, Freshservice; Maximo, SAP PM. Integrate, or offer the platform ITSM.', k: 'itsm servicenow jira bmc helix remedy freshservice cmdb cmms maximo sap pm ticket incident change maintenance work order',
   b: tbl(['System', 'We exchange', 'How'], [['ITSM incidents', 'Create / update incidents from SynapseDC incidents; read ticket state back', 'REST API (ServiceNow Table API), webhooks'],
       ['ITSM changes', 'Read approved changes and windows (for "change in progress" context); optionally raise CRs', 'REST API'], ['CMDB', 'CI sync for sites, racks, devices (one direction agreed up front)', 'REST / IntegrationHub, CSV'],
       ['CMMS', 'PM schedule and work orders for plant', 'API or scheduled export']]) +
-    h('Ask') + qs(['Which direction is the system of record for each object (incident, change, CI)?', 'Is there a test / sub-production instance we can use?', 'Assignment groups and categories to use.', 'Integration user with which roles?']) },
+    tip('No ITSM, or tickets in email / spreadsheets? Offer the platform\'s <b>Services & ITSM catalogue</b> (Incidents, Change Management, Maintenance, Tickets, Knowledge Center): already connected to the datacenter, nothing to integrate.') + h('Ask (when they have one)') + qs(['Which direction is the system of record for each object (incident, change, CI)?', 'Is there a test / sub-production instance we can use?', 'Assignment groups and categories to use.', 'Integration user with which roles?']) },
 
-{ s: 'tools', id: 't-commercial', t: 'CRM, contracts, billing and tenant portal', d: 'Salesforce, Dynamics, HubSpot; SAP, Oracle, NetSuite, Zuora; in-house portals.', k: 'crm billing erp salesforce dynamics hubspot sap oracle netsuite zuora tenant portal contract invoice',
+{ s: 'tools', id: 't-commercial', t: 'CRM, contracts, billing and tenant portal', d: 'Salesforce, Dynamics, HubSpot; SAP, Oracle, NetSuite, Zuora. Integrate, or offer the platform BSS.', k: 'crm billing erp salesforce dynamics hubspot sap oracle netsuite zuora tenant portal contract invoice',
   b: ul(['We need: tenant list, contacts for notices, contract schedule per cabinet / circuit / cross-connect (product, quantity, contracted kW, monthly charge, SLA tier, start / end).',
       'We give back: metered energy per circuit per month, SLA events and credits at risk, incident notices.',
       'Connect: scheduled export (CSV / SFTP) or the CRM / billing API. A monthly file is fine to start.',
+      '<b>No CRM, or contracts in spreadsheets?</b> Offer the platform\'s <b>Operate to Acquire (BSS)</b>: CRM, Plans & Products Catalog (cabinets, power, cross-connects, remote hands as products), Orders and Customers. Tenants and contracts then live in the same platform as the datacenter.',
       'Tenant portal: we do not replace it. Embedding SynapseDC views in a portal is possible (shell=false), but a tenant-facing product is "to discuss".']) },
 
 { s: 'tools', id: 't-pacs', t: 'Access control, visitors and CCTV', d: 'Lenel S2, Genetec, HID, Honeywell Pro-Watch, Gallagher; Milestone, Genetec, Axis.', k: 'pacs access control lenel s2 onguard genetec synergis hid honeywell pro-watch gallagher cctv vms milestone axis visitor badge',
@@ -830,7 +846,7 @@ No inbound rules from the internet are required.`) },
       ['3 · Commercial', 'CRM / billing export, metered energy export', 'Revenue impact, power billing, SLA credits'], ['4 · Security', 'PACS, CCTV events, network syslog, SSO groups', 'Access & security, Security Ops, audits'],
       ['5 · Extend', 'DCIM / IPAM sync, operator network, BMCs', 'Cabling, IP, deeper root cause']]) },
 
-{ s: 'integ', id: 'i-servicenow', t: 'ServiceNow (and other ITSM) integration', d: 'Incidents, changes and CMDB in sync.', k: 'servicenow itsm integration incident change cmdb table api jira',
+{ s: 'integ', id: 'i-servicenow', t: 'ServiceNow (and other ITSM) integration', d: 'When the customer keeps their ITSM: incidents, changes and CMDB in sync.', k: 'servicenow itsm integration incident change cmdb table api jira',
   b: ul(['Incidents: SynapseDC creates or updates a ServiceNow incident (short description, CI, assignment group, priority from severity) and stores the ticket number; state changes flow back.',
       'Changes: approved changes and their windows are read so alarms during a change are shown in context; DCIM edits can be tagged with a CR.',
       'CMDB: agree one direction per class (sites / racks / devices). Usually SynapseDC → CMDB for physical CIs, or CMDB → SynapseDC if the CMDB is already good.',
