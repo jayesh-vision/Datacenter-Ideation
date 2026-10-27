@@ -860,6 +860,12 @@ Tab **Facility integration** (`?tab=survey`, 26-Oct-2026, user) frames `/site-in
 BMS, equipment, BMCs, firewall rules, records, sign-off; progress + outstanding list). In the app it saves to localStorage and moves surveys as
 JSON (Download / Import); a shared copy runs on claude.ai (artifact JG6dwedyHcwM8nxSWhJfe8, db store). Keep both copies' form in step.
 
+## Customer engagement guide (27-Oct-2026, user: "a document to interact with the customer … colocation as example … searchable")
+`docs/dco-customer-engagement-guide.html` (served at `/customer-guide.html`; copy to `app/public/` after editing), in Help & FAQ → Documents. Content = one
+table `E` (section, title, one-line, keywords, body) with sections journey (steps 0–9) · pitch · colo · discovery (checkbox question lists, remembered
+per browser) · tools · data · integ · objections (+ problems) · templates · glossary; search ranks by title / keywords / text with a synonym list
+(`SYN`), `?q=` and `#e-<id>` deep links, Copy text / Copy link / Print. Claims must stay within the product; anything else is written "to discuss".
+
 ## Power economics (21-Oct-2026, user: "build the power economics screens" after reviewing the neocloud pitch deck)
 Read model `mock/power-econ.ts` (derived per data version and scope, server `powerEconomics(dcId?)`, API `getPowerEconomics`, types `SitePowerEcon ·
 GpuPodPowerEcon · GpuPowerEcon · PowerEconomics`). Per live site: a TARIFF per state (US EIA industrial averages $/kWh; India DISCOM HT ₹/kWh — real

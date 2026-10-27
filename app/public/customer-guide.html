@@ -1,0 +1,1163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Customer Engagement Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* SynapseDC customer engagement guide (user, 27-Oct-2026): how to present the platform to a datacenter customer
+   (colocation as the worked example), what to learn about their business and tools, and what data and integrations
+   onboarding needs. Content is one table of entries (E) at the bottom; the search ranks entries by title, keywords
+   and text with a small synonym list, and shows matching entries in full. Look follows the DCO tool (NST). */
+:root {
+  --bg: #f8fafc; --surface: #ffffff; --line: #e2e8f0; --line-2: #cbd5e1;
+  --fg: #0f172a; --fg-2: #334155; --muted: #64748b;
+  --accent: #1c81ef; --accent-ink: #1d4ed8; --accent-soft: #dbeafe;
+  --good: #047857; --good-soft: #d1fae5; --warn: #b45309; --warn-soft: #fef3c7; --bad: #dc2626; --bad-soft: #fee2e2;
+  --mark: #fde68a; --code-bg: #f1f5f9;
+  --f-display: "Poppins", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Inter", "Segoe UI", system-ui, sans-serif;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0b1220; --surface: #111a2e; --line: #1f2b44; --line-2: #2c3b5a; --fg: #e6edf7; --fg-2: #c3cfe0; --muted: #8a9ab3;
+  --accent: #5aa6ff; --accent-ink: #8cc2ff; --accent-soft: #15284a; --good: #34d399; --good-soft: #0f2e25;
+  --warn: #fbbf24; --warn-soft: #33270b; --bad: #f87171; --bad-soft: #3a1414; --mark: #5b4a12; --code-bg: #0d1628; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0b1220; --surface: #111a2e; --line: #1f2b44; --line-2: #2c3b5a; --fg: #e6edf7; --fg-2: #c3cfe0; --muted: #8a9ab3;
+  --accent: #5aa6ff; --accent-ink: #8cc2ff; --accent-soft: #15284a; --good: #34d399; --good-soft: #0f2e25;
+  --warn: #fbbf24; --warn-soft: #33270b; --bad: #f87171; --bad-soft: #3a1414; --mark: #5b4a12; --code-bg: #0d1628; color-scheme: dark; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { scroll-padding-top: 150px; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 14.5px; line-height: 1.6; }
+h1, h2, h3, h4 { font-family: var(--f-display); font-weight: 500; margin: 0; color: var(--fg); text-wrap: balance; }
+p { margin: 0 0 8px; } p:last-child { margin-bottom: 0; }
+a { color: var(--accent-ink); }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code { background: var(--code-bg); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; font-size: .86em; overflow-wrap: anywhere; }
+mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1px; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 20px 56px; }
+
+/* header + sticky search */
+.top { padding: 26px 0 14px; display: grid; gap: 8px; }
+.eyebrow { font-family: var(--f-display); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent-ink); font-weight: 600; }
+.top h1 { font-size: 26px; }
+.top .lede { color: var(--fg-2); max-width: 860px; }
+.bar { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 10px 0 0; border-bottom: 1px solid var(--line); }
+.search { display: flex; gap: 8px; align-items: center; }
+.search .box { flex: 1; position: relative; }
+.search input { width: 100%; height: 44px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--surface); color: var(--fg);
+  padding: 0 40px 0 40px; font: inherit; font-size: 15px; }
+.search .ico { position: absolute; left: 13px; top: 12px; width: 18px; height: 18px; color: var(--muted); }
+.search .clr { position: absolute; right: 8px; top: 8px; width: 28px; height: 28px; border: 0; background: none; color: var(--muted); border-radius: 6px; font-size: 18px; line-height: 1; }
+.search .clr:hover { background: var(--code-bg); }
+.btn { height: 36px; padding: 0 12px; border: 1px solid var(--line-2); background: var(--surface); border-radius: 8px; font-size: 13px; white-space: nowrap; }
+.btn:hover { border-color: var(--accent); color: var(--accent-ink); }
+.tabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; margin-top: 10px; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab { border: 0; background: none; padding: 9px 10px 10px; font-family: var(--f-display); font-size: 13px; color: var(--fg-2); border-bottom: 2px solid transparent; white-space: nowrap; }
+.tab:hover { color: var(--accent-ink); }
+.tab[aria-selected="true"] { color: var(--accent-ink); border-bottom-color: var(--accent); font-weight: 500; }
+.tab .n { font-family: var(--f-body); font-size: 11px; color: var(--muted); margin-left: 4px; }
+
+/* problem chips */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--line-2); background: var(--surface); border-radius: 999px; padding: 4px 11px; font-size: 12.5px; color: var(--fg-2); }
+.chip:hover { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-soft); }
+
+/* section head */
+.sec-head { display: flex; justify-content: space-between; align-items: end; gap: 16px; margin: 22px 0 12px; flex-wrap: wrap; }
+.sec-head h2 { font-size: 20px; }
+.sec-head p { color: var(--muted); margin: 4px 0 0; max-width: 780px; }
+.sec-tools { display: flex; gap: 6px; }
+
+/* entries */
+.entry { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); margin-bottom: 10px; }
+.entry > summary { list-style: none; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 13px 16px; cursor: pointer; }
+.entry > summary::-webkit-details-marker { display: none; }
+.entry > summary .t { font-family: var(--f-display); font-weight: 500; font-size: 15px; }
+.entry > summary .d { grid-column: 1; color: var(--muted); font-size: 13px; }
+.entry > summary .tag { grid-row: 1 / span 2; grid-column: 2; align-self: center; font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+.entry > summary .t::before { content: "▸"; display: inline-block; width: 14px; color: var(--muted); transition: transform .15s; }
+.entry[open] > summary .t::before { transform: rotate(90deg); }
+.entry .body { padding: 2px 16px 16px 30px; border-top: 1px solid var(--line); }
+.entry .body > *:first-child { margin-top: 12px; }
+.entry .foot { display: flex; gap: 6px; justify-content: flex-end; margin-top: 12px; }
+.entry .foot .btn { height: 28px; font-size: 12px; }
+.body h4 { font-size: 13.5px; margin: 14px 0 6px; color: var(--fg); }
+.body ul, .body ol { margin: 4px 0 10px; padding-left: 20px; } .body li { margin: 3px 0; }
+.body .say { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 9px 12px; border-radius: 0 8px 8px 0; margin: 8px 0; color: var(--fg); }
+.body .say::before { content: "Say it like this"; display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--accent-ink); font-weight: 600; margin-bottom: 2px; }
+.body .tip { border-left: 3px solid var(--good); background: var(--good-soft); padding: 9px 12px; border-radius: 0 8px 8px 0; margin: 8px 0; }
+.body .tip::before { content: "Tip"; display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--good); font-weight: 600; margin-bottom: 2px; }
+.body .warn { border-left: 3px solid var(--warn); background: var(--warn-soft); padding: 9px 12px; border-radius: 0 8px 8px 0; margin: 8px 0; }
+.body .warn::before { content: "Careful"; display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--warn); font-weight: 600; margin-bottom: 2px; }
+.tw table:not(:has(thead)) td:first-child { color: var(--muted); white-space: nowrap; width: 1%; }
+.tw { overflow-x: auto; margin: 8px 0 12px; border: 1px solid var(--line); border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th { text-align: left; background: var(--code-bg); font-weight: 500; color: var(--fg-2); padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+.qs { list-style: none; padding: 0 !important; margin: 4px 0 10px; }
+.qs li { display: grid; grid-template-columns: 20px 1fr; gap: 8px; padding: 5px 0; border-bottom: 1px dashed var(--line); }
+.qs li:last-child { border-bottom: 0; }
+.qs input { margin-top: 4px; accent-color: var(--accent); }
+.qs .why { display: block; color: var(--muted); font-size: 12.5px; }
+.pill { display: inline-block; font-size: 11px; border-radius: 999px; padding: 1px 8px; border: 1px solid var(--line-2); color: var(--fg-2); white-space: nowrap; }
+.pill.core { background: var(--accent-soft); border-color: transparent; color: var(--accent-ink); }
+.pill.rec { background: var(--good-soft); border-color: transparent; color: var(--good); }
+.pill.opt { background: var(--code-bg); }
+.steps { counter-reset: s; list-style: none; padding: 0 !important; }
+.steps > li { counter-increment: s; position: relative; padding-left: 34px; margin: 8px 0; }
+.steps > li::before { content: counter(s); position: absolute; left: 0; top: 0; width: 24px; height: 24px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-ink); font-size: 12px; font-weight: 600; display: grid; place-items: center; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.card { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--bg); }
+.card b { font-family: var(--f-display); font-weight: 500; }
+pre.tpl { white-space: pre-wrap; background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; font-family: var(--f-body); font-size: 13px; margin: 8px 0; }
+
+/* start page */
+.hero { display: grid; grid-template-columns: 1.3fr 1fr; gap: 12px; margin-top: 18px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; }
+.panel h3 { font-size: 15px; margin-bottom: 8px; }
+.panel .sub { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
+.flow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 4px; }
+.flow button { text-align: left; border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 9px 10px; min-height: 76px; }
+.flow button:hover { border-color: var(--accent); }
+.flow .k { font-size: 11px; color: var(--accent-ink); font-weight: 600; letter-spacing: .04em; }
+.flow .v { display: block; font-family: var(--f-display); font-size: 13px; font-weight: 500; margin-top: 2px; }
+.flow .w { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+.jump { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.jump button { display: flex; flex-direction: column; justify-content: flex-start; gap: 4px; text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 12px; }
+.jump button:hover { border-color: var(--accent); }
+.jump b { display: block; font-family: var(--f-display); font-weight: 500; font-size: 14px; }
+.jump span { font-size: 12.5px; color: var(--muted); }
+
+/* search results */
+.res-head { display: flex; justify-content: space-between; align-items: center; margin: 18px 0 10px; gap: 12px; flex-wrap: wrap; }
+.res-head h2 { font-size: 17px; }
+.res-head .sub { color: var(--muted); font-size: 13px; }
+.res-sec { font-size: 11px; color: var(--accent-ink); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+.empty { padding: 28px; text-align: center; color: var(--muted); background: var(--surface); border: 1px dashed var(--line-2); border-radius: var(--r); }
+
+/* glossary */
+.gl { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.gl .g { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.gl .g b { font-family: var(--f-display); font-weight: 500; display: block; }
+.gl .g span { font-size: 13px; color: var(--fg-2); }
+kbd { font-family: var(--f-body); font-size: 11px; border: 1px solid var(--line-2); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--surface); }
+
+@media (max-width: 900px) { .hero, .grid2 { grid-template-columns: 1fr; } .flow { grid-template-columns: repeat(2, 1fr); } .jump { grid-template-columns: repeat(2, 1fr); } .gl { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .wrap { padding: 0 16px 40px; } .jump, .gl { grid-template-columns: 1fr; } .search .btn { display: none; } .entry .body { padding-left: 16px; } }
+@media print {
+  .bar, .sec-tools, .entry .foot, .chips { display: none !important; }
+  .entry { break-inside: avoid; border: 0; border-bottom: 1px solid #ccc; border-radius: 0; }
+  .entry .body { display: block !important; border: 0; }
+  body { background: #fff; }
+}
+body.embed .top { display: none; }
+body.embed .bar { padding-top: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">SynapseDC · Customer engagement guide</div>
+    <h1>How to present SynapseDC to a datacenter customer, and what to collect to onboard them</h1>
+    <p class="lede">A step-by-step playbook from the first call to go-live. Colocation is the worked example throughout. It covers
+      what to say, what to ask, which of their systems we connect to, and the data we need. Search any keyword or problem
+      ("BMS", "tenant over power", "ServiceNow", "audit", "firewall ports") and the matching answers open in full.</p>
+  </header>
+
+  <div class="bar">
+    <div class="search">
+      <div class="box">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" type="text" autocomplete="off" placeholder="Search a keyword or a customer problem…  (press / to focus)" aria-label="Search the guide">
+        <button class="clr" id="clr" aria-label="Clear search" hidden>×</button>
+      </div>
+      <button class="btn" id="expand">Expand all</button>
+      <button class="btn" id="print">Print / PDF</button>
+    </div>
+    <nav class="tabs" id="tabs" role="tablist"></nav>
+  </div>
+
+  <main id="main"></main>
+</div>
+
+<script>
+/* ---------- content helpers ---------- */
+const ul = a => '<ul>' + a.map(x => `<li>${x}</li>`).join('') + '</ul>';
+const ol = a => '<ol class="steps">' + a.map(x => `<li>${x}</li>`).join('') + '</ol>';
+const say = s => `<div class="say">${s}</div>`;
+const tip = s => `<div class="tip">${s}</div>`;
+const warn = s => `<div class="warn">${s}</div>`;
+const h = s => `<h4>${s}</h4>`;
+const tbl = (head, rows) => '<div class="tw"><table>' + (head.some(Boolean) ? '<thead><tr>' + head.map(x => `<th>${x}</th>`).join('') + '</tr></thead>' : '') + '<tbody>' +
+  rows.map(r => '<tr>' + r.map(c => `<td>${c}</td>`).join('') + '</tr>').join('') + '</tbody></table></div>';
+/* question list: [question, why it matters] — checkboxes are remembered per browser */
+const qs = a => '<ul class="qs">' + a.map(x => { const [q, w] = Array.isArray(x) ? x : [x, '']; return `<li><input type="checkbox" aria-label="asked"><span>${q}${w ? `<span class="why">${w}</span>` : ''}</span></li>`; }).join('') + '</ul>';
+const P = { core: '<span class="pill core">Core</span>', rec: '<span class="pill rec">Recommended</span>', opt: '<span class="pill opt">Optional</span>' };
+const go = (path, label) => `<a href="${path}" target="_top">${label || path}</a>`;
+const see = (id, label) => `<a href="#e-${id}" data-open="${id}">${label}</a>`;
+const tpl = s => `<pre class="tpl">${s}</pre>`;
+
+/* ---------- sections ---------- */
+const SECTIONS = [
+  { id: 'start', label: 'Start', short: 'Start', blurb: '' },
+  { id: 'journey', label: 'Journey', short: 'Journey', blurb: 'From research to expansion: what to do at each step, who attends, what you bring and what you leave with.' },
+  { id: 'pitch', label: 'Pitch & value', short: 'Pitch', blurb: 'How to describe SynapseDC, how it helps each role, how to put a number on the value, and what it is not.' },
+  { id: 'colo', label: 'Colocation', short: 'Colocation', blurb: 'How a colocation business works, its everyday pains, and how SynapseDC answers each one. Includes the colocation demo script.' },
+  { id: 'discovery', label: 'Discovery', short: 'Discovery', blurb: 'The questions to ask, grouped by topic, each with why it matters. Tick them off as you go (remembered in this browser).' },
+  { id: 'tools', label: 'Systems', short: 'Tools', blurb: 'The systems a datacenter already runs, the products you will hear, what we take from each and how we connect.' },
+  { id: 'data', label: 'Data', short: 'Data', blurb: 'Every piece of data onboarding needs, in load order, marked Core / Recommended / Optional, with format and who usually owns it.' },
+  { id: 'integ', label: 'Integrations', short: 'Integrations', blurb: 'How SynapseDC connects on site: collector, protocols and ports, security asks, integration waves and readiness checks.' },
+  { id: 'objections', label: 'Objections', short: 'Objections', blurb: 'What customers push back with, and the real-world problems they bring, each with a short answer and where to show it.' },
+  { id: 'templates', label: 'Templates', short: 'Templates', blurb: 'Agendas, emails, a data request, a mutual action plan, RACI and pilot success criteria, ready to copy.' },
+  { id: 'glossary', label: 'Glossary', short: 'Glossary', blurb: 'The words a colocation customer will use, in one line each.' }
+];
+
+/* problem chips on the start page: [label, search] */
+const PROBLEMS = [
+  ['"We already have a DCIM"', 'already have dcim'], ['Tenant over contracted power', 'tenant over contracted power'], ['Power bill disputes', 'power billing dispute'],
+  ['Unsold / stranded capacity', 'stranded capacity'], ['Audit coming up', 'audit evidence'], ['Cross-connects take too long', 'cross-connect delay'],
+  ['Alarm flood in the NOC', 'alarm flood'], ['UPS went on battery', 'ups battery'], ['SLA credits paid out', 'sla credits'],
+  ['Which BMS do they run?', 'bms'], ['ServiceNow integration', 'servicenow'], ['Firewall ports to open', 'firewall ports'],
+  ['Data is in spreadsheets', 'spreadsheet data mess'], ['Security team worries', 'security cloud deployment'], ['Tenant data privacy', 'tenant privacy'],
+  ['How long to onboard?', 'how long onboarding'], ['What does it cost?', 'price cost'], ['AI tenants / liquid cooling', 'gpu liquid ai tenant'],
+  ['Who signs off?', 'decision stakeholder budget'], ['Pilot success criteria', 'pilot success criteria'], ['Remote hands backlog', 'remote hands'],
+  ['High PUE', 'pue'], ['Badge / access audit', 'access badge audit'], ['Minimum data for a pilot', 'minimum data pilot']
+];
+
+/* ---------- entries ----------
+   s = section, t = title, d = one-line description, k = extra search keywords, b = body html; step/short for the journey */
+const E = [
+/* ===== START (how to use, shown under search) ===== */
+{ s: 'start', id: 'how', t: 'How to use this guide', d: 'Search, tick off questions, copy answers into notes or emails.', k: 'help use search tips keyboard',
+  b: ul(['Type a word or a problem in the search bar (press <kbd>/</kbd> from anywhere). It also matches related words: "badge" finds access control, "invoice" finds metered power billing.',
+    'Product names work too: <i>Schneider</i>, <i>Lenel</i>, <i>ServiceNow</i>, <i>Sunbird</i>, <i>Raritan</i>.',
+    'Question lists have checkboxes. Ticks stay in this browser, so you can use one list across several calls.',
+    '<b>Copy text</b> on any card gives you plain text to paste into meeting notes or an email. <b>Copy link</b> gives a link that opens that card.',
+    '<b>Print / PDF</b> prints whatever is on screen, with every card open. Run a search first to print, for example, only the discovery questions about power.']) },
+
+/* ===== JOURNEY ===== */
+{ s: 'journey', id: 'journey-map', t: 'The engagement at a glance', d: 'Ten steps, typical duration and the output of each.', k: 'overview phases timeline plan sales cycle',
+  b: tbl(['Step', 'Goal', 'Typical time', 'You leave with'], [
+    ['0 · Prepare', 'Know the customer before you meet them', '½–1 day', 'Account brief and a hypothesis of their pain'],
+    ['1 · First meeting', 'Earn the right to a second meeting', '45–60 min', 'Their top 3 pains, the people involved, and an agreed demo date'],
+    ['2 · Tailored demo', 'Show their own pains being solved', '60 min', 'Interest from each role and a list of their tools'],
+    ['3 · Discovery workshops', 'Understand operations, commercial and IT in depth', '2–3 × 2 h', 'Completed question bank and tools inventory'],
+    ['4 · Site survey', 'See the plant and network the collector will reach', '½–1 day per site', 'Facility integration survey and collector placement'],
+    ['5 · Proposal', 'Agree scope, success criteria and plan', '1–2 weeks', 'Signed pilot scope and a mutual action plan'],
+    ['6 · Pilot', 'Prove the value on one site, read-only', '6–10 weeks', 'Measured results against the success criteria'],
+    ['7 · Onboarding', 'Load data and connect systems for all sites in scope', '4–12 weeks per wave', 'Reconciled data, live integrations, trained users'],
+    ['8 · Go-live & hypercare', 'Move day-to-day operations onto the platform', '30 days', 'Tuned alarms, runbooks, sign-off'],
+    ['9 · Expand', 'Show the value and grow', 'Quarterly', 'Value review, more sites and more modules']]) +
+    tip('Never skip Step 3. Most failed rollouts trace back to a tool or a data owner nobody asked about.') },
+
+{ s: 'journey', id: 'step0', step: 0, short: 'Prepare', t: 'Step 0 · Prepare: research the customer', d: 'Build an account brief before the first call.', k: 'research account brief preparation linkedin website',
+  b: h('What to find out (public sources)') + ul([
+    'Sites: how many, where, built or acquired, tier claims (Uptime Tier III / IV, TIA-942 rating), total MW built and planned.',
+    'Business model: retail colocation (cabinets / cages), wholesale (suites / halls to hyperscalers), interconnection-heavy (carrier hotel), or a mix. See ' + see('c-model', 'colocation models') + '.',
+    'Certifications: ISO 27001, ISO 22237 / EN 50600, SOC 1 / SOC 2, PCI DSS, local rules (in India: MeitY empanelment, RBI expectations for BFSI tenants; in the USA: SOC 2, HIPAA tenants, FedRAMP-adjacent).',
+    'Anchor tenants and segments (hyperscalers, BFSI, government, carriers). They drive SLA strictness.',
+    'News: outages, expansions, funding, new AI / GPU halls, sustainability (PUE, renewable) commitments.',
+    'Tools: job postings and LinkedIn often name the BMS, DCIM, ITSM and PACS products ("experience with Schneider EcoStruxure, ServiceNow…").',
+    'People: COO / Head of operations, Head of facilities / critical environment, NOC manager, CIO / IT, CISO, Head of sales / product, CFO.']) +
+    h('Write a one-page brief') + ul(['Who they are (sites, MW, model, tenants).', 'Hypothesis: the 2–3 pains most likely for this business (use ' + see('c-pains', 'the colocation pains') + ').',
+    'Which screens you will show for each pain.', 'Who you are meeting, and what each of them cares about (' + see('value-roles', 'value by role') + ').', 'The next step you want.']) +
+    h('Get the demo ready') + ul(['Switch the persona to <b>Colocation</b> (top bar) and the geography to India or USA to match the customer.',
+    'Walk through ' + see('c-demo', 'the colocation demo script') + ' once, so every click is fresh.']) },
+
+{ s: 'journey', id: 'step1', step: 1, short: 'First meeting', t: 'Step 1 · First meeting: listen more than you talk', d: 'Earn a second meeting. Agree the demo and who joins it.', k: 'first call intro discovery meeting agenda close next step',
+  b: h('Goal') + '<p>Understand their world and their top pains. Do not run the full demo yet. A 3-minute "picture" of the product is enough.</p>' +
+    h('Agenda (45–60 min)') + ol(['Introductions and their goals for the call (5 min).', 'Who we are, in 2 minutes: ' + see('elevator', 'the pitch') + '.',
+      'Their world (25 min): use ' + see('q-first10', 'the first ten questions') + '.', 'A short picture of SynapseDC: the Command center and one datacenter page (5 min).',
+      'Agree what a good next meeting looks like (10 min).']) +
+    h('Listen for') + ul(['How they find out something is wrong (a tenant calls? the BMS? a guard?).', 'Where their single source of truth lives (often: nowhere, or a spreadsheet).',
+      'Which pain costs money: SLA credits, unsold capacity, power billing errors, audit effort.', 'Who else must be involved (see ' + see('listen', 'signals') + ').']) +
+    h('Close') + say('"Thank you. What I heard is A, B and C. I would like to show you how SynapseDC handles exactly those, using a colocation estate like yours. Who else should see it: your facilities lead and your NOC manager? Can we book an hour next week?"') +
+    '<p>Send the ' + see('tp-email1', 'follow-up email') + ' the same day.</p>' },
+
+{ s: 'journey', id: 'step2', step: 2, short: 'Tailored demo', t: 'Step 2 · Tailored demo: show their pains, in their words', d: 'One story, their vocabulary, every role sees their screen.', k: 'demo presentation show screens storyline',
+  b: ol(['Open with their three pains from Step 1, written on one slide or said aloud. Promise to show each one.',
+      'Tell one story, not a feature tour. The best one is "a bad afternoon": a UPS goes on battery, a tenant cabinet runs hot, a cross-connect drops. Follow it from alarm to impact to the recommended action. See ' + see('c-demo', 'the colocation demo script') + '.',
+      'Use their words: tenant, cabinet, cage, contracted kW, cross-connect, remote hands. The colocation persona already speaks them.',
+      'Give each role their moment: facilities → Facilities power path; NOC → Incidents and alarms; commercial → Revenue impact and tenants; CFO → power economics and SLA credits; CISO → Access & security and Security Ops.',
+      'Stop after each pain and ask: "Is this how it happens for you? What would you need to see differently?"',
+      'End by asking which systems hold this data today. This starts the tools inventory (' + see('tools-capture', 'capture sheet') + ').']) +
+    warn('The demo runs on mock data. Say so plainly: "This is a demonstration estate. In the pilot you will see your own sites." Never let the customer think the numbers are theirs.') +
+    tip('If a question goes deep (e.g. "how do you read our Schneider BMS?"), note it for Step 3 instead of answering at length in the demo.') },
+
+{ s: 'journey', id: 'step3', step: 3, short: 'Discovery', t: 'Step 3 · Discovery workshops: three sessions, three audiences', d: 'Operations & facilities, commercial & tenants, IT & security.', k: 'workshop discovery deep dive requirements session',
+  b: tbl(['Workshop', 'Who attends', 'Use these questions', 'Output'], [
+      ['A · Operations & facilities (2 h)', 'Head of facilities, NOC manager, shift lead, maintenance lead', see('q-ops', 'Operations') + ', ' + see('q-facility', 'Power & cooling') + ', ' + see('q-network', 'Network & MMR'), 'How incidents run today, plant list per site, alarm sources'],
+      ['B · Commercial & tenants (1.5 h)', 'Head of sales / product, billing, customer success, finance', see('q-tenants', 'Tenants & commercial') + ', ' + see('q-pain', 'Pains & priorities'), 'Contract and billing model, SLA terms, where money leaks'],
+      ['C · IT, data & security (2 h)', 'CIO / IT lead, CISO, DCIM owner, ITSM owner, network', see('q-tools', 'Systems inventory') + ', ' + see('q-security', 'Security & access') + ', ' + see('q-itpolicy', 'IT policy for our platform'), 'Tools inventory, data owners, hosting and access rules']]) +
+    ul(['Send the agenda and the question list two days before, so people bring answers and files.', 'Ask for samples on the day: one site\'s rack list, a BMS point list, a tenant contract schedule, a recent incident report.',
+      'Record every system named in the ' + see('tools-capture', 'tools inventory sheet') + ' with its owner.', 'Close each workshop by reading back the top findings and the owners of each follow-up.']) },
+
+{ s: 'journey', id: 'step4', step: 4, short: 'Site survey', t: 'Step 4 · Site survey: walk the building', d: 'Confirm plant, network paths and where the collector sits.', k: 'site visit walk survey collector placement nameplate',
+  b: '<p>Use the <b>Facility integration survey</b> in Help & FAQ (' + go('/help?tab=survey', 'open it') + '). One survey per datacenter. It covers collector placement, BMS, equipment, BMCs, firewall rules, records and sign-off.</p>' +
+    h('On the walk') + ol(['Meet the facilities engineer and the security officer. Agree photos and escort rules first.',
+      'Plant room: photograph UPS, battery monitoring, switchgear, ATS and DG controller nameplates (make, model, firmware, network card).',
+      'Cooling: CRAH / CRAC / chillers / CDUs, and whether they report to the BMS or have their own network card.',
+      'BMS / EPMS server: product and version, protocols exposed (BACnet/IP, Modbus TCP, OPC UA, SNMP, REST), and who administers it.',
+      'Data halls: sample rack PDUs (make, model, metered / switched / per-outlet), environment sensors, leak rope, VESDA.',
+      'Meet-me room: ODF / patch panel labelling, how cross-connects are recorded.',
+      'Security: PACS controllers and readers, CCTV / VMS, visitor desk.',
+      'Network: the management / OT network, where a collector VM or appliance can sit, and the outbound path to SynapseDC.']) +
+    tip('A site\'s BMS point list (exported to Excel or CSV) is worth more than a day of interviews. Ask for it before the visit.') },
+
+{ s: 'journey', id: 'step5', step: 5, short: 'Proposal', t: 'Step 5 · Proposal: scope, success criteria and a mutual plan', d: 'Write down what "it worked" means before the pilot starts.', k: 'proposal scope commercial sow statement of work success criteria mutual action plan',
+  b: h('The proposal answers six questions') + ol(['<b>Why</b>: their pains in their words, and what each costs (' + see('value-metrics', 'quantify value') + ').',
+      '<b>What</b>: modules in scope (e.g. Command center, Datacenters, Facilities, Alerts, Incidents, Revenue impact, DCIM, Access & security).',
+      '<b>Where</b>: the pilot site, then the waves of sites.', '<b>How we connect</b>: integration waves (' + see('i-waves', 'waves') + ') and what the customer provides.',
+      '<b>Success criteria</b>: measurable and agreed (' + see('tp-success', 'template') + ').', '<b>Plan and people</b>: the ' + see('tp-map', 'mutual action plan') + ' and the ' + see('tp-raci', 'RACI') + '.']) +
+    warn('Do not commit to features outside the product. If the customer needs something new (e.g. a tenant self-service portal), write it as "to be discussed with the product team", never as in scope.') },
+
+{ s: 'journey', id: 'step6', step: 6, short: 'Pilot', t: 'Step 6 · Pilot: one site, read-only, measured', d: 'A 6–10 week plan that proves value without risk.', k: 'pilot poc proof of concept plan weeks',
+  b: tbl(['Week', 'What happens', 'Customer provides'], [
+      ['1', 'Kick-off, access and accounts, collector VM built, firewall rules raised', 'Site contacts, VM, firewall change, SSO details'],
+      ['2', 'Core data loaded: site, floors, rooms, racks, tenants, contracted kW (' + see('d-minimum', 'minimum data') + ')', 'Import template filled for the site'],
+      ['3', 'Telemetry wave 1: BMS / EPMS, UPS, PDUs read-only; alarms flowing', 'Read-only BMS / SNMPv3 accounts, point list'],
+      ['4', 'Reconciliation: counts match their records; alarm mapping tuned', 'An engineer to review mismatches'],
+      ['5–6', 'Daily use by the NOC and facilities; ITSM link (read or write) if in scope', 'Named users, ITSM test instance'],
+      ['7–8', 'Revenue impact and capacity with their contract data; access log if in scope', 'Contract schedule, PACS export'],
+      ['9–10', 'Measure against success criteria; executive read-out', 'Stakeholders at the read-out']]) +
+    ul(['Read-only everywhere: the collector never writes to plant, PDUs or BMS.', 'One weekly 30-minute check-in with the customer\'s pilot owner.', 'Keep a written log of every issue and decision; it becomes the onboarding runbook.']) },
+
+{ s: 'journey', id: 'step7', step: 7, short: 'Onboarding', t: 'Step 7 · Onboarding: data, integrations, people', d: 'Load every site in waves; reconcile before you call a site live.', k: 'onboarding rollout waves load import reconcile training',
+  b: ol(['<b>Plan the waves</b>: group sites by region or by BMS product (a wave of all Schneider sites goes faster).',
+      '<b>Data</b>: the customer fills the inventory import template per site (' + see('d-overview', 'data at a glance') + '). We check it with the template\'s Summary checks.',
+      '<b>Integrations</b>: collector per site (or per campus), then telemetry, ITSM, access control, commercial data (' + see('i-waves', 'waves') + ').',
+      '<b>Reconcile</b>: counts in SynapseDC equal the customer\'s records (racks, cabinets, tenants, contracted kW, circuits). Every gap gets an owner.',
+      '<b>Alarm mapping</b>: each source alarm maps to a severity and a scope (site, edge, dependency). Tune with the NOC for a week.',
+      '<b>People</b>: roles and SSO groups, on-call rota, escalation chains, training per role (NOC 2 h, facilities 2 h, managers 1 h).',
+      '<b>Sign-off per site</b>: data reconciled, telemetry live, alarms tuned, users trained.']) },
+
+{ s: 'journey', id: 'step8', step: 8, short: 'Go-live', t: 'Step 8 · Go-live and hypercare', d: 'Move daily operations onto the platform; 30 days of close support.', k: 'go live cutover hypercare support runbook',
+  b: h('Go-live checklist') + qs(['All sites in the wave reconciled and signed off', 'Alarm severities and scopes agreed with the NOC', 'ITSM integration tested end to end (if in scope)',
+      'On-call rota and escalation loaded', 'Users trained; quick-reference cards shared', 'Support contacts and severity levels agreed', 'Old screens / reports the team will stop using are named']) +
+    h('Hypercare (30 days)') + ul(['Daily 15-minute stand-up in week 1, then twice a week.', 'Track: alarm noise, missed alarms, data gaps, user questions.', 'Close with a written hand-over and the first value review date.']) },
+
+{ s: 'journey', id: 'step9', step: 9, short: 'Expand', t: 'Step 9 · Expand: show value every quarter', d: 'Quarterly value review, then more sites and modules.', k: 'expansion upsell qbr value review renewal',
+  b: ul(['Quarterly value review: incidents and time to resolve, SLA credits avoided, capacity sold from stranded power, audit hours saved, cross-connect lead time.',
+      'Next modules: DCIM and Capacity (if they still plan in spreadsheets), Planner and Delivery (for expansions), Change management, Compliance, Security Ops, GPU Fleet (for AI tenants).',
+      'Ask for a reference or case study once the numbers are clear.']) },
+
+/* ===== PITCH & VALUE ===== */
+{ s: 'pitch', id: 'what-is', t: 'What SynapseDC is, in plain words', d: 'One live view of every datacenter: plant, IT, tenants and money.', k: 'product overview definition explain platform',
+  b: '<p>SynapseDC is a datacenter <b>operations</b> platform. It brings the building (power, cooling, environment, access), the installed equipment and the network into one live picture, and connects that picture to the business: which tenants and contracts are affected, and what it costs.</p>' +
+    h('The flow it follows') + '<p>Estate → Datacenter → Infrastructure → Connectivity → Services → Customers → Events → Impact → Diagnosis → Recommended action.</p>' +
+    h('What a user sees') + ul([go('/', 'Command center') + ': estate health, the live map, what is happening, who is affected, recommendations.',
+      go('/datacenters', 'Datacenters') + ': every site, and per site a 3D layout, needs attention, metrics, power, cooling, environment, access, equipment, topology, tenants, revenue.',
+      go('/facilities', 'Facilities') + ': power path from utility to rack, ride-through, cooling heat balance, environment, single points of failure, maintenance.',
+      go('/alerts', 'Alerts') + ' and ' + go('/incidents', 'Incidents') + ': grouped, scoped to the datacenter, with root-cause hypotheses and actions.',
+      go('/revenue', 'Revenue impact') + ': what every open issue costs in lost revenue and SLA credits, and what is at stake.',
+      'Plan & Build: ' + go('/planning', 'Planner') + ', ' + go('/capacity', 'Capacity') + ', ' + go('/ipam', 'IP & Network') + ', ' + go('/dcim', 'DCIM') + ', ' + go('/delivery', 'Delivery') + ', ' + go('/workorders', 'Work orders') + '.',
+      go('/changes', 'Change management') + ', ' + go('/compliance', 'Compliance') + ', ' + go('/secops', 'Security Ops') + '.',
+      'Opstral AI: ask questions in plain words; answers are grounded in the estate\'s own data.']) },
+
+{ s: 'pitch', id: 'elevator', t: 'The pitch: 30 seconds and 2 minutes', d: 'For a colocation operator.', k: 'elevator pitch intro one liner positioning value proposition',
+  b: h('30 seconds') + say('"SynapseDC gives a colocation operator one live view of every datacenter, from the utility feed down to the tenant\'s cabinet. When something goes wrong, it tells you which tenants and contracts are affected, what it is costing you, and what to do first. And it shows you the capacity you have paid for but cannot sell yet."') +
+    h('2 minutes') + say('"Most operators run a BMS for the plant, a DCIM or a spreadsheet for space, a ticketing tool for incidents, an access system at the doors and a billing system for tenants. None of them talk to each other. So when a UPS goes on battery, the NOC sees an alarm, but nobody can say in that moment which cabinets are on that UPS, which tenants own them, whose SLA is at risk, or how much it will cost.<br><br>SynapseDC connects those systems read-only and builds one model of the estate: power paths, cooling, racks, cross-connects, tenants and contracts. On top of it you get a command center, a datacenter view with a 3D layout, revenue impact per issue, capacity you can sell, and audit-ready evidence for access and compliance. Our AI assistant explains the likely cause and the next step, using your own data.<br><br>We start with one site, read-only, and prove it in about eight weeks."') +
+    tip('Change the nouns for other customer types: enterprise → "business services" and "cost of downtime"; GPU cloud → "GPU jobs" and "GPU-hours lost".') },
+
+{ s: 'pitch', id: 'not', t: 'What SynapseDC is not (say it early)', d: 'Being clear about limits builds trust.', k: 'limits scope not replace bms control billing crm honest',
+  b: ul(['<b>Not a BMS or a control system.</b> It reads from the BMS, UPS, PDUs and meters; it never changes set points or switches anything.',
+      '<b>Not a billing or ERP system.</b> It can export metered power per circuit and show revenue at risk; invoices stay in their billing system.',
+      '<b>Not a CRM or a tenant portal.</b> Tenants and contracts are imported so impact can be calculated. A tenant-facing portal is not in the product today: note it as "to discuss with the product team".',
+      '<b>Not a replacement for their ITSM.</b> Incidents and changes can be raised in or synced with ServiceNow / Jira; the ITSM stays the system of record for tickets if they want.',
+      '<b>Not a monitoring agent inside tenant gear.</b> In colocation, tenant equipment is opaque: we never poll it (' + see('c-privacy', 'tenant privacy') + ').']) +
+    say('"We sit on top of the systems you already have and connect them. Your BMS keeps running your plant; we make its data mean something to the business."') },
+
+{ s: 'pitch', id: 'value-roles', t: 'Value by role', d: 'What each person in the room cares about, and the screen that answers it.', k: 'persona role stakeholder ceo cfo coo cio ciso noc facilities sales',
+  b: tbl(['Role', 'What keeps them up at night', 'What SynapseDC gives them', 'Show them'], [
+    ['CEO / MD', 'Outages in the news, growth, valuation', 'One view of estate health and risk; capacity ready to sell', go('/', 'Command center')],
+    ['CFO', 'SLA credits, power cost, unsold capacity', 'Cost of every open issue; power bill vs what is sold; idle contracted power', go('/revenue', 'Revenue impact') + ', ' + go('/capacity?tab=economics', 'Power economics')],
+    ['COO / Head of operations', 'Repeat incidents, staff load, MTTR', 'Incidents with cause and impact; on-call; problems grouped by cause', go('/incidents', 'Incidents')],
+    ['Head of facilities', 'UPS / cooling failures, maintenance, single points of failure', 'Power path utility→rack, ride-through, cooling redundancy, PM plan, SPOFs', go('/facilities', 'Facilities')],
+    ['NOC manager / shift lead', 'Alarm floods, missing context, slow handover', 'Scoped, grouped alarms; which tenants are hit; recommended action', go('/alerts', 'Alerts')],
+    ['Head of sales / product', 'What can I sell, where, by when', 'Space, power and cooling headroom per hall; reservations; pipeline', go('/capacity', 'Capacity')],
+    ['Customer success', 'Angry tenants, credits, cross-connect delays', 'Per-tenant impact, "why at risk", cross-connect and remote-hands orders', go('/customers', 'Tenant pages')],
+    ['CIO / IT', 'Another tool to run; integrations; SSO', 'Read-only connectors, SSO, open data model, embed in their portal', see('i-arch', 'Architecture')],
+    ['CISO / security', 'Audits, badge misuse, OT exposure', 'Access log and exceptions, OT security, compliance evidence', go('/secops', 'Security Ops') + ', ' + go('/compliance', 'Compliance')]]) },
+
+{ s: 'pitch', id: 'value-metrics', t: 'How to put a number on the value', d: 'Simple formulas to fill with the customer\'s own figures.', k: 'roi business case value quantify savings money formula',
+  b: '<p>Never quote savings from other customers as facts. Build the number with them, live, from their figures.</p>' +
+    tbl(['Value lever', 'Formula', 'Ask them for'], [
+      ['Sell stranded power', 'kW sellable now × price per kW-month × 12', 'Contracted vs drawn kW per hall; price per kW'],
+      ['Fewer SLA credits', 'Credits paid last year × share caused by slow detection or wrong priority', 'Credit notes last 12 months, and their causes'],
+      ['Faster resolution', 'Incidents per year × hours saved × cost per hour (staff + credits)', 'Incident count, average time to resolve'],
+      ['Power billing accuracy', 'Unbilled or disputed kWh per month × tariff × 12', 'Metered tenants, disputes, manual meter reads'],
+      ['Audit effort', 'Audit days per year × people × day rate × share automated', 'Audits per year (ISO, SOC, tenant audits) and effort'],
+      ['Avoided outage', 'Probability reduction × cost of a site outage', 'Their own estimate of one bad hour'],
+      ['Cross-connect speed', 'Orders per month × days saved × revenue per day of earlier billing', 'Order volume, current lead time']]) +
+    tip('One number the CFO trusts beats seven they doubt. Pick the lever closest to their top pain and do it properly.') },
+
+{ s: 'pitch', id: 'differentiators', t: 'How we differ from what they already have', d: 'DCIM, BMS, ITSM, monitoring tools and spreadsheets.', k: 'compare competitor difference dcim bms itsm nlyte sunbird schneider spreadsheet',
+  b: tbl(['They have', 'What it does well', 'What SynapseDC adds'], [
+    ['BMS / SCADA', 'Controls and monitors plant, alarms on points', 'Turns a point alarm into impact: which racks, tenants and contracts, what it costs, what to do'],
+    ['DCIM (Sunbird, Nlyte, EcoStruxure IT…)', 'Asset records, space, power capacity planning', 'Live operations: incidents, revenue impact, access, security, change control in one view; can import their DCIM'],
+    ['ITSM (ServiceNow, Jira…)', 'Ticket workflow, approvals, CMDB', 'Datacenter context on every ticket: power path, tenants, root-cause hypotheses; syncs with it'],
+    ['Network / IT monitoring', 'Device and port health', 'Physical context: which cable, which panel, which UPS and PDU feed that device'],
+    ['Spreadsheets', 'Flexible, everyone has one', 'One reconciled model, live, with history and audit trail']]) +
+    say('"We are not asking you to throw anything away. We make the tools you already paid for work together, and we answer the business question none of them answers alone: what does this cost us and what do we do first?"') },
+
+{ s: 'pitch', id: 'ai', t: 'How the AI assistant helps (and how to talk about it)', d: 'Grounded answers, explained causes, recommended actions.', k: 'ai opstral sentinel assistant rca root cause recommendation hype llm',
+  b: ul(['Answers plain questions from the estate\'s own data: "Which issue is costing the most revenue?", "Where should the next GPU job go?", "What is power costing us at this site?"',
+      'For each incident: likely causes ranked with the evidence (e.g. a recent change on the same port, an optics lot with a history), and the next steps.',
+      'Recommendations on the Command center: what to do first, and why.']) +
+    say('"The assistant does not guess. Every answer points at the alarm, change or record it is based on, so your engineer can check it in one click."') +
+    warn('In the demo the AI is deterministic and grounded in mock data. Do not claim accuracy figures.') },
+
+{ s: 'pitch', id: 'proof', t: 'Proof points: claim → screen', d: 'Back every claim with a click.', k: 'proof evidence demo show screen link',
+  b: tbl(['Claim', 'Where to show it'], [
+    ['"We know which tenants an issue affects"', 'Incident page → impact; tenant page "What is impacting this customer"'],
+    ['"We show what it costs"', go('/revenue', 'Revenue impact') + ' → Costing the most right now'],
+    ['"From the utility to the rack"', go('/facilities', 'Facilities') + ' → Power path; Datacenter → Facility → Power & backup'],
+    ['"We find single points of failure before they bite"', 'Datacenter → Facility → Single points of failure'],
+    ['"Capacity you can sell"', go('/capacity', 'Capacity') + ' → Reservations; Power economics'],
+    ['"Audit-ready access records"', 'Datacenter → Facility → Access & security'],
+    ['"Change control on every record"', go('/dcim', 'DCIM') + ' → Changes; ' + go('/changes', 'Change management')],
+    ['"See the hall in 3D"', 'Datacenter → Overview → Datacenter layout (Schematic / Realistic)']]) },
+
+/* ===== COLOCATION PLAYBOOK ===== */
+{ s: 'colo', id: 'c-model', t: 'How a colocation business works', d: 'Retail vs wholesale, what is sold, how power is billed.', k: 'business model retail wholesale cabinet cage suite power billing all-in metered committed',
+  b: h('What is sold') + tbl(['Product', 'What it is', 'Billed as'], [
+      ['Cabinet (rack)', 'A lockable rack with A + B power, in a shared hall', 'Per cabinet per month, plus power'],
+      ['Cage', 'A fenced area with several cabinets, own door and badge reader', 'Per cage or per cabinet, plus power'],
+      ['Suite / private hall', 'A whole room, often for a hyperscaler or bank', 'Per kW committed (wholesale)'],
+      ['Power circuit', 'A rated feed into the cabinet (e.g. 2 × 32 A)', 'All-in, metered (kWh), or committed kW'],
+      ['Cross-connect', 'A fibre or copper link between two tenants or to a carrier, through the meet-me room', 'One-time fee + monthly'],
+      ['Remote hands', 'Datacenter staff doing physical work for the tenant (reboot, swap a drive, patch a cable)', 'Hours bundle or per ticket']]) +
+    h('Three ways power is billed') + ul(['<b>All-in</b>: power included in the cabinet price up to a limit (e.g. 6 kW). Risk: tenants draw above the limit and the operator pays.',
+      '<b>Metered</b>: kWh per circuit, often × PUE factor. Needs accurate per-circuit metering, or disputes follow.',
+      '<b>Committed kW</b> (wholesale): the tenant pays for a reserved block whether they use it or not. Unused but committed power is "stranded": paid for by the tenant, but it cannot be sold to anyone else.']) +
+    h('Retail vs wholesale') + tbl(['', 'Retail', 'Wholesale'], [['Tenants', 'Many (100s), small', 'Few, large (hyperscalers, banks)'], ['Unit', 'Cabinet, cage', 'Suite, hall, MW'], ['Pain', 'Operations volume: cross-connects, remote hands, access', 'SLA strictness, power and cooling commitments, audits'], ['Contract', '1–3 years', '5–15 years']]) },
+
+{ s: 'colo', id: 'c-pains', t: 'Top colocation pains and how SynapseDC answers each', d: 'Use this table to pick your demo story.', k: 'pain problem challenge use case answer colocation',
+  b: tbl(['Pain they say', 'What is really going on', 'How SynapseDC helps', 'Show'], [
+    ['"A tenant called before we knew"', 'Alarms in the BMS are not linked to cabinets or tenants', 'Every alarm resolved to the racks, tenants and contracts it affects', 'Incident → impact'],
+    ['"Some tenants draw far more than they pay for"', 'All-in power with no per-cabinet view against contract', 'Draw vs contracted kW per cabinet, "tenant over power budget" findings', 'DCIM floor plan Tenant colouring; Facilities rack power'],
+    ['"We can\'t tell how much we can still sell"', 'Space, power and cooling tracked in different places', 'Headroom per hall across space, power and cooling, with reservations', go('/capacity', 'Capacity')],
+    ['"Power bills get disputed"', 'Manual meter reads, no audit trail', 'Per-circuit metered energy history and export', 'Power economics, rack PDUs'],
+    ['"We pay SLA credits we could have avoided"', 'Slow detection, wrong priority', 'Credits at risk per issue and the next SLA tier step', go('/revenue', 'Revenue impact')],
+    ['"Cross-connects take weeks"', 'No live view of free MMR ports and panels', 'Cross-connect orders, free ports, cable paths', 'Tenant page → Cross-connect orders; DCIM cabling'],
+    ['"Remote hands is a black hole"', 'Requests in email, no SLA tracking', 'Remote-hands tickets per tenant, with status', 'Tenant page → Remote hands'],
+    ['"Audits take weeks of screenshots"', 'Evidence spread over PACS, BMS, spreadsheets', 'Access log, exceptions, policies and controls with evidence', 'Access & security; ' + go('/compliance', 'Compliance')],
+    ['"Who was in the cage?"', 'PACS reports are hard to correlate', '24 h visits and badge reads, exceptions (tailgating, door held), escorted visitors', 'Datacenter → Access & security'],
+    ['"One UPS fault and we panic"', 'Nobody knows the power path to each cabinet', 'Power path utility → UPS → busway → PDU → outlet; what-if per asset', 'Facilities → Power path, what-if'],
+    ['"AI tenants want 40–100 kW racks"', 'Air cooling and power limits', 'Liquid / CDU loops, rack density, placement', go('/gpu', 'GPU Fleet') + ', Capacity']]) },
+
+{ s: 'colo', id: 'c-privacy', t: 'Tenant equipment is opaque: what we see and what we never touch', d: 'Answer to every tenant-privacy question.', k: 'tenant privacy data protection opaque never polled gdpr dpdp confidentiality',
+  b: tbl(['We see', 'We never see or touch'], [
+      ['Cabinet / cage, owner, contracted kW', 'Tenant servers, switches, storage inside the cabinet'],
+      ['Power drawn per PDU / circuit (operator-owned PDUs)', 'Tenant operating systems, apps, traffic or data'],
+      ['Inlet temperature and humidity at the cabinet', 'Tenant network configuration'],
+      ['Cross-connects through the MMR (operator\'s panels)', 'What runs over a tenant\'s cross-connect'],
+      ['Badge reads at doors and cage doors (operator PACS)', 'Tenant-owned access systems inside a private suite']]) +
+    '<p>In the product, tenant gear is a "Tenant gear" block with state <i>tenant-owned</i>; it is never polled.</p>' +
+    say('"We monitor the building and the services you sell: space, power, cooling, connectivity and access. Your tenants\' equipment stays a sealed box to us."') +
+    warn('If the operator\'s PDUs are tenant-owned in some cabinets, we have no draw data there. Ask about it in ' + see('q-facility', 'power questions') + '.') },
+
+{ s: 'colo', id: 'c-power', t: 'Power billing and contracted power: the story to tell', d: 'Draw vs contract, overage, stranded power, the power bill.', k: 'power billing contracted kw overage metered tenant over power budget stranded invoice',
+  b: ol(['Every cabinet carries its contracted kW (from the contract schedule) and its live draw (from the PDUs).',
+      'Above contract → flagged as "over contracted power". All-in tenants are an overage conversation; metered tenants are billed correctly.',
+      'Below contract on committed blocks → idle contracted power: the tenant pays for it, but it is not drawn. Know it before renewal.',
+      'At site level: the power bill (energy + demand / capacity charges) against what is sold, cost per sold MW, take-or-pay floors and new demand peaks (' + go('/capacity?tab=economics', 'Power economics') + ').',
+      'Export metered energy per circuit to their billing system monthly (' + see('i-billing', 'billing integration') + ').']) +
+    say('"Today you find out a tenant is over budget when the breaker trips. With SynapseDC you see it the day it starts, in kW and in money."') },
+
+{ s: 'colo', id: 'c-sla', t: 'SLAs a colocation operator signs, and how we track them', d: 'Power availability, environment, cross-connect and remote hands.', k: 'sla availability uptime temperature humidity ashrae credit penalty',
+  b: tbl(['SLA', 'Typical commitment', 'What we measure'], [
+    ['Power availability', '99.99% (single feed) to 100% (A + B, 2N)', 'Feed / UPS / PDU state per cabinet; time on one side; outages'],
+    ['Temperature', 'ASHRAE recommended 18–27 °C inlet', 'Rack inlet per cabinet, zone averages, excursions with duration'],
+    ['Humidity', 'Dew point −9 to 15 °C, ≤60% RH', 'Zone humidity and excursions'],
+    ['Cross-connect delivery', '2–5 business days', 'Order age and status'],
+    ['Remote hands response', '15 min – 4 h by priority', 'Ticket age and status'],
+    ['Incident notice', 'Initial notice within 15–60 min, updates every 1–4 h', 'Customer notices on each incident, overdue updates']]) +
+    '<p>Revenue impact turns SLA misses into money: credits by tier (shortfall → 10%, ≥0.5 pt → 25%, ≥2 pt → 50% of the monthly charge in the demo model) and the next tier step. Replace the tiers with the customer\'s own contract terms.</p>' },
+
+{ s: 'colo', id: 'c-capacity', t: 'Selling capacity: space, power and cooling together', d: 'Why "free racks" is not "sellable racks".', k: 'capacity sellable stranded space power cooling headroom forecast reservation',
+  b: ul(['A hall can have free floor space but no free power, or free power but no cooling headroom. Sellable capacity is the smallest of the three.',
+      'Reservations count against capacity: contracted above draw (committed), planned installs, approved plans.',
+      'Stranded power: committed but undrawn, or UPS capacity behind a full hall. It shows where an upgrade or a re-layout unlocks sales.']) +
+    say('"Your sales team asks facilities \'can I sell 200 kW in Hall B?\' and waits a week. Here it is one screen, and it already counts what is reserved."') +
+    '<p>Show ' + go('/capacity', 'Capacity') + ' (overview, space by hall, reservations, PUE & energy) and the DCIM floor plan.</p>' },
+
+{ s: 'colo', id: 'c-xc', t: 'Cross-connects, meet-me room and remote hands', d: 'Interconnection is a growing share of colocation revenue.', k: 'cross-connect mmr meet-me room odf patch panel carrier remote hands smart hands ticket',
+  b: ul(['Cross-connects are recorded as links with their physical path: port → patch cord → cabinet panel → trunk → ODF / MMR panel → jumper → far end.',
+      'Free ports on MMR panels show where a new order can land; the cable path shows what to check when one drops.',
+      'Cross-connect orders and remote-hands tickets appear per tenant (tenant page) with status.',
+      'A cross-connect loss of signal raises an incident that names the tenant and the carrier.']) +
+    h('Ask the customer') + qs([['How are cross-connects ordered and recorded today?', 'Portal, email, spreadsheet, DCIM.'], ['How many orders per month, and the average delivery time?', 'Value lever.'],
+      ['Are MMR panels labelled to a standard (TIA-606)?', 'Decides how fast the cabling import goes.'], ['How are remote-hands requests logged and billed?', 'ITSM, email, portal.']]) },
+
+{ s: 'colo', id: 'c-access', t: 'Tenant access and the security audit', d: 'Who entered which cage, escorted or not, and the exceptions.', k: 'access control badge cage door visitor escort tailgating audit pacs cctv iso 27001 a.7',
+  b: ul(['The access log (from PACS) shows entries, exits and denials per door, people on site now, visitors with host and escort, tenant visits to their own cage.',
+      'Exceptions: tailgating, door forced or held open, anti-passback, repeated denials, after-hours entry, unescorted visitor, overstay, badge not returned.',
+      'Quarterly access-rights review: badges by type, expired and unused badges, CCTV kept 90 days, log kept 1 year.',
+      'Security Ops ties a badge-in to a change on equipment in the same room (cross-domain rule), and physical detections map to ISO 27001 A.7.']) +
+    '<p>Show: Datacenter → Facility → Access & security, then ' + go('/secops?tab=physical', 'Security Ops → Physical security') + '.</p>' },
+
+{ s: 'colo', id: 'c-ai', t: 'AI / GPU tenants in a colocation hall', d: 'High-density cages, liquid cooling, power blocks.', k: 'ai gpu tenant liquid cooling cdu high density 40 kw 100 kw neocloud',
+  b: ul(['AI tenants ask for 40–130 kW per rack, liquid cooling (rear-door or direct-to-chip with CDUs), and large power blocks.',
+      'In colocation the GPUs are tenant gear: we monitor the cage\'s power, CDU loops, inlet temperatures and the contracted block, not the GPUs.',
+      'If the operator also runs its own GPU cloud, GPU Fleet shows jobs, GPU health and GPU-hours lost.']) +
+    h('Ask') + qs(['Do you have, or plan, liquid-cooled halls? Which CDU make and model?', 'What density do AI tenants ask for, and what can each hall deliver?', 'How are AI power blocks contracted (committed kW, ramp schedule)?']) },
+
+{ s: 'colo', id: 'c-demo', t: 'Colocation demo script (40 minutes)', d: 'One story, eight stops, every role sees their screen.', k: 'demo script storyline screens order click path colocation',
+  b: '<p>Set the persona to <b>Colocation</b> in the top bar (in the hosted demo the persona can be pinned; if so, switch it there after the page loads).</p>' +
+    tbl(['#', 'Screen', 'What to say', 'Time'], [
+      ['1', go('/', 'Command center'), '"This is your whole estate this afternoon. One ring says how healthy operations are, and which area is weakest. The map shows where. On the right, every datacenter, worst first."', '4 min'],
+      ['2', 'Command center → What is happening / Who is affected', '"Here is what is happening, and here are the tenants it touches, anchors first."', '3 min'],
+      ['3', 'An incident (Power: UPS on battery)', '"An alarm became an incident. Here is the likely cause with its evidence, the racks and tenants on that UPS, and the next step."', '6 min'],
+      ['4', 'Datacenter page → Facility → Power & backup', '"From the utility feed to the cabinet: which UPS feeds which busway and PDU. And if this UPS fails, here is what goes down."', '6 min'],
+      ['5', 'Datacenter → Overview → Datacenter layout', '"The same site in 3D. Red beacons are where attention is needed. Open a rack, see its power path and cables."', '5 min'],
+      ['6', go('/revenue', 'Revenue impact'), '"What every open issue costs right now, and what is at stake if the next one hits. This is the number your CFO asks for."', '5 min'],
+      ['7', 'A tenant page', '"Everything about one tenant: what is affecting them, where they are served, cross-connect orders and remote hands."', '4 min'],
+      ['8', 'Capacity / DCIM floor plan (Tenant colouring)', '"What you can still sell, per hall, and which tenants draw more than they contracted."', '5 min'],
+      ['', 'Optional: Access & security, Compliance, Change management', 'For CISO / audit-heavy rooms', '+5 min']]) +
+    tip('The Demo playbook in Help & FAQ ("The 13:20 call") has the full eleven-act story with deep links.') },
+
+/* ===== DISCOVERY ===== */
+{ s: 'discovery', id: 'q-first10', t: 'The first ten questions (first meeting)', d: 'If you only get 25 minutes, ask these.', k: 'first meeting opening questions top ten intro',
+  b: qs([['Walk me through your estate: how many sites, how many MW, and what is coming next?', 'Size and growth.'],
+    ['Who are your tenants, and which of them are the most demanding?', 'Anchor tenants drive SLA strictness.'],
+    ['When something goes wrong at 2 a.m., how does your team find out, and who calls whom?', 'Reveals the alarm path and the gaps.'],
+    ['Tell me about the last incident that really hurt. What happened, and what did it cost?', 'The best source of a value story.'],
+    ['How do you know how much capacity you can still sell in each hall?', 'Capacity pain.'],
+    ['How is power billed to tenants, and how often is it disputed?', 'Billing pain.'],
+    ['Which systems does your team look at every day?', 'Start of the tools inventory.'],
+    ['How much time goes into audits and tenant audit requests each year?', 'Compliance pain.'],
+    ['If you could fix one thing in operations this year, what would it be?', 'Their priority, in their words.'],
+    ['Who else would care about solving that, and who decides?', 'Stakeholders and decision process.']]) },
+
+{ s: 'discovery', id: 'q-business', t: 'Business and portfolio', d: 'Sites, scale, growth, model.', k: 'business portfolio sites mw growth tier certification region',
+  b: qs([['Number of sites, location of each, status (live, building, planned).', 'Defines waves.'], ['Built IT MW and design MW per site; planned additions in 24 months.', 'Capacity scope.'],
+    ['Tier / design (N+1, 2N), Uptime or TIA-942 certification per site.', 'Sets redundancy rules for single points of failure.'],
+    ['Business model mix: retail, wholesale, interconnection, managed services, own cloud.', 'Picks the story and modules.'],
+    ['Floors, rooms / halls per site, cages and suites, number of cabinets.', 'Data volume for onboarding.'],
+    ['Any sites operated for a partner, or shared with another operator?', 'Data ownership.'], ['Group structure: one company or several entities per country?', 'Tenancy and access model.'],
+    ['Sustainability goals: PUE target, renewables, carbon reporting.', 'Energy and PUE features.']]) },
+
+{ s: 'discovery', id: 'q-tenants', t: 'Tenants, contracts and commercial', d: 'How they sell, bill and promise.', k: 'tenant customer contract sla billing commercial revenue price',
+  b: qs([['How many tenants, and the split by segment (hyperscaler, BFSI, carrier, enterprise, government)?', ''],
+    ['Products sold: cabinets, cages, suites, power circuits, cross-connects, remote hands, managed services?', ''],
+    ['Power model per product: all-in up to N kW, metered kWh, committed kW? Any PUE multiplier?', 'Drives draw-vs-contract logic.'],
+    ['Where is the contract schedule kept (CRM, billing, spreadsheet)? Can it be exported per cabinet?', 'We need tenant → cabinet → contracted kW.'],
+    ['SLA terms: availability %, temperature / humidity bands, credit tiers, notice times.', 'Feeds revenue impact and SLA tracking.'],
+    ['SLA credits paid in the last 12 months, and their causes.', 'Value number.'],
+    ['How are tenants notified of incidents and maintenance today?', 'Customer notices.'],
+    ['Do tenants have a portal? What does it show? Who built it?', 'Integration, not replacement.'],
+    ['Billing system and cycle; how metered power gets into invoices.', 'Billing export.'],
+    ['Pipeline: what large deals are waiting on capacity answers?', 'Capacity value.']]) },
+
+{ s: 'discovery', id: 'q-ops', t: 'Operations model: NOC, shifts, incidents', d: 'Who watches what, and how incidents run.', k: 'noc operations shifts on-call incident process mttr escalation staff',
+  b: qs([['Central NOC, per-site control rooms, or both? Hours (24×7)? Outsourced?', 'Users and roles.'],
+    ['Staff per shift per site: facilities engineers, technicians, security guards.', ''],
+    ['On-call rota and escalation chain: where is it kept?', 'We load it for paging chains.'],
+    ['Incident process: who opens, classifies, notifies tenants, closes? Severity definitions?', 'Map to Critical / High / Medium / Low.'],
+    ['Average incidents per month per site; time to detect and to resolve.', 'Baseline for value.'],
+    ['Problem management: do you track repeat causes?', 'Problems view.'],
+    ['Change process: CAB, change windows, freezes, emergency changes.', 'Change management fit.'],
+    ['Maintenance: PM plans for UPS, DG, CRAH, fire. Where are they scheduled (CMMS)?', 'PM plan import.'],
+    ['Reports produced every week / month, and for whom.', 'Replace manual reports.'],
+    ['Biggest time sinks for the NOC today.', '']]) },
+
+{ s: 'discovery', id: 'q-facility', t: 'Power and cooling plant', d: 'Plant, metering and how it reports.', k: 'power cooling ups dg generator ats crah chiller cdu pdu metering bms epms facility',
+  b: h('Power') + qs([['Utility feeds per site, voltage, and whether A / B feeds come from separate substations.', ''],
+    ['UPS: make, model, modules, topology (N+1, 2N), battery type (VRLA, Li-ion), battery monitoring system.', ''],
+    ['Generators: number, size, fuel storage and autonomy, controller make, test schedule.', ''],
+    ['Switchgear / ATS / STS: make; do they have a network card or report via the BMS / EPMS?', ''],
+    ['Rack PDUs: operator- or tenant-owned? Make, model; metered per inlet, per outlet, switched?', 'Decides per-cabinet draw data.'],
+    ['Branch-circuit monitoring on busways or panels?', 'Alternative to PDU data.'],
+    ['For −48 V DC (carrier gear): rectifiers and BDFB panels?', '']]) +
+    h('Cooling') + qs([['Cooling type per hall: CRAH / CRAC, in-row, rear-door, direct-to-chip liquid, free cooling.', ''],
+    ['Chillers, cooling towers, CDUs: make, model, how they report.', ''], ['Containment (hot / cold aisle)?', 'Affects temperature logic.'],
+    ['Temperature / humidity sensors: how many per hall, rack inlet sensors?', 'SLA tracking.'], ['Leak detection and VESDA / fire panels: make and integration.', '']]) +
+    h('Metering and monitoring') + qs([['BMS and EPMS products, versions, who administers them, and protocols exposed (BACnet/IP, Modbus TCP, OPC UA, SNMP, REST).', 'Biggest integration question.'],
+    ['Can they export a point list (name, unit, type, alarm limits)?', 'Speeds mapping.'], ['Sample interval and history kept (how long)?', 'Baselines.'], ['PUE: measured how and where (which meters)?', '']]) },
+
+{ s: 'discovery', id: 'q-network', t: 'Network, meet-me room and cross-connects', d: 'Operator network, MMR, cabling records.', k: 'network mmr cross-connect fibre odf patch panel carrier backhaul cabling',
+  b: qs([['Carriers present per site; carrier-neutral? Number of MMRs.', ''], ['Operator network: core / aggregation switches, routers, firewalls, OOB / management network.', ''],
+    ['Monitoring for the operator network (SNMP tool, syslog server)?', ''], ['Cabling records: DCIM, spreadsheet, labels only? Panel naming standard?', ''],
+    ['Cross-connect volumes and delivery time.', ''], ['IP address management: Infoblox, BlueCat, NetBox, spreadsheet?', ''], ['Internet / transit services sold to tenants?', 'Services in scope.']]) },
+
+{ s: 'discovery', id: 'q-tools', t: 'Existing systems: the inventory questions', d: 'For every system: what, version, owner, hosting, API, access.', k: 'existing systems tools inventory stack software vendor api integration owner',
+  b: '<p>Go category by category (' + see('tools-capture', 'capture sheet') + '). For each system ask:</p>' +
+    qs([['Product and version; on-premise or SaaS?', ''], ['What does it hold that we need (e.g. racks, tenants, alarms, badge events)?', ''],
+      ['Who owns it (business) and who administers it (technical)?', 'Two names per system.'], ['Is it the system of record, or a copy?', 'Avoid importing from a stale copy.'],
+      ['How can data come out: API (REST, SOAP), protocol (BACnet, SNMP, Modbus), database view, scheduled export (CSV, SFTP), syslog?', ''],
+      ['Read-only accounts possible? Rate limits? Licence cost for API access?', 'Some vendors license the API separately.'],
+      ['Data quality: how up to date, and how much do you trust it (1–5)?', ''], ['Any plans to replace it in the next 18 months?', 'Avoid building on a system leaving.']]) +
+    h('Categories to cover') + ul(['BMS / SCADA · EPMS / power monitoring · UPS / battery monitoring · DG / switchgear', 'Rack PDUs · environment sensors · leak / fire panels',
+      'DCIM / asset / cabling records · CMDB', 'ITSM (incidents, changes, requests) · CMMS (maintenance)', 'Network monitoring · IPAM / DNS', 'Access control (PACS) · visitor management · CCTV / VMS',
+      'CRM · contracts · billing / ERP · tenant portal', 'Identity / SSO · SIEM / SOC', 'Drawings / documents (CAD, SharePoint)']) },
+
+{ s: 'discovery', id: 'q-security', t: 'Physical security and access', d: 'PACS, CCTV, visitors, audit rules.', k: 'physical security access control badge pacs cctv vms visitor escort guard',
+  b: qs([['PACS product (Lenel S2, Genetec Synergis, HID, Honeywell Pro-Watch, Gallagher…), version, one per site or central?', ''],
+    ['Door list per site: mantrap, hall doors, cage doors, MMR, plant rooms. Readers in and out (anti-passback)?', ''],
+    ['Badge types: staff, contractor, tenant, visitor. Who approves tenant badges?', ''], ['Visitor management system and escort rules.', ''],
+    ['CCTV / VMS product, retention, coverage of cages and doors.', ''], ['Can PACS events be streamed (syslog, API, database view) or exported daily?', ''],
+    ['Access reviews: how often, and who signs?', ''], ['Recent physical incidents (tailgating, lost badges, unauthorised access).', '']]) },
+
+{ s: 'discovery', id: 'q-compliance', t: 'Compliance and audit', d: 'Frameworks, audit calendar, evidence.', k: 'compliance audit iso 27001 22237 soc 2 pci tia-942 uptime evidence certification',
+  b: qs([['Certifications held and audit calendar: ISO 27001, ISO 22237 / EN 50600, SOC 1 / 2, PCI DSS, Uptime, TIA-942, local regulation.', ''],
+    ['How many tenant audits per year, and what do tenants ask for?', ''], ['Where is evidence collected today, and how long does it take?', 'Value lever.'],
+    ['Policies they must prove: dual-fed racks, cooling N+1, UPS autonomy, fire inspections, PM on time, access reviews.', 'Maps to Compliance policies.'],
+    ['Any open audit findings right now?', 'A quick win for the pilot.']]) },
+
+{ s: 'discovery', id: 'q-pain', t: 'Pains and priorities', d: 'Rank what hurts and what it costs.', k: 'pain priority ranking cost problem impact',
+  b: qs([['Rank these 1–5 for your business: outages and SLA credits · unsold capacity · power billing · audit effort · cross-connect / remote-hands speed · staff load · visibility for management.', 'Pick the top two for the pilot.'],
+    ['What does one hour of a hall outage cost you (credits, reputation, churn)?', ''], ['What did the last three serious incidents have in common?', ''],
+    ['What report does your CEO ask for that is hard to produce?', ''], ['What would make this project a success in 6 months, in one sentence?', 'Write it into success criteria.']]) },
+
+{ s: 'discovery', id: 'q-decision', t: 'Decision, budget and timeline', d: 'Who decides, who pays, by when.', k: 'decision maker budget timeline procurement stakeholder champion buyer approval',
+  b: qs([['Who sponsors this (business owner) and who signs the contract?', ''], ['Who could block it (IT, security, procurement, facilities)?', 'Meet them early.'],
+    ['Budget: is it planned, and in whose budget (operations, IT, facilities)?', ''], ['Procurement steps: security questionnaire, vendor onboarding, legal, data protection review.', 'Start the security questionnaire early.'],
+    ['Timeline drivers: renewal of an existing tool, an audit, a new site opening, a big tenant deal.', ''], ['Who is our day-to-day champion?', '']]) },
+
+{ s: 'discovery', id: 'q-itpolicy', t: 'IT and security policy for our platform', d: 'Hosting, SSO, data residency, network access.', k: 'it policy hosting saas on-prem deployment sso data residency security questionnaire vendor risk',
+  b: qs([['Hosting preference: SaaS, private cloud, or on-premise? Any rule against cloud for OT data?', 'Confirm deployment options with the product team.'],
+    ['Data residency: must data stay in country (e.g. India DPDP, sector rules)?', ''], ['SSO: identity provider (Entra ID / Azure AD, Okta, ADFS, Keycloak), SAML or OIDC, MFA rules.', ''],
+    ['Network: may a collector make outbound TLS connections from the OT / management network? Proxy?', 'Collector design.'],
+    ['Who approves firewall changes, and how long does it take?', 'Often the longest lead time.'], ['Credential handling: vault, rotation rules, service accounts.', ''],
+    ['Vendor security questionnaire / pen-test requirements.', ''], ['Log retention and data deletion rules.', '']]) },
+
+{ s: 'discovery', id: 'listen', t: 'Signals to listen for, and what they mean', d: 'Hints in what the customer says.', k: 'signals listen cues buying signals red flags',
+  b: tbl(['They say', 'It usually means', 'Do this'], [
+    ['"We have it in Excel."', 'No system of record; data will need cleaning', 'Offer the import template and a data-quality pass'],
+    ['"The BMS vendor does that."', 'Locked-in integrator; API may be licensed', 'Ask for the integrator\'s contact and the protocol list'],
+    ['"Security will never allow that."', 'An unmet stakeholder', 'Ask for a meeting with security; bring the ' + see('i-security', 'security posture') + ''],
+    ['"We tried a DCIM, it failed."', 'Data went stale; nobody owned it', 'Stress change control and live data, not records'],
+    ['"Our anchor tenant audits us every quarter."', 'Strong compliance value', 'Show Access & security and Compliance'],
+    ['"We\'re opening a new site next year."', 'Plan & Build value; timeline driver', 'Show Planner / Delivery; make the new site wave 1'],
+    ['"Tenants keep asking for more power."', 'Capacity / AI pressure', 'Show Capacity and liquid cooling']]) },
+
+/* ===== TOOLS ===== */
+{ s: 'tools', id: 'tools-capture', t: 'Tools inventory: the capture sheet', d: 'One row per system. Fill it in Workshop C.', k: 'tools inventory sheet capture template systems list',
+  b: tbl(['Category', 'Product / version', 'Hosting', 'Holds', 'System of record?', 'Way out (API / protocol / export)', 'Business owner', 'Admin', 'Trust 1–5'], [
+      ['BMS', '', '', 'Plant points, alarms', '', '', '', '', ''], ['EPMS', '', '', 'Meters, power quality', '', '', '', '', ''], ['DCIM', '', '', 'Racks, assets, cabling', '', '', '', '', ''],
+      ['ITSM', '', '', 'Incidents, changes, CMDB', '', '', '', '', ''], ['PACS', '', '', 'Doors, badges, events', '', '', '', '', ''], ['CRM / billing', '', '', 'Tenants, contracts', '', '', '', '', ''],
+      ['…', '', '', '', '', '', '', '', '']]) + tip('Use <b>Copy text</b> to paste this into a spreadsheet, or build it in the meeting notes.') },
+
+{ s: 'tools', id: 't-bms', t: 'BMS / SCADA', d: 'Schneider EcoStruxure Building Operation, Siemens Desigo CC, Honeywell, JCI Metasys, Tridium Niagara.', k: 'bms scada schneider ecostruxure siemens desigo honeywell johnson controls metasys tridium niagara bacnet modbus opc ua building management',
+  b: tbl(['', ''], [['What it holds', 'Plant points (UPS, CRAH, chillers, DG, ATS, sensors), alarms, trends'],
+      ['What we take', 'Point values (state, kW, °C, %RH, flow), alarms with priority, at 1–60 s; read-only'],
+      ['How we connect', 'BACnet/IP (UDP 47808) as a read-only device, Modbus TCP (502), OPC UA (4840), or the vendor REST API (Niagara, EcoStruxure)'],
+      ['Ask for', 'Point list export, BACnet device instances, a read-only account, the integrator\'s contact']]) +
+    warn('Many BMS installations are maintained by an integrator under contract. Their help (and sometimes a licence) is needed to expose points. Ask early.') },
+
+{ s: 'tools', id: 't-epms', t: 'EPMS / power monitoring', d: 'Schneider Power Monitoring Expert, Eaton Brightlayer, ABB Ability, Siemens SENTRON.', k: 'epms power monitoring expert pme eaton brightlayer abb siemens sentron meter energy power quality',
+  b: tbl(['', ''], [['Holds', 'Revenue-grade meters, power quality, energy per feed / panel / busway'], ['We take', 'kW, kWh, PF, per feed and branch; 15-min energy for billing and PUE'],
+      ['Connect', 'Modbus TCP to meters / gateways, the EPMS database view or API, or CSV export'], ['Ask for', 'Meter list with location (which feed / panel / room), CT ratios']]) },
+
+{ s: 'tools', id: 't-ups', t: 'UPS, batteries, generators and switchgear', d: 'Vertiv Liebert, Schneider Galaxy, Eaton 93PM; Cummins / CAT / MTU DG controllers; ATS / STS.', k: 'ups battery vertiv liebert schneider galaxy eaton generator dg cummins caterpillar mtu deep sea comap ats sts switchgear',
+  b: tbl(['', ''], [['We take', 'UPS mode (online / battery / bypass), load %, battery runtime and health, alarms; DG run / ready / fuel; ATS position'],
+      ['Connect', 'SNMP v3 on the UPS network card (RFC 1628 UPS-MIB + vendor MIB), Modbus TCP, or via the BMS; DG controllers via Modbus or the BMS'],
+      ['Ask for', 'Card IP, SNMPv3 user (authPriv), make / model / firmware per unit, one-line diagram']]) +
+    tip('The single-line diagram (SLD) is the source of the power path. Ask for it as a PDF for every site.') },
+
+{ s: 'tools', id: 't-pdu', t: 'Rack PDUs and branch-circuit monitoring', d: 'Raritan, Vertiv Geist, Server Technology, APC / Schneider, Eaton.', k: 'pdu rack power raritan geist vertiv servertech server technology apc eaton outlet metered switched branch circuit',
+  b: tbl(['', ''], [['We take', 'Per inlet and outlet kW / A / kWh, breaker state, inlet temperature / humidity probes'], ['Connect', 'SNMP v3 (vendor MIB), Redfish or vendor JSON-RPC (Raritan), polled every 30–60 s'],
+      ['Ask for', 'PDU list per cabinet (A / B, IP, model), naming convention, whether the operator or the tenant owns each PDU']]) +
+    warn('Tenant-owned PDUs are tenant gear. We do not poll them unless the tenant agrees in writing.') },
+
+{ s: 'tools', id: 't-env', t: 'Environment, leak and fire', d: 'Temperature / humidity sensors, leak rope, VESDA, fire panels.', k: 'environment sensor temperature humidity leak water vesda fire panel suppression novec',
+  b: ul(['Usually reported through the BMS; sometimes separate (AKCP, Vertiv, RLE leak controllers).', 'We take: zone and rack-inlet temperature / humidity, leak zones (dry / wet), VESDA alert levels, fire panel state (normal / alarm / fault / disabled).',
+      'Ask for: sensor map (which rack / zone), fire zone list, suppression type per room, inspection dates.']) },
+
+{ s: 'tools', id: 't-dcim', t: 'DCIM and asset records', d: 'Sunbird dcTrack, Nlyte, Schneider EcoStruxure IT, Device42, NetBox, spreadsheets.', k: 'dcim sunbird dctrack nlyte schneider ecostruxure it device42 netbox asset inventory rack cabling spreadsheet excel',
+  b: tbl(['', ''], [['Holds', 'Floors, rooms, racks, devices, U positions, power connections, cabling, sometimes tenants'], ['We take', 'An initial import of the physical model; optional ongoing sync'],
+      ['Connect', 'REST API (dcTrack, Nlyte, Device42, NetBox all have one), or an export mapped into the import template'], ['Ask for', 'Export of one site, field list, how current it is']]) +
+    say('"Keep your DCIM if your team uses it. We import from it and link it to live operations. If it has gone stale, our DCIM screens with change control can become the record."') },
+
+{ s: 'tools', id: 't-itsm', t: 'ITSM, CMDB and CMMS', d: 'ServiceNow, Jira Service Management, BMC Helix, Freshservice; IBM Maximo, SAP PM.', k: 'itsm servicenow jira bmc helix remedy freshservice cmdb cmms maximo sap pm ticket incident change maintenance work order',
+  b: tbl(['System', 'We exchange', 'How'], [['ITSM incidents', 'Create / update incidents from SynapseDC incidents; read ticket state back', 'REST API (ServiceNow Table API), webhooks'],
+      ['ITSM changes', 'Read approved changes and windows (for "change in progress" context); optionally raise CRs', 'REST API'], ['CMDB', 'CI sync for sites, racks, devices (one direction agreed up front)', 'REST / IntegrationHub, CSV'],
+      ['CMMS', 'PM schedule and work orders for plant', 'API or scheduled export']]) +
+    h('Ask') + qs(['Which direction is the system of record for each object (incident, change, CI)?', 'Is there a test / sub-production instance we can use?', 'Assignment groups and categories to use.', 'Integration user with which roles?']) },
+
+{ s: 'tools', id: 't-commercial', t: 'CRM, contracts, billing and tenant portal', d: 'Salesforce, Dynamics, HubSpot; SAP, Oracle, NetSuite, Zuora; in-house portals.', k: 'crm billing erp salesforce dynamics hubspot sap oracle netsuite zuora tenant portal contract invoice',
+  b: ul(['We need: tenant list, contacts for notices, contract schedule per cabinet / circuit / cross-connect (product, quantity, contracted kW, monthly charge, SLA tier, start / end).',
+      'We give back: metered energy per circuit per month, SLA events and credits at risk, incident notices.',
+      'Connect: scheduled export (CSV / SFTP) or the CRM / billing API. A monthly file is fine to start.',
+      'Tenant portal: we do not replace it. Embedding SynapseDC views in a portal is possible (shell=false), but a tenant-facing product is "to discuss".']) },
+
+{ s: 'tools', id: 't-pacs', t: 'Access control, visitors and CCTV', d: 'Lenel S2, Genetec, HID, Honeywell Pro-Watch, Gallagher; Milestone, Genetec, Axis.', k: 'pacs access control lenel s2 onguard genetec synergis hid honeywell pro-watch gallagher cctv vms milestone axis visitor badge',
+  b: tbl(['', ''], [['We take', 'Doors and readers, badge holders (type, company, expiry), events (granted, denied, forced, held), visitors and escorts'],
+      ['Connect', 'Event stream via syslog or vendor API (e.g. Lenel OpenAccess, Genetec Web SDK), or a database view / daily export'],
+      ['CCTV', 'Camera list per door and cage; events (motion, tamper) via ONVIF or VMS API; we link to footage, we do not store video'],
+      ['Ask for', 'Door list mapped to rooms / cages, badge types, retention rules']]) +
+    warn('Badge holder data is personal data. Agree minimum fields, retention and access roles in the data protection review.') },
+
+{ s: 'tools', id: 't-nms', t: 'Network monitoring, IPAM and server management', d: 'SolarWinds, Zabbix, PRTG, LibreNMS, Datadog; Infoblox, BlueCat, NetBox; BMC / Redfish.', k: 'network monitoring nms solarwinds zabbix prtg librenms nagios datadog ipam infoblox bluecat netbox redfish ipmi bmc idrac ilo',
+  b: ul(['Operator network devices: SNMP v3 polling, syslog, LLDP for links; or integrate with their existing NMS to avoid double polling.',
+      'IPAM: import prefixes, VLANs and addresses (Infoblox / BlueCat / NetBox APIs or export).',
+      'Operator-owned servers: BMC via Redfish (HTTPS 443) for health, power and temperature. Tenant servers: never.']) },
+
+{ s: 'tools', id: 't-siem', t: 'Identity, SIEM and security tools', d: 'Entra ID / AD, Okta; Splunk, QRadar, Sentinel, Wazuh.', k: 'identity sso ad azure entra okta adfs siem splunk qradar sentinel wazuh soc security',
+  b: ul(['SSO through SAML 2.0 or OIDC (the platform uses Keycloak and federates with their IdP); roles mapped from their groups.',
+      'Security Ops normalises events to OCSF and stores them in ClickHouse; detections can be forwarded to their SIEM (syslog / HTTP) if their SOC stays the main console.',
+      'Ask: which SOC tool is the main console, and who triages datacenter events today.']) },
+
+/* ===== DATA ===== */
+{ s: 'data', id: 'd-overview', t: 'Onboarding data at a glance (in load order)', d: 'Load top to bottom: each layer hangs off the one above.', k: 'data onboarding load order import template sheets entities checklist',
+  b: '<p>The <b>Inventory import template</b> (Help & FAQ → Documents) has one sheet per entity, a field dictionary, lookups and summary checks. Order:</p>' +
+    tbl(['#', 'Data', 'Need', 'Usual source', 'Details'], [
+      ['1', 'Sites (address, tier, status, design MW)', P.core, 'Facilities / spreadsheet', see('d-sites', 'Sites')],
+      ['2', 'Floors, rooms / halls, cages, suites', P.core, 'DCIM / drawings', see('d-space', 'Space')],
+      ['3', 'Racks / cabinets (room, row, U, kW budget, owner tenant)', P.core, 'DCIM / spreadsheet', see('d-space', 'Space')],
+      ['4', 'Power plant: feeds, UPS, DG, ATS, PDUs, panels, circuits', P.core, 'SLD, EPMS, DCIM', see('d-power', 'Power')],
+      ['5', 'Cooling plant: CRAH / CRAC, chillers, CDUs, zones', P.core, 'BMS, drawings', see('d-cooling', 'Cooling')],
+      ['6', 'Tenants and contracts (cabinet, contracted kW, SLA)', P.core, 'CRM / billing', see('d-tenants', 'Tenants')],
+      ['7', 'Operator devices (MMR switches, routers, firewalls, servers)', P.rec, 'DCIM / NMS', see('d-devices', 'Devices')],
+      ['8', 'Cabling and cross-connects (panels, ODF, links)', P.rec, 'DCIM / spreadsheet', see('d-network', 'Network')],
+      ['9', 'People: on-call, escalation, roles', P.rec, 'HR / NOC', see('d-people', 'People')],
+      ['10', 'Access: doors, readers, badge types', P.rec, 'PACS', see('d-access', 'Access')],
+      ['11', 'Safety: fire zones, leak zones, inspections', P.opt, 'Facilities', see('d-safety', 'Safety')],
+      ['12', 'Lifecycle: warranty, support contracts, PM plan, spares', P.opt, 'Procurement / CMMS', see('d-lifecycle', 'Lifecycle')],
+      ['13', 'History: 12 months of alarms, incidents, meter data', P.opt, 'BMS / ITSM / EPMS', see('d-history', 'History')]]) +
+    tip('Core = needed for the pilot to show value. Recommended = needed for full operations. Optional = makes it richer.') },
+
+{ s: 'data', id: 'd-minimum', t: 'Minimum data for a pilot site', d: 'What a pilot can start with in two weeks.', k: 'minimum data pilot start quick mvp',
+  b: qs(['One site: address, tier, design and current IT MW', 'Floors and rooms, with room type (hall, MMR, plant)', 'Racks: id, room, row, position, kW budget, tenant (or "operator")',
+    'Single-line diagram + UPS list + feed A / B per rack', 'Cooling units per room', 'Tenants: name, segment, anchor yes / no, contact for notices',
+    'Contract per cabinet: product, contracted kW, monthly charge, SLA tier', 'Read-only access to the BMS / EPMS and UPS cards', 'Rack PDU list with IP (operator-owned)', 'Ten named users and their roles']) },
+
+{ s: 'data', id: 'd-sites', t: 'Sites', d: 'One row per datacenter.', k: 'site datacenter address tier status design capacity location',
+  b: tbl(['Field', 'Example', 'Need'], [['Site id', 'MH-DC-001', P.core], ['Name, address, city, state, country, lat / long', 'Mumbai DC1', P.core], ['Status', 'Live / building / planned', P.core],
+      ['Tier / design', 'Tier III, N+1 / 2N', P.core], ['Design IT MW, current IT MW', '12 / 8.4', P.core], ['Commissioning date', '2019-04', P.rec], ['Utility provider, tariff', '', P.rec], ['Site manager, NOC contact', '', P.rec]]) },
+
+{ s: 'data', id: 'd-space', t: 'Floors, rooms, cages and racks', d: 'The containment chain everything hangs off.', k: 'floor room hall cage suite rack cabinet row position u kw budget space',
+  b: tbl(['Entity', 'Key fields', 'Need'], [['Floor', 'Site, name, level', P.core], ['Room / hall', 'Floor, name, type (data hall, MMR, plant, office), area m²', P.core],
+      ['Cage / suite', 'Room, tenant, door / reader', P.rec], ['Rack / cabinet', 'Id, room, row, position, height U, width × depth, kW budget, owner (operator / tenant id), contracted kW, A / B PDUs', P.core],
+      ['Reserved space', 'Rack, U range or whole rack, holder, until', P.opt]]) +
+    tip('A floor plan (PDF / CAD) per hall lets us check row and position quickly.') },
+
+{ s: 'data', id: 'd-power', t: 'Power chain', d: 'Utility to outlet: feeds, UPS, distribution, PDUs.', k: 'power chain feed utility ups busway panel pdu circuit breaker outlet single line diagram sld',
+  b: tbl(['Entity', 'Key fields', 'Need'], [['Utility feed', 'Site, id, voltage, capacity kVA, A / B', P.core], ['UPS', 'Id, make / model, rating kVA / kW, modules, feeds, side (A / B), battery type, runtime min, card IP', P.core],
+      ['Generator', 'Id, rating, fuel capacity, burn rate, controller', P.core], ['ATS / switchgear', 'Id, sources, position', P.rec], ['Distribution', 'Busway / panel per room and side, fed by which UPS', P.core],
+      ['Rack PDU', 'Rack, side A / B, make / model, rating, IP, owner', P.core], ['Circuit', 'Panel, breaker, rating A, rack, tenant (for metered billing)', P.rec], ['Power connections', 'Device PSU → PDU outlet (operator devices)', P.opt]]) +
+    warn('If the single-line diagram and the spreadsheet disagree, the SLD wins; record the difference for the facilities team.') },
+
+{ s: 'data', id: 'd-cooling', t: 'Cooling', d: 'Units, zones and which racks they serve.', k: 'cooling crah crac chiller cdu zone liquid containment',
+  b: tbl(['Entity', 'Key fields', 'Need'], [['Cooling unit', 'Id, type (CRAH, CRAC, in-row, rear-door, CDU, chiller), room, capacity kW, BMS points', P.core], ['Zone', 'Room / floor, sensors, set points', P.rec],
+      ['Liquid loop', 'CDU, racks served, flow / supply temperature limits', P.opt], ['Containment', 'Per row: cold / hot aisle', P.opt]]) },
+
+{ s: 'data', id: 'd-tenants', t: 'Tenants, contracts and services', d: 'Who pays for what, where, with which SLA.', k: 'tenant customer contract service sla cross-connect remote hands monthly charge contracted kw',
+  b: tbl(['Entity', 'Key fields', 'Need'], [['Tenant', 'Id, name, segment, anchor flag, notice contacts (email, phone), account manager', P.core],
+      ['Contract line', 'Tenant, product (cabinet, cage, power, cross-connect, remote hands), location (rack / cage / circuit), quantity + unit, monthly charge, start / end', P.core],
+      ['SLA', 'Availability target, credit tiers, environment band, notice times', P.core], ['Cross-connect', 'A-end tenant / panel / port, Z-end, media, speed, order date', P.rec], ['Remote-hands bundle', 'Hours, used', P.opt]]) +
+    tip('Money stays in the customer\'s currency. The demo formats INR and USD; tell us their currency and billing cycle.') },
+
+{ s: 'data', id: 'd-devices', t: 'Operator devices', d: 'Equipment the operator owns and runs.', k: 'devices equipment switch router firewall server operator inventory serial model',
+  b: tbl(['Field', 'Need'], [['Hostname, role, make, model, serial', P.rec], ['Rack, U position, height', P.rec], ['Management IP, SNMP / Redfish access', P.rec], ['PSUs and their PDU outlets', P.opt], ['Install date, warranty end, support contract', P.opt]]) +
+    '<p>Tenant equipment is not listed device by device: each tenant cabinet is a "Tenant gear" block.</p>' },
+
+{ s: 'data', id: 'd-network', t: 'Cabling, panels and cross-connects', d: 'Physical paths through the MMR.', k: 'cabling patch panel odf trunk cross-connect mmr port link fibre',
+  b: tbl(['Entity', 'Key fields', 'Need'], [['Patch panel / ODF', 'Rack, id, ports, media', P.rec], ['Trunk cable', 'From panel, to panel, cores, route', P.opt],
+      ['Link / cross-connect', 'A device or panel port, Z device or panel port, media, speed, tenant / carrier', P.rec], ['Carrier', 'Name, entry point, ODF', P.opt]]) },
+
+{ s: 'data', id: 'd-people', t: 'People, roles and on-call', d: 'Who uses it and who gets paged.', k: 'people users roles on-call rota escalation shift',
+  b: tbl(['Entity', 'Key fields', 'Need'], [['User', 'Name, email (SSO), role (NOC, facilities, manager, security, sales, read-only), sites', P.rec], ['On-call rota', 'Region / site, role, week, day / night', P.rec], ['Escalation chain', 'Severity → who, after how many minutes', P.rec]]) },
+
+{ s: 'data', id: 'd-access', t: 'Access control data', d: 'Doors, readers, badges, events.', k: 'access door reader badge event visitor pacs',
+  b: tbl(['Entity', 'Key fields', 'Need'], [['Door / reader', 'Id, room / cage, in / out reader, mantrap', P.rec], ['Badge holder', 'Badge id, type, company / tenant, expiry (minimum personal data)', P.rec], ['Event', 'Time, door, badge, result, reason', P.rec], ['Visitor', 'Name, host, escort, in / out', P.opt]]) },
+
+{ s: 'data', id: 'd-safety', t: 'Fire, leak and safety', d: 'Fire zones, suppression, leak zones, inspections.', k: 'fire zone vesda suppression novec leak inspection safety',
+  b: tbl(['Entity', 'Key fields', 'Need'], [['Fire zone', 'Room, detection (VESDA / point), suppression agent, release mode, last inspection', P.opt], ['Leak zone', 'Under which units / racks, controller', P.opt]]) },
+
+{ s: 'data', id: 'd-lifecycle', t: 'Lifecycle, maintenance and spares', d: 'Warranty, support, PM, spares.', k: 'lifecycle warranty support contract end of life eol pm maintenance plan spares rma',
+  b: tbl(['Entity', 'Key fields', 'Need'], [['Support contract', 'Vendor, level, start / end, assets covered', P.opt], ['PM plan', 'Asset, task, interval, last done, next due', P.opt], ['Spares', 'Part, quantity, location', P.opt]]) },
+
+{ s: 'data', id: 'd-history', t: 'History for baselines', d: '12 months of what happened.', k: 'history baseline alarms incidents meter readings trend 12 months',
+  b: ul(['Incidents (ITSM export): id, opened, closed, severity, site, cause, tenants affected.', 'Alarms (BMS / NMS export): time, source, point, priority.', 'Energy (EPMS): monthly or 15-min kWh per feed / circuit.', 'SLA credits issued and why.']) +
+    '<p>History is optional but gives the "before" picture for the value review.</p>' },
+
+{ s: 'data', id: 'd-quality', t: 'Data quality checks we run', d: 'How we know the data is right before go-live.', k: 'data quality reconcile validation checks mismatch duplicates',
+  b: ul(['Counts per site match the customer\'s own report (racks, cabinets, tenants, circuits, contracted kW).', 'Every rack belongs to a room; every room to a floor; every floor to a site.',
+    'Every operator rack has A and B PDUs (or a recorded exception).', 'Σ contracted kW per room ≤ room capacity; flags oversold rooms.', 'No duplicate ids or serials; no U overlaps in a rack.',
+    'Every tenant contract line points at a real rack / cage / circuit.', 'Live telemetry arrives for every mapped point (no silent sources).']) +
+    tip('Share the mismatch list with named owners. Do not "fix" their data silently.') },
+
+{ s: 'data', id: 'd-format', t: 'Formats and how to send data', d: 'Files, transfer, personal data.', k: 'format csv excel xlsx sftp transfer secure personal data gdpr dpdp',
+  b: ul(['Preferred: the import template (.xlsx). Also fine: CSV per entity, DCIM / CMDB exports, API access.', 'Drawings: SLD and floor plans as PDF (or DWG).',
+    'Transfer: the customer\'s secure share or SFTP; never email files with personal data.', 'Personal data (badge holders, contacts): minimum fields only, agreed in the data protection review (GDPR / India DPDP Act / local rules).']) },
+
+/* ===== INTEGRATIONS ===== */
+{ s: 'integ', id: 'i-arch', t: 'How SynapseDC connects on site', d: 'Collector, read-only, outbound only.', k: 'architecture collector otel opentelemetry clickhouse outbound read-only edge gateway deployment',
+  b: ol(['A <b>collector</b> runs at each site (or campus) on the management / OT network: a VM or small appliance (indicative size 4 vCPU, 16 GB RAM, 200 GB disk; confirm with the product team).',
+      'It polls and listens <b>read-only</b>: BACnet, Modbus, SNMP v3, Redfish, syslog, vendor APIs.',
+      'It sends data <b>outbound only</b> over TLS to the platform (OpenTelemetry). No inbound connection from the internet to the site.',
+      'The platform stores telemetry and events in ClickHouse, builds the estate model and runs alarms, incidents and impact.',
+      'Business systems (ITSM, CRM, billing, PACS, DCIM) connect API to API from the platform, or by scheduled file.']) +
+    say('"Nothing we install can switch a breaker or change a set point. The collector only reads, and it only talks out."') },
+
+{ s: 'integ', id: 'i-protocols', t: 'Protocols and ports', d: 'What the firewall team will ask.', k: 'protocols ports firewall bacnet modbus snmp redfish ipmi opc ua syslog otlp https 47808 502 161 162 443 4840 514 6514 4317',
+  b: tbl(['Protocol', 'Port', 'Direction', 'Used for'], [['BACnet/IP', 'UDP 47808', 'Collector → BMS', 'BMS points, alarms (read-only device)'], ['Modbus TCP', 'TCP 502', 'Collector → meters, UPS, DG', 'Registers (read only)'],
+      ['SNMP v3', 'UDP 161 (poll), UDP 162 (traps)', 'Collector → device; device → collector', 'UPS cards, PDUs, network'], ['OPC UA', 'TCP 4840', 'Collector → server', 'SCADA / BMS (some vendors)'],
+      ['Redfish', 'TCP 443', 'Collector → BMC', 'Operator servers health, power'], ['Syslog', 'UDP 514 / TCP 6514 (TLS)', 'Devices / PACS → collector', 'Events, logs'],
+      ['Vendor REST API', 'TCP 443', 'Collector / platform → system', 'Niagara, EcoStruxure, PACS, DCIM, ITSM'], ['OTLP over TLS', 'TCP 443 or 4317', 'Collector → platform (outbound)', 'All collected data']]) },
+
+{ s: 'integ', id: 'i-security', t: 'Security posture: what we ask of the customer', d: 'Least privilege and segmentation.', k: 'security posture read-only least privilege segmentation credentials vault snmpv3 tls mfa',
+  b: ul(['Read-only accounts everywhere (BACnet read-only, Modbus read functions only, SNMP v3 authPriv read view, API read scopes).', 'Collector in the management / OT zone, behind their firewall; outbound TLS only.',
+    'Credentials stored in a vault; rotated on their schedule.', 'SSO with MFA for all users; roles least-privilege.', 'Tenant gear never polled.', 'Audit log of every user action and every record change.']) },
+
+{ s: 'integ', id: 'i-fw', t: 'Firewall request (template)', d: 'Copy, fill and send to their network team.', k: 'firewall request rule change template ports network team',
+  b: tpl(`Firewall change request — SynapseDC collector at <SITE>
+Requester: <name>  ·  Change window: <date>
+
+1. Collector VM: <hostname> / <IP> in VLAN <mgmt/OT>
+2. Collector → BMS <IP>        UDP 47808 (BACnet/IP)    read-only
+3. Collector → meters/UPS/DG   TCP 502 (Modbus TCP)     <IP list>
+4. Collector → UPS cards, PDUs UDP 161 (SNMP v3)        <IP ranges>
+5. Devices → Collector         UDP 162 (SNMP traps), TCP 6514 (syslog TLS)
+6. Collector → BMCs            TCP 443 (Redfish)        operator servers only
+7. Collector → platform        TCP 443 outbound (TLS)   <platform endpoint / proxy>
+No inbound rules from the internet are required.`) },
+
+{ s: 'integ', id: 'i-waves', t: 'Integration waves', d: 'Do them in this order; each wave stands on its own.', k: 'waves phases integration order plan roadmap',
+  b: tbl(['Wave', 'Systems', 'Unlocks'], [['0 · Data', 'Import template: sites, space, racks, power chain, tenants, contracts', 'The model, capacity, the 3D layout'],
+      ['1 · Telemetry', 'BMS / EPMS, UPS, PDUs, environment (read-only)', 'Live facilities, alarms, incidents, impact'], ['2 · Operations', 'ITSM, on-call, CMMS, change windows', 'Tickets in sync, change context, PM'],
+      ['3 · Commercial', 'CRM / billing export, metered energy export', 'Revenue impact, power billing, SLA credits'], ['4 · Security', 'PACS, CCTV events, network syslog, SSO groups', 'Access & security, Security Ops, audits'],
+      ['5 · Extend', 'DCIM / IPAM sync, operator network, BMCs', 'Cabling, IP, deeper root cause']]) },
+
+{ s: 'integ', id: 'i-servicenow', t: 'ServiceNow (and other ITSM) integration', d: 'Incidents, changes and CMDB in sync.', k: 'servicenow itsm integration incident change cmdb table api jira',
+  b: ul(['Incidents: SynapseDC creates or updates a ServiceNow incident (short description, CI, assignment group, priority from severity) and stores the ticket number; state changes flow back.',
+      'Changes: approved changes and their windows are read so alarms during a change are shown in context; DCIM edits can be tagged with a CR.',
+      'CMDB: agree one direction per class (sites / racks / devices). Usually SynapseDC → CMDB for physical CIs, or CMDB → SynapseDC if the CMDB is already good.',
+      'Needs: integration user, roles, test instance, field mapping workshop (1–2 h).']) },
+
+{ s: 'integ', id: 'i-billing', t: 'Metered power export for billing', d: 'Monthly kWh per tenant circuit.', k: 'billing metered power export kwh invoice tenant circuit monthly',
+  b: ul(['Per circuit (or per cabinet): kWh for the billing period, peak kW, contracted kW, overage, PUE factor if billed.', 'Format: CSV / SFTP or the billing system API, on day 1 of the month.',
+    'Each row traceable to the meter and the interval data, for disputes.']) +
+    warn('Revenue-grade billing needs revenue-grade meters. If they bill from PDU readings, agree the accuracy class with finance first.') },
+
+{ s: 'integ', id: 'i-sso', t: 'Single sign-on and roles', d: 'SAML / OIDC through their identity provider.', k: 'sso saml oidc keycloak entra azure ad okta roles groups mfa login',
+  b: ul(['Federate with their IdP (Entra ID, Okta, ADFS…) using SAML 2.0 or OIDC.', 'Map their groups to roles: NOC operator, facilities engineer, manager, security, commercial, read-only, admin.', 'Optional site scoping per group.', 'MFA enforced by their IdP.']) },
+
+{ s: 'integ', id: 'i-ready', t: 'Integration readiness checklist', d: 'Tick these before wave 1 starts.', k: 'readiness checklist prerequisites before start integration',
+  b: qs(['Collector VM provisioned on the management / OT network', 'Firewall rules approved and in place', 'Read-only BMS account and point list', 'SNMP v3 credentials for UPS cards and PDUs',
+    'Single-line diagram and floor plans', 'Import template filled for the site', 'SSO configured and test users working', 'ITSM test instance and integration user (if in scope)',
+    'Named owners for each system', 'Data protection review done (personal data in PACS, contacts)']) },
+
+/* ===== OBJECTIONS ===== */
+{ s: 'objections', id: 'o-dcim', t: '"We already have a DCIM."', d: 'Records vs live operations.', k: 'already have dcim objection sunbird nlyte',
+  b: say('"Great, that saves time: we import from it. Your DCIM tells you what is installed where. SynapseDC tells you, right now, what is going wrong, who it affects and what it costs. And it keeps the records current through change control, which is where most DCIM projects struggle."') + ul(['Ask how current their DCIM is (trust 1–5).', 'Offer to read from it and leave it as the record if they prefer.']) },
+{ s: 'objections', id: 'o-bms', t: '"Our BMS already shows the alarms."', d: 'Points vs business impact.', k: 'bms already alarms objection scada',
+  b: say('"It does, and it should keep doing it. A BMS tells you UPS-2 is on battery. It cannot tell you which 40 cabinets are on UPS-2, that three are anchor tenants, how long until their SLA tier changes, or what to do first. That is the layer we add."') },
+{ s: 'objections', id: 'o-write', t: '"Will you control or change our plant?"', d: 'No. Read-only by design.', k: 'control write plant safety risk read only objection',
+  b: say('"No. The collector is read-only on every protocol, and we can prove it: read-only accounts on your side, and no write function codes or set-point writes in our configuration. Your BMS stays the only system that controls the plant."') },
+{ s: 'objections', id: 'o-cloud', t: '"Our security team won\'t allow cloud / OT data leaving the site."', d: 'Outbound only, least privilege, deployment options.', k: 'security cloud saas on-prem deployment data residency objection ot',
+  b: ul(['Explain outbound-only TLS, read-only accounts, no inbound ports (' + see('i-arch', 'architecture') + ').', 'Offer a meeting with their security team and our ' + see('i-security', 'security posture') + '.',
+    'Data residency: confirm the hosting region; private or on-premise deployment options must be confirmed with the product team before you promise them.']) },
+{ s: 'objections', id: 'o-tenant', t: '"Our tenants won\'t like you monitoring them."', d: 'We monitor the building, not the tenants.', k: 'tenant privacy objection monitoring',
+  b: '<p>See ' + see('c-privacy', 'tenant equipment is opaque') + '. We read operator PDUs, sensors and doors, never tenant equipment.</p>' + say('"Your tenants get better service from it: you will know about a hot cabinet before they do."') },
+{ s: 'objections', id: 'o-time', t: '"How long does onboarding take?"', d: 'Pilot 6–10 weeks; waves of 4–12 weeks.', k: 'how long onboarding duration timeline time weeks',
+  b: ul(['Pilot site: 6–10 weeks, mostly waiting on access and firewall changes, not on us.', 'Following sites: 4–12 weeks per wave depending on data quality and BMS type.', 'The fastest lever is on their side: firewall approval and a filled import template.']) +
+    warn('Give ranges, not dates, until the site survey is done.') },
+{ s: 'objections', id: 'o-cost', t: '"What does it cost?"', d: 'Value first; pricing from the commercial team.', k: 'price cost pricing licence how much commercial objection',
+  b: say('"It depends on the number of sites, the MW and the modules. Before we talk price, let\'s agree the value: what one avoided outage or 200 kW of sold capacity is worth to you. Then our commercial team will put a proposal against it."') + '<p>Do not quote prices yourself. Use ' + see('value-metrics', 'value formulas') + '.</p>' },
+{ s: 'objections', id: 'o-data', t: '"Our data is a mess."', d: 'Normal. We start small and clean as we go.', k: 'data mess quality spreadsheet bad objection',
+  b: ul(['Almost every operator says this. Start with the ' + see('d-minimum', 'minimum data') + ' for one site.', 'Live telemetry reveals gaps faster than audits (a PDU reporting from the "wrong" rack).', 'The reconciliation list becomes their clean-up plan, with owners.']) },
+{ s: 'objections', id: 'o-ai', t: '"AI is hype."', d: 'Grounded, explainable, checkable.', k: 'ai hype skeptical llm trust objection',
+  b: say('"Agreed, a lot of it is. Ours shows its working: every cause it suggests points at the alarm, change or record behind it. If it can\'t point at evidence, it doesn\'t say it."') },
+{ s: 'objections', id: 'o-old', t: '"Our BMS is old / has no API."', d: 'Protocols usually still work.', k: 'old legacy bms no api integration objection',
+  b: ul(['Most BMS products from the last 20 years speak BACnet/IP or Modbus; that is enough.', 'Older plant often has SNMP or Modbus cards on UPS and meters directly.', 'Last resort: scheduled export, or gateways (BACnet / Modbus converters).']) },
+{ s: 'objections', id: 'o-small', t: '"We only have one or two sites."', d: 'Value still comes from impact and audits.', k: 'small one site few sites objection',
+  b: '<p>With few sites the value is less "estate view" and more: tenant impact, power billing, capacity to sell, audits and access. Lead with those.</p>' },
+{ s: 'objections', id: 'o-staff', t: '"My team has no time for another tool."', d: 'It replaces lookups, not adds them.', k: 'staff time busy another tool adoption objection',
+  b: say('"The goal is fewer screens, not more: the alarm, the tenants affected and the next step in one place, instead of the BMS, the spreadsheet and three phone calls."') + ul(['Ask what they open during an incident today and count the tools.', 'Keep training short: 2 hours per role.']) },
+{ s: 'objections', id: 'o-lock', t: '"What about lock-in and our data?"', d: 'Their data, exportable.', k: 'lock-in data ownership export portability objection',
+  b: ul(['The data is theirs; the import template layout is also the export layout.', 'Open protocols on the site side (BACnet, Modbus, SNMP, Redfish, syslog, OTel).', 'Contract terms on data return and deletion are a commercial / legal topic: route them there.']) },
+
+/* problems */
+{ s: 'objections', id: 'p-overpower', t: 'Problem: a tenant draws more than contracted', d: 'Find it, prove it, talk to them.', k: 'problem tenant over contracted power overage breaker trip',
+  b: ol(['Per-cabinet draw vs contracted kW shows who is over and since when.', 'Facilities → rack power lists cabinets over budget; DCIM floor plan Tenant colouring shows them on the plan.', 'Commercial gets a list with kW and money; ops sees breaker risk (both cords at high load).']) },
+{ s: 'objections', id: 'p-dispute', t: 'Problem: power bills are disputed', d: 'Traceable meter data.', k: 'problem power billing dispute invoice metered',
+  b: '<p>Per-circuit interval history, traceable to the meter, exported monthly (' + see('i-billing', 'billing export') + '). Disputes become a look-up, not an argument.</p>' },
+{ s: 'objections', id: 'p-stranded', t: 'Problem: we can\'t see sellable capacity', d: 'Space × power × cooling, minus reservations.', k: 'problem stranded capacity sellable',
+  b: '<p>See ' + see('c-capacity', 'selling capacity') + '. Show Capacity → Reservations and Power economics (idle contracted power).</p>' },
+{ s: 'objections', id: 'p-audit', t: 'Problem: an audit is coming', d: 'Evidence from live records.', k: 'problem audit evidence iso soc tenant audit coming',
+  b: ul(['Compliance: policies evaluated on the estate (dual-fed racks, cooling N+1, UPS autonomy, fire inspections, PM overdue, access) mapped to ISO 27001, ISO 22237, TIA-942, SOC 2 controls.', 'Access & security: access-rights review, exceptions, log retention.', 'A quick pilot win: pick one open audit finding and close it with evidence.']) },
+{ s: 'objections', id: 'p-ups', t: 'Problem: "a UPS went on battery last night"', d: 'The story that sells the platform.', k: 'problem ups battery outage power incident',
+  b: ol(['The alarm becomes an incident with scope (which site, which side).', 'The power path shows which busways, PDUs and cabinets are on that UPS.', 'Impact lists tenants and contracts; revenue impact shows credits at risk and the next tier.', 'Facilities shows ride-through: battery minutes, generator readiness, fuel hours.', 'The incident suggests causes and actions; on-call and customer notices are tracked.']) },
+{ s: 'objections', id: 'p-flood', t: 'Problem: alarm flood in the NOC', d: 'Scope, group, prioritise.', k: 'problem alarm flood noise too many alerts',
+  b: ul(['Alarms are scoped (site / edge / dependency) and downstream symptoms are folded under the cause.', 'Alarms group into incidents; severity follows impact.', 'During onboarding, tune the mapping with the NOC for a week (' + see('step7', 'Step 7') + ').']) },
+{ s: 'objections', id: 'p-xc', t: 'Problem: cross-connects take too long', d: 'Free ports and paths, orders tracked.', k: 'problem cross-connect delay slow order',
+  b: '<p>See ' + see('c-xc', 'cross-connects') + '. The lever: a live view of free MMR panel ports and the cable path, plus order tracking per tenant.</p>' },
+{ s: 'objections', id: 'p-pue', t: 'Problem: PUE is high, or nobody trusts it', d: 'Measured from the meters, per site.', k: 'problem pue efficiency energy carbon',
+  b: ul(['PUE = facility power ÷ IT power, from the feeds and UPS output.', 'Capacity → PUE & energy shows PUE, energy per day and CO₂ with the national grid factor.', 'Ask which meters they use today; differences usually come from where IT power is measured.']) },
+{ s: 'objections', id: 'p-sla', t: 'Problem: we keep paying SLA credits', d: 'See the cost while it can still be avoided.', k: 'problem sla credits penalty',
+  b: '<p>Revenue impact shows, per open issue, credits already locked in and the next tier step with time left. The NOC works the issue with the nearest cliff first.</p>' },
+
+/* ===== TEMPLATES ===== */
+{ s: 'templates', id: 'tp-agenda', t: 'First meeting agenda', d: '45–60 minutes.', k: 'agenda first meeting template',
+  b: tpl(`SynapseDC × <Customer> — introduction (60 min)
+1. Introductions and goals for today (5)
+2. SynapseDC in two minutes (5)
+3. Your estate and operations today (25)
+   – sites, tenants, growth
+   – how incidents are found and handled
+   – capacity, power billing, audits
+4. A short look at the platform (10)
+5. Next steps: tailored demo, who should join (10)`) },
+{ s: 'templates', id: 'tp-email1', t: 'Follow-up email after the first meeting', d: 'Send the same day.', k: 'email follow-up template after meeting',
+  b: tpl(`Subject: SynapseDC — thank you, and next steps
+
+Hi <name>,
+
+Thank you for your time today. What we heard:
+• <pain 1, in their words>
+• <pain 2>
+• <pain 3>
+
+Next step: a 60-minute demo built around these three, on <date>.
+It would help to have <facilities lead>, <NOC manager> and <commercial lead> join.
+
+To make it specific, could you share (only if easy):
+• the list of systems your team uses daily (BMS, DCIM, ticketing, access control)
+• one recent incident report you're comfortable sharing
+
+Best regards,
+<you>`) },
+{ s: 'templates', id: 'tp-data', t: 'Data request letter', d: 'For the pilot site.', k: 'data request letter email template pilot import',
+  b: tpl(`Subject: SynapseDC pilot — data and access for <SITE>
+
+To start the pilot we need the following by <date>:
+
+Data (import template attached, or your own exports)
+1. Site, floors, rooms / halls, cages
+2. Racks / cabinets with room, row, kW budget and tenant
+3. Single-line diagram (PDF), UPS / generator / PDU list
+4. Cooling units per room
+5. Tenants and contract lines per cabinet (product, contracted kW, monthly charge, SLA)
+
+Access (read-only)
+6. A VM for the collector on the management network (4 vCPU, 16 GB, 200 GB)
+7. BMS read-only account + point list; SNMP v3 for UPS cards and PDUs
+8. Firewall rules (request attached)
+9. SSO: identity provider details and 10 pilot users with roles
+
+Please send files through <secure share>, not email.`) },
+{ s: 'templates', id: 'tp-map', t: 'Mutual action plan', d: 'Who does what by when, both sides.', k: 'mutual action plan map template timeline',
+  b: tbl(['#', 'Action', 'Owner (side)', 'Due', 'Status'], [['1', 'Demo to operations and commercial', 'SynapseDC', '', ''], ['2', 'Discovery workshops A, B, C', 'Both', '', ''], ['3', 'Site survey at pilot site', 'Both', '', ''],
+    ['4', 'Security questionnaire returned', 'SynapseDC', '', ''], ['5', 'Proposal and success criteria agreed', 'Both', '', ''], ['6', 'Collector VM + firewall', 'Customer', '', ''], ['7', 'Import template filled', 'Customer', '', ''],
+    ['8', 'Pilot live', 'SynapseDC', '', ''], ['9', 'Pilot read-out', 'Both', '', ''], ['10', 'Decision', 'Customer', '', '']]) },
+{ s: 'templates', id: 'tp-raci', t: 'RACI for onboarding', d: 'Responsible, Accountable, Consulted, Informed.', k: 'raci roles responsibilities onboarding template',
+  b: tbl(['Activity', 'Customer ops', 'Customer IT / security', 'Customer facilities', 'SynapseDC'], [['Import template', 'A', 'C', 'R', 'C'], ['Collector VM and firewall', 'I', 'A / R', 'C', 'C'], ['BMS / EPMS access', 'I', 'C', 'A / R', 'C'],
+    ['Telemetry mapping', 'C', 'I', 'C', 'A / R'], ['ITSM integration', 'C', 'A', 'I', 'R'], ['Reconciliation', 'A', 'I', 'R', 'R'], ['Training', 'A', 'I', 'C', 'R'], ['Go-live sign-off', 'A', 'C', 'C', 'R']]) },
+{ s: 'templates', id: 'tp-success', t: 'Pilot success criteria', d: 'Agree these before week 1.', k: 'pilot success criteria kpi measure template poc',
+  b: tbl(['Criterion', 'Measure', 'Target (agree)'], [['Data reconciled', 'Racks, tenants, contracted kW match their records', '100% or listed exceptions'], ['Telemetry live', 'Mapped points reporting', '≥ 95%'],
+    ['Impact in minutes', 'Time from alarm to "which tenants are affected"', '< 5 min (vs today)'], ['Capacity answer', 'Time to answer "can I sell X kW in hall Y?"', 'Same day'],
+    ['Over-contract visibility', 'Cabinets over contracted kW identified', 'All, with kW'], ['Adoption', 'Named users active weekly', '≥ 80%'], ['One audit item', 'Evidence produced from the platform', 'Accepted by auditor / CISO']]) },
+
+/* ===== GLOSSARY ===== */
+...[
+  ['A / B feeds', 'Two independent power paths to a cabinet; losing one should not drop the load.'], ['All-in power', 'Power included in the cabinet price up to a limit.'],
+  ['Anchor tenant', 'A large, strategic tenant whose SLA drives priorities.'], ['ASHRAE A1', 'Guideline for IT inlet air: recommended 18–27 °C.'], ['ATS / STS', 'Automatic / static transfer switch between power sources.'],
+  ['BACnet', 'Building automation protocol most BMS speak (BACnet/IP on UDP 47808).'], ['BMS', 'Building management system: monitors and controls plant.'], ['Busway', 'Overhead power distribution in a hall that racks tap into.'],
+  ['Cage', 'Fenced, access-controlled area holding a tenant\'s cabinets.'], ['CDU', 'Coolant distribution unit for liquid cooling.'], ['CMDB', 'Configuration management database in the ITSM.'],
+  ['Committed kW', 'Power reserved and paid for by a tenant, used or not.'], ['CRAH / CRAC', 'Computer room air handler (chilled water) / air conditioner (DX).'], ['Cross-connect', 'A physical link between two parties through the meet-me room, sold per link.'],
+  ['DCIM', 'Datacenter infrastructure management: records of space, assets, power and cabling.'], ['EPMS', 'Electrical power monitoring system.'], ['IST', 'Integrated systems test, the last commissioning level (L5).'],
+  ['MMR', 'Meet-me room, where carriers and tenants interconnect.'], ['Modbus', 'Simple industrial protocol used by meters, UPS and DG controllers (TCP 502).'], ['MTTR', 'Mean time to resolve an incident.'],
+  ['N+1 / 2N', 'Redundancy: one spare unit / a full duplicate system.'], ['OCSF', 'Open Cybersecurity Schema Framework, the event format Security Ops uses.'], ['ODF', 'Optical distribution frame: fibre patching panel.'],
+  ['PACS', 'Physical access control system (badges, doors).'], ['PDU', 'Power distribution unit in the rack (metered, switched, per-outlet).'], ['PUE', 'Power usage effectiveness = total facility power ÷ IT power.'],
+  ['Redfish', 'REST standard for server BMC management (replaces IPMI).'], ['Remote hands', 'On-site staff doing physical tasks for tenants.'], ['SLA credit', 'Refund owed to a tenant when an SLA is missed.'],
+  ['SLD', 'Single-line diagram of the electrical system.'], ['SNMP v3', 'Network management protocol with authentication and encryption.'], ['SPOF', 'Single point of failure.'],
+  ['Stranded capacity', 'Capacity built or paid for that cannot be sold or used.'], ['Take-or-pay', 'Utility contract floor: pay for a minimum demand even if unused.'], ['Tier (Uptime / TIA-942)', 'Rating of a site\'s redundancy and maintainability (I–IV).'],
+  ['Wholesale colocation', 'Selling whole suites or MW blocks to large tenants.']
+].map(([t, b], i) => ({ s: 'glossary', id: 'g' + i, t, b, k: '' }))
+];
+
+
+/* ---------- app ---------- */
+const $ = s => document.querySelector(s);
+const main = $('#main'), qIn = $('#q');
+const params = new URLSearchParams(location.search);
+if (params.get('embed') === '1') document.documentElement.dataset.theme = 'light';
+let framed = false; try { framed = window.self !== window.top; } catch { framed = true; }
+if (framed || params.get('embed') === '1') document.body.classList.add('embed');
+const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+let tab = 'start', allOpen = false;
+
+const SYN = [
+  ['bms', 'building management system scada'], ['epms', 'power monitoring meter energy'], ['dcim', 'inventory rack space asset'],
+  ['itsm', 'servicenow ticket incident change jira'], ['servicenow', 'itsm ticket cmdb'], ['pacs', 'access control badge door'],
+  ['badge', 'access control pacs door'], ['cctv', 'vms camera video'], ['vms', 'cctv camera video'], ['ups', 'battery power backup'],
+  ['dg', 'generator diesel genset'], ['generator', 'dg diesel genset'], ['crah', 'cooling crac air'], ['cooling', 'crah crac chiller cdu temperature'],
+  ['pdu', 'rack power outlet circuit'], ['power', 'kw energy pdu ups circuit'], ['billing', 'invoice metered power kwh revenue'],
+  ['invoice', 'billing metered'], ['sla', 'credit availability uptime'], ['credit', 'sla rebate'], ['audit', 'compliance iso soc evidence'],
+  ['compliance', 'audit iso soc pci tia'], ['tenant', 'customer colocation cage cabinet'], ['customer', 'tenant'], ['cage', 'tenant suite cabinet'],
+  ['xc', 'cross-connect'], ['crossconnect', 'cross-connect'], ['cross', 'cross-connect mmr fibre'], ['mmr', 'meet-me room cross-connect'],
+  ['firewall', 'ports network rules segmentation'], ['ports', 'firewall protocol'], ['sso', 'identity login saml oidc keycloak'],
+  ['login', 'sso identity'], ['ai', 'opstral sentinel rca recommendation'], ['price', 'cost commercial pricing'], ['cost', 'price commercial value roi'],
+  ['roi', 'value business case'], ['capacity', 'stranded space power sellable forecast'], ['stranded', 'capacity idle sellable'],
+  ['pue', 'efficiency energy'], ['alarm', 'alert noise flood'], ['alert', 'alarm'], ['noise', 'alarm flood'], ['data', 'import template onboarding'],
+  ['onboard', 'onboarding data import'], ['onboarding', 'data import integration'], ['pilot', 'poc proof'], ['poc', 'pilot proof'],
+  ['security', 'cyber soc access secops'], ['siem', 'security splunk wazuh log'], ['bacnet', 'bms protocol'], ['modbus', 'protocol meter ups'],
+  ['snmp', 'protocol pdu ups network'], ['redfish', 'bmc server ipmi'], ['bmc', 'redfish ipmi server'], ['remote', 'remote hands'],
+  ['hands', 'remote hands smart hands'], ['spreadsheet', 'excel dcim data'], ['excel', 'spreadsheet'], ['gpu', 'ai liquid high density'],
+  ['liquid', 'cdu gpu high density'], ['objection', 'concern pushback'], ['email', 'template follow-up'], ['agenda', 'meeting template'],
+  ['question', 'discovery ask'], ['discovery', 'questions workshop'], ['demo', 'show screens'], ['privacy', 'tenant data gdpr dpdp'],
+  ['cloud', 'hosting saas on-prem deployment'], ['onprem', 'deployment hosting'], ['maintenance', 'pm cmms work order'], ['cmms', 'maintenance maximo'],
+  ['outage', 'incident downtime'], ['downtime', 'incident outage sla'], ['incident', 'outage ticket'], ['contract', 'contracted kw tenant'],
+  ['kw', 'power contracted'], ['heat', 'cooling temperature hot'], ['temperature', 'cooling heat ashrae'], ['fire', 'vesda suppression safety'],
+  ['leak', 'water safety'], ['stakeholder', 'decision buyer champion'], ['budget', 'decision commercial'], ['champion', 'stakeholder']
+];
+const SYNMAP = new Map(SYN);
+const norm = s => s.toLowerCase().replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/g, ' ');
+const STOP = new Set('a an the of to and or in on for is are how what do we our i my it with by at be does can should which who when why their they this that from as into'.split(' '));
+for (const e of E) { e._t = norm(e.t); e._k = norm((e.k || '') + ' ' + (e.d || '')); e._b = norm(e.b); }
+
+function terms(q) {
+  const base = norm(q).split(/[^a-z0-9+\-]+/).filter(w => w && !STOP.has(w));
+  return base.map(w => ({ w, alt: (SYNMAP.get(w.replace(/-/g, '')) || '').split(' ').filter(Boolean) }));
+}
+function score(e, ts, phrase) {
+  let s = 0, hit = 0;
+  if (phrase.length > 3) { if (e._t.includes(phrase)) s += 30; if (e._k.includes(phrase)) s += 15; if (e._b.includes(phrase)) s += 8; }
+  for (const { w, alt } of ts) {
+    let m = 0;
+    if (e._t.includes(w)) m += 10; if (e._k.includes(w)) m += 6;
+    const c = e._b.split(w).length - 1; if (c) m += Math.min(6, 1 + c);
+    if (!m) for (const a of alt) { if (e._t.includes(a)) m += 4; else if (e._k.includes(a)) m += 3; else if (e._b.includes(a)) m += 1; }
+    if (m) hit++; s += m;
+  }
+  if (ts.length > 1) s *= (hit / ts.length) ** 2;
+  return s;
+}
+function highlight(html, words) {
+  if (!words.length) return html;
+  const re = new RegExp('(' + words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'gi');
+  return html.split(/(<[^>]+>)/).map(p => p.startsWith('<') ? p : p.replace(re, '<mark>$1</mark>')).join('');
+}
+
+function entryHtml(e, open, words = []) {
+  const sec = SECTIONS.find(s => s.id === e.s);
+  return `<details class="entry" id="e-${e.id}" data-id="${e.id}"${open ? ' open' : ''}>
+    <summary><span class="t">${highlight(e.t, words)}</span>${e.d ? `<span class="d">${highlight(e.d, words)}</span>` : ''}<span class="tag">${sec ? sec.short : ''}</span></summary>
+    <div class="body">${highlight(e.b, words)}<div class="foot"><button class="btn" data-copy="${e.id}">Copy text</button><button class="btn" data-link="${e.id}">Copy link</button></div></div>
+  </details>`;
+}
+
+function renderTabs() {
+  $('#tabs').innerHTML = SECTIONS.map(s => {
+    const n = E.filter(e => e.s === s.id).length;
+    return `<button class="tab" role="tab" data-tab="${s.id}" aria-selected="${s.id === tab && !qIn.value.trim()}">${s.label}${n && s.id !== 'start' ? `<span class="n">${n}</span>` : ''}</button>`;
+  }).join('');
+}
+
+function renderStart() {
+  const flow = E.filter(e => e.s === 'journey' && e.step != null);
+  main.innerHTML = `
+  <div class="hero">
+    <div class="panel">
+      <h3>Search by problem</h3>
+      <div class="sub">What the customer just said, or what you need to answer. Click one, or type your own.</div>
+      <div class="chips">${PROBLEMS.map(p => `<button class="chip" data-q="${p[1]}">${p[0]}</button>`).join('')}</div>
+    </div>
+    <div class="panel">
+      <h3>Before your next meeting</h3>
+      <div class="sub">The five things to have ready.</div>
+      ${ol(['Read the customer: sites, MW, tenants, certifications, news (' + see('step0', 'Step 0') + ').', 'Have the 30-second pitch ready (' + see('elevator', 'pitch') + ').',
+        'Bring the ten opening questions (' + see('q-first10', 'first ten') + ').', 'Open the colocation demo path (' + see('c-demo', 'demo script') + ').',
+        'Know the next step you will ask for (' + see('step1', 'Step 1 close') + ').'])}
+    </div>
+  </div>
+  <div class="sec-head"><div><h2>The engagement, step by step</h2><p>Ten steps from first research to expansion. Each step lists its goal, who should attend, what to bring and what you leave with.</p></div></div>
+  <div class="flow">${flow.map(e => `<button data-open="${e.id}"><span class="k">STEP ${e.step}</span><span class="v">${e.short}</span><span class="w">${e.d}</span></button>`).join('')}</div>
+  <div class="sec-head"><div><h2>Sections</h2></div></div>
+  <div class="jump">${SECTIONS.filter(s => s.id !== 'start').map(s => `<button data-tab="${s.id}"><b>${s.label}</b><span>${s.blurb}</span></button>`).join('')}</div>`;
+}
+
+function renderSection(id) {
+  const s = SECTIONS.find(x => x.id === id);
+  const list = E.filter(e => e.s === id);
+  if (id === 'glossary') {
+    main.innerHTML = `<div class="sec-head"><div><h2>${s.label}</h2><p>${s.blurb}</p></div></div><div class="gl">${list.map(e => `<div class="g" id="e-${e.id}"><b>${e.t}</b><span>${e.b}</span></div>`).join('')}</div>`;
+    return;
+  }
+  main.innerHTML = `<div class="sec-head"><div><h2>${s.label}</h2><p>${s.blurb}</p></div>
+    <div class="sec-tools"><button class="btn" data-copysec="${id}">Copy section</button></div></div>` + list.map(e => entryHtml(e, allOpen)).join('');
+  restoreChecks();
+}
+
+function renderSearch(q) {
+  const ts = terms(q), phrase = norm(q).trim();
+  const words = [...new Set(ts.map(t => t.w).filter(w => w.length > 1))];
+  const ranked = E.map(e => ({ e, s: score(e, ts, phrase) })).filter(x => x.s > 2).sort((a, b) => b.s - a.s);
+  const top = ranked.slice(0, 30);
+  const gl = top.filter(x => x.e.s === 'glossary'), rest = top.filter(x => x.e.s !== 'glossary');
+  main.innerHTML = `<div class="res-head"><div><h2>${ranked.length ? `${ranked.length} answer${ranked.length > 1 ? 's' : ''} for “${q.replace(/</g, '&lt;')}”` : 'No direct match'}</h2>
+      <div class="sub">${ranked.length ? 'Best match first. The first three are open; click any other to open it.' : 'Try a shorter word, a product name (ServiceNow, Schneider, Lenel), or one of the problems below.'}</div></div></div>
+    ${gl.length ? `<div class="gl" style="margin-bottom:12px">${gl.map(x => `<div class="g"><b>${highlight(x.e.t, words)}</b><span>${highlight(x.e.b, words)}</span></div>`).join('')}</div>` : ''}
+    ${rest.map((x, i) => entryHtml(x.e, i < 3 || allOpen, words)).join('')}
+    ${ranked.length ? '' : `<div class="empty"><div class="chips" style="justify-content:center">${PROBLEMS.slice(0, 12).map(p => `<button class="chip" data-q="${p[1]}">${p[0]}</button>`).join('')}</div></div>`}`;
+  restoreChecks();
+}
+
+function render() {
+  const q = qIn.value.trim();
+  $('#clr').hidden = !q;
+  renderTabs();
+  if (q) renderSearch(q); else if (tab === 'start') renderStart(); else renderSection(tab);
+}
+
+function openEntry(id) {
+  const e = E.find(x => x.id === id); if (!e) return;
+  qIn.value = ''; tab = e.s; render();
+  const el = document.getElementById('e-' + id);
+  if (el) { if (el.tagName === 'DETAILS') el.open = true; el.scrollIntoView({ block: 'start' }); }
+  history.replaceState(null, '', '#e-' + id);
+}
+function setTab(id) { qIn.value = ''; tab = id; render(); window.scrollTo(0, 0); history.replaceState(null, '', '#' + id); }
+
+/* checkbox memory: key = entry id + index */
+function restoreChecks() {
+  main.querySelectorAll('.entry').forEach(d => d.querySelectorAll('.qs input').forEach((c, i) => {
+    const k = `dco.cg.${d.dataset.id}.${i}`; c.checked = store.get(k) === '1';
+    c.onchange = () => store.set(k, c.checked ? '1' : '0');
+  }));
+}
+function textOf(e) { const d = document.createElement('div'); d.innerHTML = e.b.replace(/<li>/g, '<li>• ').replace(/<\/(li|p|h4|tr|div)>/g, '\n').replace(/<\/t[dh]>/g, ' | '); return e.t + '\n\n' + d.textContent.replace(/\n{3,}/g, '\n\n').trim(); }
+function copy(text, btn) {
+  const done = () => { const o = btn.textContent; btn.textContent = 'Copied'; setTimeout(() => btn.textContent = o, 1200); };
+  if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, () => {}); else { const t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); done(); } catch {} t.remove(); }
+}
+
+document.addEventListener('click', ev => {
+  const t = ev.target.closest('[data-tab],[data-open],[data-q],[data-copy],[data-link],[data-copysec]'); if (!t) return;
+  if (t.dataset.tab) setTab(t.dataset.tab);
+  else if (t.dataset.open) { ev.preventDefault(); openEntry(t.dataset.open); }
+  else if (t.dataset.q) { qIn.value = t.dataset.q; render(); window.scrollTo(0, 0); }
+  else if (t.dataset.copy) copy(textOf(E.find(e => e.id === t.dataset.copy)), t);
+  else if (t.dataset.link) { const u = new URL(location.href); u.search = params.get('embed') ? '' : u.search; u.hash = 'e-' + t.dataset.link; copy(u.href, t); }
+  else if (t.dataset.copysec) copy(E.filter(e => e.s === t.dataset.copysec).map(textOf).join('\n\n———\n\n'), t);
+});
+let timer; qIn.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { render(); const u = new URL(location.href); qIn.value.trim() ? u.searchParams.set('q', qIn.value.trim()) : u.searchParams.delete('q'); history.replaceState(null, '', u); }, 120); });
+$('#clr').onclick = () => { qIn.value = ''; render(); qIn.focus(); };
+$('#expand').onclick = () => { allOpen = !allOpen; $('#expand').textContent = allOpen ? 'Collapse all' : 'Expand all'; main.querySelectorAll('details.entry').forEach(d => d.open = allOpen); };
+$('#print').onclick = () => { main.querySelectorAll('details.entry').forEach(d => d.open = true); window.print(); };
+document.addEventListener('keydown', ev => { if (ev.key === '/' && document.activeElement !== qIn) { ev.preventDefault(); qIn.focus(); } if (ev.key === 'Escape' && document.activeElement === qIn) { qIn.value = ''; render(); } });
+
+function fromHash() {
+  const hsh = decodeURIComponent(location.hash.slice(1));
+  if (hsh.startsWith('e-')) return openEntry(hsh.slice(2));
+  if (SECTIONS.some(s => s.id === hsh)) { tab = hsh; }
+  render();
+}
+window.addEventListener('hashchange', fromHash);
+if (params.get('q')) qIn.value = params.get('q');
+fromHash();
+</script>
+</body>
+</html>
