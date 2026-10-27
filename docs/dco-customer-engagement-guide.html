@@ -63,6 +63,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 .tab { border: 0; background: none; padding: 9px 10px 10px; font-family: var(--f-display); font-size: 13px; color: var(--fg-2); border-bottom: 2px solid transparent; white-space: nowrap; }
 .tab:hover { color: var(--accent-ink); }
 .tab[aria-selected="true"] { color: var(--accent-ink); border-bottom-color: var(--accent); font-weight: 500; }
+.tab.home { display: grid; place-items: center; padding: 9px 10px 10px; }
 .tab .n { font-family: var(--f-body); font-size: 11px; color: var(--muted); margin-left: 4px; }
 
 /* problem chips */
@@ -999,6 +1000,9 @@ Please send files through <secure share>, not email.`) },
 const $ = s => document.querySelector(s);
 const main = $('#main'), qIn = $('#q');
 const params = new URLSearchParams(location.search);
+/* Start and Journey have no tab (user, 27-Oct-2026): the overview holds the problem chips, the step cards and every journey step in full */
+const HIDDEN_TABS = new Set(['start', 'journey']);
+const tabOf = id => HIDDEN_TABS.has(id) ? 'start' : id;
 if (params.get('embed') === '1') document.documentElement.dataset.theme = 'light';
 let framed = false; try { framed = window.self !== window.top; } catch { framed = true; }
 if (framed || params.get('embed') === '1') document.body.classList.add('embed');
@@ -1066,7 +1070,8 @@ function entryHtml(e, open, words = []) {
 }
 
 function renderTabs() {
-  $('#tabs').innerHTML = SECTIONS.map(s => {
+  const home = `<button class="tab home" data-tab="start" aria-label="Overview" title="Overview" aria-selected="${tab === 'start' && !qIn.value.trim()}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></button>`;
+  $('#tabs').innerHTML = home + SECTIONS.filter(s => !HIDDEN_TABS.has(s.id)).map(s => {
     const n = E.filter(e => e.s === s.id).length;
     return `<button class="tab" role="tab" data-tab="${s.id}" aria-selected="${s.id === tab && !qIn.value.trim()}">${s.label}${n && s.id !== 'start' ? `<span class="n">${n}</span>` : ''}</button>`;
   }).join('');
@@ -1091,8 +1096,11 @@ function renderStart() {
   </div>
   <div class="sec-head"><div><h2>The engagement, step by step</h2><p>Ten steps from first research to expansion. Each step lists its goal, who should attend, what to bring and what you leave with.</p></div></div>
   <div class="flow">${flow.map(e => `<button data-open="${e.id}"><span class="k">STEP ${e.step}</span><span class="v">${e.short}</span><span class="w">${e.d}</span></button>`).join('')}</div>
+  <div class="sec-head" id="journey"><div><h2>Every step in detail</h2><p>${SECTIONS.find(s => s.id === 'journey').blurb}</p></div>
+    <div class="sec-tools"><button class="btn" data-copysec="journey">Copy section</button></div></div>
+  ${E.filter(e => e.s === 'journey').map(e => entryHtml(e, allOpen)).join('')}
   <div class="sec-head"><div><h2>Sections</h2></div></div>
-  <div class="jump">${SECTIONS.filter(s => s.id !== 'start').map(s => `<button data-tab="${s.id}"><b>${s.label}</b><span>${s.blurb}</span></button>`).join('')}</div>`;
+  <div class="jump">${SECTIONS.filter(s => !HIDDEN_TABS.has(s.id)).map(s => `<button data-tab="${s.id}"><b>${s.label}</b><span>${s.blurb}</span></button>`).join('')}</div>`;
 }
 
 function renderSection(id) {
@@ -1125,17 +1133,17 @@ function render() {
   const q = qIn.value.trim();
   $('#clr').hidden = !q;
   renderTabs();
-  if (q) renderSearch(q); else if (tab === 'start') renderStart(); else renderSection(tab);
+  if (q) renderSearch(q); else if (tab === 'start') { renderStart(); restoreChecks(); } else renderSection(tab);
 }
 
 function openEntry(id) {
   const e = E.find(x => x.id === id); if (!e) return;
-  qIn.value = ''; tab = e.s; render();
+  qIn.value = ''; tab = tabOf(e.s); render();
   const el = document.getElementById('e-' + id);
   if (el) { if (el.tagName === 'DETAILS') el.open = true; el.scrollIntoView({ block: 'start' }); }
   history.replaceState(null, '', '#e-' + id);
 }
-function setTab(id) { qIn.value = ''; tab = id; render(); window.scrollTo(0, 0); history.replaceState(null, '', '#' + id); }
+function setTab(id) { qIn.value = ''; tab = tabOf(id); render(); window.scrollTo(0, 0); history.replaceState(null, '', '#' + id); }
 
 /* checkbox memory: key = entry id + index */
 function restoreChecks() {
@@ -1168,8 +1176,9 @@ document.addEventListener('keydown', ev => { if (ev.key === '/' && document.acti
 function fromHash() {
   const hsh = decodeURIComponent(location.hash.slice(1));
   if (hsh.startsWith('e-')) return openEntry(hsh.slice(2));
-  if (SECTIONS.some(s => s.id === hsh)) { tab = hsh; }
+  if (SECTIONS.some(s => s.id === hsh)) { tab = tabOf(hsh); }
   render();
+  if (hsh === 'journey') document.getElementById('journey')?.scrollIntoView({ block: 'start' });
 }
 window.addEventListener('hashchange', fromHash);
 if (params.get('q')) qIn.value = params.get('q');

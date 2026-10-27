@@ -862,7 +862,7 @@ JSON (Download / Import); a shared copy runs on claude.ai (artifact JG6dwedyHcwM
 
 ## Customer engagement guide (27-Oct-2026, user: "a document to interact with the customer … colocation as example … searchable")
 `docs/dco-customer-engagement-guide.html` (served at `/customer-guide.html`; copy to `app/public/` after editing), in Help & FAQ → Documents. Content = one
-table `E` (section, title, one-line, keywords, body) with sections journey (steps 0–9) · pitch · colo · discovery (checkbox question lists, remembered
+table `E` (section, title, one-line, keywords, body) with sections journey (steps 0–9; no tab: it sits on the overview, reached by the home icon, as does Start) · pitch · colo · discovery (checkbox question lists, remembered
 per browser) · tools · data · integ · objections (+ problems) · templates · glossary; search ranks by title / keywords / text with a synonym list
 (`SYN`), `?q=` and `#e-<id>` deep links, Copy text / Copy link / Print. Claims must stay within the product; anything else is written "to discuss".
 
