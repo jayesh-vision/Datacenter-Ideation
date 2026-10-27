@@ -864,7 +864,10 @@ JSON (Download / Import); a shared copy runs on claude.ai (artifact JG6dwedyHcwM
 `docs/dco-customer-engagement-guide.html` (served at `/customer-guide.html`; copy to `app/public/` after editing), in Help & FAQ → Documents. Content = one
 table `E` (section, title, one-line, keywords, body) with sections journey (steps 0–9; no tab: it sits on the overview, reached by the home icon, as does Start) · pitch · colo · discovery (checkbox question lists, remembered
 per browser) · tools · data · integ · objections (+ problems) · templates · glossary; search ranks by title / keywords / text with a synonym list
-(`SYN`), `?q=` and `#e-<id>` deep links, Copy text / Copy link / Print. Claims must stay within the product; anything else is written "to discuss".
+(`SYN`), `?q=` and `#e-<id>` deep links, Copy text / Copy link / Print. Claims must stay within the product; anything else is written "to discuss". Also framed as Help & FAQ tab **Customer guide** (`?tab=customer`, embed mode).
+
+## Interface specification (27-Oct-2026, user: "technical doc for how our system interacts with northbound and southbound systems")
+`docs/dco-interface-spec.html` (served at `/interface-spec.html`; copy to `app/public/` after editing), Help & FAQ → Documents (`doc=interfaces`). Target design: register NB-01…12 (REST v1 from api/index.ts paths, CloudEvents webhooks / Kafka, ITSM, paging, BSS, export, SIEM OCSF, embed, tenant API) + east–west platform modules + southbound INT-01…28 from the integration guide (collector, uplink, sources, intervals, records, normalisation), ports, security, NFRs. Sections are `<section data-grp data-k>`; search filters + highlights, `?q=`, `#id`.
 
 ## Power economics (21-Oct-2026, user: "build the power economics screens" after reviewing the neocloud pitch deck)
 Read model `mock/power-econ.ts` (derived per data version and scope, server `powerEconomics(dcId?)`, API `getPowerEconomics`, types `SitePowerEcon ·
