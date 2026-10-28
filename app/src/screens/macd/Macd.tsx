@@ -56,7 +56,7 @@ export function Macd() {
   const TABS: { id: MacdTab; label: string; count?: number }[] = [{ id: 'requests', label: 'List', count: v.requests.length }, { id: 'board', label: 'Board', count: open.length }];
   const sites = [...new Set(all.requests.map(r => r.dcId))].sort();
   return (
-    <div className="page dcim macd">
+    <div className="page dcim macd head-1line">
       <PageHead {...subHead('macd', tab, { title: 'MACD', sub: 'Move, add, change and disconnect requests in the datacenter' })}
         actions={<>
           <span className="so-live"><i className="live-dot" />{open.length} open · {v.metrics.breached} past SLA</span>

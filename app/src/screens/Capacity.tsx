@@ -52,7 +52,7 @@ export function Capacity() {
   const head = subHead('capacity', tab, { title: 'Capacity', sub: `Power, cooling, space, ports and bandwidth headroom across ${live.length} live datacenters, forecast against the 85% warning line, with the plans that will change it.` });
 
   return (
-    <div className="page">
+    <div className="page head-1line">
       <PageHead title={head.title} sub={`${head.sub}${dc ? ` Scope: ${dc}.` : ''}`}
         actions={<>
           <select className="select" value={dc} onChange={e => set('dc', e.target.value)} aria-label="Datacenter"><option value="">All data centers ({live.length})</option>{live.map(d => <option key={d.id} value={d.id}>{d.id} · {d.city}</option>)}</select>

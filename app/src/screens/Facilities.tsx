@@ -46,7 +46,7 @@ export function Facilities() {
   const dc = data.dc;
   const live = dcs.filter(d => d.status !== 'planned');
   return (
-    <div className="page">
+    <div className="page head-1line">
       <PageHead title="Facilities" chips={<RolloutChip s={dc.status} />}
         sub={<>Power path, backup ride-through, cooling and environment for <DcLink id={dc.id} /> · {dc.address}, {dc.city} · {dc.tier}</>}
         actions={<>
