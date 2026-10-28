@@ -253,3 +253,10 @@ export function useQuery<T>(fn: () => Promise<T>, deps: unknown[]): { data: T | 
   useEffect(() => onDataChange(run), [run]);
   return { data, loading, reload: run };
 }
+
+/* ---- MACD (28-Oct-2026): Move · Add · Change · Disconnect requests */
+export const getMacd = () => wait(S.macd);                                                            // GET /macd (requests, catalogue, sites, metrics)
+export const previewMacd = (d: import("./types").MacdDraft) => mutate(() => structuredClone(S.macdPreview(d)));          // POST /macd/preview (feasibility + charges, nothing saved)
+export const createMacd = (d: import('./types').MacdDraft) => mutate(() => S.macdCreate(d));          // POST /macd
+export const actMacd = (id: string, action: S.MacdAction, note?: string) => mutate(() => S.macdAct(id, action, note)); // POST /macd/:id/:action
+export const noteMacd = (id: string, text: string) => mutate(() => S.macdAddNote(id, text));          // POST /macd/:id/notes

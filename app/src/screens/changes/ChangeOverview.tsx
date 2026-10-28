@@ -88,7 +88,7 @@ export function ChangeOverview({ r, now, go }: { r: ChangeRegister; now: number;
     color: s.pct != null && s.pct < 90 ? C.bad : C.bar, sublabel: `${s.done - s.failed} successful · ${s.failed} failed`, onClick: () => go({ tab: 'changes', dc: s.dc }) }));
 
   /* ---- where changes fail */
-  const srcItems: BarItem[] = (['Operations', 'Maintenance', 'Delivery', 'DCIM'] as const).map(s => { const d = done12.filter(c => c.source === s), f = d.filter(FAILED).length;
+  const srcItems: BarItem[] = (['Operations', 'Maintenance', 'Delivery', 'DCIM', 'MACD'] as const).map(s => { const d = done12.filter(c => c.source === s), f = d.filter(FAILED).length;
     return { key: s, label: s, value: d.length, display: f ? `${f} of ${d.length} failed` : `none of ${d.length}`, color: f ? C.bad : C.bar, sublabel: `${d.length - f} succeeded · ${f} rolled back or caused an incident`, onClick: () => go({ tab: 'changes', src: s }) }; }).filter(x => x.value);
   const tplItems: BarItem[] = r.templates.map(t => ({ key: t.id, label: t.name, value: t.uses, display: `${t.success}% success`, secondary: ` · ${t.uses} used`, color: t.success < 100 ? C.bad : C.bar, sublabel: t.lastUsed ? `last used ${fmtDate(t.lastUsed)}` : 'not used yet', onClick: () => go({ tab: 'standard' }) })).sort((a, b) => b.value - a.value);
 

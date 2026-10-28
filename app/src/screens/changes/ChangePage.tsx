@@ -69,7 +69,7 @@ export function ChangePage() {
         </Panel>;
       })()}
       {tab === 'overview' && (op ? <Panel title="Scope and dependency impact" icon={I.Network}><ChangeBody c={op} /></Panel>
-        : <Panel title="Scope" icon={I.Network}><KV cols={2} items={[['Source', c.source], ['Site', <DcLink id={c.dcId} />], ['Requester', c.requester], ['Window', `${fmtDateTime(c.windowStart)} → ${fmtDateTime(c.windowEnd)}`], ['Rollback plan', c.rollback],
+        : <Panel title="Scope" icon={I.Network}><KV cols={2} items={[['Source', c.macdId ? <span>MACD · <Link className="ent-link mono" to={`/macd/requests/${c.macdId}`}>{c.macdId}</Link></span> : c.source], ['Site', <DcLink id={c.dcId} />], ['Requester', c.requester], ['Window', `${fmtDateTime(c.windowStart)} → ${fmtDateTime(c.windowEnd)}`], ['Rollback plan', c.rollback],
             ['Racks', c.scope.length ? <span className="row wrap" style={{ gap: 6 }}>{c.scope.map(r => <Link key={r} className="ent-link mono" to={`/dcim/racks/${encodeURIComponent(r)}`}>{r.split('-').slice(-2).join('-')}</Link>)}</span> : '—'], ...(c.template ? [['Standard template', c.template] as [string, string]] : [])]} /></Panel>)}
       {tab === 'approvals' && <Panel title="Approval matrix" icon={I.ShieldCheck} info="Standard = pre-approved template · Normal = change manager, + site lead from Medium risk, + the change advisory board at High · Emergency = the emergency CAB, then a review.">
         <ol className="pl-steps">{c.approvals.map((a, i) => <li key={i} className={`is-${a.decision === 'Pre-approved' ? 'approved' : a.decision.toLowerCase()}`}><span className="pl-step-n">{i + 1}</span><span className="cell-2"><b>{a.role} · {a.who}</b><small>{a.decision}{a.at ? ` · ${fmtDateTime(a.at)}` : ''}</small></span></li>)}</ol>

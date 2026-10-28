@@ -27,7 +27,8 @@ const NAV: { group: string; items: { to: string; label: string; icon: I.LucideIc
   { group: 'Operate', items: [
     { to: '/alerts', label: 'Alerts', icon: I.BellRing, badge: 'alerts' },
     { to: '/incidents', label: 'Incidents', icon: I.Siren, badge: 'incidents' },
-    { to: '/changes', label: 'Change management', icon: I.ArrowLeftRight, badge: 'changes', match: /^\/changes/ }
+    { to: '/changes', label: 'Change management', icon: I.ArrowLeftRight, badge: 'changes', match: /^\/changes/ },
+    { to: '/macd', label: 'MACD', icon: I.Shuffle, match: /^\/macd/ }
   ] },
   /* the datacenter SOC (26-Oct-2026, user) */
   { group: 'Security', items: [{ to: '/secops', label: 'Security Ops', icon: I.ShieldHalf, match: /^\/secops/ }] },

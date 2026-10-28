@@ -2,7 +2,7 @@
    one in-memory estate. Only src/api/index.ts talks to this module. */
 
 import { sevLabel } from '../lib/vocab';
-import type { NewPrefixInput, DcimModuleType, DcimCr, DcimCrOption, DcimOp, DcimChangeBoard, DcimCrRow, DcimPlanRow, DcimRunResult, DcimWorkItem, ChangeRecord,
+import type { MacdDraft, MacdPriority, MacdStage, NewPrefixInput, DcimModuleType, DcimCr, DcimCrOption, DcimOp, DcimChangeBoard, DcimCrRow, DcimPlanRow, DcimRunResult, DcimWorkItem, ChangeRecord,
   ActionStep, Alert, AlertScope, EdgeStatus, OpsState, AuditEntry, CapacityPlan, Change, ChangeStatus, Datacenter, DcSummary, Incident, IncidentStatus, Interface, Link, Location,
   ImpactCause, NetworkElement, NeRole, Persona, PrefixRole, ReconTask, RevDomain, RevIssue, RevenueView, RolloutStatus, Service, Severity, TimelineEvent, PowerEconomics } from '../api/types';
 import { NE_CATEGORY } from '../api/types';
@@ -12,7 +12,7 @@ import { PLANE_SHORT, planeOf, type Plane } from '../lib/fabric';
 import { GEO_BY_ID, dcAt, isGeo, setActiveGeo, type Geo } from './geo';
 import { defaultPersona, overrideGeo, overridePersona } from './override';
 import { fmtMoney, fmtNum, moneyLocale, setMoneyLocale } from '../lib/format';
-import { mulberry32 } from '../lib/rng';
+import { mulberry32, seedOf } from '../lib/rng';
 import { impactOf, isOpen, RESOLVE_SLA, RESPONSE_SLA } from './incidents';
 import { DAY, HOUR, MIN } from './seed';
 import { buildRevenue, customerHits, revenueView, type RevModel } from './revenue';
@@ -38,6 +38,7 @@ import { templateInfo } from './delivery-templates';
 import { assignWorkOrder, claimTask, completeTask, failWorkOrder, instances as wfInstances, kpis as wfKpis, processes as wfProcesses, requestAccess, resetWorkflow, retryInstance, retryWorkOrder, signOffWorkOrder, tasks as wfTasks, tickCheck, workOrderDetail } from './workflow';
 import { approveStep, changeRegister, clearChangeMgmt, resetChangeMgmt, stepsApproved } from './changemgmt';
 import { addControl, addFramework, addPolicy, attestControl, clearCompliance, complianceView, resetCompliance, setPolicyActive } from './compliance';
+import { clearMacd, resetMacd, macdView, macdChecks, macdBase, macdCatalogDef, macdPatch, macdNote, macdNewBase, macdDraftBase, macdCrTitle, rollbackOf as macdRollback, slaHours as macdSlaHours, type MacdCtx } from './macd';
 import { clearSecOps, resetSecOps, secCaseAdvance, secCaseNote, secCaseStep, secEscalate, secopsView, secRuleDelete, secRuleSave, secRuleToggle, secTriage, secVulnSet } from './secops';
 import { addField as addField_, addTag as addTag_, customization as customization_, resetCustomization } from './customization';
 import { monthsTo, dateAfterMonths, WARN, CRIT } from '../lib/forecast';
@@ -96,9 +97,9 @@ let db: Db = generate(persona);
 let version = 0;
 const listeners = new Set<() => void>();
 export const subscribe = (f: () => void) => { listeners.add(f); return () => { listeners.delete(f); }; };
-const changed = () => { version++; clearPhysical(); clearDcim(); clearIpam(); clearChangeMgmt(); clearCompliance(); clearSecOps(); clearSafety(); clearLifecycle(); clearMaintenance(); clearOps(); finaliseHealth(db); summaryCache.clear(); revModel = null; revViews.clear(); listeners.forEach(f => f()); };
+const changed = () => { version++; clearPhysical(); clearDcim(); clearIpam(); clearChangeMgmt(); clearCompliance(); clearSecOps(); clearMacd(); clearSafety(); clearLifecycle(); clearMaintenance(); clearOps(); finaliseHealth(db); summaryCache.clear(); revModel = null; revViews.clear(); listeners.forEach(f => f()); };
 export const getVersion = () => version;
-const rebuild = () => { db = generate(persona); edgeCache.clear(); resetDcimCustom(); resetDcimCr(); resetIpamOverlay(); resetPlanner2(); resetDelivery(); resetWorkflow(); resetCompliance(); resetSecOps(); resetChangeMgmt(); resetCustomization(); changed(); };
+const rebuild = () => { db = generate(persona); edgeCache.clear(); resetDcimCustom(); resetDcimCr(); resetIpamOverlay(); resetPlanner2(); resetDelivery(); resetWorkflow(); resetCompliance(); resetSecOps(); resetMacd(); resetChangeMgmt(); resetCustomization(); changed(); };
 export const reset = () => rebuild();
 export const getPersona = () => persona;
 export function setPersona(p: Persona) {
@@ -1561,3 +1562,121 @@ export const plannerStore = () => p2bStore(db);
 export const plannerQueue = () => queue_(db);
 export const onPlannerChange = subscribePlanner;
 export const plannerStoreSerial = p2bSerial;
+
+/* ---- MACD (28-Oct-2026): Move · Add · Change · Disconnect requests (mock/macd.ts). The request flow runs through the modules that own
+   the records: feasibility against DCIM / Capacity, a change request in Change management (standard = pre-approved), a DCIM space hold
+   (standard change), the field work, then verification updates the rack (U, budget, contracted kW) and closes the change. */
+const macdCtx = (): MacdCtx => { const reg = changeRegister(db); const by = new Map(reg.changes.map(c => [c.id, c])); return { freezes: reg.freezes, cr: id => { const c = by.get(id); return c ? { status: c.status, blocked: blockedBy(c) } : undefined; } }; };
+export const macd = () => macdView(db, macdCtx());
+export type MacdAction = 'accept' | 'reject' | 'quote' | 'start' | 'complete' | 'verify' | 'rework' | 'cancel';
+export function macdPreview(d: MacdDraft) {
+  const b = macdDraftBase(db, d, ME);
+  const c = macdCatalogDef(b.catalogId)!;
+  return { title: b.title, checks: macdChecks(db, b, macdCtx()), nrc: b.nrc, mrcDelta: b.mrcDelta, billable: b.billable, uDelta: b.uDelta, kwDelta: b.kwDelta, due: b.due, slaH: macdSlaHours(c, d.priority), standard: c.standard, customerName: b.customerName };
+}
+export function macdCreate(d: MacdDraft) {
+  const b = macdNewBase(db, d, ME);
+  audit_({ actor: ME, object: b.id, field: 'MACD request', prev: '—', next: `submitted: ${b.title}`, source: 'MACD' });
+  changed(); return b.id;
+}
+export function macdAddNote(id: string, text: string) { if (!macdBase(db, id)) throw new Error('Unknown request'); if (!text.trim()) throw new Error('Write a note'); macdNote(id, ME, text.trim(), db.now); changed(); }
+const nextWindow = (p: MacdPriority) => { if (p === 'Emergency') return db.now + HOUR; const d = new Date(db.now + DAY); d.setHours(22, 0, 0, 0); return d.getTime(); };
+export function macdAct(id: string, action: MacdAction, note?: string) {
+  const b = macdBase(db, id); if (!b) throw new Error('Unknown request');
+  const c = macdCatalogDef(b.catalogId)!;
+  const ctx = macdCtx();
+  const say = (text: string) => audit_({ actor: ME, object: id, field: 'MACD stage', prev: b.stage, next: text, source: 'MACD' });
+  const need = (...st: MacdStage[]) => { if (!st.includes(b.stage)) throw new Error(`${id} is ${b.stage.toLowerCase()}; this step is for ${st.join(' / ').toLowerCase()}`); };
+  const dbChange = () => (b.changeId ? db.changes.find(x => x.id === b.changeId) : undefined);
+  const releaseHold = () => { if (b.holdId && dcimOverlay.reservations.some(r => r.id === b.holdId)) dcimReleaseU(b.holdId); };
+  const schedule = (how: string) => {
+    let holdId: string | undefined, holdNote = '';
+    const target = b.kind === 'Move' && b.toRackId ? b.toRackId : b.rackId;
+    if ((b.kind === 'Add' || b.kind === 'Move') && b.uDelta > 0 && target) {
+      const gap = freeSlots(db, target).find(g => g.to - g.from + 1 >= b.uDelta);
+      if (!gap) throw new Error(`No ${b.uDelta} U gap left in ${rackName(target)}: free space first or pick another rack`);
+      try { const r = dcimRun('reserveU', [target, { u: gap.from, uHeight: b.uDelta, label: `${id} ${b.title}` }], { standard: true }); holdId = String(r.result); holdNote = ` · U${gap.from}–U${gap.from + b.uDelta - 1} held in ${rackName(target)}`; }
+      catch (e) { holdNote = ` · space not held yet (${(e as Error).message})`; }
+    }
+    const start = nextWindow(b.priority), win = { start, end: start + (c.standard ? 2 : macdRiskHigh(c) ? 8 : 4) * HOUR };
+    let changeId = b.changeId;
+    if (!changeId?.startsWith('CHG-')) {
+      if (b.seeded) changeId = `MCR-${id.slice(5)}`;
+      else {
+        changeId = `CHG-${++db.seq.chg}`;
+        db.changes.push({ id: changeId, kind: 'Change', title: macdCrTitle(b), dcId: b.dcId, scope: [...(b.rackId ? [b.rackId] : []), ...(b.toRackId ? [b.toRackId] : []), ...b.neIds], risk: c.standard ? 'Low' : macdRiskHigh(c) ? 'High' : 'Medium',
+          status: c.standard ? 'Approved' : 'Pending approval', approver: c.standard ? 'Pre-approved' : undefined, windowStart: win.start, windowEnd: win.end, requester: ME, rollback: macdRollback(c), created: db.now, origin: 'MACD', macdId: id });
+        audit_({ actor: ME, object: changeId, field: 'change', prev: '—', next: `raised from MACD ${id}${c.standard ? ' (standard, pre-approved)' : ''}`, source: 'Change management' });
+      }
+    }
+    macdPatch(id, { stage: 'Scheduled', changeId, window: win, holdId }, ME, `${how}; ${changeId} ${c.standard ? 'raised as a standard change (pre-approved)' : changeId.startsWith('CHG-') ? 'raised, waiting for approval' : 'approved'}${holdNote}`, db.now);
+    say('Scheduled');
+  };
+  switch (action) {
+    case 'accept': {
+      need('Submitted', 'Feasibility');
+      const fails = macdChecks(db, b, ctx).filter(x => x.result === 'Fail');
+      if (fails.length) throw new Error(`Not feasible: ${fails.map(f => `${f.label.toLowerCase()} (${f.detail})`).join('; ')}`);
+      if (b.billable) { macdPatch(id, { stage: 'Quote' }, ME, `Feasible; quote sent to ${b.customerName}`, db.now); say('Quote'); }
+      else schedule('Feasible');
+      break;
+    }
+    case 'quote': need('Quote'); schedule(`Quote accepted by ${b.customerName}`); break;
+    case 'start': {
+      need('Scheduled');
+      const cr = b.changeId ? macdCtx().cr(b.changeId) : undefined;
+      if (!cr || !['Approved', 'In progress'].includes(cr.status)) throw new Error(`${b.changeId ?? 'The change request'} is ${cr?.status.toLowerCase() ?? 'missing'}: it starts once Change management approves it`);
+      if (cr.blocked) throw new Error(`${b.changeId} cannot run now: ${cr.blocked}`);
+      const ch = dbChange(); if (ch && ch.status === 'Approved') ch.status = 'In progress';
+      const workRef = `${c.access ? 'WO' : 'TSK'}-${String((seedOf(id) % 80000) + 10000 + db.seq.chg)}`;
+      macdPatch(id, { stage: 'In progress', workRef }, ME, `Work started under ${b.changeId} (${workRef})`, db.now); say('In progress');
+      break;
+    }
+    case 'complete': need('In progress'); macdPatch(id, { stage: 'Verification' }, ME, note?.trim() ? `Work done: ${note.trim()}` : 'Work done; verification', db.now); say('Verification'); break;
+    case 'rework': need('Verification'); macdPatch(id, { stage: 'In progress', firstTimeRight: false }, ME, `Verification failed${note?.trim() ? `: ${note.trim()}` : ''}; back to the field team`, db.now); say('In progress'); break;
+    case 'verify': {
+      need('Verification');
+      const effects = macdApply(b, c);
+      releaseHold();
+      const ch = dbChange(); if (ch && ch.status !== 'Completed') ch.status = 'Completed';
+      macdPatch(id, { stage: 'Completed', completedAt: db.now, firstTimeRight: b.firstTimeRight ?? true }, ME, `Verified and closed${effects ? `; ${effects}` : ''}${b.billable ? `; billing change posted (MRC ${b.mrcDelta >= 0 ? '+' : ''}${b.mrcDelta})` : ''}`, db.now); say('Completed');
+      break;
+    }
+    case 'reject': {
+      need('Submitted', 'Feasibility', 'Quote');
+      if (!note?.trim()) throw new Error('Say why it is rejected');
+      macdPatch(id, { stage: 'Rejected', reason: note.trim() }, ME, `Rejected: ${note.trim()}`, db.now); say('Rejected');
+      break;
+    }
+    case 'cancel': {
+      if (['Completed', 'Rejected', 'Cancelled'].includes(b.stage)) throw new Error(`${id} is already ${b.stage.toLowerCase()}`);
+      if (b.stage === 'In progress' || b.stage === 'Verification') throw new Error('Work has started: finish it, or roll back under the change request');
+      releaseHold();
+      const ch = dbChange(); if (ch && !['Completed', 'Rolled back'].includes(ch.status)) ch.status = 'Rejected';
+      macdPatch(id, { stage: 'Cancelled', reason: note?.trim() || 'Withdrawn' }, ME, `Cancelled${note?.trim() ? `: ${note.trim()}` : ''}${b.holdId ? '; space hold released' : ''}`, db.now); say('Cancelled');
+      break;
+    }
+    default: throw new Error(`Unknown action ${action}`);
+  }
+  changed();
+  return id;
+}
+const macdRiskHigh = (c: { kind: string; object: string }) => c.kind === 'Move' && c.object === 'Cabinet';
+/* what a verified request changes in the estate's records */
+function macdApply(b: NonNullable<ReturnType<typeof macdBase>>, c: NonNullable<ReturnType<typeof macdCatalogDef>>): string {
+  const dc = db.datacenters.find(d => d.id === b.dcId); if (!dc) return '';
+  const rk = dc.racks.find(r => r.id === b.rackId), to = dc.racks.find(r => r.id === b.toRackId);
+  const log = (o: string, f: string, prev: string, next: string) => audit_({ actor: ME, object: o, field: f, prev, next, source: 'MACD', note: b.id });
+  const u = Math.abs(b.uDelta);
+  if (c.object === 'Equipment' && b.kind === 'Add' && rk) { const p = rk.usedU; rk.usedU = Math.min(rk.heightU, rk.usedU + u); log(rk.id, 'used U', String(p), String(rk.usedU)); return `${rk.name} now ${rk.usedU} of ${rk.heightU} U used`; }
+  if (c.object === 'Equipment' && b.kind === 'Disconnect' && rk) { const p = rk.usedU; rk.usedU = Math.max(0, rk.usedU - u); log(rk.id, 'used U', String(p), String(rk.usedU)); return `${u} U released in ${rk.name}`; }
+  if (c.object === 'Equipment' && b.kind === 'Move' && rk && to && rk.id !== to.id) { rk.usedU = Math.max(0, rk.usedU - u); to.usedU = Math.min(to.heightU, to.usedU + u); log(to.id, 'used U', '—', `+${u} U from ${rk.name}`); return `${u} U moved ${rk.name} → ${to.name}`; }
+  if (c.object === 'Power circuit' && rk) {
+    const kw = b.kwDelta, pb = rk.budgetKw;
+    rk.budgetKw = Math.max(Math.ceil(rk.drawKw), Math.round((rk.budgetKw + kw) * 10) / 10);
+    if (rk.contractedKw !== undefined) rk.contractedKw = Math.max(0, Math.round((rk.contractedKw + kw) * 10) / 10);
+    log(rk.id, 'power budget', `${pb} kW`, `${rk.budgetKw} kW`);
+    return `${rk.name} budget ${pb} → ${rk.budgetKw} kW${rk.contractedKw !== undefined ? ` (contracted ${rk.contractedKw} kW)` : ''}`;
+  }
+  return c.records.map(r => r.split(':')[0]).filter((v, i, a) => a.indexOf(v) === i).join(', ') + ' records updated';
+}

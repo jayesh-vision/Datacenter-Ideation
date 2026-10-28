@@ -162,7 +162,9 @@ export interface Change {
   id: string; kind: 'Change' | 'Maintenance'; title: string; dcId: string; scope: string[]; risk: 'Low' | 'Medium' | 'High'; status: ChangeStatus;
   windowStart: number; windowEnd: number; requester: string; approver?: string; rollback: string; created: number; emergency?: boolean; incidentId?: string;
   /* raised from DCIM (15-Oct-2026): the change carries DCIM work items (mock/server.ts dcimRun) */
-  origin?: 'DCIM';
+  origin?: 'DCIM' | 'MACD';
+  /* raised from MACD (28-Oct-2026): the request it runs */
+  macdId?: string;
 }
 
 export interface ReconTask {
@@ -711,7 +713,7 @@ export type ChangeClass = 'Standard' | 'Normal' | 'Emergency';
 export interface ChangeApprovalStep { role: string; who: string; decision: 'Approved' | 'Pending' | 'Waiting' | 'Rejected' | 'Pre-approved'; at?: number }
 export interface ChangeViolation { policy: string; enforcement: 'Block' | 'Warn'; text: string }
 export interface ChangeRecord {
-  id: string; source: 'Operations' | 'Maintenance' | 'Delivery' | 'DCIM'; cls: ChangeClass; kind: Change['kind']; title: string; dcId: string; scope: string[]; risk: Change['risk']; status: ChangeStatus;
+  id: string; source: 'Operations' | 'Maintenance' | 'Delivery' | 'DCIM' | 'MACD'; macdId?: string; cls: ChangeClass; kind: Change['kind']; title: string; dcId: string; scope: string[]; risk: Change['risk']; status: ChangeStatus;
   windowStart: number; windowEnd: number; requester: string; approver?: string; rollback: string; created: number; incidentId?: string; projectId?: string; woId?: string;
   template?: string; approvals: ChangeApprovalStep[]; conflicts: string[]; freeze?: string; violations: ChangeViolation[];
   pir: { state: 'Not needed' | 'Due' | 'Done' | 'Overdue'; due?: number }; outcome?: 'Successful' | 'Rolled back' | 'Rejected' | 'Caused an incident'; causedIncident?: string;
@@ -848,4 +850,50 @@ export interface SecOpsView {
   sources: SecSource[]; physical: SecPhysSite[]; csf: SecCsf[];
   metrics: { mttdMin: number; mttaMin: number; mttrH: number; fpPct: number; autoPct: number; closed30d: number; trend: { day: number; network: number; compute: number; ot: number; physical: number }[] };
   team: string[];
+}
+
+/* ---- MACD (28-Oct-2026, user: "introduce the MACD management system … in the context of the datacenter"). Move · Add · Change ·
+   Disconnect requests against what a customer (or an internal team) has in the datacenter: equipment, cabinets and cages, power circuits,
+   cross-connects, ports and addresses, GPU nodes, access. One request runs intake → feasibility (space, power, contract, cooling, ports,
+   freeze, open incident, GPU pool) → quote → change request → scheduled work → verification → records and billing updated (mock/macd.ts). */
+export type MacdKind = 'Move' | 'Add' | 'Change' | 'Disconnect';
+export type MacdObject = 'Equipment' | 'Cabinet' | 'Power circuit' | 'Cross-connect' | 'Network port' | 'IP addresses' | 'GPU nodes' | 'Access';
+export type MacdStage = 'Submitted' | 'Feasibility' | 'Quote' | 'Scheduled' | 'In progress' | 'Verification' | 'Completed' | 'Rejected' | 'Cancelled';
+export type MacdPriority = 'Standard' | 'Expedited' | 'Emergency';
+export type MacdChannel = 'Customer portal' | 'Account manager' | 'Email' | 'API' | 'Internal';
+export type MacdSla = 'On track' | 'At risk' | 'Breached' | 'Met' | 'Missed';
+export interface MacdCatalogItem {
+  id: string; kind: MacdKind; object: MacdObject; name: string; desc: string;
+  /* hours from submission: standard and expedited (emergency = 4 h) */
+  slaH: number; expediteH: number;
+  /* charges in the geography's currency: one-time (NRC) per unit, monthly change (MRC) per unit, negative when it stops a charge */
+  nrc: number; mrc: number; unit: string;
+  /* pre-approved standard change, or a normal change request through the change board */
+  standard: boolean; access: boolean; uPerUnit: number; kwPerUnit: number;
+  records: string[]; tasks: string[]; uses30: number; avgCycleH?: number; onTimePct?: number;
+}
+export interface MacdCheck { key: 'space' | 'power' | 'contract' | 'cooling' | 'ports' | 'freeze' | 'incident' | 'gpu' | 'records'; label: string; result: 'Pass' | 'Warn' | 'Fail'; detail: string }
+export interface MacdTask { key: string; title: string; system: 'SynapseDC' | 'Customer' | 'BSS' | 'Change management' | 'DCIM' | 'Field team' | 'Inventory' | 'IP Management'; state: 'Done' | 'Open' | 'Waiting' | 'Skipped'; at?: number; ref?: string }
+export interface MacdRequest {
+  id: string; kind: MacdKind; object: MacdObject; catalogId: string; title: string; detail: string;
+  dcId: string; room?: string; rackId?: string; rackName?: string; toRackId?: string; toRackName?: string; neIds: string[];
+  customerId?: string; customerName?: string; requester: string; channel: MacdChannel; owner: string;
+  priority: MacdPriority; stage: MacdStage; created: number; due: number; window?: { start: number; end: number }; completedAt?: number;
+  qty: number; unit: string; uDelta: number; kwDelta: number; nrc: number; mrcDelta: number; billable: boolean;
+  changeId?: string; changeStatus?: ChangeStatus; changeBlocked?: string; holdId?: string; ref?: string; workRef?: string;
+  checks: MacdCheck[]; tasks: MacdTask[]; history: { at: number; by: string; text: string }[];
+  sla: MacdSla; slaLeftH: number; firstTimeRight?: boolean; reason?: string;
+}
+export interface MacdSite { dcId: string; name: string; open: number; atRisk: number; breached: number; done30: number; onTimePct: number; avgCycleH: number; kwPending: number; uPending: number }
+export interface MacdView {
+  now: number; requests: MacdRequest[]; catalog: MacdCatalogItem[]; sites: MacdSite[];
+  metrics: {
+    open: number; atRisk: number; breached: number; done30: number; onTimePct: number; ftrPct: number; avgCycleH: number; nrc30: number; mrc30: number;
+    byStage: { stage: MacdStage; n: number }[]; byKind: { kind: MacdKind; open: number; done30: number; avgCycleH: number }[];
+    trend: { day: number; opened: number; done: number }[]; pipelineKw: number; pipelineU: number;
+  };
+}
+export interface MacdDraft {
+  catalogId: string; dcId: string; rackId?: string; toRackId?: string; customerId?: string; qty: number; priority: MacdPriority; detail: string;
+  wanted?: number; channel?: MacdChannel;
 }
