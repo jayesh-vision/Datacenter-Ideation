@@ -710,3 +710,211 @@ export function GpuArt() {
 		</Art>
 	);
 }
+
+/* ------------------------------------------------------------------ */
+/* Revenue Impact: issues ranked by cost, cost-of-delay curve with credit cliffs, reconciled totals */
+/* ------------------------------------------------------------------ */
+export function RevenueArt() {
+	const issues: [string, string, string, number, string][] = [
+		["UPS-2 on battery", "54 services · 12 customers · IL-DC-009", "$2,641 / h", 1, C.fault],
+		["Job stalled · 152 GPUs", "1 cluster · QuantLedger AI · CA-DC-020", "$625 / h", 0.24, C.warn],
+		["Fibre trunk · 4 cables", "3 services · VA-DC-001", "$310 / h", 0.12, C.warn],
+		["CRAH-11 failed", "6 services exposed · TX-DC-004", "exposed", 0.05, C.sky],
+	];
+	const curve = "M356 300 L 392 290 L 428 276 L 452 262 L 470 212 L 504 198 L 524 150 L 552 140 L 590 134";
+	return (
+		<Art label="Revenue Impact: open issues ranked by what they cost per hour, a cost-of-delay curve with the SLA credit cliffs, and totals that reconcile across issues, customers and sites">
+			<Head left="REVENUE IMPACT · OPEN ISSUES · LIVE" w={232} right="Σ reconciles" rightTone={C.ok} rw={104} />
+
+			{/* ranked issues */}
+			<Card x={24} y={52} w={312} h={262} />
+			<Label x={40} y={74} size={10}>
+				COSTING THE MOST RIGHT NOW · ONE ISSUE PER SERVICE
+			</Label>
+			{issues.map(([t, sub, m, v, c], i) => (
+				<g key={t} className="a-in" style={d(0.1 + i * 0.12)}>
+					<Label x={40} y={100 + i * 56} size={11} color={C.ink} weight={500}>
+						{t}
+					</Label>
+					<Label x={320} y={100 + i * 56} size={11} color={c} anchor="end" weight={500}>
+						{m}
+					</Label>
+					<Label x={40} y={114 + i * 56} size={8.5}>
+						{sub}
+					</Label>
+					<rect x={40} y={122 + i * 56} width="280" height="6" rx="3" fill={C.line} />
+					<rect x={40} y={122 + i * 56} width={280 * v} height="6" rx="3" fill={c} className="a-grow" style={d(0.3 + i * 0.12)} />
+				</g>
+			))}
+			<Label x={40} y={306} size={8.5} color={C.muted}>
+				Down and degraded lose now · exposed = riding a critical fault
+			</Label>
+
+			{/* cost of delay */}
+			<Card x={348} y={52} w={268} h={262} />
+			<Label x={364} y={74} size={10}>
+				COST OF DELAY · INC-0002
+			</Label>
+			<line x1="356" y1="300" x2="600" y2="300" stroke={C.line2} />
+			{[0, 1, 2, 3].map((h) => (
+				<Label key={h} x={356 + h * 78} y={314} size={8.5} anchor={h === 0 ? "start" : "middle"}>
+					{h === 0 ? "now" : `+${h} h`}
+				</Label>
+			))}
+			<path d={curve + " L 590 300 L 356 300 Z"} fill={C.blue} fillOpacity=".1" className="a-in" style={d(0.6)} />
+			<path d={curve} fill="none" stroke={C.sky} strokeWidth="2" className="a-draw" style={{ ...d(0.4), ["--len" as string]: 420 }} />
+			<g className="a-in" style={d(1)}>
+				<line x1="470" y1="112" x2="470" y2="300" stroke={C.warn} strokeDasharray="3 4" />
+				<Label x={466} y={104} size={9} color={C.warn} anchor="end">
+					25 % credit tier · 3 h 9 m
+				</Label>
+				<line x1="524" y1="112" x2="524" y2="300" stroke={C.fault} strokeDasharray="3 4" />
+				<Label x={528} y={104} size={9} color={C.fault}>
+					50 % tier
+				</Label>
+			</g>
+			<g className="a-pop" style={d(0.5)}>
+				<circle cx="356" cy="300" r="4" fill={C.sky} />
+			</g>
+			<Label x={364} y={240} size={9} color={C.ink}>
+				lost so far $55.3k
+			</Label>
+			<Label x={364} y={254} size={9} color={C.warn}>
+				next cliff +$1.1M in credits
+			</Label>
+
+			{/* totals */}
+			{[
+				["Lost so far", "$55.3k", C.ink],
+				["Credits owed", "$345.9k", C.warn],
+				["At stake", "$3.44M / mo", C.ink],
+				["Within SLA", "88.7 %", C.ok],
+			].map(([k, v, c], i) => (
+				<g key={String(k)} className="a-in" style={d(0.9 + i * 0.1)}>
+					<Card x={24 + i * 150} y={326} w={142} h={40} r={9} tone="card2" />
+					<Label x={36 + i * 150} y={342} size={8.5}>
+						{String(k).toUpperCase()}
+					</Label>
+					<Label x={36 + i * 150} y={358} size={12.5} color={String(c)} weight={500}>
+						{String(v)}
+					</Label>
+				</g>
+			))}
+			<Msg text="Σ issues = Σ causes = Σ datacenters = Σ customers · the same money on every screen" tone={C.warn} />
+		</Art>
+	);
+}
+
+/* ------------------------------------------------------------------ */
+/* Facilities: single-line power path with live flow, ride-through, cooling spare, SPOF what-if */
+/* ------------------------------------------------------------------ */
+export function FacilitiesArt() {
+	const y = 128;
+	const nodes: [string, number, string][] = [
+		["Utility A", 56, "lost 13:12"],
+		["ATS", 150, "on feed B"],
+		["UPS-2", 244, "battery 62 %"],
+		["Busway A", 338, "61 % load"],
+		["PDU-A", 432, "rack A14"],
+		["Rack", 526, "12.4 kW"],
+	];
+	return (
+		<Art label="Facilities: the single-line power path from the utility feed to the rack with the lost feed and the standby path, ride-through figures, the cooling spare and a what-if">
+			<Head left="FACILITIES · IL-DC-009 · POWER PATH · LIVE" w={262} right="Utility A lost" rightTone={C.fault} rw={112} />
+
+			{/* path */}
+			{nodes.map(([n, x, sub], i) => (
+				<g key={n}>
+					{i < nodes.length - 1 && <Flow d={`M${x + 30} ${y} L ${Number(nodes[i + 1][1]) - 30} ${y}`} color={i === 0 ? C.fault : C.sky} delay={i * 0.15} />}
+					<g className="a-pop" style={d(0.1 + i * 0.1)}>
+						<Card x={x - 30} y={y - 20} w={60} h={40} r={10} tone="card2" stroke={i === 0 ? C.fault : i === 2 ? C.warn : C.line2} />
+					</g>
+					<Label x={x} y={y + 4} size={10} color={C.ink} anchor="middle" weight={500}>
+						{n}
+					</Label>
+					<Label x={x} y={y + 34} size={8.5} anchor="middle" color={i === 0 ? C.fault : i === 2 ? C.warn : C.muted}>
+						{sub}
+					</Label>
+				</g>
+			))}
+			{/* standby feed B (live, into the ATS) and DG (standby) */}
+			<Card x={120} y={48} w={60} h={24} r={7} tone="card2" stroke={C.ok} />
+			<Label x={150} y={64} size={9} color={C.ok} anchor="middle">
+				Feed B · live
+			</Label>
+			<Flow d="M150 72 L 150 108" color={C.ok} delay={0.3} />
+			<Card x={120} y={184} w={60} h={24} r={7} tone="card2" />
+			<Label x={150} y={200} size={9} anchor="middle">
+				DG · standby
+			</Label>
+			<path d="M150 148 L 150 184" fill="none" stroke={C.line2} strokeWidth="2" strokeDasharray="3 4" />
+			<Beacon x={56} y={108} />
+
+			{/* ride-through */}
+			<Card x={24} y={224} w={300} h={90} />
+			<Label x={40} y={246} size={10}>
+				IF UTILITY POWER FAILS NOW
+			</Label>
+			<Ring x={66} y={282} r={16} v={0.62} color={C.warn} />
+			{[
+				["UPS 14 min", "on battery · 62 %", 92],
+				["DG 5 MVA", "starts in 12 s", 190],
+				["Fuel 38 h", "at today's load", 262],
+			].map(([a, b, x], i) => (
+				<g key={String(a)} className="a-in" style={d(0.7 + i * 0.1)}>
+					<Label x={Number(x)} y={280} size={12} color={C.ink} weight={500}>
+						{String(a)}
+					</Label>
+					<Label x={Number(x)} y={296} size={8.5}>
+						{String(b)}
+					</Label>
+				</g>
+			))}
+
+			{/* cooling + SPOF */}
+			<Card x={336} y={224} w={280} h={90} />
+			<Label x={352} y={246} size={10}>
+				COOLING · FLOOR 2
+			</Label>
+			{[
+				["CRAH-09", 0.72, C.sky],
+				["CRAH-10", 0.68, C.sky],
+				["CRAH-11", 0, C.fault],
+				["CRAH-12", 0.81, C.sky],
+			].map(([n, v, c], i) => (
+				<g key={String(n)}>
+					<rect x={352 + i * 34} y={258} width="26" height="40" rx="4" fill={C.card2} stroke={String(c)} />
+					<rect x={352 + i * 34} y={258 + 40 * (1 - Number(v))} width="26" height={Math.max(0.1, 40 * Number(v))} rx="4" fill={String(c)} fillOpacity=".55" className="a-in" style={d(0.8 + i * 0.1)} />
+					<Label x={365 + i * 34} y={310} size={7.5} anchor="middle" color={String(c) === C.fault ? C.fault : C.muted}>
+						{String(n).replace("CRAH-", "")}
+					</Label>
+				</g>
+			))}
+			<Label x={496} y={264} size={10} color={C.warn} weight={500}>
+				No spare on floor 2
+			</Label>
+			<Label x={496} y={278} size={8.5}>
+				heat 1.6 MW · capacity 1.7 MW
+			</Label>
+			<Label x={496} y={296} size={8.5} color={C.ink}>
+				What-if UPS-2 down:
+			</Label>
+			<Label x={496} y={308} size={8.5} color={C.fault}>
+				18 racks dark · 9 customers
+			</Label>
+
+			<g className="a-in" style={d(1.1)}>
+				<Chip x={24} y={330} color={C.fault} w={132}>
+					3 SPOFs at this site
+				</Chip>
+				<Chip x={164} y={330} color={C.warn} w={176}>
+					both cords on A · RACK-B07, B12
+				</Chip>
+				<Chip x={348} y={330} color={C.sky} w={160}>
+					PM: UPS-2 battery · 14 Nov
+				</Chip>
+			</g>
+			<Msg text="Hover any node to trace up- and downstream · ride-through, cooling spare and what-if per asset" tone={C.fault} />
+		</Art>
+	);
+}

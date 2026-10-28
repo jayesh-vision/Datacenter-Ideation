@@ -1,113 +1,12 @@
 import { HeroArt } from "./hero";
-import { CommandCenterArt, DcimArt, GpuArt, PlannerArt, TwinArt } from "./features";
+import { CommandCenterArt, DcimArt, FacilitiesArt, GpuArt, PlannerArt, RevenueArt, TwinArt } from "./features";
 import { Art, Bar, Beacon, C, Card, Chip, Flow, Label, Node, Person, Rack, Ring } from "./kit";
 
-export { HeroArt, CommandCenterArt, DcimArt, GpuArt, PlannerArt, TwinArt };
+export { HeroArt, CommandCenterArt, DcimArt, FacilitiesArt, GpuArt, PlannerArt, RevenueArt, TwinArt };
 
 /* ------------------------------------------------------------------ */
 /* Module illustrations                                                */
 /* ------------------------------------------------------------------ */
-export function FacilitiesArt() {
-	const y = 160;
-	const nodes = [
-		["Utility A", 60],
-		["ATS", 170],
-		["UPS-2", 280],
-		["Busway A", 390],
-		["PDU-A", 500],
-	];
-	return (
-		<Art label="Single-line power path from the utility feed to the rack PDU, with the ride-through figure">
-			{nodes.map(([n, x], i) => (
-				<g key={String(n)}>
-					{i < nodes.length - 1 && <Flow d={`M${Number(x) + 28} ${y} L ${Number(nodes[i + 1][1]) - 28} ${y}`} color={i === 0 ? C.fault : C.sky} delay={i * 0.2} />}
-					<Card x={Number(x) - 28} y={y - 22} w={56} h={44} r={10} tone="card2" stroke={i === 0 ? C.fault : C.line2} />
-					<Label x={Number(x)} y={y + 4} size={10} color={C.ink} anchor="middle" weight={500}>
-						{String(n)}
-					</Label>
-				</g>
-			))}
-			<Label x={60} y={118} size={10} color={C.fault} anchor="middle">
-				feed lost
-			</Label>
-			<Flow d="M170 182 L 170 240 L 60 240" color={C.ok} />
-			<Card x={32} y={226} w={56} h={30} r={8} tone="card2" />
-			<Label x={60} y={245} size={10} color={C.ink} anchor="middle">
-				DG
-			</Label>
-			<Card x={60} y={290} w={520} h={88} />
-			<Label x={80} y={314} size={11}>
-				IF UTILITY POWER FAILS NOW
-			</Label>
-			<Ring x={110} y={350} r={18} v={0.62} label="" />
-			<Label x={140} y={346} size={13} color={C.ink} weight={500}>
-				UPS 14 min
-			</Label>
-			<Label x={140} y={364} size={11}>
-				on battery · 62 %
-			</Label>
-			<Label x={270} y={346} size={13} color={C.ink} weight={500}>
-				DG 5,000 kVA
-			</Label>
-			<Label x={270} y={364} size={11}>
-				starts in 12 s · ready
-			</Label>
-			<Label x={420} y={346} size={13} color={C.ink} weight={500}>
-				Fuel 38 h
-			</Label>
-			<Label x={420} y={364} size={11}>
-				at today&apos;s load
-			</Label>
-		</Art>
-	);
-}
-
-export function RevenueArt() {
-	return (
-		<Art label="Open issues ranked by what they cost, and the cost-of-delay curve">
-			<Label x={48} y={54} size={11}>
-				COSTING THE MOST RIGHT NOW
-			</Label>
-			<Bar x={48} y={84} w={300} v={0.9} label="UPS-2 on battery · 54 services" value="$2,641 / h" color={C.fault} />
-			<Bar x={48} y={128} w={300} v={0.4} label="GPU stalled · 152 GPUs" value="$625 / h" color={C.warn} />
-			<Bar x={48} y={172} w={300} v={0.22} label="Fibre trunk · 4 cables" value="$310 / h" />
-			<Bar x={48} y={216} w={300} v={0.1} label="CRAH-11 failed" value="exposed" />
-			<Card x={380} y={44} w={220} h={200} />
-			<Label x={396} y={66} size={11}>
-				COST OF DELAY
-			</Label>
-			<path d="M396 210 L 440 200 L 480 185 L 500 150 L 540 140 L 560 90 L 586 80" fill="none" stroke={C.sky} strokeWidth="2" className="art-draw" />
-			<line x1="500" y1="92" x2="500" y2="210" stroke={C.warn} strokeDasharray="3 4" />
-			<Label x={504} y={100} size={10} color={C.warn}>
-				credit tier 25 %
-			</Label>
-			<line x1="560" y1="92" x2="560" y2="210" stroke={C.fault} strokeDasharray="3 4" />
-			<Label x={556} y={224} size={10} color={C.fault} anchor="end">
-				50 %
-			</Label>
-			<Card x={48} y={270} w={552} h={100} />
-			{[
-				["Lost so far", "$55.3k"],
-				["Credits owed", "$345.9k"],
-				["At stake", "$3.44M / mo"],
-				["Within SLA", "88.7 %"],
-			].map(([k, v], i) => (
-				<g key={k}>
-					<Label x={68 + i * 138} y={300} size={11}>
-						{k}
-					</Label>
-					<Label x={68 + i * 138} y={330} size={17} color={C.ink} weight={500}>
-						{v}
-					</Label>
-				</g>
-			))}
-			<Label x={48} y={400} size={11}>
-				Σ issues = Σ customers = Σ datacenters
-			</Label>
-		</Art>
-	);
-}
-
 export function AlarmsArt() {
 	return (
 		<Art label="Alarm scope rings around a datacenter: site, edge, dependency and downstream">
