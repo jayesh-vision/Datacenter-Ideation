@@ -6,7 +6,7 @@ import { Intro } from "@/components/home/Intro";
 import { Marquee } from "@/components/home/Marquee";
 import { Icon } from "@/components/Icon";
 import { Reveal, RevealHeading } from "@/components/Reveal";
-import { modules, stages } from "@/data/modules";
+import { modules } from "@/data/modules";
 import { faqs } from "@/data/site";
 import { solutions } from "@/data/solutions";
 import { JsonLd, buildMetadata, siteConfig, softwareSchema } from "@/seo";
@@ -124,42 +124,13 @@ export default function Home() {
 						<SplitFeature flip art="revenue-impact" kicker="Revenue Impact" title="Which issue is costing the most right now?" text="Each impacted service is charged to exactly one issue. Revenue lost so far, SLA credits by tier, the next credit cliff and what is at stake, reconciled across issues, customers and sites." points={["Down, degraded or exposed to a critical fault", "Credits net of those already locked in", "A cost-of-delay curve for the order of work"]} href="/platform/revenue-impact" cta="Explore Revenue Impact" />
 						<SplitFeature art="facilities" kicker="Facilities" title="Know how long the building holds." text="The single-line power path from the utility to the rack, UPS minutes, generator kW and fuel hours, the cooling heat balance, and every single point of failure with a what-if." points={["Hover any node to trace upstream and downstream", "Single points of failure found before a fault finds them", "Maintenance planned and booked as changes"]} href="/platform/facilities" cta="Explore Facilities" />
 					</div>
+					<p className="all-modules">
+						<Link className="btn btn-ghost" href="/platform">
+							See the whole platform, block by block <Icon name="arrow" size={16} />
+						</Link>
+					</p>
 				</div>
 			</section>
-
-			{/* 5 · Platform map */}
-			<Section tone="soft" kicker="The platform" title="Plan, build, operate and govern on one estate model." intro="One estate model, one alarm model and one money model. The hall you plan becomes the racks you build and the devices you operate, and the numbers are the same on every screen.">
-				<div className="stage-grid">
-					{stages.map((s) => {
-						const list = modules.filter((m) => m.stage === s.stage);
-						return (
-							<Reveal key={s.stage} className={`stage stage-${s.stage.toLowerCase()}`}>
-								<div className="stage-h">
-									<h3>{s.stage}</h3>
-									<span>{list.length} modules</span>
-								</div>
-								<p>{s.line}</p>
-								<div className="stage-links">
-									{list.map((m) => (
-										<Link key={m.slug} href={`/platform/${m.slug}`}>
-											<Icon name={m.icon} size={16} />
-											{m.name}
-										</Link>
-									))}
-								</div>
-							</Reveal>
-						);
-					})}
-				</div>
-				<div className="stage-foot">
-					<Icon name="sparkles" size={18} />
-					<strong>Opstral AI on every screen</strong>
-					<span>Answers, likely causes and recommended actions from your own data.</span>
-					<Link className="text-link" href="/platform/opstral-ai">
-						Learn more <Icon name="arrow" size={14} />
-					</Link>
-				</div>
-			</Section>
 
 			{/* 6 · Business models */}
 			<Section kicker="Solutions" title="One estate model. Your business model." intro="The first release targets colocation and GPU cloud operators. They share one data model; the vocabulary, what is monitored and how value is counted follow your business.">

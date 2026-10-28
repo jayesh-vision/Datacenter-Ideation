@@ -379,6 +379,8 @@ a.card:hover { border-color: var(--ice); transform: translateY(-2px); box-shadow
 .section-dark .card-ico { background: rgba(28, 129, 239, .16); color: var(--sky); }
 .num-card b { font-family: var(--font-head), sans-serif; font-weight: 500; font-size: 13px; color: var(--brand-600); letter-spacing: .08em; margin-bottom: 12px; }
 
+.all-modules { margin-top: 72px; text-align: center; }
+
 /* ---------- Stage grid ---------- */
 .stage-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; }
 .stage-operate { grid-column: span 2; }
