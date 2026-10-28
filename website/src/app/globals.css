@@ -173,6 +173,8 @@ img, svg { max-width: 100%; display: block; }
 
 
 /* ---------- Hero scene (art/hero.tsx) ---------- */
+.hx .hx-tab-bg { fill: rgba(255, 255, 255, .03); stroke: rgba(255, 255, 255, .07); transition: fill .4s, stroke .4s; }
+.hx .hx-tab.is-on .hx-tab-bg { fill: rgba(28, 129, 239, .14); stroke: rgba(96, 165, 250, .5); }
 .hx .hx-tab-dot { fill: #13223d; stroke: #345082; }
 .hx .hx-tab-num, .hx .hx-tab-txt { fill: #8aa0c2; }
 .hx .hx-tab.is-on .hx-tab-dot { fill: #1c81ef; stroke: #60a5fa; }

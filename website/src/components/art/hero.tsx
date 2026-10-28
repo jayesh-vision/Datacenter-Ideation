@@ -117,21 +117,26 @@ export function HeroArt() {
 				</defs>
 				<rect width="640" height="420" fill="url(#hx-grid)" opacity=".7" />
 
-				{/* stage tabs */}
-				{PHASES.map((p, i) => (
-					<g key={p} className={`hx-tab${phase === p ? " is-on" : ""}`} transform={`translate(${24 + i * 128} 24)`}>
-						<circle cx="10" cy="10" r="10" className="hx-tab-dot" />
-						<text x="10" y="14" fontSize="10" textAnchor="middle" fontWeight="500" className="hx-tab-num">
-							{i + 1}
-						</text>
-						<text x="28" y="14" fontSize="12" fontWeight="500" letterSpacing=".06em" className="hx-tab-txt">
-							{p.toUpperCase()}
-						</text>
-						<rect x="0" y="26" width="112" height="2" rx="1" fill={C.line} />
-						{phase === p && live && <rect key={`${phase}-${step}`} x={(112 / STEPS) * step} y="26" width={112 / STEPS} height="2" rx="1" fill={C.sky} className="hx-prog" style={{ animationDuration: `${STEP_MS}ms` }} />}
-						{phase === p && step > 0 && <rect x="0" y="26" width={(112 / STEPS) * step} height="2" rx="1" fill={C.sky} />}
-					</g>
-				))}
+				{/* stage tabs: three equal segments across the canvas */}
+				{PHASES.map((p, i) => {
+					const x = 24 + i * 200,
+						w = 192;
+					return (
+						<g key={p} className={`hx-tab${phase === p ? " is-on" : ""}`} transform={`translate(${x} 18)`}>
+							<rect x="0" y="0" width={w} height="34" rx="9" className="hx-tab-bg" />
+							<circle cx="18" cy="17" r="9" className="hx-tab-dot" />
+							<text x="18" y="20.5" fontSize="9.5" textAnchor="middle" fontWeight="500" className="hx-tab-num">
+								{i + 1}
+							</text>
+							<text x="34" y="21" fontSize="12" fontWeight="500" letterSpacing=".06em" className="hx-tab-txt">
+								{p.toUpperCase()}
+							</text>
+							<rect x="0" y="40" width={w} height="2" rx="1" fill={C.line} />
+							{phase === p && live && <rect key={`${phase}-${step}`} x={(w / STEPS) * step} y="40" width={w / STEPS} height="2" rx="1" fill={C.sky} className="hx-prog" style={{ animationDuration: `${STEP_MS}ms` }} />}
+							{phase === p && step > 0 && <rect x="0" y="40" width={(w / STEPS) * step} height="2" rx="1" fill={C.sky} />}
+						</g>
+					);
+				})}
 
 				{/* scene glow + floor */}
 				<ellipse cx="205" cy="240" rx="170" ry="84" fill="url(#hx-glow)" className="hx-glow" />
@@ -197,8 +202,8 @@ export function HeroArt() {
 				</g>
 
 				{/* readout panel */}
-				<rect x="400" y="70" width="216" height="300" rx="16" fill={C.card} stroke={C.line2} />
-				<rect x="400" y="70" width="216" height="300" rx="16" fill="none" stroke={C.sky} strokeOpacity=".7" className="hx-panel-ring" />
+				<rect x="400" y="70" width="216" height="288" rx="16" fill={C.card} stroke={C.line2} />
+				<rect x="400" y="70" width="216" height="288" rx="16" fill="none" stroke={C.sky} strokeOpacity=".7" className="hx-panel-ring" />
 
 				{/* PLAN readout */}
 				<g className="hx-card" data-ph="plan">
@@ -249,7 +254,7 @@ export function HeroArt() {
 							</g>
 						))}
 						<g className="hx-tick" style={{ ["--i" as string]: 3 }}>
-							<Chip x={418} y={340} color={C.sky} w={96}>
+							<Chip x={418} y={330} color={C.sky} w={96}>
 								plan pack ready
 							</Chip>
 						</g>
@@ -305,7 +310,7 @@ export function HeroArt() {
 							</g>
 						))}
 						<g className="hx-tick" style={{ ["--i" as string]: 3 }}>
-							<Chip x={418} y={340} color={C.sky} w={132}>
+							<Chip x={418} y={330} color={C.sky} w={132}>
 								every write has a CR
 							</Chip>
 						</g>
@@ -367,24 +372,21 @@ export function HeroArt() {
 							</Label>
 						</g>
 						<g className="hx-tick" style={{ ["--i" as string]: 2 }}>
-							<Chip x={418} y={340} color={C.warn} w={96}>
+							<Chip x={418} y={330} color={C.warn} w={96}>
 								needs approval
 							</Chip>
-							<Chip x={522} y={340} color={C.ok} w={76}>
+							<Chip x={522} y={330} color={C.ok} w={76}>
 								&lt; 60 s
 							</Chip>
 						</g>
 					</g>
 				</g>
 
-				{/* narrated message */}
-				<rect x="24" y="362" width="360" height="30" rx="8" fill={C.card2} stroke={C.line2} />
-				<circle cx="40" cy="377" r="3" fill={phase === "operate" ? C.fault : C.sky} className="hx-msg-dot" />
-				<text key={`${phase}-${step}`} x="52" y="381" fontSize="10.5" fill={C.ink} className="hx-msg">
+				{/* narrated message, full width */}
+				<rect x="24" y="372" width="592" height="32" rx="9" fill={C.card2} stroke={C.line2} />
+				<circle cx="42" cy="388" r="3.5" fill={phase === "operate" ? C.fault : C.sky} className="hx-msg-dot" />
+				<text key={`${phase}-${step}`} x="56" y="392.5" fontSize="11.5" fill={C.ink} className="hx-msg">
 					{STORY[phase][step]}
-				</text>
-				<text x="320" y="410" fontSize="10.5" fill={C.muted} textAnchor="middle">
-					One estate model, from the first plan to the live site
 				</text>
 			</svg>
 		</figure>
