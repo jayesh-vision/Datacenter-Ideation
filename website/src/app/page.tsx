@@ -82,7 +82,7 @@ export default function Home() {
 						</div>
 						<div className="trust-cell">
 							<strong>On-prem, your cloud, or air-gapped</strong>
-							<span>Deploys where your data must live, inside your perimeter and your identity stack. The on-site collector only ever reads, and only ever sends outbound.</span>
+							<span>Deploys where your data must live, inside your perimeter and identity stack. The collector only reads, and only sends outbound.</span>
 						</div>
 						<div className="trust-cell">
 							<strong>Built on open standards</strong>
