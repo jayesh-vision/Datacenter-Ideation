@@ -106,7 +106,7 @@ export const USE_CASES: UseCase[] = [
 		detail: "Exposed services are shown while the fault is live: tenants on the affected path, their SLA, what a four-hour outage would cost in credits, and the notice cadence due to each.",
 		does: ["Exposed tenants per fault, premium first", "Potential credits for a four-hour outage", "Customer notices on an update cadence", "Why at risk, on the tenant's page"],
 		modules: [{ name: "Revenue Impact", href: "/platform/revenue-impact" }, { name: "Datacenters", href: "/platform/datacenters" }],
-		proof: [{ v: "4 h", l: "outage scenario priced" }, { v: "15 / 30 / 60 min", l: "notice cadence" }, { v: "per tenant", l: "why at risk" }] },
+		proof: [{ v: "4 h", l: "outage scenario priced" }, { v: "15/30/60", l: "minute notice cadence" }, { v: "per tenant", l: "why at risk" }] },
 	{ id: "UC-C3", domain: "commercial", model: "Both", title: "Free racks are not sellable racks",
 		pain: "Space says yes, power says no, cooling says maybe. Sales promises what the hall cannot deliver.",
 		detail: "Space, power, cooling, ports and GPUs per site and hall, net of planned devices, contracted power, approved plans and idle allocations. Net available is what can be sold today.",
