@@ -12,7 +12,7 @@ const text = Inter({ subsets: ["latin"], variable: "--font-text", display: "swap
 
 export const metadata: Metadata = {
 	metadataBase: new URL(siteUrl),
-	title: { default: `${siteConfig.name} — ${siteConfig.tagline}`, template: `%s | ${siteConfig.name}` },
+	title: { default: `Datacenter platform for plan, build and operate | ${siteConfig.name}`, template: `%s | ${siteConfig.name}` },
 	description: siteConfig.description,
 	applicationName: siteConfig.name,
 	openGraph: { type: "website", siteName: siteConfig.name, locale: siteConfig.locale, images: [{ url: siteConfig.ogImage }] },

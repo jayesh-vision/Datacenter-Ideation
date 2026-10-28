@@ -10,11 +10,10 @@ import { modules } from "@/data/modules";
 import { faqs } from "@/data/site";
 import { JsonLd, buildMetadata, siteConfig, softwareSchema } from "@/seo";
 
-export const metadata = buildMetadata({
-	title: "Plan, build and operate datacenters on one platform",
-	description: siteConfig.description,
-	path: "/",
-});
+/** The home tab title is absolute: the layout's "%s | SynapseDC" template does not apply to the root page. */
+const HOME_TITLE = "Datacenter platform for plan, build and operate | SynapseDC";
+const base = buildMetadata({ title: HOME_TITLE, description: siteConfig.description, path: "/" });
+export const metadata = { ...base, title: { absolute: HOME_TITLE } };
 
 const problems = [
 	{ t: "The building and the business never meet", d: "The BMS knows the UPS is on battery. The CRM knows who the tenants are. Nothing in between can say which contracts are now at risk." },
