@@ -572,6 +572,20 @@ table.t { width: 100%; border-collapse: collapse; font-size: 15px; }
 .journey h3 { font-size: 18px; margin-bottom: 6px; }
 .journey p { color: var(--muted); font-size: 14.5px; }
 
+/* ---------- Onboarding timeline ---------- */
+.tl4 { position: relative; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+.tl4::before { content: ""; position: absolute; left: 22px; right: 22px; top: 22px; height: 2px; background: linear-gradient(90deg, var(--brand), var(--ice)); }
+.tl4 > li { position: relative; padding: 64px 0 0; }
+.tl4-dot { position: absolute; top: 0; left: 0; width: 46px; height: 46px; border-radius: 50%; background: var(--brand); color: #fff; display: grid; place-items: center; font-family: var(--font-head), sans-serif; font-weight: 500; font-size: 14px; box-shadow: 0 0 0 6px var(--soft), 0 10px 24px -10px rgba(28, 129, 239, .8); }
+.tl4 small { font-family: var(--font-head), sans-serif; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--brand-600); }
+.tl4 h3 { font-size: 20px; margin: 6px 0 8px; }
+.tl4 p { color: var(--muted); font-size: 15px; min-height: 3.2em; }
+.tl4 ul { list-style: none; padding: 16px 0 0; margin: 16px 0 0; border-top: 1px solid var(--line); display: grid; gap: 8px; }
+.tl4 ul li { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: var(--ink-2); }
+.tl4 ul svg { flex: none; margin-top: 3px; color: var(--brand); }
+@media (max-width: 900px) { .tl4 { grid-template-columns: 1fr 1fr; row-gap: 40px; } .tl4::before { display: none; } }
+@media (max-width: 600px) { .tl4 { grid-template-columns: 1fr; } }
+
 /* ---------- Integrations ---------- */
 .int-card h3 { font-size: 19px; }
 .int-card p { margin: 4px 0 14px; }

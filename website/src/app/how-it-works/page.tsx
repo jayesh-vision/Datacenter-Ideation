@@ -19,12 +19,6 @@ const data = [
 	{ t: "Your currency, your tariffs", d: "Money in your currency and format. Tariffs and benchmarks are marked illustrative until your own replace them." },
 ];
 
-const waves = [
-	["Wave 1", "Collector, network, UPS / PDUs, BMS"],
-	["Wave 2", "BMCs, GPUs, scheduler"],
-	["Wave 3", "ITSM, paging, CRM"],
-	["Wave 4", "DCIM, IPAM, PACS, OEM portals"],
-];
 
 export default function HowItWorks() {
 	return (
@@ -46,29 +40,29 @@ export default function HowItWorks() {
 				</div>
 			</Section>
 
-			<Section tone="soft" id="journey" kicker="Onboarding" title="From first meeting to go-live." intro="A one-site pilot typically takes 6–10 weeks; further integrations follow in waves of 4–12 weeks.">
-				<ol className="journey">
+			<Section tone="soft" id="journey" kicker="Onboarding" title="One site, live in 6–10 weeks." intro="A pilot runs the operate core on one datacenter, read-only. Further sites and modules follow once the pilot has proved what you agreed it should.">
+				<ol className="tl4">
 					{journey.map((j, i) => (
-						<Reveal as="li" key={j.step} delay={(i % 4) * 60}>
-							<b>{j.step}</b>
+						<Reveal as="li" key={j.step} delay={i * 80}>
+							<div className="tl4-dot">{j.step}</div>
+							<small>{j.when}</small>
 							<h3>{j.title}</h3>
 							<p>{j.text}</p>
+							<ul>
+								{j.items.map((x) => (
+									<li key={x}>
+										<Icon name="check" size={14} />
+										{x}
+									</li>
+								))}
+							</ul>
 						</Reveal>
 					))}
 				</ol>
-			</Section>
-
-			<Section kicker="Integrations in waves" title="Start with what proves value, add the rest.">
-				<div className="grid-4">
-					{waves.map(([w, d]) => (
-						<div key={w} className="card">
-							<h3>{w}</h3>
-							<p>{d}</p>
-						</div>
-					))}
-				</div>
-				<p style={{ marginTop: 26 }}>
-					<Link className="text-link" href="/integrations">See every source and system <Icon name="arrow" size={16} /></Link>
+				<p style={{ marginTop: 32 }}>
+					<Link className="text-link" href="/integrations">
+						See every source and system <Icon name="arrow" size={16} />
+					</Link>
 				</p>
 			</Section>
 

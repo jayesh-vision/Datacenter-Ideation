@@ -131,15 +131,11 @@ export const integrations: Integration[] = [
 	{ group: "Northbound", desc: "Out of SynapseDC into your tools", items: ["REST API v1", "Webhooks (CloudEvents)", "Kafka", "SIEM (OCSF)", "Paging", "Embed (iframe)"] },
 ];
 
-export const journey: { step: string; title: string; text: string }[] = [
-	{ step: "01", title: "First meeting", text: "The pitch by role, value formulas filled with your own figures, and a demo of your business model." },
-	{ step: "02", title: "Discovery workshops", text: "Your business, your estate and your systems: BMS, EPMS, UPS, PDUs, DCIM, ITSM, CRM, PACS, NMS, SSO, SIEM and, for GPU clouds, DCGM and the scheduler." },
-	{ step: "03", title: "Site survey", text: "One survey per datacenter: collector placement, BMS, equipment, BMCs, firewall rules, records and sign-off." },
-	{ step: "04", title: "Proposal and pilot", text: "Scope = the operate core on one site, with success criteria agreed up front." },
-	{ step: "05", title: "Onboarding data", text: "The import template in load order, DCIM records and service placement." },
-	{ step: "06", title: "Integrations in waves", text: "Collector, network, UPS / PDUs and BMS, then BMCs and GPUs, then ITSM, paging and CRM, then DCIM, IPAM and PACS." },
-	{ step: "07", title: "Go-live", text: "Reconciliation checks green, collector heartbeat, alarms in scope, first incidents with impact." },
-	{ step: "08", title: "Expand", text: "More sites, more capabilities, further business models." },
+export const journey: { step: string; title: string; when: string; text: string; items: string[] }[] = [
+	{ step: "01", title: "Discovery", when: "1–2 weeks", text: "Your sites, the systems you run and what the pilot should prove.", items: ["Business model and sites in scope", "BMS, EPMS, DCIM, ITSM, CRM, PACS, SSO", "Success criteria agreed up front"] },
+	{ step: "02", title: "Site survey and data", when: "2–3 weeks", text: "Collector placement, the one firewall rule and your records.", items: ["Collector placement, active + standby", "One outbound rule: mTLS 443", "Racks, devices and customers imported"] },
+	{ step: "03", title: "Connect", when: "2–4 weeks", text: "The sources that prove value first, the rest in later waves.", items: ["Network, UPS / PDUs and BMS first", "Then BMCs, GPUs and the scheduler", "Then ITSM, paging and CRM"] },
+	{ step: "04", title: "Go-live", when: "the pilot site", text: "Live alarms in scope and the first incidents with impact, checked against the criteria.", items: ["Reconciliation checks green", "Alarms in scope, incidents with impact", "Next sites and modules planned"] },
 ];
 
 export const differentiators: { have: string; good: string; adds: string }[] = [
