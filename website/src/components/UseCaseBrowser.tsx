@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { DOMAINS, USE_CASES, type Domain } from "@/data/useCases";
+import { DOMAINS, USE_CASES, type Domain, type UseCase } from "@/data/useCases";
 import { Icon } from "./Icon";
 
 /** Filter pills (sticky under the header) and the use cases grouped by domain. */
@@ -51,44 +51,7 @@ export function UseCaseBrowser() {
 							</div>
 							<div className="uc-grid">
 								{list.map((u) => (
-									<article key={u.id} className="uc-card">
-										<div className="uc-card-top">
-											<span className="uc-tag" style={{ color: d.color, borderColor: d.color }}>
-												{d.name}
-											</span>
-											<span className="uc-id">{u.id}</span>
-											<span className="uc-model">{u.model === "Both" ? "Colocation · NeoCloud" : u.model}</span>
-										</div>
-										<h3>{u.title}</h3>
-										<p className="uc-pain">{u.pain}</p>
-										<p className="uc-detail">{u.detail}</p>
-										<ul className="uc-does">
-											{u.does.map((x) => (
-												<li key={x}>
-													<Icon name="check" size={14} />
-													{x}
-												</li>
-											))}
-										</ul>
-										<div className="uc-mods">
-											{u.modules.map((m) => (
-												<Link key={m.href} href={m.href}>
-													{m.name}
-												</Link>
-											))}
-										</div>
-										<div className="uc-proof">
-											<small>Modelled on the SynapseDC demo estate</small>
-											<div>
-												{u.proof.map((p) => (
-													<span key={p.l}>
-														<b>{p.v}</b>
-														{p.l}
-													</span>
-												))}
-											</div>
-										</div>
-									</article>
+									<UseCaseCard key={u.id} u={u} color={d.color} name={d.name} />
 								))}
 							</div>
 						</section>
@@ -96,5 +59,50 @@ export function UseCaseBrowser() {
 				})}
 			</div>
 		</div>
+	);
+}
+
+/** One use case card; also used on /gpu-ai. */
+export function UseCaseCard({ u, color, name }: { u: UseCase; color: string; name: string }) {
+	const d = { color, name };
+	return (
+		<article className="uc-card">
+		<div className="uc-card-top">
+			<span className="uc-tag" style={{ color: d.color, borderColor: d.color }}>
+				{d.name}
+			</span>
+			<span className="uc-id">{u.id}</span>
+			<span className="uc-model">{u.model === "Both" ? "Colocation · NeoCloud" : u.model}</span>
+		</div>
+		<h3>{u.title}</h3>
+		<p className="uc-pain">{u.pain}</p>
+		<p className="uc-detail">{u.detail}</p>
+		<ul className="uc-does">
+			{u.does.map((x) => (
+				<li key={x}>
+					<Icon name="check" size={14} />
+					{x}
+				</li>
+			))}
+		</ul>
+		<div className="uc-mods">
+			{u.modules.map((m) => (
+				<Link key={m.href} href={m.href}>
+					{m.name}
+				</Link>
+			))}
+		</div>
+		<div className="uc-proof">
+			<small>Modelled on the SynapseDC demo estate</small>
+			<div>
+				{u.proof.map((p) => (
+					<span key={p.l}>
+						<b>{p.v}</b>
+						{p.l}
+					</span>
+				))}
+			</div>
+		</div>
+									</article>
 	);
 }

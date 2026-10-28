@@ -41,3 +41,10 @@ SynapseDC is the END-TO-END platform to **plan, build and operate** datacenters,
 - QA: `npm run build` must pass; check `/`, a module page, a solution page and the menu at 1440 / 1280 / 390 (no horizontal overflow,
   no console errors). Scratch scripts used so far: viewport walk, full-page shot, menu click test (Playwright from `../app`).
 - No deploy without the user's go-ahead (no Vercel project yet).
+
+## GPU Fleet is an add-on (28-Oct-2026, user)
+GPU Fleet is sold separately: `addon: true` on the module (modules.ts) and the platform-map node shows an "Add-on" badge
+(`.addon-badge`) in the menu, cards, platform map and module page. `/gpu-ai` (top menu "GPU & AI") is the premium page:
+core platform = what a GPU depends on (power path, CDU loops, liquid racks, capacity, power bill, AI hall planning, DCIM);
+add-on = the GPU, the job, the customer and their cost (`components/gpu/GpuChain.tsx` draws the split; packaging table on
+/gpu-ai). Home carries `home/GpuBand.tsx` right after the intro. No pricing model is stated (only "licensed separately").

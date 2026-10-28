@@ -15,6 +15,8 @@ export interface MapNode {
 	desc: string;
 	holds: string[];
 	href?: string;
+	/** Sold separately. */
+	addon?: boolean;
 	/** Platform section the launcher places it in (shown in the detail card). */
 	section?: string;
 	/** Existing platform module that owns the record, when the block is an analytics layer over it. */
@@ -90,7 +92,7 @@ export const MAP_NODES: MapNode[] = [
 	{ id: "facilities", group: "operate", name: "Facilities", short: "Power path, ride-through, cooling, SPOFs", icon: "zap", href: "/platform/facilities", section: "Ops Toolkit · Datacenter Ops",
 		desc: "Single-line power path, 24-hour load against capacity, UPS minutes and generator fuel, cooling heat balance, environment zones, single points of failure with a what-if, and the maintenance plan.",
 		holds: ["Power & backup · Cooling · Environment · SPOF · Maintenance", "Fire zones, leak detection, access points", "PM plan per plant asset, booked as changes"] },
-	{ id: "gpu", group: "operate", name: "GPU Fleet", short: "Jobs, GPUs, rails, cooling & power, placement", icon: "cpu", href: "/platform/gpu-fleet", section: "Ops Toolkit · Datacenter Ops",
+	{ id: "gpu", group: "operate", addon: true, name: "GPU Fleet", short: "Jobs, GPUs, rails, cooling & power, placement", icon: "cpu", href: "/platform/gpu-fleet", section: "Ops Toolkit · Datacenter Ops",
 		desc: "DCGM-style telemetry per GPU joined to jobs, customers and the building: blast radius, GPU time lost, network rails, power per sold GPU-hour and where to place the next job.",
 		holds: ["Clusters · Jobs · Nodes · GPU models · Telemetry · Cooling & power · Network · Where to place", "NVIDIA and Intel accelerators", "Xid, ECC, NVLink and thermal stories"] },
 	{ id: "incidents", group: "operate", name: "Alerts & incidents", short: "Scoped alarms, incidents with impact, problems", icon: "bell-ring", href: "/platform/alarms-incidents", section: "Services & ITSM · over Incidents",

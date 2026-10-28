@@ -52,6 +52,7 @@ export function PlatformMap() {
 			<button type="button" className={`pd-b ${cls}${sel === id ? " is-on" : ""}`} onClick={() => setSel(id)} aria-pressed={sel === id} aria-controls="pd-caption" title={n.short}>
 				<Icon name={n.icon} size={15} />
 				<span>{n.name}</span>
+				{n.addon && <b className="addon-badge">Add-on</b>}
 			</button>
 		);
 	};

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CtaBand, FaqList, Kicker, Section, SplitFeature } from "@/components/Blocks";
 import { ArtFor } from "@/components/art";
+import { GpuBand } from "@/components/home/GpuBand";
 import { Intro } from "@/components/home/Intro";
 import { Marquee } from "@/components/home/Marquee";
 import { Icon } from "@/components/Icon";
@@ -86,6 +87,9 @@ export default function Home() {
 			{/* 2 · Pinned statement + flow */}
 			<Intro />
 
+			{/* 2b · GPU Fleet add-on */}
+			<GpuBand />
+
 			{/* 3 · Problem */}
 			<Section tone="soft" kicker="Why it exists" title="Planned in spreadsheets, built in silos, operated across six tools." intro="A spreadsheet for capacity, a project tracker for the build, a DCIM for records, a BMS for the plant, an NMS for the network and a ticketing tool for incidents. None of them share a record, and none can say who is affected and what it is costing.">
 				<div className="grid-4">
@@ -111,7 +115,7 @@ export default function Home() {
 						<SplitFeature flip art="dcim" kicker="Build · DCIM and delivery" title="Built as records, under change control." text="Racks, devices, power chains and cabling down to the outlet and the patch cord. Every write carries a change request, and approved plans flow into projects, work orders, purchase orders and commissioning gates." points={["Site → hall → row → rack → device → port", "Standard, open or new change request on every edit", "Commissioning L1 to L5 and earned value per project"]} href="/platform/dcim" cta="Explore DCIM" />
 						<SplitFeature art="command-center" kicker="Command Center" title="Every datacenter, ordered by what matters." text="An estate health score you can explain, a live map, and every site worst-first. Then three columns: what is happening, who is affected and the recommended next step." points={["Status follows the worst single issue, not an average", "Every figure opens the list behind it, with the same count", "Recommendations are ranked by money and customers at risk"]} href="/platform/command-center" cta="Explore Command Center" />
 						<SplitFeature flip art="datacenters" kicker="3D datacenter layout" title="Building, floor, room, rack, device." text="A 3D layout of every site with health beacons on the racks that need attention. Turn on power paths to see which UPS feeds a rack, or cable paths to follow a service to its trunk." points={["Colour by health, temperature, rack power or connectivity", "Walk the aisle at eye level", "Trace one device's cords and cables end to end"]} href="/platform/datacenters" cta="Explore the datacenter view" />
-						<SplitFeature art="gpu-fleet" kicker="GPU Fleet" title="What one bad GPU costs, per hour." text="Per-GPU telemetry joined to jobs, customers and the building. The job with the biggest blast radius, the slowest job, GPU time lost and the work to redo since the last checkpoint." points={["DCGM-style telemetry for NVIDIA and Intel accelerators", "Cooling and power cost per sold GPU-hour", "Where to place the next job"]} href="/platform/gpu-fleet" cta="Explore GPU Fleet" />
+						<SplitFeature art="gpu-fleet" kicker="GPU Fleet · add-on" title="What one bad GPU costs, per hour." text="Per-GPU telemetry joined to jobs, customers and the building. The job with the biggest blast radius, the slowest job, GPU time lost and the work to redo since the last checkpoint." points={["DCGM-style telemetry for NVIDIA and Intel accelerators", "Cooling and power cost per sold GPU-hour", "Where to place the next job"]} href="/gpu-ai" cta="See the GPU & AI add-on" />
 						<SplitFeature flip art="revenue-impact" kicker="Revenue Impact" title="Which issue is costing the most right now?" text="Each impacted service is charged to exactly one issue. Revenue lost so far, SLA credits by tier, the next credit cliff and what is at stake, reconciled across issues, customers and sites." points={["Down, degraded or exposed to a critical fault", "Credits net of those already locked in", "A cost-of-delay curve for the order of work"]} href="/platform/revenue-impact" cta="Explore Revenue Impact" />
 						<SplitFeature art="facilities" kicker="Facilities" title="Know how long the building holds." text="The single-line power path from the utility to the rack, UPS minutes, generator kW and fuel hours, the cooling heat balance, and every single point of failure with a what-if." points={["Hover any node to trace upstream and downstream", "Single points of failure found before a fault finds them", "Maintenance planned and booked as changes"]} href="/platform/facilities" cta="Explore Facilities" />
 					</div>

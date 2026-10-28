@@ -3,7 +3,7 @@ import {
 	ClipboardList, Database, Download, FolderKanban, Layers, SlidersHorizontal, Waypoints, ChevronRight,
 	ClipboardCheck, Cloud, Cpu, DraftingCompass, EyeOff, FileText, Gauge, HardHat, Landmark, LayoutDashboard, LineChart, Lock,
 	Mail, Menu, Minus, Monitor, Network, Newspaper, Plug, Plus, RadioTower, Receipt, Scale, Server, Shield, ShieldCheck, Siren,
-	Sparkles, Thermometer, UserRound, Users, Video, Warehouse, Workflow, X, Zap, type LucideIcon,
+	Sparkles, Thermometer, UserRound, Users, Video, Warehouse, Workflow, X, Zap, Droplets, BatteryCharging, Briefcase, type LucideIcon,
 } from "lucide-react";
 
 /** Icons by name, so content files can stay plain data. Add new names here. */
@@ -16,7 +16,7 @@ const ICONS: Record<string, LucideIcon> = {
 	mail: Mail, menu: Menu, minus: Minus, monitor: Monitor, network: Network, newspaper: Newspaper, plug: Plug, plus: Plus,
 	"radio-tower": RadioTower, receipt: Receipt, scale: Scale, server: Server, shield: Shield, "shield-check": ShieldCheck, siren: Siren,
 	sparkles: Sparkles, thermometer: Thermometer, "user-round": UserRound, users: Users, video: Video, warehouse: Warehouse,
-	workflow: Workflow, x: X, zap: Zap,
+	workflow: Workflow, x: X, zap: Zap, droplets: Droplets, "battery-charging": BatteryCharging, briefcase: Briefcase,
 };
 
 export function Icon({ name, size = 18, className }: { name: string; size?: number; className?: string }) {

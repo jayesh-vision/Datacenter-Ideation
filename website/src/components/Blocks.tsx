@@ -60,7 +60,10 @@ export function ModuleCard({ m }: { m: Module }) {
 			<span className="card-ico">
 				<Icon name={m.icon} size={20} />
 			</span>
-			<strong>{m.name}</strong>
+			<strong>
+				{m.name}
+				{m.addon && <b className="addon-badge">Add-on</b>}
+			</strong>
 			<span>{m.short}</span>
 			<em>
 				Explore <Icon name="arrow" size={14} />

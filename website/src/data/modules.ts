@@ -32,6 +32,8 @@ export interface Module {
 	/** Illustrative figures from the demo estate. */
 	proof?: { value: string; label: string }[];
 	models: Model;
+	/** Sold separately (GPU Fleet, 28-Oct-2026). */
+	addon?: boolean;
 	brdRef: string;
 	related: string[];
 }
@@ -142,6 +144,7 @@ export const modules: Module[] = [
 			{ value: "$625/h", label: "GPU time lost on that job, illustrative" },
 		],
 		models: "NeoCloud",
+		addon: true,
 		brdRef: "7.4",
 		related: ["capacity-power-economics", "revenue-impact", "alarms-incidents"],
 	},

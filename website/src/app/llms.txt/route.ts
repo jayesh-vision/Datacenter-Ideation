@@ -12,7 +12,7 @@ export function GET() {
 		`> ${siteConfig.description}`,
 		"",
 		"## Modules",
-		...modules.map((m) => `- [${m.name}](${absoluteUrl(`/platform/${m.slug}`)}): ${m.short}`),
+		...modules.map((m) => `- [${m.name}](${absoluteUrl(`/platform/${m.slug}`)}): ${m.addon ? "Add-on. " : ""}${m.short}`),
 		"",
 		"## Solutions",
 		...solutions.map((s) => `- [${s.name}](${absoluteUrl(`/solutions/${s.slug}`)}): ${s.status}. ${s.short}`),
