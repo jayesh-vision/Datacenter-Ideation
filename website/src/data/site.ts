@@ -151,7 +151,7 @@ export const differentiators: { have: string; good: string; adds: string }[] = [
 export const placeholders: Record<string, { title: string; icon: string; desc: string; plan: string[] }> = {
 	blog: { title: "Blog", icon: "newspaper", desc: "Field notes on running datacenters: power, cooling, GPUs and money.", plan: ["Why free racks are not sellable racks", "The cost of one failed GPU", "Alarm scope: site, edge, dependency, downstream"] },
 	"case-studies": { title: "Case studies", icon: "line-chart", desc: "Pilot results from colocation and GPU cloud operators, with the basis stated for every figure.", plan: ["Colocation pilot (one site)", "NeoCloud pilot (one site)"] },
-	videos: { title: "Videos", icon: "video", desc: "Short walk-throughs of the product.", plan: ["The 13:20 call: a UPS on battery, end to end", "Walking the digital twin", "GPU Fleet: blast radius and placement"] },
+	videos: { title: "Videos", icon: "video", desc: "Short walk-throughs of the product.", plan: ["The 13:20 call: a UPS on battery, end to end", "Walking the 3D datacenter layout", "GPU Fleet: blast radius and placement"] },
 	glossary: { title: "Glossary", icon: "book-open", desc: "Datacenter, power, cooling, GPU and inventory terms, as the product uses them.", plan: ["Ride-through, ATS, busway, PDU", "Xid, DCGM, NVLink, InfiniBand rail", "Take-or-pay, demand ratchet, committed kW"] },
 	about: { title: "About", icon: "users", desc: "Who is building SynapseDC, and how.", plan: ["Our story", "Team", "Partners"] },
 	customers: { title: "Customers", icon: "building", desc: "Operators running SynapseDC.", plan: ["Customer logos", "Quotes"] },

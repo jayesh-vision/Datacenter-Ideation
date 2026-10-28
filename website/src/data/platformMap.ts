@@ -60,7 +60,7 @@ export const MAP_NODES: MapNode[] = [
 	{ id: "estate", group: "core", name: "One estate model", short: "Sites → halls → racks → devices → ports, customers and contracts", icon: "waypoints", href: "/how-it-works",
 		desc: "The graph every block reads and writes: building, plant, racks, devices, ports, cables, GPUs, services, customers and contracts. Every count is derived from it, never typed in.",
 		holds: ["51 entity types, 107 relationships", "Stable identities, so adding data never reshuffles the rest", "Import template in load order for onboarding"] },
-	{ id: "twin", group: "core", name: "Digital twin", short: "Building to device in 3D", icon: "building-2", href: "/platform/datacenters",
+	{ id: "twin", group: "core", name: "3D datacenter layout", short: "Building to device in 3D", icon: "building-2", href: "/platform/datacenters",
 		desc: "Schematic and realistic 3D views of every site, health shown by beacons and LEDs, overlays for temperature, power and connectivity, and the paths from UPS to PDU and from port to trunk.",
 		holds: ["Walk mode at eye level", "Device popup with cabling and power trace views", "Same drill path and numbers in both views"] },
 	{ id: "alarm", group: "core", name: "Alarm scope & correlation", short: "Site · edge · dependency", icon: "siren", href: "/platform/alarms-incidents",

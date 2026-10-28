@@ -49,8 +49,8 @@ export const USE_CASES: UseCase[] = [
 		proof: [{ v: "1.6 / 1.7 MW", l: "heat against remaining capacity" }, { v: "per floor", l: "cooling spare judged" }, { v: "zones", l: "with safe-band tracks" }] },
 	{ id: "UC-F4", domain: "facility", model: "Both", title: "Which PDU outlet is this server plugged into?",
 		pain: "Cords, panels and trunks were documented at install and never again. A fault proves the record wrong.",
-		detail: "The physical last mile is derived per site: feed → UPS → busway → PDU → outlet → PSU, and port → patch cord → panel → trunk → ODF → cross-connect. Both are drawn on the device and in the 3D twin.",
-		does: ["Power chain to every PSU, cabling to every port", "Devices with both cords on one side flagged", "Trace views in the digital twin", "Records kept under change control in DCIM"],
+		detail: "The physical last mile is derived per site: feed → UPS → busway → PDU → outlet → PSU, and port → patch cord → panel → trunk → ODF → cross-connect. Both are drawn on the device and in the 3D datacenter layout.",
+		does: ["Power chain to every PSU, cabling to every port", "Devices with both cords on one side flagged", "Trace views in the 3D datacenter layout", "Records kept under change control in DCIM"],
 		modules: [{ name: "Datacenters", href: "/platform/datacenters" }, { name: "DCIM", href: "/platform/dcim" }],
 		proof: [{ v: "every PSU", l: "mapped to its outlet" }, { v: "every port", l: "mapped to its trunk" }, { v: "1 CR", l: "on every record change" }] },
 

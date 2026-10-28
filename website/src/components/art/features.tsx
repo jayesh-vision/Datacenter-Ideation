@@ -473,7 +473,7 @@ export function CommandCenterArt() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Digital twin: iso hall with containment, heat tint, power and cable paths, rack card */
+/* 3D datacenter layout: iso hall with containment, heat tint, power and cable paths, rack card */
 /* ------------------------------------------------------------------ */
 export function TwinArt() {
 	const iso = (x: number, y: number, z = 0): [number, number] => [236 + (x - y) * 0.86, 232 + (x + y) * 0.5 - z];
@@ -493,7 +493,7 @@ export function TwinArt() {
 	const [bx, by] = iso(sel.x + 11, sel.y + 12, 42);
 	const [ux, uy] = iso(136, 70, 0);
 	return (
-		<Art label="Digital twin: an isometric hall with cold-aisle containment, a heat tint on the floor, a rack with a fault beacon, the power path from the UPS and the cable path to the ODF, and the rack's card">
+		<Art label="3D datacenter layout: an isometric hall with cold-aisle containment, a heat tint on the floor, a rack with a fault beacon, the power path from the UPS and the cable path to the ODF, and the rack's card">
 			<Head left="DATACENTER LAYOUT · LIVE · REALISTIC VIEW" w={262} right="Building › Floor 2 › GPU Hall A" rightTone={C.sky} rw={190} />
 
 			{/* floor + heat tint */}

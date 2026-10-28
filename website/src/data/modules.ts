@@ -68,7 +68,7 @@ export const modules: Module[] = [
 	},
 	{
 		slug: "datacenters",
-		name: "Datacenters & digital twin",
+		name: "Datacenters & 3D layout",
 		stage: "Operate",
 		icon: "building-2",
 		short: "Site page, 3D layout, power and cable paths",
@@ -76,7 +76,7 @@ export const modules: Module[] = [
 		summary:
 			"Every site has a page: the 3D layout from building to rack to device, what needs attention, metrics, facility, equipment, topology, tenants and revenue. Turn on power or cable paths to see which UPS feeds a rack and which trunk carries a service.",
 		metaDesc:
-			"SynapseDC datacenter page and digital twin: building to device in 3D, health beacons, walk mode, power and cable paths, and the site's impact on customers.",
+			"SynapseDC datacenter page and 3D datacenter layout: building to device in 3D, health beacons, walk mode, power and cable paths, and the site's impact on customers.",
 		questions: ["Which rack, on which floor, in which room?", "Which UPS and PDU feed this device?", "Which cable carries this service?"],
 		askedBy: ["Site engineer", "Facility engineer", "NOC engineer"],
 		capabilities: [
