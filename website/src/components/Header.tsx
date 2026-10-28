@@ -7,9 +7,9 @@ import { navigation, type NavItem } from "@/data/site";
 import { Icon } from "./Icon";
 import { Logo } from "./Logo";
 
-function Panel({ item }: { item: NavItem }) {
+function Panel({ item, onNavigate }: { item: NavItem; onNavigate: () => void }) {
 	return (
-		<div className="nav-panel-inner">
+		<div className="nav-panel-inner" onClick={(e) => (e.target as HTMLElement).closest("a") && onNavigate()}>
 			<div className="nav-columns" style={{ ["--cols" as string]: item.columns!.length }}>
 				{item.columns!.map((col) => (
 					<div key={col.heading} className="nav-column">
@@ -56,7 +56,8 @@ function Panel({ item }: { item: NavItem }) {
 /**
  * Navigation rules: a top-level label is always a link to its landing page (click = navigate).
  * Hovering (with a short intent delay) or focusing it opens the panel; the chevron toggles it for
- * keyboard and touch. Hover never fights the click. Escape, an outside click or a route change closes.
+ * keyboard and touch. Hover never fights the click. Escape, an outside click, a route change, a click on a
+ * panel link or a second click on the open label closes it (the last two matter when the URL does not change).
  */
 export function Header() {
 	const [open, setOpen] = useState<string | null>(null);
@@ -114,7 +115,17 @@ export function Header() {
 						const isOpen = open === item.label;
 						return (
 							<div key={item.label} className={`nav-item${isOpen ? " is-open" : ""}`} onMouseEnter={() => intent(item.label, 120)}>
-								<Link href={item.href} className={`nav-top${active ? " is-active" : ""}`} onFocus={() => intent(item.label, 0)}>
+								<Link
+									href={item.href}
+									className={`nav-top${active ? " is-active" : ""}`}
+									onFocus={() => intent(item.label, 0)}
+									onClick={(e) => {
+										if (timer.current) clearTimeout(timer.current);
+										if (!isOpen) return;
+										setOpen(null);
+										if (path === item.href) e.preventDefault();
+									}}
+								>
 									{item.label}
 									<button
 										type="button"
@@ -150,7 +161,7 @@ export function Header() {
 					item.columns && (
 						<div key={item.label} className="nav-panel" hidden={open !== item.label} onMouseEnter={() => intent(item.label, 0)}>
 							<div className="wrap">
-								<Panel item={item} />
+								<Panel item={item} onNavigate={() => setOpen(null)} />
 							</div>
 						</div>
 					),
