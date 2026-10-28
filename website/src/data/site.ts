@@ -71,14 +71,35 @@ export const navigation: NavItem[] = [
 				],
 			},
 			{
-				heading: "Company",
+				heading: "Trust",
 				links: [
-					{ label: "Why SynapseDC", desc: "How we differ from DCIM, BMS and ITSM", icon: "scale", href: "/why-synapsedc" },
 					{ label: "Security & trust", desc: "Read-only, outbound-only", icon: "lock", href: "/how-it-works#security" },
-					{ label: "About", desc: "Who is building it, and how", icon: "users", href: "/about" },
+					{ label: "How it works", desc: "Collector, boundary, onboarding", icon: "workflow", href: "/how-it-works" },
 				],
 			},
 		],
+	},
+	{
+		label: "Company",
+		href: "/about",
+		columns: [
+			{
+				heading: "Company",
+				links: [
+					{ label: "Why Us", desc: "One closed loop, from the first plan to the live GPU", icon: "scale", href: "/why-synapsedc" },
+					{ label: "Why Now", desc: "The building changed faster than its tools", icon: "zap", href: "/why-now" },
+					{ label: "Our Story", desc: "Three gaps that became a platform", icon: "book-open", href: "/our-story" },
+					{ label: "About SynapseDC", desc: "Who is building it, and how", icon: "users", href: "/about" },
+				],
+			},
+		],
+		promo: {
+			kicker: "Request a demo",
+			title: "See your own estate in it",
+			desc: "We walk your hardest fault end to end on a demo estate shaped like yours.",
+			cta: "Request a demo",
+			href: "/contact",
+		},
 	},
 ];
 
@@ -86,7 +107,7 @@ export const footerColumns: { title: string; links: [string, string][] }[] = [
 	{ title: "Plan & build", links: ["capacity-power-economics", "planner", "dcim", "build-delivery", "compliance"].map((s) => { const m = modules.find((x) => x.slug === s)!; return [m.name, `/platform/${s}`]; }) },
 	{ title: "Operate", links: ["command-center", "datacenters", "facilities", "gpu-fleet", "alarms-incidents", "revenue-impact", "security-ops"].map((s) => { const m = modules.find((x) => x.slug === s)!; return [m.name, `/platform/${s}`]; }) },
 	{ title: "Solutions", links: [...solutions.slice(0, 2).map((s) => [s.name, `/solutions/${s.slug}`] as [string, string]), ...roles.slice(0, 4).map((r) => [r.name, `/roles/${r.slug}`] as [string, string])] },
-	{ title: "Company", links: [["Why SynapseDC", "/why-synapsedc"], ["How it works & security", "/how-it-works"], ["Integrations", "/integrations"], ["FAQ", "/faq"], ["Contact", "/contact"]] },
+	{ title: "Company", links: [["Why Us", "/why-synapsedc"], ["Why Now", "/why-now"], ["Our Story", "/our-story"], ["About SynapseDC", "/about"], ["How it works & security", "/how-it-works"], ["Request a demo", "/contact"]] },
 ];
 
 export interface Faq {
@@ -154,7 +175,6 @@ export const placeholders: Record<string, { title: string; icon: string; desc: s
 	"case-studies": { title: "Case studies", icon: "line-chart", desc: "Pilot results from colocation and GPU cloud operators, with the basis stated for every figure.", plan: ["Colocation pilot (one site)", "NeoCloud pilot (one site)"] },
 	videos: { title: "Videos", icon: "video", desc: "Short walk-throughs of the product.", plan: ["The 13:20 call: a UPS on battery, end to end", "Walking the 3D datacenter layout", "GPU Fleet: blast radius and placement"] },
 	glossary: { title: "Glossary", icon: "book-open", desc: "Datacenter, power, cooling, GPU and inventory terms, as the product uses them.", plan: ["Ride-through, ATS, busway, PDU", "Xid, DCGM, NVLink, InfiniBand rail", "Take-or-pay, demand ratchet, committed kW"] },
-	about: { title: "About", icon: "users", desc: "Who is building SynapseDC, and how.", plan: ["Our story", "Team", "Partners"] },
 	customers: { title: "Customers", icon: "building", desc: "Operators running SynapseDC.", plan: ["Customer logos", "Quotes"] },
 	pricing: { title: "Pricing", icon: "receipt", desc: "Value first, then pricing from the commercial team.", plan: ["Packaging by business model", "Pilot terms"] },
 	privacy: { title: "Privacy policy", icon: "lock", desc: "How this website handles personal data.", plan: ["To be supplied by legal"] },
