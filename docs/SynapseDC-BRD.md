@@ -15,6 +15,7 @@
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.9 | 27-Oct-2026 | First complete draft: all modules, module split against the existing platform, colocation + NeoCloud first |
+| 0.9.2 | 28-Oct-2026 | Section 3.5 modules used through their APIs, 3.6 what SynapseDC builds; Appendix B screen-by-screen and feature-by-feature catalogue; Appendix C expected API responses per module |
 | 0.9.1 | 28-Oct-2026 | Build boundary made explicit (3.4): existing platform modules are consumed only through their APIs — no new database, backend or screens for them; telemetry ingested and queried only through the OAP telemetry ingestion / consumer service on ClickHouse (9.0) |
 
 **How to read this document**
@@ -24,6 +25,7 @@
 - Section 8 holds the **analytics-only** pages that sit over existing platform modules.
 - Section 9 lists, per **existing platform module**, what SynapseDC reads from it, sends to it and through which interface.
 - Sections 10–15: data, non-functional requirements, phasing, risks and open decisions, traceability, glossary.
+- Appendix B: every screen built, tab by tab and feature by feature, with its requirement ids, data source and phase. Appendix C: the expected request and response of every API SynapseDC consumes from the existing modules.
 
 Requirement identifiers: `<PFX>-nnn` (functional), `BRULE-<PFX>-nn` (business rule), `US-<PFX>-nn` (user story), `ARCH-nnn` (build boundary), `NFR-nnn`, `INTG-nnn`, `DATA-nnn`. Priority uses MoSCoW: **M** must, **S** should, **C** could. Model: **Both**, **Colo** (colocation), **Neo** (NeoCloud / GPU cloud). Phase: **P1** MVP, **P2**, **P3** (section 12). Anything the prototype does not yet decide is marked **(to discuss)**.
 
@@ -41,6 +43,8 @@ Requirement identifiers: `<PFX>-nnn` (functional), `BRULE-<PFX>-nn` (business ru
   - 3.2 The split
   - 3.3 Out of scope (all releases unless re-decided)
   - 3.4 Build boundary: consume the platform, build only what is datacenter-specific
+  - 3.5 Modules used through their APIs (nothing built)
+  - 3.6 What SynapseDC builds, module by module
 - 4 Stakeholders, users and roles
 - 5 Business models
 - 6 Solution overview
@@ -99,6 +103,8 @@ Requirement identifiers: `<PFX>-nnn` (functional), `BRULE-<PFX>-nn` (business ru
 - 15 Glossary
 - 16 Approvals and sign-off
 - Appendix A — Requirement index
+- Appendix B — Screen and feature catalogue
+- Appendix C — Expected API responses from the existing modules
 
 ---
 
@@ -234,6 +240,56 @@ The existing modules named in section 3.2 (Operate to Acquire / BSS except Reven
 | Compliance policies, control mappings, attestations, decision records | **stored** | — |
 | Access events, visits, badges | security exceptions and the access-rights review (derived) | PACS / visitor / VMS connectors (INT-17…19) and Security Ops |
 | Business-model vocabulary, geography, severity and scope tables, site integration surveys, Help content | **stored** (configuration) | Knowledge Center for articles |
+
+
+### 3.5 Modules used through their APIs (nothing built)
+
+SynapseDC builds **nothing** of the modules below — no database, no backend, no screen. It calls their APIs (assumed available; ARCH-001) for the data listed, and opens their own screens through links. The expected request and response of every API is in **Appendix C**; the API needs per module are summarised in 9.10.
+
+| Suite | Module | Used through its API for | SynapseDC screens that use it | API ids (Appendix C) |
+| --- | --- | --- | --- | --- |
+| Opstral Ops Toolkit | **OAP telemetry ingestion / consumer services** (ClickHouse) | every live reading, 24 h / 30 d / 12 m history, roll-ups, top-N, freshness | every Operate screen; Capacity; Power economics | API-OAP-01…06 |
+| Opstral Ops Toolkit | System Alerts | alarm record, raise / clear, acknowledge, scope tags, on-call and paging | Command Center, Datacenter page, Alerts, Incidents view, Facilities, GPU Fleet | API-ALR-01…07 |
+| Opstral Ops Toolkit | Security Ops | detections, cases, rules, vulnerabilities, sensors; datacenter context written back | Security Ops (all sub-menus), Security data sources, Access & security | API-SOC-01…07 |
+| Opstral Ops Toolkit | Telemetry Ops · Data Ops · Infra Ops · Fin Ops | collector / pipeline state; scheduler jobs and nodes; cost data; power cost written back | Datacenter header, GPU Fleet, Power economics | API-OPS-01…04 |
+| Services & ITSM | Incidents · Problems | incident and problem records; SynapseDC writes impact, RCA, actions, worklog | Incidents (datacenter view), Problems, Command Center, Revenue Impact | API-ITSM-01…05, 13 |
+| Services & ITSM | Change Management | changes, approvals, windows, freezes; change requests raised from DCIM, incidents, maintenance, planner | DCIM, Incidents, Change management overview, Ops log | API-ITSM-06…09, 13 |
+| Services & ITSM | Maintenance | maintenance windows and plans per plant asset | Facilities → Maintenance, Datacenter Ops log | API-ITSM-10 |
+| Services & ITSM | Tickets | remote hands, cross-connect, access requests, RMA cases | Customer page, Device page, Assets | API-ITSM-11 |
+| Services & ITSM | Knowledge Center | runbook articles per alarm / incident type | Incidents view, Help & FAQ | API-ITSM-12 |
+| Operate to Acquire (BSS) | CRM · Customers | customers, tier, account manager; contracts, SLA, credit rules, contracted kW, GPU rate | Revenue Impact, Customer page, Command Center "Who is affected", Datacenter Customers tab | API-BSS-01, 02, 10 |
+| Operate to Acquire (BSS) | Orders · Plans & Products Catalog | services with placement and charge; products; cross-connect orders | Revenue Impact, impact everywhere, Tenants tab | API-BSS-03, 04, 09 |
+| Operate to Acquire (BSS) | Experience and Care | customer notices; impact per customer; SLA credits and metered usage written back | Incidents view (communications), Revenue Impact | API-BSS-05…08 |
+| Plan to Build | Inventory | sites, rooms, racks, devices, components, device types, lifecycle; DCIM extensions it can carry | Datacenters, Datacenter page, Device page, DCIM, Assets, Planner | API-INV-01…08 |
+| Plan to Build | Inventory Planning | capacity targets and holds; reservations written back | Capacity, Planner | API-IPL-01, 02 |
+| Plan to Build | IP Management | prefixes, VRFs, VLANs, addresses; assignment from DCIM | IP & Network insights, DCIM device drawer, Planner IP plan | API-IPM-01…03 |
+| Plan to Build | Programs & Projects (incl. work orders, commissioning) | programmes, projects, milestones, cost, risks, change orders, work orders, process tasks, commissioning tests, POs; project created from an approved plan | Programs & Projects insights, Work orders KPIs, Commissioning, Planner Delivery tab, Command Center build lens | API-PRJ-01…08 |
+| Supply Chain | Vendors · Contracts · Materials · Warehouses · Procurement · Field Force Management | vendor contracts and support, prices and lead times, stock and spares, POs from the plan BoM, field visits | Planner materials and sourcing, Assets (spares, RMA), Access (contractor visits) | API-SCM-01…05 |
+| AI Foundry | Models and agents | Opstral AI copilot answers over SynapseDC read models | Opstral AI drawer on every screen | API-AIF-01, 02 |
+| Platform Engineering | Identity · Configuration · Customization | sign-in, roles, site scope, tenant claim; flags and deployment config; custom fields and tags | every screen | API-PEN-01…03 |
+| Intelligence Hub | Data model registry · Data lake | SynapseDC entities registered; roll-ups exported for BI | Data model (Help document), BI | API-IHB-01, 02 |
+
+**Screens of these modules that SynapseDC does not build** (it links to them): incident / problem / change / ticket records and approvals; CRM, customer, contract and order records; inventory asset records; IP address management (prefix, VRF, VLAN, address CRUD); programme, project, work-order, purchase-order and commissioning records and their workflows; vendor, contract and stock records; users, roles, custom-field administration; the data lake.
+
+### 3.6 What SynapseDC builds, module by module
+
+Only datacenter-specific screens and functionality. **Appendix B** lists every screen tab by tab and feature by feature, with the requirement ids, the data source of each feature (API id, OAP, SynapseDC read model or store) and the phase.
+
+| # | SynapseDC module (menu) | Screens built | Chapter | Consumes (Appendix C) | Phase |
+| --- | --- | --- | --- | --- | --- |
+| 1 | **Command Center** | Hero (health, numbers, areas, map, datacenter column), What is happening · Who is affected · Recommendations, Plan & build strip and lens | 7.1 | OAP, ALR, ITSM, BSS, INV, PRJ | P1 / P2 |
+| 2 | **Datacenters** | Datacenters list; Datacenter page (Overview · Facility · Infrastructure · Business impact groups and their sub tabs); schematic and realistic layout / twin; Device page; Customer page | 7.2 | OAP, ALR, ITSM, BSS, INV, IPM, SCM | P1 / P2 |
+| 3 | **Facilities** | Power & backup, Cooling, Environment & safety, Single points of failure, Maintenance & alarms | 7.3 | OAP, ALR, ITSM-10, INV | P1 / P2 |
+| 4 | **GPU Fleet** | Clusters, Jobs, Nodes, Telemetry, GPU models, Network rails, Cooling & power, Where to place; node detail | 7.4 | OAP (DCGM), OPS-02, ALR, ITSM, BSS | P1 / P2 |
+| 5 | **Alerts & incidents (datacenter view)** | Alerts with scope; Incident view with impact, RCA, actions, verification, revenue, on call and communications; Problems — over the System Alerts and ITSM records | 7.5 | ALR, ITSM, BSS, OAP | P1 / P2 |
+| 6 | **Revenue Impact** | Issues, Customers, Datacenters, Causes & trend, One failure away; cost drawer; How it is calculated | 7.6 | BSS, ITSM, ALR, OAP | P1 |
+| 7 | **Security Ops (datacenter)** | Insights, Detections, Cases + Playbooks, Threat coverage, Vulnerabilities, Hardening & drift, OT security, Physical security; Admin → Security data sources — over Ops Toolkit Security Ops | 7.7 | SOC, INV, ITSM, ALR | P2 |
+| 8 | **Capacity & power economics** | Overview, Space, Power (+ Power economics), Cooling, Compute & GPU, Network, Reservations, PUE & energy, Financial | 7.8 | OAP, INV, IPL, PRJ, BSS, OPS-03/04 | P2 |
+| 9 | **Planner** | Insights, Plans, Templates, Benchmarks, New plan wizard, Plan page (all tabs), Review portal, plan / review packs | 7.9 | INV, IPL, IPM, PRJ, SCM, ITSM | P2 |
+| 10 | **DCIM (datacenter extensions)** | Insights, Sites & hierarchy, Racks & floor plan, Devices & explorer, Cabling, Power, Catalogue, Change requests; Rack page; Device type page | 7.10 | INV, ITSM-06…09, IPM, OAP | P1 / P2 |
+| 11 | **Compliance** | Overview, Frameworks & controls, Policies, Violations, Decision records, Audit | 7.11 | ITSM, INV, OAP | P3 |
+| 12 | **Analytics pages** | Programs & Projects insights, Work orders KPIs, Commissioning, IP & Network insights, Change management overview, DCIM insights | 8 | PRJ, SCM-05, IPM, ITSM | P2 |
+| 13 | **Cross-cutting** | Shell, persona and geography switches, search, Opstral AI, info bubbles, embed, Help & FAQ (FAQ, Documents, Customer guide, Facility integration) | 7.12 | PEN, AIF, ITSM-12 | P1 / P2 |
 
 ## 4 Stakeholders, users and roles
 
@@ -3023,7 +3079,7 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | CAP-026 | The system shall scope every view to the estate or to one datacenter by a datacenter selec… | M | Both | P2 |
 | CAP-027 | The system shall let a planner start a capacity plan from a dimension, opening the Planner… | S | Both | P2 |
 | CAP-028 | The system shall make every total reconcile: Σ site bills = estate bill; Σ holds per site | M | Both | P2 |
-| CAP-029 | The system shall export capacity, holds and power economics as CSV and through NB-01 / NB-… | S | Both | P2 |
+| CAP-029 | The system shall export capacity, holds and power economics as CSV and through NB-01 / NB-09 | S | Both | P2 |
 | CAP-030 | The system shall show 12 months of power history per site and use it for the ratchet rule.… | M | Both | P2 |
 | CAP-031 | The system shall send metered kWh and peak kW per tenant cabinet to billing (NB-07). | S | Colo | P3 |
 | CAP-032 | The system shall send delivered and lost GPU-hours per customer job to billing (NB-07). | S | Neo | P3 |
@@ -3202,3 +3258,2612 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | ANL-047 | The system shall measure lead time on normal changes implemented each week: median days fr… | S | Both | P2 |
 | ANL-048 | The system shall include preventive maintenance done in the last 12 weeks as completed sta… | S | Both | P2 |
 | ANL-045 | The system shall include DCIM-raised changes and delivery change requests in all measures.… | M | Both | P2 |
+
+---
+
+## Appendix B — Screen and feature catalogue
+
+This appendix lists, screen by screen and feature by feature, everything SynapseDC builds. A screen is either **Build (datacenter-specific)**, meaning SynapseDC owns the screen and the data behind it, or **Build — datacenter view over <module> API**, meaning the record stays in the existing module and SynapseDC adds only the datacenter-specific view, calculations and actions. Elements marked **link to <module>** are not built: the user is taken to the module's own screen. "Data from" names the API endpoints from Appendix C, using these labels:
+- **API-…**: an existing module's API.
+- **API-OAP-…**: the OAP telemetry consumer service on ClickHouse.
+- **DC-RM <name>**: a SynapseDC read model, which calculates results from the APIs.
+- **DC-STORE**: SynapseDC's own store, which holds datacenter-specific data only.
+
+FR references are to chapters 7.1–7.7 and 7.12. Phases are as in section 12. **Colo** means colocation only and **Neo** means NeoCloud only; rows without a mark apply to both.
+
+### B.1 Command Center
+**Route** `/` (`?lens=build` for the build lens) · **Menu** Overview › Command center · **Status** Build (datacenter-specific) · **Phase** P1 (Plan & build strip and lens P2)
+
+This is the landing page: one picture of every datacenter's health, what is happening, who is affected and what to do next.
+
+#### Hero: health and numbers
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Estate health ring | Operations health %, state word and a one-line verdict ("N critical or high incidents at S of 23 datacenters"). An info bubble lists each site. | CC-001, CC-021 | DC-RM health (API-ALR-01, API-ITSM-01, API-OAP-01) | P1 |
+| Weakest area | Names the lowest-scoring area under the verdict. | CC-002 | DC-RM health | P1 |
+| 2 × 2 number strip | Critical, High, Past SLA and premium customers affected. Clicking a number opens a list whose count equals it (for example `/incidents?view=high`). | CC-003, CC-004, CC-021, REV-028 | API-ITSM-01, DC-RM impact | P1 |
+| Area rows | GPU fleet (Neo) or Incident response (Colo), then Power, Cooling & environment, Network. Each row shows the state word, score %, caption and detail line. | CC-005, CC-008, CC-009 | DC-RM health, DC-RM gpu, API-OAP-01, API-ALR-01 | P1 |
+| Site chips per area | The datacenters with an issue in the area, critical first: 2 shown at 1440 px, 1 at 1280 px, the rest as "+N" with a hover list. Each chip opens the site. | CC-006 | DC-RM health | P1 |
+| Area status hover | Shows why the area has its status (the worst single issue). | CC-007 | DC-RM health | P1 |
+| GPU fleet detail | Neo only. For example "152 GPUs stopped by one failed GPU · 2 jobs slowed · $625/h lost"; the chips open `/gpu?dc=&gtab=jobs`. | CC-008, CC-010, GPU-023 | DC-RM gpu (API-OPS-02, API-OAP-01) | P1 |
+| Freshness and telemetry gaps | Shows live refresh, data age, and "collector stale" as its own state. | CC-027, CC-028 | API-OAP-04, API-OPS-01 | P1 |
+
+#### Hero: map and datacenter column
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Live estate map | One pin per site, coloured by state. Pins ripple for Critical or High incidents, and backhaul that is down shows animated dashes. | CC-011 | API-INV-01, DC-RM health, API-ALR-01 | P1 |
+| Pin popup | Site summary and the site's backhaul fan-out. | CC-012 | DC-RM health, API-INV-03 | P1 |
+| Basemaps | Light, Streets, Satellite or Terrain, remembered per viewer. | CC-013 | browser preference | P1 |
+| Map search | Search by site id, city, state, region or tier; the map flies to the site and opens its card. | CC-014 | API-INV-01 | P1 |
+| Legend, Focus issues, Reset, Expand | Legend items toggle states. Expand fills the content area and Esc closes it. Wheel-zoom works only after the map is clicked. | CC-015 | — | P1 |
+| Datacenter column | Every live site as a card, worst first, with an All / Critical / High filter. Cards are compact and quiet sites use a quiet variant. | CC-016, CC-037 | DC-RM health, API-ITSM-01 | P1 |
+
+#### Trio: what is happening, who is affected, recommendations
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| What is happening | Open incidents and major alarms in scope, newest first, each with its resolution-SLA clock bar. The incident opens the datacenter incident view. | CC-017, CC-033 | API-ITSM-01, API-ALR-01, DC-RM rca | P1 |
+| Who is affected | Customers impacted now, premium first, with money and the split of services by status. | CC-018, CC-034 | DC-RM impact, DC-RM revenue, API-BSS-01 | P1 |
+| Recommendations | Up to 5 ranked, de-duplicated actions: incident steps, pending changes, batch RMA on an optics lot, and plan approvals waiting for the viewer. Each shows its reason. | CC-019, CC-024, CC-035 | DC-RM rca, API-ITSM-06, DC-STORE plans | P1 (plan approvals P2) |
+| Equal panels | The three panels are 600 px tall with scrolling bodies. | CC-020 | — | P1 |
+
+#### Plan & build strip and lens
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Plan & build strip | One slim row above the hero: plans per stage and decisions due. "More" opens the full strip and the choice is remembered. | CC-022, CC-036 | DC-STORE plans, API-PRJ-02 | P2 |
+| Build lens | Shown with `?lens=build`: capacity pipeline planned → approved → in build → commissioning → live, decisions, the week ahead and projects. | CC-023 | DC-STORE plans, API-PRJ-02, API-PRJ-04, API-IPL-01 | P2 |
+
+#### Shell on this screen
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Info bubbles | An "i" on every widget. | CC-025, XC-009 | — | P1 |
+| Persona and geography switch | Changes vocabulary, currency and the first area. | CC-026, CC-038, XC-002 | API-PEN-02, DC-STORE config | P1 |
+| ⌘K search | Search over sites, devices, incidents, customers and screens. | CC-039, XC-007 | DC-RM search (API-INV-03, API-ITSM-01, API-BSS-01) | P1 |
+| Opstral AI | Questions such as "What is at risk in <site>?", with evidence links. | CC-031, XC-008 | API-AIF-01 over DC-RM | P2 |
+| Role scope | Shows only the sites the viewer may see. | CC-030 | API-PEN-01 | P1 |
+| TV scaling and embedding | 2200 px and wider screens; `?shell=false`. | CC-029, CC-032, XC-011, XC-012 | — | P1 / P2 |
+
+### B.2 Datacenters list
+**Route** `/datacenters` · **Menu** Operations › Datacenters · **Status** Build (datacenter-specific) · **Phase** P1
+
+Lists every datacenter with its condition, its worst issue and the money at risk.
+
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Analytics strip | Six tiles: site status by condition, edge redundancy, incidents, power, alarms and money. Tiles click through to filters. | SITE-001, XC-021 | DC-RM health, API-ALR-01, DC-RM revenue | P1 |
+| List toolbar | Showing N of M, search, Condition and Region quick filters, and a Filters panel. | SITE-001, XC-020 | API-INV-01 | P1 |
+| Datacenter rows | State, worst open incident, money at risk, power and space use, and edge redundancy (redundant / redundancy-lost / isolated). | SITE-002, ALM-009, REV-017 | DC-RM health, DC-RM revenue, API-OAP-01, API-INV-02 | P1 |
+| List ⇄ tiles switch | The tiles view uses the same card as the Command Center column. | SITE-001 | — | P1 |
+
+### B.3 Datacenter page
+**Route** `/datacenters/:id?tab=<sub tab>` · **Menu** Operations › Datacenters › a site · **Status** Build (datacenter-specific) · **Phase** P1 (marked rows P2)
+
+One site end to end. It has four group pills, each with its own sub tabs. `?tab=` names the sub tab.
+
+#### Header and tab groups
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Pinned site header | Slim by default and expandable (remembered). Flagged-KPI chips (FlagRow, "+N more"), a collectors line, telemetry freshness and a quiet collapse icon. | SITE-003, SITE-004 | DC-RM health, API-OAP-04, API-OPS-01 | P1 |
+| Header actions | Changes (links to Services & ITSM Change Management via `/changes?dc=`), Plan (opens the Planner prefilled) and Opstral AI. | SITE-038 | API-ITSM-06, DC-STORE plans | P1 / P2 |
+| Group pills and sub tabs | Overview · Facility · Infrastructure · Business impact. Each pill shows the sum of its sub tab counts and opens the last sub tab used in that group. | SITE-005 | — | P1 |
+| Planned site state | Live-only tabs show an empty state. | SITE-037 | API-INV-01 | P1 |
+| Reconciled figures | Same incident, alarm, service and money counts as the Command Center and the lists. | SITE-047 | DC-RM health, DC-RM revenue | P1 |
+
+#### Overview › Datacenter layout (`?tab=overview`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Layout bar and view switch | "Datacenter layout · Live" with a Building › Floor › Room › Rack › Equipment trail and a Schematic / Realistic switch (`?twin=`, remembered). | SITE-010, SITE-012 | — | P1 / P2 |
+| Schematic 3D layout | Building → floor → room → rack → device. Beacons mark critical and major racks, floor and room edges show state, floor labels show issue counts, and up to 3 critical callouts appear. | SITE-010 | API-INV-01..03, DC-STORE DCIM, DC-RM health | P1 |
+| Needs attention card | Drills straight to the item. | SITE-011 | DC-RM health | P1 |
+| Facing row as glass | When a rack is open, the facing row turns to glass and takes no clicks. | SITE-043 | — | P1 |
+| Realistic view | Textured bezels per role, perforated doors (the selected rack swings open), trays, containment, plant cabinets, DG canopy and lighting. Effects drop automatically on slow GPUs. | SITE-012, NFR-014 | API-INV-03, DC-STORE DCIM | P2 |
+| Colour-by overlays | Health · Temperature (heat map from rack inlets) · Rack power · Connectivity. | SITE-013 | API-OAP-01, DC-RM physical | P2 |
+| Rack labels | Every rack in an open room is named with a status dot; clicking a label opens the rack. | SITE-014 | DC-RM health | P2 |
+| Plant selection | Cooling units, UPS, rectifier, battery bank or DG. The camera flies to the unit and a card opens with "Open in Facilities". | SITE-015 | API-OAP-01, DC-STORE facility design | P2 |
+| Walk mode | Eye-level camera: drag to look, click to walk, W A S D and arrows, collisions with racks, Esc to stop. | SITE-016 | — | P2 |
+| Power path / Cable paths chips | A and B busways fed from their UPS module and tap-offs into every rack (tripped and on-battery shown dashed), plus trunks to the ODF. A path card opens beside them. | SITE-017 | DC-RM physical, API-OAP-01 | P2 |
+| Device popup | Role, model, rack · U, state, links up and services, with Open device / View cabling / View power / Device in 3D. | SITE-018 | API-INV-03, API-BSS-03, DC-RM impact | P2 |
+| Cabling and power trace views | A 3D scene showing only this device: each cable through every hop to the far device (check-first marker), or PSU → outlet → PDU → busway → UPS → feed. | SITE-019 | DC-RM physical, DC-STORE DCIM | P2 |
+| Controls dock | Floor picker top-left, tools and "?" help top-right, one dock bottom-left (Colour by, paths and a foldable legend). | SITE-044 | — | P2 |
+| 2D fallback | Used when the browser has no WebGL. | SITE-020 | — | P1 |
+
+#### Overview › Needs attention (`?tab=attention`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Open incidents | Four figure tiles (past SLA, unacknowledged, oldest open, MTTR 30 d), then "Resolved · last 7 days". Each incident opens the datacenter incident view. | SITE-006, ALM-033 | API-ITSM-01, API-ITSM-02 | P1 |
+| Alarms in scope | Alarm category tiles, then alarms with their scope and severity chips; downstream alarms are excluded. | SITE-006, ALM-008 | API-ALR-01, DC-RM scope | P1 |
+| On call now | The site's on-call engineer and escalation. | SITE-007 | API-ALR-06 | P1 |
+
+#### Overview › Metrics (`?tab=metrics`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Facility strip | Six tiles: power load, PUE, UPS, cooling, environment, alarms & maintenance. Each opens its Facility sub tab. | FAC-001, FAC-038 | API-OAP-01, DC-RM physical | P1 |
+| Zone temperature and humidity | Averages with 24 h trends. | SITE-008 | API-OAP-02 | P1 |
+| Rack inlets and hottest | Inlet average and range, hottest chassis, hottest racks. | SITE-008 | API-OAP-03 | P1 |
+| Diesel | Litres, burn rate, 30-day use (estimated until metered). | SITE-008, FAC-040 | API-OAP-01, DC-STORE facility design | P1 |
+| Hardware faults and device load | Hardware fault count and device load, CPU above 90 % flagged. | SITE-008 | API-ALR-01, API-OAP-03 | P1 |
+
+#### Overview › Ops log (`?tab=timeline`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Ops log | Commissioning, changes, incidents, maintenance, capacity and discovery events in time order, each linking to its record. Changes and incidents link to Services & ITSM. | SITE-009 | API-ITSM-01, API-ITSM-06, API-ITSM-10, API-PRJ-04 | P1 |
+
+#### Facility › Power & backup · Cooling · Environment · Single points of failure · Maintenance & alarms (`?tab=fpower|fcooling|fenv|fspof|fmaint`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Facilities body for this site | The same content as the Facilities screen (B.6), without the facility strip, which heads Metrics instead. | FAC-030, FAC-038 | see B.6 | P1 / P2 |
+
+#### Facility › Access & security (`?tab=access`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| People on site & exceptions | Who is on site now (guards, technicians, change crews, on-call, vendors, visitors with host and escort) and the security exceptions (tailgating, forced or held door, anti-passback, after-hours, unescorted, overstay, badge not returned). | SITE-030 | PACS / visitor connectors (INT-17, INT-18), DC-RM access, API-SOC-06 | P2 |
+| Entries, exits & doors | 24 h chart, doors and readers with events and denials; a door click opens the audit trail. | SITE-030 | INT-17, DC-RM access | P2 |
+| Access rights review | Quarterly review: badges by type, expired or unused badges, CCTV 90 d, log 1 y. | SITE-030 | INT-17, DC-RM access | P2 |
+| Access audit trail | Filterable log of badge reads (`aq · ares · atype · adoor · adir`). | SITE-030 | INT-17 | P2 |
+| Visits linked to work | A visit links to its change (CHG) or incident (INC) in Services & ITSM. | SITE-031 | API-ITSM-02, API-ITSM-07 | P2 |
+| Tenant cage doors | Colo only. Tenants' badge reads at their cage. | SITE-032 | INT-17 | P2 |
+| Person and exception drawers | Details and history. | SITE-033 | DC-RM access | P2 |
+
+#### Infrastructure › Equipment (`?tab=elements`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Installed devices | State, role, rack, model and alarms. Planned devices show as reserved rack space only. | SITE-021 | API-INV-03, API-ALR-01, API-OAP-04 | P1 |
+| Tenant gear | Colo only. An opaque block per cabinet: owner, contracted kW, measured draw; never polled. | SITE-022 | API-INV-02, API-BSS-02, API-OAP-01 | P1 |
+| 8-GPU strip | Neo only. Per-GPU state on each GPU node; a cluster's nodes are grouped. | SITE-023, GPU-041 | API-OAP-01, DC-RM gpu | P1 |
+| Operator servers | The operator's own servers with their purpose (management, applications, NFV, BMS / ACS / NVR / DCIM in colocation). | SITE-042 | API-INV-03 | P1 |
+
+#### Infrastructure › GPU Fleet (`?tab=gpu`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Site GPU view | Neo only, hidden without GPU infrastructure. The GPU Fleet tabs (B.7) scoped to the site, with its own "Jobs needing attention" section. | GPU-001, GPU-030 | see B.7 | P1 |
+
+#### Infrastructure › Topology (`?tab=topology`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Site topology | Network devices and links with state; hosts are counted per switch. `/topology?dc=` redirects here. | SITE-024, SITE-046 | API-INV-03, DC-STORE DCIM cables, API-OAP-01, API-ALR-01 | P1 |
+
+#### Infrastructure › Space & ports (`?tab=details`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Rack space, ports, building | Used and free U, ports by speed, building facts. | SITE-025, SITE-046 | API-INV-02..04, DC-STORE DCIM | P1 |
+| Floors / rooms / racks table | Per room: racks, U and budget. | SITE-046 | API-INV-01, API-INV-02 | P1 |
+
+#### Infrastructure › Assets (`?tab=assets`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Space by room, equipment by category, facility assets | Device counts per room and category, and the facility plant. | SITE-025 | API-INV-03, DC-STORE facility design | P1 |
+| Lifecycle | Warranty and support state, RMA cases, spares. Rack type, purchase date and condition, including Damaged at audit. | SITE-041, FAC-028, FAC-029 | API-INV-06, API-SCM-01, API-SCM-03, API-ITSM-11 | P2 |
+| Links to DCIM | Rack rows open DCIM. | SITE-025 | — | P1 |
+
+#### Business impact › Customers / Tenants (`?tab=customers`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Customers served | The persona's word is used. Each customer shows why it is at risk (its causes) and opens the customer page. | SITE-034, REV-031 | API-BSS-01, API-BSS-03, DC-RM impact | P1 |
+| Cross-connects and remote hands | Colo only. Orders and tickets from BSS and ITSM; the records stay there. | SITE-035 | API-BSS-09, API-ITSM-11 | P2 |
+| GPU customers | Neo only. Their jobs and GPU time lost. | SITE-036 | DC-RM gpu, API-OPS-02 | P1 |
+
+#### Business impact › Revenue (`?tab=revenue`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Site revenue impact | The Revenue Impact model (B.11) scoped to the site: issues, money and credits. | REV-016 | DC-RM revenue | P1 |
+
+### B.4 Device page
+**Route** `/ne/:id?tab=` · **Menu** reached from any device link · **Status** Build (datacenter-specific; the asset record stays in Plan to Build Inventory) · **Phase** P1 (marked rows P2)
+
+One device: its health, hardware, power, cabling, links and impact.
+
+#### Overview (`?tab=overview`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Identity and state | Role, vendor, model, serial, rack · U, management IP, state, freshness. "Open in Inventory" links to Plan to Build Inventory. | SITE-026 | API-INV-03, API-IPM-02, API-OAP-04 | P1 |
+| Health summary | CPU, memory, temperature, alarms and services carried. | SITE-026 | API-OAP-01, API-ALR-01, API-BSS-03 | P1 |
+
+#### 3D view (`?tab=twin`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| 3D model per family | Router, switch, firewall, optical, server, storage, GPU; parts coloured by kind and state. | SITE-028, SITE-045 | API-INV-03, API-INV-04, API-OAP-01 | P1 |
+| Modes and cameras | Device · Open lid · Exploded · One accelerator · In the rack; 3/4 · Front · Rear · Top; Health / Heat overlay. | SITE-028 | API-OAP-01 | P1 |
+| Power and Cables chips | Every PSU cord to its rear PDU outlet; the device's ports to the patch panel and trunk; a path card. | SITE-017, SITE-028 | DC-RM physical, DC-STORE DCIM | P2 |
+| 2D fallback and inspector | Part inspector; 2D scene when there is no WebGL. | SITE-020 | — | P1 |
+
+#### Hardware & interfaces (`?tab=hardware`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Modules, PSUs, fans | State per module and part. | SITE-026 | API-INV-04, API-OAP-01, API-ALR-01 | P1 |
+| Interfaces | Speed, admin / oper state, errors, flaps, optics DOM, utilisation. | SITE-026 | API-INV-04, API-OAP-01, API-OAP-02 | P1 |
+| Lifecycle | Install date, warranty, support, vendor end of sale and support, RMA. | FAC-028 | API-INV-06, API-SCM-01, API-ITSM-11 | P2 |
+
+#### Power & cabling (`?tab=physical`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Power chain | Each PSU → outlet → PDU side → UPS or −48 V plant → feed, with load per side. Both cords on one side is flagged. | SITE-027, FAC-010 | DC-STORE DCIM, DC-RM physical, API-OAP-01 | P1 |
+| Cable paths | Each port → optic → cord → panel → trunk → ODF → cross-connect → far end. | SITE-027, SITE-019 | DC-STORE DCIM, DC-RM physical | P1 |
+
+#### GPUs · DCGM (`?tab=gpus`, GPU nodes only)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| GPU node detail | Neo only. Health view and profiling view per GPU (DCGM fields), 24 h sparklines. Labelled "GPUs · Intel" for Gaudi / Max nodes. | SITE-029, GPU-014, GPU-010, GPU-011, GPU-012 | API-OAP-01, API-OAP-02 | P1 |
+
+#### Links (`?tab=links`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Links and fabric planes | Neighbours with state. Fabric connections are shown by plane (InfiniBand, Ethernet front-end, Management / OOB), with a BGP card where the switch runs it; border routers keep protocol cards. | SITE-026, GPU-018 | DC-STORE DCIM cables, API-OAP-01 | P1 |
+| Link drawer | Cable path of the link. | SITE-019 | DC-RM physical | P1 |
+
+#### Impact (`?tab=impact`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Services and customers on the device | Services carried, their state, customers and money if it fails. | SITE-026, REV-013 | API-BSS-03, DC-RM impact, DC-RM revenue | P1 |
+
+#### Alerts & diagnostics (`?tab=alerts`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Device alarms | Active and recent alarms with scope; the incident link opens the datacenter incident view. | SITE-026, ALM-037 | API-ALR-01, API-ITSM-01 | P1 |
+
+### B.5 Customer page
+**Route** `/customers/:id` · **Menu** reached from customer links · **Status** Build — datacenter view over BSS Customers API (the customer record stays in BSS) · **Phase** P1
+
+What is affecting one customer, where they are served, and the money involved.
+
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Identity header | Avatar, state, facts row, a one-line verdict with the main cause. "Open in CRM" links to BSS. | SITE-039, REV-029 | API-BSS-01, API-BSS-02, DC-RM impact | P1 |
+| Analytics strip | Six tiles: services, impacted, money lost, credits, SLA, premium. | REV-029 | DC-RM revenue | P1 |
+| What is impacting this customer | Issues with money per issue; each opens the datacenter incident view. | REV-018 | DC-RM revenue, API-ITSM-01 | P1 |
+| Where they are served | Sites and racks or cabinets. | SITE-039 | API-BSS-03, API-INV-02 | P1 |
+| Service grid | Services with state, site, charge, SLA and cause; Status and Datacenter filters. | SITE-039 | API-BSS-03, DC-RM impact | P1 |
+| Cross-connect orders and remote hands | Colo only. Shown from BSS and ITSM; the records stay there. | SITE-040, REV-030 | API-BSS-09, API-ITSM-11 | P2 |
+
+### B.6 Facilities
+**Route** `/facilities?dc=&tab=power|cooling|environment|resilience|maintenance` · **Menu** Operations › Facilities · **Status** Build (datacenter-specific) · **Phase** P1 (marked rows P2)
+
+The building's power, cooling, environment and safety, single points of failure and maintenance. It has a datacenter picker, and the same tabs also appear inside the datacenter page.
+
+#### Header and strip
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Datacenter picker | Scopes every tab to one site. | FAC-030 | API-INV-01 | P1 |
+| Facility strip | Six tiles (power load, PUE, UPS, cooling, environment, alarms & maintenance), each opening its tab. | FAC-001, FAC-038 | API-OAP-01, DC-RM physical | P1 |
+| Freshness, read-only | Every value shows its age. No command is ever sent to plant. | FAC-034, FAC-033 | API-OAP-04 | P1 |
+
+#### Power & backup
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Collapsible sections | Power path · Load & ride-through · Cabinet power distribution & what-if · Rack power. A closed section shows a summary card with a state chip. | FAC-007 | — | P1 |
+| Power path diagram | Utility feeds, DG with fuel and runtime, ATS, LT panel, UPS modules, battery, IT racks, DC loads, with animated flow. Hovering traces upstream and downstream. | FAC-002, FAC-003 | API-OAP-01, DC-STORE facility design | P1 |
+| 24 h load vs capacity | Load chart against capacity. | FAC-004 | API-OAP-02 | P1 |
+| If utility power fails | UPS minutes (shortest module), DG kW at 80 % of kVA, fuel hours and five readiness checks. A UPS on battery shows a note with the minutes left. | FAC-005, FAC-006, FAC-031 | API-OAP-01, DC-STORE facility design, API-ITSM-10 | P1 |
+| Cabinet distribution | By UPS, busway and PDU side. | FAC-012 | DC-RM physical | P2 |
+| What-if | Pick a feed, UPS, side, PDU, cooling unit or trunk to see what drops and what rides through. | FAC-013 | DC-RM physical | P2 |
+| Rack power list | Search plus State / Location quick filters, and Role / PDU sides in the panel (`rq rstate rroom rrole rpdu`). Shows draw vs budget and A / B. Over budget at 85 %, High at 75 %. | FAC-008 | API-OAP-01, API-INV-02, DC-STORE DCIM | P1 |
+| Rack PDU drawer | Outlet map: outlet, device, PSU, current, breaker. | FAC-009 | DC-STORE DCIM, API-OAP-01 | P2 |
+| Same-side cords flag | Devices with both cords on one side. | FAC-010 | DC-RM physical | P1 |
+| Tenant cabinets | Colo only. Draw vs contracted kW; over-budget cabinets flagged (a commercial matter, not a loss). | FAC-011 | API-BSS-02, API-OAP-01 | P1 |
+| −48 V DC plant | Rectifiers, BDFB panels and battery, where present. | FAC-032 | API-OAP-01 | P1 |
+
+#### Cooling
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Heat balance | Heat load, running capacity, capacity after losing the largest unit, margin. | FAC-014, FAC-036 | API-OAP-01, DC-STORE facility design | P1 |
+| Unit cards | CRAH / CRAC / chiller / CDU with state, supply and return temperatures, load. | FAC-015 | API-OAP-01, API-ALR-01 | P1 |
+| CDU loops | Neo only. Flow, supply and return, the GPU racks served; a flow fault links to the GPU slowdown it causes. | FAC-016, FAC-017 | API-OAP-01, DC-RM gpu | P1 |
+| Coverage by floor | N+1 holds / No spare / Short, and each rack's nearest unit. | FAC-018 | DC-RM physical | P2 |
+
+#### Environment
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Zone cards | Temperature and humidity on safe-band tracks (18–27 °C, 40–60 % RH). | FAC-019 | API-OAP-01 | P1 |
+| Fire zones | Detection, suppression, agent %, release mode, last and next inspection. | FAC-020 | API-OAP-01 (BMS), DC-STORE facility design, API-ITSM-10 | P2 |
+| Leak detection | Rope lines and their state. | FAC-021 | API-OAP-01 (BMS) | P2 |
+| Access points | Mantrap, room doors, cage doors, with events and denials in 24 h. | FAC-022 | INT-17, DC-RM access | P2 |
+
+#### Single points of failure
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| SPOF list | Cords on one side, failed PSU, tripped PDU, one-side cabinets (≥ 90 %), UPS not online, Tier II single feed / route / entry, lost cooling spare. Domain filter (`?domain=`), with a what-if per item. | FAC-023, FAC-013 | DC-RM physical | P2 |
+| Resilience tests | Last run, outcome, next due. | FAC-024 | DC-STORE facility design, API-ITSM-10 | P2 |
+
+#### Maintenance & alarms
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Facility alarms | The site's active facility alarms and the incidents tracking them. | FAC-035 | API-ALR-01, API-ITSM-01 | P1 |
+| PM plan | Per plant asset: interval, last done, next due, state; impact shown as the what-if. | FAC-025, FAC-027 | API-ITSM-10, DC-RM physical | P2 |
+| Schedule maintenance | Raises a Maintenance change through Services & ITSM (`/changes?new=maintenance`). | FAC-026 | API-ITSM-08 | P2 |
+| Lifecycle, spares and contracts | Warranty and support state, RMA, spares per part family (on hand, reserved, minimum), support contracts and vendor dates. | FAC-028, FAC-029, FAC-037, FAC-039 | API-INV-06, API-SCM-01, API-SCM-03, API-ITSM-11 | P2 |
+| Estimates flagged | Diesel litres, burn, PDUs per rack and similar values are marked estimated until a record or reading replaces them. | FAC-040 | DC-STORE facility design | P1 |
+
+### B.7 GPU Fleet
+**Route** `/gpu?dc=&gtab=clusters|jobs|nodes|models|telemetry|cooling|fabric|placement` · **Menu** Operations › GPU Fleet · **Status** Build (datacenter-specific) · **Phase** P1 (cooling & power cost and placement P2)
+
+Neo only; hidden when there is no GPU infrastructure. GPUs, jobs and what faults cost in productive GPU time.
+
+#### Head and attention
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Head row | Title and subtitle, live chip, datacenter select (200 px), Opstral. | GPU-036, GPU-030 | API-INV-01 | P1 |
+| Fleet strip | GPUs installed, in a job, healthy %, jobs by state, GPU time lost. | GPU-009, GPU-039 | DC-RM gpu | P1 |
+| Jobs needing attention | Collapsible. Biggest blast radius and Slowest job cards; when closed, four facts (GPUs stopped + incident, lost now, slowest job, lost now). | GPU-008 | DC-RM gpu, API-ITSM-01 | P1 |
+| Pinned tab bar | Eight tabs on one row at 1280 px; list headers pin below. | GPU-029 | — | P1 |
+
+#### Clusters (default)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Cluster / pod list | GPU model, vendor, nodes, GPUs in a job, spare, out of service, worst state. | GPU-002 | API-INV-03, DC-RM gpu | P1 |
+| Node heat map | Per cluster, coloured by worst GPU state. | GPU-003 | API-OAP-01 | P1 |
+
+#### Jobs
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Jobs list | Kind, customer, premium, cluster, GPUs, state, step time, MFU, last checkpoint, lost now / so far / work to redo / at stake. Sorted by lost-now. | GPU-005, GPU-006, GPU-007 | API-OPS-02, DC-RM gpu, API-BSS-02 | P1 |
+| Filters | State (stalled, slowed, at risk, idle, running) and kind. | GPU-037 | — | P1 |
+| Not exported | Step time, MFU and checkpoint show "not available" when the AI platform does not export them. | GPU-032, GPU-031 | API-OPS-02 | P1 |
+| Incident and actions | A job hit by a fault links to its GPU incident; actions such as "drain the failed node and restart from the checkpoint". | GPU-022, GPU-034 | API-ITSM-01, DC-RM rca | P1 |
+
+#### Nodes
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Nodes list | Cluster, job, owner, utilisation, max GPU temperature, throttle, Xid, driver; `?gmodel=` filter. | GPU-004 | API-OAP-01, API-INV-03, API-OPS-02 | P1 |
+| Node drawer | Health view, profiling view, 24 h sparklines, hardware row. | GPU-014, GPU-012 | API-OAP-01, API-OAP-02 | P1 |
+| Driver drift | Nodes on their model's old driver, linked to the driver-rollout change in Services & ITSM. | GPU-016, GPU-038 | API-INV-03, API-ITSM-07 | P1 |
+| RMA nodes | Open RMA and spare status. | GPU-028 | API-ITSM-11, API-SCM-03 | P2 |
+
+#### GPU models
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Vendor cards and model table | NVIDIA B200 / H200 / H100 / A100 / L40S / T4 and Intel Gaudi 3 / Max 1550: memory, TDP, scale-up link, fabric, server, driver, telemetry source; opens Nodes filtered by model or vendor. | GPU-017 | API-INV-05, DC-STORE GPU catalogue | P1 |
+
+#### Telemetry
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Fleet telemetry | Utilisation and temperature histograms, 24 h fleet series, energy, P-states, Xid timeline, ECC totals. | GPU-013 | API-OAP-02, API-OAP-03 | P1 |
+| Counter leaders and DCGM fields | Hottest GPUs, most PCIe replays and similar leaders; the DCGM field list. Vendor-aware labels (DCGM / hl-smi / XPU Manager). | GPU-040, GPU-010, GPU-011 | API-OAP-03, API-OAP-06 | P1 |
+| Xid alarms | Xid classified per bucket and raised as GPU alarms. | GPU-015 | API-OAP-01, API-ALR-03 | P1 |
+
+#### Cooling & power
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| GPU cooling | CDU loops (capacity, load, supply and return, flow); GPU racks with draw vs budget, liquid / air, maximum temperature. | GPU-019, GPU-020 | API-OAP-01, DC-STORE facility design | P1 |
+| Tenant AI cages | Colo only. Contracted kW, draw, CDU and inlet temperature; power and cooling only. | GPU-021 | API-BSS-02, API-OAP-01 | P1 |
+| Power cost per GPU-hour | Per pod, per installed and sold GPU-hour against the model's price; idle GPUs' power cost; links to Capacity → Power economics. | GPU-024, GPU-027 | DC-RM power-econ, DC-STORE contracts | P2 |
+| Energy and power cost by job / tenant | By job and by tenant: kW × PUE × tariff per day against earnings; idle allocations; power-cap trade-off. | GPU-025 | DC-RM power-econ, API-OPS-02 | P2 |
+
+#### Network
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Network rails | InfiniBand, Ethernet front-end, OOB per cluster: ports, errors and flaps on one line. | GPU-018 | API-OAP-01, DC-STORE DCIM cables | P1 |
+
+#### Where to place
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Placement | Enter GPUs needed (8–256) and a model to get a strip and ranked pods. Each pod shows fit good / tight / no, free healthy GPUs, rack headroom, cooling, contracted headroom, already-paid kW and marginal power per GPU-hour. | GPU-026 | DC-RM power-econ, DC-RM gpu | P2 |
+
+#### Elsewhere
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Opstral AI | "Where should the next GPU job go?", "What is power costing us?", "Which GPU job is losing the most?" | GPU-033 | API-AIF-01 over DC-RM | P2 |
+| GPU hours to billing | Delivered and lost hours per customer per day. | GPU-035 | API-BSS-08 | P2 |
+
+### B.8 Alerts
+**Route** `/alerts?sev=&scope=&state=&dc=` · **Menu** Operations › Alerts · **Status** Build — datacenter view over Ops Toolkit System Alerts API (alerts stay in System Alerts) · **Phase** P1
+
+Alarms with datacenter scope, placement and correlation added.
+
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Analytics strip | Six tiles: active alarms by severity, scope, category and source, with click-through. | ALM-012 | API-ALR-01, DC-RM scope | P1 |
+| Alarm list | Severity, scope, category, source, title, device and port or rack, age, incident. Severity / Scope quick filters, state filter. | ALM-012, ALM-037 | API-ALR-01, API-INV-03 | P1 |
+| Scope and placement | Site / edge / dependency shown; downstream excluded and shown under its causing incident. | ALM-006, ALM-007, ALM-008, ALM-010 | API-ALR-05, DC-RM scope | P1 |
+| Acknowledge | Acknowledgement is recorded in System Alerts. | ALM-012 | API-ALR-04 | P1 |
+| Correlate into incident | Selected uncorrelated alarms open or extend an incident in Services & ITSM. | ALM-036, ALM-013 | API-ITSM-03, API-ITSM-04 | P1 |
+| Monitoring gaps | Collector stale, unmonitored devices. | ALM-029 | API-OAP-04, API-ALR-03 | P1 |
+| Normalisation behind the list | Collector alarms are normalised, de-duplicated, checked for flapping, graded and placed before being sent to System Alerts. | ALM-001..005, ALM-011 | API-ALR-03, API-ALR-05 | P1 |
+
+### B.9 Incidents — datacenter incident view
+**Route** `/incidents?view=open|high|breaching|all&dc=`, `/incidents/:id`, `/incidents?tab=problems&prb=` · **Menu** Operations › Incidents · **Status** Build — datacenter view over Services & ITSM Incidents / Problems API (incident and problem records stay in ITSM) · **Phase** P1 (problems, notices P2)
+
+Adds impact, root cause, actions, verification, money and communications to the ITSM incident.
+
+#### Incident list
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Views and filters | Open · Critical open · High open · Breaching SLA · All; Datacenter filter. | ALM-033 | API-ITSM-01 | P1 |
+| Rows | Severity word, title, site, status, SLA clocks, impact, revenue column. | ALM-027, REV-017 | API-ITSM-01, DC-RM impact, DC-RM revenue | P1 |
+| Open in ITSM | Link to the incident record in Services & ITSM. | ARCH-006 | — | P1 |
+
+#### Incident page
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Details | Type, severity, status, owner, SLA clocks (response and resolve), ITSM number. | ALM-014, ALM-027 | API-ITSM-02 | P1 |
+| Correlated alerts | Alarms grouped into this incident, with downstream symptoms. | ALM-013, ALM-008 | API-ALR-01, DC-RM rca | P1 |
+| Impact assessment | Affected objects; services, customers and premium; revenue at risk. | ALM-015, ALM-016 | DC-RM impact, API-BSS-03 | P1 |
+| Root cause hypotheses | Ranked with confidence and evidence; confirm / reject feedback. | ALM-017, ALM-019 | DC-RM rca, DC-STORE feedback | P1 |
+| Change awareness | Changes at the site or on the path in the last 3 days marked as suspects. | ALM-018 | API-ITSM-06 | P1 |
+| Action plan | Steps with owner, expected result, rollback, verification. Raise an emergency change. | ALM-020, ALM-021 | DC-RM rca, API-ITSM-08 | P1 |
+| Closure verification | Checklist before resolve; the resolution is posted to ITSM. | ALM-022 | DC-RM rca, API-ITSM-04 | P1 |
+| Similar events | Past incidents and shared nodes; batch RMA suggestion. | ALM-023, ALM-039 | API-ITSM-01, DC-RM rca | P1 |
+| Worklog | ITSM work notes, plus system and AI lines posted through the ITSM API. | ALM-024 | API-ITSM-02, API-ITSM-04 | P1 |
+| Revenue impact panel | Rate, lost, credits, cliff, forecast. | ALM-028, REV-015 | DC-RM revenue | P1 |
+| On call & communications | On-call engineer and paging chain, next escalation, ITSM ref, customer notices (initial 15 / 30 / 60 min, updates 1 / 2 / 4 h, overdue flagged). | ALM-026 | API-ALR-06, API-BSS-06 | P2 |
+| GPU incidents | Neo only. Affected jobs listed. | ALM-030 | DC-RM gpu, API-OPS-02 | P1 |
+| Opstral AI | Cause, what changed, what to do. | ALM-035 | API-AIF-01 | P2 |
+
+#### Problems tab
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Problem records | Incidents grouped by common cause (for example an optics lot), with state (Fix in change / Investigating / Known error). Created and kept in ITSM. | ALM-025 | API-ITSM-05 | P2 |
+
+### B.10 Revenue Impact
+**Route** `/revenue?tab=issues|customers|datacenters|trends|exposure` · **Menu** Overview › Revenue impact · **Status** Build (datacenter-specific) · **Phase** P1
+
+What every open issue costs, reconciled across every view.
+
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Six-tile strip | Losing now (per hour), Impact so far, At stake, Credits owed, Costliest cause 30 d, Within SLA 30 d. | REV-006 | DC-RM revenue | P1 |
+| Answer cards | "Costing the most right now" and "Most at stake", each with a cost-of-delay curve. | REV-007 | DC-RM revenue | P1 |
+| Issues tab | Ranked issues: services down / degraded / exposed, customers, lost, credits, next cliff, forecast 24 h. | REV-008, REV-003 | DC-RM revenue (API-ITSM-01, API-BSS-02, API-BSS-03) | P1 |
+| Cost-breakdown drawer | Every service with state, rate, minutes, credit step, cliff. | REV-009 | DC-RM revenue | P1 |
+| Customers tab | Monthly revenue, services by state, money, locked-in credits; filters View / Impacted now / Segment. | REV-010 | DC-RM revenue, API-BSS-01 | P1 |
+| Datacenters tab | Money, issues and services impacted per site; "Impacted or at stake" filter. | REV-011, REV-004 | DC-RM revenue | P1 |
+| Causes & trend tab | Causes by domain (Power, Cooling, Network, Rack, Device, GPU) and 30-day history. | REV-012, REV-019 | DC-RM revenue, API-ITSM-01 | P1 |
+| One failure away tab | Exposed services ranked by potential cost if the fault turns into an outage. | REV-013 | DC-RM revenue | P1 |
+| How it is calculated | Drawer with every formula and constant. | REV-014 | — | P1 |
+| Model rules | One issue per service; Colo tenant over its own power is not a loss; GPU jobs are services; persona money words; currency. | REV-001, REV-002, REV-005, REV-020, REV-021, REV-022 | DC-RM revenue | P1 |
+| Push to BSS / billing | Impact per customer, SLA credits, events. | REV-023, REV-024 | API-BSS-05, API-BSS-07 | P2 |
+| Opstral AI | "Which issue is costing the most revenue?" | REV-027 | API-AIF-01 | P2 |
+
+### B.11 Security Ops
+**Route** `/secops?tab=overview|detections|cases|playbooks|attack|rules|vulns|hardening|drift|ot|physical&dc=` · **Menu** Security › Security Ops › Insights · Detections · Cases · Threat coverage · Vulnerabilities · Hardening & drift · OT security · Physical security · **Status** Build — datacenter view over Ops Toolkit Security Ops API (detections, cases, rules and sensors stay in Security Ops) · **Phase** P2
+
+Datacenter security analysis with the site context added.
+
+| Sub-menu | Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- | --- |
+| Insights | Posture | NIST CSF 2.0 function scores with their basis, open detections and cases, site security scores ranked, gaps linking to data sources. | SEC-002, SEC-031 | API-SOC-01, API-SOC-02, API-SOC-05, DC-RM secops | P2 |
+| Detections | Queue | Rule, severity, asset, site, technique, state, disposition; datacenter context (room, rack, owner, change, who was on site). | SEC-005, SEC-033 | API-SOC-01, API-INV-03, API-ITSM-06, DC-RM access | P2 |
+| Detections | Triage | Close, mark as true positive or escalate to a case; the analyst's moves persist in Security Ops. | SEC-032 | API-SOC-07 | P2 |
+| Detections | Datacenter rules | SR-002 drift without a change, physical detections equal to the Access tab, SR-060 badge-in → unapproved change, GPU crypto-mining, OOB / BMC probing, OT behaviours. | SEC-003, SEC-006..011 | API-SOC-01, API-SOC-06, API-ITSM-06 | P2 |
+| Cases | Case lifecycle | NIST SP 800-61 phases, step checklists, notes, closure. | SEC-012, SEC-014 | API-SOC-02 | P2 |
+| Cases | Playbooks | Steps per case type with owner, trigger rules and the system that runs each step (automation runs in the SOC platform). | SEC-013, SEC-034 | API-SOC-02 | P2 |
+| Threat coverage | ATT&CK | Enterprise and ICS matrix: techniques with an enabled rule and a live sensor. | SEC-004, SEC-015 | API-SOC-03, API-SOC-05 | P2 |
+| Threat coverage | Rules | Sigma source, compiled ClickHouse query, version, status; enable, edit or create. | SEC-016 | API-SOC-03 | P2 |
+| Vulnerabilities | Exposure | Advisories matched per asset with CVSS v4, EPSS, KEV and an SSVC decision; set state (In remediation with a change link). | SEC-017, SEC-018, SEC-019 | API-SOC-04, API-INV-03, API-ITSM-08 | P2 |
+| Hardening & drift | Baselines | CIS / DISA STIG / vendor checks per device. | SEC-020 | API-SOC-01, API-INV-03 | P2 |
+| Hardening & drift | Drift | Running vs approved configuration, authorised (with a CR) or not. | SEC-021 | API-SOC-01, API-ITSM-07 | P2 |
+| OT security | Zones and conduits | IEC 62443 zones per site, SL-T vs SL-A, OT assets and findings. | SEC-022, SEC-023 | API-SOC-01, API-INV-03, DC-STORE OT zones | P2 |
+| Physical security | Layers | Perimeter → building → room → cage / rack per site, physical detections, access-rights review. | SEC-024, SEC-007 | DC-RM access, API-SOC-01 | P2 |
+| All | Guardrails | Tenant equipment is excluded. No containment is performed; "raise change" is offered instead. Output goes to the SIEM as OCSF. | SEC-027, SEC-028, SEC-026 | API-ITSM-08, NB-10 | P2 |
+| All | Metrics and compliance | MTTA, MTTR, cases within SLA, true-positive rate; ISO 27001 mapping for Compliance. | SEC-029, SEC-030 | API-SOC-02, DC-RM compliance | P2 |
+
+### B.12 Security data sources
+**Route** `/security-sources` (`/secops?tab=sources` redirects) · **Menu** Admin › Security data sources · **Status** Build — datacenter view over Ops Toolkit Security Ops sensors API · **Phase** P2
+
+Shows which sensors feed security monitoring at each site, and where the gaps are.
+
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Sensor list | TACACS+, syslog, Oxidized, Redfish, osquery, Falco, k8s audit, Trivy, Suricata, Zeek, NetFlow, OT sensor, PACS, VMS: state, last event, assets covered, site. | SEC-025 | API-SOC-05 | P2 |
+| Coverage gaps | Devices not discovered send no telemetry; silent sources are flagged. | SEC-025, SEC-015 | API-SOC-05, API-OAP-04, API-INV-03 | P2 |
+
+### B.13 Capacity
+
+**Route** `/capacity?tab=…&dc=` · **Menu** Plan & Build › Capacity › Insights · Power · Space · Network · Compute · Reservations · **Status** Build (datacenter-specific) · **Phase** P2
+
+Shows what each datacenter can still take (space, power, cooling, ports, GPUs) after every hold, what power costs, and where the next load should go.
+
+#### Insights (`overview`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Summary tiles | One tile per dimension (space, power, cooling, ports, GPU) plus a holds tile; each opens its tab | CAP-002 | DC-RM capacity; API-INV-02, API-OAP-01 | P2 |
+| Capacity per datacenter | Installed, used, held and free per dimension, by site, scoped by the datacenter picker | CAP-001, CAP-026 | DC-RM capacity; API-INV-01…03, API-OAP-01 | P2 |
+| Reservation ledger | Submitted → Approved → Executing → Delivered, months to the 85 % line per dimension | CAP-036 | DC-RM capacity; DC-STORE plans; API-IPL-01 | P2 |
+| 12-month forecast | Compound-growth forecast against the 85 % warning line; approved plans netted in; ≤ 9 months flagged | CAP-009 | API-OAP-03 (12-month history); DC-STORE plans | P2 |
+| Plan from a dimension | "Plan" button opens a new plan with the site and template pre-filled | CAP-027, PLN-030 | DC-STORE plans | P2 |
+| Info and reconciliation | Every widget has an info text; Σ sites = estate on every figure | CAP-033, CAP-028 | DC-RM capacity | P2 |
+
+#### Insights (`financial`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Financial view per site | CapEx approved and committed, OpEx per month, from plans and projects | CAP-035 | DC-STORE plans; API-PRJ-02, API-SCM-04 | P2 |
+
+#### Power (`power`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Power headroom by site and hall | Design vs drawn vs held kW, 85 % marker; link to the DCIM floor plan | CAP-003, CAP-005 | API-OAP-01; API-INV-02; DC-RM capacity | P2 |
+| 12-month power history | Monthly peak per site, used by the demand-ratchet finding | CAP-030 | API-OAP-03 | P2 |
+
+#### Power › PUE & energy (`energy`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| PUE, energy, CO₂ | PUE = facility ÷ IT, energy per day, CO₂ with the national grid factor (CEA India, eGRID USA), per site and estate | CAP-008 | API-OAP-03 (meter series); DC-STORE factors | P2 |
+
+#### Power › Power economics (`economics`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Strip | Bill per month, energy vs capacity share, idle kW cost, cost per sold MW-month | CAP-012, CAP-014 | DC-RM power-econ; DC-STORE tariffs, contracts; API-OAP-03 | P2 |
+| Idle-cost ranking | Bar list of sites by idle committed kW cost | CAP-013 | DC-RM power-econ | P2 |
+| Bill breakdown and site table | Donut energy / demand / block charges; site rows open Facilities power | CAP-015 | DC-RM power-econ | P2 |
+| Tariffs and contracts | Tariff per state, contract per site (utility take-or-pay or colocation block); marked illustrative; authorised users replace values | CAP-010, CAP-011 | DC-STORE tariffs, contracts | P2 |
+| Power findings | Block ≥ 85 %, new demand peak, unexplained rise, idle block; severity, exposure, alarm and incident links | CAP-019, CAP-021, CAP-038 | DC-RM power-econ; API-ALR-03, API-ITSM-03 (raised); API-ITSM-01 (links) | P2 |
+| Raise alarms and incident | One alarm per finding, one Medium incident for the costliest block / ratchet finding | CAP-020, CAP-022 | API-ALR-03; API-ITSM-03 | P2 |
+| GPU power cost | Per pod: kW / GPU × PUE × tariff per installed and per sold GPU-hour vs price; deck reference line (Neo) | CAP-016, CAP-037 | DC-RM power-econ; API-OAP-01; API-BSS-02 (GPU rate) | P2 |
+| By job / tenant | Energy and power cost per job or tenant vs what it earns; idle allocations; power-cap trade-off | CAP-017, CAP-018 | API-OPS-02; API-OAP-03; API-BSS-03 | P2 |
+| Metered usage out | kWh and peak kW per tenant cabinet (Colo); GPU-hours delivered / lost per job (Neo) to billing | CAP-031, CAP-032 | API-BSS-08 | P2 |
+| Cost to Fin Ops | Site power cost figures sent to Fin Ops | — | API-OPS-04 | P2 |
+| Export | CSV of capacity, holds and power economics | CAP-029 | DC-RM capacity | P2 |
+
+#### Space (`space`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Space and power by hall | Racks / U used, held, free per hall with power pressure; opens the DCIM floor plan | CAP-003 | API-INV-02, API-INV-03; DC-STORE DCIM extensions | P2 |
+
+#### Network (`network`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Links in countdown | Utilisation, growth of the last six monthly peaks, months to full; port headroom per site | CAP-034 | API-OAP-03; API-INV-04 | P2 |
+
+#### Compute (`compute`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| GPU capacity per model | In a job / allocated-idle / free / out of service, per model and site (Neo) | CAP-007 | API-OPS-02; API-OAP-01; API-INV-03 | P2 |
+| Where to place | Rank pods for 8–256 GPUs of a chosen model: free healthy GPUs, rack headroom, cooling, already-paid kW, fit good / tight / no (Neo); colocation hall ranking to discuss (Colo) | CAP-023, CAP-024 | DC-RM power-econ, gpu; API-OAP-01 | P2 / P3 |
+| Opstral answers | "Where should the next GPU job go?", "What is power costing us?" | CAP-025 | DC-RM power-econ; API-AIF-01 | P2 |
+
+#### Reservations (`reservations`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Reservation list | Every hold: kind (Reserved planned device, Committed colocation contract above draw, Pipeline plan, Requested plan, Reserved idle-job GPUs), resource, quantity, state, link | CAP-004, CAP-006 | DC-RM capacity; API-INV-03; API-BSS-02; DC-STORE plans; API-OPS-02 | P2 |
+| Net available | Power and space after all holds | CAP-005 | DC-RM capacity | P2 |
+| Write reservations | Holds from approved plans written to Inventory Planning | PLN-025 | API-IPL-02 | P2 |
+
+### B.14 Planner — Insights hub
+
+**Route** `/planning` · **Menu** Plan & Build › Planner › Insights · **Status** Build (datacenter-specific) · **Phase** P2
+
+The planner's landing page: plans that need action and the portfolio at a glance.
+
+#### Insights (`overview`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Analytics strip | Plans by status, CapEx in pipeline, IT capacity planned, decisions due | PLN-029 | DC-STORE plans | P2 |
+| Plans that need action | Your decision, Your review, Review sent, blocked submits, failing rules | PLN-029, PLN-037 | DC-STORE plans, reviews | P2 |
+| Library charts | Benchmark bars, PUE matrix, lead-time bars | PLN-004 | DC-STORE benchmarks | P2 |
+| New plan | Opens the wizard | PLN-005 | — | P2 |
+
+### B.15 Planner — Plans
+
+**Route** `/planning?tab=plans&status=&scope=&q=` · **Menu** Plan & Build › Planner › Plans · **Status** Build · **Phase** P2
+
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Plans list | Search, quick filters status and scope, Filters panel; rows open the plan page | PLN-028 | DC-STORE plans | P2 |
+| Card view | List ⇄ tiles switch, remembered per viewer | PLN-028 | DC-STORE plans | P2 |
+
+### B.16 Planner — Templates
+
+**Route** `/planning?tab=templates` · **Menu** Plan & Build › Planner › Templates · **Status** Build · **Phase** P2
+
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Views | Plan types · Site types · Modules, list or cards | PLN-002 | DC-STORE templates | P2 |
+| Template drawer | Inheritance chain, wizard areas, approval path, outputs, inputs with defaults, rules, plans using it, versions | PLN-003 | DC-STORE templates | P2 |
+| Template lifecycle | Make a variant, publish, retire; content change bumps the version | PLN-043 | DC-STORE templates | P2 |
+
+### B.17 Planner — Benchmarks
+
+**Route** `/planning?tab=benchmarks&metric=&site=&cooling=&tier=&region=&conf=` · **Menu** Plan & Build › Planner › Benchmarks · **Status** Build · **Phase** P2
+
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Views | Costs · Efficiency · Lead times · Sizing & staffing · Rules, each with charts and tables | PLN-004 | DC-STORE benchmarks; API-SCM-02 (prices, lead times) | P2 |
+| Toolbar per view | Search, Reference value / Site type quick filters, Cooling / Tier / Region / Confidence (Rules: Area / Severity) | PLN-044 | DC-STORE benchmarks | P2 |
+| Add / edit benchmark | Drawer; versioned | PLN-004 | DC-STORE benchmarks | P2 |
+
+### B.18 Planner — New plan wizard
+
+**Route** `/planning/new?dc=&template=` · `/planning/plans/:id/edit` · **Menu** from Planner, a datacenter page or Capacity · **Status** Build · **Phase** P2
+
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Stage stepper | Set up · Design · Delivery · Business · Decide, one connected line, dots per step | PLN-005 | — | P2 |
+| Plan type | Accordion of six families; selected type's details panel | PLN-001 | DC-STORE templates | P2 |
+| Requirements | Name, needed-by with lead-time check, where (site / two sites / campus / new site / region), how much, workload mix, tier | PLN-005, PLN-006 | API-INV-01; DC-RM capacity | P2 |
+| Candidate sites / plots | Site list with capacity bars; new-site candidate plots | PLN-016 | DC-RM capacity; DC-STORE | P2 |
+| Affected assets | Refresh plans: every eligible item, reasons as quick filters (end of sale, out of support, faulty), paged, searchable | PLN-017 | API-INV-03, API-INV-06; API-ITSM-11 (RMA) | P2 |
+| Derived inputs | "The planner fills N inputs" with reasons; source chips + reset per input | PLN-006, PLN-007 | DC-STORE templates, benchmarks | P2 |
+| Dimension steps | One step per area (space, power, cooling, network…), result per area, checks, drawings, phases / permits / risks editors | PLN-009, PLN-011 | DC-STORE | P2 |
+| GPU / colocation sizing | GPU pod plans as GPUs, kW / rack, liquid share, CDUs (Neo); cage / hall from contracted kW per cabinet (Colo) | PLN-033, PLN-034 | DC-STORE | P2 |
+| Scenarios | Create, compare, prefer | PLN-013 | DC-STORE | P2 |
+| Review | Blockers with "fix" links, approval path by band, outputs; submit | PLN-012, PLN-014 | DC-STORE | P2 |
+| Live estimate rail | Readiness ring, CapEx, IT power, source dots on every step | PLN-008 | DC-STORE | P2 |
+| Unsaved-changes guard | Warns before leaving; jump-to-step list | PLN-040 | — | P2 |
+
+### B.19 Planner — Plan page
+
+**Route** `/planning/plans/:id?tab=…` · **Menu** from Plans · **Status** Build · **Phase** P2
+
+Header (scope icon, status / revision chips, facts line, primary action, Send for review, Actions), one status line, hero strip (readiness or % built, IT capacity, CapEx, payback, needed by, rule checks), all tabs on one row with "More".
+
+| Tab | Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- | --- |
+| Header | Status line | State in words, whose decision, blockers, conditions, template drift, the build in Programs & Projects, open review / revision | PLN-047 | DC-STORE plans; API-PRJ-02 | P2 |
+| Header | What-if drawer | Scenarios on demand; figures follow approved → in review → preferred → base | PLN-039 | DC-STORE | P2 |
+| Overview | Dashboard | What and why, Draft → Completed tracker, next step, key dates, needs attention, phases, cost · capacity · readiness, inputs changed, outputs | PLN-046 | DC-STORE | P2 |
+| Project plan | Schedule | Phases with gates, "order in N wk" / "N wk late", Timeline view, PO numbers | PLN-011 | DC-STORE; API-PRJ-05 | P2 |
+| Project plan | Adjust the project plan | Edit name, go-live, IT kW, density, cooling; split / merge / add phases; live effect on CapEx, NPV, late items; commit per edit policy | PLN-024, PLN-023 | DC-STORE | P2 |
+| Family tabs | Equipment / Inventory / Waves / Plant / Paths / Site fit | Family-specific views; equipment editor re-evaluated live | PLN-031 | DC-STORE; API-INV-03 | P2 |
+| Design | Sizing and capacity | Sizing per area, capacity ladder (`#pn-capacity`) | PLN-009 | DC-STORE | P2 |
+| Cost | Cost and business case | CapEx lines, OpEx, NPV, IRR, payback, cashflow and breakdown charts, baseline vs now | PLN-010 | DC-STORE | P2 |
+| Materials | Bill of materials editor | Quantity, model, vendor, source (auto / site / stock / buy), remove, add from catalogue; sourcing site spare → stock → vendor | PLN-018 | DC-STORE; API-SCM-01…03 | P2 |
+| Risks & permits | Living register | Status, rating, owner, mitigation saved straight; add / remove drafts a revision | PLN-023 | DC-STORE | P2 |
+| Rules | Rule checks | Hard / soft rules with results and fixes | PLN-012 | DC-STORE | P2 |
+| Approvals | Decide | Approval path, decide modal, conditions, delegations, segregation of duties, review panels | PLN-014, PLN-015, PLN-037 | DC-STORE; API-PEN-01 (roles) | P2 |
+| Plan pack | Pack contents | What the plan creates (links into Programs & Projects, IP Management, DCIM), basis of design, BoM, IP plan, drawings, build initiation, CSV | PLN-019, PLN-048 | DC-STORE | P2 |
+| Plan pack | Review pack downloads | PDF, XLSX, ZIP (manifest with SHA-256) from one content model | PLN-020 | DC-STORE | P2 |
+| Plan pack | Drawing sheets | Family drawings on landscape A4 with title block | PLN-032 | DC-STORE | P2 |
+| Delivery | Build status | Start the build hands over as a project with vendor orders, holds, IP; shows project progress; handover completes the plan | PLN-026, PLN-027, PLN-041 | API-PRJ-06, API-PRJ-07, API-SCM-04, API-IPL-02, API-IPM-03, API-INV-07 | P2 |
+| History | Audit and baseline | Every change, decision, revision; baseline frozen on approval; closeout records | PLN-025, PLN-035, PLN-042 | DC-STORE | P2 |
+
+### B.20 Planner — Review portal and Send for review
+
+**Route** `/planning/plans/:id/review` · **Menu** from the plan page · **Status** Build · **Phase** P2
+
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Review document | Cover, numbered sections and sub-sections, tables, figures, sign-off boxes, drawing sheets; print | PLN-021 | DC-STORE | P2 |
+| Decision band | Path, whose turn, decide (same rules as Approvals); review status; pack downloads | PLN-021, PLN-037 | DC-STORE | P2 |
+| Comments | Threaded per section; reply; resolve | PLN-021 | DC-STORE reviews | P2 |
+| Send for review | Reviewers = path role holders minus requester / submitter; message; PDF / ZIP / link; email preview (sending to discuss) | PLN-022, PLN-038 | DC-STORE; API-PEN-01 | P2 |
+
+### B.21 DCIM
+
+**Route** `/dcim?tab=…&dc=` · **Menu** Plan & Build › DCIM › Insights · Sites · Racks · Devices · Cabling · Power · Catalogue · Changes · **Status** Build (datacenter-specific extensions over Plan to Build Inventory) · **Phase** P1 records, P2 change control / insights
+
+The physical record of each datacenter below the asset: where each rack and device sits, how power and cables reach it, under change control.
+
+#### Insights (`overview`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Needs attention | Racks over budget, unpatched ports, single-fed devices… each opens the filtered list | DCIM-034 | DC-RM physical; API-INV-02…04 | P2 |
+| Charts | Sites / halls by power pressure (85 %), rack density, device donuts, cabling stacks, panels by load, makers, change requests | DCIM-034 | DC-RM physical; API-OAP-01; API-ITSM-06 | P2 |
+
+#### Sites (`sites`, `hierarchy`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Sites list | Sites with halls, racks, devices, power | DCIM-011 | API-INV-01, API-INV-02 | P1 |
+| Hierarchy | Site → floor → hall → row → rack → device → components tree | DCIM-001 | API-INV-01…04; DC-STORE extensions | P1 |
+
+#### Racks (`racks`, `floorplan`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Racks list | Rack, hall, U used, budget, draw, type, condition, CR chip | DCIM-002, DCIM-022 | API-INV-02; DC-STORE extensions; API-OAP-01 | P1 |
+| Floor plan | Per hall grid; colour by Thermal / Density / Tenant (draw vs contracted); free cells open New rack; amber CR marker; planned racks as dashed ghosts | DCIM-007, DCIM-024 | DC-STORE; API-OAP-01; API-BSS-02 (contracted kW, Colo); API-ITSM-06 | P1 / P2 |
+| New rack | Form with CR section | DCIM-012, DCIM-020 | API-INV-07; API-ITSM-08 | P1 |
+| Tenant gear (Colo) | Tenant cabinets shown as opaque blocks with owner and contracted kW, never polled | DCIM-028 | API-INV-02; API-BSS-02 | P1 |
+
+#### Devices (`devices`, `explorer`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Devices list | Device, type, rack, U, status, CR chip; row opens the device drawer | DCIM-003, DCIM-019 | API-INV-03; DC-STORE extensions | P1 |
+| Install device | U-range validated, budget checked, under a CR | DCIM-012, DCIM-042 | API-INV-07; DC-STORE; API-ITSM-08 | P1 |
+| Explorer | Racks / devices, table or tiles, filters, saved views, CSV export | DCIM-026 | API-INV-02, API-INV-03 | P2 |
+
+#### Device drawer (from Devices, rack page)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Components | Ports, power ports with PDU outlet, management, console, bays, optics | DCIM-004 | API-INV-04; DC-STORE extensions | P1 |
+| Port actions | Connect to a free same-speed port, trace (cable path), disconnect, edit description / admin state | DCIM-014, DCIM-036, DCIM-009 | DC-STORE cables; API-INV-04 | P1 / P2 |
+| Bays | Install / swap / remove modules; a line card adds its ports | DCIM-015 | API-INV-04, API-INV-05 | P2 |
+| Move | Another U or rack at the site, budget checked | DCIM-013 | DC-STORE; API-INV-07 | P2 |
+| Status | Active / Maintenance / Decommissioning / Planned | DCIM-019 | API-INV-07 | P1 |
+| Addresses | Device addresses; assign next free address of a site prefix, set primary, unassign | DCIM-031 | API-IPM-02, API-IPM-03 | P2 |
+| Lifecycle | Installed, warranty, vendor support, open RMA | DCIM-035 | API-INV-06; API-ITSM-11 | P1 |
+| Link to device page | No third device page; opens the datacenter device page | DCIM-035 | — | P1 |
+
+#### Cabling (`cabling`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Cables list | Data cables (structured route: cord → panel → trunk → ODF → cross-connect → OSP) and power cords; reconciled with LLDP | DCIM-006 | DC-STORE cables; API-OAP-01 (LLDP neighbours) | P1 |
+| Cable path | Hop-by-hop path drawer | DCIM-009 | DC-STORE | P1 |
+| Cross-connects (Colo) | Meet-me room cross-connects tenant ↔ carrier / tenant, with the order | DCIM-029 | DC-STORE; API-BSS-09 | P1 |
+
+#### Power (`power`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Panels and feeds | Busway A / B per hall or −48 V; rack PDUs; Σ feeds = rack draw | DCIM-005 | DC-STORE power chain; API-OAP-01 | P1 |
+| New panel / feed | Rating = V × A (× √3 three-phase) × 0.8, under a CR | DCIM-017 | DC-STORE; API-ITSM-08 | P2 |
+| Single points of failure | From the power chain (both cords on A, one-side cabinets…) | DCIM-025 | DC-RM physical | P1 |
+| GPU and liquid racks | 4+ PSU GPU nodes, liquid racks with CDU | DCIM-030 | DC-STORE; API-INV-03 | P1 |
+
+#### Catalogue (`types`) and Device type page `/dcim/types/:id`
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Device / module types | Vendor and model from Inventory; datacenter templates (U, typical W, ports, power ports) kept here | DCIM-010 | API-INV-05; DC-STORE templates | P1 |
+| Import JSON, new module type, component templates | On the catalogue and type page | DCIM-010 | DC-STORE | P2 |
+
+#### Changes (`changes`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Change board | Every CR at the scope with racks / devices it touches, DCIM work, Execute; views ready / awaiting / in progress / soon / done / all; Plans in review | DCIM-023, DCIM-039 | API-ITSM-06, API-ITSM-07; DC-STORE work items; DC-STORE plans | P2 |
+| Notice bar | Ready · awaiting · in progress · plans, under the DCIM header | DCIM-024 | API-ITSM-06 | P2 |
+| CR on every edit | Standard (pre-approved template) / open CR at the site / raise new; refused under freeze | DCIM-020 | API-ITSM-06, API-ITSM-08 | P1 |
+| Planned work | Saved per CR; executed one or all once approved | DCIM-021, DCIM-041 | DC-STORE; API-ITSM-09 | P2 |
+| Raise change request | NewChange form in a drawer, lands in Awaiting approval | DCIM-038 | API-ITSM-08 | P2 |
+| Header actions | New rack / Install device on Insights · Sites · Racks; Install on Devices | DCIM-040 | — | P1 |
+| Record events | `dco.dcim.record-changed` with before / after and CR; extensions synced to Inventory | DCIM-033, DCIM-032 | API-INV-07 | P1 |
+| Invariants | U clash, budget, Σ feeds = draw, cables = links + cords checked on each change | DCIM-037, DCIM-042 | DC-RM physical | P1 |
+
+#### Rack page `/dcim/racks/:id`
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Elevation | Front / rear with devices, PDUs, cords; drag a device to free units → Move under a CR | DCIM-008, DCIM-013 | DC-STORE; API-INV-03 | P1 / P2 |
+| PDUs and cords, cables, panels | Per rack tabs | DCIM-005, DCIM-006 | DC-STORE | P1 |
+| Edit / Reserve space / Retire | Edit rack; reserve and release U with reason (Reserved tab); retire empty racks only | DCIM-016, DCIM-018 | DC-STORE; API-INV-07 | P2 |
+| Activity and Change requests tabs | Audit lines with CR; CRs touching the rack; "N planned changes" | DCIM-027, DCIM-022 | DC-STORE; API-ITSM-06 | P2 |
+
+### B.22 IP & Network — Insights
+
+**Route** `/ipam` · **Menu** Plan & Build › IP & Network › Insights · **Status** Build — analytics over IP Management API · **Phase** P2
+
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Prefix utilisation | Bound addresses only, per site / VRF | ANL-030 | API-IPM-01, API-IPM-02 | P2 |
+| Exhaustion forecast | Consumed ≥ 90 % / Committed ≥ 75 % or full within 12 months, from growth of recent installs | ANL-031 | API-IPM-01; API-INV-06 | P2 |
+| Outside plan | Device addresses outside the site plan as findings | ANL-032 | API-IPM-02; API-INV-03 | P2 |
+| Differences | IP Management vs connected DNS / DHCP / IPAM systems | ANL-033 | API-IPM-01 | P2 |
+| GPU fabric space | InfiniBand and front-end address space per GPU pod (Neo) | ANL-034 | API-IPM-01 | P2 |
+| Management VRF per site | Each site's management space as its own VRF | ANL-035 | API-IPM-01 | P2 |
+| IP Space · Routing · Gateways · Registers (prefixes, addresses, VRFs, VLANs, ASNs, FHRP, registers, integrations, CRUD) | Not built — IP Management screens (link) | — | API-IPM-01 | — |
+
+### B.23 Programs & Projects — Insights (Delivery analytics)
+
+**Route** `/delivery` (Insights `overview`, `todo`) · **Menu** Plan & Build › Delivery › Insights · **Status** Build — analytics over Programs & Projects API · **Phase** P2
+
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Overview dashboard | Sparkline KPIs, health matrix, programme progress, needs attention, throughput, change outcomes, 14-day change calendar, cost curve, next 14 days, activity | ANL-001 | API-PRJ-01, API-PRJ-02, API-PRJ-03; API-ITSM-06 | P2 |
+| Project health | Late (finish after target or SPI < 0.90), at risk (CPI < 0.95 or SPI < 0.97), programme RAG | ANL-002 | API-PRJ-02 | P2 |
+| Earned value | EV = budget × progress, CPI, SPI, PV / EV / AC curve | ANL-003 | API-PRJ-02 | P2 |
+| Plan link | Each project linked to its Planner plan | ANL-004 | API-PRJ-02; DC-STORE plans | P2 |
+| Capacity coming online | GPUs (Neo) or cabinets / kW (Colo) by month | ANL-005 | API-PRJ-02; DC-STORE plans | P2 |
+| Change orders | Approver by size: ≤ 5 % PM, ≤ 15 % sponsor, else investment committee | ANL-006 | API-PRJ-02 | P2 |
+| Risks | Ranked by likelihood × impact, derived risks | ANL-007 | API-PRJ-02 | P2 |
+| Programme gates | A project waits until its predecessors are delivered | ANL-008 | API-PRJ-01 | P2 |
+| To-do (`todo`) | Items needing action, each linking to the module record | ANL-013 | API-PRJ-02, API-PRJ-03 | P2 |
+| Programs · Projects · Work orders · Permits · Design lists; programme, project and work-order pages; New programme / project; receive PO; start / complete work; hand over | Not built — Programs & Projects screens (link) | ANL-013 | API-PRJ-01…05 | — |
+
+### B.24 Commissioning — analytics
+
+**Route** `/delivery?tab=commissioning` · **Menu** Plan & Build › Commissioning · **Status** Build — analytics over Programs & Projects API · **Phase** P2
+
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Commissioning by level | L1 factory witness → L5 IST per project, in order; L3+ needs installation done | ANL-020 | API-PRJ-04, API-PRJ-03 | P2 |
+| Handover-ready | Only when every work order is done and L1–L5 passed | ANL-021 | API-PRJ-03, API-PRJ-04 | P2 |
+| Open snags | Per project and level | ANL-022 | API-PRJ-04 | P2 |
+| GPU-hall tests | CDU loop and GPU burn-in as named L4 / L5 tests (Neo; to discuss) | ANL-023 | API-PRJ-04 | P2 |
+| Run a level, record results | Not built — Programs & Projects (link) | — | API-PRJ-04 | — |
+
+### B.25 Work orders — KPIs
+
+**Route** `/workorders?tab=kpis` · **Menu** Plan & Build › Work orders › Insights · **Status** Build — analytics over Programs & Projects / Field Force Management API · **Phase** P2
+
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Work orders by state | Planned, Ready, Awaiting change, In progress, Done, Failed | ANL-009 | API-PRJ-03; API-SCM-05 | P2 |
+| Process KPIs | Running work and targets for P01–P12; swimlane summary | ANL-010, ANL-017 | API-PRJ-03 | P2 |
+| Throughput | Throughput, first-time fix, re-plans per week | ANL-011 | API-PRJ-03 | P2 |
+| Blocked by kit | Work orders waiting on a PO, with PO state | ANL-012 | API-PRJ-03, API-PRJ-05 | P2 |
+| Remote hands (Colo) | Tenant remote-hands tickets per site | ANL-014 | API-ITSM-11 | P2 |
+| My Tasks · Work Orders · Processes (claim, complete with form, retry, instance page, work-order page) | Not built — Programs & Projects / FFM screens (link); shown only as read-outs ANL-015, ANL-016 | ANL-015, ANL-016 | API-PRJ-03 | — |
+
+### B.26 Change management — Overview
+
+**Route** `/changes` (overview) · **Menu** Operations › Change management · **Status** Build — analytics over Services & ITSM Change Management API · **Phase** P2
+
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Paired widgets | Volume and outcome · Lead time; Open by stage · Approvals and board; Next 14 days · Before the windows; By site · Where changes fail; equal height | ANL-040 | API-ITSM-06, API-ITSM-07 | P2 |
+| Failure rule | Failed = rolled back or cited by an incident's leading RCA ("Caused an incident") | ANL-041 | API-ITSM-06; DC-RM rca | P2 |
+| Freezes | From open Critical incidents (emergency only) and the peak / year-end freeze; live sites; civil works exempt | ANL-042, ANL-046 | API-ITSM-07; API-ITSM-01 | P2 |
+| Conflicts | Overlapping windows on the same devices | ANL-043 | API-ITSM-06 | P2 |
+| Policy checks | POL-01…06 (rollback, freeze, hours, SPOF, overlap, overdue review) | ANL-044 | API-ITSM-07; DC-RM physical | P2 |
+| Lead time | Normal changes implemented per week | ANL-047 | API-ITSM-06 | P2 |
+| Included records | DCIM-raised changes, delivery CRs, preventive maintenance of the last 12 weeks | ANL-045, ANL-048 | API-ITSM-06, API-ITSM-10; API-PRJ-03 | P2 |
+| Detail table | Needs attention · waiting for review · next 14 days · last 28 days; rows open the change in ITSM | ANL-040 | API-ITSM-06 | P2 |
+| Changes list, approvals, calendar, freezes, standard templates, policies, change page, New change | Not built — Services & ITSM Change Management (link); the datacenter change page's DCIM work panel is built (DCIM-041) | DCIM-041 | API-ITSM-06…09 | — |
+
+### B.27 Compliance
+
+**Route** `/compliance?tab=…&fw=&cst=&pol=&q=` · **Menu** Admin › Compliance · **Status** Build (datacenter-specific) · **Phase** P3
+
+| Tab | Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- | --- |
+| Overview | Posture dashboard | Overall ring, status tiles, framework cards, controls needing work, policy results, evidence due, latest decisions | CMP-010 | DC-RM compliance | P3 |
+| Frameworks & controls | Control mapping | ISO/IEC 27001, ISO/IEC 22237, TIA-942, SOC 2 controls mapped to the policies that test them; status per control; quick filters framework / status | CMP-003, CMP-004, CMP-019 | DC-STORE compliance | P3 |
+| Frameworks & controls | Attest | Attest a manual control (date, owner, evidence); Evidence due after a year | CMP-008 | DC-STORE | P3 |
+| Policies | Policy list | CP-01…09 with resources checked, violations, outcome; Rego source; switch on / off (off = Not assessed) | CMP-001, CMP-002, CMP-005, CMP-006 | DC-RM compliance; API-INV-03; API-OAP-01; API-IPM-02; API-ITSM-07, API-ITSM-10 | P3 |
+| Violations | Violation list | Policy, resource, site, message, Blocked / Warned, change link | CMP-018, CMP-011 | DC-RM compliance; API-ITSM-07 | P3 |
+| Decision records | Decisions | Allow / deny / warn with the OPA-style input | CMP-007 | DC-STORE | P3 |
+| Audit | Audit trail | Every policy, control and attestation change | CMP-017 | DC-STORE | P3 |
+| All | New policy / control / framework | Forms | CMP-009 | DC-STORE | P3 |
+| All | Scope and feeds | Datacenter scope; posture findings from Security Ops; decisions to SIEM | CMP-012, CMP-014, CMP-015 | API-SOC-04; NB-10 | P3 |
+| All | Evidence export, tenant view | Evidence pack, tenant-facing controls (to discuss) | CMP-013, CMP-016 | DC-STORE | P3 |
+
+### B.28 Customization
+
+**Route** `/customization` · **Menu** Admin › Customization · **Status** Not built — use Platform Engineering Customization · **Phase** —
+
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Custom fields and tags | Defined in Platform Engineering; SynapseDC reads them and shows filled counts / tag rules on datacenter entities | XC-020 | API-PEN-03 | P2 |
+| Fields / tags admin screens | Not built — Platform Engineering screen (link) | — | API-PEN-03 | — |
+
+### B.29 Data model
+
+**Route** `/data-model` (frames `/data-model.html`) · **Menu** Reference › Data model · **Status** Not built as a module — the model is registered in Intelligence Hub; the explorer is a Help document · **Phase** P1
+
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Explorer | Ontology around one entity, full map by domain, hierarchy; fields marked Import / Live / Derived; counts | XC-016 | DC-STORE (document) | P1 |
+| Register model | Entities, fields, relationships sent to Intelligence Hub | — | API-IHB-01 | P1 |
+
+### B.30 Help & FAQ
+
+**Route** `/help?tab=faq|docs|customer|survey&doc=&s=` · **Menu** Reference › Help & FAQ · **Status** Build · **Phase** P1
+
+| Tab | Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- | --- |
+| FAQ | Questions | Six categories, search, category pills, answers linking to screens and documents | XC-014 | DC-STORE Help | P1 |
+| Documents | Library and reader | Field guide, GPU anatomy, demo playbook, personas, platform overview, data model, import template, backups, integration guide, interface specification, BRD, embed guide, platform menu, customer guide; in-app reader with section chips, Open in new tab | XC-014, XC-017, XC-023 | DC-STORE Help; API-ITSM-12 (articles) | P1 |
+| Customer guide | Engagement guide | Searchable by keyword / problem, deep links per entry, per-model monitoring statements | XC-024 | DC-STORE Help | P1 |
+| Facility integration | Site survey | One survey per datacenter: collector, BMS, equipment, BMCs, firewall rules, records, sign-off; progress, outstanding; JSON download / import | XC-015 | DC-STORE / JSON | P1 |
+
+### B.31 Summary — built vs consumed
+
+| Screen | Status | Tabs / features built | Modules consumed (API ids) | Phase |
+| --- | --- | --- | --- | --- |
+| Command Center | Build | Hero (health, numbers, areas incl. GPU fleet), map, datacenter column, What is happening · Who is affected · Recommendations, Plan & build strip and lens | API-OAP-01/03/04, API-ALR-01, API-ITSM-01/06, API-BSS-01/03, API-OPS-02, API-INV-01 | P1 / P2 |
+| Datacenters list | Build | Analytics strip, list ⇄ tiles, condition / region filters | API-INV-01, API-ALR-01, API-ITSM-01, API-OAP-01/04 | P1 |
+| Datacenter page | Build | Overview (layout / twin, Needs attention, Metrics, Ops log), Facility sub tabs, Infrastructure (Equipment, GPU Fleet, Topology, Space & ports, Assets), Business impact (Customers / Tenants, Revenue), Access & security | API-INV-01…06, API-OAP-01…04, API-ALR-01, API-ITSM-01/06/11, API-BSS-01…03/09, API-OPS-02, API-ALR-06 | P1 / P2 |
+| Device page | Build | Overview, 3D view, Hardware & interfaces, Power & cabling, GPUs · DCGM, Links, Impact, Alerts | API-INV-03/04/06, API-OAP-01/02, API-ALR-01, API-BSS-03, API-IPM-02 | P1 / P2 |
+| Customer page | Build | Identity header, verdict, six tiles, what is impacting, where served, service grid, cross-connects / remote hands (Colo) | API-BSS-01…03/09, API-ITSM-01/11 | P1 |
+| Facilities | Build | Power & backup, Cooling, Environment, Single points of failure, Maintenance & alarms | API-OAP-01…04, API-INV-02/06, API-ALR-01, API-ITSM-06/10, API-SCM-03 | P1 / P2 |
+| GPU Fleet | Build (Neo) | Jobs needing attention, Clusters, Jobs, Nodes, Telemetry, GPU models, Network rails, Cooling & power, Where to place | API-OAP-01…04, API-OPS-02, API-INV-03, API-ALR-01, API-ITSM-01, API-BSS-02/03 | P1 / P2 |
+| Alerts | Build — datacenter scope over System Alerts | Strip, scoped list, acknowledge, correlate into incident | API-ALR-01…05/07 | P1 |
+| Incidents (datacenter view) | Build — enrichment over Services & ITSM | Impact, RCA, actions, verification, revenue, on call & communications; the record and work notes stay in ITSM | API-ITSM-01…04/13, API-ALR-01/06, API-BSS-03/06 | P1 |
+| Problems | Build — enrichment over Services & ITSM | Problems grouped by cause (optics lot) with linked incidents | API-ITSM-05 | P2 |
+| Revenue Impact | Build | Strip, two answer cards, Issues · Customers · Datacenters · Causes & trend · One failure away, drawer, how it is calculated | API-BSS-01…03/07, API-ITSM-01, API-ALR-01 | P1 |
+| Security Ops | Build — datacenter layer over Ops Toolkit Security Ops | Insights, Detections, Cases, Threat coverage, Vulnerabilities, Hardening & drift, OT security, Physical security | API-SOC-01…07, API-ITSM-06, API-INV-03 | P2 |
+| Security data sources | Build — datacenter view over Security Ops | Sensors per site, coverage gaps | API-SOC-05, API-INV-03 | P2 |
+| Capacity | Build | Insights (overview, financial), Power (power, PUE & energy, Power economics), Space, Network, Compute (incl. Where to place), Reservations | API-OAP-01/03, API-INV-02/03, API-IPL-01/02, API-OPS-02/04, API-BSS-02/03/08, API-ALR-03, API-ITSM-03, API-PRJ-02, API-SCM-04, API-AIF-01 | P2 |
+| Planner | Build | Insights hub, Plans, Templates, Benchmarks, wizard, plan page (12 tabs + What-if), review portal, Send for review | API-INV-01/03/06, API-SCM-01…04, API-PRJ-02/05/06/07, API-IPL-02, API-IPM-03, API-INV-07, API-PEN-01 | P2 |
+| DCIM | Build — datacenter extensions over Inventory | Insights, Sites + Hierarchy, Racks + Floor plan, Devices + Explorer, device drawer, Cabling, Power, Catalogue, Changes board, rack page, type page | API-INV-01…08, API-OAP-01, API-IPM-02/03, API-ITSM-06…09/11, API-BSS-02/09 | P1 / P2 |
+| IP & Network | Build — Insights only | Utilisation, exhaustion forecast, outside plan, differences, GPU fabric, management VRF | API-IPM-01/02, API-INV-03/06 | P2 |
+| Delivery (Programs & Projects) | Build — Insights only | Overview dashboard, health, EV, gates, change orders, risks, to-do | API-PRJ-01…03/05, API-ITSM-06 | P2 |
+| Commissioning | Build — analytics only | Levels, handover-ready, snags | API-PRJ-03/04 | P2 |
+| Work orders | Build — KPIs only | States, process KPIs, throughput, blocked by kit, remote hands | API-PRJ-03/05, API-SCM-05, API-ITSM-11 | P2 |
+| Change management | Build — Overview only | Paired widgets, freezes, conflicts, policies, lead time, detail table | API-ITSM-06/07/10, API-ITSM-01, API-PRJ-03 | P2 |
+| Compliance | Build | Overview, Frameworks & controls, Policies, Violations, Decision records, Audit | API-SOC-04, API-INV-03, API-OAP-01, API-IPM-02, API-ITSM-07/10 | P3 |
+| Customization | Not built — Platform Engineering | — (reads custom fields and tags) | API-PEN-03 | — |
+| Data model | Not built as a module — Intelligence Hub | Explorer as a Help document | API-IHB-01 | P1 |
+| Help & FAQ | Build | FAQ, Documents, Customer guide, Facility integration | API-ITSM-12 | P1 |
+| Shell (menu, switches, search, Opstral AI, embed) | Build | Cross-cutting chapter 7.12 | API-PEN-01/02, API-AIF-01/02 | P1 / P2 |
+
+---
+
+## Appendix C — Expected API responses from the existing modules
+
+For every API SynapseDC consumes (section 3.5), this appendix gives the call, who calls it, the request, an example of the expected response and the fields SynapseDC needs (M = must, O = optional). Paths are illustrative: each module team owns its real API, and an adapter in SynapseDC maps the real response onto these fields. A field a module cannot provide goes to the API gap list (ARCH-004) — SynapseDC never builds a local substitute. Times are RFC 3339 UTC; ids are the module's stable ids; money is `{ amount, currency }`.
+
+### C.1 Telemetry — OAP ingestion / consumer services (ClickHouse)
+
+**Module:** OAP telemetry ingestion and consumer microservices, on ClickHouse. **SynapseDC uses it for** every live figure, 24 h trend, history and freshness. **Screens:** Command Center, Datacenters (Metrics, Equipment, layout overlays), Facilities, GPU Fleet, Capacity and power economics, device page.
+
+> Paths are illustrative — the module team owns the real API; an adapter in SynapseDC maps the real response to these fields. A missing field goes to the API gap list (ARCH-004). SynapseDC never queries ClickHouse directly (ARCH-009); every read goes through the consumer API, every write through the ingestion API.
+
+**Request shape used by API-OAP-01…03.** A query names one metric, a label match and the time scope. It is neutral about the query language (PromQL, SQL or the service's own DSL).
+
+```json
+{ "metric": "dco_gpu_sm_active_ratio",
+  "match": { "site": "TX-DC-020", "cluster": "CL-TX-020-A" },
+  "start": "2026-10-27T09:00:00Z", "end": "2026-10-28T09:00:00Z", "step": "1h",
+  "agg": { "fn": "avg", "by": ["device"] } }
+```
+
+**Metrics SynapseDC reads (examples, the full list is the metric catalogue, API-OAP-06)**
+
+| Metric | Unit | Labels | Source | Used by |
+| --- | --- | --- | --- | --- |
+| `dco_ups_output_source` | enum (online, battery, bypass) | site, device | UPS-MIB `upsOutputSource` | FAC-001, CC-004 |
+| `dco_ups_runtime_seconds` | s | site, device | UPS-MIB `upsEstimatedMinutesRemaining` × 60 | FAC-006, ride-through |
+| `dco_ups_load_ratio` | 0–1 | site, device | UPS-MIB `upsOutputPercentLoad` | FAC-002 |
+| `dco_power_pdu_draw_kw` | kW | site, room, rack, device, side (A / B), phase | PDU MIB / Redfish | FAC-010, rack power |
+| `dco_power_feed_kw` | kW | site, feed | Modbus meter | power path, PUE |
+| `dco_env_inlet_temp_celsius` | °C | site, room, rack, height | rack sensor | SITE-013, heat map |
+| `dco_env_humidity_ratio` | % RH | site, room, zone | zone sensor | FAC-020 |
+| `dco_cooling_supply_temp_celsius`, `dco_cooling_return_temp_celsius`, `dco_cdu_flow_lpm` | °C, L/min | site, unit | BACnet / Modbus | FAC-015, CDU loop |
+| `dco_if_in_bits_total`, `dco_if_out_bits_total`, `dco_if_oper_up` | bit, 0/1 | site, device, port | IF-MIB / gNMI | links, utilisation |
+| `dco_gpu_util_ratio`, `dco_gpu_sm_active_ratio`, `dco_gpu_tensor_active_ratio` | 0–1 | site, cluster, device, gpu | DCGM `GPU_UTIL`, `PROF_SM_ACTIVE`, `PROF_PIPE_TENSOR_ACTIVE` | GPU-010 |
+| `dco_gpu_temp_celsius`, `dco_gpu_hbm_temp_celsius`, `dco_gpu_power_watts` | °C, W | site, cluster, device, gpu | DCGM `GPU_TEMP`, `MEMORY_TEMP`, `POWER_USAGE` | GPU-010, power cost |
+| `dco_gpu_xid_last`, `dco_gpu_ecc_dbe_total`, `dco_gpu_row_remap_pending`, `dco_gpu_nvlink_errors_total`, `dco_gpu_throttle_reasons` | code, count, bool, bitmask | site, device, gpu | DCGM | GPU faults |
+| `dco_ib_port_state`, `dco_ib_symbol_errors_total` | enum, count | site, device, rail | UFM / sysfs | network rails |
+
+#### API-OAP-01 Query latest values
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `POST /oap/v1/query/instant` | Read | CC-001…004, SITE-012, FAC-001…010, GPU-010 | on screen load and every 30 s while open |
+
+**Request:** `metric` (one or a list), `match` labels, optional `at` (default now).
+
+**Expected response:**
+```json
+{ "at": "2026-10-28T09:14:30Z",
+  "series": [
+    { "metric": "dco_ups_output_source", "labels": { "site": "IL-DC-009", "device": "UPS-2" }, "value": "battery", "ts": "2026-10-28T09:14:22Z", "received": "2026-10-28T09:14:23Z" },
+    { "metric": "dco_ups_runtime_seconds", "labels": { "site": "IL-DC-009", "device": "UPS-2" }, "value": 1140, "ts": "2026-10-28T09:14:22Z", "received": "2026-10-28T09:14:23Z" } ] }
+```
+
+**Fields SynapseDC needs:**
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `series[].metric` | string | M | mapping to the screen figure |
+| `series[].labels` | object | M | placement on site / room / rack / device / port / gpu |
+| `series[].value` | number or string | M | the figure |
+| `series[].ts` | RFC 3339 | M | source time; freshness |
+| `series[].received` | RFC 3339 | O | receipt time; collector lag |
+
+#### API-OAP-02 Query range series
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `POST /oap/v1/query/range` | Read | SITE-014 (24 h zone trends), FAC-003 (24 h load), GPU-012 (node 24 h history), CAP-009 (12 months) | on open; charts |
+
+**Request:** `metric`, `match`, `start`, `end`, `step` (`1m`, `5m`, `1h`, `1d`), optional `agg`.
+
+**Expected response:**
+```json
+{ "step": "1h",
+  "series": [
+    { "metric": "dco_gpu_power_watts", "labels": { "site": "TX-DC-020", "device": "GPU-014" }, "agg": "sum",
+      "points": [["2026-10-27T10:00:00Z", 5620], ["2026-10-27T11:00:00Z", 5710], ["2026-10-28T09:00:00Z", 2140]] } ] }
+```
+
+**Fields SynapseDC needs:**
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `series[].labels` | object | M | which device / rack / zone |
+| `series[].points[]` | [time, number] | M | charts, sparklines, forecasts |
+| `step` | duration | M | axis and gaps |
+| `series[].agg` | string | O | shows a roll-up was applied |
+
+#### API-OAP-03 Aggregate: roll-ups, top-N, histogram
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `POST /oap/v1/query/aggregate` | Read | GPU-013 (fleet histograms, per-counter leaders), SITE-015 (hottest racks), FAC-011 (rack power list), CAP-012 (energy / day) | on open |
+
+**Request:** `metric`, `match`, `start`, `end`, `agg.fn` (`avg`, `max`, `sum`, `p95`, `histogram`, `topk`), `agg.by` labels, `agg.k` or `agg.buckets`.
+
+**Expected response (top-N):**
+```json
+{ "fn": "topk", "k": 3, "by": ["rack"],
+  "rows": [
+    { "labels": { "site": "MH-DC-001", "room": "Hall 2", "rack": "R-2-07" }, "value": 31.4 },
+    { "labels": { "site": "MH-DC-001", "room": "Hall 2", "rack": "R-2-11" }, "value": 30.9 },
+    { "labels": { "site": "MH-DC-001", "room": "Hall 1", "rack": "R-1-03" }, "value": 29.8 } ] }
+```
+**Expected response (histogram):**
+```json
+{ "fn": "histogram", "metric": "dco_gpu_temp_celsius",
+  "buckets": [ { "le": 50, "count": 212 }, { "le": 70, "count": 1630 }, { "le": 85, "count": 140 }, { "le": "+Inf", "count": 6 } ] }
+```
+
+**Fields SynapseDC needs:**
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `rows[].labels`, `rows[].value` | object, number | M | ranked lists, roll-ups |
+| `buckets[].le`, `buckets[].count` | number / "+Inf", integer | M (histogram) | fleet distributions |
+
+#### API-OAP-04 Freshness
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /oap/v1/freshness?site=&device=&source=` | Read | DATA-003, ALM-029, SITE-003 (collector chip), Equipment "unmonitored" | every 60 s |
+
+**Expected response:**
+```json
+{ "items": [
+  { "site": "IL-DC-009", "device": "PDU-R-2-07-A", "source": "snmp", "interval": "60s",
+    "lastSample": "2026-10-28T09:13:58Z", "lastReceived": "2026-10-28T09:13:59Z", "state": "fresh" },
+  { "site": "IL-DC-009", "device": "CRAH-04", "source": "bacnet", "interval": "60s",
+    "lastSample": "2026-10-28T08:52:10Z", "lastReceived": "2026-10-28T08:52:11Z", "state": "stale" } ] }
+```
+
+**Fields SynapseDC needs:**
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `site`, `device`, `source` | string | M | which object is fresh / stale |
+| `interval` | duration | M | stale = older than two intervals |
+| `lastSample`, `lastReceived` | RFC 3339 | M | freshness, unmonitored after 15 min |
+| `state` | fresh / stale / silent | O | the service's own verdict; SynapseDC applies DATA-003 if absent |
+
+#### API-OAP-05 Ingest metrics
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| OTLP `POST /oap/v1/ingest/otlp` or Prometheus remote write `POST /oap/v1/ingest/prom` | Write | the on-site collector (INT-28), never a screen | continuous, per polling interval (NFR-004) |
+
+**Request:** OTLP metrics or remote-write protobuf with the labels above; mTLS client certificate of the collector.
+
+**Expected response:** `204 No Content`, or
+```json
+{ "accepted": 18240, "rejected": 2, "errors": [ { "metric": "dco_power_pdu_draw_kw", "reason": "label 'rack' missing" } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `accepted`, `rejected` | integer | O | collector health, monitoring gaps |
+| `errors[]` | object | O | mapping fixes at the collector |
+
+#### API-OAP-06 Metric catalogue
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /oap/v1/metrics?prefix=dco_` (read); `PUT /oap/v1/metrics/{name}` (register) | Read / write | collector configuration, INTG-057, info bubbles | on deployment; on change |
+
+**Expected response:**
+```json
+{ "items": [ { "name": "dco_env_inlet_temp_celsius", "unit": "Cel", "type": "gauge", "labels": ["site","floor","room","rack","height"],
+               "interval": "60s", "retention": { "raw": "30d", "5m": "395d", "1h": "5y" }, "description": "Rack inlet temperature" } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `name`, `unit`, `type`, `labels` | string, string, gauge / counter / enum, list | M | query building, units on screen |
+| `interval` | duration | M | freshness rule |
+| `retention` | object | O | how far back charts can go |
+
+---
+
+### C.2 Ops Toolkit — System Alerts
+
+**Module:** Opstral Ops Toolkit System Alerts. **SynapseDC uses it for** the alarm record (raise, clear, acknowledge), its datacenter scope and placement tags, and paging / on-call. **Screens:** Command Center, Datacenters (Needs attention), Alerts list, device page Alerts tab, datacenter incident view, Facilities, GPU Fleet.
+
+#### API-ALR-01 List alerts
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /alerts?site=&device=&state=&severity=&since=&tag.scope=` | Read | ALM-012 (Alerts list), CC-005, SITE-008, device Alerts tab | on open; refreshed by API-ALR-07 events |
+
+**Expected response:**
+```json
+{ "items": [
+  { "id": "ALM-000123", "code": "UPS_ON_BATTERY", "title": "UPS-2 on battery", "description": "Utility feed A lost; ATS moved load to feed B",
+    "severity": "critical", "state": "active", "source": "Power", "type": "upsOnBattery",
+    "site": "IL-DC-009", "device": "UPS-2", "resource": null, "start": "2026-10-28T07:38:12Z", "lastSeen": "2026-10-28T09:14:22Z", "count": 3,
+    "ackBy": null, "incidentId": "INC-0003",
+    "tags": { "scope": "site", "category": "Facility", "rackId": null, "faultId": null, "symptomOf": null } },
+  { "id": "ALM-000188", "code": "LINK_DOWN", "title": "xe-0/0/3 down", "severity": "major", "state": "acknowledged", "source": "Interface", "type": "linkDown",
+    "site": "VA-DC-001", "device": "BDR-01", "resource": "xe-0/0/3", "linkId": "LNK-0412", "start": "2026-10-28T07:31:05Z", "lastSeen": "2026-10-28T07:31:05Z", "count": 1,
+    "ackBy": "noc.lead@operator.com", "incidentId": "INC-0001",
+    "tags": { "scope": "edge", "category": "Network", "node": null, "hops": 1 } } ],
+  "next": null }
+```
+
+**Fields SynapseDC needs:**
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `code`, `title`, `description` | string | M | list, detail, de-duplication key |
+| `severity` | critical / major / minor / warning | M | alarm words, ordering |
+| `state` | active / acknowledged / cleared | M | open counts |
+| `source` | Interface / CPU / Link / Environment / Power / Cooling / Protocol / Security / Discovery | M | category, revenue domain |
+| `type` | string | M | severity mapping, correlation |
+| `site`, `device`, `resource`, `linkId` | string | M / O / O / O | placement, scope |
+| `start`, `lastSeen`, `count` | RFC 3339, RFC 3339, integer | M | age, flapping, SLA |
+| `ackBy`, `incidentId` | string | O | acknowledged by, linked incident |
+| `tags.scope`, `tags.category`, `tags.rackId`, `tags.faultId`, `tags.symptomOf`, `tags.node`, `tags.hops` | string / integer | M (scope, category); O (rest) | **written by SynapseDC** (API-ALR-05); datacenter counts, rack-level faults, downstream symptoms |
+
+#### API-ALR-02 Get alert
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /alerts/{id}` | Read | alarm drawer, ALM-002, incident evidence | on open |
+
+**Expected response:** the API-ALR-01 item plus the raw event and history.
+```json
+{ "id": "ALM-000188", "severity": "major", "state": "acknowledged",
+  "raw": { "proto": "snmp-trap", "oid": "1.3.6.1.6.3.1.1.5.3", "varbinds": { "ifIndex": 515, "ifDescr": "xe-0/0/3" }, "receivedAt": "2026-10-28T07:31:05.410Z" },
+  "history": [ { "at": "2026-10-28T07:31:05Z", "event": "raised" }, { "at": "2026-10-28T07:33:40Z", "event": "acknowledged", "by": "noc.lead@operator.com" } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `raw` | object | M | audit, replay, RCA evidence |
+| `history[]` | event list | O | flapping (> 3 raise / clear in 15 min), timeline |
+
+#### API-ALR-03 Raise / update / clear alert
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `POST /alerts` (raise or update by identity) · `POST /alerts/{id}/clear` | Write | collector normalisation (ALM-001), ALM-029 monitoring gaps, ALM-030 GPU alarms, ALM-032 power findings, ALM-038 operator servers | on each event / threshold crossing |
+
+**Request:**
+```json
+{ "identity": "dcgm|GPU-014|gpu3|XID", "code": "GPU_XID_79", "title": "GPU fell off the bus (Xid 79)", "severity": "critical",
+  "source": "GPU", "type": "xid79", "site": "TX-DC-020", "device": "GPU-014", "resource": "gpu3",
+  "deviceTime": "2026-10-28T06:02:11Z", "raw": { "proto": "dcgm", "field": "DCGM_FI_DEV_XID_ERRORS", "value": 79 } }
+```
+**Expected response:**
+```json
+{ "id": "ALM-000231", "created": true, "count": 1, "state": "active" }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id` | string | M | link to incident, tags |
+| `created` | boolean | M | new alarm vs repeat (de-duplication by `identity`) |
+| `count`, `state` | integer, string | O | repeat count, current state |
+
+#### API-ALR-04 Acknowledge alert
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `POST /alerts/{id}/ack` | Write | Alerts list, Needs attention, incident view | user action |
+
+**Request:** `{ "by": "noc.engineer@operator.com", "note": "Electrician on site" }` · **Expected response:** `{ "id": "ALM-000123", "state": "acknowledged", "ackBy": "noc.engineer@operator.com", "ackAt": "2026-10-28T07:41:02Z" }`
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `state`, `ackBy`, `ackAt` | string, string, RFC 3339 | M | unacked counts, response SLA |
+
+#### API-ALR-05 Tag alert with datacenter context
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `PATCH /alerts/{id}/tags` | Write (**SynapseDC-owned fields**) | ALM-004…008 (scope, placement), BRULE-ALM rack-level / shared fault | after normalisation and on topology change |
+
+**Request:**
+```json
+{ "scope": "edge", "category": "Network", "dcId": "VA-DC-001", "rackId": null, "faultId": null, "symptomOf": null,
+  "placement": { "site": "VA-DC-001", "floor": "F1", "room": "MMR", "rack": "R-MMR-02", "device": "BDR-01", "port": "xe-0/0/3" } }
+```
+**Expected response:** `{ "id": "ALM-000188", "tags": { "scope": "edge", "category": "Network", "...": "..." }, "updated": "2026-10-28T07:31:06Z" }`
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `tags` (echo) | object | M | confirms the tags are stored on the alert record, so other modules see the datacenter scope |
+
+#### API-ALR-06 On-call, paging and escalation
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /oncall?region=&at=` · `POST /pages` · `POST /pages/{id}/escalate` | Read / write | ALM-017 (on-call rota), Needs attention "On call now", incident "On call & communications" | read every 5 min; page on incident open / severity change |
+
+**Expected response (`GET /oncall`):**
+```json
+{ "region": "Midwest", "at": "2026-10-28T09:15:00Z",
+  "rota": [ { "role": "NOC shift lead", "name": "Dana Ruiz", "tier": 1, "shift": "Day 07:00–19:00", "escalateAfterMin": 15, "covers": "IL-DC-009, OH-DC-011" },
+            { "role": "Facility engineer", "name": "Sam Patel", "tier": 2, "shift": "Day", "escalateAfterMin": 30, "covers": "IL-DC-009" } ] }
+```
+**Expected response (`POST /pages`):**
+```json
+{ "pageId": "PG-5531", "incidentId": "INC-0003", "paged": [ { "who": "Dana Ruiz", "role": "NOC shift lead", "at": "2026-10-28T07:38:40Z", "via": "App" } ],
+  "nextEscalation": { "who": "Sam Patel", "role": "Facility engineer", "at": "2026-10-28T07:53:40Z" } }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `rota[].role`, `name`, `tier`, `shift`, `escalateAfterMin`, `covers` | string, string, 1–3, string, integer, string | M | on call now, paging chain |
+| `paged[].who`, `role`, `at`, `ack`, `via` | string, string, time, time, Phone / SMS / App | M (ack O) | incident paging panel |
+| `nextEscalation` | object or null | M | next escalation time |
+
+#### API-ALR-07 Alert events
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| webhook / Kafka topic `alerts.v1`, types `alert.raised`, `alert.updated`, `alert.acknowledged`, `alert.cleared` | Read (subscribe) | correlation engine (ALM-014), every open screen refresh | push |
+
+**Expected event:** CloudEvents envelope, `subject` = alert id, `data` = the API-ALR-01 item.
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `type`, `subject`, `time`, `sequence` | string | M | de-duplication and order per alert |
+| `data` | alert | M | correlation within the window, incident open ≤ 60 s |
+
+---
+
+### C.3 Ops Toolkit — Security Ops
+
+**Module:** Opstral Ops Toolkit Security Ops (detections, cases, rules, vulnerabilities, sensors on its ClickHouse / OCSF tables). **SynapseDC uses it for** the datacenter Security Ops views and adds datacenter context. **Screens:** Security Ops Insights, Detections, Cases, Threat coverage, Vulnerabilities, Hardening & drift, OT security, Physical security; Admin → Security data sources; datacenter Access tab links.
+
+#### API-SOC-01 Detections
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /secops/detections?site=&rule=&state=&since=` · `GET /secops/detections/{id}` | Read | SEC-001…007, SEC-033 | on open; events |
+
+**Expected response:**
+```json
+{ "items": [
+  { "id": "DET-10442", "ruleId": "SR-060", "title": "Badge-in followed by unapproved ACL change on WAN edge", "domain": "Cross-domain", "severity": "Critical",
+    "state": "Escalated", "disposition": null, "at": "2026-10-28T02:11:40Z", "lastAt": "2026-10-28T02:19:05Z", "count": 2,
+    "site": "VA-DC-001", "asset": "BDR-01", "assetKind": "Router", "techniques": ["T1562.004", "T0889"], "sensor": "TACACS+ / Oxidized",
+    "ocsf": "Detection Finding (2004)", "summary": "Config commit 4 min after an after-hours badge-in at MMR door", "actor": "j.doe", "srcIp": "10.1.40.22",
+    "caseId": "SEC-0001", "assignee": "soc.analyst@operator.com", "event": { "commit": "r4471", "lines": 3 } } ],
+  "next": null }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `ruleId`, `title`, `domain`, `severity`, `state`, `disposition` | string / enums (Critical / High / Medium / Low; New / Investigating / Escalated / Closed; True positive / False positive / Benign) | M (disposition O) | queue, triage |
+| `at`, `lastAt`, `count` | time, time, integer | M | ageing, MTTA |
+| `site`, `asset`, `assetKind` | string | M | datacenter scope, context join |
+| `techniques[]` | ATT&CK ids | M | coverage |
+| `sensor`, `ocsf`, `summary`, `actor`, `srcIp`, `dstIp`, `event` | string / object | O | detail drawer |
+| `caseId`, `assignee` | string | O | case link |
+| context (room, rack, owner, tenant, criticality, zone, covering CR, who was on site) | object | — | **added by SynapseDC** from DC-RM (API-SOC-06) |
+
+#### API-SOC-02 Cases
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /secops/cases?site=&phase=` · `GET /secops/cases/{id}` · `PATCH /secops/cases/{id}` | Read / write | SEC-008…011, SEC-034 | on open; user action |
+
+**Expected response:**
+```json
+{ "id": "SEC-0002", "title": "Crypto-mining on idle GPU nodes", "severity": "High", "phase": "Containment", "site": "TX-DC-020",
+  "opened": "2026-10-27T22:40:00Z", "firstEvent": "2026-10-27T21:58:00Z", "acked": "2026-10-27T22:46:00Z", "slaDue": "2026-10-28T02:40:00Z", "closed": null,
+  "owner": "soc.lead@operator.com", "detectionIds": ["DET-10390", "DET-10391"], "techniques": ["T1496"], "domain": "Compute", "playbookId": "PB-04",
+  "steps": [ { "phase": "Containment", "title": "Cordon nodes in the scheduler", "auto": false, "done": true, "by": "ai.infra@operator.com", "at": "2026-10-27T23:05:00Z", "system": "Slurm" } ],
+  "notes": [ { "at": "2026-10-27T23:10:00Z", "by": "soc.lead@operator.com", "text": "Miner image pulled from a public registry" } ],
+  "assets": ["GPU-031", "GPU-032"], "incidentId": null, "outcome": null }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `title`, `severity`, `phase` (Detection & analysis / Containment / Eradication / Recovery / Post-incident / Closed) | string / enum | M | case board, NIST 800-61 phases |
+| `opened`, `firstEvent`, `acked`, `closed`, `slaDue` | time | M (closed O) | MTTA, MTTR, Respond score |
+| `detectionIds[]`, `techniques[]`, `assets[]`, `site`, `domain` | list / string | M | links, coverage, site score |
+| `steps[]`, `notes[]`, `playbookId` | list | O | case timeline, playbook progress |
+| `incidentId`, `outcome` | string | O | link to the ITSM incident |
+
+#### API-SOC-03 Rules
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /secops/rules` · `PATCH /secops/rules/{id}` (status, enabled) | Read / write | SEC-016 (rules), SEC-013 (ATT&CK coverage) | on open; user action |
+
+**Expected response:**
+```json
+{ "items": [ { "id": "SR-002", "title": "Running config changed with no covering change request", "domain": "Network", "matrix": "Enterprise",
+  "techniques": ["T1562.004"], "level": "High", "status": "Stable", "enabled": true, "sensors": ["Oxidized", "TACACS+"],
+  "sigma": "title: Unapproved config change\nlogsource: {product: oxidized}\n...", "sql": "SELECT … FROM ocsf_config_state WHERE …",
+  "hits7d": 14, "tp7d": 3, "fp7d": 2, "version": 4, "updated": "2026-10-20T10:00:00Z", "by": "soc.engineer@operator.com", "ocsf": "Device Config State Change (5019)" } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `title`, `domain`, `matrix`, `techniques[]`, `level`, `status`, `enabled` | string / enum / list / bool | M | coverage matrix, rule list |
+| `sigma`, `sql`, `version`, `updated`, `by` | string / integer / time | M | rule detail, change history |
+| `hits7d`, `tp7d`, `fp7d` | integer | M | firing rate, precision |
+| `sensors[]`, `ocsf` | list, string | O | data-source coverage |
+
+#### API-SOC-04 Vulnerabilities and advisories
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /secops/vulnerabilities?site=&ssvc=` · `GET /secops/advisories/{id}` · `PATCH /secops/vulnerabilities/{id}` (state, note, changeId) | Read / write | SEC-018…020 | daily; user action |
+
+**Expected response:**
+```json
+{ "items": [ { "id": "VUL-2201", "advisoryId": "SA-2026-0141", "title": "BMC web server auth bypass", "asset": "GPU-014-BMC", "assetKind": "BMC",
+  "site": "TX-DC-020", "zone": "Management", "current": "2.41", "fixedIn": "2.44", "cvss": 9.1, "epss": 0.62, "kev": true, "ssvc": "Act",
+  "due": "2026-10-30T00:00:00Z", "state": "Remediation planned", "changeId": "CHG-2214" } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `advisoryId`, `title`, `asset`, `assetKind`, `site`, `zone` | string | M | list, scope |
+| `cvss` (v4), `epss`, `kev`, `ssvc` (Act / Attend / Track* / Track) | number / bool / enum | M | prioritisation |
+| `current`, `fixedIn`, `due`, `state` (Open / Remediation planned / Risk accepted), `changeId` | string / time / enum | M (changeId O) | remediation tracking |
+
+#### API-SOC-05 Security data sources
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /secops/sources?site=` | Read | Admin → Security data sources, SEC-024 (coverage gaps) | every 5 min |
+
+**Expected response:**
+```json
+{ "items": [ { "id": "SRC-07", "name": "Network device config backups", "sensor": "Oxidized", "collector": "OTel collector VA-DC-001",
+  "domain": "Network", "ocsf": ["Device Config State Change"], "table": "ocsf_config_state", "covered": 41, "expected": 44,
+  "eps": 0.4, "gbDay": 0.02, "hotDays": 30, "coldDays": 365, "lastEvent": "2026-10-28T09:02:00Z", "state": "Healthy", "gap": "3 devices not discovered" } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `name`, `sensor`, `domain`, `table`, `ocsf[]` | string / list | M | sources list |
+| `covered`, `expected` | integer | M | coverage % and gaps |
+| `eps`, `gbDay`, `hotDays`, `coldDays` | number | O | volume and retention |
+| `lastEvent`, `state` (Healthy / Lagging / Silent), `gap` | time / enum / string | M (gap O) | silent-source findings |
+
+#### API-SOC-06 Write datacenter context and physical exceptions
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `PUT /secops/dictionaries/{name}` · `POST /secops/events/physical` | Write (**SynapseDC-owned data**) | SEC-033, SEC-007 | dictionaries hourly and on change; exceptions as they occur |
+
+**Request (dictionary row):**
+```json
+{ "name": "dc_asset_context", "rows": [ { "asset": "BDR-01", "site": "VA-DC-001", "room": "MMR", "rack": "R-MMR-02", "owner": "Network operations",
+  "tenant": null, "criticality": "Crown jewel", "zone": "Network", "changeWindows": [ { "changeId": "CHG-2001", "from": "2026-10-26T22:00:00Z", "to": "2026-10-27T02:00:00Z" } ] } ] }
+```
+**Request (physical exception):** `{ "id": "SEC-VA-DC-001-014", "kind": "Tailgating", "site": "VA-DC-001", "door": "MMR mantrap", "at": "2026-10-28T02:07:12Z", "badge": "B-00412", "severity": "High" }`
+
+**Expected response:** `{ "accepted": 1, "version": "2026-10-28T09:00:00Z" }`
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `accepted`, `version` | integer, string | M | confirms the context the rules join on |
+
+#### API-SOC-07 Triage action
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `POST /secops/detections/{id}/triage` | Write | SEC-004, SEC-032 | user action |
+
+**Request:** `{ "action": "close", "disposition": "False positive", "by": "soc.analyst@operator.com", "note": "Approved change CHG-2001" }` or `{ "action": "escalate", "caseId": null }`
+**Expected response:** `{ "id": "DET-10442", "state": "Escalated", "caseId": "SEC-0001", "by": "soc.analyst@operator.com", "at": "2026-10-28T02:30:00Z" }`
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `state`, `disposition`, `caseId`, `by`, `at` | enum / string / time | M (disposition, caseId O) | queue state survives refresh; audit |
+
+---
+
+### C.4 Ops Toolkit — Telemetry, Data, Infra and Fin Ops
+
+**Module:** Opstral Telemetry Ops, Data Ops, Infra Ops, Fin Ops. **SynapseDC uses it for** collector and pipeline health, GPU scheduler jobs and nodes, and cost data. **Screens:** Datacenters header (collector chip), Command Center GPU fleet area, GPU Fleet Jobs / Nodes / Clusters, Capacity → Power economics.
+
+#### API-OPS-01 Pipeline and collector state
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /telemetry-ops/collectors?site=` · `GET /data-ops/pipelines?site=` | Read | SITE-003, ALM-029, INTG-020/021 | every 60 s |
+
+**Expected response:**
+```json
+{ "items": [ { "id": "COL-IL-DC-009-A", "site": "IL-DC-009", "role": "active", "version": "1.8.2", "state": "up",
+  "lastHeartbeat": "2026-10-28T09:14:40Z", "queueDepth": 0, "targets": { "ok": 412, "failing": 3 },
+  "jobs": [ { "kind": "snmp", "ok": 220, "failing": 1 }, { "kind": "bacnet", "ok": 18, "failing": 2 } ] } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `site`, `role` (active / standby), `state` (up / stale / down), `lastHeartbeat` | string / enum / time | M | collector chip, monitoring gaps |
+| `targets.ok`, `targets.failing`, `jobs[]` | integer / list | M | unmonitored devices per source |
+| `queueDepth`, `version` | integer, string | O | buffering during WAN loss |
+
+#### API-OPS-02 Scheduler jobs and nodes
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /infra-ops/scheduler/jobs?site=&cluster=&state=` · `GET /infra-ops/scheduler/nodes?site=&cluster=` | Read | GPU-001…009, GPU-023 (Command Center GPU area), REV (GPU job services), CAP placement | every 30–60 s |
+
+**Expected response (jobs):**
+```json
+{ "items": [
+  { "id": "JOB-TX-020-001", "name": "llm-pretrain-70b", "kind": "training", "scheduler": "Slurm", "cluster": "CL-TX-020-A", "site": "TX-DC-020",
+    "customerId": "CUS-NC-004", "nodes": ["GPU-001", "GPU-002", "…", "GPU-019"], "gpus": 152, "state": "stalled",
+    "started": "2026-10-21T04:00:00Z", "since": "2026-10-28T06:02:11Z",
+    "progress": { "stepMs": null, "baselineMs": 1840, "mfu": 0.0, "lastCheckpoint": "2026-10-28T05:30:00Z", "checkpointMin": 60 },
+    "cause": { "text": "Xid 79 on GPU-014 gpu3", "nodeId": "GPU-014" } },
+  { "id": "JOB-TX-020-007", "name": "chat-inference", "kind": "inference", "cluster": "CL-TX-020-B", "site": "TX-DC-020", "customerId": "CUS-NC-011",
+    "nodes": ["GPU-041", "GPU-042"], "gpus": 16, "state": "running", "started": "2026-10-25T00:00:00Z",
+    "progress": { "stepMs": 92, "baselineMs": 90, "mfu": 0.41, "lastCheckpoint": null, "checkpointMin": null } } ] }
+```
+**Expected response (nodes):**
+```json
+{ "items": [ { "id": "GPU-014", "cluster": "CL-TX-020-A", "site": "TX-DC-020", "state": "failed", "jobId": "JOB-TX-020-001",
+  "gpus": 8, "model": "H200", "drain": { "reason": "Xid 79", "since": "2026-10-28T06:03:00Z" } } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `name`, `kind` (training / fine-tuning / inference), `cluster`, `site`, `customerId` | string / enum | M | job list, customer, service link |
+| `nodes[]`, `gpus` | list, integer | M | blast radius, GPU time lost |
+| `state` | running / slowed / stalled / at-risk / idle (SynapseDC may derive slowed / at-risk / idle from telemetry when the scheduler only says running) | M | job state |
+| `started`, `since` | time | M (since O) | durations, lost so far |
+| `progress.stepMs`, `baselineMs`, `mfu`, `lastCheckpoint`, `checkpointMin` | number / time | O (only when the AI platform exports them, GPU-032) | slowdown, MFU, work to redo |
+| `cause.text`, `cause.nodeId` | string | O | story card, incident link |
+| nodes: `id`, `state` (in-job / idle / drained / failed / burn-in), `jobId`, `drain.reason` | string / enum | M (drain O) | node states, spares |
+
+#### API-OPS-03 Cost data (read)
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /fin-ops/costs?site=&category=power&period=` · `GET /fin-ops/budgets?site=` | Read | CAP-010…019 (bill actuals vs model), INTG-023 | daily |
+
+**Expected response:**
+```json
+{ "items": [ { "site": "TX-DC-020", "category": "power", "period": "2026-09", "actual": { "amount": 412800, "currency": "USD" },
+  "budget": { "amount": 395000, "currency": "USD" }, "invoiceRef": "ERCOT-INV-88231", "kwh": 4920000, "peakKw": 6930 } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `site`, `category`, `period` | string | M | match to the modelled bill |
+| `actual`, `budget` | money | M (budget O) | bill vs model, findings validation |
+| `kwh`, `peakKw`, `invoiceRef` | number / string | O | ratchet and block checks |
+
+#### API-OPS-04 Power cost figures (write)
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `POST /fin-ops/allocations` | Write | CAP power economics, GPU power by job / tenant | daily |
+
+**Request:**
+```json
+{ "period": "2026-10-27", "items": [
+  { "site": "TX-DC-020", "kind": "site", "powerCost": { "amount": 13240, "currency": "USD" }, "idleCost": { "amount": 1880, "currency": "USD" }, "costPerSoldMwMonth": { "amount": 61200, "currency": "USD" } },
+  { "site": "TX-DC-020", "kind": "job", "ref": "JOB-TX-020-001", "customerId": "CUS-NC-004", "kwh": 6210, "powerCost": { "amount": 590, "currency": "USD" } } ] }
+```
+**Expected response:** `{ "accepted": 2 }`
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `accepted` | integer | M | delivery confirmation |
+
+---
+
+### C.5 Services & ITSM
+
+**Module:** Services & ITSM — Incidents, Problems, Change Management, Maintenance, Tickets, Knowledge Center. **SynapseDC uses it for** the incident, problem, change, maintenance and ticket records; it adds impact, RCA, money and DCIM work to them. **Screens:** datacenter incident view, Command Center trio, Needs attention, Change management overview, DCIM change control, Facilities → Maintenance, customer page (remote hands), Revenue Impact.
+
+#### API-ITSM-01 List incidents
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /itsm/incidents?site=&status=&severity=&since=` | Read | CC-003, CC-017, ALM-033, SITE-008, REV-001 | on open; events |
+
+**Expected response:**
+```json
+{ "items": [
+  { "id": "INC-0003", "number": "INC0091442", "title": "UPS-2 on battery", "type": "Power", "severity": 1, "priority": 1, "status": "Investigating",
+    "site": "IL-DC-009", "owner": "Facility engineering", "assignee": "sam.patel@operator.com", "reportedBy": "SynapseDC",
+    "detected": "2026-10-28T07:38:12Z", "acknowledged": "2026-10-28T07:41:02Z", "resolved": null,
+    "sla": { "responseMin": 15, "resolveMin": 240, "responseDue": "2026-10-28T07:53:12Z", "resolveDue": "2026-10-28T11:38:12Z", "breached": false },
+    "alertIds": ["ALM-000123"], "changeIds": [], "problemId": null } ],
+  "next": null }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id` (correlation id = SynapseDC id), `number` (ITSM ref) | string | M | link both ways |
+| `title`, `type` (Network / Power / Cooling / Rack / Capacity / Security / GPU) | string / enum | M | lists, revenue domain |
+| `severity` 1–4 (Critical / High / Medium / Low), `priority` 1–4 | integer | M (priority O) | severity words; priority only when different |
+| `status` (Open / Investigating / Mitigated / Resolved / Closed) | enum | M | open counts |
+| `site`, `owner`, `assignee`, `reportedBy` | string | M (assignee O) | lists, ownership |
+| `detected`, `acknowledged`, `resolved` | time | M (others O) | MTTA, MTTR, past SLA |
+| `sla.responseMin`, `resolveMin`, `responseDue`, `resolveDue`, `breached` | integer / time / bool | M | SLA clock bar, Past SLA tile |
+| `alertIds[]`, `changeIds[]`, `problemId` | list / string | M (problemId O) | evidence, change link |
+
+#### API-ITSM-02 Get incident
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /itsm/incidents/{id}` | Read | datacenter incident view (ALM-015…026), REV-009 | on open; events |
+
+**Expected response:** the API-ITSM-01 item plus:
+```json
+{ "workNotes": [ { "at": "2026-10-28T07:45:00Z", "by": "sam.patel@operator.com", "text": "DG running, feed A utility fault confirmed", "kind": "human" },
+                 { "at": "2026-10-28T07:38:40Z", "by": "SynapseDC", "text": "Opened from ALM-000123; 18 services exposed", "kind": "system" } ],
+  "cis": [ { "kind": "Facility", "id": "UPS-2", "label": "UPS-2 (A side)" }, { "kind": "Rack", "id": "R-2-07", "label": "Hall 2 · R-2-07" } ],
+  "group": "Facility engineering", "resolutionCode": null,
+  "datacenter": { "impact": { "services": 18, "customers": 6, "premium": 2, "revenueAtRisk": { "amount": 41200, "currency": "USD" }, "level": "High",
+                              "summary": "18 cabinets on the A side ride UPS-2 battery; 2 premium tenants" },
+                  "rca": [ { "cause": "Utility feed A lost; ATS on B; UPS-2 carrying A-side busway on battery", "confidence": 0.82,
+                             "evidence": [ { "label": "ALM-000123 UPS_ON_BATTERY", "ref": "ALM-000123", "at": "2026-10-28T07:38:12Z" } ] } ],
+                  "actions": [ { "id": "A1", "step": "Confirm DG on load and fuel ≥ 8 h", "owner": "Facility engineer", "status": "done", "disruptive": false } ],
+                  "verification": [ { "check": "UPS-2 back on mains", "ok": null } ] } }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `workNotes[]` (`at`, `by`, `text`, `kind` system / human / ai) | list | M | worklog |
+| `cis[]` (`kind` NE / Link / Rack / Service / Customer / Facility, `id`, `label`) | list | M | affected objects |
+| `group`, `resolutionCode` | string | O | ownership, closure |
+| `datacenter.impact`, `datacenter.rca[]`, `datacenter.actions[]`, `datacenter.verification[]` | object / list | O | **written by SynapseDC** (API-ITSM-04); stored on the incident if the module supports extension fields, otherwise kept in DC-STORE keyed by incident id |
+
+#### API-ITSM-03 Create incident
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `POST /itsm/incidents` | Write | ALM-014 (correlation opens an incident), ALM-030 GPU incidents, CAP-020 power finding incident | within 60 s of the first correlated alarm |
+
+**Request:**
+```json
+{ "correlationId": "INC-0061", "title": "152 GPUs stopped by one failed GPU in CL-TX-020-A", "type": "GPU", "severity": 1, "site": "TX-DC-020",
+  "alertIds": ["ALM-000231"], "cis": [ { "kind": "NE", "id": "GPU-014" } ], "description": "Job JOB-TX-020-001 stalled; last checkpoint 05:30",
+  "reportedBy": "SynapseDC" }
+```
+**Expected response:** `{ "id": "INC-0061", "number": "INC0091460", "status": "Open", "sla": { "responseDue": "2026-10-28T06:17:40Z", "resolveDue": "2026-10-28T10:02:40Z" } }`
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `number`, `status`, `sla` | string / enum / object | M | link, SLA clocks |
+
+#### API-ITSM-04 Update incident
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `PATCH /itsm/incidents/{id}` · `POST /itsm/incidents/{id}/work-notes` · `POST /itsm/incidents/{id}/resolve` | Write | ALM-016…026 (impact, RCA, actions, verification, worklog), user actions | on change; per action |
+
+**Request:** any of `severity`, `datacenter.impact`, `datacenter.rca`, `datacenter.actions`, `datacenter.verification`, a work note `{ "text", "kind": "system" | "ai" }`, or resolve `{ "code", "note" }`.
+**Expected response:** `{ "id": "INC-0003", "updated": "2026-10-28T08:02:00Z", "version": 7 }`
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `updated`, `version` | time, integer | M | optimistic concurrency (If-Match), echo suppression |
+
+#### API-ITSM-05 Problems
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /itsm/problems?site=&state=` · `POST /itsm/problems` · `POST /itsm/problems/{id}/incidents` | Read / write | ALM-012 Problems tab, ALM-018 batch RMA | on open; when incidents group by cause |
+
+**Expected response:**
+```json
+{ "items": [ { "id": "PRB-0007", "number": "PRB0004410", "title": "SFP lot 22B early failures", "type": "Network", "state": "Fix in change",
+  "incidents": ["INC-0001", "INC-0014", "INC-0022"], "open": 1, "sites": ["VA-DC-001", "NY-DC-004"],
+  "firstSeen": "2026-09-02T11:00:00Z", "lastSeen": "2026-10-28T07:31:05Z", "workaround": "Swap from spares", "fix": "Replace lot 22B optics", "changeId": "CHG-2230", "owner": "Network engineering" } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `number`, `title`, `type`, `state` (Investigating / Known error / Fix in change) | string / enum | M | problems list |
+| `incidents[]`, `open`, `sites[]` | list / integer | M | grouping, counts |
+| `firstSeen`, `lastSeen`, `workaround`, `fix`, `changeId`, `owner` | time / string | O | detail |
+
+#### API-ITSM-06 List changes
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /itsm/changes?site=&status=&from=&to=&class=` | Read | ANL (Change management overview 8.5), DCIM-018…024 (open CR picker), ALM-016 (change evidence, last 3 days), CC-019 | on open; events |
+
+**Expected response:**
+```json
+{ "items": [ { "id": "CHG-2001", "number": "CHG0033120", "title": "Re-patch ODF RACK-3", "class": "Normal", "kind": "Change", "source": "Operations",
+  "site": "VA-DC-001", "scope": ["ODF-RACK-3", "BDR-01"], "risk": "Medium", "status": "Completed",
+  "windowStart": "2026-10-26T22:00:00Z", "windowEnd": "2026-10-27T02:00:00Z", "requester": "field.tech@operator.com", "approver": "change.manager@operator.com",
+  "created": "2026-10-24T09:00:00Z", "outcome": "Caused an incident", "causedIncident": "INC-0001" } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `number`, `title`, `class` (Standard / Normal / Emergency), `kind` (Change / Maintenance), `source` | string / enum | M | lists, classes |
+| `site`, `scope[]`, `risk` (Low / Medium / High), `status` (Draft / Pending approval / Approved / In progress / Completed / Rolled back / Rejected) | string / list / enum | M | site filter, scope match for RCA and drift |
+| `windowStart`, `windowEnd`, `created` | time | M | calendar, lead time, "within 3 days before detection" |
+| `requester`, `approver`, `outcome`, `causedIncident` | string / enum | O | outcome charts; caused-an-incident is **written by SynapseDC** via API-ITSM-09 |
+
+#### API-ITSM-07 Get change
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /itsm/changes/{id}` | Read | change drawer, DCIM CR chip, DCIM-021 (execute when approved) | on open; events |
+
+**Expected response:** the API-ITSM-06 item plus:
+```json
+{ "template": "STD-07", "rollback": "Restore the previous jumper map from the ODF ledger",
+  "approvals": [ { "role": "Change manager", "who": "change.manager@operator.com", "decision": "Approved", "at": "2026-10-25T10:00:00Z" },
+                 { "role": "Site lead", "who": "site.lead@operator.com", "decision": "Approved", "at": "2026-10-25T11:20:00Z" } ],
+  "conflicts": [], "freeze": null, "violations": [ { "policy": "POL-03", "enforcement": "Warn", "text": "Window outside maintenance hours" } ],
+  "pir": { "state": "Due", "due": "2026-11-03T00:00:00Z" }, "incidentId": null, "projectId": null, "woId": null }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `approvals[]` (`role`, `who`, `decision` Approved / Pending / Waiting / Rejected / Pre-approved, `at`) | list | M | approval board, DCIM execution gate |
+| `template`, `rollback` | string | M (template O) | standard change, rollback evidence |
+| `freeze`, `conflicts[]`, `violations[]` (`policy`, `enforcement` Block / Warn, `text`) | string / list | M | freeze refusal, conflicts, policy warnings |
+| `pir`, `incidentId`, `projectId`, `woId` | object / string | O | review status, links |
+
+#### API-ITSM-08 Create change request
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `POST /itsm/changes` | Write | DCIM-018…020 (standard / raise new), ALM-025 (emergency change from an incident), FAC "Schedule maintenance", PLN delivery CRs | user action |
+
+**Request:**
+```json
+{ "class": "Standard", "template": "STD-07", "title": "DCIM record: install GPU-052 in R-3-04 U10–U17", "site": "TX-DC-020",
+  "scope": ["rack:R-3-04", "ne:GPU-052"], "risk": "Low", "windowStart": "2026-10-28T10:00:00Z", "windowEnd": "2026-10-28T12:00:00Z",
+  "rollback": "Remove the planned device record", "origin": "DCIM", "requester": "dc.engineer@operator.com" }
+```
+**Expected response:** `{ "id": "CHG-2241", "number": "CHG0033188", "status": "Approved", "class": "Standard", "freeze": null }` or `409` with `{ "freeze": "FRZ-IL-DC-009", "allows": "Emergency only" }`
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `number`, `status`, `class` | string / enum | M | tag DCIM work with the CR; apply now vs plan |
+| `freeze`, `allows` | string / enum | M on refusal | refusal message under a freeze |
+
+#### API-ITSM-09 Change transition and work items
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `POST /itsm/changes/{id}/transition` · `POST /itsm/changes/{id}/work-items` · `PATCH /itsm/changes/{id}/work-items/{wid}` | Write | DCIM-021 (execute planned work), DCIM-022, INTG-017 (caused an incident) | on approval; on execution |
+
+**Request (work item):** `{ "id": "DW-0091", "op": "installDevice", "tags": ["rack:R-3-04", "ne:GPU-052"], "state": "done", "doneBy": "dc.engineer@operator.com", "at": "2026-10-28T10:42:00Z" }`
+**Expected response:** `{ "changeId": "CHG-2241", "status": "Completed", "workItems": { "total": 3, "done": 3 } }`
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `status`, `workItems.total`, `workItems.done` | enum / integer | M | complete a DCIM-raised CR when all its work is done |
+
+#### API-ITSM-10 Maintenance windows and plans
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /itsm/maintenance?site=&asset=&from=&to=` | Read | FAC (Maintenance & PM plan), FAC SPOF what-if, CC Recommendations | daily; on open |
+
+**Expected response:**
+```json
+{ "items": [ { "id": "PMW-IL-DC-009-0042", "site": "IL-DC-009", "assetId": "DG-1", "asset": "Generator DG-1", "kind": "Generator",
+  "task": "Monthly load-bank test", "intervalDays": 30, "lastDone": "2026-10-02T09:00:00Z", "nextDue": "2026-11-01T09:00:00Z",
+  "state": "scheduled", "owner": "Facility engineering", "changeId": "CHG-2236" } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `site`, `assetId`, `asset`, `kind` (UPS / Battery / Generator / Cooling / CDU / Fire / Electrical), `task` | string / enum | M | PM plan per plant asset |
+| `intervalDays`, `lastDone`, `nextDue`, `state` | integer / time / enum | M | due / overdue |
+| `owner`, `changeId` | string | O | booked by a maintenance change |
+
+#### API-ITSM-11 Tickets
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /itsm/tickets?site=&customer=&kind=` · `POST /itsm/tickets` | Read / write | customer page (remote hands, cross-connect), SITE lifecycle (RMA cases), access requests | on open; user action |
+
+**Expected response:**
+```json
+{ "items": [ { "id": "TKT-77120", "kind": "remote-hands", "site": "IL-DC-009", "customerId": "CUS-CO-031", "title": "Reseat PSU in cabinet C-2-14",
+  "state": "In progress", "opened": "2026-10-28T06:10:00Z", "due": "2026-10-28T10:10:00Z", "assignee": "field.tech@operator.com", "ref": { "rack": "C-2-14" } },
+  { "id": "TKT-77131", "kind": "rma", "site": "TX-DC-020", "title": "RMA GPU-014 gpu3 (Xid 79)", "state": "Engineer booked", "opened": "2026-10-28T06:30:00Z",
+    "ref": { "device": "GPU-014", "part": "H200 SXM", "vendorCase": "NV-55102" } } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `kind` (remote-hands / cross-connect / access / rma), `site`, `customerId`, `title`, `state` | string / enum | M (customerId O) | customer page panels, RMA status |
+| `opened`, `due`, `assignee`, `ref` | time / string / object | O | SLA, link to rack / device |
+
+#### API-ITSM-12 Knowledge articles
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /itsm/knowledge?alarmType=&incidentType=` | Read | INTG-015 runbook links on recommended actions (P3) | on open |
+
+**Expected response:** `{ "items": [ { "id": "KB0012", "title": "UPS on battery: first 15 minutes", "url": "https://itsm/kb/KB0012", "updated": "2026-08-14T00:00:00Z" } ] }`
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `title`, `url` | string | M | runbook link |
+| `updated` | time | O | stale-article hint |
+
+#### API-ITSM-13 Events
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| webhook / Kafka topic `itsm.v1`: `incident.changed`, `change.changed`, `ticket.changed`, `problem.changed` | Read (subscribe) | every ITSM-backed panel; DCIM execution gate (change approved) | push |
+
+**Expected event:** CloudEvents envelope, `subject` = record id, `data` = `{ "id", "number", "status", "changedFields": [...], "version" }`.
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `subject`, `data.status`, `data.changedFields`, `data.version` | string / list / integer | M | refresh only what changed; run approved DCIM work |
+
+---
+
+### C.6 AI Foundry
+
+**Module:** AI Foundry (models and agents). **SynapseDC uses it for** the Opstral AI copilot answering from SynapseDC read models. **Screens:** the Opstral AI drawer on every page (XC-008), Command Center recommendations explanations.
+
+#### API-AIF-01 Invoke agent
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `POST /ai-foundry/agents/{agent}/invoke` | Read / write | XC-008, CC-031, GPU-033 | user question |
+
+**Request:**
+```json
+{ "agent": "opstral-dc", "question": "Which issue is costing the most revenue?",
+  "context": { "page": "/revenue", "persona": "neocloud", "geo": "us", "dcId": null, "user": "ops.head@operator.com" },
+  "tools": ["synapsedc.getRevenue", "synapsedc.getIncident", "synapsedc.getGpu"] }
+```
+**Expected response:**
+```json
+{ "answer": "INC-0061 in TX-DC-020 is costing the most: $8,940 lost so far at $1,520 per hour, with $27,300 of credits at stake.",
+  "citations": [ { "tool": "synapsedc.getRevenue", "ref": "INC-0061", "figure": "lost", "value": { "amount": 8940, "currency": "USD" } } ],
+  "links": [ { "label": "Open the cost breakdown", "href": "/revenue?dc=TX-DC-020" } ],
+  "confidence": 0.93, "toolCalls": 2, "latencyMs": 1840 }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `answer` | string | M | the reply |
+| `citations[]` (`tool`, `ref`, `figure`, `value`) | list | M | every number traces to a read model (BRULE-XC-07) |
+| `links[]` | list | M | deep link to the screen holding the figure |
+| `confidence`, `toolCalls`, `latencyMs` | number / integer | O | audit, explainability |
+
+#### API-AIF-02 Register tools
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `PUT /ai-foundry/tools/{name}` | Write | INTG-027 (deployment) | on release |
+
+**Request:**
+```json
+{ "name": "synapsedc.getRevenue", "description": "Revenue impact of open datacenter issues, optionally for one datacenter",
+  "endpoint": "https://{host}/api/dco/v1/revenue-impact", "method": "GET", "auth": "oauth2-client-credentials", "scope": "revenue:read",
+  "parameters": { "type": "object", "properties": { "dcId": { "type": "string" } } } }
+```
+**Expected response:** `{ "name": "synapsedc.getRevenue", "version": 3, "status": "active" }`
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `name`, `version`, `status` | string / integer / enum | M | the copilot uses the current tool version |
+
+### C.7 Operate to Acquire (BSS)
+
+Module: CRM, Customers, Orders, Plans & Products Catalog, Experience and Care. SynapseDC uses it for who the customers are, what they bought, where each service sits and what it is worth, and it sends back impact, notices, credits and metered usage. It is used on the Command Center (Who is affected), the customer page, Revenue Impact, the datacenter Customers / Tenants and Revenue tabs, incidents and Capacity → Reservations.
+
+#### API-BSS-01 Customers
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /customers`, `GET /customers/{id}` | In | Customer page, Revenue Impact (REV-001…), Command Center Who is affected (CC-019), site Customers tab | daily full read + API-BSS-10 events |
+
+**Request:** `?site=` (optional), `?updatedSince=`, cursor paging.
+
+**Expected response:**
+```json
+{ "items": [
+  { "id": "CUS-0007", "name": "Northwind AI Labs", "segment": "AI / ML", "tier": "reserved", "premium": true,
+    "accountManager": { "id": "USR-114", "name": "Priya Nair" },
+    "locations": [{ "city": "Chicago", "state": "IL" }],
+    "revenueMonthly": { "amount": 412000, "currency": "USD" },
+    "status": "active", "updatedAt": "2026-10-27T06:00:00Z" } ],
+  "next": null }
+```
+
+**Fields SynapseDC needs:**
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id` | string | M | key for impact, revenue and the customer page |
+| `name` | string | M | every customer list |
+| `segment` | string | O | customer facts row |
+| `tier` / `premium` | enum / boolean | M | premium tile, credit weighting, notice schedule |
+| `accountManager` | object | M | customer page, notices |
+| `locations[]` | array | O | customer header |
+| `revenueMonthly` | money | O | cross-check of Σ service charges |
+| `status` | enum | M | hide closed accounts |
+
+#### API-BSS-02 Contracts and SLA
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /customers/{id}/contracts`, `GET /contracts?site=` | In | Revenue Impact credits (REV-004…), customer page, Capacity reservations (contracted kW), Power economics | daily + events |
+
+**Request:** customer id or `?site=`; `?active=true`.
+
+**Expected response:**
+```json
+{ "items": [
+  { "id": "CTR-2041", "customerId": "CUS-0007", "kind": "gpu-cluster",
+    "term": { "start": "2026-01-01", "end": "2028-12-31" },
+    "sla": { "targetPct": 99.9, "measure": "cluster-availability",
+             "credits": [ { "shortfallPctGt": 0, "creditPct": 10 }, { "shortfallPctGte": 0.5, "creditPct": 25 }, { "shortfallPctGte": 2, "creditPct": 50 } ] },
+    "gpu": { "model": "H100", "reservedGpus": 256, "rate": { "amount": 3000, "currency": "USD", "per": "gpu-month" } } },
+  { "id": "CTR-1188", "customerId": "CUS-0031", "kind": "colocation",
+    "sla": { "targetPct": 99.99, "measure": "power-availability" },
+    "cabinets": [ { "rackRef": "IL-DC-009/RACK-B07", "contractedKw": 12, "feeds": "A+B" } ] } ] }
+```
+
+**Fields SynapseDC needs:**
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `customerId`, `kind` | string / enum | M | link services to their contract |
+| `term.start`, `term.end` | date | O | renewal facts |
+| `sla.targetPct` | number | M | within-SLA %, credits, cliffs |
+| `sla.credits[]` | array | O | per-contract credit tiers; falls back to the 10 / 25 / 50 % table |
+| `cabinets[].rackRef`, `contractedKw` | string / number | M (Colo) | tenant draw vs contracted kW, reservations "Committed", not-a-loss rule |
+| `gpu.model`, `reservedGpus`, `rate` | string / int / money | M (Neo) | GPU job price, GPU time lost in money |
+
+#### API-BSS-03 Services with placement
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /services?site=` | In | Impact and Revenue (REV-001…), incident impact (ALM-020…), customer page service grid, GPU Fleet job → customer | on change (API-BSS-10) + daily reconcile |
+
+**Request:** `?site=`, `?customerId=`, `?updatedSince=`.
+
+**Expected response:**
+```json
+{ "items": [
+  { "id": "SVC-04211", "customerId": "CUS-0031", "type": "Cabinet lease", "status": "Active",
+    "qty": 12, "unit": "kW", "monthlyCharge": { "amount": 5400, "currency": "USD" }, "critical": true,
+    "placement": { "dcId": "IL-DC-009", "rackId": "RACK-B07", "deviceId": null, "port": null, "linkIds": [] } },
+  { "id": "SVC-09007", "customerId": "CUS-0007", "type": "GPU cluster", "status": "Active",
+    "qty": 152, "unit": "GPU", "monthlyCharge": { "amount": 456000, "currency": "USD" },
+    "placement": { "dcId": "CA-DC-020", "clusterId": "POD-CA-020-A", "nodeIds": ["GPU-014", "GPU-015"], "jobRef": "JOB-7781" } } ] }
+```
+
+**Fields SynapseDC needs:**
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `customerId`, `type` | string | M | impact keys, persona service words |
+| `status` | enum Active / Degraded / Down / Planned | M | down / degraded / exposed state |
+| `qty`, `unit` | number / enum | M | service size (kW, Mbps, GPU) |
+| `monthlyCharge` | money | M | rate = monthly ÷ 730 h |
+| `critical` | boolean | O | ordering in Who is affected |
+| `placement.dcId` | string | M | which site |
+| `placement.rackId` / `deviceId` / `port` / `linkIds[]` | string | M where known | path of the service: which fault hits it |
+| `placement.clusterId`, `nodeIds[]`, `jobRef` | string | M (Neo) | job → nodes → GPU faults |
+
+When placement is missing, SynapseDC shows the service at site level and reports "placement incomplete" (R-03).
+
+#### API-BSS-04 Products and plans
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /catalog/products` | In | persona service types, Planner revenue lines, Capacity | daily |
+
+**Request:** none.
+
+**Expected response:**
+```json
+{ "items": [ { "id": "PRD-COLO-10KW", "name": "Cabinet 10 kW", "serviceType": "Cabinet lease", "unit": "kW", "listPrice": { "amount": 450, "currency": "USD", "per": "kW-month" } },
+             { "id": "PRD-GPU-H100", "name": "Reserved H100 cluster", "serviceType": "GPU cluster", "unit": "GPU", "listPrice": { "amount": 3000, "currency": "USD", "per": "gpu-month" } } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `name`, `serviceType`, `unit` | string | M | service vocabulary per business model |
+| `listPrice` | money | O | planner revenue assumptions |
+
+#### API-BSS-05 Push customer impact
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `POST /customers/{id}/impact` | Out | Revenue Impact, incident enrichment (INTG-005) | on change of a customer's impact band |
+
+**Request body:**
+```json
+{ "customerId": "CUS-0007", "asOf": "2026-10-27T07:40:00Z",
+  "services": { "down": 0, "degraded": 1, "exposed": 2 },
+  "issues": [ { "incidentId": "INC-0061", "title": "Xid 79 stalled training job", "lostSoFar": { "amount": 1875, "currency": "USD" }, "creditsAtRisk": { "amount": 45600, "currency": "USD" } } ],
+  "slaStatus": "at-risk", "link": "https://{host}/customers/CUS-0007" }
+```
+
+**Expected response:** `202 Accepted` `{ "id": "IMP-88123" }`.
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| response `id` | string | O | idempotent update of the same impact record |
+
+#### API-BSS-06 Send customer notice
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `POST /care/notices` | Out | incident communications (ALM-026…), customer page | initial 15 / 30 / 60 min by severity, updates 1 / 2 / 4 h, resolution |
+
+**Request body:**
+```json
+{ "customerId": "CUS-0031", "incidentRef": "INC-0003", "kind": "initial", "severity": "Critical",
+  "channel": ["email"], "template": "colo-power-event", "fields": { "site": "IL-DC-009", "cabinets": ["RACK-B07"], "summary": "UPS-2 on battery, cabinet on B feed" } }
+```
+
+**Expected response:**
+```json
+{ "id": "NTC-55012", "status": "queued", "sentAt": null }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id` | string | M | notice log on the incident |
+| `status` | enum queued / sent / failed | M | overdue-update warning |
+| `sentAt` | time | O | notice timeline |
+
+#### API-BSS-07 Post SLA credits
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `POST /contracts/{id}/credits` | Out | Revenue Impact (INTG-007) | on incident close + month end |
+
+**Request body:**
+```json
+{ "contractId": "CTR-2041", "period": "2026-10", "incidentRef": "INC-0061",
+  "impactedMinutes": 96, "shortfallPct": 0.22, "tierPct": 10, "amount": { "amount": 45600, "currency": "USD" } }
+```
+
+**Expected response:** `201` `{ "id": "CRD-3320", "status": "proposed" }`.
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `status` (proposed / approved / rejected) | string / enum | M | "Credits owed" tile reconciles with what BSS accepted |
+
+#### API-BSS-08 Post metered usage
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `POST /usage` (batch) | Out | Power economics, GPU Fleet (INTG-008) | daily preview + monthly final |
+
+**Request body:**
+```json
+{ "period": "2026-10", "records": [
+  { "customerId": "CUS-0031", "contractId": "CTR-1188", "meter": "cabinet-energy", "rackRef": "IL-DC-009/RACK-B07", "kWh": 7420.5, "peakKw": 11.6, "contractedKw": 12 },
+  { "customerId": "CUS-0007", "contractId": "CTR-2041", "meter": "gpu-hours", "jobRef": "JOB-7781", "gpuHoursDelivered": 108220, "gpuHoursLost": 152 } ] }
+```
+
+**Expected response:** `202` `{ "batchId": "USG-2026-10-27", "accepted": 2, "rejected": [] }`.
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `batchId`, `accepted`, `rejected[]` (with reason) | string / int / array | M | retry and reconciliation of usage |
+
+#### API-BSS-09 Cross-connect orders
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /orders?type=cross-connect&site=` | In | colocation Tenants tab, customer page "Cross-connect orders" (REV-030), DCIM meet-me room cross-connects (DCIM-029) | every 15 min + events |
+
+**Expected response:**
+```json
+{ "items": [ { "id": "ORD-XC-1042", "customerId": "CUS-0031", "site": "IL-DC-009", "aEnd": { "rackRef": "RACK-B07", "port": "PP-1/12" },
+    "zEnd": { "party": "Carrier Zayo", "rackRef": "MMR-01", "port": "ODF-2/31" }, "media": "SMF", "speed": "10G",
+    "status": "In progress", "requested": "2026-10-20T09:00:00Z", "due": "2026-10-29T17:00:00Z" } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `customerId`, `site`, `status`, `due` | string / enum / time | M | order list, late orders |
+| `aEnd`, `zEnd` (rack, port, party) | object | M | match to the DCIM cross-connect cable |
+| `media`, `speed` | string | O | order facts |
+
+#### API-BSS-10 Events
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| subscription `customer.changed`, `contract.changed`, `service.changed`, `order.changed` | In | impact and revenue read models | push |
+
+**Expected event:**
+```json
+{ "type": "service.changed", "id": "evt_9a1", "time": "2026-10-27T07:10:00Z", "subject": "SVC-04211", "data": { "id": "SVC-04211", "changed": ["placement.rackId"] } }
+```
+SynapseDC re-reads the object with API-BSS-01 / 02 / 03 / 09.
+
+---
+
+### C.8 Plan to Build — Inventory
+
+Module: Plan to Build Inventory. SynapseDC uses it as the record of every location, rack and device, their components and lifecycle; it reads them by id and writes back only the DCIM fields Inventory can carry. It is used on the Datacenters list and site page, device page, Facilities (rack power, PDUs), DCIM, the twins, GPU Fleet (node → rack), Capacity and the Planner's site baseline.
+
+#### API-INV-01 Locations
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /locations?kind=site`, `GET /locations/{id}/children` | In | Datacenters list (SITE-001), map (CC-011), DCIM hierarchy (DCIM-001), Capacity | daily + API-INV-08 |
+
+**Expected response:**
+```json
+{ "items": [ { "id": "IL-DC-009", "kind": "site", "name": "Chicago West", "status": "Live", "tier": "Tier III",
+    "region": "Midwest", "state": "IL", "city": "Chicago", "address": "2200 W Cermak Rd", "lat": 41.852, "lng": -87.681, "commissionedOn": "2019-04-01",
+    "floors": [ { "id": "IL-DC-009/F1", "name": "Floor 1", "rooms": [ { "id": "IL-DC-009/F1/HALL-A", "name": "Data Hall A", "kind": "data-hall" }, { "id": "IL-DC-009/F1/MMR", "name": "Meet-me room", "kind": "mmr" } ] } ] } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `name`, `status` (Live / In progress / Planned) | string / enum | M | site lists, planned sites hide live tabs |
+| `tier` | enum | M | SPOF rules (Tier II single feed), plan baselines |
+| `region`, `state`, `city`, `address`, `lat`, `lng` | string / number | M | map, filters, tariffs and carbon factor by state |
+| `commissionedOn` | date | O | asset age rules |
+| `floors[].rooms[]` (id, name, kind) | array | M | hall / room tree, twin, floor plan |
+
+#### API-INV-02 Racks
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /racks?site=`, `GET /racks/{id}` | In | DCIM racks / floor plan (DCIM-002), Facilities rack power (FAC-007), twin, Capacity space | daily + events |
+
+**Expected response:**
+```json
+{ "items": [ { "id": "RACK-B07", "siteId": "IL-DC-009", "roomId": "IL-DC-009/F1/HALL-A", "name": "B07", "role": "Tenant cabinet",
+    "heightU": 42, "budgetKw": 12, "owner": "tenant", "tenantId": "CUS-0031", "liquid": false, "density": null,
+    "model": "Rittal TS IT 800×1200", "purchasedOn": "2019-03-12", "status": "In service" } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `siteId`, `roomId`, `name`, `role` | string | M | placement, rack lists |
+| `heightU`, `budgetKw` | int / number | M | U usage, over-budget 85 % rule, capacity |
+| `owner`, `tenantId` | enum / string | M (Colo) | tenant gear opaque, never polled |
+| `liquid`, `density` | boolean / enum | O | CDU heat share, AI rack styling |
+| `model`, `purchasedOn`, `status` | string / date / enum | O | rack vintage, retire / damaged rules |
+
+Grid position, row, rack type code and condition are DCIM extensions (API-INV-07).
+
+#### API-INV-03 Devices / assets
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /assets?site=&type=device`, `GET /assets/{id}` | In | Equipment tab, device page, DCIM devices, GPU nodes, alarm placement, Planner refresh candidates | daily + events |
+
+**Expected response:**
+```json
+{ "items": [ { "id": "GPU-014", "siteId": "CA-DC-020", "rackId": "RACK-G03", "u": 12, "uSize": 8,
+    "role": "GPU", "vendor": "NVIDIA", "model": "DGX H100", "serial": "1563922001844", "status": "In service",
+    "mgmtIp": "172.31.20.14", "owner": "operator", "purpose": null, "tags": ["pod:POD-CA-020-A"] } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `siteId`, `rackId` | string | M | containment chain, alarm placement |
+| `u`, `uSize` | int | M | elevation, U clash check (if Inventory carries them; else DC-STORE) |
+| `role`, `vendor`, `model`, `serial` | string | M | role filters, GPU model, drift vs observed |
+| `status` (In service / Planned / Maintenance / Decommissioning / Tenant-owned) | enum | M | ops state, reserved space |
+| `mgmtIp` | string | M | collector targets, IPAM cross-check |
+| `owner`, `purpose` | enum / string | O | operator servers, tenant gear |
+
+#### API-INV-04 Components
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /assets/{id}/components` | In | device Hardware tab, DCIM device drawer bays / ports, RMA and spares | on device open + daily |
+
+**Expected response:**
+```json
+{ "assetId": "PE-01", "modules": [ { "slot": "FPC0", "name": "MPC7E-10G", "serial": "CAEB4471", "state": "OK" } ],
+  "ports": [ { "name": "xe-0/0/3", "type": "10G SFP+", "speedMbps": 10000, "adminState": "up" } ],
+  "psus": [ { "slot": "PSU1", "model": "PWR-MX480-2520", "state": "OK" }, { "slot": "PSU2", "state": "OK" } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `modules[]` slot, name, serial, state | array | M | module faults, RMA, drift |
+| `ports[]` name, type, speed, admin state | array | M | port capacity, free same-speed ports |
+| `psus[]` slot, state | array | M | PSU cords to PDU outlets, single-PSU SPOF |
+
+#### API-INV-05 Device and module types
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /catalog/device-types`, `GET /catalog/module-types` | In | DCIM catalogue (DCIM-010), install form, Planner BoM models | daily |
+
+**Expected response:**
+```json
+{ "items": [ { "id": "DT-DELL-R760", "vendor": "Dell", "model": "PowerEdge R760", "uHeight": 2, "typicalW": 850, "maxW": 1400, "psus": 2, "generation": "current", "endOfSale": "2029-06-30" } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `vendor`, `model` | string | M | type pages, install |
+| `uHeight`, `typicalW`, `maxW`, `psus` | int / number | O | install budget check, planned draw (else DC-STORE templates) |
+| `generation`, `endOfSale` | enum / date | O | refresh candidates |
+
+#### API-INV-06 Lifecycle
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /assets/{id}/lifecycle`, `GET /lifecycle?site=` | In | site Assets → lifecycle (SITE-041), device Hardware, Planner refresh, Compliance CP-06 (end of support) | weekly + events |
+
+**Expected response:**
+```json
+{ "items": [ { "assetId": "SRV-0007", "purchasedOn": "2018-05-14", "installedOn": "2019-04-02",
+    "warranty": { "end": "2023-05-14" }, "support": { "contractId": "SUP-DELL-114", "level": "ProSupport", "end": "2026-12-31" },
+    "vendorDates": { "endOfSale": "2022-02-28", "endOfSupport": "2027-02-28" }, "state": "Out of warranty" } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `purchasedOn`, `installedOn` | date | M | age, vintage |
+| `warranty.end`, `support.*` | date / object | M | Covered / Expiring / Out of warranty / End of support |
+| `vendorDates.endOfSale`, `endOfSupport` | date | M | refresh plans, compliance |
+
+#### API-INV-07 Write DCIM extensions and observed state
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `PATCH /assets/{id}`, `PATCH /racks/{id}`, `POST /assets/{id}/observations` | Out | DCIM edits under a change request (DCIM-032), collector discovery reconciliation (DATA-013) | on each DCIM write; observations every 6–24 h |
+
+**Request body (extension):**
+```json
+{ "changeRequest": "CHG-2311", "fields": { "u": 14, "uSize": 2, "rackId": "RACK-B09", "status": "In service" } }
+```
+
+**Request body (observation):**
+```json
+{ "observedAt": "2026-10-27T03:00:00Z", "source": "collector-IL-DC-009-a",
+  "serial": "FDO2301A0ZQ", "model": "N9K-C93180YC-FX", "os": "NX-OS 10.3(4a)",
+  "modules": [ { "slot": "PSU2", "serial": "LIT2303", "state": "Fault" } ],
+  "lldp": [ { "localPort": "Eth1/49", "remoteDevice": "SPINE-01", "remotePort": "Eth1/7" } ] }
+```
+
+**Expected response:** `200` `{ "id": "SW-LEAF-03", "version": 42, "drift": [ { "attr": "os", "record": "NX-OS 10.2(5)", "observed": "NX-OS 10.3(4a)" } ] }`.
+
+**DCIM extension fields SynapseDC would like Inventory to carry (OD-01).** Each one Inventory accepts is written here; each one it does not stays in **DC-STORE**, keyed by the Inventory id:
+
+| Field | On | Notes |
+| --- | --- | --- |
+| `u`, `uSize` | device | U position and height |
+| `row`, `gridPosition` (col, row), `face` | rack | floor plan and the twin |
+| `rackType` (e.g. `RT-TS8-42-1000`), `condition` (OK / Damaged at audit + note) | rack | vintage and replacement plans |
+| `pduSide` A / B, `pduId`, `outlet` per PSU | device power port | power chain, single-side SPOF |
+| `powerPanel` (busway A / B per hall, −48 V), `feed` (V, A, phases, rating kW) | rack PDU | panel load, feed rating |
+| `patchPanel`, `trunk`, `odfPort`, `crossConnect` | cable path | structured cabling hops |
+| `sensorPosition` (rack, height) | sensor | rack inlet heat map |
+
+Stays in DC-STORE whatever Inventory decides: work items under a change request, U reservations, cooling coverage (nearest unit, liquid share), facility design ratings (site design kW, UPS / DG nameplate, tank, redundancy) where Inventory has no field.
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `version` | string / int | M | optimistic concurrency (If-Match) |
+| `drift[]` | array | O | drift shown on device and DCIM |
+
+#### API-INV-08 Events
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| subscription `asset.created`, `asset.changed`, `asset.retired`, `rack.changed`, `location.changed` | In | every read model that keys on assets | push |
+
+```json
+{ "type": "asset.changed", "id": "evt_31c", "time": "2026-10-27T08:01:00Z", "subject": "GPU-014", "data": { "changed": ["status"], "version": 43 } }
+```
+
+---
+
+### C.9 Plan to Build — Inventory Planning
+
+Module: Inventory Planning. SynapseDC uses it for capacity targets and holds, and writes the reservations that approved plans create. It is used on Capacity (Overview, Reservations), the Planner and the Command Center build lens.
+
+#### API-IPL-01 Capacity targets and holds
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /capacity/targets?site=`, `GET /capacity/holds?site=` | In | Capacity overview and Reservations (CAP-001…, CAP-036), Planner site fit | hourly + events |
+
+**Expected response:**
+```json
+{ "targets": [ { "siteId": "IL-DC-009", "dimension": "Power", "unit": "kW", "designCapacity": 6000, "warnAtPct": 85 } ],
+  "holds": [ { "id": "HLD-5512", "siteId": "IL-DC-009", "roomId": "IL-DC-009/F1/HALL-A", "dimension": "Power", "amount": 240, "unit": "kW",
+               "kind": "Pipeline", "source": { "type": "plan", "ref": "PLN-0004" }, "from": "2026-11-01", "to": "2027-03-31", "status": "Approved" } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `targets[]` dimension, unit, designCapacity, warnAtPct | array | M | capacity bars, 85 % line |
+| `holds[]` id, site, room, dimension, amount, unit | array | M | net available |
+| `holds[].kind` Reserved / Committed / Pipeline / Requested | enum | M | reservation ledger columns |
+| `holds[].source`, `from`, `to`, `status` | object / date / enum | M | link to plan or contract, ageing |
+
+#### API-IPL-02 Write reservations from approved plans
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `POST /capacity/holds`, `PATCH /capacity/holds/{id}` | Out | Planner approval and "Start the build" (PLN-026), DCIM U reservations (DCIM-016) | on approval / start / release |
+
+**Request body:**
+```json
+{ "siteId": "IL-DC-009", "roomId": "IL-DC-009/F1/HALL-A", "dimension": "Power", "amount": 240, "unit": "kW",
+  "kind": "Pipeline", "source": { "type": "plan", "ref": "PLN-0004" }, "from": "2026-11-01", "to": "2027-03-31" }
+```
+
+**Expected response:** `201` `{ "id": "HLD-5512", "status": "Approved" }`.
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `status` | string / enum | M | plan pack "what this plan creates", release on cancel |
+
+---
+
+### C.10 Plan to Build — IP Management
+
+Module: IP Management. SynapseDC uses it for prefixes, VLANs and the addresses on its devices, assigns addresses from DCIM under a change request, and derives findings and forecasts. It is used on IP & Network Insights (8.4), the DCIM device drawer and the device page.
+
+#### API-IPM-01 Prefixes, VRFs, VLANs, ranges
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /ipam/prefixes?site=`, `GET /ipam/vrfs`, `GET /ipam/vlans?site=` | In | IP & Network Insights (ANL-030), exhaustion forecast, outside-plan check | daily + events |
+
+**Expected response:**
+```json
+{ "prefixes": [ { "id": "PFX-0193", "prefix": "172.31.40.0/24", "vrf": "MGMT-IL-DC-009", "site": "IL-DC-009", "role": "Management",
+                  "parentId": "PFX-0012", "isPool": false, "size": 254, "used": 187, "status": "Active" } ],
+  "vrfs": [ { "id": "VRF-MGMT-IL-DC-009", "name": "MGMT-IL-DC-009", "rd": "64500:109", "importTargets": ["64500:999"] } ],
+  "vlans": [ { "id": "VLAN-IL-009-200", "site": "IL-DC-009", "vid": 200, "name": "HALL-A-PROD", "group": "IL-DC-009" } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `prefix`, `vrf`, `site`, `role`, `parentId` | string | M | hierarchy, outside-plan finding |
+| `size`, `used` | int | M | utilisation, Consumed ≥ 90 % / Committed ≥ 75 % |
+| `isPool`, `status` | boolean / enum | O | exclude containers / point-to-point from forecast |
+| `vrfs[]`, `vlans[]` | array | O | registers, VLAN uniqueness per site |
+
+#### API-IPM-02 Addresses by device / interface
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /ipam/addresses?device=` | In | device page, DCIM device drawer, collector target check | on open + daily |
+
+**Expected response:**
+```json
+{ "items": [ { "id": "IP-88412", "address": "172.31.40.20/24", "vrf": "MGMT-IL-DC-009", "deviceId": "BDR-01", "interface": "fxp0",
+               "primary": true, "dnsName": "bdr-01.il-dc-009.mgmt", "status": "Active", "assignedOn": "2024-02-11T10:00:00Z" } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `address`, `vrf`, `deviceId`, `interface`, `primary` | string / boolean | M | device addresses, primary management IP |
+| `dnsName`, `status`, `assignedOn` | string / enum / time | O | facts; growth rate for the forecast |
+
+#### API-IPM-03 Assign / release address
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `POST /ipam/prefixes/{id}/next-address`, `DELETE /ipam/addresses/{id}/assignment` | Out | DCIM device drawer address actions (under a CR) | on user action |
+
+**Request body:** `{ "deviceId": "SRV-0412", "interface": "mgmt0", "primary": true, "changeRequest": "CHG-2311" }`.
+
+**Expected response:** `201` `{ "id": "IP-88517", "address": "172.31.40.41/24", "vrf": "MGMT-IL-DC-009" }`; `409` when the prefix is full.
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `address`, `vrf` | string | M | show the new address, audit with the CR |
+
+---
+
+### C.11 Plan to Build — Programs & Projects
+
+Module: Programs & Projects (with its work orders, processes and commissioning). SynapseDC hands approved plans over as projects and reads delivery back for its analytics pages. It is used on Programs & Projects Insights (8.1), Work orders & process KPIs (8.2), Commissioning (8.3), the Planner (Delivery tab, plan pack, closeout) and the Command Center build lens.
+
+#### API-PRJ-01 Programmes
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /programmes`, `GET /programmes/{id}` | In | Insights programme progress (ANL-001…), programme gates | hourly + events |
+
+**Expected response:**
+```json
+{ "items": [ { "id": "PGM-02", "name": "Chicago AI hall expansion", "owner": "USR-077", "rag": "Amber",
+    "phases": [ { "projectId": "PRJ-0004", "name": "Hall B fit-out", "dependsOn": [], "status": "Executing" },
+                { "projectId": "PRJ-0021", "name": "Liquid cooling loop", "dependsOn": ["PRJ-0004"], "status": "Waiting at gate" } ],
+    "budget": { "amount": 18400000, "currency": "USD" } } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `name`, `owner`, `rag` | string / enum | M | programme cards |
+| `phases[]` projectId, dependsOn, status | array | M | start gates, roadmap |
+| `budget` | money | O | programme budget |
+
+#### API-PRJ-02 Projects
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /projects?site=&status=`, `GET /projects/{id}` | In | Insights health matrix, needs attention, cost curve, plan Delivery tab (PLN-026) | hourly + events |
+
+**Expected response:**
+```json
+{ "items": [ { "id": "PRJ-0004", "planRef": "PLN-0004", "name": "Hall B fit-out", "siteId": "IL-DC-009", "status": "Executing",
+    "target": "2027-03-31", "forecastFinish": "2027-04-18",
+    "milestones": [ { "id": "MS-1", "name": "Power cut-in", "due": "2026-12-10", "done": null } ],
+    "cost": { "bac": { "amount": 6200000, "currency": "USD" }, "pv": 2100000, "ev": 1890000, "ac": 2050000 },
+    "risks": [ { "id": "RSK-31", "title": "Transformer lead time", "likelihood": 4, "impact": 4, "status": "Open" } ],
+    "changeOrders": [ { "id": "CO-12", "amount": { "amount": 280000, "currency": "USD" }, "status": "Approved", "approver": "sponsor" } ],
+    "permits": [ { "name": "Electrical permit", "authority": "City of Chicago", "status": "Granted" } ] } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `planRef`, `siteId`, `status` | string / enum | M | plan ↔ project link, filters |
+| `target`, `forecastFinish` | date | M | late rule |
+| `milestones[]` | array | M | next 14 days, schedule |
+| `cost.bac`, `pv`, `ev`, `ac` | money / number | M | CPI = EV ÷ AC, SPI = EV ÷ PV, health (late SPI < 0.90; at risk CPI < 0.95 or SPI < 0.97) |
+| `risks[]` likelihood, impact, status | array | O | risk ranking |
+| `changeOrders[]`, `permits[]` | array | O | change outcomes, permits widget |
+
+#### API-PRJ-03 Work orders and process instances
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /work-orders?site=&status=`, `GET /processes/instances?process=` | In | Work orders & process KPIs (8.2), site Ops log, DCIM CR work | every 15 min + events |
+
+**Expected response:**
+```json
+{ "workOrders": [ { "id": "WO-0004-07", "projectId": "PRJ-0004", "changeRequest": "CHG-2311", "siteId": "IL-DC-009",
+    "title": "Install busway B, Hall B", "crew": "Contractor: Ameresco", "window": { "start": "2026-11-03T08:00:00Z", "end": "2026-11-03T18:00:00Z" },
+    "status": "Ready", "kit": "On site" } ],
+  "instances": [ { "id": "P10-0441", "process": "P10", "step": "Complete with evidence", "lane": "Field technician",
+    "startedAt": "2026-10-26T09:00:00Z", "targetH": 8, "state": "Running", "ref": "WO-0004-07" } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| work order `id`, `projectId`, `changeRequest`, `siteId`, `status`, `window` | string / enum / object | M | running work, next 14 days, CR link |
+| `crew`, `kit` | string / enum | O | kit-on-site rule |
+| instance `process` (P01–P12), `step`, `lane`, `startedAt`, `targetH`, `state`, `ref` | string / time / number / enum | M | swimlanes, ageing, process KPIs |
+
+#### API-PRJ-04 Commissioning tests
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /projects/{id}/commissioning` | In | Commissioning (8.3), plan closeout | hourly + events |
+
+**Expected response:**
+```json
+{ "projectId": "PRJ-0004", "tests": [
+  { "level": "L1", "name": "Factory witness", "status": "Passed", "date": "2026-09-14" },
+  { "level": "L3", "name": "Pre-functional", "status": "Blocked", "reason": "Installation not complete" },
+  { "level": "L5", "name": "Integrated systems test", "status": "Not started" } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `tests[]` level, name, status, date, reason | array | M | L1–L5 ladder, handover readiness |
+
+#### API-PRJ-05 Purchase orders and goods receipt
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /projects/{id}/purchase-orders` | In | plan Materials and pack (PLN-041), Insights materials | hourly + events |
+
+**Expected response:**
+```json
+{ "items": [ { "id": "PO-0004-02", "vendor": "Schneider Electric", "planLine": "UPS 1250 kVA", "phase": 1, "amount": { "amount": 812000, "currency": "USD" },
+               "orderedOn": "2026-10-05", "promisedOn": "2027-01-20", "status": "Ordered", "received": null } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `vendor`, `planLine`, `phase`, `amount` | string / int / money | M | PO = plan vendor order parity |
+| `orderedOn`, `promisedOn`, `status`, `received` | date / enum | M | late materials, kit status |
+
+#### API-PRJ-06 Create project from an approved plan
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `POST /projects` | Out | Planner "Start the build" (PLN-026) | on user action |
+
+**Request body:**
+```json
+{ "planRef": "PLN-0004", "name": "Hall B fit-out", "siteId": "IL-DC-009", "target": "2027-03-31",
+  "milestones": [ { "name": "Power cut-in", "due": "2026-12-10" } ],
+  "budget": { "amount": 6200000, "currency": "USD" },
+  "bom": [ { "line": "UPS 1250 kVA", "qty": 2, "source": "buy", "vendor": "Schneider Electric", "phase": 1 } ],
+  "holds": ["HLD-5512"], "records": [ { "kind": "rack", "count": 48 }, { "kind": "prefix", "ref": "10.9.32.0/22" } ] }
+```
+
+**Expected response:** `201` `{ "id": "PRJ-0004", "status": "Mobilising", "link": "https://{platform}/projects/PRJ-0004" }`.
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `status`, `link` | string / enum / url | M | plan page Delivery tab, deep link |
+
+#### API-PRJ-07 Handover status / signal
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /projects/{id}/handover`, `POST /projects/{id}/handover` | In / Out | plan closeout, plan status line | on change |
+
+**Expected response:**
+```json
+{ "projectId": "PRJ-0004", "ready": false, "checks": [ { "name": "All work orders done", "ok": false }, { "name": "L1–L5 passed", "ok": false } ], "handedOverAt": null }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `ready`, `checks[]`, `handedOverAt` | boolean / array / time | M | plan → Completed when handed over |
+
+#### API-PRJ-08 Events
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| subscription `project.changed`, `workorder.changed`, `commissioning.changed`, `po.changed` | In | analytics pages, planner | push |
+
+```json
+{ "type": "workorder.changed", "id": "evt_7f2", "time": "2026-10-27T09:30:00Z", "subject": "WO-0004-07", "data": { "status": "In progress" } }
+```
+
+---
+
+### C.12 Supply Chain
+
+Module: Materials, Vendors, Contracts, Procurement, Warehouses, Field Force Management. SynapseDC uses it for support contracts, catalogue prices and lead times, spares, purchase orders from plans and field visits. It is used on site Assets (lifecycle, RMA, spares), the Planner (sourcing, Materials, pack), the Access tab (contractor visits) and Work orders.
+
+#### API-SCM-01 Vendors, contracts, support levels
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /vendors`, `GET /contracts?type=support` | In | lifecycle (Covered / Expiring), Planner channels | weekly |
+
+**Expected response:**
+```json
+{ "vendors": [ { "id": "VND-DELL", "name": "Dell Technologies" } ],
+  "contracts": [ { "id": "SUP-DELL-114", "vendorId": "VND-DELL", "level": "ProSupport 4h", "assets": ["SRV-0007", "SRV-0008"], "end": "2026-12-31" } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `vendors[]` id, name | array | M | names |
+| `contracts[]` level, assets, end | array | M | support state per device |
+
+#### API-SCM-02 Catalogue prices and lead times
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /catalog/items?kind=` | In | Planner BoM pricing and schedule (PLN-018) | daily |
+
+**Expected response:**
+```json
+{ "items": [ { "id": "CAT-UPS-1250", "kind": "UPS", "model": "Galaxy VX 1250 kVA", "vendorId": "VND-SCHN", "rating": { "kva": 1250 },
+               "price": { "amount": 406000, "currency": "USD" }, "leadTimeWeeks": 26, "contractId": "FWA-SCHN-2025" } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `kind`, `model`, `vendorId`, `rating` | string / object | M | model choice, same-rating swap |
+| `price`, `leadTimeWeeks`, `contractId` | money / int / string | M | CapEx, order-by dates, contract channel |
+
+#### API-SCM-03 Stock and spares
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /stock?site=&family=` | In | site Assets → Spares, RMA, Planner sourcing (stock before buy) | hourly |
+
+**Expected response:**
+```json
+{ "items": [ { "site": "IL-DC-009", "family": "SFP-10G-LR", "onHand": 6, "reserved": 1, "minimum": 4, "warehouse": "WH-CHI-01" } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `family`, `onHand`, `reserved`, `minimum` | string / int | M | spare available, below-minimum flag, sourcing |
+
+#### API-SCM-04 Purchase orders from a plan
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `POST /purchase-orders`, `GET /purchase-orders/{id}` | Out / In | Planner "Start the build" (vendor orders per vendor and phase) | on start; status hourly |
+
+**Request body:** `{ "projectId": "PRJ-0004", "vendorId": "VND-SCHN", "phase": 1, "lines": [ { "catalogId": "CAT-UPS-1250", "qty": 2 } ], "status": "Draft" }`.
+
+**Expected response:** `201` `{ "id": "PO-0004-02", "status": "Draft" }`.
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `status` | string / enum | M | parity with the plan's orders |
+
+#### API-SCM-05 Field Force Management jobs and visits
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /ffm/jobs?site=&from=&to=` | In | Access tab (expected contractor visits), Work orders, RMA engineer booked | every 15 min |
+
+**Expected response:**
+```json
+{ "items": [ { "id": "FFM-22014", "site": "IL-DC-009", "kind": "RMA", "ref": "RMA-0091", "engineer": "J. Ortiz", "company": "Dell", "window": { "start": "2026-10-28T09:00:00Z", "end": "2026-10-28T12:00:00Z" }, "status": "Booked" } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `site`, `kind`, `ref`, `window`, `status` | string / object / enum | M | visit expected vs badge-in, RMA progress |
+| `engineer`, `company` | string | O | on site now list |
+
+---
+
+### C.13 Platform Engineering
+
+Module: Platform Engineering (identity, configuration, customisation). SynapseDC uses it for who the user is and what they may see, feature flags and the deployment's persona / geography defaults, and custom fields. It is used on every screen.
+
+#### API-PEN-01 Identity
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| OIDC `/userinfo` + token claims | In | shell, every write (audit actor), scoped APIs (XC-002, XC-011) | on sign-in, token refresh |
+
+**Expected response:**
+```json
+{ "sub": "USR-114", "name": "Priya Nair", "email": "priya@operator.example", "roles": ["dc.noc", "dc.planner.approver"],
+  "scope": "alerts:read incidents:write dcim:write", "dc": ["IL-DC-009", "CA-DC-020"], "tenant": null }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `sub`, `name` | string | M | audit, worklog author |
+| `roles[]`, `scope` | array / string | M | what the user may do (approve, DCIM write) |
+| `dc[]` | array | O | site scope filter |
+| `tenant` | string | O | tenant-scoped views (NB-12) |
+
+#### API-PEN-02 Feature flags and tenant configuration
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /config?app=synapsedc` | In | shell (persona default, overrides), GPU Fleet visibility | on load |
+
+**Expected response:**
+```json
+{ "personaDefault": "neocloud", "personaOverride": null, "geoOverride": null, "flags": { "realisticTwin": true, "secops": true } }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `personaDefault`, `personaOverride`, `geoOverride` | string | M | BRULE-XC-01 |
+| `flags` | object | O | phase-gated features |
+
+#### API-PEN-03 Custom fields and tags
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /custom-fields?entity=rack,device,site,customer`, `GET /tags` | In | DCIM explorer columns, filters (DATA-010) | daily |
+
+**Expected response:**
+```json
+{ "fields": [ { "id": "CF-12", "entity": "rack", "name": "Insurance class", "type": "enum", "options": ["A", "B"] } ],
+  "tags": [ { "id": "TAG-4", "name": "Liquid ready", "rule": "rack.liquid == true" } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `fields[]` entity, name, type, options | array | M | extra columns and filters |
+| `tags[]` name, rule | array | O | tag chips evaluated over the estate |
+
+---
+
+### C.14 Intelligence Hub
+
+Module: Intelligence Hub (data model registry, data lake). SynapseDC registers its datacenter entities and sends roll-ups for BI. It is used by the Data model reference page and exports.
+
+#### API-IHB-01 Register data model
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `PUT /registry/domains/synapsedc` | Out | release pipeline (INTG-032) | on each release |
+
+**Request body (excerpt):**
+```json
+{ "domain": "synapsedc", "version": "1.0.0", "entities": [
+  { "name": "Rack", "owner": "Inventory", "fields": [ { "name": "budgetKw", "type": "number", "class": "Import" }, { "name": "drawKw", "type": "number", "class": "Live" } ] },
+  { "name": "PowerFeed", "owner": "SynapseDC", "fields": [ { "name": "ratingKw", "type": "number", "class": "Derived" } ] } ],
+  "relationships": [ { "from": "PowerFeed", "to": "Rack", "kind": "feeds" } ] }
+```
+
+**Expected response:** `200` `{ "domain": "synapsedc", "version": "1.0.0", "entities": 51, "relationships": 107 }`.
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `version`, `entities`, `relationships` | string / int | M | confirm the registration matches the release |
+
+#### API-IHB-02 Data lake / BI export
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `POST /lake/datasets/{name}/partitions` | Out | daily export (INTG-033) | daily |
+
+**Request body:** `{ "dataset": "dco_incident_impact", "partition": "dt=2026-10-27", "format": "parquet", "uri": "s3://…/dco_incident_impact/dt=2026-10-27/part-0.parquet", "rows": 1842 }`.
+
+**Expected response:** `201` `{ "dataset": "dco_incident_impact", "partition": "dt=2026-10-27", "status": "registered" }`.
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `status` | enum registered / rejected | M | export health under Data Ops |

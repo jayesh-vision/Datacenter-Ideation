@@ -26,11 +26,12 @@ for (let i = 0; i < lines.length; i++) {
   if (!l.trim()) continue;
   if (l.startsWith('```')) { const b = []; i++; while (i < lines.length && !lines[i].startsWith('```')) b.push(lines[i++]); blocks.push({ kind: 'code', text: b.join('\n') }); continue; }
   if (/^---\s*$/.test(l)) { blocks.push({ kind: 'hr' }); continue; }
-  const h = /^(#{1,3}) (.+)$/.exec(l); if (h) { blocks.push({ kind: 'h' + h[1].length, text: h[2].trim() }); continue; }
+  if (l.startsWith('> ')) { blocks.push({ kind: 'quote', text: l.slice(2) }); continue; }
+  const h = /^(#{1,4}) (.+)$/.exec(l); if (h) { blocks.push({ kind: 'h' + h[1].length, text: h[2].trim() }); continue; }
   if (l.startsWith('|')) { const rows = []; while (i < lines.length && lines[i].startsWith('|')) rows.push(lines[i++]); i--; blocks.push({ kind: 'table', rows: rows.filter(r => !/^\|\s*-{2,}/.test(r)) }); continue; }
   if (/^\s*[-*] /.test(l)) { const items = []; while (i < lines.length && /^\s*[-*] /.test(lines[i])) items.push(lines[i++].replace(/^\s*[-*] /, '')); i--; blocks.push({ kind: 'ul', items }); continue; }
   if (/^\s*\d+\. /.test(l)) { const items = []; while (i < lines.length && /^\s*\d+\. /.test(lines[i])) items.push(lines[i++].replace(/^\s*\d+\. /, '')); i--; blocks.push({ kind: 'ol', items }); continue; }
-  const p = [l]; while (i + 1 < lines.length && lines[i + 1].trim() && !/^(#{1,3} |\||\s*[-*] |\s*\d+\. |```|---)/.test(lines[i + 1])) p.push(lines[++i]);
+  const p = [l]; while (i + 1 < lines.length && lines[i + 1].trim() && !/^(#{1,4} |\||\s*[-*] |\s*\d+\. |```|---|> )/.test(lines[i + 1])) p.push(lines[++i]);
   blocks.push({ kind: 'p', text: p.join(' ') });
 }
 
@@ -39,6 +40,8 @@ const render = b => {
   switch (b.kind) {
     case 'p': return `<p>${inline(b.text)}</p>`;
     case 'hr': return '';
+    case 'h4': return `<h4>${inline(b.text)}</h4>`;
+    case 'quote': return `<p class="quote">${inline(b.text)}</p>`;
     case 'code': return `<pre><code>${esc(b.text)}</code></pre>`;
     case 'ul': return `<ul>${b.items.map(t => `<li>${inline(t)}</li>`).join('')}</ul>`;
     case 'ol': return `<ol>${b.items.map(t => `<li>${inline(t)}</li>`).join('')}</ol>`;
@@ -46,7 +49,7 @@ const render = b => {
       const [head, ...body] = b.rows.map(cells);
       const hasHead = head.some(c => c);
       const thead = hasHead ? `<thead><tr>${head.map(c => `<th>${inline(c)}</th>`).join('')}</tr></thead>` : '';
-      const rows = (hasHead ? body : b.rows.map(cells)).map(r => `<tr>${r.map(c => `<td>${inline(c)}</td>`).join('')}</tr>`).join('');
+      const rows = (hasHead ? body : b.rows.map(cells)).map(r => `<tr>${r.map((c, j) => `<td${j === 0 && /^(?:[A-Z]{1,6}-)+[A-Z0-9]*\d[\w.]*$/.test(c) ? ' class="id"' : ''}>${inline(c)}</td>`).join('')}</tr>`).join('');
       return `<div class="tw"><table>${thead}<tbody>${rows}</tbody></table></div>`;
     }
   }
@@ -54,7 +57,7 @@ const render = b => {
 };
 
 /* ---- group into sections (##) and units (###) --------------------------------------- */
-const num = t => { const m = /^(\d+(?:\.\d+)*|Appendix [A-Z])\s*[—-]?\s*(.*)$/.exec(t); return m ? [m[1], m[2]] : ['', t]; };
+const num = t => { const m = /^(\d+(?:\.\d+)*|Appendix [A-Z]|[A-Z]\.\d+)\s*[—-]?\s*(.*)$/.exec(t); return m ? [m[1], m[2]] : ['', t]; };
 const title = blocks.find(b => b.kind === 'h1')?.text ?? 'BRD';
 const sections = []; let cur = null, unit = null, front = [];
 const usedIds = new Set(); const uid = s => { const sn = num(s)[0]; let id = (sn ? slug(sn) : slug(s)) || 'x'; let n = 2; while (usedIds.has(id)) id = slug(s) + '-' + n++; usedIds.add(id); return id; };
@@ -66,7 +69,7 @@ for (const b of blocks) {
   if (b.kind === 'h3') { unit = { id: uid(b.text), title: b.text, blocks: [] }; cur.units.push(unit); continue; }
   (unit ? unit.blocks : cur.lead).push(b);
 }
-const grp = s => { const n = num(s.title)[0]; const c = parseInt(n); if (!c) return 'Appendix'; if (c <= 6) return 'Business'; if (n.startsWith('7.')) return 'Modules'; if (c === 7) return 'Modules'; if (c === 8) return 'Analytics'; if (c === 9) return 'Integrations'; return 'Delivery and governance'; };
+const grp = s => { const n = num(s.title)[0]; const c = parseInt(n); if (!c) return /^[A-Z]\./.test(n) ? 'Appendix' : 'Appendix'; if (c <= 6) return 'Business'; if (n.startsWith('7.')) return 'Modules'; if (c === 7) return 'Modules'; if (c === 8) return 'Analytics'; if (c === 9) return 'Integrations'; return 'Delivery and governance'; };
 
 const text = bs => bs.map(b => b.kind === 'table' ? b.rows.join(' ') : b.kind === 'ul' || b.kind === 'ol' ? b.items.join(' ') : b.text ?? '').join(' ');
 let main = '';
@@ -128,14 +131,15 @@ ul,ol { margin:0 0 10px; padding-left:20px; } li { margin:2px 0; }
 main section { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:20px 22px; margin-bottom:14px; }
 main section > h2 { font-size:19px; margin-bottom:10px; display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
 .unit { padding:6px 0; } .unit h3 { font-size:15px; margin:12px 0 8px; display:flex; gap:8px; align-items:baseline; } .unit + .unit { border-top:1px solid var(--line); }
+h4 { font-family:var(--f-display); font-weight:500; font-size:13.5px; margin:14px 0 6px; color:var(--fg); } .quote { border-left:3px solid var(--accent); background:var(--accent-soft); padding:8px 12px; border-radius:6px; }
 .num { font-family:var(--f-mono); font-size:12px; color:var(--muted); font-weight:500; }
 .tw { overflow-x:auto; margin:6px 0 14px; border:1px solid var(--line); border-radius:8px; }
 table { width:100%; border-collapse:collapse; font-size:13px; } th { text-align:left; font-weight:500; color:var(--fg-2); background:var(--code-bg); padding:8px 10px; border-bottom:1px solid var(--line); white-space:nowrap; }
 td { padding:7px 10px; border-bottom:1px solid var(--line); vertical-align:top; } tr:last-child td { border-bottom:0; } td:first-child code, td code { white-space:nowrap; }
-td:first-child { white-space:nowrap; font-family:var(--f-mono); font-size:12px; } .top .front td:first-child { font-family:var(--f-body); font-size:13px; white-space:normal; }
+td.id { white-space:nowrap; font-family:var(--f-mono); font-size:12px; }
 .empty { padding:30px; text-align:center; color:var(--muted); }
 body.embed .top { display:none; } body.embed .bar { padding-top:12px; }
-@media (max-width:900px) { .layout { grid-template-columns:minmax(0,1fr); } .toc { position:static; max-height:none; border:1px solid var(--line); border-radius:10px; padding:8px; background:var(--surface); } .wrap { padding:0 16px 40px; } main section { padding:16px; } .hits { display:none; } td:first-child { white-space:normal; } }
+@media (max-width:900px) { .layout { grid-template-columns:minmax(0,1fr); } .toc { position:static; max-height:none; border:1px solid var(--line); border-radius:10px; padding:8px; background:var(--surface); } .wrap { padding:0 16px 40px; } main section { padding:16px; } .hits { display:none; } td.id { white-space:normal; } }
 @media print { .bar,.toc { display:none !important; } .layout { display:block; } main section { break-inside:avoid-page; border:0; padding:0 0 14px; } body { background:#fff; } }
 </style>
 </head>
