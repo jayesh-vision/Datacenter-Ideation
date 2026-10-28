@@ -3,6 +3,7 @@ import { CtaBand, FaqList, Kicker, Section, SplitFeature } from "@/components/Bl
 import { ArtFor } from "@/components/art";
 import { Intro } from "@/components/home/Intro";
 import { Marquee } from "@/components/home/Marquee";
+import { Scenarios } from "@/components/home/Scenarios";
 import { Icon } from "@/components/Icon";
 import { Reveal, RevealHeading } from "@/components/Reveal";
 import { modules } from "@/data/modules";
@@ -22,12 +23,6 @@ const problems = [
 	{ t: "Plan and build never reach operations", d: "Capacity is planned in a spreadsheet, built from a project tracker and handed over as a PDF. The live estate starts from a record nobody trusts." },
 ];
 
-const scenario = [
-	{ tone: "fault", tag: "13:12 · Alarm in scope", title: "UPS-2 on battery", line: "Utility feed A lost. The ATS has moved the load to feed B. Scope: site. A Critical incident opens.", t: "0 s" },
-	{ tone: "warn", tag: "Impact", title: "54 services, 12 customers", line: "Every service on busway A is listed, premium customers first, with 3 h 9 m until the next SLA credit tier.", t: "< 60 s" },
-	{ tone: "info", tag: "Diagnosis · 84 %", title: "Feeder trip on feed A", line: "Ranked hypotheses with their evidence: the feed loss, the ATS transfer, the generator on standby.", t: "< 60 s" },
-	{ tone: "ok", tag: "Recommended action", title: "Start the generator, transfer load", line: "Two steps, ordered by money and customers at risk. The disruptive step waits for approval and is recorded.", t: "approval" },
-];
 
 
 const marqueeRows = [
@@ -124,22 +119,8 @@ export default function Home() {
 			</section>
 
 			{/* 7 · Scenario */}
-			<Section tone="dark" kicker="One fault, end to end" title="What the first sixty seconds look like." intro="A worked example: a utility feed is lost at a Chicago datacenter at 13:12.">
-				<div className="timeline">
-					{scenario.map((s, i) => (
-						<Reveal key={s.title} className={`tl-step tone-${s.tone}`} delay={i * 90}>
-							<div className="tl-top">
-								<small>
-									<i />
-									{s.tag}
-								</small>
-								<b>{s.t}</b>
-							</div>
-							<strong>{s.title}</strong>
-							<span>{s.line}</span>
-						</Reveal>
-					))}
-				</div>
+			<Section tone="dark" kicker="One fault, end to end" title="What the first sixty seconds look like.">
+				<Scenarios />
 			</Section>
 
 			{/* 9 · Integrations */}

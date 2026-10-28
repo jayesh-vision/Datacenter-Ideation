@@ -907,3 +907,14 @@ table.t { width: 100%; border-collapse: collapse; font-size: 15px; }
 .ct-time:hover { border-color: var(--brand); }
 .ct-time.is-selected { background: var(--brand); border-color: transparent; font-weight: 600; }
 @media (max-width: 600px) { .ct-pop { left: 0; right: 0; min-width: 0; } }
+
+/* home: worked-example switcher */
+.sc-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 20px 32px; margin: -32px 0 36px; }
+.sc-intro { margin: 0; max-width: 640px; }
+.sc-tabs { display: inline-flex; padding: 4px; border-radius: 999px; border: 1px solid var(--night-line); background: rgba(255, 255, 255, .03); }
+.sc-tabs button { height: 38px; padding: 0 18px; border: 0; border-radius: 999px; background: transparent; color: var(--night-muted); font-family: var(--font-head), sans-serif; font-size: 14px; white-space: nowrap; }
+.sc-tabs button.is-on { background: var(--brand); color: #fff; }
+.sc-in { animation: scIn .45s both; }
+@keyframes scIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .sc-in { animation: none; } }
+@media (max-width: 600px) { .sc-tabs { width: 100%; } .sc-tabs button { flex: 1; padding: 0 10px; font-size: 13px; } }
