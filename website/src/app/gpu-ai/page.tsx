@@ -94,20 +94,27 @@ export default function GpuAiPage() {
 				<FeatureCards items={plan} cols={3} />
 			</Section>
 
-			<Section kicker="Coverage" title="Accelerators, telemetry and fabric.">
-				<div className="hw">
-					{hardware.map((h) => (
-						<div key={h.group} className="hw-col">
-							<small>{h.group}</small>
-							<ul>
-								{h.items.map((i) => (
-									<li key={i}>{i}</li>
-								))}
-							</ul>
-						</div>
-					))}
+			<section className="section cov-section">
+				<div className="wrap cov">
+					<div className="cov-head">
+						<Kicker>Coverage</Kicker>
+						<h2 className="h-2">Accelerators, telemetry and fabric.</h2>
+						<p className="section-intro">Vendor-aware labels per accelerator. One model per pod, read through the telemetry each vendor ships.</p>
+					</div>
+					<div className="cov-table">
+						{hardware.map((h) => (
+							<div key={h.group} className="cov-row">
+								<small>{h.group}</small>
+								<div className="cov-chips">
+									{h.items.map((i) => (
+										<span key={i}>{i}</span>
+									))}
+								</div>
+							</div>
+						))}
+					</div>
 				</div>
-			</Section>
+			</section>
 
 			<Section tone="soft">
 				<div className="faq-layout">
