@@ -36,6 +36,12 @@ function Block({ s }: { s: CompanySection }) {
 								{it.tag && <small className="co-tag">{it.tag}</small>}
 								<h3>{it.title}</h3>
 								<p>{it.text}</p>
+								{it.foot && (
+									<span className="co-foot">
+										<Icon name="arrow" size={13} />
+										{it.foot}
+									</span>
+								)}
 							</Reveal>
 						))}
 					</div>

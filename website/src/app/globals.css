@@ -918,3 +918,5 @@ table.t { width: 100%; border-collapse: collapse; font-size: 15px; }
 @keyframes scIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .sc-in { animation: none; } }
 @media (max-width: 600px) { .sc-tabs { width: 100%; } .sc-tabs button { flex: 1; padding: 0 10px; font-size: 13px; } }
+.co-foot { display: flex; align-items: center; gap: 6px; margin-top: auto; padding-top: 14px; border-top: 1px solid var(--line); font-family: var(--font-head), sans-serif; font-size: 13px; color: var(--brand-600) !important; }
+.co-card p { flex: 0 0 auto; }

@@ -5,7 +5,7 @@
  */
 
 export type CompanySection =
-	| { kind: "cards"; kicker: string; title: string; intro?: string; cols?: 2 | 3 | 4; items: { icon?: string; title: string; text: string; tag?: string }[]; tone?: "soft" | "white" | "dark" }
+	| { kind: "cards"; kicker: string; title: string; intro?: string; cols?: 2 | 3 | 4; items: { icon?: string; title: string; text: string; tag?: string; foot?: string }[]; tone?: "soft" | "white" | "dark" }
 	| { kind: "compare"; kicker: string; title: string; intro?: string; before: string; after: string; rows: { what: string; before: string; after: string }[]; tone?: "soft" | "white" }
 	| { kind: "table"; kicker: string; title: string; intro?: string; tone?: "soft" | "white" }
 	| { kind: "matrix"; kicker: string; title: string; intro?: string; note?: string; cols: { name: string; sub: string }[]; groups: { name: string; rows: { cap: string; cells: Cell[] }[] }[]; tone?: "soft" | "white" }
@@ -65,6 +65,21 @@ export const whyUs: CompanyPageData = {
 				{ icon: "layers", tag: "Build", title: "A build that becomes the record", text: "Racks, power chains and cabling recorded in DCIM under change control, commissioned L1 to L5." },
 				{ icon: "activity", tag: "Operate", title: "Operations that read the record", text: "Every alarm scoped to the site and traced to the customers, the money and the next step." },
 				{ icon: "shield-check", tag: "Govern", title: "Evidence from the same model", text: "Policies as code and controls evidenced from the live estate, not from a spreadsheet." },
+			],
+		},
+		{
+			kind: "cards",
+			kicker: "Only on SynapseDC",
+			title: "What no single datacenter tool does.",
+			intro: "A DCIM keeps the records, a BMS watches the plant, a monitoring tool watches the devices and ITSM runs the tickets. These come from joining them in one model, so none of them can do it alone.",
+			cols: 3,
+			items: [
+				{ icon: "waypoints", tag: "01 · One record, plan to live", title: "The hall you plan is the rack you operate", text: "Plans, DCIM records, commissioning and live telemetry write to one estate model. Nothing is re-keyed between a plan, a rack and an alarm, and every count is derived, never typed in.", foot: "Planner · DCIM · Command Center" },
+				{ icon: "siren", tag: "02 · Alarm scope", title: "An alarm counts only where it belongs", text: "Every alarm is scoped to site, edge, dependency or downstream. Sites that depend on a failing datacenter show up as impact under its incident, not as a storm of separate issues.", foot: "Alarms & incidents" },
+				{ icon: "badge-dollar-sign", tag: "03 · Money on every fault", title: "Each lost service is charged to one issue", text: "Revenue lost so far, SLA credits by tier and the next credit cliff, per issue. Issues, customers and sites add up to the same total, so the most expensive fault is a fact, not a debate.", foot: "Revenue Impact" },
+				{ icon: "cpu", tag: "04 · GPU joined to the building", title: "A cooling fault reads as GPU time lost", text: "A CDU flow drop, a power cap or a failed GPU is traced to the job, its customer, the GPU time lost and the work to redo, and priced per sold GPU-hour against the power contract.", foot: "GPU Fleet · Power economics" },
+				{ icon: "cable", tag: "05 · The physical last mile", title: "From the utility feed to the PSU and the port", text: "Feed, UPS, busway, PDU, outlet and PSU; port, patch cord, panel, trunk, ODF and cross-connect. Single points of failure are found and tested with a what-if before a fault finds them.", foot: "Facilities · 3D datacenter layout" },
+				{ icon: "shield", tag: "06 · One security case", title: "A badge-in and a config change, read together", text: "Physical access, device configuration, BMC and OT events are correlated into one case, with the change window and the ticket behind it, mapped to MITRE ATT&CK and IEC 62443.", foot: "Security Ops" },
 			],
 		},
 		{
