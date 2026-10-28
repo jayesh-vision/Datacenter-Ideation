@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ArtFrame } from "./ArtFrame";
 
 /**
  * Illustration kit: every concept drawing on the site is built from these primitives on one
@@ -22,7 +23,7 @@ export const C = {
 
 export function Art({ label, children, className = "" }: { label: string; children: ReactNode; className?: string }) {
 	return (
-		<figure className={`art ${className}`} role="img" aria-label={label}>
+		<ArtFrame label={label} className={className}>
 			<svg viewBox="0 0 640 420" preserveAspectRatio="xMidYMid meet" fontFamily="var(--font-text), Inter, sans-serif">
 				<defs>
 					<pattern id="art-grid" width="32" height="32" patternUnits="userSpaceOnUse">
@@ -40,7 +41,7 @@ export function Art({ label, children, className = "" }: { label: string; childr
 				<rect width="640" height="420" fill="url(#art-grid)" opacity=".7" />
 				{children}
 			</svg>
-		</figure>
+		</ArtFrame>
 	);
 }
 

@@ -19,7 +19,8 @@ SynapseDC is the END-TO-END platform to **plan, build and operate** datacenters,
   then one card = Your datacenter (8 inputs) | SynapseDC platform (Opstral AI bar · Plan & build 8 | core | Operate 8 · Govern row · Governed bar) |
   Outcomes (8), a deploy strip and a caption that shows the clicked block. Keep the two sides and the two inner columns symmetric. Blocks follow docs/dco-platform-menu.html; add a new screen there AND here.
 - **Illustrations, not screenshots**: every visual is an abstract SVG concept drawing from `src/components/art/` (`kit.tsx` primitives on one
-  640 × 420 canvas, `index.tsx` one drawing per module / model, registry `ART`, `<ArtFor id=…/>`). Never put product screenshots on the site.
+  640 × 420 canvas; `features.tsx` = the five home scenes (Planner, DCIM, Command Center, twin, GPU Fleet) with header chip + message line and
+  build-up classes `a-in / a-grow / a-draw / a-pop` + `--d` that play when `ArtFrame` adds `is-in`; `index.tsx` the rest, registry `ART`, `<ArtFor id=…/>`). Never put product screenshots on the site.
   `public/brand/aisle.jpg` (from the login theme's `synapse-aisle.svg`) is the only photo-like asset, used dimmed behind the home hero.
 - **Grid**: Opstral's content width — `.wrap { width: calc(100% - 112px); max-width: 1296px }` (user, 28-Oct-2026: "too much white space … keep the Opstral margin/padding"), 100 px section rhythm (Opstral's), every block starts on the grid; split layouts are `.split` / `.hero-grid` /
   `.page-hero-grid`. No overlays over illustrations.

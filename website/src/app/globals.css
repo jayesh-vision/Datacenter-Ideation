@@ -144,6 +144,15 @@ img, svg { max-width: 100%; display: block; }
 .art { margin: 0; position: relative; aspect-ratio: 640 / 420; border-radius: var(--r-lg); background: radial-gradient(90% 70% at 80% 0%, rgba(28, 129, 239, .22), transparent 60%), linear-gradient(160deg, #0f1c35, #080f1f); border: 1px solid var(--night-line); box-shadow: 0 30px 80px -30px rgba(0, 0, 0, .7), inset 0 1px 0 rgba(255, 255, 255, .06); overflow: hidden; }
 .art svg { width: 100%; height: 100%; }
 .art-hero { box-shadow: 0 50px 120px -30px rgba(28, 129, 239, .35), 0 30px 80px -30px rgba(0, 0, 0, .8), inset 0 1px 0 rgba(255, 255, 255, .06); }
+.art .a-in { opacity: 0; transform: translateY(8px); transition: opacity .5s, transform .5s; transition-delay: var(--d, 0s); }
+.art.is-in .a-in { opacity: 1; transform: none; }
+.art .a-grow { transform-box: fill-box; transform-origin: left; transform: scaleX(0); transition: transform .9s cubic-bezier(.2, .7, .2, 1); transition-delay: var(--d, 0s); }
+.art.is-in .a-grow { transform: none; }
+.art .a-draw { stroke-dasharray: var(--len, 600); stroke-dashoffset: var(--len, 600); transition: stroke-dashoffset 1.2s ease-out; transition-delay: var(--d, 0s); }
+.art.is-in .a-draw { stroke-dashoffset: 0; }
+.art .a-pop { transform-box: fill-box; transform-origin: center; transform: scale(0); transition: transform .45s cubic-bezier(.3, 1.5, .5, 1); transition-delay: var(--d, 0s); }
+.art.is-in .a-pop { transform: none; }
+@media (prefers-reduced-motion: reduce) { .art .a-in, .art .a-grow, .art .a-draw, .art .a-pop { transition: none; opacity: 1; transform: none; stroke-dashoffset: 0; } }
 .art-flow { stroke-dasharray: 7 11; animation: art-flow 1.4s linear infinite; }
 @keyframes art-flow { to { stroke-dashoffset: -18; } }
 .art-beacon { transform-box: fill-box; transform-origin: center; animation: art-beacon 1.8s ease-out infinite; opacity: 0; }
