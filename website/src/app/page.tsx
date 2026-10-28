@@ -1,14 +1,11 @@
 import Link from "next/link";
 import { CtaBand, FaqList, Kicker, Section, SplitFeature } from "@/components/Blocks";
-import { ArtFor } from "@/components/art";
-import { Architecture } from "@/components/home/Architecture";
 import { Intro } from "@/components/home/Intro";
 import { Marquee } from "@/components/home/Marquee";
 import { Icon } from "@/components/Icon";
 import { Reveal, RevealHeading } from "@/components/Reveal";
 import { modules } from "@/data/modules";
 import { faqs } from "@/data/site";
-import { solutions } from "@/data/solutions";
 import { JsonLd, buildMetadata, siteConfig, softwareSchema } from "@/seo";
 
 export const metadata = buildMetadata({
@@ -31,11 +28,6 @@ const scenario = [
 	{ tone: "ok", tag: "Recommended action", title: "Start the generator, transfer load", line: "Two steps, ordered by money and customers at risk. The disruptive step waits for approval and is recorded.", t: "approval" },
 ];
 
-const outcomes = [
-	{ v: "≤ 60 s", t: "From alarm to action", d: "An incident with its impact and a recommended action, ordered by money and customers at risk." },
-	{ v: "Σ = Σ", t: "Money that reconciles", d: "Issues, customers, datacenters and sites always add up to the same total." },
-	{ v: "6–10 wk", t: "One-site pilot", d: "Read-only, the operate core, with success criteria agreed before it starts." },
-];
 
 const marqueeRows = [
 	["BACnet", "Modbus TCP", "OPC UA", "SNMPv3", "gNMI", "Syslog", "Redfish", "IPMI", "NVIDIA DCGM", "Intel Gaudi", "InfiniBand UFM", "NetFlow"],
@@ -43,8 +35,6 @@ const marqueeRows = [
 ];
 
 export default function Home() {
-	const first = solutions.filter((s) => s.status === "First release");
-	const later = solutions.filter((s) => s.status !== "First release");
 	return (
 		<>
 			<JsonLd schema={softwareSchema(siteConfig.name, siteConfig.description, "/", modules.map((m) => m.name))} />
@@ -132,34 +122,6 @@ export default function Home() {
 				</div>
 			</section>
 
-			{/* 6 · Business models */}
-			<Section kicker="Solutions" title="One estate model. Your business model." intro="The first release targets colocation and GPU cloud operators. They share one data model; the vocabulary, what is monitored and how value is counted follow your business.">
-				<div className="grid-2">
-					{first.map((s) => (
-						<Reveal key={s.slug} className="model-card">
-							<ArtFor id={s.slug} />
-							<div className="model-body">
-								<span className="tag">{s.status}</span>
-								<h3>{s.name}</h3>
-								<blockquote>{s.headline}</blockquote>
-								<p>{s.privacy}</p>
-								<Link className="text-link" href={`/solutions/${s.slug}`}>
-									SynapseDC for {s.name.split(" ")[0]} <Icon name="arrow" size={16} />
-								</Link>
-							</div>
-						</Reveal>
-					))}
-				</div>
-				<div className="later">
-					<span>On the roadmap:</span>
-					{later.map((s) => (
-						<Link key={s.slug} href={`/solutions/${s.slug}`} className="pill">
-							{s.name}
-						</Link>
-					))}
-				</div>
-			</Section>
-
 			{/* 7 · Scenario */}
 			<Section tone="dark" kicker="One fault, end to end" title="What the first sixty seconds look like." intro="A worked example from the demo estate: a utility feed is lost at a Chicago datacenter at 13:12.">
 				<div className="timeline">
@@ -180,34 +142,6 @@ export default function Home() {
 				<p className="tl-note">Figures are from the SynapseDC demo estate and are illustrative.</p>
 			</Section>
 
-			{/* 8 · How it works */}
-			<Section kicker="How it works" title="Read-only on site. Outbound only." intro="One collector per datacenter reads your equipment and never writes to it. Data leaves the site over mTLS on port 443; nothing connects in.">
-				<div className="canvas on-dark" style={{ borderRadius: "var(--r-lg)", padding: "48px 40px" }}>
-					<Architecture />
-				</div>
-				<div className="grid-4" style={{ marginTop: 24 }}>
-					{[
-						["eye-off", "Never controls plant", "No set points, no switching. People act through a change request."],
-						["lock", "Outbound only", "mTLS 443 from the collector. No inbound ports."],
-						["shield", "Tenant gear sealed", "Colocation cabinets are measured from outside, never polled."],
-						["cpu", "Jobs, not their data", "GPU jobs are monitored. Their data, models and code never are."],
-					].map(([i, t, d]) => (
-						<div key={t} className="card">
-							<span className="card-ico">
-								<Icon name={i} size={20} />
-							</span>
-							<h3>{t}</h3>
-							<p>{d}</p>
-						</div>
-					))}
-				</div>
-				<p style={{ marginTop: 28 }}>
-					<Link className="text-link" href="/how-it-works">
-						The architecture and the onboarding journey <Icon name="arrow" size={16} />
-					</Link>
-				</p>
-			</Section>
-
 			{/* 9 · Integrations */}
 			<section className="section section-soft">
 				<div className="wrap">
@@ -224,20 +158,6 @@ export default function Home() {
 					</Link>
 				</div>
 			</section>
-
-			{/* 10 · Outcomes */}
-			<Section kicker="Outcomes" title="What the first release is built to prove.">
-				<div className="grid-3">
-					{outcomes.map((o) => (
-						<Reveal key={o.t} className="stat">
-							<b>{o.v}</b>
-							<strong>{o.t}</strong>
-							<span>{o.d}</span>
-						</Reveal>
-					))}
-				</div>
-				<p className="note">Targets from the SynapseDC requirements for the first release.</p>
-			</Section>
 
 			{/* 11 · FAQ */}
 			<Section tone="soft">

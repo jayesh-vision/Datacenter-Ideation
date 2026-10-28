@@ -12,6 +12,11 @@ SynapseDC is the END-TO-END platform to **plan, build and operate** datacenters,
 - **Brand**: the designed SynapseDC logo in `public/brand/` (`synapsedc-logo.svg` ink, `-white.svg`, marks) — never draw a substitute. Navy canvas
   `#060b16`, brand blue `#1C81EF` as the only accent, Poppins headings, Inter text. Red / amber only for faults. Tokens on `:root` in
   `src/app/globals.css`; no other colour sources.
+- **Home page order** (user, 28-Oct-2026): hero → intro → why it exists → seven capability scenes + "See the whole platform" → scenario timeline →
+  integrations → FAQ → CTA. Removed on request: the platform map, business-model cards, how-it-works and outcomes (they live on /platform, /solutions, /how-it-works).
+- **Solutions page** (`/solutions`, after opstral.ai/use-cases): hero with badge, stats and See · Understand · Act · Plan; a flagship use case; `UseCaseBrowser`
+  (sticky domain pills + model segment) over `data/useCases.ts` (20 use cases in 6 domains, each with pain, what it does, modules, demo-estate figures
+  labelled "Modelled on the SynapseDC demo estate"); then business models and roles. New use cases go in `USE_CASES`.
 - **Hero scene** = `src/components/art/hero.tsx` (client): one isometric hall cycling Plan → Build → Operate, three narrated 1.5 s steps per phase
   (`STORY` lines, svg classes `ph-<phase> st-<step>`, elements gated with `at-1` / `at-2`, counters via `useCount`); reduced motion holds the last Operate step. Home intro = `home/Intro.tsx` in Opstral's "What is Opstral" shape.
 - **Platform page** (`/platform`, user 28-Oct-2026: "complete pictorial representation … highlight key modules, not only plan, build and operate"):
