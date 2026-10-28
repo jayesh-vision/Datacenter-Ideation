@@ -54,3 +54,12 @@ a "Request a demo" promo card (→ /contact). Content in `data/company.ts` (type
 faq · next), one renderer `components/company/CompanyPage.tsx` (Opstral company-page shape: hero, four cards, before/after, our position,
 "What we are not going to claim", FAQ, where to read next, CTA). No invented team, customers or results; "Built by VisionWaves" uses
 only public VisionWaves facts. Resources' old Company column became "Trust". Top-menu labels never wrap (nowrap, tighter below 1380 px).
+
+## Contact and Why Us (28-Oct-2026, user)
+- `/contact` follows the Opstral contact page (brilliant-gumption-8475f7.netlify.app/contact): one dark canvas = badge, H1, lead, then the form
+  card (first / last name, work email, job title, company, country → sets the phone code, phone with code, business model, datacenters,
+  remarks, Skip for now | Schedule a meeting, Submit + consent line) beside "What to expect" + "After the demo". No email or office addresses
+  until confirmed. The form is still not wired to a backend.
+- Why Us carries a capability comparison like opstral.ai/why-opstral (section kind `matrix`): SynapseDC vs DCIM tools vs BMS and monitoring vs
+  spreadsheets and trackers, grouped Plan · Build · Operate · Money · Govern, cells Full / Partial / None + a reason. Categories, never vendors.
+- Never quote a count of tools ("six tools"); say "many" / "multiple" tools.

@@ -88,6 +88,47 @@ function Block({ s }: { s: CompanySection }) {
 					</div>
 				</Section>
 			);
+		case "matrix":
+			return (
+				<Section tone={s.tone ?? "white"} kicker={s.kicker} title={s.title} intro={s.intro}>
+					<div className="cmx-wrap">
+						<table className="cmx">
+							<thead>
+								<tr>
+									<th scope="col">Capability</th>
+									{s.cols.map((c, i) => (
+										<th key={c.name} scope="col" className={i === 0 ? "is-us" : ""}>
+											<strong>{c.name}</strong>
+											<small>{c.sub}</small>
+										</th>
+									))}
+								</tr>
+							</thead>
+							{s.groups.map((g) => (
+								<tbody key={g.name}>
+									<tr className="cmx-group">
+										<th colSpan={s.cols.length + 1} scope="colgroup">
+											{g.name}
+										</th>
+									</tr>
+									{g.rows.map((r) => (
+										<tr key={r.cap}>
+											<th scope="row">{r.cap}</th>
+											{r.cells.map(([lv, t], i) => (
+												<td key={i} className={i === 0 ? "is-us" : ""}>
+													<span className={`cmx-lv lv-${lv.toLowerCase()}`}>{lv}</span>
+													<span className="cmx-t">{t}</span>
+												</td>
+											))}
+										</tr>
+									))}
+								</tbody>
+							))}
+						</table>
+					</div>
+					{s.note && <p className="note">{s.note}</p>}
+				</Section>
+			);
 		case "timeline":
 			return (
 				<Section tone={s.tone ?? "white"} kicker={s.kicker} title={s.title} intro={s.intro}>

@@ -8,10 +8,14 @@ export type CompanySection =
 	| { kind: "cards"; kicker: string; title: string; intro?: string; cols?: 2 | 3 | 4; items: { icon?: string; title: string; text: string; tag?: string }[]; tone?: "soft" | "white" | "dark" }
 	| { kind: "compare"; kicker: string; title: string; intro?: string; before: string; after: string; rows: { what: string; before: string; after: string }[]; tone?: "soft" | "white" }
 	| { kind: "table"; kicker: string; title: string; intro?: string; tone?: "soft" | "white" }
+	| { kind: "matrix"; kicker: string; title: string; intro?: string; note?: string; cols: { name: string; sub: string }[]; groups: { name: string; rows: { cap: string; cells: Cell[] }[] }[]; tone?: "soft" | "white" }
 	| { kind: "timeline"; kicker: string; title: string; intro?: string; steps: { label: string; title: string; text: string }[]; tone?: "soft" | "white" }
 	| { kind: "claims"; kicker: string; title: string; items: string[]; tone?: "soft" | "white" }
 	| { kind: "faq"; kicker: string; title: string; items: { q: string; a: string }[]; tone?: "soft" | "white" }
 	| { kind: "next"; kicker: string; title: string; items: { label: string; title: string; text: string; href: string }[]; tone?: "soft" | "white" };
+
+/** One comparison cell: level + a short reason. */
+export type Cell = [level: "Full" | "Partial" | "None", text: string];
 
 export interface CompanyPageData {
 	path: string;
@@ -47,7 +51,7 @@ export const whyUs: CompanyPageData = {
 	hero: {
 		kicker: "Company · Why Us",
 		title: "One closed loop, from the first plan to the live GPU.",
-		summary: "Most datacenters run six tools that never share a record. SynapseDC keeps one estate model that is planned, built and operated in place, and connects to the tools that work, adding the impact, the money and the physical context they cannot see.",
+		summary: "Most datacenters run on multiple tools that never share a record. SynapseDC keeps one estate model that is planned, built and operated in place, and connects to the tools that work, adding the impact, the money and the physical context they cannot see.",
 		art: "command-center",
 	},
 	sections: [
@@ -64,7 +68,61 @@ export const whyUs: CompanyPageData = {
 				{ icon: "shield-check", tag: "Govern", title: "Evidence from the same model", text: "Policies as code and controls evidenced from the live estate, not from a spreadsheet." },
 			],
 		},
-		{ kind: "table", kicker: "Compared with what you have", title: "What each tool does well, and what SynapseDC adds.", tone: "soft" },
+		{
+			kind: "matrix",
+			kicker: "Capability comparison",
+			title: "Across the whole life of a datacenter.",
+			intro: "A capability-level comparison by tool category, from the first plan to the money. We do not name vendors.",
+			note: "Compared by category, not by product. Individual products vary; this is the general case.",
+			tone: "soft",
+			cols: [
+				{ name: "SynapseDC", sub: "One estate model, plan to operate" },
+				{ name: "DCIM tools", sub: "Asset records and capacity" },
+				{ name: "BMS and monitoring", sub: "Plant and device alarms" },
+				{ name: "Spreadsheets and trackers", sub: "The team and its workbooks" },
+			],
+			groups: [
+				{
+					name: "Plan",
+					rows: [
+						{ cap: "Sellable capacity net of holds, power and cooling", cells: [["Full", "Space, power, cooling, ports and GPUs per hall"], ["Partial", "Space and power; holds kept by hand"], ["None", "Not its job"], ["Partial", "By hand, out of date by the next sale"]] },
+						{ cap: "A plan sized, priced, scheduled and approved", cells: [["Full", "Templates, CapEx and NPV, lead times, approval by CapEx band"], ["Partial", "Placement what-ifs, no business case"], ["None", "Not its job"], ["Partial", "One workbook per plan"]] },
+					],
+				},
+				{
+					name: "Build",
+					rows: [
+						{ cap: "Racks, power chain and cabling as records", cells: [["Full", "Down to the PDU outlet and the patch cord"], ["Full", "Its core job"], ["None", "Points, not assets"], ["Partial", "A sheet per site"]] },
+						{ cap: "Every record change under a change request", cells: [["Full", "Standard, open or new CR on every edit"], ["Partial", "Audit log; change control lives elsewhere"], ["None", "Not its job"], ["None", "Whoever saved last"]] },
+						{ cap: "Commissioning into live operations", cells: [["Full", "L1 to L5 into the same model operations reads"], ["Partial", "Records updated after handover"], ["Partial", "Points commissioned, no business context"], ["Partial", "A handover PDF"]] },
+					],
+				},
+				{
+					name: "Operate",
+					rows: [
+						{ cap: "Live plant, network and server alarms", cells: [["Full", "Read from BMS, power, network, BMCs and GPUs"], ["Partial", "Power and environment in some products"], ["Full", "Its core job"], ["None", "Not live"]] },
+						{ cap: "Alarm scope: site, edge, dependency, downstream", cells: [["Full", "Downstream never counts on its own"], ["None", "No alarm model"], ["None", "Every point alarm counts the same"], ["None", "Not live"]] },
+						{ cap: "Customers and services behind every fault", cells: [["Full", "Read from the power path, the cable or the job"], ["Partial", "Rack owner, no live impact"], ["None", "No customer context"], ["Partial", "Worked out after the event"]] },
+						{ cap: "GPU jobs joined to the power and cooling behind them", cells: [["Full", "Blast radius, GPU time lost, cause in the plant room"], ["None", "No job context"], ["None", "No job context"], ["None", "Two teams, two screens"]] },
+					],
+				},
+				{
+					name: "Money",
+					rows: [
+						{ cap: "Revenue lost and SLA credits per issue", cells: [["Full", "Lost so far, credits by tier, the next cliff"], ["None", "No money model"], ["None", "No money model"], ["Partial", "After the month closes"]] },
+						{ cap: "Power bill against tariffs and contracts", cells: [["Full", "Idle kW, take-or-pay floors, cost per GPU-hour"], ["Partial", "Energy and PUE"], ["Partial", "Metered energy"], ["Partial", "When the invoice arrives"]] },
+					],
+				},
+				{
+					name: "Govern",
+					rows: [
+						{ cap: "Compliance evidence from the live estate", cells: [["Full", "Policies as code, controls evidenced from the model"], ["Partial", "Reports from records"], ["None", "Not its job"], ["Partial", "Collected by hand before the audit"]] },
+						{ cap: "AI answers over the whole chain, approval-gated", cells: [["Full", "Opstral AI over SynapseDC data"], ["None", "One tool's data at most"], ["None", "One tool's data at most"], ["None", "Not available"]] },
+					],
+				},
+			],
+		},
+		{ kind: "table", kicker: "Compared with what you have", title: "What each tool does well, and what SynapseDC adds." },
 		{ kind: "claims", kicker: "Being straight with you", title: "What we are not going to claim", items: NOT_CLAIMED },
 		{ kind: "next", kicker: "Go deeper", title: "Where to read next", tone: "soft", items: [READ.whyNow, READ.story, READ.gpu] },
 	],

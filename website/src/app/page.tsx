@@ -87,7 +87,7 @@ export default function Home() {
 			<Intro />
 
 			{/* 3 · Problem */}
-			<Section tone="soft" kicker="Why it exists" title="Planned in spreadsheets, built in silos, operated across six tools." intro="A spreadsheet for capacity, a project tracker for the build, a DCIM for records, a BMS for the plant, an NMS for the network and a ticketing tool for incidents. None of them share a record, and none can say who is affected and what it is costing.">
+			<Section tone="soft" kicker="Why it exists" title="Planned in spreadsheets, built in silos, operated across many tools." intro="A spreadsheet for capacity, a project tracker for the build, a DCIM for records, a BMS for the plant, an NMS for the network and a ticketing tool for incidents. None of them share a record, and none can say who is affected and what it is costing.">
 				<div className="grid-4">
 					{problems.map((p, i) => (
 						<Reveal key={p.t} className="card num-card" delay={i * 70}>
