@@ -34,10 +34,10 @@ SynapseDC is the END-TO-END platform to **plan, build and operate** datacenters,
 - **Navigation**: a top-level label is a link to its landing page (`/platform`, `/solutions`, `/resources`); hover (120 ms intent) or focus
   opens the panel, the chevron toggles it; hover never fights the click. Mobile = drawer with accordions.
 - Copy lives in `src/data/*` (modules, solutions + roles, site), never inline. Every claim must exist in the product / BRD
-  (`../docs/SynapseDC-BRD.md`); demo figures are labelled illustrative. No invented customers, certifications or results.
+  (`../docs/SynapseDC-BRD.md`); no "illustrative" / "demo estate" / "modelled on" disclaimer notes anywhere (user, 28-Oct-2026); figures are worked examples, never attributed to a named customer. No invented customers, certifications or results.
 - Every page exports `buildMetadata()`; a new static route goes into `src/app/sitemap.ts`. Pages without content yet (blog, case studies,
   videos, glossary, about, customers, pricing, privacy, terms) are `placeholders` in `src/data/site.ts`, served by `src/app/[page]`, noindex.
-- Contact form is not wired (no backend). Connect before launch. `siteConfig.contact` is empty until confirmed.
+- Contact form posts to `src/app/api/contact/route.ts` (ported from Opstral: validation, honeypot `website`, rate limit, same-origin check, Resend). Needs Vercel env `RESEND_API_KEY`, `CONTACT_TO` (comma list) and optionally `CONTACT_FROM` (verified Resend domain; default contact@synapsedc.tech); without them it answers 503 and the form shows an error, never a false thank-you. "Schedule a meeting" opens `components/contact/SchedulePicker.tsx` (Opstral port: own calendar, 9:00–17:00 half-hour slots, sends meetingDate / meetingTime / meetingTz). `siteConfig.contact` is empty until confirmed.
 - QA: `npm run build` must pass; check `/`, a module page, a solution page and the menu at 1440 / 1280 / 390 (no horizontal overflow,
   no console errors). Scratch scripts used so far: viewport walk, full-page shot, menu click test (Playwright from `../app`).
 - No deploy without the user's go-ahead (no Vercel project yet).

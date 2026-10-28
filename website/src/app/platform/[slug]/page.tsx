@@ -69,7 +69,6 @@ export default async function ModulePage({ params }: Params) {
 								</div>
 							))}
 						</div>
-						<p className="note">Illustrative figures from the SynapseDC demo estate.</p>
 					</>
 				)}
 			</Section>

@@ -80,7 +80,7 @@ export default function GpuAiPage() {
 					<div className="section-head">
 						<Kicker>Use cases</Kicker>
 						<RevealHeading className="h-2">Five situations every GPU cloud knows.</RevealHeading>
-						<p className="section-intro">Each one names the modules that answer it. Figures are modelled on the SynapseDC demo estate, not customer results.</p>
+						<p className="section-intro">Each one names the modules that answer it.</p>
 					</div>
 					<div className="uc-grid">
 						{cases.map(({ u, d }) => (

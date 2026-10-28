@@ -93,7 +93,6 @@ export function UseCaseCard({ u, color, name }: { u: UseCase; color: string; nam
 			))}
 		</div>
 		<div className="uc-proof">
-			<small>Modelled on the SynapseDC demo estate</small>
 			<div>
 				{u.proof.map((p) => (
 					<span key={p.l}>

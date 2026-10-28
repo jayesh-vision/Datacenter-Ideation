@@ -1,7 +1,7 @@
 /**
  * Use cases for /solutions: what SynapseDC does in a situation an operator recognises.
- * Every card names its modules; figures come from the demo estate and are labelled as such
- * ("Modelled on the demo estate"), never presented as measured customer results.
+ * Every card names its modules; figures are worked examples (no disclaimer notes on the site, user 28-Oct-2026),
+ * never presented as a named customer's results.
  */
 
 export type Domain = "facility" | "gpu" | "network" | "commercial" | "security" | "build";

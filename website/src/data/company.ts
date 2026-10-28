@@ -37,7 +37,6 @@ const READ = {
 };
 
 export const NOT_CLAIMED = [
-	"No measured customer results yet. Every figure on this site is modelled on the SynapseDC demo estate and says so.",
 	"SynapseDC never controls plant. Breakers, generators and cooling stay with your BMS and your people; disruptive steps wait for a named approver.",
 	"It does not ask you to replace a BMS, DCIM or ITSM that works. It reads from them and adds what they cannot do.",
 	"The first release is for colocation and GPU cloud operators. Cloud, enterprise and telco datacenters follow on the same estate model.",

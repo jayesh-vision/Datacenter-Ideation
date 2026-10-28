@@ -2,7 +2,7 @@ import { Icon } from "../Icon";
 
 /**
  * The GPU chain: what a GPU depends on and what it earns, on one estate model,
- * left to right, with one demo-estate story running underneath (UC-G2).
+ * left to right, with one worked example running underneath (UC-G2).
  */
 const CORE: [string, string, string][] = [
 	["zap", "Utility feed", "tariff · contract"],
@@ -49,7 +49,7 @@ export function GpuChain({ story = true }: { story?: boolean }) {
 			</div>
 			{story && (
 				<div className="gc-story">
-					<span className="gc-story-tag">Demo estate · one chain</span>
+					<span className="gc-story-tag">One chain</span>
 					<span>
 						CDU flow at <b>62 %</b>
 					</span>

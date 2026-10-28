@@ -124,7 +124,7 @@ export default function Home() {
 			</section>
 
 			{/* 7 · Scenario */}
-			<Section tone="dark" kicker="One fault, end to end" title="What the first sixty seconds look like." intro="A worked example from the demo estate: a utility feed is lost at a Chicago datacenter at 13:12.">
+			<Section tone="dark" kicker="One fault, end to end" title="What the first sixty seconds look like." intro="A worked example: a utility feed is lost at a Chicago datacenter at 13:12.">
 				<div className="timeline">
 					{scenario.map((s, i) => (
 						<Reveal key={s.title} className={`tl-step tone-${s.tone}`} delay={i * 90}>
@@ -140,7 +140,6 @@ export default function Home() {
 						</Reveal>
 					))}
 				</div>
-				<p className="tl-note">Figures are from the SynapseDC demo estate and are illustrative.</p>
 			</Section>
 
 			{/* 9 · Integrations */}

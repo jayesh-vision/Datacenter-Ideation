@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import SchedulePicker from "./contact/SchedulePicker";
 import { Icon } from "./Icon";
 
-/** Country → dialling code (and flag) for the phone field; picking a country sets the code. */
+/** Country → dialling code (and flag); picking a country sets the phone code. */
 const COUNTRIES: [string, string, string][] = [
 	["India", "+91", "🇮🇳"],
 	["United States", "+1", "🇺🇸"],
@@ -20,32 +21,57 @@ const COUNTRIES: [string, string, string][] = [
 	["Other", "", "🌐"],
 ];
 
+const MEETING = ["Skip for now", "Schedule a meeting"] as const;
+
+type Status = { state: "idle" } | { state: "sending" } | { state: "sent" } | { state: "error"; message: string; fields?: string[] };
+
 const req = <i aria-hidden="true">*</i>;
 
 /**
- * Demo request form. Not connected to a backend yet: it validates and shows a confirmation.
- * Wire it to the CRM / email service before launch.
+ * The demo-request form (after the Opstral DemoForm). Posts to /api/contact, which delivers by email and
+ * returns an error, never a success, when it cannot; this form only says "sent" on a 200.
+ * Validation is the browser's (required / type) plus the server's check. "Schedule a meeting" opens the
+ * date and time pickers; the slot is sent with the visitor's time zone.
  */
 export function ContactForm() {
-	const [sent, setSent] = useState(false);
+	const [status, setStatus] = useState<Status>({ state: "idle" });
 	const [country, setCountry] = useState("India");
 	const [code, setCode] = useState("+91");
-	const [meet, setMeet] = useState<"skip" | "schedule">("skip");
+	const [wantsMeeting, setWantsMeeting] = useState(false);
 
-	const submit = (e: FormEvent<HTMLFormElement>) => {
+	async function submit(e: FormEvent<HTMLFormElement>) {
 		e.preventDefault();
-		if (!e.currentTarget.reportValidity()) return;
-		setSent(true);
-	};
+		const form = e.currentTarget;
+		if (!form.reportValidity()) return;
+		setStatus({ state: "sending" });
+		try {
+			const res = await fetch("/api/contact", { method: "POST", body: new FormData(form) });
+			const body = await res.json().catch(() => ({}));
+			if (res.ok && body.ok) {
+				setStatus({ state: "sent" });
+				form.reset();
+				return;
+			}
+			setStatus({
+				state: "error",
+				fields: body.fields,
+				message: body.error === "missing" ? "Some required details are missing." : body.error === "email" ? "That work email does not look right." : body.error === "ratelimited" ? "Too many requests from this address." : "We could not send that just now.",
+			});
+		} catch {
+			setStatus({ state: "error", message: "We could not send that just now." });
+		}
+	}
 
-	if (sent)
+	const bad = (f: string) => (status.state === "error" && status.fields?.includes(f) ? true : undefined);
+
+	if (status.state === "sent")
 		return (
 			<div className="cf cf-done" role="status">
 				<span className="cf-done-ico">
 					<Icon name="check" size={22} />
 				</span>
-				<strong>Thank you. We will come back to you to plan the demo.</strong>
-				<p>This form is not connected yet, so nothing was sent. Until it is, reach us through your VisionWaves contact.</p>
+				<strong>Thank you. Your request is with us.</strong>
+				<p>A member of the SynapseDC team will reply to arrange the session{wantsMeeting ? " at or near the slot you picked" : ""}.</p>
 			</div>
 		);
 
@@ -54,23 +80,23 @@ export function ContactForm() {
 			<div className="cf-grid">
 				<label>
 					<span>First name {req}</span>
-					<input name="firstName" required autoComplete="given-name" />
+					<input name="firstName" required autoComplete="given-name" aria-invalid={bad("firstName")} />
 				</label>
 				<label>
 					<span>Last name {req}</span>
-					<input name="lastName" required autoComplete="family-name" />
+					<input name="lastName" required autoComplete="family-name" aria-invalid={bad("lastName")} />
 				</label>
 				<label>
 					<span>Work email {req}</span>
-					<input name="email" type="email" required autoComplete="email" placeholder="you@company.com" />
+					<input name="workEmail" type="email" required autoComplete="email" placeholder="you@company.com" aria-invalid={bad("workEmail")} />
 				</label>
 				<label>
 					<span>Job title</span>
-					<input name="title" autoComplete="organization-title" />
+					<input name="jobTitle" autoComplete="organization-title" />
 				</label>
 				<label>
 					<span>Company {req}</span>
-					<input name="company" required autoComplete="organization" />
+					<input name="company" required autoComplete="organization" aria-invalid={bad("company")} />
 				</label>
 				<label>
 					<span>Country</span>
@@ -91,14 +117,14 @@ export function ContactForm() {
 				<label className="cf-wide">
 					<span>Phone {req}</span>
 					<span className="cf-phone">
-						<select name="phoneCode" aria-label="Country code" value={code} onChange={(e) => setCode(e.target.value)}>
+						<select name="phoneCode" aria-label="Country dialling code" value={code} onChange={(e) => setCode(e.target.value)}>
 							{COUNTRIES.filter((c) => c[1]).map(([n, c, f]) => (
 								<option key={n} value={c}>
 									{f} {c}
 								</option>
 							))}
 						</select>
-						<input name="phone" type="tel" required autoComplete="tel-national" placeholder="98765 43210" />
+						<input name="phone" type="tel" inputMode="numeric" required autoComplete="tel-national" placeholder="98765 43210" aria-invalid={bad("phone")} />
 					</span>
 				</label>
 				<label>
@@ -124,26 +150,41 @@ export function ContactForm() {
 				</label>
 				<label className="cf-wide">
 					<span>Remarks</span>
-					<textarea name="message" placeholder="The situation your team keeps dealing with. For example: a UPS goes on battery and nobody knows which tenants are affected." />
+					<textarea name="remarks" maxLength={3000} placeholder="The situation your team keeps dealing with. For example: a UPS goes on battery and nobody knows which tenants are affected." />
 				</label>
-				<div className="cf-wide cf-meet">
-					<span>Schedule a meeting?</span>
-					<div role="radiogroup" aria-label="Schedule a meeting">
-						{(["skip", "schedule"] as const).map((v) => (
-							<button key={v} type="button" role="radio" aria-checked={meet === v} className={meet === v ? "is-on" : ""} onClick={() => setMeet(v)}>
-								{v === "skip" ? "Skip for now" : "Schedule a meeting"}
-							</button>
-						))}
-					</div>
-					<input type="hidden" name="meeting" value={meet} />
-				</div>
 			</div>
+
+			<fieldset className="cf-meet">
+				<legend>Schedule a meeting?</legend>
+				<div>
+					{MEETING.map((m, i) => (
+						<label key={m} className={(i === 1) === wantsMeeting ? "is-on" : ""}>
+							<input type="radio" name="meetingChoice" value={m} defaultChecked={i === 0} onChange={() => setWantsMeeting(i === 1)} />
+							{m}
+						</label>
+					))}
+				</div>
+			</fieldset>
+
+			{wantsMeeting ? <SchedulePicker tz={Intl.DateTimeFormat().resolvedOptions().timeZone} /> : null}
+
+			{/* Honeypot: out of sight and out of the accessibility tree; a bot fills it and gives itself away. */}
+			<div className="cf-hp" aria-hidden="true">
+				<label htmlFor="website">Website</label>
+				<input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" />
+			</div>
+
 			<div className="cf-foot">
-				<button type="submit" className="btn btn-primary">
-					Submit <Icon name="arrow" size={16} />
+				<button type="submit" className="btn btn-primary" disabled={status.state === "sending"}>
+					{status.state === "sending" ? "Sending…" : "Submit"} <Icon name="arrow" size={16} />
 				</button>
 				<p>By submitting you agree to be contacted by the SynapseDC team. We never share your information.</p>
 			</div>
+			{status.state === "error" ? (
+				<p className="cf-error" role="alert">
+					{status.message} Please try again in a few minutes.
+				</p>
+			) : null}
 		</form>
 	);
 }

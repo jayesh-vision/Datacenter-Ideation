@@ -16,7 +16,7 @@ const data = [
 	{ t: "Every count is derived", d: "Counts come from devices, interfaces, links, services, alarms and incidents, never typed in." },
 	{ t: "Every sample keeps its source", d: "Source and receipt time on every reading. Fresh means younger than two polling intervals." },
 	{ t: "Stable identities", d: "Entity ids are stable strings, so adding data never reshuffles the rest." },
-	{ t: "Your currency, your tariffs", d: "Money in your currency and format. Tariffs and benchmarks are marked illustrative until your own replace them." },
+	{ t: "Your currency, your tariffs", d: "Money in your currency and format, priced with your own tariffs and benchmarks." },
 ];
 
 const boundaries = [

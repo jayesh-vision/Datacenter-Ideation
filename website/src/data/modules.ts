@@ -1,7 +1,7 @@
 /**
  * Product modules: one entry per /platform/<slug> page.
  * Every claim must exist in the product (BRD chapters 7.1–7.12). Figures in `proof`
- * come from the demo estate and are shown as illustrative.
+ * are worked examples from the product; the site shows them without disclaimers (user, 28-Oct-2026).
  */
 
 export type Stage = "Operate" | "Plan" | "Build" | "Govern" | "Across the product";
@@ -29,7 +29,7 @@ export interface Module {
 	/** Who typically asks each question, same order as `questions`. */
 	askedBy: string[];
 	capabilities: Capability[];
-	/** Illustrative figures from the demo estate. */
+	/** Worked-example figures. */
 	proof?: { value: string; label: string }[];
 	models: Model;
 	brdRef: string;
@@ -59,7 +59,7 @@ export const modules: Module[] = [
 			{ title: "Plan & build lens", text: "A slim strip and lens for plans in review, builds in flight and capacity not yet live." },
 		],
 		proof: [
-			{ value: "23", label: "datacenters on one screen in the demo estate" },
+			{ value: "23", label: "datacenters on one screen" },
 			{ value: "≤ 60 s", label: "target from first alarm to an incident with impact and an action" },
 		],
 		models: "Both",
@@ -138,8 +138,8 @@ export const modules: Module[] = [
 			{ title: "Where to place", text: "Pods ranked by free healthy GPUs, rack headroom, cooling, contracted power and the marginal power cost per GPU-hour." },
 		],
 		proof: [
-			{ value: "152", label: "GPUs stopped by one failed GPU (demo story)" },
-			{ value: "$625/h", label: "GPU time lost on that job, illustrative" },
+			{ value: "152", label: "GPUs stopped by one failed GPU" },
+			{ value: "$625/h", label: "GPU time lost on that job" },
 		],
 		models: "NeoCloud",
 		brdRef: "7.4",

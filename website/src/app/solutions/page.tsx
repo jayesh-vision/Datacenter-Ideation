@@ -40,7 +40,7 @@ export default function SolutionsPage() {
 						Situations you recognise. <em>Answers on one screen.</em>
 					</h1>
 					<p className="lead">
-						Each use case starts from a moment an operator knows: a UPS on battery, a GPU that stalls a job, a tenant riding a fault, a hall that cannot be sold. Each one names the SynapseDC modules that answer it. The figures are modelled on the demo estate and say so; they are not customer results.
+						Each use case starts from a moment an operator knows: a UPS on battery, a GPU that stalls a job, a tenant riding a fault, a hall that cannot be sold. Each one names the SynapseDC modules that answer it.
 					</p>
 					<div className="uc-stats">
 						{[
