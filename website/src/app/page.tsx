@@ -2,7 +2,6 @@ import Link from "next/link";
 import { CtaBand, FaqList, Kicker, Section, SplitFeature } from "@/components/Blocks";
 import { ArtFor } from "@/components/art";
 import { Intro } from "@/components/home/Intro";
-import { Marquee } from "@/components/home/Marquee";
 import { Scenarios } from "@/components/home/Scenarios";
 import { Icon } from "@/components/Icon";
 import { Reveal, RevealHeading } from "@/components/Reveal";
@@ -24,10 +23,17 @@ const problems = [
 
 
 
-const marqueeRows = [
-	["BACnet", "Modbus TCP", "OPC UA", "SNMPv3", "gNMI", "Syslog", "Redfish", "IPMI", "NVIDIA DCGM", "Intel Gaudi", "InfiniBand UFM", "NetFlow"],
-	["ServiceNow", "Jira Service Management", "Salesforce", "Microsoft Dynamics", "HubSpot", "Infoblox", "BlueCat", "Kafka", "Webhooks", "REST API v1", "SIEM (OCSF)", "Excel import"],
+/** Home integrations panel: systems grouped by what SynapseDC does with them. */
+const integrationGroups: { dir: "Reads from" | "Syncs with"; name: string; icon: string; items: string[] }[] = [
+	{ dir: "Reads from", name: "Facility & power", icon: "zap", items: ["BACnet", "Modbus TCP", "OPC UA", "SNMPv3"] },
+	{ dir: "Reads from", name: "Network & servers", icon: "network", items: ["gNMI", "Syslog", "NetFlow", "Redfish", "IPMI"] },
+	{ dir: "Reads from", name: "GPU & AI", icon: "cpu", items: ["NVIDIA DCGM", "Intel Gaudi", "InfiniBand UFM"] },
+	{ dir: "Syncs with", name: "ITSM", icon: "workflow", items: ["ServiceNow", "Jira Service Management"] },
+	{ dir: "Syncs with", name: "CRM & customers", icon: "users", items: ["Salesforce", "Microsoft Dynamics", "HubSpot"] },
+	{ dir: "Syncs with", name: "IP & security", icon: "shield", items: ["Infoblox", "BlueCat", "SIEM (OCSF)"] },
+	{ dir: "Syncs with", name: "Open interfaces", icon: "plug", items: ["REST API v1", "Webhooks", "Kafka", "Excel import"] },
 ];
+
 
 export default function Home() {
 	return (
@@ -123,19 +129,36 @@ export default function Home() {
 			</Section>
 
 			{/* 9 · Integrations */}
-			<section className="section section-soft">
-				<div className="wrap">
-					<div className="section-head center">
+			<section className="section">
+				<div className="wrap ig">
+					<div className="ig-head">
 						<Kicker>Integrations</Kicker>
 						<RevealHeading className="h-2">Works with the systems you already run.</RevealHeading>
-						<p className="section-intro">Building, network, servers, GPUs and doors on the south side. ITSM, CRM, IPAM, SIEM and your own tools on the north.</p>
+						<p className="section-intro">SynapseDC reads the building, the network, the servers and the GPUs through a read-only collector, and syncs incidents, customers, addresses and security events with the tools your teams use.</p>
+						<Link className="btn btn-ghost" href="/integrations">
+							All integrations <Icon name="arrow" size={16} />
+						</Link>
 					</div>
-				</div>
-				<Marquee rows={marqueeRows} />
-				<div className="wrap" style={{ marginTop: 36, textAlign: "center" }}>
-					<Link className="btn btn-ghost" href="/integrations">
-						All integrations <Icon name="arrow" size={16} />
-					</Link>
+					<div className="ig-panel">
+						{integrationGroups.map((g) => (
+							<div key={g.name} className="ig-row">
+								<div className="ig-name">
+									<span className="ig-ico">
+										<Icon name={g.icon} size={16} />
+									</span>
+									<span>
+										<small>{g.dir}</small>
+										<strong>{g.name}</strong>
+									</span>
+								</div>
+								<div className="ig-chips">
+									{g.items.map((i) => (
+										<span key={i}>{i}</span>
+									))}
+								</div>
+							</div>
+						))}
+					</div>
 				</div>
 			</section>
 
