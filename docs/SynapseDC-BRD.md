@@ -15,6 +15,7 @@
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.9 | 27-Oct-2026 | First complete draft: all modules, module split against the existing platform, colocation + NeoCloud first |
+| 0.9.1 | 28-Oct-2026 | Build boundary made explicit (3.4): existing platform modules are consumed only through their APIs — no new database, backend or screens for them; telemetry ingested and queried only through the OAP telemetry ingestion / consumer service on ClickHouse (9.0) |
 
 **How to read this document**
 
@@ -24,7 +25,7 @@
 - Section 9 lists, per **existing platform module**, what SynapseDC reads from it, sends to it and through which interface.
 - Sections 10–15: data, non-functional requirements, phasing, risks and open decisions, traceability, glossary.
 
-Requirement identifiers: `<PFX>-nnn` (functional), `BRULE-<PFX>-nn` (business rule), `US-<PFX>-nn` (user story), `NFR-nnn`, `INTG-nnn`, `DATA-nnn`. Priority uses MoSCoW: **M** must, **S** should, **C** could. Model: **Both**, **Colo** (colocation), **Neo** (NeoCloud / GPU cloud). Phase: **P1** MVP, **P2**, **P3** (section 12). Anything the prototype does not yet decide is marked **(to discuss)**.
+Requirement identifiers: `<PFX>-nnn` (functional), `BRULE-<PFX>-nn` (business rule), `US-<PFX>-nn` (user story), `ARCH-nnn` (build boundary), `NFR-nnn`, `INTG-nnn`, `DATA-nnn`. Priority uses MoSCoW: **M** must, **S** should, **C** could. Model: **Both**, **Colo** (colocation), **Neo** (NeoCloud / GPU cloud). Phase: **P1** MVP, **P2**, **P3** (section 12). Anything the prototype does not yet decide is marked **(to discuss)**.
 
 ---
 
@@ -39,6 +40,7 @@ Requirement identifiers: `<PFX>-nnn` (functional), `BRULE-<PFX>-nn` (business ru
   - 3.1 Principle
   - 3.2 The split
   - 3.3 Out of scope (all releases unless re-decided)
+  - 3.4 Build boundary: consume the platform, build only what is datacenter-specific
 - 4 Stakeholders, users and roles
 - 5 Business models
 - 6 Solution overview
@@ -66,6 +68,7 @@ Requirement identifiers: `<PFX>-nnn` (functional), `BRULE-<PFX>-nn` (business ru
   - 8.5 Change management overview
   - 8.6 DCIM Insights
 - 9 Integration with the existing platform modules
+  - 9.0 Telemetry: OAP ingestion and consumer services (ClickHouse)
   - 9.1 Operate to Acquire (BSS): CRM, Plans & Products Catalog, Orders, Customers, Experience and Care
   - 9.2 Services & ITSM: Incidents, Change Management, Maintenance, Knowledge Center, Tickets
   - 9.3 Opstral Ops Toolkit: System Alerts, Telemetry Ops, Data Ops, Infra Ops, Fin Ops, Proc Bots, Explainability, Security Ops, Service Ops, Agent Ops
@@ -75,6 +78,7 @@ Requirement identifiers: `<PFX>-nnn` (functional), `BRULE-<PFX>-nn` (business ru
   - 9.7 Plan to Build: Inventory Planning, Inventory, IP Management, Programs & Projects
   - 9.8 Supply Chain: Materials, Vendors, Contracts, Procurement, Warehouses, Field Force Management, Logistics
   - 9.9 Customer-side systems (when the platform module is not used)
+  - 9.10 API needs per module (to confirm with each module team)
 - 10 Data requirements
   - 10.1 Entity model
   - 10.2 Onboarding data (the import template)
@@ -152,6 +156,8 @@ SynapseDC closes that gap on top of the platform the customer already runs. It a
 
 ### 3.1 Principle
 
+**SynapseDC consumes the existing platform modules only through their APIs. It builds no database, backend service or screen for any of them. It builds only the datacenter-specific screens and functionality listed in section 7, and telemetry reaches it only through the OAP telemetry ingestion / consumer service, which reads and writes ClickHouse.** Section 3.4 states this as requirements.
+
 The platform module that already owns an object is its **system of record**. SynapseDC builds only what is **datacenter-specific** on top of it, uses the module's data through its API or the platform event bus, and never duplicates its screens. Where a customer runs their own system instead of the platform module (ServiceNow, Salesforce, NetBox…), the same datacenter capabilities integrate with that system.
 
 ### 3.2 The split
@@ -188,6 +194,46 @@ The platform module that already owns an object is its **system of record**. Syn
 - Discovery, drift and reconciliation UI (the inventory module's job; SynapseDC reports what it observed).
 - A tenant portal (embed or the tenant-scoped API only, section 9 and NB-12).
 - Network service provisioning, orders and the service catalogue (BSS / OSS).
+
+
+### 3.4 Build boundary: consume the platform, build only what is datacenter-specific
+
+The existing modules named in section 3.2 (Operate to Acquire / BSS except Revenue Impact; Services & ITSM; Opstral Ops Toolkit; AI Foundry; Platform Engineering; Intelligence Hub except Command Center; Plan to Build Inventory, Inventory Planning, IP Management and Programs & Projects; Supply Chain) are **assumed to expose the APIs SynapseDC needs**. SynapseDC calls those APIs; it does not re-create the module.
+
+| ID | Requirement | Priority |
+| --- | --- | --- |
+| ARCH-001 | SynapseDC shall read and write the data of an existing platform module only through that module's published API (REST, GraphQL or events). It shall assume the API is available and list every field it needs per module (section 9). | M |
+| ARCH-002 | SynapseDC shall not build a database, schema, table, backend service or administration screen for an object an existing module owns (customers, contracts, orders, products, incidents, problems, changes, tickets, maintenance windows, knowledge articles, alerts, inventory assets, IP addresses, capacity plans, programmes, projects, work orders, purchase orders, vendors, contracts, stock, users, roles, custom fields). | M |
+| ARCH-003 | SynapseDC shall not keep a second copy of a module's records as its own record. It may cache API responses for performance (with the module's id and an expiry) and may store derived results keyed by the module's ids (for example impact or money per incident). | M |
+| ARCH-004 | Where SynapseDC needs a field a module API does not offer, the gap shall be raised to the module team as an API requirement (the API gap list in section 9.10). It shall not be worked around with a local table. | M |
+| ARCH-005 | SynapseDC shall build only the datacenter-specific screens, read models and the backend that serves them (chapters 7.1–7.12 and the analytics pages of chapter 8). | M |
+| ARCH-006 | Screens of an existing module shall not be rebuilt. SynapseDC links or deep-links to them (for example an incident opens in Services & ITSM, a project in Programs & Projects), or embeds them where the module supports it. The analytics pages of chapter 8 read the module's API and drill down into the module's own screens. | M |
+| ARCH-007 | Every write SynapseDC makes to an existing module (create an incident, raise a change request, hand a plan over as a project, post a worklog line, send a notice) shall go through that module's API, so the module applies its own rules, approvals and audit. | M |
+| ARCH-008 | All telemetry (metrics and time series from the collector: network, BMC, UPS, PDU, meters, BMS, DCGM, scheduler, fabric) shall be written through the **OAP telemetry ingestion microservice** and read through the **OAP telemetry consumer microservice**. These services read and write ClickHouse. SynapseDC shall run no time-series database, ingestion pipeline or telemetry store of its own. | M |
+| ARCH-009 | SynapseDC read models (live facility state, GPU fleet, physical last mile, impact, revenue, capacity, power economics) shall query recent and historical telemetry through the OAP consumer API (latest value, range, roll-up, top-N). They shall not query ClickHouse directly. | M |
+| ARCH-010 | Alarms and events shall be raised into, and read from, Ops Toolkit System Alerts through its API. Security telemetry and detections shall be read from Ops Toolkit Security Ops (its ClickHouse / OCSF tables) through its API. | M |
+| ARCH-011 | Identity, roles, scopes, feature flags and custom fields shall come from Platform Engineering. SynapseDC keeps no user store. | M |
+| ARCH-012 | SynapseDC shall keep its own storage only for datacenter-specific data that no platform module owns. The list is in the table below; anything else is consumed. | M |
+
+**What SynapseDC stores and what it consumes**
+
+| Data | SynapseDC stores (datacenter-specific) | Consumed through the API of |
+| --- | --- | --- |
+| Telemetry: samples, series, roll-ups | — | OAP telemetry ingestion / consumer service (ClickHouse) |
+| Alarms, alarm state | scope, placement and correlation tags it adds, keyed by alarm id | Ops Toolkit System Alerts |
+| Incidents, problems, changes, tickets, maintenance | RCA hypotheses, impact, money and verification per incident id; DCIM work items per change id | Services & ITSM |
+| Customers, contracts, SLA, services, products | impact and money per service / customer id (derived) | BSS: CRM, Customers, Orders, Catalog |
+| Assets: sites, rooms, racks, devices, modules, serials, lifecycle | DCIM extensions the Inventory API cannot carry (U position, PDU outlets and cords, panels and feeds, patch panels, trunks, cable paths, rack type and condition; OD-01) | Plan to Build Inventory |
+| IP addresses, prefixes, VLANs | — (findings and forecast are derived) | Plan to Build IP Management |
+| Capacity targets, holds | reservations derived from planned devices, plans and contracts | Plan to Build Inventory Planning |
+| Programmes, projects, work orders, POs, commissioning | — (analytics derived) | Programs & Projects, Field Force Management, Procurement |
+| Vendors, contracts, stock, spares | — | Supply Chain |
+| Plans, plan templates, benchmarks, scenarios, approvals on plans, plan / review packs, review comments | **stored** (the planner engine is datacenter-specific) | — (approved plans handed over to Programs & Projects) |
+| Power contracts, tariffs, findings | **stored** | Fin Ops receives cost figures |
+| Facility design: power chain, cooling coverage, fire / leak zones, design ratings | **stored** where Inventory does not hold them (OD-01) | Plan to Build Inventory |
+| Compliance policies, control mappings, attestations, decision records | **stored** | — |
+| Access events, visits, badges | security exceptions and the access-rights review (derived) | PACS / visitor / VMS connectors (INT-17…19) and Security Ops |
+| Business-model vocabulary, geography, severity and scope tables, site integration surveys, Help content | **stored** (configuration) | Knowledge Center for articles |
 
 ## 4 Stakeholders, users and roles
 
@@ -246,7 +292,9 @@ plan pack, review)        Programs & Projects,         Security Ops · Complianc
 ### 6.2 Architecture
 
 - **On-site collector** (one per datacenter, active + standby) reads the equipment read-only (SNMPv3, gNMI, syslog, Redfish, IPMI, Modbus, BACnet / OPC UA, DCGM, scheduler, UFM, PACS), normalises alarms, buffers and sends outbound only over mTLS 443 (interface spec INT-01…13, INT-28).
-- **Central platform**: ingest (OTLP / remote write / events), stores (time series, events, records), **read models** (impact, revenue, RCA, GPU, physical, capacity, power economics, security, compliance), the **API** (REST v1 — the same contract the screens use), the **event bus** (CloudEvents on webhooks / Kafka) and **connectors** to platform modules and customer systems (NB-01…12, EW).
+- **Telemetry**: the collector writes every metric and time series to the **OAP telemetry ingestion microservice**; SynapseDC reads it back through the **OAP telemetry consumer microservice**. Both read and write ClickHouse. SynapseDC has no telemetry store of its own (ARCH-008, ARCH-009).
+- **Existing platform modules**: consumed only through their APIs and events (ARCH-001…007). SynapseDC adds no database, backend or screen for them.
+- **SynapseDC backend**: the datacenter-specific **read models** (impact, revenue, RCA, GPU, physical, capacity, power economics, security, compliance), the **API** (REST v1 — the same contract the screens use), the **event bus** (CloudEvents on webhooks / Kafka) and **API clients** for the platform modules and customer systems (NB-01…12, EW). Its own storage holds only the datacenter-specific data listed in section 3.4.
 - **Screens** run in the platform shell or embedded in the portal (`shell=false`) with the platform's identity (OIDC).
 - **Data**: every count is derived from entities; nothing is typed in. Every sample keeps source and receipt time; fresh = younger than two polling intervals.
 
@@ -260,6 +308,8 @@ plan pack, review)        Programs & Projects,         Security Ops · Complianc
 | DD-04 | Every DCIM write runs under a change request: standard (pre-approved record work), an open CR at the site, or raise new. |
 | DD-05 | The platform module owns the record; SynapseDC lists only the data it needs and never invents the module's fields or APIs. |
 | DD-06 | Southbound is read-only and outbound-only from the site. |
+| DD-09 | Existing platform modules are consumed only through their APIs; SynapseDC never builds a database, backend or screen for them (3.4). |
+| DD-10 | Telemetry goes in through the OAP telemetry ingestion service and comes out through the OAP consumer service, on ClickHouse. SynapseDC runs no time-series store. |
 | DD-07 | Entity identities are stable strings; every entity is seeded / keyed on its own id so adding data never reshuffles the rest. |
 | DD-08 | Money is held in the operator's currency with the geography's formatting; tariffs and benchmarks are real local values marked illustrative until the customer's own replace them. |
 
@@ -791,9 +841,9 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | GPU-007 | The system shall sort jobs by lost-now rate, then at stake, then GPUs. | S | Neo | P1 |
 | GPU-008 | The system shall show a collapsible "Jobs needing attention" section with the Biggest blast radius card (the stalled job stopping the most GPUs, its incident, lost per hour, work to redo, the spare node to restart on) and the Slowest job card (the slowed job with the largest step-time share lost, its cause and lost per hour). Its open / closed state is remembered per viewer; when closed it shows four summary figures: GPUs stopped + incident, lost now, slowest job, lost now. The same section heads the datacenter GPU sub tab for one site. | S | Neo | P1 |
 | GPU-009 | The system shall show a fleet summary strip: GPUs installed, in a job, healthy %, jobs by state, GPU time lost per hour and work to redo. | M | Neo | P1 |
-| GPU-010 | The system shall ingest the DCGM fields per GPU: utilisation, SM active, tensor active, memory copy, DRAM active, frame-buffer used, GPU and HBM temperature, power and energy, SM and memory clock, P-state, fan, throttle reasons, ECC single / double bit, retired pages, row remap, PCIe replay and traffic, NVLink errors and traffic, last Xid. | M | Neo | P1 |
-| GPU-011 | The system shall ingest the vendor equivalents for Intel Gaudi (hl-smi / exporter) and Intel XPU Manager, and label telemetry by its source. | S | Neo | P2 |
-| GPU-012 | The system shall keep a 24-hour hourly history per node, ending on the current reading, and show it as sparklines in the node detail. | M | Neo | P1 |
+| GPU-010 | The system shall read, through the OAP telemetry consumer API, the DCGM fields per GPU: utilisation, SM active, tensor active, memory copy, DRAM active, frame-buffer used, GPU and HBM temperature, power and energy, SM and memory clock, P-state, fan, throttle reasons, ECC single / double bit, retired pages, row remap, PCIe replay and traffic, NVLink errors and traffic, last Xid. | M | Neo | P1 |
+| GPU-011 | The system shall read, through the OAP telemetry consumer API, the vendor equivalents for Intel Gaudi (hl-smi / exporter) and Intel XPU Manager, and label telemetry by its source. | S | Neo | P2 |
+| GPU-012 | The system shall read a 24-hour hourly history per node from the OAP telemetry consumer API, ending on the current reading, and show it as sparklines in the node detail. | M | Neo | P1 |
 | GPU-013 | The system shall show fleet telemetry: utilisation and temperature histograms, 24 h fleet utilisation, power and hottest-GPU series, 24 h energy (MWh), P-state split, Xid events per hour, ECC totals and per-counter leaders. | S | Neo | P1 |
 | GPU-014 | The system shall show the node detail (drawer and device page) with a health view, a profiling view, the 8-GPU strip, hardware (model, server OEM, driver) and alarms. | M | Neo | P1 |
 | GPU-015 | The system shall classify Xid events per BRULE-GPU-10 and raise GPU alarms with the Xid code. | M | Neo | P1 |
@@ -968,7 +1018,7 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | ID | Requirement | Priority | Model | Phase |
 |---|---|---|---|---|
 | ALM-001 | The system shall convert every incoming event (trap, syslog, Redfish event, DCGM Xid, BACnet notification, Modbus threshold, PACS event, collector probe) into the normalised Alert shape at the collector. | M | Both | P1 |
-| ALM-002 | The system shall store both the normalised alarm and the raw event for audit and replay. | M | Both | P1 |
+| ALM-002 | The system shall send both the normalised alarm and the raw event to Ops Toolkit System Alerts through its API, so the alert record keeps both for audit and replay. | M | Both | P1 |
 | ALM-003 | The system shall de-duplicate and clear alarms per BRULE-ALM-01. | M | Both | P1 |
 | ALM-004 | The system shall detect flapping per BRULE-ALM-02 and mark the alarm flapping. | M | Both | P1 |
 | ALM-005 | The system shall map source severity to Critical / Major / Minor / Warning from an editable mapping table. | M | Both | P1 |
@@ -990,13 +1040,13 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | ALM-021 | The system shall let a user raise an emergency change from an incident, linked to it. | S | Both | P1 |
 | ALM-022 | The system shall run the verification checklist per BRULE-ALM-14 before an incident can be resolved. | M | Both | P1 |
 | ALM-023 | The system shall show similar past incidents and the nodes they shared. | C | Both | P2 |
-| ALM-024 | The system shall keep an incident worklog with system, human and AI entries, synced with the ITSM work notes. | M | Both | P1 |
+| ALM-024 | The system shall show the incident worklog from Services & ITSM and post its system and AI entries to it through the ITSM API (human entries are written in ITSM or through the same API). | M | Both | P1 |
 | ALM-025 | The system shall group incidents into problems by common cause and show them on an Incidents → Problems tab. | S | Both | P2 |
 | ALM-026 | The system shall show "On call & communications" per incident: on-call engineer from the rota or paging tool, paging chain, next escalation, ITSM reference, customer notice due times and overdue updates. | S | Both | P2 |
 | ALM-027 | The system shall show the response and resolve SLA clocks per incident and flag past-SLA incidents. | M | Both | P1 |
 | ALM-028 | The system shall show an incident's revenue impact panel from the Revenue Impact model. | M | Both | P1 |
-| ALM-029 | The system shall raise monitoring-gap alarms and the unmonitored device state per BRULE-ALM-15. | M | Both | P1 |
-| ALM-030 | The system shall raise GPU alarms (Xid, ECC, NVLink, throttle) and create GPU-type incidents that list the affected jobs. | M | Neo | P1 |
+| ALM-029 | The system shall raise monitoring-gap alarms through the System Alerts API and show the unmonitored device state per BRULE-ALM-15, using the freshness the OAP telemetry consumer API returns. | M | Both | P1 |
+| ALM-030 | The system shall raise GPU alarms (Xid, ECC, NVLink, throttle) through the System Alerts API and open GPU-type incidents that list the affected jobs through the Services & ITSM API. | M | Neo | P1 |
 | ALM-031 | The system shall raise tenant cabinet alarms from power and environment only, and treat a tenant inside its own contracted power as not a datacenter fault. | M | Colo | P1 |
 | ALM-032 | The system shall raise power-contract findings (block ≥ 85 % drawn, new demand peak above the floor, unexplained draw > 12 % over the 24 h mean, block ≥ 30 % idle) as Power alarms, and one Medium Power incident for the costliest block or ratchet finding. | S | Both | P2 |
 | ALM-033 | The system shall show incident list views Open, Critical open, High open, Breaching SLA and All, a datacenter filter and a Problems tab; the datacenter Needs attention tab shall open with four figure tiles (past SLA, unacknowledged, oldest open, MTTR 30 d) and the list "Resolved · last 7 days". | M | Both | P1 |
@@ -1459,7 +1509,7 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | CAP-017 | The system shall show energy and power cost per job and per tenant against what each earns, with idle allocations called out (BRULE-CAP-09). | M | Neo | P2 |
 | CAP-018 | The system shall show the kW a power cap saves against the GPU time it costs. | S | Neo | P2 |
 | CAP-019 | The system shall detect the four power findings (BRULE-CAP-10 to BRULE-CAP-13) each data cycle. | M | Both | P2 |
-| CAP-020 | The system shall raise one alarm per finding and one Medium incident for the costliest block or ratchet finding, with root-cause hypotheses and actions (BRULE-CAP-14). | M | Both | P2 |
+| CAP-020 | The system shall raise one alarm per finding (System Alerts API) and one Medium incident for the costliest block or ratchet finding (Services & ITSM API), with root-cause hypotheses and actions (BRULE-CAP-14). | M | Both | P2 |
 | CAP-021 | The system shall list the power findings with severity, exposure, evidence, and links to their alarm and incident. | M | Both | P2 |
 | CAP-022 | The system shall publish `dco.power.finding` events for every finding (NB-02 / NB-03). | S | Both | P2 |
 | CAP-023 | The system shall rank GPU pods for a placement request of 8–256 GPUs of a chosen model, with fit, headroom, cooling state, already-paid kW and marginal cost per GPU-hour (BRULE-CAP-15). | M | Neo | P2 |
@@ -1659,14 +1709,14 @@ It sizes the plan from templates and benchmarks, checks it against rules, compar
 | PLN-038 | The system shall offer, in Send for review, the attachment choice PDF / ZIP / link only, a message, an e-mail preview with the real attachment sizes, and the option to submit a draft at the same time. | S | Both | P2 |
 | PLN-039 | The system shall open scenarios on demand from the plan header as a What-if drawer, and show figures from the approved → in review → preferred → base scenario (BRULE-PLN-07). | M | Both | P2 |
 | PLN-040 | The system shall warn before leaving the wizard with unsaved changes, and let the user jump to any completed step. | S | Both | P2 |
-| PLN-041 | The system shall keep Delivery's purchase orders equal to the plan's vendor orders (one per vendor and phase) both before execution (Draft orders from the same sourcing) and after. | M | Both | P2 |
+| PLN-041 | The system shall send the plan's vendor orders (one per vendor and phase) to Programs & Projects / Procurement through their APIs, so the purchase orders there equal the plan's orders both before execution (Draft orders from the same sourcing) and after. | M | Both | P2 |
 | PLN-042 | The system shall record closeout changes through the audited action in BRULE-PLN-15 and show closeout checks (ready when every check passes or is marked for handover). | S | Both | P2 |
 | PLN-043 | The system shall let a template owner make a variant, publish or retire a template and edit input defaults on drafts; a content change bumps the version. | M | Both | P2 |
 | PLN-044 | The system shall filter benchmarks per view (reference value, site type, cooling, tier, region, confidence; rules by area and severity) across every table and chart of the view. | S | Both | P2 |
 | PLN-045 | The system shall show on the Command Center a Plan & build strip (capacity pipeline planned → approved → in build → commissioning → live, decisions due, week ahead) and a build lens, with plan approvals in Recommendations. | S | Both | P2 |
 | PLN-046 | The system shall show per plan an Overview dashboard: what and why with the Draft → In review → Approved → In delivery → Completed tracker, key dates, needs attention (failing rules, late items, conditions, decision due, review comments, submit blockers), phases, cost · capacity · readiness, inputs changed from the template, what the plan produces. | M | Both | P2 |
-| PLN-047 | The system shall show on every plan ONE status line: state in words, whose decision, blockers, conditions, template drift, the build in Delivery, an open review and an open revision. | M | Both | P2 |
-| PLN-048 | The system shall list in the plan pack what the plan creates with links into Delivery, IP Management and DCIM once the build has started. | S | Both | P2 |
+| PLN-047 | The system shall show on every plan ONE status line: state in words, whose decision, blockers, conditions, template drift, the build in Programs & Projects, an open review and an open revision. | M | Both | P2 |
+| PLN-048 | The system shall list in the plan pack what the plan creates with links into Programs & Projects, IP Management and DCIM once the build has started. | S | Both | P2 |
 
 ### 7.9.4 User stories and acceptance criteria
 **US-PLN-01** As a capacity planner, I want to create a GPU pod plan from a template, so that sizing, cost and schedule come from agreed benchmarks. (PLN-005, PLN-006, PLN-033)
@@ -1693,7 +1743,7 @@ It sizes the plan from templates and benchmarks, checks it against rules, compar
 ### 7.9.5 Data
 | Entity | Read / write | System of record | Notes |
 | --- | --- | --- | --- |
-| Plan, scenario, approval, review, comment | Read / write | Planner (SynapseDC), stored with Inventory Planning (to discuss) | audited |
+| Plan, scenario, approval, review, comment | Read / write | Planner (SynapseDC store); capacity holds written to Inventory Planning through its API | audited |
 | Template, benchmark | Read / write | Planner | versioned |
 | Site baseline (halls, racks, power, cooling, IP) | Read | Plan to Build Inventory, IP Management, SynapseDC telemetry | as-is |
 | Catalogue, stock, vendor contracts | Read | Supply Chain Materials, Warehouses, Contracts, Vendors | sourcing |
@@ -1786,16 +1836,16 @@ These datacenter-specific records extend the Plan to Build Inventory asset recor
 ### 7.10.3 Functional requirements
 | ID | Requirement | Priority | Model | Phase |
 | --- | --- | --- | --- | --- |
-| DCIM-001 | The system shall hold the hierarchy site → floor → hall → row → rack → device → components, keyed to the Inventory asset ids. | M | Both | P1 |
-| DCIM-002 | The system shall store rack grid position, row, U height, budget kW, type (e.g. a legacy 600 × 1000 shallow type), purchase date, condition (including Damaged at audit, with the note), owner and tenant, and contracted kW. | M | Both | P1 |
-| DCIM-003 | The system shall store each device's rack, U position, height and status (BRULE-DCIM-02). | M | Both | P1 |
-| DCIM-004 | The system shall store device components: ports with speed and admin state, power ports with their PDU outlet, management, console, module bays and inventory items. | M | Both | P1 |
-| DCIM-005 | The system shall store power panels (busway A / B per hall or −48 V distribution), feeds (rack PDUs) and PSU cords to outlets (BRULE-DCIM-04). | M | Both | P1 |
-| DCIM-006 | The system shall store data cables with the structured route of BRULE-DCIM-06, and reconcile them with LLDP. | M | Both | P1 |
+| DCIM-001 | The system shall present the hierarchy site → floor → hall → row → rack → device → components, reading the assets from the Plan to Build Inventory API by their asset ids and storing only the datacenter-specific extensions the Inventory API cannot carry (ARCH-012, OD-01). | M | Both | P1 |
+| DCIM-002 | The system shall store (in the Inventory record through its API where it carries the field, otherwise as a DCIM extension) rack grid position, row, U height, budget kW, type (e.g. a legacy 600 × 1000 shallow type), purchase date, condition (including Damaged at audit, with the note), owner and tenant, and contracted kW. | M | Both | P1 |
+| DCIM-003 | The system shall store (in the Inventory record through its API where it carries the field, otherwise as a DCIM extension) each device's rack, U position, height and status (BRULE-DCIM-02). | M | Both | P1 |
+| DCIM-004 | The system shall store (in the Inventory record through its API where it carries the field, otherwise as a DCIM extension) device components: ports with speed and admin state, power ports with their PDU outlet, management, console, module bays and inventory items. | M | Both | P1 |
+| DCIM-005 | The system shall store (in the Inventory record through its API where it carries the field, otherwise as a DCIM extension) power panels (busway A / B per hall or −48 V distribution), feeds (rack PDUs) and PSU cords to outlets (BRULE-DCIM-04). | M | Both | P1 |
+| DCIM-006 | The system shall store (in the Inventory record through its API where it carries the field, otherwise as a DCIM extension) data cables with the structured route of BRULE-DCIM-06, and reconcile them with LLDP. | M | Both | P1 |
 | DCIM-007 | The system shall show a floor plan per hall, coloured by Thermal, Density or Tenant (draw vs contracted). Free cells open "New rack". | M | Both | P1 |
 | DCIM-008 | The system shall show rack elevations (front / rear) with devices, PDUs, cords, cables and panels. | M | Both | P1 |
 | DCIM-009 | The system shall show a cable's path end to end, hop by hop, from a port, link or device. | M | Both | P1 |
-| DCIM-010 | The system shall keep a device-type and module-type catalogue (vendor, model, U, typical W, component templates), with JSON import. | M | Both | P1 |
+| DCIM-010 | The system shall read device and module types (vendor, model) from the Inventory API and keep only the datacenter-specific templates for them (U height, typical W, port and power-port templates), with JSON import. | M | Both | P1 |
 | DCIM-011 | The system shall show a Sites / Racks / Devices / Cabling / Power / Catalogue / Hierarchy list for each, with search and filters. | M | Both | P1 |
 | DCIM-012 | The system shall let a user create a rack and install a device with U-range validation (BRULE-DCIM-03). | M | Both | P2 |
 | DCIM-013 | The system shall let a user move a device to another U or rack at the site, by form or by drag-and-drop on the elevation with a green / red drop preview, with the budget checked. | M | Both | P2 |
@@ -1817,7 +1867,7 @@ These datacenter-specific records extend the Plan to Build Inventory asset recor
 | DCIM-029 | The system shall record cross-connects in the meet-me room, from tenant port to carrier or tenant port. | M | Colo | P1 |
 | DCIM-030 | The system shall model GPU nodes with 4 or more PSUs, liquid-cooled racks with their CDU and InfiniBand rails per node. | M | Neo | P1 |
 | DCIM-031 | The system shall list a device's addresses and assign the next free address of a site prefix through IP Management. | S | Both | P2 |
-| DCIM-032 | The system shall write the DCIM extensions back to, or sync them with, Inventory (or the customer's NetBox / dcTrack / Nlyte) per the system-of-record decision (to discuss). | M | Both | P1 |
+| DCIM-032 | The system shall write the DCIM extensions back to, or sync them with, Inventory (or the customer's NetBox / dcTrack / Nlyte) through their APIs, holding locally only the fields their APIs cannot carry (OD-01). | M | Both | P1 |
 | DCIM-033 | The system shall publish `dco.dcim.record-changed` with before / after and the change id. | S | Both | P2 |
 | DCIM-034 | The system shall show an Insights page (see 8.6). | S | Both | P2 |
 | DCIM-035 | The system shall show in the device drawer the device's lifecycle (installed, warranty end, vendor support, open RMA) read from the lifecycle record, and link to the device page rather than keep a second device page. | S | Both | P2 |
@@ -1855,7 +1905,7 @@ These datacenter-specific records extend the Plan to Build Inventory asset recor
 | Entity | Read / write | System of record | Notes |
 | --- | --- | --- | --- |
 | Site, device (serial, model, lifecycle) | Read | Plan to Build Inventory | master asset |
-| Floor, hall, row, rack position / budget / type / condition | Read / write | DCIM extension (SynapseDC) or Inventory (to discuss) | — |
+| Floor, hall, row, rack position / budget / type / condition | Read / write | Inventory API where it carries the field, else the SynapseDC DCIM extension store (OD-01) | — |
 | Device placement (rack, U, height, status) | Read / write | DCIM extension | under a change request |
 | Components, modules, inventory items | Read / write | DCIM extension | from type templates |
 | Power panel, feed, PDU, outlet, cord | Read / write | DCIM extension | power chain |
@@ -2169,11 +2219,11 @@ These pages add datacenter analytics on top of records held by existing platform
 **Data needed from Programs & Projects:** programmes (dependencies, phases), projects (stage, start, finish, target, budget approved, progress, planned progress, earned, actual), milestones, work orders (state, kit, crew, change request), commissioning tests, permits, design documents, risks, change orders, the planner plan id. **From Supply Chain:** purchase orders (supplier, lines, ordered, due, state, value).
 
 ### 8.2 Work orders and process KPIs
-**Purpose.** A view of field work and the twelve datacenter processes across the estate, with targets: P01 Site onboarding, P02 Hall fit-out, P03 Customer onboarding, P04 Major incident, P05 Change, P06 Capacity expansion, P07 Firmware campaign, P08 Decommission, P09 Reconciliation, P10 Work order, P11 Maintenance mode, P12 Access request. Each has lanes (candidate roles), user steps with hour targets and automatic steps. The process definitions and instances run over the existing records (delivery work orders = P10, contractor visits = P12, open changes = P05, maintenance = P11, Critical / High incidents = P04, projects = P02 / P03 / P07 / P08, sites being built = P01); which platform module owns the process engine is to discuss (Programs & Projects, Field Force Management or Ops Toolkit Proc Bots).
+**Purpose.** A view of field work and the twelve datacenter processes across the estate, with targets: P01 Site onboarding, P02 Hall fit-out, P03 Customer onboarding, P04 Major incident, P05 Change, P06 Capacity expansion, P07 Firmware campaign, P08 Decommission, P09 Reconciliation, P10 Work order, P11 Maintenance mode, P12 Access request. Each has lanes (candidate roles), user steps with hour targets and automatic steps. The process definitions and instances run over the existing records (delivery work orders = P10, contractor visits = P12, open changes = P05, maintenance = P11, Critical / High incidents = P04, projects = P02 / P03 / P07 / P08, sites being built = P01); the process engine and its instances belong to the existing modules (Programs & Projects, Field Force Management); SynapseDC reads them through their APIs and runs no process engine of its own.
 
 | Widget | Measure / formula | Source module | Drill-down |
 | --- | --- | --- | --- |
-| Running work | open process instances by process and step, ageing | Field Force Management / workflow engine | instance |
+| Running work | open process instances by process and step, ageing | Programs & Projects / Field Force Management API | instance |
 | Process KPIs | cycle time vs target per process; % on time; failed automatic steps | workflow engine | process |
 | Work-order throughput | opened / completed per week; first-time fix; re-plans | Field Force Management | work order |
 | Waiting on kit | work orders blocked by kit not on site | Field Force Management + Supply Chain | PO |
@@ -2282,7 +2332,17 @@ It reads DCIM extensions and Inventory records only.
 
 ## 9 Integration with the existing platform modules
 
-The module is the system of record for the objects listed under "SynapseDC reads". SynapseDC never writes those objects except where "SynapseDC sends" says so, and then through the module's own API or the platform event bus, under the module team's contract. Interface references are to the interface specification (NB = northbound, INT = southbound / records, EW = east–west). Each row is a requirement: `INTG-nnn`.
+Every module below is **consumed through its API only** (ARCH-001…007); the API is assumed available and SynapseDC builds nothing of the module itself. The module is the system of record for the objects listed under "SynapseDC reads". SynapseDC never writes those objects except where "SynapseDC sends" says so, and then through the module's own API or the platform event bus, under the module team's contract. Interface references are to the interface specification (NB = northbound, INT = southbound / records, EW = east–west). Each row is a requirement: `INTG-nnn`.
+
+### 9.0 Telemetry: OAP ingestion and consumer services (ClickHouse)
+
+| ID | SynapseDC reads | SynapseDC sends | Interface | Phase |
+| --- | --- | --- | --- | --- |
+| INTG-055 | — | Every metric and time series from the collector (network, BMC, UPS, PDU, meters, ATS, DG, BMS / cooling / CDU, environment sensors, DCGM / Gaudi / XPU, scheduler, UFM) with labels site · floor · room · rack · device · port · gpu · tenant | OAP telemetry **ingestion** microservice API (OTLP / remote write accepted by it), writing ClickHouse; INT-28 | P1 |
+| INTG-056 | Latest values, ranges, 5-minute / hourly roll-ups, top-N and histograms per series and label set | — | OAP telemetry **consumer** microservice API, reading ClickHouse | P1 |
+| INTG-057 | Retention, roll-up and down-sampling policies | Metric catalogue: names (`dco_<domain>_<quantity>_<unit>`), units, labels, expected interval per source | OAP telemetry services (configuration API) | P1 |
+| INTG-058 | Freshness per series (last sample time, receipt time) for stale / unmonitored states | — | OAP telemetry consumer API | P1 |
+| INTG-059 | — | Metric export to the customer's stack (Prometheus / OTLP / BI) is served by the OAP services, not by SynapseDC | NB-08 | P2 |
 
 ### 9.1 Operate to Acquire (BSS): CRM, Plans & Products Catalog, Orders, Customers, Experience and Care
 
@@ -2317,7 +2377,7 @@ The module is the system of record for the objects listed under "SynapseDC reads
 | --- | --- | --- | --- | --- |
 | INTG-018 | Alerts raised by System Alerts for devices in a datacenter (identity, severity, state, source) | Normalised datacenter alarms from the collector (UPS, PDU, BMS, DCGM, Modbus thresholds) into System Alerts; scope (site / edge / dependency / downstream), placement (site → rack → device → port), rack-level and shared-fault tags | EW (System Alerts) / INT-28 | P1 |
 | INTG-019 | Alert routing, paging chain, on-call now (System Alerts, or PagerDuty / Opsgenie behind it) | Page on incident open / severity change; acknowledgements back | EW / NB-05 | P1 |
-| INTG-020 | Telemetry pipelines (Telemetry Ops): series from the collector's OTLP / remote write stream | Collector configuration: targets, intervals, mapping tables; collector heartbeat | EW (Telemetry Ops) / INT-28 | P1 |
+| INTG-020 | Telemetry pipeline state (Telemetry Ops); the series themselves come through the OAP services (9.0) | Collector configuration: targets, intervals, mapping tables; collector heartbeat | EW (Telemetry Ops) / INT-28 | P1 |
 | INTG-021 | Data quality and pipeline state (Data Ops) | Monitoring gaps: collector stale / down, device unmonitored, silent source | EW (Data Ops) | P1 |
 | INTG-022 | Job scheduler integration state (Infra Ops) for Slurm / Kubernetes / Run:ai | — | EW (Infra Ops) / INT-12 | P1 |
 | INTG-023 | Cost data and budgets (Fin Ops) | Power cost per site, per sold MW-month, per GPU-hour, idle power cost, contract findings | EW (Fin Ops) | P2 |
@@ -2346,7 +2406,7 @@ The module is the system of record for the objects listed under "SynapseDC reads
 | --- | --- | --- | --- | --- |
 | INTG-032 | Data model registry: the SynapseDC entities (51) and relationships (107) registered as a domain | Entity definitions with fields marked Import / Live / Derived; the import template | EW (Intelligence Hub) | P1 |
 | INTG-033 | — | Hourly roll-ups, alarms, incidents, changes, revenue, GPU job hours, power to the data lake / BI (Parquet / CSV or SQL views **(to discuss)**) | NB-08 / NB-09 | P2 |
-| INTG-034 | — | Normalised metric series (`dco_*`) to Prometheus / OTLP | NB-08 | P2 |
+| INTG-034 | — | Normalised metric series (`dco_*`) to Prometheus / OTLP — served by the OAP telemetry services (INTG-059) | NB-08 | P2 |
 
 ### 9.7 Plan to Build: Inventory Planning, Inventory, IP Management, Programs & Projects
 
@@ -2383,6 +2443,27 @@ The module is the system of record for the objects listed under "SynapseDC reads
 | INTG-053 | Customer's observability stack (Prometheus, Grafana, Datadog) | metric export | NB-08 | P2 |
 | INTG-054 | Customer portal | embedded screens; tenant-scoped API **(to discuss)** | NB-11, NB-12 | P1 / P3 |
 
+
+### 9.10 API needs per module (to confirm with each module team)
+
+SynapseDC assumes these APIs exist (ARCH-001). A module team that cannot offer one records it here as an API gap; SynapseDC does not build a local substitute (ARCH-004).
+
+| Module | Read APIs SynapseDC calls | Write APIs SynapseDC calls | Events SynapseDC subscribes to |
+| --- | --- | --- | --- |
+| OAP telemetry services | query latest / range / roll-up / top-N / histogram; freshness | ingest (OTLP / remote write); metric catalogue | — |
+| Ops Toolkit System Alerts | alerts by site / device / state; alert by id | raise / update / clear alert; add scope and placement tags; acknowledge | alert raised / cleared |
+| Ops Toolkit Security Ops | detections, cases, rules, vulnerabilities, sensors by site | datacenter context dictionaries; physical exceptions; case links | detection raised, case changed |
+| Ops Toolkit Telemetry / Data / Infra / Fin Ops | pipeline and scheduler integration state; cost data | collector configuration; power cost figures | pipeline state changed |
+| Services & ITSM | incidents, problems, changes (with class, window, approvals, freezes), tickets, maintenance windows, knowledge articles | create / update incident, worklog, resolve; create change request, attach work items, transition; create problem; create ticket | incident / change / ticket changed |
+| BSS (CRM, Customers, Orders, Catalog, Experience and Care) | customers, contracts and SLA, services with placement, products | impact per customer; notices; SLA credits; metered usage | customer / contract / order changed |
+| Plan to Build Inventory | sites, rooms, racks, devices, modules, lifecycle, owners | DCIM extensions it can carry; observed state for reconciliation | asset created / changed |
+| Plan to Build Inventory Planning | capacity targets, holds | reservations from approved plans | plan / hold changed |
+| Plan to Build IP Management | prefixes, VRFs, VLANs, addresses | address assignment from DCIM (under a CR) | address changed |
+| Plan to Build Programs & Projects | programmes, projects, milestones, work orders, POs, commissioning, risks, change orders, cost | create project from an approved plan; handover status | project / work order changed |
+| Supply Chain | vendors, contracts, catalogue prices, lead times, stock, POs, FFM jobs | BoM with sourcing; spare draw-down | PO / stock changed |
+| Platform Engineering | identity, roles, scopes, flags, custom fields, tags | — | — |
+| AI Foundry | models / agents for Opstral AI | tool definitions | — |
+| Intelligence Hub | data model registry | entity definitions | — |
 ---
 
 ## 10 Data requirements
@@ -2403,6 +2484,8 @@ The module is the system of record for the objects listed under "SynapseDC reads
 | DATA-008 | Tenant-owned equipment (Colo) shall be stored as an opaque block per cabinet (owner, contracted kW, role) with no device records inside it. | M | P1 |
 | DATA-009 | GPU records shall carry the DCGM field set per GPU and 24 h history; job records carry job id, customer, GPUs / nodes, state, step time, MFU, last checkpoint. Workload data, models and code are never stored. | M | P1 |
 | DATA-010 | Custom fields and tags from Platform Engineering shall be attachable to site, rack, device and customer. | S | P2 |
+| DATA-015 | Telemetry samples shall be stored only in ClickHouse through the OAP ingestion service; SynapseDC stores no samples, and every live figure is read through the OAP consumer API with its source and receipt time. | M | P1 |
+| DATA-016 | Records owned by an existing module shall be referenced by that module's id; SynapseDC holds only derived results and datacenter-specific extensions keyed by it (ARCH-003, ARCH-012). | M | P1 |
 | DATA-011 | All per-persona vocabulary (customer / service / premium words, capacity unit, money words) shall be configuration, not code. | M | P1 |
 
 ### 10.2 Onboarding data (the import template)
@@ -2416,6 +2499,8 @@ The inventory import template (one sheet per entity, 35 data sheets, field dicti
 | DATA-014 | The system shall export any site in the same template layout (data backup). | S | P2 |
 
 ### 10.3 Retention
+
+Telemetry retention (raw samples and roll-ups) is set in the OAP telemetry services on ClickHouse; the figures below are what SynapseDC's screens need from them.
 
 | Data | Retention (proposed, **to discuss**) |
 | --- | --- |
@@ -2434,7 +2519,7 @@ The inventory import template (one sheet per entity, 35 data sheets, field dicti
 | --- | --- | --- | --- |
 | NFR-001 | Availability | Central platform API and screens 99.9 % monthly; the collector buffers 72 h so a WAN outage leaves no gap. | M |
 | NFR-002 | Latency | Trap / push sources on screen and in the northbound event ≤ 15 s p95; polled sources ≤ one interval + 10 s; incident opened ≤ 60 s after the first alarm; API p95 ≤ 300 ms (one object), ≤ 1 s (lists and roll-ups). | M |
-| NFR-003 | Scale | 100 sites, 200 k devices, 50 k GPUs per tenant; ≥ 500 k samples / s and ≥ 2 k events / s per region. | M |
+| NFR-003 | Scale | 100 sites, 200 k devices, 50 k GPUs per tenant; ≥ 500 k samples / s and ≥ 2 k events / s per region. The sample rate is carried by the OAP telemetry ingestion service on ClickHouse (a dependency); SynapseDC's own load is the read models and API. | M |
 | NFR-004 | Polling | UPS / ATS 10 s + traps; interfaces 30 s (gNMI 10 s); ICMP 30 s, 3 misses; DCGM 10–30 s; PDUs / sensors / cooling / BMC 60 s; inventory 6–24 h + events; records webhooks + daily; OEM weekly. | M |
 | NFR-005 | Security | Read-only southbound; outbound-only collector over mTLS 443; SNMPv3 authPriv; Redfish HTTPS; BACnet/SC where available; Modbus / BACnet/IP / SNMP v2c only on isolated VLANs; credentials in the collector vault, rotated ≤ 90 days; OAuth 2.0 / OIDC northbound with scopes per area; every write audited. | M |
 | NFR-006 | Tenancy and privacy | Per-tenant separation; tenant-scoped tokens see only their objects; colocation tenant gear never polled; GPU workload contents never read; data residency per customer. | M |
@@ -2503,7 +2588,8 @@ Each site follows the engagement journey in the customer engagement guide; the B
 
 ### 13.1 Assumptions
 
-- The platform modules expose APIs and events sufficient for section 9; their teams own the contracts and agree the fields SynapseDC needs.
+- The existing platform modules expose APIs and events sufficient for section 9 (listed in 9.10); SynapseDC consumes them and builds nothing of the modules themselves. Their teams own the contracts and agree the fields SynapseDC needs.
+- The OAP telemetry ingestion and consumer microservices are available, read and write ClickHouse, and carry the sample rates in NFR-003.
 - Customers grant read-only access to the BMS, UPS, PDUs, network, BMCs and (Neo) DCGM / scheduler, and raise the firewall rules in the interface specification.
 - One collector (plus standby) can be placed on each site's management network.
 - Service placement (which device / port / rack carries which service) exists in BSS Orders, the OSS / control plane or the tenant register; without it impact and revenue are per site only.
@@ -2512,6 +2598,7 @@ Each site follows the engagement journey in the customer engagement guide; the B
 
 | On | For |
 | --- | --- |
+| OAP telemetry ingestion / consumer services (ClickHouse) | every live figure, history and freshness (P1) |
 | Ops Toolkit System Alerts | alarm record, routing, paging (P1) |
 | Services & ITSM Incidents / Change Management | incident and change records, CR gate for DCIM (P1) |
 | BSS Customers / Orders / Catalog | customers, contracts, services (P1) |
@@ -2528,7 +2615,7 @@ Each site follows the engagement journey in the customer engagement guide; the B
 | R-01 | BMS owners refuse BACnet access (safety) | Environment / cooling tabs partly blind | Relay contacts and OPC UA alternatives; the site integration survey settles it before go-live |
 | R-02 | GPU job progress (step time, MFU, checkpoints) is only inside the training framework | GPU time lost and work-to-redo degrade to allocation-level | Agree a metrics / log export with the AI platform team; show scheduler-level state until then |
 | R-03 | Service placement missing or stale | Impact and money per customer wrong | Placement differences reported to BSS / OSS; site-level figures flagged "placement incomplete" |
-| R-04 | Platform module APIs not ready for the fields needed | Integration slips | Section 9 agreed per module before P1 build; import template as interim |
+| R-04 | Platform module APIs not ready for the fields needed | Integration slips | API needs in 9.10 agreed per module before P1 build; gaps go to the module's backlog (ARCH-004); the import template loads only datacenter-specific data |
 | R-05 | Power chain and cabling records absent at most customers | Physical last mile, SPOF and what-if empty | Template, site survey and audit services at onboarding; DCIM lets engineers record as they audit |
 | R-06 | Tariffs and SLA credit rules differ per contract | Money figures disputed | Contract-level rules synced from BSS; "illustrative" flag until replaced |
 | R-07 | Tenant privacy concerns (Colo) | Sales objection | Never poll tenant gear; cabinet-level only; the engagement guide's wording |
@@ -2537,7 +2624,7 @@ Each site follows the engagement journey in the customer engagement guide; the B
 
 | ID | Decision | Owner | Needed by |
 | --- | --- | --- | --- |
-| OD-01 | System of record per DCIM object: Plan to Build Inventory holds the asset; SynapseDC holds the datacenter extensions — confirm the field boundary with the Inventory team | Inventory + SynapseDC | P1 design |
+| OD-01 | Which DCIM extensions (U position, outlets and cords, panels and feeds, patch panels, trunks, cable paths, rack type and condition, facility design ratings) the Plan to Build Inventory API can carry; SynapseDC stores only the rest (ARCH-012) | Inventory + SynapseDC | P1 design |
 | OD-02 | GPU job progress export (metrics endpoint or log line) | AI platform teams / customers | P1 pilot |
 | OD-03 | BMS access: BACnet / OPC UA read-only or relay contacts only | Customer facility owner | per site |
 | OD-04 | SLA credit model per contract (tiers, locked-in credits) | BSS + Finance | P1 |
@@ -2545,8 +2632,8 @@ Each site follows the engagement journey in the customer engagement guide; the B
 | OD-06 | Retention periods and data residency | Platform + customers | P1 |
 | OD-07 | PUE reporting category per site (ISO/IEC 30134-2) and carbon factor edition | Facilities + Finance | P2 |
 | OD-08 | Humidity band: 40–60 % RH or the ASHRAE dew-point envelope | Facilities | P1 |
-| OD-09 | Work orders raised from DCIM change requests: Programs & Projects or FFM | Plan to Build + Supply Chain | P2 |
-| OD-10 | Platform modules for facility live state, twin, capacity, planner engine, revenue, RCA, compliance, access log (today held in SynapseDC) | Platform architecture | P2 |
+| OD-09 | Which API receives work orders raised from DCIM change requests and RMAs: Programs & Projects or Field Force Management (both consumed, neither rebuilt) | Plan to Build + Supply Chain | P2 |
+| OD-10 | Decided 28-Oct-2026: datacenter-specific capabilities (facility live state, twin, capacity, planner engine, revenue, RCA, compliance, access exceptions) are built in SynapseDC; everything an existing module owns is consumed through its API (3.4) | — | closed |
 | OD-11 | BI access: SQL views on the analytics store or export only | Intelligence Hub | P2 |
 
 ---
@@ -2633,7 +2720,7 @@ The requirement index (every FR, business rule and user story by chapter, with m
 
 ## Appendix A — Requirement index
 
-478 functional requirements, 191 business rules, 95 user stories, 54 integration requirements, 14 data requirements, 20 non-functional requirements. By phase: P1 213, P2 237, P3 28. By priority: M 289, S 169, C 20. By model: Both 401, Colo 20, Neo 57.
+478 functional requirements, 191 business rules, 95 user stories, 12 build-boundary requirements, 59 integration requirements, 16 data requirements, 20 non-functional requirements. By phase: P1 213, P2 237, P3 28. By priority: M 289, S 169, C 20. By model: Both 401, Colo 20, Neo 57.
 
 | ID | Requirement | Pri | Model | Phase |
 | --- | --- | --- | --- | --- |
@@ -2772,9 +2859,9 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | GPU-007 | The system shall sort jobs by lost-now rate, then at stake, then GPUs. | S | Neo | P1 |
 | GPU-008 | The system shall show a collapsible "Jobs needing attention" section with the Biggest blas… | S | Neo | P1 |
 | GPU-009 | The system shall show a fleet summary strip: GPUs installed, in a job, healthy %, jobs by | M | Neo | P1 |
-| GPU-010 | The system shall ingest the DCGM fields per GPU: utilisation, SM active, tensor active, me… | M | Neo | P1 |
-| GPU-011 | The system shall ingest the vendor equivalents for Intel Gaudi (hl-smi / exporter) and Int… | S | Neo | P2 |
-| GPU-012 | The system shall keep a 24-hour hourly history per node, ending on the current reading, an… | M | Neo | P1 |
+| GPU-010 | The system shall read, through the OAP telemetry consumer API, the DCGM fields per GPU: ut… | M | Neo | P1 |
+| GPU-011 | The system shall read, through the OAP telemetry consumer API, the vendor equivalents for | S | Neo | P2 |
+| GPU-012 | The system shall read a 24-hour hourly history per node from the OAP telemetry consumer AP… | M | Neo | P1 |
 | GPU-013 | The system shall show fleet telemetry: utilisation and temperature histograms, 24 h fleet | S | Neo | P1 |
 | GPU-014 | The system shall show the node detail (drawer and device page) with a health view, a profi… | M | Neo | P1 |
 | GPU-015 | The system shall classify Xid events per BRULE-GPU-10 and raise GPU alarms with the Xid co… | M | Neo | P1 |
@@ -2805,7 +2892,7 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | GPU-040 | The system shall show per-counter leaders on the Telemetry tab: hottest GPUs, most PCIe re… | S | Neo | P1 |
 | GPU-041 | The system shall show a cluster's nodes on the datacenter Equipment tab with the 8-GPU str… | S | Neo | P1 |
 | ALM-001 | The system shall convert every incoming event (trap, syslog, Redfish event, DCGM Xid, BACn… | M | Both | P1 |
-| ALM-002 | The system shall store both the normalised alarm and the raw event for audit and replay. | M | Both | P1 |
+| ALM-002 | The system shall send both the normalised alarm and the raw event to Ops Toolkit System Al… | M | Both | P1 |
 | ALM-003 | The system shall de-duplicate and clear alarms per BRULE-ALM-01. | M | Both | P1 |
 | ALM-004 | The system shall detect flapping per BRULE-ALM-02 and mark the alarm flapping. | M | Both | P1 |
 | ALM-005 | The system shall map source severity to Critical / Major / Minor / Warning from an editabl… | M | Both | P1 |
@@ -2827,13 +2914,13 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | ALM-021 | The system shall let a user raise an emergency change from an incident, linked to it. | S | Both | P1 |
 | ALM-022 | The system shall run the verification checklist per BRULE-ALM-14 before an incident can be… | M | Both | P1 |
 | ALM-023 | The system shall show similar past incidents and the nodes they shared. | C | Both | P2 |
-| ALM-024 | The system shall keep an incident worklog with system, human and AI entries, synced with t… | M | Both | P1 |
+| ALM-024 | The system shall show the incident worklog from Services & ITSM and post its system and AI… | M | Both | P1 |
 | ALM-025 | The system shall group incidents into problems by common cause and show them on an Inciden… | S | Both | P2 |
 | ALM-026 | The system shall show "On call & communications" per incident: on-call engineer from the r… | S | Both | P2 |
 | ALM-027 | The system shall show the response and resolve SLA clocks per incident and flag past-SLA i… | M | Both | P1 |
 | ALM-028 | The system shall show an incident's revenue impact panel from the Revenue Impact model. | M | Both | P1 |
-| ALM-029 | The system shall raise monitoring-gap alarms and the unmonitored device state per BRULE-AL… | M | Both | P1 |
-| ALM-030 | The system shall raise GPU alarms (Xid, ECC, NVLink, throttle) and create GPU-type inciden… | M | Neo | P1 |
+| ALM-029 | The system shall raise monitoring-gap alarms through the System Alerts API and show the un… | M | Both | P1 |
+| ALM-030 | The system shall raise GPU alarms (Xid, ECC, NVLink, throttle) through the System Alerts A… | M | Neo | P1 |
 | ALM-031 | The system shall raise tenant cabinet alarms from power and environment only, and treat a | M | Colo | P1 |
 | ALM-032 | The system shall raise power-contract findings (block ≥ 85 % drawn, new demand peak above | S | Both | P2 |
 | ALM-033 | The system shall show incident list views Open, Critical open, High open, Breaching SLA an… | M | Both | P1 |
@@ -2927,7 +3014,7 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | CAP-017 | The system shall show energy and power cost per job and per tenant against what each earns… | M | Neo | P2 |
 | CAP-018 | The system shall show the kW a power cap saves against the GPU time it costs. | S | Neo | P2 |
 | CAP-019 | The system shall detect the four power findings (BRULE-CAP-10 to BRULE-CAP-13) each data c… | M | Both | P2 |
-| CAP-020 | The system shall raise one alarm per finding and one Medium incident for the costliest blo… | M | Both | P2 |
+| CAP-020 | The system shall raise one alarm per finding (System Alerts API) and one Medium incident f… | M | Both | P2 |
 | CAP-021 | The system shall list the power findings with severity, exposure, evidence, and links to t… | M | Both | P2 |
 | CAP-022 | The system shall publish `dco.power.finding` events for every finding (NB-02 / NB-03). | S | Both | P2 |
 | CAP-023 | The system shall rank GPU pods for a placement request of 8–256 GPUs of a chosen model, wi… | M | Neo | P2 |
@@ -2986,24 +3073,24 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | PLN-038 | The system shall offer, in Send for review, the attachment choice PDF / ZIP / link only, a… | S | Both | P2 |
 | PLN-039 | The system shall open scenarios on demand from the plan header as a What-if drawer, and sh… | M | Both | P2 |
 | PLN-040 | The system shall warn before leaving the wizard with unsaved changes, and let the user jum… | S | Both | P2 |
-| PLN-041 | The system shall keep Delivery's purchase orders equal to the plan's vendor orders (one pe… | M | Both | P2 |
+| PLN-041 | The system shall send the plan's vendor orders (one per vendor and phase) to Programs & Pr… | M | Both | P2 |
 | PLN-042 | The system shall record closeout changes through the audited action in BRULE-PLN-15 and sh… | S | Both | P2 |
 | PLN-043 | The system shall let a template owner make a variant, publish or retire a template and edi… | M | Both | P2 |
 | PLN-044 | The system shall filter benchmarks per view (reference value, site type, cooling, tier, re… | S | Both | P2 |
 | PLN-045 | The system shall show on the Command Center a Plan & build strip (capacity pipeline planne… | S | Both | P2 |
 | PLN-046 | The system shall show per plan an Overview dashboard: what and why with the Draft → In rev… | M | Both | P2 |
 | PLN-047 | The system shall show on every plan ONE status line: state in words, whose decision, block… | M | Both | P2 |
-| PLN-048 | The system shall list in the plan pack what the plan creates with links into Delivery, IP | S | Both | P2 |
-| DCIM-001 | The system shall hold the hierarchy site → floor → hall → row → rack → device → components… | M | Both | P1 |
-| DCIM-002 | The system shall store rack grid position, row, U height, budget kW, type (e.g. a legacy 6… | M | Both | P1 |
-| DCIM-003 | The system shall store each device's rack, U position, height and status (BRULE-DCIM-02). | M | Both | P1 |
-| DCIM-004 | The system shall store device components: ports with speed and admin state, power ports wi… | M | Both | P1 |
-| DCIM-005 | The system shall store power panels (busway A / B per hall or −48 V distribution), feeds (… | M | Both | P1 |
-| DCIM-006 | The system shall store data cables with the structured route of BRULE-DCIM-06, and reconci… | M | Both | P1 |
+| PLN-048 | The system shall list in the plan pack what the plan creates with links into Programs & Pr… | S | Both | P2 |
+| DCIM-001 | The system shall present the hierarchy site → floor → hall → row → rack → device → compone… | M | Both | P1 |
+| DCIM-002 | The system shall store (in the Inventory record through its API where it carries the field… | M | Both | P1 |
+| DCIM-003 | The system shall store (in the Inventory record through its API where it carries the field… | M | Both | P1 |
+| DCIM-004 | The system shall store (in the Inventory record through its API where it carries the field… | M | Both | P1 |
+| DCIM-005 | The system shall store (in the Inventory record through its API where it carries the field… | M | Both | P1 |
+| DCIM-006 | The system shall store (in the Inventory record through its API where it carries the field… | M | Both | P1 |
 | DCIM-007 | The system shall show a floor plan per hall, coloured by Thermal, Density or Tenant (draw | M | Both | P1 |
 | DCIM-008 | The system shall show rack elevations (front / rear) with devices, PDUs, cords, cables and… | M | Both | P1 |
 | DCIM-009 | The system shall show a cable's path end to end, hop by hop, from a port, link or device. | M | Both | P1 |
-| DCIM-010 | The system shall keep a device-type and module-type catalogue (vendor, model, U, typical W… | M | Both | P1 |
+| DCIM-010 | The system shall read device and module types (vendor, model) from the Inventory API and k… | M | Both | P1 |
 | DCIM-011 | The system shall show a Sites / Racks / Devices / Cabling / Power / Catalogue / Hierarchy | M | Both | P1 |
 | DCIM-012 | The system shall let a user create a rack and install a device with U-range validation (BR… | M | Both | P2 |
 | DCIM-013 | The system shall let a user move a device to another U or rack at the site, by form or by | M | Both | P2 |

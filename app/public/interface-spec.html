@@ -174,9 +174,9 @@ body.embed .bar { padding-top: 12px; }
           <rect x="220" y="188" width="176" height="44" rx="6" fill="var(--bg)" stroke="var(--line)"/><text x="308" y="207" text-anchor="middle">API gateway</text><text x="308" y="223" text-anchor="middle" fill="var(--muted)" font-size="10.5">OAuth 2.0 · rate limits · audit</text>
           <rect x="412" y="188" width="176" height="44" rx="6" fill="var(--bg)" stroke="var(--line)"/><text x="500" y="207" text-anchor="middle">Event bus</text><text x="500" y="223" text-anchor="middle" fill="var(--muted)" font-size="10.5">CloudEvents · outbox</text>
           <rect x="604" y="188" width="176" height="44" rx="6" fill="var(--bg)" stroke="var(--line)"/><text x="692" y="207" text-anchor="middle">Read models</text><text x="692" y="223" text-anchor="middle" fill="var(--muted)" font-size="10.5">impact · revenue · RCA · GPU</text>
-          <rect x="220" y="242" width="176" height="44" rx="6" fill="var(--bg)" stroke="var(--line)"/><text x="308" y="261" text-anchor="middle">Ingest</text><text x="308" y="277" text-anchor="middle" fill="var(--muted)" font-size="10.5">OTLP · remote write · events</text>
-          <rect x="412" y="242" width="176" height="44" rx="6" fill="var(--bg)" stroke="var(--line)"/><text x="500" y="261" text-anchor="middle">Stores</text><text x="500" y="277" text-anchor="middle" fill="var(--muted)" font-size="10.5">time series · events · records</text>
-          <rect x="604" y="242" width="176" height="44" rx="6" fill="var(--bg)" stroke="var(--line)"/><text x="692" y="261" text-anchor="middle">Connectors</text><text x="692" y="277" text-anchor="middle" fill="var(--muted)" font-size="10.5">ITSM · CRM · DCIM · OEM</text>
+          <rect x="220" y="242" width="176" height="44" rx="6" fill="var(--bg)" stroke="var(--line)"/><text x="308" y="261" text-anchor="middle">OAP telemetry services</text><text x="308" y="277" text-anchor="middle" fill="var(--muted)" font-size="10.5">ingestion · consumer · ClickHouse</text>
+          <rect x="412" y="242" width="176" height="44" rx="6" fill="var(--bg)" stroke="var(--line)"/><text x="500" y="261" text-anchor="middle">SynapseDC store</text><text x="500" y="277" text-anchor="middle" fill="var(--muted)" font-size="10.5">datacenter-specific data only</text>
+          <rect x="604" y="242" width="176" height="44" rx="6" fill="var(--bg)" stroke="var(--line)"/><text x="692" y="261" text-anchor="middle">Module API clients</text><text x="692" y="277" text-anchor="middle" fill="var(--muted)" font-size="10.5">BSS · ITSM · Plan to Build · Ops</text>
         </g>
 
         <text x="20" y="176" font-weight="600" fill="var(--ew)">EAST–WEST</text>
@@ -226,6 +226,7 @@ body.embed .bar { padding-top: 12px; }
     <li><b>Idempotent and replayable.</b> Every write carries an <code>Idempotency-Key</code>; every event has an id and a per-object sequence; consumers can replay from a cursor or Kafka offset.</li>
     <li><b>Versioned.</b> URL major version (<code>/v1</code>); additive changes only within a version; deprecations announced with <code>Deprecation</code> and <code>Sunset</code> headers at least 6 months ahead.</li>
     <li><b>Time and identity.</b> All times are UTC, RFC 3339 in JSON (the prototype uses epoch ms internally); every sample keeps the source and receipt timestamps. Object ids are stable strings (<code>MH-DC-001</code>, <code>INC-0001</code>, <code>CHG-2001</code>); external references are kept in <code>externalRefs[]</code>.</li>
+    <li><b>Consume the platform, build only what is datacenter-specific.</b> Existing platform modules (BSS, Services &amp; ITSM, Ops Toolkit, AI Foundry, Platform Engineering, Intelligence Hub, Plan to Build, Supply Chain) are consumed only through their APIs; SynapseDC builds no database, backend or screen for them. Telemetry is written through the <b>OAP telemetry ingestion microservice</b> and read through the <b>OAP telemetry consumer microservice</b>, both on ClickHouse; SynapseDC runs no time-series store (BRD 3.4, ARCH-001…012).</li>
     <li><b>Customers' data stays theirs.</b> For colocation, tenant equipment is never polled (power and environment at the cabinet only). For a GPU cloud, GPU telemetry and job metadata are read; workload data, models and code never are.</li>
   </ol>
 </section>
@@ -458,6 +459,7 @@ POST /api/dco/v1/incidents/INC-0003/worklog      Idempotency-Key: 81aa…
       <tr><td>SQL</td><td>read-only views on the analytics store <span class="tag td">to discuss</span></td><td>for BI tools (Power BI, Tableau, Superset)</td></tr>
     </tbody>
   </table></div>
+  <p>Metric export is served by the OAP telemetry services from ClickHouse; SynapseDC does not hold a copy of the samples.</p>
   <p><b>Metric naming:</b> <code>dco_&lt;domain&gt;_&lt;quantity&gt;_&lt;unit&gt;</code>, e.g. <code>dco_power_rack_draw_kw</code>, <code>dco_ups_runtime_seconds</code>, <code>dco_env_inlet_temp_celsius</code>, <code>dco_if_in_bits_total</code>, <code>dco_gpu_sm_active_ratio</code>. Labels: <code>site</code>, <code>floor</code>, <code>room</code>, <code>rack</code>, <code>device</code>, <code>port</code>, <code>gpu</code>, <code>tenant</code> (only where the token may see it). GPU series keep the DCGM field name in a <code>field</code> label.</p>
 </section>
 
@@ -540,8 +542,8 @@ POST /api/dco/v1/incidents/INC-0003/worklog      Idempotency-Key: 81aa…
   <div class="tw"><table>
     <thead><tr><th>Stream</th><th>Protocol</th><th>Payload</th></tr></thead>
     <tbody>
-      <tr><td>Metrics</td><td>OTLP/gRPC or Prometheus remote write over HTTPS 443</td><td>normalised series with labels (site, rack, device, port, gpu)</td></tr>
-      <tr><td>Events</td><td>HTTPS 443 batch POST <code>/ingest/v1/events</code> (or Kafka produce where offered)</td><td>normalised alarm raise / clear + the raw event for audit</td></tr>
+      <tr><td>Metrics</td><td>to the <b>OAP telemetry ingestion microservice</b> (OTLP/gRPC or Prometheus remote write over HTTPS 443), which writes ClickHouse; screens read them back through the <b>OAP telemetry consumer microservice</b></td><td>normalised series with labels (site, rack, device, port, gpu)</td></tr>
+      <tr><td>Events</td><td>Ops Toolkit System Alerts API over HTTPS 443 (or Kafka produce where offered)</td><td>normalised alarm raise / clear + the raw event for audit</td></tr>
       <tr><td>Inventory snapshots</td><td>HTTPS 443 <code>/ingest/v1/inventory</code></td><td>discovered devices, modules, serials, firmware, LLDP neighbours</td></tr>
       <tr><td>Heartbeat</td><td>HTTPS 443 every 60 s</td><td>collector state, queue depth, per-target status</td></tr>
       <tr><td>Config</td><td>HTTPS 443 long poll</td><td>job list, mapping tables, releases</td></tr>
