@@ -1,6 +1,6 @@
 import {
 	Activity, ArrowLeftRight, ArrowRight, ArrowUpRight, BadgeDollarSign, BellRing, BookOpen, Building, Building2, Cable, Check, ChevronDown, CircleHelp,
-	ClipboardList, Database, FolderKanban, Layers, SlidersHorizontal, Waypoints, ChevronRight,
+	ClipboardList, Database, Download, FolderKanban, Layers, SlidersHorizontal, Waypoints, ChevronRight,
 	ClipboardCheck, Cloud, Cpu, DraftingCompass, EyeOff, FileText, Gauge, HardHat, Landmark, LayoutDashboard, LineChart, Lock,
 	Mail, Menu, Minus, Monitor, Network, Newspaper, Plug, Plus, RadioTower, Receipt, Scale, Server, Shield, ShieldCheck, Siren,
 	Sparkles, Thermometer, UserRound, Users, Video, Warehouse, Workflow, X, Zap, type LucideIcon,
@@ -8,7 +8,7 @@ import {
 
 /** Icons by name, so content files can stay plain data. Add new names here. */
 const ICONS: Record<string, LucideIcon> = {
-	"arrow-left-right": ArrowLeftRight, "bell-ring": BellRing, "clipboard-list": ClipboardList, database: Database, "folder-kanban": FolderKanban, layers: Layers, "sliders-horizontal": SlidersHorizontal, waypoints: Waypoints, "chevron-right": ChevronRight,
+	"arrow-left-right": ArrowLeftRight, "bell-ring": BellRing, "clipboard-list": ClipboardList, database: Database, "folder-kanban": FolderKanban, layers: Layers, "sliders-horizontal": SlidersHorizontal, waypoints: Waypoints, "chevron-right": ChevronRight, download: Download,
 	activity: Activity, arrow: ArrowRight, "arrow-up-right": ArrowUpRight, "badge-dollar-sign": BadgeDollarSign, "book-open": BookOpen,
 	building: Building, "building-2": Building2, cable: Cable, check: Check, "chevron-down": ChevronDown, "circle-help": CircleHelp,
 	"clipboard-check": ClipboardCheck, cloud: Cloud, cpu: Cpu, "drafting-compass": DraftingCompass, "eye-off": EyeOff, "file-text": FileText,
