@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CtaBand, FaqList, Kicker, Section, SplitFeature } from "@/components/Blocks";
+import { ArtFor } from "@/components/art";
 import { Intro } from "@/components/home/Intro";
 import { Marquee } from "@/components/home/Marquee";
 import { Icon } from "@/components/Icon";
