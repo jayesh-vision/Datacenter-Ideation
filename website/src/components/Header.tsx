@@ -22,10 +22,7 @@ function Panel({ item }: { item: NavItem }) {
 									</span>
 								)}
 								<span>
-									<strong>
-									{l.label}
-									{l.badge && <b className="addon-badge">{l.badge}</b>}
-								</strong>
+									<strong>{l.label}</strong>
 									{l.desc && <small>{l.desc}</small>}
 								</span>
 							</Link>

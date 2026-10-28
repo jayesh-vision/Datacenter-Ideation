@@ -42,9 +42,8 @@ SynapseDC is the END-TO-END platform to **plan, build and operate** datacenters,
   no console errors). Scratch scripts used so far: viewport walk, full-page shot, menu click test (Playwright from `../app`).
 - No deploy without the user's go-ahead (no Vercel project yet).
 
-## GPU Fleet is an add-on (28-Oct-2026, user)
-GPU Fleet is sold separately: `addon: true` on the module (modules.ts) and the platform-map node shows an "Add-on" badge
-(`.addon-badge`) in the menu, cards, platform map and module page. `/gpu-ai` (top menu "GPU & AI") is the premium page:
-core platform = what a GPU depends on (power path, CDU loops, liquid racks, capacity, power bill, AI hall planning, DCIM);
-add-on = the GPU, the job, the customer and their cost (`components/gpu/GpuChain.tsx` draws the split; packaging table on
-/gpu-ai). Home carries `home/GpuBand.tsx` right after the intro. No pricing model is stated (only "licensed separately").
+## GPU & AI is the flagship use case (28-Oct-2026, user)
+GPU Fleet is part of the solution, NOT an add-on (the user reversed an add-on idea the same day): no "add-on", no packaging /
+"included vs extra" wording anywhere. `/gpu-ai` (top menu "GPU & AI") presents GPU as the powerful use case: what a GPU depends
+on (power path, CDU loops, liquid racks) and what it earns (GPU, job, customer, revenue) on one estate model
+(`components/gpu/GpuChain.tsx`), five GPU use cases, AI hall plan & build, coverage, FAQ. Home carries `home/GpuBand.tsx` after the intro.

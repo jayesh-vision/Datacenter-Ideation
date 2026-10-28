@@ -10,7 +10,6 @@ export interface NavLink {
 	href: string;
 	desc?: string;
 	icon?: string;
-	badge?: string;
 }
 export interface NavItem {
 	label: string;
@@ -23,7 +22,7 @@ export interface NavItem {
 
 const moduleLink = (slug: string): NavLink => {
 	const m = modules.find((x) => x.slug === slug)!;
-	return { label: m.name, desc: m.short, icon: m.icon, href: `/platform/${m.slug}`, badge: m.addon ? "Add-on" : undefined };
+	return { label: m.name, desc: m.short, icon: m.icon, href: `/platform/${m.slug}` };
 };
 
 export const navigation: NavItem[] = [
@@ -47,7 +46,7 @@ export const navigation: NavItem[] = [
 			{ heading: "By role", links: roles.map((r) => ({ label: r.name, desc: r.short, icon: r.icon, href: `/roles/${r.slug}` })) },
 		],
 		promo: {
-			kicker: "GPU Fleet add-on",
+			kicker: "GPU cloud story",
 			title: "One failed GPU stopped 152 GPUs",
 			desc: "Which job, which customer, what per hour and where the last checkpoint is.",
 			cta: "See GPU & AI",

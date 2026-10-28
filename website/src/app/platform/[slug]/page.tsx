@@ -29,7 +29,7 @@ export default async function ModulePage({ params }: Params) {
 		<>
 			<JsonLd schema={[softwareSchema(m.name, m.metaDesc, path, m.capabilities.map((c) => c.title)), breadcrumbSchema([{ name: "Home", path: "/" }, { name: "Platform", path: "/platform" }, { name: m.name, path }])]} />
 			<PageHero
-				kicker={`${m.stage} · ${m.name}${m.addon ? " · Add-on" : ""}`}
+				kicker={`${m.stage} · ${m.name}`}
 				title={m.headline}
 				summary={m.summary}
 				art={m.slug}
@@ -73,14 +73,6 @@ export default async function ModulePage({ params }: Params) {
 					</>
 				)}
 			</Section>
-
-			{m.addon && (
-				<Section kicker="Add-on" title={`${m.name} is sold as an add-on.`} intro="The core platform already runs the building around your GPUs: power paths, CDU loops, liquid racks, capacity, the power bill and the AI hall plan. The add-on brings the GPU, the job and the customer into the same model.">
-					<Link className="btn btn-primary" href="/gpu-ai">
-						What the add-on includes <Icon name="arrow" size={16} />
-					</Link>
-				</Section>
-			)}
 
 			<Section kicker="Related" title="Works together with">
 				<ModuleGrid slugs={m.related} />

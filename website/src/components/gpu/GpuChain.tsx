@@ -1,7 +1,7 @@
 import { Icon } from "../Icon";
 
 /**
- * The GPU chain: what a GPU depends on (core platform) and what it earns (GPU Fleet add-on),
+ * The GPU chain: what a GPU depends on and what it earns, on one estate model,
  * left to right, with one demo-estate story running underneath (UC-G2).
  */
 const CORE: [string, string, string][] = [
@@ -10,7 +10,7 @@ const CORE: [string, string, string][] = [
 	["droplets", "CDU loop", "flow · supply temp"],
 	["server", "Liquid rack", "40–60 kW"],
 ];
-const ADDON: [string, string, string][] = [
+const EARNS: [string, string, string][] = [
 	["cpu", "GPU node", "8 GPUs · NVLink"],
 	["activity", "GPU", "clocks · throttle · Xid"],
 	["briefcase", "Job", "step time · checkpoint"],
@@ -22,8 +22,8 @@ export function GpuChain({ story = true }: { story?: boolean }) {
 	return (
 		<div className="gc">
 			<div className="gc-row">
-				<div className="gc-group gc-core">
-					<span className="gc-tag">Core platform · included</span>
+				<div className="gc-group gc-depends">
+					<span className="gc-tag">What the GPU depends on</span>
 					<ol>
 						{CORE.map(([i, t, s]) => (
 							<li key={t}>
@@ -34,10 +34,10 @@ export function GpuChain({ story = true }: { story?: boolean }) {
 						))}
 					</ol>
 				</div>
-				<div className="gc-group gc-addon">
-					<span className="gc-tag">GPU Fleet · add-on</span>
+				<div className="gc-group gc-earn">
+					<span className="gc-tag">What the GPU earns</span>
 					<ol>
-						{ADDON.map(([i, t, s]) => (
+						{EARNS.map(([i, t, s]) => (
 							<li key={t}>
 								<Icon name={i} size={17} />
 								<strong>{t}</strong>
