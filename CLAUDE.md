@@ -924,5 +924,7 @@ exception; closed cases come from true-positive detections. Check: `npx tsx .qa/
 
 ## SynapseDC website (28-Oct-2026, user: "start creating the SynapseDC website … Opstral website for reference, not its theme")
 `website/` = Next.js 16 marketing site (own package.json, `npm run dev` → :3010), structure after `TechOps/Opstral/Website/opstral-new-oct`,
-theme from this app. Copy in `website/src/data/*` (modules, business models, roles, FAQ, integrations), grounded in the BRD. Placeholders for
-what Opstral has and we don't yet. Rules in `website/CLAUDE.md`. Product shots: `cd website && npm run shots` (app on :5181).
+SynapseDC's own brand (logo from `auth/keycloak/themes/synapse/…/img/`, copied to `website/public/brand/`), navy canvas + brand blue. The first
+draft was rejected (app screenshots, placeholder logo, alignment, hover menu): the site now uses abstract SVG concept illustrations
+(`website/src/components/art/`), the real logo, one grid and click-driven navigation. Copy in `website/src/data/*`, grounded in the BRD.
+Rules in `website/CLAUDE.md`.
