@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { CtaBand, FaqList, Kicker, Section, SplitFeature } from "@/components/Blocks";
 import { ArtFor } from "@/components/art";
-import { GpuBand } from "@/components/home/GpuBand";
 import { Intro } from "@/components/home/Intro";
 import { Marquee } from "@/components/home/Marquee";
 import { Icon } from "@/components/Icon";
@@ -86,9 +85,6 @@ export default function Home() {
 
 			{/* 2 · Pinned statement + flow */}
 			<Intro />
-
-			{/* 2b · GPU & AI use case */}
-			<GpuBand />
 
 			{/* 3 · Problem */}
 			<Section tone="soft" kicker="Why it exists" title="Planned in spreadsheets, built in silos, operated across six tools." intro="A spreadsheet for capacity, a project tracker for the build, a DCIM for records, a BMS for the plant, an NMS for the network and a ticketing tool for incidents. None of them share a record, and none can say who is affected and what it is costing.">

@@ -46,7 +46,7 @@ SynapseDC is the END-TO-END platform to **plan, build and operate** datacenters,
 GPU Fleet is part of the solution, NOT an add-on (the user reversed an add-on idea the same day): no "add-on", no packaging /
 "included vs extra" wording anywhere. `/gpu-ai` (top menu "GPU & AI") presents GPU as the powerful use case: what a GPU depends
 on (power path, CDU loops, liquid racks) and what it earns (GPU, job, customer, revenue) on one estate model
-(`components/gpu/GpuChain.tsx`), five GPU use cases, AI hall plan & build, coverage, FAQ. Home carries `home/GpuBand.tsx` after the intro.
+(`components/gpu/GpuChain.tsx`), five GPU use cases, AI hall plan & build, coverage, FAQ. The home page has no GPU band (removed 28-Oct-2026, user: did not fit); GPU shows there only as the GPU Fleet scene.
 
 ## Company menu (28-Oct-2026, user: "add a Company menu like Opstral")
 Top menu **Company** (label → /about): Why Us (`/why-synapsedc`), Why Now (`/why-now`), Our Story (`/our-story`), About SynapseDC (`/about`) +
