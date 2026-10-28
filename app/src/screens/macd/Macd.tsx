@@ -8,7 +8,7 @@ import * as I from 'lucide-react';
 import { getMacd, useQuery } from '../../api';
 import type { MacdView } from '../../api/types';
 import { usePage, PageHead, Loading } from '../../shell/page';
-import { SubTabs, subCrumb, subHead } from '../../shell/submenus';
+import { subCrumb, subHead } from '../../shell/submenus';
 import { Btn } from '../../ui/kit';
 import { useToast } from '../ops/shared';
 import { MacdOverview } from './Overview';
@@ -53,7 +53,6 @@ export function Macd() {
   if (!all || !v) return <Loading />;
   const p: MacdProps = { v, all, dcId, q: k => sp.get(k) ?? '', set, go, toast: toast.show };
   const open = v.requests.filter(isOpen);
-  const TABS: { id: MacdTab; label: string; count?: number }[] = [{ id: 'requests', label: 'List', count: v.requests.length }, { id: 'board', label: 'Board', count: open.length }];
   const sites = [...new Set(all.requests.map(r => r.dcId))].sort();
   return (
     <div className="page dcim macd head-1line">
@@ -64,7 +63,7 @@ export function Macd() {
             <option value="">All datacenters</option>{sites.map(id => <option key={id} value={id}>{id}</option>)}</select></label>
           <Btn variant="filled" icon={I.Plus} onClick={() => set({ new: '1' })}>New request</Btn>
         </>} />
-      <SubTabs screen="macd" value={tab} onChange={t => go(t)} tabs={TABS} />
+      {/* no tab row: Requests switches list ⇄ board with the grid toolbar's layout toggle */}
       {tab === 'overview' && <MacdOverview {...p} />}
       {tab === 'requests' && <RequestsView {...p} />}
       {tab === 'board' && <BoardView {...p} />}
