@@ -62,6 +62,13 @@ export const SUBMENUS: Record<string, ScreenMenu> = {
     { id: 'ot', label: 'OT security', tabs: ['ot'], desc: 'Facility plant zones and conduits (IEC 62443)', title: 'OT security', sub: 'The facility plant (UPS, PDUs, generators, cooling, BMS, fire, access control) as IEC 62443 zones and conduits: target against achieved security level, controllers and their findings.' },
     { id: 'physical', label: 'Physical security', tabs: ['physical'], desc: 'Layers from perimeter to rack, physical detections', title: 'Physical security', sub: 'Defence in depth from the perimeter to the rack per datacenter, the access-control and CCTV detections and the access-rights review.' },
   ] },
+  /* MACD (28-Oct-2026, user): Move · Add · Change · Disconnect requests in the datacenter */
+  macd: { to: '/macd', defaultTab: 'overview', items: [
+    { id: 'insights', label: 'Insights', tabs: ['overview'], desc: 'The MACD pipeline, SLA and what needs attention', title: 'Insights', sub: 'Move, add, change and disconnect requests across the datacenters: the pipeline by stage, SLA, cycle time, first-time-right and what the open work adds to the estate.' },
+    { id: 'requests', label: 'Requests', tabs: ['requests', 'board'], desc: 'Every request, as a list or a board by stage', title: 'Requests', sub: 'Every MACD request from customers and internal teams, as a list or a board by stage; open one to check feasibility, quote, schedule, run and verify it.' },
+    { id: 'schedule', label: 'Schedule', tabs: ['schedule'], desc: 'Work windows for the next 14 days', title: 'Schedule', sub: 'The work windows of scheduled and running requests for today and the next 14 days, with their change requests, and what is not scheduled yet.' },
+    { id: 'catalogue', label: 'Catalogue', tabs: ['catalog'], desc: 'Request types, SLA and charges', title: 'Catalogue', sub: 'The MACD request types offered: SLA, one-time and monthly charges, standard or normal change, the records each one updates and how it performed in 30 days.' }
+  ] },
   workorders: { to: '/workorders', defaultTab: 'tasks', items: [
     { id: 'tasks', label: 'My Tasks', tabs: ['tasks'], desc: 'What waits on you', title: 'My tasks', sub: 'What waits on you: the steps assigned to your role across every running process.' },
     { id: 'running', label: 'Work Orders', tabs: ['running'], desc: 'Every running process', title: 'Work orders', sub: 'Every running process instance and the step it is on.' },

@@ -20,7 +20,7 @@ import { CrWorkList } from './cr';
 const DAY = 86_400_000;
 type View = '' | 'ready' | 'approval' | 'progress' | 'soon' | 'done' | 'all';
 const VIEW_LABEL: Record<Exclude<View, ''>, string> = { ready: 'Ready to run', approval: 'Awaiting approval', progress: 'In progress', soon: 'Next 14 days', done: 'Closed (30 days)', all: 'All' };
-const SRC_TONE = { Operations: 'info', Maintenance: 'cyan', Delivery: 'purple', DCIM: 'neutral' } as const;
+const SRC_TONE = { Operations: 'info', Maintenance: 'cyan', Delivery: 'purple', DCIM: 'neutral', MACD: 'info' } as const;
 const isOpen = (r: DcimCrRow) => r.view !== 'done' && r.view !== 'closed';
 
 export function DcimChangesTab({ dcId }: { dcId: string }) {
@@ -67,7 +67,7 @@ export function DcimChangesTab({ dcId }: { dcId: string }) {
           actions={[{ label: 'Open Change management', icon: I.GitPullRequestArrow, onClick: () => window.location.assign(`/changes${dcId ? `?dc=${dcId}` : ''}`) }]}
           filters={[
             { id: 'cv', label: 'View', quick: true, value: view, anyLabel: `Open (${n('')})`, onChange: v => setP('cv', v), options: (Object.keys(VIEW_LABEL) as Exclude<View, ''>[]).map(v => ({ id: v, label: VIEW_LABEL[v], count: n(v) })) },
-            { id: 'csrc', label: 'Source', quick: true, value: src, anyLabel: 'Any source', onChange: v => setP('csrc', v), options: (['Operations', 'Maintenance', 'Delivery', 'DCIM'] as const).map(s => ({ id: s, label: s, count: rows.filter(r => r.source === s).length })) }
+            { id: 'csrc', label: 'Source', quick: true, value: src, anyLabel: 'Any source', onChange: v => setP('csrc', v), options: (['Operations', 'Maintenance', 'Delivery', 'DCIM', 'MACD'] as const).map(s => ({ id: s, label: s, count: rows.filter(r => r.source === s).length })) }
           ]} />} />
     </section>
     <Panel title="Plans in review" icon={I.ClipboardList} count={data.plans.length} className="dcim-plans" info="Planner plans for this scope that are not approved yet. Once approved, Delivery raises their change requests and they appear in the list above.">

@@ -12,6 +12,7 @@ import type { Change, ChangeApprovalStep, ChangeFreeze, ChangePolicy, ChangeReco
 import type { Db } from './generate';
 import { activeGeo } from './geo';
 import { deliveryProjects } from './delivery';
+import { macdChangeRecords } from './macd';
 import { sitePhys } from './physical';
 import { sitePm } from './maintenance';
 import { DAY, HOUR } from './seed';
@@ -73,8 +74,8 @@ function build(db: Db): ChangeRegister {
   for (const c of db.changes) {
     const tpl = /^DCIM record:/.test(c.title) ? TEMPLATES.find(t => t.id === 'STD-07') : TEMPLATES.find(t => t.match.test(c.title));
     const cls: ChangeRecord['cls'] = c.emergency ? 'Emergency' : tpl && c.risk === 'Low' ? 'Standard' : 'Normal';
-    recs.push({ id: c.id, source: c.origin === 'DCIM' ? 'DCIM' : c.kind === 'Maintenance' ? 'Maintenance' : 'Operations', cls, kind: c.kind, title: c.title, dcId: c.dcId, scope: c.scope, risk: c.risk, status: c.status, windowStart: c.windowStart, windowEnd: c.windowEnd,
-      requester: c.requester, approver: c.approver, rollback: c.rollback, created: c.created, incidentId: c.incidentId, template: cls === 'Standard' ? tpl?.id : undefined,
+    recs.push({ id: c.id, source: c.origin === 'DCIM' ? 'DCIM' : c.origin === 'MACD' ? 'MACD' : c.kind === 'Maintenance' ? 'Maintenance' : 'Operations', cls, kind: c.kind, title: c.title, dcId: c.dcId, scope: c.scope, risk: c.risk, status: c.status, windowStart: c.windowStart, windowEnd: c.windowEnd,
+      requester: c.requester, approver: c.approver, rollback: c.rollback, created: c.created, incidentId: c.incidentId, macdId: c.macdId, template: cls === 'Standard' ? tpl?.id : undefined,
       approvals: matrix(cls, c.risk, c.status, c.id, c.created, c.approver), conflicts: [], violations: [], pir: { state: 'Not needed' } });
   }
   for (const v of deliveryProjects(db)) for (const w of v.workOrders) {
@@ -86,6 +87,14 @@ function build(db: Db): ChangeRegister {
       requester: v.project.manager, rollback: w.kind === 'Electrical' ? 'Isolate and leave on the existing supply path; re-energise from the old feed' : 'Revert to the state before the work order; nothing in service depends on it yet',
       created: Math.min(w.start - 10 * DAY, now), projectId: v.project.id, woId: w.id, template: cls === 'Standard' ? tpl?.id : undefined,
       approvals: matrix(cls, risk, status, w.changeId, Math.min(w.start - 10 * DAY, now)), conflicts: [], violations: [], pir: { state: 'Not needed' } });
+  }
+  /* MACD requests from Scheduled on (seeded; requests raised in MACD are db.changes with origin MACD above) */
+  for (const m of macdChangeRecords(db)) {
+    const tpl = /^DCIM record:/.test(m.title) ? TEMPLATES.find(t => t.id === 'STD-07') : TEMPLATES.find(t => t.match.test(m.title));
+    const cls: ChangeRecord['cls'] = tpl && m.risk === 'Low' ? 'Standard' : 'Normal';
+    const { macdId, ...x } = m;
+    recs.push({ ...x, source: 'MACD', cls, kind: 'Change', macdId, approver: cls === 'Standard' ? 'Pre-approved' : undefined, template: cls === 'Standard' ? tpl?.id : undefined,
+      approvals: matrix(cls, m.risk, m.status, m.id, m.created), conflicts: [], violations: [], pir: { state: 'Not needed' } });
   }
   /* preventive maintenance carried out in the last 12 weeks (the plant maintenance plan's last-done dates): completed standard windows */
   for (const d of db.datacenters) for (const t of sitePm(db, d.id) ?? []) {

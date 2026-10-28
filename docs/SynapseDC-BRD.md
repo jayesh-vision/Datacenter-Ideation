@@ -15,6 +15,7 @@
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.9 | 27-Oct-2026 | First complete draft: all modules, module split against the existing platform, colocation + NeoCloud first |
+| 0.9.7 | 28-Oct-2026 | New module 7.13 MACD (move, add, change and disconnect requests): catalogue, intake, live feasibility, quote, change request, DCIM space hold, field work, verification with record and billing updates; MACD-001…028, BRULE-MACD-01…10, US-MACD-01…08; integrations INTG-060…061, write-back W-35…42 and A-16, new API-BSS-11; Appendix B.29 |
 | 0.9.6 | 28-Oct-2026 | Section 9.26 write-back: every UI action that updates an existing module (W-01…34), every automatic write (A-01…15), what stays in the modules' own screens, write rules WR-001…008; new write APIs API-INV-09…12, API-IPM-04, API-SOC-08 |
 | 0.9.5 | 28-Oct-2026 | Section 17 application realisation for Singularity: the ideation code as the UI reference, what each part becomes, the stack and libraries with versions (no UI / chart / state library, no JAR in the frontend), design-system reuse, screen → reference-code map, screens not to generate, mock-to-live rules and acceptance rules (GEN-001…016) |
 | 0.9.4 | 28-Oct-2026 | Expected API responses moved from the end of the document into section 9 (9.11–9.25), next to the integration requirements |
@@ -25,7 +26,7 @@
 **How to read this document**
 
 - Section 1–6 set the business case, the scope and the module split against the existing platform.
-- Section 7 holds one chapter per module that is **built** (7.1–7.11) plus the cross-cutting shell capabilities (7.12): purpose, scope, business rules, numbered functional requirements, user stories with acceptance criteria, data, integrations, reports and screens.
+- Section 7 holds one chapter per module that is **built** (7.1–7.11, 7.13 MACD) plus the cross-cutting shell capabilities (7.12): purpose, scope, business rules, numbered functional requirements, user stories with acceptance criteria, data, integrations, reports and screens.
 - Section 8 holds the **analytics-only** pages that sit over existing platform modules.
 - Section 9 lists, per **existing platform module**, what SynapseDC reads from it, sends to it and through which interface.
 - Sections 10–15: data, non-functional requirements, phasing, risks and open decisions, traceability, glossary.
@@ -69,6 +70,7 @@ Requirement identifiers: `<PFX>-nnn` (functional), `BRULE-<PFX>-nn` (business ru
 - 7.10 DCIM — racks, power chain and cabling
 - 7.11 Compliance
 - 7.12 Cross-cutting: shell, business models, geography, Opstral AI, search
+- 7.13 MACD — move, add, change and disconnect requests
 - 8 Analytics-only pages over existing modules
   - 8.1 Programs & Projects insights
   - 8.2 Work orders and process KPIs
@@ -210,6 +212,7 @@ The platform module that already owns an object is its **system of record**. Syn
 | Planner | **Build** the engine, templates, governance, packs (7.9) | Programs & Projects (delivery record), Procurement / Vendors / Contracts (orders) | — |
 | DCIM: racks, power chain, cabling | **Build** the datacenter extensions (7.10) | Plan to Build Inventory (asset record), Change Management (CRs) | DCIM Insights (8.6) |
 | Compliance | **Build** (7.11) | — | — |
+| MACD (move, add, change, disconnect requests) | **Build** (7.13) | — | Change requests in Services & ITSM, records in Inventory / IP Management, orders and charges in BSS — all through their APIs |
 | Programs & Projects, Work orders, Commissioning | — | Plan to Build Programs & Projects, Field Force Management | **Insights pages** (8.1–8.3) |
 | IP & Network | — | Plan to Build IP Management | **Insights** (8.4) |
 | Change management | — | Services & ITSM Change Management | **Overview** (8.5) |
@@ -241,7 +244,7 @@ The existing modules named in section 3.2 (Operate to Acquire / BSS except Reven
 | ARCH-002 | SynapseDC shall not build a database, schema, table, backend service or administration screen for an object an existing module owns (customers, contracts, orders, products, incidents, problems, changes, tickets, maintenance windows, knowledge articles, alerts, inventory assets, IP addresses, capacity plans, programmes, projects, work orders, purchase orders, vendors, contracts, stock, users, roles, custom fields). | M |
 | ARCH-003 | SynapseDC shall not keep a second copy of a module's records as its own record. It may cache API responses for performance (with the module's id and an expiry) and may store derived results keyed by the module's ids (for example impact or money per incident). | M |
 | ARCH-004 | Where SynapseDC needs a field a module API does not offer, the gap shall be raised to the module team as an API requirement (the API gap list in section 9.10). It shall not be worked around with a local table. | M |
-| ARCH-005 | SynapseDC shall build only the datacenter-specific screens, read models and the backend that serves them (chapters 7.1–7.12 and the analytics pages of chapter 8). | M |
+| ARCH-005 | SynapseDC shall build only the datacenter-specific screens, read models and the backend that serves them (chapters 7.1–7.13 and the analytics pages of chapter 8). | M |
 | ARCH-006 | Screens of an existing module shall not be rebuilt. SynapseDC links or deep-links to them (for example an incident opens in Services & ITSM, a project in Programs & Projects), or embeds them where the module supports it. The analytics pages of chapter 8 read the module's API and drill down into the module's own screens. | M |
 | ARCH-007 | Every write SynapseDC makes to an existing module (create an incident, raise a change request, hand a plan over as a project, post a worklog line, send a notice) shall go through that module's API, so the module applies its own rules, approvals and audit. | M |
 | ARCH-008 | All telemetry (metrics and time series from the collector: network, BMC, UPS, PDU, meters, BMS, DCGM, scheduler, fabric) shall be written through the **OAP telemetry ingestion microservice** and read through the **OAP telemetry consumer microservice**. These services read and write ClickHouse. SynapseDC shall run no time-series database, ingestion pipeline or telemetry store of its own. | M |
@@ -319,6 +322,7 @@ Only datacenter-specific screens and functionality. **Appendix B** lists every s
 | 11 | **Compliance** | Overview, Frameworks & controls, Policies, Violations, Decision records, Audit | 7.11 | ITSM, INV, OAP | P3 |
 | 12 | **Analytics pages** | Programs & Projects insights, Work orders KPIs, Commissioning, IP & Network insights, Change management overview, DCIM insights | 8 | PRJ, SCM-05, IPM, ITSM | P2 |
 | 13 | **Cross-cutting** | Shell, persona and geography switches, search, Opstral AI, info bubbles, embed | 7.12 | PEN, AIF | P1 / P2 |
+| 14 | **MACD** | Insights, Requests (list ⇄ board), Schedule, Catalogue, New request, Request page | 7.13 | BSS-01/02/04/09/11, ITSM-07…09/11, INV-02…04/09…11, IPM-04, OPS-02, OAP | P2 |
 
 ## 4 Stakeholders, users and roles
 
@@ -2248,6 +2252,155 @@ These datacenter-specific records extend the Plan to Build Inventory asset recor
 | Data model | entity and relationship explorer | `/data-model` |
 | Embedded screen | any screen without the shell | `<route>?shell=false&persona=&geo=` |
 
+## 7.13 MACD — move, add, change and disconnect requests
+
+**Purpose.** This module runs every **Move, Add, Change or Disconnect** request for what a customer (colocation tenant, NeoCloud customer) or an internal team has in a datacenter. Examples: install equipment, a new cabinet, a power circuit, a cross-connect, an IP block, GPU nodes, a move between racks or halls, a contracted-power upgrade, port settings, access-list changes, and removals and exits. One request goes through intake, feasibility against the live estate, the quote, a change request, scheduled field work and verification. At verification the records and billing are updated. The request records are owned by SynapseDC. The change, the ticket / field job, the inventory records and the order with its charges stay in their platform modules, which are updated through their APIs (9.26).
+**Lifecycle stage:** Operate (with Build for space and power). **Primary users:** MACD desk / colocation service delivery, datacenter field engineers, change manager, account manager, NOC (internal requests), customers (through the customer portal).
+**Colocation:** the daily core of the business: cabinets, power circuits, cross-connects, equipment installs, access lists and cage exits, with one-time (NRC) and monthly (MRC) charges. In-flight cross-connect orders (API-BSS-09) are MACD requests with the same order id.
+**NeoCloud:** GPU nodes added to, moved between or released from a customer's reserved cluster, partition / power-cap changes, cross-connects to cloud on-ramps, CPU and storage installs; GPU monthly charges at the reserved rate.
+
+### 7.13.1 Scope
+- In:
+  - the MACD catalogue per business model:
+    - type (Move / Add / Change / Disconnect) and object (equipment, cabinet, power circuit, cross-connect, network port, IP addresses, GPU nodes, access);
+    - SLA (standard, expedited; emergency 4 h);
+    - NRC and MRC per unit;
+    - standard (pre-approved) or normal change;
+    - the records it updates and the tasks it runs;
+  - request intake from the customer portal, account manager, email, API or an internal team;
+  - live feasibility checks;
+  - the quote for billable requests;
+  - a change request per request;
+  - a DCIM space hold;
+  - work windows, the task list, verification with re-work, cancel and reject;
+  - record and billing updates at verification;
+  - a dashboard, a list, a board by stage, the schedule and the catalogue.
+- Out:
+  - the change approval itself (Change Management);
+  - field-job dispatch and crew management (ITSM tickets / Field Force Management);
+  - the customer portal screens (BSS Experience and Care) — SynapseDC receives the order through the API;
+  - invoicing (BSS);
+  - badge-system administration (access control, to discuss).
+
+### 7.13.2 Business rules
+| ID | Rule |
+| --- | --- |
+| BRULE-MACD-01 | Stages: Submitted → Feasibility → Quote (only when the request is billable: a customer request with a one-time or monthly charge) → Scheduled → In progress → Verification → Completed. Side exits: Rejected (from Submitted, Feasibility or Quote, with a reason) and Cancelled (before work starts). |
+| BRULE-MACD-02 | SLA clock from submission: the catalogue item's standard or expedited hours; Emergency = 4 h. Open: Breached when now > due, At risk when less than 25 % of the SLA time is left, else On track. Closed: Met when closed by the due date, else Missed. |
+| BRULE-MACD-03 | Feasibility checks against the live estate: (1) rack space = the largest free U gap (DCIM free slots, holds included) ≥ U needed → Pass, total free ≥ need → Warn, else Fail; (2) rack power after the change ≤ 80 % of the budget → Pass, ≤ 100 % → Warn, else Fail; (3) the tenant's contracted kW exceeded → Warn (quote a power upgrade with it); (4) rack inlet ≥ 27 °C → Warn, ≥ 29 °C → Fail; (5) free panel ports for a cross-connect; (6) healthy idle GPU nodes ≥ nodes requested; (7) free hall positions for a cabinet; (8) busway and UPS headroom for a power circuit; (9) device records exist for what is moved or removed; (10) a change freeze before the due date → Warn (standard changes still run unless the freeze is emergency-only); (11) an open Critical or High incident at the site → Warn. |
+| BRULE-MACD-04 | A request with a failing (Fail) check cannot be accepted. It stays in Feasibility until the blocker is cleared, or it is rejected with a reason. |
+| BRULE-MACD-05 | Every request runs under a change request in Change Management from Scheduled on. A standard catalogue item is raised as a standard change (pre-approved; its title matches the standard template: rack and stack, patch a cross-connect, DCIM record). Anything else is a normal change, Pending approval, with the risk from the catalogue (relocating cabinets = High). Work starts only when the change is Approved or In progress and is not blocked by a change policy (freeze, no rollback). |
+| BRULE-MACD-06 | When an Add or Move that needs rack space is scheduled, the U range is held in DCIM (the first gap that fits, as a standard DCIM record change). The hold is released at verification or on cancel. |
+| BRULE-MACD-07 | Charges come from the catalogue: one-time (NRC) per unit, and the monthly change (MRC) per unit, or per kW for power. A disconnect has a negative MRC. Internal requests are not billed. The order change is posted to BSS at verification, not before. |
+| BRULE-MACD-08 | Verification updates the records: equipment installed / moved / removed (rack U), power circuits (rack budget and the tenant's contracted kW), cross-connects, ports, addresses and GPU-node ownership. The change request is completed. A failed verification sends the work back to In progress and the request no longer counts as first time right. |
+| BRULE-MACD-09 | KPIs: open by stage and type; past SLA and at risk; completed in 30 days and % within SLA; average cycle time (submitted to closed) overall and per type; first time right % = completed without re-work ÷ completed; MRC and NRC added by the requests completed in 30 days; the kW and U the open requests will add. |
+| BRULE-MACD-10 | An in-flight colocation cross-connect order (API-BSS-09) is a MACD request (Add · Cross-connect) carrying the order id; its order state maps to the stage (Requested → Feasibility, Approved → Scheduled, Patched → In progress, Tested → Verification). |
+
+### 7.13.3 Functional requirements
+| ID | Requirement | Priority | Model | Phase |
+| --- | --- | --- | --- | --- |
+| MACD-001 | The system shall hold a MACD catalogue per business model: type, object, description, standard and expedited SLA, NRC and MRC per unit, standard or normal change, the records each item updates and its tasks. | M | Both | P2 |
+| MACD-002 | The system shall create a request from the customer portal (BSS order), the account manager, email, API or an internal team. It records the requester, channel, customer, site, rack (and the target for a move), quantity, priority and notes. | M | Both | P2 |
+| MACD-003 | The system shall run the feasibility checks of BRULE-MACD-03 on the live estate, both when the request is created and while it is open, and show each check as Pass / Warn / Fail with its figures. | M | Both | P2 |
+| MACD-004 | The New request form shall preview the checks, charges, rack space and power change and the due date before submitting. | M | Both | P2 |
+| MACD-005 | The system shall block acceptance while a check fails (BRULE-MACD-04), and let the desk reject a request with a reason sent to the requester. | M | Both | P2 |
+| MACD-006 | The system shall send a quote (NRC and MRC) for a billable request and record the customer's acceptance or decline. | M | Both | P2 |
+| MACD-007 | On scheduling, the system shall raise the change request in Change Management (standard or normal, BRULE-MACD-05) with the scope racks and devices, the window and the rollback plan from the catalogue. | M | Both | P2 |
+| MACD-008 | The system shall hold the rack space in DCIM when an Add or Move is scheduled, and release it at verification or on cancel (BRULE-MACD-06). | M | Both | P2 |
+| MACD-009 | The system shall refuse to start work until the change request is approved and not blocked, and name the change and its state. | M | Both | P2 |
+| MACD-010 | The system shall open the field work as a ticket / field job (remote hands or work order) when work starts, and show its reference. | M | Both | P2 |
+| MACD-011 | The system shall run the stage flow of BRULE-MACD-01 with these actions: feasible, quote accepted, start, work done, verified, failed verification, reject and cancel. Each action is recorded in the history with who did it. | M | Both | P2 |
+| MACD-012 | At verification the system shall update the records (BRULE-MACD-08), complete the change request and post the order change with its charges to BSS. | M | Both | P2 |
+| MACD-013 | The system shall compute the SLA state and time left or over for every request (BRULE-MACD-02). | M | Both | P2 |
+| MACD-014 | The system shall show each request's task list in order: intake, feasibility, quote, change approved, space held, access booked, the catalogue's field tasks, test, records, billing and close. Each task shows the system it updates (SynapseDC, customer, BSS, Change management, DCIM, field team, Inventory, IP Management) and its state: Done / Open / Waiting / Skipped. | M | Both | P2 |
+| MACD-015 | The system shall show the Insights dashboard with: six tiles (open by type, past SLA, completed within SLA, cycle time, first time right, monthly revenue added — or the kW and U added for internal estates); opened against completed per day for 14 days; the pipeline by stage; what needs attention; datacenters; by type; and what the open requests change. Every figure opens the filtered list. | M | Both | P2 |
+| MACD-016 | The system shall list every request with search and filters: type, stage, object, SLA, priority, customer, checks (failing, change waiting for approval, change blocked) and open only. The list can be switched to a board with one column per open stage, worst SLA first. | M | Both | P2 |
+| MACD-017 | The system shall show a Schedule of the work windows for today and the next 14 days, grouped by day, with the change request, its approval state, the owner and policy blocks, and the requests not scheduled yet. | M | Both | P2 |
+| MACD-018 | The system shall show the catalogue with its 30-day use, average cycle time and % on time per item, and start a new request from an item. | S | Both | P2 |
+| MACD-019 | The system shall show a request page with: the stage line, due date, SLA, work window and closing date; what and where (with links to the DCIM rack, the devices and the customer); charges; the change request, space hold and work order; tasks; feasibility; and the history with notes. | M | Both | P2 |
+| MACD-020 | The system shall show colocation cross-connect orders in flight as MACD requests with the order id (BRULE-MACD-10). | M | Colo | P2 |
+| MACD-021 | The system shall offer GPU-node requests (add to a reserved cluster, move to another pod, change partition or power cap, release at reservation end), with the free-node check and the reserved GPU rate. | M | Neo | P2 |
+| MACD-022 | Change Management shall show the change requests raised from MACD with source MACD and a link back to the request. | M | Both | P2 |
+| MACD-023 | The system shall scope every MACD view to one datacenter or the estate. | M | Both | P2 |
+| MACD-024 | The system shall add notes to a request for the team or the customer. | S | Both | P2 |
+| MACD-025 | The system shall record every request, stage move, hold, record update and billing post in the audit trail. | M | Both | P2 |
+| MACD-026 | The system shall send the request status to the customer portal when the stage changes: accepted, quote, scheduled window, done (BSS Experience and Care; to discuss). | S | Both | P3 |
+| MACD-027 | The system shall book site access for the crew or the customer for catalogue items that need it, and show it on Access & security (to discuss). | C | Both | P3 |
+| MACD-028 | The system shall start a request from DCIM (a rack or device) or the customer page, pre-filled with the rack and the customer. | S | Both | P3 |
+
+### 7.13.4 User stories and acceptance criteria
+**US-MACD-01** As a MACD desk agent, I want feasibility checked against the live rack before I accept, so that I do not promise space or power that is not there. (MACD-003, MACD-005)
+- Given a request for 6 U in a rack with 4 U free, then the rack-space check shows Fail with "6 U needed · only 4 U free", and the Feasible button is disabled.
+
+**US-MACD-02** As an account manager, I want the quote to carry the catalogue charges, so that the customer sees what they will pay. (MACD-006, MACD-001)
+- Given a new cross-connect for a tenant, then the quote shows the one-time charge and the monthly charge from the catalogue, and accepting it schedules the request.
+
+**US-MACD-03** As a change manager, I want every MACD request to run under a change request, so that MACD work follows the change policy. (MACD-007, MACD-009, MACD-022)
+- Given a normal request scheduled, then a change Pending approval exists with source MACD, and Start the work stays disabled until it is approved.
+- Given a site under an emergency-only freeze, then the change is blocked and the request page shows why.
+
+**US-MACD-04** As a field engineer, I want the space held when the install is scheduled, so that nobody else takes it. (MACD-008)
+- Given an install of 2 × 2 U scheduled, then DCIM shows a 4 U hold for the request in that rack, and the hold is released at verification.
+
+**US-MACD-05** As a service delivery manager, I want SLA at risk and past SLA highlighted, so that I act before the customer complains. (MACD-013, MACD-015)
+- Given a request with less than a quarter of its SLA left, then it shows At risk, and the Insights "Past SLA" tile counts it under At risk.
+
+**US-MACD-06** As a finance user, I want billing posted only after verification, so that customers are charged for what was delivered. (MACD-012)
+- When a request is verified, then the order change with NRC and MRC is posted to BSS and the billing task shows Done. Before that it shows Waiting.
+
+**US-MACD-07** As a NeoCloud operations lead, I want GPU-node additions checked against the free pool, so that a customer's cluster grows only with healthy, idle nodes. (MACD-021)
+- Given 8 nodes requested at a site with 5 healthy idle nodes, then the free-GPU-nodes check shows Warn with both figures.
+
+**US-MACD-08** As a colocation operator, I want cross-connect orders from the portal to appear as MACD requests, so that there is one queue. (MACD-020)
+- Given an order in state Patched, then the MACD request with that order id is In progress.
+
+### 7.13.5 Data
+| Entity | Read / write | System of record | Notes |
+| --- | --- | --- | --- |
+| MACD catalogue item, request, stage history, notes, checks, tasks | Read / write | SynapseDC (DC-STORE) | datacenter-specific; audited |
+| U hold for a request | Write | DC-STORE (DCIM reservations) | released at verification / cancel |
+| Customer, contract, contracted kW, order, product prices | Read | BSS (API-BSS-01, 02, 04, 09, 11) | |
+| Order change, NRC / MRC | Write | BSS (API-BSS-11) | at verification |
+| Change request | Read / write | Services & ITSM Change Management (API-ITSM-06…09) | |
+| Field work (remote hands / work order) | Write | Services & ITSM Tickets (API-ITSM-11) | |
+| Racks, devices, components, free U | Read / write | Plan to Build Inventory (API-INV-02…04, 09…11) | writes under the change request |
+| IP block / VLAN | Write | IP Management (API-IPM-04) | |
+| GPU nodes, jobs, health | Read | Ops Toolkit Infra Ops (API-OPS-02), OAP | partition write to discuss |
+| Rack draw, inlet temperature | Read | OAP (API-OAP-01) | |
+
+### 7.13.6 Integrations
+| System / module | Direction | Data | Interface |
+| --- | --- | --- | --- |
+| BSS Orders / Experience and Care (customer portal) | In / out | MACD orders in; status, quote acceptance, order change with NRC / MRC out | API-BSS-11, API-BSS-09 |
+| Services & ITSM Change Management | Out / in | change request create, transition, complete; state and policy blocks | API-ITSM-08, API-ITSM-09, API-ITSM-07 |
+| Services & ITSM Tickets | Out | remote-hands / work-order ticket | API-ITSM-11 |
+| Plan to Build Inventory / IP Management | In / out | racks, devices, free space; record updates at verification; addresses | API-INV-02…04, 09…11, API-IPM-04 |
+| Ops Toolkit Infra Ops | In | GPU nodes free / in a job | API-OPS-02 |
+| OAP telemetry consumer | In | rack draw, inlet temperature | API-OAP-01 |
+
+### 7.13.7 Reports and KPIs
+- Open requests by stage and type.
+- Past SLA and at risk.
+- Completed in 30 days and % within SLA.
+- Average cycle time, overall and per type.
+- First time right %.
+- MRC and NRC added by completed requests in 30 days.
+- kW and U the open requests will add; space released.
+- Per datacenter: open, at risk, past SLA, done in 30 days, % on time.
+- Per catalogue item: uses, cycle time, % on time.
+
+### 7.13.8 Screens
+| Screen / tab | Purpose | Reference route |
+| --- | --- | --- |
+| MACD · Insights | pipeline dashboard | `/macd` |
+| Requests | list ⇄ board by stage | `/macd?tab=requests` · `/macd?tab=board` |
+| Schedule | work windows, not scheduled yet | `/macd?tab=schedule` |
+| Catalogue | request types, SLA, charges | `/macd?tab=catalog` |
+| New request | form with live feasibility | `/macd?new=1&cat=&rack=` |
+| Request page | stage, actions, tasks, checks, history | `/macd/requests/:id` |
+
+---
+
 ## 8 Analytics-only pages over existing modules
 
 These pages add datacenter analytics on top of records held by existing platform modules. SynapseDC stores none of these records. It reads them (EW / NB-04), derives the measures and drills down into the owning module's screens. Every page is Phase P2, for Both models unless stated. Measures must reconcile with the owning module's own counts.
@@ -2422,6 +2575,7 @@ Every module below is **consumed through its API only** (ARCH-001…007); the AP
 | INTG-007 | — | SLA credits owed per incident and month (minutes, tier, amount) | NB-07 / EW | P2 |
 | INTG-008 | — | Metered usage: kWh and peak kW per cabinet / tenant (Colo); GPU hours delivered and lost per job and customer (Neo) — to the customer's billing system | NB-07 (SAP OData / Zuora / CSV), daily + monthly | P2 |
 | INTG-009 | Cross-connect orders and remote-hands tickets (Colo) | Order / ticket references on the customer page | EW (Orders / Tickets) | P2 |
+| INTG-060 | MACD orders placed in the customer portal (move, add, change, disconnect) with customer, site, cabinet, item, quantity | Request status, quote, scheduled window, completion; the order change with one-time and monthly charges at verification | EW (Orders / Experience and Care), API-BSS-11, events | P2 |
 | INTG-010 | When the customer runs their own CRM (Salesforce, Dynamics): the same objects through the connector | Same as above | NB-07 | P2 |
 
 ### 9.2 Services & ITSM: Incidents, Change Management, Maintenance, Knowledge Center, Tickets
@@ -2435,6 +2589,7 @@ Every module below is **consumed through its API only** (ARCH-001…007); the AP
 | INTG-015 | Knowledge articles linked to an alarm type / incident type | Runbook links on recommended actions **(to discuss)** | EW (Knowledge Center) | P3 |
 | INTG-016 | Tickets: remote hands, cross-connect, access requests, RMA cases | Ticket references on devices, customers and work | EW (Tickets) | P2 |
 | INTG-017 | A completed change cited by an incident's leading RCA hypothesis | "Caused an incident" flag on that change (counts as failed) | EW | P2 |
+| INTG-061 | The state and policy blocks of change requests raised from MACD | Change request per MACD request (standard or normal), transitions and completion; a remote-hands / work-order ticket for the field work | EW (Change Management, Tickets), API-ITSM-07…09, API-ITSM-11 | P2 |
 
 ### 9.3 Opstral Ops Toolkit: System Alerts, Telemetry Ops, Data Ops, Infra Ops, Fin Ops, Proc Bots, Explainability, Security Ops, Service Ops, Agent Ops
 
@@ -3643,6 +3798,32 @@ When placement is missing, SynapseDC shows the service at site level and reports
 ```
 SynapseDC re-reads the object with API-BSS-01 / 02 / 03 / 09.
 
+#### API-BSS-11 MACD orders
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /orders?type=macd&site=&status=` · `PATCH /orders/{id}` | Read / write | MACD intake (MACD-002), quote and status (MACD-006, MACD-026), billing at verification (MACD-012) | events + every 15 min; on each stage move |
+
+**Expected response (read):**
+```json
+{ "items": [ { "id": "ORD-MACD-20931", "customerId": "CUS-0031", "site": "IL-DC-009", "channel": "portal", "item": "MAC-A04", "kind": "Add", "object": "Cross-connect",
+    "rackRef": "RACK-B07", "qty": 1, "priority": "Standard", "notes": "To Zayo, MMR panel 3", "submitted": "2026-10-28T07:40:00Z", "requester": "ops@tenant.com" } ] }
+```
+
+**Request body (write, at quote and at verification):**
+```json
+{ "status": "Completed", "macdId": "MACD-0284", "changeId": "CHG-2014", "completedAt": "2026-10-30T11:20:00Z",
+  "charges": [ { "type": "NRC", "amount": 300, "currency": "USD" }, { "type": "MRC", "amount": 250, "currency": "USD", "from": "2026-10-30" } ] }
+```
+
+**Expected response:** `200` `{ "id": "ORD-MACD-20931", "status": "Completed", "version": 7 }`; `409` when the order changed since it was read (WR-002).
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `customerId`, `site`, `item`, `kind`, `object`, `qty`, `priority`, `submitted` | string / enum / int / time | M | create the MACD request |
+| `rackRef`, `notes`, `requester`, `channel` | string | O | where, what and who |
+| `status`, `charges[]` (NRC / MRC, amount, currency, from) | enum / array | M (write) | quote, completion, billing |
+
 ---
 
 ### 9.19 Plan to Build — Inventory
@@ -4395,6 +4576,14 @@ SynapseDC does not only read the existing modules. Many actions on its screens *
 | W-32 | Security Ops → Threat coverage › Enable, edit, create, delete a rule (SEC-016) | Ops Toolkit Security Ops | API-SOC-03 | Sigma source, status, version | — | P2 |
 | W-33 | Compliance › Policy on / off, attest a control, new policy / control / framework | DC-STORE | — | policy state, attestation with evidence and date | — | P3 |
 | W-34 | Any screen › Ask Opstral AI (XC-008) | AI Foundry | API-AIF-01 | question and page context (answer comes back; nothing stored in a module) | — | P2 |
+| W-35 | MACD › New request (MACD-002) | DC-STORE | — | request, checks, notes | — | P2 |
+| W-36 | MACD › Feasible, send the quote / Customer accepted the quote / Reject (MACD-005, MACD-006) | BSS Orders | API-BSS-11 | status, quote with NRC and MRC, reason | — | P2 |
+| W-37 | MACD › Schedule: raise the change request (MACD-007) | Services & ITSM Change Management | API-ITSM-08 | standard or normal change, scope racks / devices, window, rollback | the change itself | P2 |
+| W-38 | MACD › Schedule: hold the rack space (MACD-008) | DC-STORE (DCIM U reservations) | — | U range for the request (released at verification / cancel) | standard DCIM record change | P2 |
+| W-39 | MACD › Start the work (MACD-009, MACD-010) | Services & ITSM Change Management, Tickets | API-ITSM-09, API-ITSM-11 | change → In progress; remote-hands / work-order ticket | yes | P2 |
+| W-40 | MACD › Verified, close (MACD-012) | Plan to Build Inventory, IP Management | API-INV-09, API-INV-10, API-INV-11, API-IPM-04 | rack U, budget and contracted kW, devices installed / moved / removed, ports, cross-connect cable, addresses | yes (WR-003) | P2 |
+| W-41 | MACD › Verified, close (MACD-012) | Services & ITSM Change Management; BSS Orders | API-ITSM-09, API-BSS-11 | change → Completed; order Completed with NRC / MRC | — | P2 |
+| W-42 | MACD › Cancel / Failed verification (MACD-011) | Services & ITSM Change Management; BSS Orders | API-ITSM-09, API-BSS-11 | change → Rejected (cancel); order Cancelled; re-work noted | — | P2 |
 
 **B. Automatic writes (no user action)**
 
@@ -4415,6 +4604,7 @@ SynapseDC does not only read the existing modules. Many actions on its screens *
 | A-13 | DCIM, IPAM, change windows or access log change | Ops Toolkit Security Ops | API-SOC-06 | datacenter context dictionaries; physical exceptions | P2 |
 | A-14 | Every poll / push | OAP telemetry ingestion | API-OAP-05 | metrics with labels | P1 |
 | A-15 | SynapseDC release | Intelligence Hub | API-IHB-01 | entity and field definitions | P1 |
+| A-16 | MACD stage changes (accepted, scheduled window, done) | BSS Orders / Experience and Care | API-BSS-11 | request status for the customer portal (MACD-026) | P3 |
 
 **C. Updates that stay in the module's own screens** (SynapseDC links to them and has no write for them): approving or rejecting a change and CAB decisions; assigning an incident or ticket; work-order progress, checklists, sign-off, purchase-order receipt and commissioning test results (Programs & Projects); IP prefix, VRF, VLAN and range administration; customer, contract and order records; vendor, contract and stock records; custom fields and tags.
 
@@ -4533,6 +4723,7 @@ Each site follows the same onboarding journey; the BRD requirements each step re
 | 7.10 DCIM | records, standard-CR path | open / new CR, drag-move, reservations, explorer, insights | — |
 | 7.11 Compliance | — | — | all |
 | 7.12 Cross-cutting | shell, switches, search, info, embed | Opstral AI, big screens | — |
+| 7.13 MACD | — | catalogue, intake, feasibility, quote, change request, space hold, verification with record and billing updates, dashboard, board, schedule | portal status, access booking, start from DCIM / customer page |
 | 8 Analytics pages | — | all | — |
 | 9 Integrations | BSS core, ITSM, System Alerts, Telemetry / Data Ops, identity, Inventory, embed | the rest | tenant API, AI Foundry training |
 
@@ -4774,6 +4965,7 @@ Generate each screen from the files listed. The BRD chapter gives the requiremen
 | DCIM | `/dcim?tab=`, `/dcim/racks/:id`, `/dcim/types/:id` | `screens/dcim/*` | `mock/dcim.ts`, `server.ts` `dcimRun` | 7.10 | B.21 |
 | Analytics pages | (widgets only) | `screens/ipam/Ipam.tsx` (Insights tiles), `screens/delivery/Overview.tsx`, `dash.tsx`, `screens/workorders/WorkOrders.tsx` (KPIs tab), `screens/changes/ChangeOverview.tsx`, `screens/dcim/Insights.tsx` | `mock/ipam.ts`, `delivery.ts`, `workflow.ts`, `changemgmt.ts` (become analytics over the module APIs) | 8 | B.22–B.26 |
 | Compliance | `/compliance?tab=` | `screens/admin/Compliance.tsx` | `mock/compliance.ts` | 7.11 | B.27 |
+| MACD | `/macd?tab=` · `/macd/requests/:id` | `screens/macd/*` (Macd, Overview, Requests, Schedule, NewRequest, RequestPage, common), `styles/macd.css` | `mock/macd.ts`, server `macd*` functions | 7.13 | B.29 |
 | Shell | every route | `shell/*`, `App.tsx`, `main.tsx` | `mock/sentinel.ts` (Opstral AI, becomes AI Foundry) | 7.12 | — |
 
 ### 17.6 In the ideation code but NOT to be generated
@@ -4822,7 +5014,7 @@ These screens exist in the ideation code only to show the whole flow. Each belon
 
 ## Appendix A — Requirement index
 
-472 functional requirements, 191 business rules, 94 user stories, 12 build-boundary requirements, 59 integration requirements, 16 data requirements, 20 non-functional requirements. By phase: P1 207, P2 237, P3 28. By priority: M 287, S 166, C 19. By model: Both 395, Colo 20, Neo 57.
+500 functional requirements, 201 business rules, 102 user stories, 12 build-boundary requirements, 61 integration requirements, 16 data requirements, 20 non-functional requirements. By phase: P1 207, P2 262, P3 31. By priority: M 310, S 170, C 20. By model: Both 421, Colo 21, Neo 58.
 
 | ID | Requirement | Pri | Model | Phase |
 | --- | --- | --- | --- | --- |
@@ -5262,6 +5454,34 @@ These screens exist in the ideation code only to show the whole flow. Each belon
 | XC-020 | Every list shall use the common list toolbar (Showing N of M, search, ≤ 2 quick filters, r… | M | Both | P1 |
 | XC-021 | List pages shall open with an analytics strip of six tiles whose bars, pills and facts cli… | S | Both | P1 |
 | XC-022 | The system shall keep per-viewer conveniences (collapsed sections, chosen layout, legend s… | S | Both | P1 |
+| MACD-001 | The system shall hold a MACD catalogue per business model: type, object, description, stan… | M | Both | P2 |
+| MACD-002 | The system shall create a request from the customer portal (BSS order), the account manage… | M | Both | P2 |
+| MACD-003 | The system shall run the feasibility checks of BRULE-MACD-03 on the live estate, both when… | M | Both | P2 |
+| MACD-004 | The New request form shall preview the checks, charges, rack space and power change and th… | M | Both | P2 |
+| MACD-005 | The system shall block acceptance while a check fails (BRULE-MACD-04), and let the desk re… | M | Both | P2 |
+| MACD-006 | The system shall send a quote (NRC and MRC) for a billable request and record the customer… | M | Both | P2 |
+| MACD-007 | On scheduling, the system shall raise the change request in Change Management (standard or… | M | Both | P2 |
+| MACD-008 | The system shall hold the rack space in DCIM when an Add or Move is scheduled, and release… | M | Both | P2 |
+| MACD-009 | The system shall refuse to start work until the change request is approved and not blocked… | M | Both | P2 |
+| MACD-010 | The system shall open the field work as a ticket / field job (remote hands or work order) | M | Both | P2 |
+| MACD-011 | The system shall run the stage flow of BRULE-MACD-01 with these actions: feasible, quote a… | M | Both | P2 |
+| MACD-012 | At verification the system shall update the records (BRULE-MACD-08), complete the change r… | M | Both | P2 |
+| MACD-013 | The system shall compute the SLA state and time left or over for every request (BRULE-MACD… | M | Both | P2 |
+| MACD-014 | The system shall show each request's task list in order: intake, feasibility, quote, chang… | M | Both | P2 |
+| MACD-015 | The system shall show the Insights dashboard with: six tiles (open by type, past SLA, comp… | M | Both | P2 |
+| MACD-016 | The system shall list every request with search and filters: type, stage, object, SLA, pri… | M | Both | P2 |
+| MACD-017 | The system shall show a Schedule of the work windows for today and the next 14 days, group… | M | Both | P2 |
+| MACD-018 | The system shall show the catalogue with its 30-day use, average cycle time and % on time | S | Both | P2 |
+| MACD-019 | The system shall show a request page with: the stage line, due date, SLA, work window and | M | Both | P2 |
+| MACD-020 | The system shall show colocation cross-connect orders in flight as MACD requests with the | M | Colo | P2 |
+| MACD-021 | The system shall offer GPU-node requests (add to a reserved cluster, move to another pod, | M | Neo | P2 |
+| MACD-022 | Change Management shall show the change requests raised from MACD with source MACD and a l… | M | Both | P2 |
+| MACD-023 | The system shall scope every MACD view to one datacenter or the estate. | M | Both | P2 |
+| MACD-024 | The system shall add notes to a request for the team or the customer. | S | Both | P2 |
+| MACD-025 | The system shall record every request, stage move, hold, record update and billing post in… | M | Both | P2 |
+| MACD-026 | The system shall send the request status to the customer portal when the stage changes: ac… | S | Both | P3 |
+| MACD-027 | The system shall book site access for the crew or the customer for catalogue items that ne… | C | Both | P3 |
+| MACD-028 | The system shall start a request from DCIM (a rack or device) or the customer page, pre-fi… | S | Both | P3 |
 | ANL-001 | The system shall show the widgets above, read from Programs & Projects, without storing pr… | M | Both | P2 |
 | ANL-002 | The system shall mark a project **late** when its forecast finish is after its target or S… | M | Both | P2 |
 | ANL-003 | The system shall compute EV = budget × progress, CPI and SPI from the module's figures. | M | Both | P2 |
@@ -6138,7 +6358,28 @@ The physical record of each datacenter below the asset: where each rack and devi
 | Custom fields and tags | Defined in Platform Engineering; SynapseDC reads them and shows filled counts / tag rules on datacenter entities | XC-020 | API-PEN-03 | P2 |
 | Fields / tags admin screens | Not built — Platform Engineering screen (link) | — | API-PEN-03 | — |
 
-### B.29 Summary — built vs consumed
+### B.29 MACD
+
+**Route** `/macd?tab=overview|requests|board|schedule|catalog&dc=&kind=&stage=&sla=&obj=&prio=&cust=&chk=&open=&q=&new=1&cat=&rack=` · `/macd/requests/:id` · **Menu** Operate › MACD · **Status** Build (datacenter-specific) · **Phase** P2
+
+| Tab | Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- | --- |
+| Insights | Tiles | Open by type, past SLA / at risk, completed in 30 d within SLA, average cycle time, first time right, monthly revenue added (or kW / U added) | MACD-015 | DC-STORE macd; API-BSS-11 | P2 |
+| Insights | Flow and pipeline | Opened vs completed per day (14 d), pipeline by stage → board | MACD-015 | DC-STORE macd | P2 |
+| Insights | Needs attention, datacenters, types, adds | Past SLA, failing feasibility, blocked / waiting changes, quotes > 3 d, at risk; per datacenter; per type; kW, U, cross-connects, GPU nodes, cabinets added | MACD-015, MACD-023 | DC-STORE macd; API-ITSM-07 | P2 |
+| Requests | List | Search; quick filters type and stage; panel: object, SLA, priority, customer, checks, open only; row → request page | MACD-016 | DC-STORE macd | P2 |
+| Requests | Board | One column per open stage, cards worst SLA first, waiting-approval marker | MACD-016 | DC-STORE macd; API-ITSM-07 | P2 |
+| Schedule | Work windows | Today and the next 14 days by day, change id and approval state, owner, policy blocks; not scheduled yet | MACD-017 | DC-STORE macd; API-ITSM-07 | P2 |
+| Catalogue | Request types | Type, object, SLA, NRC / MRC, standard / normal, records updated, 30-day use and on-time %; Request → New request | MACD-001, MACD-018 | DC-STORE macd; API-BSS-04 | P2 |
+| New request | Form | Type, item, datacenter, rack (and target), quantity, priority, notes; live preview of checks, charges, U, kW and due date | MACD-002, MACD-003, MACD-004 | API-INV-02, API-INV-03; API-OAP-01; API-OPS-02; API-BSS-01/02; API-ITSM-06 | P2 |
+| Request page | Stage line and clock | Stages, due date, SLA left / over, work window, closed, reason | MACD-011, MACD-013, MACD-019 | DC-STORE macd | P2 |
+| Request page | Actions | Feasible (send the quote / schedule), customer accepted the quote, start the work (needs the approved change), work done, verified, failed verification, reject, cancel | MACD-005…012 | API-BSS-11; API-ITSM-08/09/11; API-INV-09…11; API-IPM-04; DC-STORE | P2 |
+| Request page | What and where, charges and change | Rack → DCIM, devices, customer, quantity, U, kW; NRC / MRC; change request with state; space hold; work order; billing | MACD-019, MACD-022 | DC-STORE; API-ITSM-07; API-BSS-02 | P2 |
+| Request page | Tasks, feasibility, history | Task list with the system each updates; checks Pass / Warn / Fail; history and notes | MACD-003, MACD-014, MACD-024, MACD-025 | DC-STORE; API-INV-02; API-OAP-01 | P2 |
+| (Colo) | Cross-connect orders | In-flight orders shown as requests with the order id | MACD-020 | API-BSS-09 | P2 |
+| (Neo) | GPU-node requests | Add / move / change / release nodes with the free-node check and reserved rate | MACD-021 | API-OPS-02; API-BSS-02 | P2 |
+
+### B.30 Summary — built vs consumed
 
 | Screen | Status | Tabs / features built | Modules consumed (API ids) | Phase |
 | --- | --- | --- | --- | --- |
@@ -6163,6 +6404,7 @@ The physical record of each datacenter below the asset: where each rack and devi
 | Commissioning | Build — analytics only | Levels, handover-ready, snags | API-PRJ-03/04 | P2 |
 | Work orders | Build — KPIs only | States, process KPIs, throughput, blocked by kit, remote hands | API-PRJ-03/05, API-SCM-05, API-ITSM-11 | P2 |
 | Change management | Build — Overview only | Paired widgets, freezes, conflicts, policies, lead time, detail table | API-ITSM-06/07/10, API-ITSM-01, API-PRJ-03 | P2 |
+| MACD | Build | Insights, Requests list ⇄ board, Schedule, Catalogue, New request, Request page | API-BSS-01/02/04/09/11, API-ITSM-06…09/11, API-INV-02/03/09…11, API-IPM-04, API-OPS-02, API-OAP-01 | P2 |
 | Compliance | Build | Overview, Frameworks & controls, Policies, Violations, Decision records, Audit | API-SOC-04, API-INV-03, API-OAP-01, API-IPM-02, API-ITSM-07/10 | P3 |
 | Customization | Not built — Platform Engineering | — (reads custom fields and tags) | API-PEN-03 | — |
 | Shell (menu, switches, search, Opstral AI, embed) | Build | Cross-cutting chapter 7.12 | API-PEN-01/02, API-AIF-01/02 | P1 / P2 |
