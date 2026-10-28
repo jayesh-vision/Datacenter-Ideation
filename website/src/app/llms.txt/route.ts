@@ -18,9 +18,8 @@ export function GET() {
 		...solutions.map((s) => `- [${s.name}](${absoluteUrl(`/solutions/${s.slug}`)}): ${s.status}. ${s.short}`),
 		"",
 		"## Key pages",
-		`- [How it works](${absoluteUrl("/how-it-works")})`,
+		`- [How it works & security](${absoluteUrl("/how-it-works")})`,
 		`- [Integrations](${absoluteUrl("/integrations")})`,
-		`- [Security & trust](${absoluteUrl("/security")})`,
 		`- [FAQ](${absoluteUrl("/faq")})`,
 	];
 	return new Response(lines.join("\n"), { headers: { "Content-Type": "text/plain; charset=utf-8" } });

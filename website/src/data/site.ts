@@ -73,7 +73,7 @@ export const navigation: NavItem[] = [
 				heading: "Company",
 				links: [
 					{ label: "Why SynapseDC", desc: "How we differ from DCIM, BMS and ITSM", icon: "scale", href: "/why-synapsedc" },
-					{ label: "Security & trust", desc: "Read-only, outbound-only", icon: "lock", href: "/security" },
+					{ label: "Security & trust", desc: "Read-only, outbound-only", icon: "lock", href: "/how-it-works#security" },
 					{ label: "About", desc: "Who is building it, and how", icon: "users", href: "/about" },
 				],
 			},
@@ -85,7 +85,7 @@ export const footerColumns: { title: string; links: [string, string][] }[] = [
 	{ title: "Plan & build", links: ["capacity-power-economics", "planner", "dcim", "build-delivery", "compliance"].map((s) => { const m = modules.find((x) => x.slug === s)!; return [m.name, `/platform/${s}`]; }) },
 	{ title: "Operate", links: ["command-center", "datacenters", "facilities", "gpu-fleet", "alarms-incidents", "revenue-impact", "security-ops"].map((s) => { const m = modules.find((x) => x.slug === s)!; return [m.name, `/platform/${s}`]; }) },
 	{ title: "Solutions", links: [...solutions.slice(0, 2).map((s) => [s.name, `/solutions/${s.slug}`] as [string, string]), ...roles.slice(0, 4).map((r) => [r.name, `/roles/${r.slug}`] as [string, string])] },
-	{ title: "Company", links: [["Why SynapseDC", "/why-synapsedc"], ["How it works", "/how-it-works"], ["Integrations", "/integrations"], ["Security & trust", "/security"], ["FAQ", "/faq"], ["Contact", "/contact"]] },
+	{ title: "Company", links: [["Why SynapseDC", "/why-synapsedc"], ["How it works & security", "/how-it-works"], ["Integrations", "/integrations"], ["FAQ", "/faq"], ["Contact", "/contact"]] },
 ];
 
 export interface Faq {

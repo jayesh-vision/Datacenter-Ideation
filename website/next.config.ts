@@ -34,6 +34,10 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
 	poweredByHeader: false,
 	turbopack: { root: __dirname },
+	async redirects() {
+		// Security & trust was merged into How it works (28-Oct-2026).
+		return [{ source: "/security", destination: "/how-it-works#security", permanent: true }];
+	},
 	async headers() {
 		return [
 			{ source: "/(.*)", headers: securityHeaders },

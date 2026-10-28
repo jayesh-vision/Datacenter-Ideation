@@ -5,10 +5,12 @@
  */
 
 const DEV_ORIGIN = "http://localhost:3010";
+/** Production domain (DNS to be pointed at Vercel). NEXT_PUBLIC_SITE_URL overrides it. */
+const PROD_ORIGIN = "https://synapsedc.tech";
 
 /** Absolute origin, defensive against blank values, missing scheme and trailing slash. */
 function resolveSiteUrl(): string {
-	for (const raw of [process.env.NEXT_PUBLIC_SITE_URL, process.env.VERCEL_PROJECT_PRODUCTION_URL, process.env.VERCEL_URL]) {
+	for (const raw of [process.env.NEXT_PUBLIC_SITE_URL, process.env.VERCEL_ENV === "production" ? PROD_ORIGIN : undefined, process.env.VERCEL_URL]) {
 		const value = raw?.trim();
 		if (!value) continue;
 		try {
@@ -17,7 +19,7 @@ function resolveSiteUrl(): string {
 			console.warn(`[seo] Ignoring unusable site URL ${JSON.stringify(raw)}`);
 		}
 	}
-	return DEV_ORIGIN;
+	return process.env.NODE_ENV === "production" && process.env.VERCEL ? PROD_ORIGIN : DEV_ORIGIN;
 }
 
 export const siteUrl = resolveSiteUrl();

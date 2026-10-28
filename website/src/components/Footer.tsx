@@ -32,7 +32,7 @@ export function Footer() {
 					<nav aria-label="Legal">
 						<Link href="/privacy">Privacy</Link>
 						<Link href="/terms">Terms</Link>
-						<Link href="/security">Security</Link>
+						<Link href="/how-it-works#security">Security</Link>
 					</nav>
 				</div>
 			</div>

@@ -133,7 +133,7 @@ export const MAP_NODES: MapNode[] = [
 	{ id: "platform", group: "foundation", name: "Platform modules", short: "BSS · ITSM · Plan to Build · Supply Chain · Ops Toolkit · AI Foundry", icon: "layers", href: "/why-synapsedc",
 		desc: "SynapseDC builds only what is datacenter-specific and uses the platform's modules for the rest: the module that owns a record stays its system of record.",
 		holds: ["Operate to Acquire (BSS), Services & ITSM, Plan to Build, Supply Chain", "Ops Toolkit, AI Foundry, Platform Engineering, Intelligence Hub", "Integrate with the customer's own systems where they exist"] },
-	{ id: "deploy", group: "foundation", name: "Deployment & identity", short: "On-prem, your cloud or air-gapped · OIDC", icon: "lock", href: "/security",
+	{ id: "deploy", group: "foundation", name: "Deployment & identity", short: "On-prem, your cloud or air-gapped · OIDC", icon: "lock", href: "/how-it-works#security",
 		desc: "Runs where your data must live, inside your perimeter, with the platform's identity (OIDC), in the platform shell or embedded in your portal.",
 		holds: ["Business-model and geography switches", "Big-screen scaling for NOC walls", "Every write audited"] },
 ];
