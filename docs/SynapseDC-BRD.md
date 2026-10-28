@@ -15,6 +15,7 @@
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.9 | 27-Oct-2026 | First complete draft: all modules, module split against the existing platform, colocation + NeoCloud first |
+| 0.9.3 | 28-Oct-2026 | Help & FAQ and the documents removed (internal reference material, not product scope) |
 | 0.9.2 | 28-Oct-2026 | Section 3.5 modules used through their APIs, 3.6 what SynapseDC builds; Appendix B screen-by-screen and feature-by-feature catalogue; Appendix C expected API responses per module |
 | 0.9.1 | 28-Oct-2026 | Build boundary made explicit (3.4): existing platform modules are consumed only through their APIs — no new database, backend or screens for them; telemetry ingested and queried only through the OAP telemetry ingestion / consumer service on ClickHouse (9.0) |
 
@@ -63,7 +64,7 @@ Requirement identifiers: `<PFX>-nnn` (functional), `BRULE-<PFX>-nn` (business ru
 - 7.9 Planner
 - 7.10 DCIM — racks, power chain and cabling
 - 7.11 Compliance
-- 7.12 Cross-cutting: shell, business models, geography, Opstral AI, search, help
+- 7.12 Cross-cutting: shell, business models, geography, Opstral AI, search
 - 8 Analytics-only pages over existing modules
   - 8.1 Programs & Projects insights
   - 8.2 Work orders and process KPIs
@@ -189,7 +190,7 @@ The platform module that already owns an object is its **system of record**. Syn
 | AI models and agents | — | AI Foundry | — |
 | Customisation (fields, tags), identity | — | Platform Engineering | — |
 | Data model, data layer, BI | — | Intelligence Hub (Command Center excluded: built here) | — |
-| Cross-cutting: shell, business-model and geography switches, Opstral AI, search, info bubbles, embedding, Help & FAQ and documents | **Build** (7.12) | Platform Engineering (identity, flags, customisation), AI Foundry (models), Knowledge Center (articles) | — |
+| Cross-cutting: shell, business-model and geography switches, Opstral AI, search, info bubbles, embedding | **Build** (7.12) | Platform Engineering (identity, flags, customisation), AI Foundry (models) | — |
 | Materials, vendors, contracts, procurement, warehouses, field force, logistics | — | Supply Chain | — |
 
 ### 3.3 Out of scope (all releases unless re-decided)
@@ -239,7 +240,7 @@ The existing modules named in section 3.2 (Operate to Acquire / BSS except Reven
 | Facility design: power chain, cooling coverage, fire / leak zones, design ratings | **stored** where Inventory does not hold them (OD-01) | Plan to Build Inventory |
 | Compliance policies, control mappings, attestations, decision records | **stored** | — |
 | Access events, visits, badges | security exceptions and the access-rights review (derived) | PACS / visitor / VMS connectors (INT-17…19) and Security Ops |
-| Business-model vocabulary, geography, severity and scope tables, site integration surveys, Help content | **stored** (configuration) | Knowledge Center for articles |
+| Business-model vocabulary, geography, severity and scope tables | **stored** (configuration) | — |
 
 
 ### 3.5 Modules used through their APIs (nothing built)
@@ -256,7 +257,7 @@ SynapseDC builds **nothing** of the modules below — no database, no backend, n
 | Services & ITSM | Change Management | changes, approvals, windows, freezes; change requests raised from DCIM, incidents, maintenance, planner | DCIM, Incidents, Change management overview, Ops log | API-ITSM-06…09, 13 |
 | Services & ITSM | Maintenance | maintenance windows and plans per plant asset | Facilities → Maintenance, Datacenter Ops log | API-ITSM-10 |
 | Services & ITSM | Tickets | remote hands, cross-connect, access requests, RMA cases | Customer page, Device page, Assets | API-ITSM-11 |
-| Services & ITSM | Knowledge Center | runbook articles per alarm / incident type | Incidents view, Help & FAQ | API-ITSM-12 |
+| Services & ITSM | Knowledge Center | runbook articles per alarm / incident type | Incidents view | API-ITSM-12 |
 | Operate to Acquire (BSS) | CRM · Customers | customers, tier, account manager; contracts, SLA, credit rules, contracted kW, GPU rate | Revenue Impact, Customer page, Command Center "Who is affected", Datacenter Customers tab | API-BSS-01, 02, 10 |
 | Operate to Acquire (BSS) | Orders · Plans & Products Catalog | services with placement and charge; products; cross-connect orders | Revenue Impact, impact everywhere, Tenants tab | API-BSS-03, 04, 09 |
 | Operate to Acquire (BSS) | Experience and Care | customer notices; impact per customer; SLA credits and metered usage written back | Incidents view (communications), Revenue Impact | API-BSS-05…08 |
@@ -267,7 +268,7 @@ SynapseDC builds **nothing** of the modules below — no database, no backend, n
 | Supply Chain | Vendors · Contracts · Materials · Warehouses · Procurement · Field Force Management | vendor contracts and support, prices and lead times, stock and spares, POs from the plan BoM, field visits | Planner materials and sourcing, Assets (spares, RMA), Access (contractor visits) | API-SCM-01…05 |
 | AI Foundry | Models and agents | Opstral AI copilot answers over SynapseDC read models | Opstral AI drawer on every screen | API-AIF-01, 02 |
 | Platform Engineering | Identity · Configuration · Customization | sign-in, roles, site scope, tenant claim; flags and deployment config; custom fields and tags | every screen | API-PEN-01…03 |
-| Intelligence Hub | Data model registry · Data lake | SynapseDC entities registered; roll-ups exported for BI | Data model (Help document), BI | API-IHB-01, 02 |
+| Intelligence Hub | Data model registry · Data lake | SynapseDC entities registered; roll-ups exported for BI | BI and the platform data model | API-IHB-01, 02 |
 
 **Screens of these modules that SynapseDC does not build** (it links to them): incident / problem / change / ticket records and approvals; CRM, customer, contract and order records; inventory asset records; IP address management (prefix, VRF, VLAN, address CRUD); programme, project, work-order, purchase-order and commissioning records and their workflows; vendor, contract and stock records; users, roles, custom-field administration; the data lake.
 
@@ -289,7 +290,7 @@ Only datacenter-specific screens and functionality. **Appendix B** lists every s
 | 10 | **DCIM (datacenter extensions)** | Insights, Sites & hierarchy, Racks & floor plan, Devices & explorer, Cabling, Power, Catalogue, Change requests; Rack page; Device type page | 7.10 | INV, ITSM-06…09, IPM, OAP | P1 / P2 |
 | 11 | **Compliance** | Overview, Frameworks & controls, Policies, Violations, Decision records, Audit | 7.11 | ITSM, INV, OAP | P3 |
 | 12 | **Analytics pages** | Programs & Projects insights, Work orders KPIs, Commissioning, IP & Network insights, Change management overview, DCIM insights | 8 | PRJ, SCM-05, IPM, ITSM | P2 |
-| 13 | **Cross-cutting** | Shell, persona and geography switches, search, Opstral AI, info bubbles, embed, Help & FAQ (FAQ, Documents, Customer guide, Facility integration) | 7.12 | PEN, AIF, ITSM-12 | P1 / P2 |
+| 13 | **Cross-cutting** | Shell, persona and geography switches, search, Opstral AI, info bubbles, embed | 7.12 | PEN, AIF | P1 / P2 |
 
 ## 4 Stakeholders, users and roles
 
@@ -2119,9 +2120,9 @@ These datacenter-specific records extend the Plan to Build Inventory asset recor
 
 ---
 
-## 7.12 Cross-cutting: shell, business models, geography, Opstral AI, search, help
+## 7.12 Cross-cutting: shell, business models, geography, Opstral AI, search
 
-**Purpose.** The capabilities every SynapseDC screen shares: the shell it runs in (menu, breadcrumbs, pinned bars, embedding), the business-model and geography switches that change vocabulary, data and money everywhere, the Opstral AI copilot, global search, the info bubble on every widget, and the Help & FAQ centre that holds every document. **Lifecycle stage:** Plan, Build and Operate. **Primary users:** every role; product and platform teams for configuration. **Builds on:** Platform Engineering (identity, feature flags, customisation), AI Foundry (models for the copilot), Knowledge Center (articles), the platform portal (embedding).
+**Purpose.** The capabilities every SynapseDC screen shares: the shell it runs in (menu, breadcrumbs, pinned bars, embedding), the business-model and geography switches that change vocabulary, data and money everywhere, the Opstral AI copilot, global search, and the info bubble on every widget. **Lifecycle stage:** Plan, Build and Operate. **Primary users:** every role; product and platform teams for configuration. **Builds on:** Platform Engineering (identity, feature flags, customisation), AI Foundry (models for the copilot), the platform portal (embedding).
 **Colocation:** vocabulary Tenant / cabinet / cage / cross-connect; capacity in kW; the GPU Fleet menu item and site tab are hidden; the site page has a Tenants tab. **NeoCloud:** vocabulary Customer / GPU cluster / job; capacity in GPUs; GPU Fleet shown; the Command Center's first area is GPU fleet.
 
 ### 7.12.1 Scope
@@ -2131,13 +2132,11 @@ These datacenter-specific records extend the Plan to Build Inventory asset recor
 - Opstral AI copilot: natural-language questions answered from the read models with deep links.
 - Global search (⌘K) across sites, devices, customers, services, incidents, changes.
 - Info bubble on every widget; pinned tab bars and list headers; big-screen scaling; embedding with `shell=false`.
-- Help & FAQ: FAQ, Documents (every guide read in the app), Customer guide, Facility integration survey.
 - Deployment configuration: default persona, persona / geography overrides for embedded use.
 
 **Out of scope**
 - Identity, roles and SSO (Platform Engineering).
 - Custom fields and tags as records (Platform Engineering Customization); SynapseDC evaluates them over the estate (DCIM 7.10).
-- Knowledge articles as records (Knowledge Center).
 - Model hosting and training (AI Foundry).
 
 ### 7.12.2 Business rules
@@ -2170,17 +2169,11 @@ These datacenter-specific records extend the Plan to Build Inventory asset recor
 | XC-011 | The system shall run every screen inside an iframe with `shell=false` (no menu, no top bar, sticky headers and full-screen map / 3D pinned to the frame) and silent single sign-on from the host portal. | M | Both | P1 |
 | XC-012 | The system shall scale the UI for TVs from 2200 px with charts, map, tooltips and 3D aligned. | S | Both | P2 |
 | XC-013 | The system shall show no horizontal overflow, no cut text and no NaN / undefined at 1280 and 1440 px on any screen (automated check per screen). | M | Both | P1 |
-| XC-014 | The system shall provide Help & FAQ with a FAQ (categories, search, answers linking to screens and documents), a Documents library (field guide, GPU anatomy, demo playbook, personas, platform overview, data model explorer, import template, estate backups, integration guide, interface specification, embed guide, platform menu, customer engagement guide) read inside the app with section chips, and tabs Customer guide and Facility integration. | M | Both | P1 |
-| XC-015 | The Facility integration tab shall hold one site integration survey per datacenter (collector placement, BMS, equipment, BMCs, firewall rules, records, sign-off) with progress and an outstanding list, saved and exchanged as JSON. | M | Both | P1 |
-| XC-016 | The data model explorer shall show every entity and relationship (ontology around one entity, full map by domain, containment hierarchy) with fields marked Import / Live / Derived and counts from the live estate. | S | Both | P1 |
-| XC-017 | The system shall provide a demo playbook ("The 13:20 call") per business model with "Open in tool" deep links carrying the persona, and a platform-menu proposal placing each screen in the launcher's sections with its embed URL. | C | Both | P1 |
 | XC-018 | The system shall use the NST / Vision Waves design system (Poppins chrome, Inter tabular numbers, NST colour tokens, `.nst-table`, `.nst-btn`, `.vw-chip`), with no secondary left menus inside screens. | M | Both | P1 |
 | XC-019 | Status words shall be consistent: incidents Critical / High / Medium / Low, alarms Critical / Major / Minor / Warning; priority shown only when it differs from severity; red / amber reserved for faults. | M | Both | P1 |
 | XC-020 | Every list shall use the common list toolbar (Showing N of M, search, ≤ 2 quick filters, refresh, Filters panel with Reset / Apply, actions) with URL-backed filters, and the common grid (header band, wrapping text cells, left-aligned columns, equal-width status pills). | M | Both | P1 |
 | XC-021 | List pages shall open with an analytics strip of six tiles whose bars, pills and facts click through to the filtered list; closed sections shall show one-line status summaries. | S | Both | P1 |
 | XC-022 | The system shall keep per-viewer conveniences (collapsed sections, chosen layout, legend state, last sub tab per group) in the browser and never use them for shared state. | S | Both | P1 |
-| XC-023 | The system shall expose the Help documents and the survey at stable URLs so the portal and the customer can link to them (`/customer-guide.html`, `/interface-spec.html`, `/site-integration-survey.html`, …). | S | Both | P1 |
-| XC-024 | The customer engagement guide shall be searchable by keyword or problem with synonyms, deep-linkable per entry, and shall carry the per-model monitoring statements (colocation: tenant gear sealed; GPU cloud: GPU telemetry and job metadata, never data / model / code). | S | Both | P1 |
 
 ### 7.12.4 User stories and acceptance criteria
 **US-XC-01** As a NeoCloud operator opening a link from the platform portal, I want the screen to open in my business model and currency without the menu, so that it fits inside the portal (XC-002, XC-004, XC-011).
@@ -2197,10 +2190,6 @@ These datacenter-specific records extend the Plan to Build Inventory asset recor
 **US-XC-04** As a colocation operator, I want the product to speak of tenants, cabinets and cross-connects everywhere, so that it reads like my business (XC-003, XC-005).
 - Given persona colocation, when I open any screen, then customers are "Tenants", capacity is in kW, GPU Fleet is absent and the site page shows a Tenants tab with cross-connect orders and remote hands.
 
-**US-XC-05** As a sales engineer, I want one place for every guide and the site survey, so that onboarding uses the same documents (XC-014, XC-015).
-- Given Help & FAQ → Documents, when I open the interface specification, then it renders inside the app with section chips and "Open in new tab".
-- Given Facility integration, when I fill the survey for a site and download it, then the JSON re-imports with the same progress and outstanding list.
-
 **US-XC-06** As a NOC on a video wall, I want the Command Center readable on a 4K TV, so that the room sees it (XC-012).
 - Given a 3440 px screen, when the Command Center opens, then the UI is scaled 2× and the map, tooltips and charts align with the pointer.
 
@@ -2210,8 +2199,6 @@ These datacenter-specific records extend the Plan to Build Inventory asset recor
 | Persona definition (vocabulary, customers, service types, room names, SLA, scale) | read | SynapseDC configuration | one per business model |
 | Geography (places, currency, locale, dates, factors) | read | SynapseDC configuration | India, USA |
 | Viewer preferences | write (browser) | viewer's browser | never shared |
-| FAQ entries, document catalogue | read | SynapseDC (Help) | articles themselves may come from Knowledge Center |
-| Site integration survey | write | SynapseDC (Help) / JSON file | one per datacenter |
 | Identity, roles, scopes | read | Platform Engineering IdP | OIDC claims |
 
 ### 7.12.6 Integrations
@@ -2220,22 +2207,16 @@ These datacenter-specific records extend the Plan to Build Inventory asset recor
 | Platform portal | in | framed screens with `shell=false`, SSO session, postMessage navigation | NB-11 |
 | Platform Engineering | in | identity, roles, site scope, tenant claim, feature flags, deployment config | INTG-029, INTG-031 |
 | AI Foundry | in / out | models for Opstral AI; tool definitions over the read API | INTG-027 |
-| Knowledge Center | in | articles linked from FAQ answers and runbooks | INTG-015 |
 | Intelligence Hub | out | the data model registration | INTG-032 |
 
 ### 7.12.7 Reports and KPIs
 - Screens passing the layout check at 1280 / 1440 (target 100 %).
 - Opstral AI answers with a deep link (target 100 % of supported questions).
-- Help documents opened per week; survey completion per site = answered ÷ required questions.
 
 ### 7.12.8 Screens
 | Screen / tab | Purpose | Reference route |
 | --- | --- | --- |
 | Shell: menu, sub-menus, breadcrumbs, persona and geography switches, search, Opstral AI | navigation and context | every route |
-| Help & FAQ · FAQ | questions by category with links | `/help` |
-| Help & FAQ · Documents | every guide read in the app | `/help?tab=docs&doc=<id>&s=<section>` |
-| Help & FAQ · Customer guide | the engagement guide framed | `/help?tab=customer` |
-| Help & FAQ · Facility integration | the site integration survey | `/help?tab=survey` |
 | Data model | entity and relationship explorer | `/data-model` |
 | Embedded screen | any screen without the shell | `<route>?shell=false&persona=&geo=` |
 
@@ -2526,7 +2507,7 @@ SynapseDC assumes these APIs exist (ARCH-001). A module team that cannot offer o
 
 ### 10.1 Entity model
 
-51 entities in 107 relationships (the data model explorer), in nine domains: Estate & locations · Facility (power, cooling, environment & safety) · Equipment & connectivity · GPU · Customers & services · Operations (alarms, incidents, changes, problems, on-call) · Lifecycle & process · Access & security · Planning & delivery. Every field is classified **Import** (a record someone enters or a module syncs), **Live** (a reading or event from the collector) or **Derived** (computed by a read model; never stored as input).
+51 entities in 107 relationships, in nine domains: Estate & locations · Facility (power, cooling, environment & safety) · Equipment & connectivity · GPU · Customers & services · Operations (alarms, incidents, changes, problems, on-call) · Lifecycle & process · Access & security · Planning & delivery. Every field is classified **Import** (a record someone enters or a module syncs), **Live** (a reading or event from the collector) or **Derived** (computed by a read model; never stored as input).
 
 | ID | Requirement | Priority | Phase |
 | --- | --- | --- | --- |
@@ -2600,19 +2581,19 @@ Telemetry retention (raw samples and roll-ups) is set in the OAP telemetry servi
 
 | Phase | Name | Content | Exit criteria |
 | --- | --- | --- | --- |
-| **P1** | Operate core (MVP) | Collector and INT-01…13, INT-28; alarm scope, normalisation, correlation, incident enrichment on System Alerts + ITSM Incidents / Change Management; Command Center; Datacenters site page (Overview, Needs attention, Metrics, Ops log, schematic layout, Equipment, Space & ports, Customers, Revenue tabs); device page (3D view schematic, interfaces, links, Power & cabling); Facilities Power / Cooling / Environment; GPU Fleet jobs, nodes, clusters, telemetry, GPU models, rails; Revenue Impact; DCIM records (racks, devices, power panels / feeds / outlets / cords, cabling) with the standard-CR path; customer page; import template and reconciliation reporting; integrations INTG-001–005, 011, 013, 018–022, 029, 031, 032, 035, 046, 047, 054 (embed); Help & FAQ with the documents. | Two pilot sites (one Colo, one Neo) live; reconciliation checks green; NFR-001–008 met |
+| **P1** | Operate core (MVP) | Collector and INT-01…13, INT-28; alarm scope, normalisation, correlation, incident enrichment on System Alerts + ITSM Incidents / Change Management; Command Center; Datacenters site page (Overview, Needs attention, Metrics, Ops log, schematic layout, Equipment, Space & ports, Customers, Revenue tabs); device page (3D view schematic, interfaces, links, Power & cabling); Facilities Power / Cooling / Environment; GPU Fleet jobs, nodes, clusters, telemetry, GPU models, rails; Revenue Impact; DCIM records (racks, devices, power panels / feeds / outlets / cords, cabling) with the standard-CR path; customer page; import template and reconciliation reporting; integrations INTG-001–005, 011, 013, 018–022, 029, 031, 032, 035, 046, 047, 054 (embed). | Two pilot sites (one Colo, one Neo) live; reconciliation checks green; NFR-001–008 met |
 | **P2** | Resilience, money, plan & build | Realistic twin, walk, power & cable paths, device popup and trace views; Access & security tab; SPOF and what-if; maintenance (PM plan, resilience tests); lifecycle, RMA, spares; environment & safety panels; Capacity & reservations; power economics (contracts, bill, findings, GPU cost per GPU-hour, by job / tenant, placement); Planner (all families, templates, benchmarks, governance, materials, plan pack, review pack and portal, edit policy) with hand-off to Programs & Projects; DCIM change control (open CR / raise new), drag-move, reservations, explorer, insights; analytics pages 8.1–8.6; Datacenter Security Ops; notices and credits to BSS; metered usage export; customer-side connectors INTG-040, 048–053; Opstral AI on AI Foundry. | Planner → Programs & Projects round trip on a real plan; power findings validated against a real bill; Security Ops cases on real detections |
 | **P3** | Govern and extend | Compliance (policies as code, frameworks, decision records, attestations); tenant-scoped API; Knowledge Center runbooks; AI Foundry model training on RCA feedback; cloud, enterprise and telco variants; further vendor connectors. | Compliance evidence accepted by an auditor for one framework; one tenant portal live on NB-12 |
 
 ### 12.1 Onboarding a customer site (the delivery approach)
 
-Each site follows the engagement journey in the customer engagement guide; the BRD requirements that each step relies on are listed.
+Each site follows the same onboarding journey; the BRD requirements each step relies on are listed.
 
 | Step | What happens | Relies on |
 | --- | --- | --- |
-| 1 Prepare and first meeting | Pitch by role, value formulas, the colocation / NeoCloud playbook and demo (demo playbook, persona switch) | XC-002, XC-017 |
+| 1 Prepare and first meeting | Pitch by role and value, then a demo in the customer's business model (persona switch) | XC-002 |
 | 2 Discovery workshops | Question banks: business, estate, their systems and tools (BMS, EPMS, UPS, PDUs, DCIM, ITSM, CRM, PACS, NMS, SSO, SIEM; GPU: DCGM, scheduler), Integrate-or-Offer decision per system | section 9, interface spec |
-| 3 Site survey | The Facility integration survey per datacenter: collector placement, BMS, equipment, BMCs, firewall rules, records, sign-off | XC-015, NFR-004, NFR-005 |
+| 3 Site survey | A site survey per datacenter: collector placement, BMS, equipment, BMCs, firewall rules, records, sign-off | NFR-004, NFR-005 |
 | 4 Proposal and pilot | Scope = P1 operate core on one site; success criteria from section 2.3 | section 12 |
 | 5 Onboarding data | Import template in load order (Core → Recommended → Optional); DCIM records; service placement from BSS / OSS | DATA-012, DATA-013, 7.10, INTG-003, INTG-035 |
 | 6 Integrations in waves | Wave 1 collector + network + UPS / PDUs + BMS; wave 2 BMCs + GPU + scheduler; wave 3 ITSM, paging, CRM; wave 4 DCIM / IPAM / PACS / OEM; each with contract tests and failure drills | section 9, NFR-017, NFR-020 |
@@ -2634,7 +2615,7 @@ Each site follows the engagement journey in the customer engagement guide; the B
 | 7.9 Planner | — | all, hand-off to Programs & Projects | AI assist |
 | 7.10 DCIM | records, standard-CR path | open / new CR, drag-move, reservations, explorer, insights | — |
 | 7.11 Compliance | — | — | all |
-| 7.12 Cross-cutting | shell, switches, search, info, embed, Help | Opstral AI, big screens | — |
+| 7.12 Cross-cutting | shell, switches, search, info, embed | Opstral AI, big screens | — |
 | 8 Analytics pages | — | all | — |
 | 9 Integrations | BSS core, ITSM, System Alerts, Telemetry / Data Ops, identity, Inventory, embed | the rest | tenant API, AI Foundry training |
 
@@ -2668,13 +2649,13 @@ Each site follows the engagement journey in the customer engagement guide; the B
 
 | ID | Risk | Impact | Mitigation |
 | --- | --- | --- | --- |
-| R-01 | BMS owners refuse BACnet access (safety) | Environment / cooling tabs partly blind | Relay contacts and OPC UA alternatives; the site integration survey settles it before go-live |
+| R-01 | BMS owners refuse BACnet access (safety) | Environment / cooling tabs partly blind | Relay contacts and OPC UA alternatives; the site survey settles it before go-live |
 | R-02 | GPU job progress (step time, MFU, checkpoints) is only inside the training framework | GPU time lost and work-to-redo degrade to allocation-level | Agree a metrics / log export with the AI platform team; show scheduler-level state until then |
 | R-03 | Service placement missing or stale | Impact and money per customer wrong | Placement differences reported to BSS / OSS; site-level figures flagged "placement incomplete" |
 | R-04 | Platform module APIs not ready for the fields needed | Integration slips | API needs in 9.10 agreed per module before P1 build; gaps go to the module's backlog (ARCH-004); the import template loads only datacenter-specific data |
 | R-05 | Power chain and cabling records absent at most customers | Physical last mile, SPOF and what-if empty | Template, site survey and audit services at onboarding; DCIM lets engineers record as they audit |
 | R-06 | Tariffs and SLA credit rules differ per contract | Money figures disputed | Contract-level rules synced from BSS; "illustrative" flag until replaced |
-| R-07 | Tenant privacy concerns (Colo) | Sales objection | Never poll tenant gear; cabinet-level only; the engagement guide's wording |
+| R-07 | Tenant privacy concerns (Colo) | Sales objection | Never poll tenant gear; cabinet-level only; clear per-model wording in the pitch |
 
 ### 13.4 Open decisions
 
@@ -2776,7 +2757,7 @@ The requirement index (every FR, business rule and user story by chapter, with m
 
 ## Appendix A — Requirement index
 
-478 functional requirements, 191 business rules, 95 user stories, 12 build-boundary requirements, 59 integration requirements, 16 data requirements, 20 non-functional requirements. By phase: P1 213, P2 237, P3 28. By priority: M 289, S 169, C 20. By model: Both 401, Colo 20, Neo 57.
+472 functional requirements, 191 business rules, 94 user stories, 12 build-boundary requirements, 59 integration requirements, 16 data requirements, 20 non-functional requirements. By phase: P1 207, P2 237, P3 28. By priority: M 287, S 166, C 19. By model: Both 395, Colo 20, Neo 57.
 
 | ID | Requirement | Pri | Model | Phase |
 | --- | --- | --- | --- | --- |
@@ -3079,7 +3060,7 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | CAP-026 | The system shall scope every view to the estate or to one datacenter by a datacenter selec… | M | Both | P2 |
 | CAP-027 | The system shall let a planner start a capacity plan from a dimension, opening the Planner… | S | Both | P2 |
 | CAP-028 | The system shall make every total reconcile: Σ site bills = estate bill; Σ holds per site | M | Both | P2 |
-| CAP-029 | The system shall export capacity, holds and power economics as CSV and through NB-01 / NB-09 | S | Both | P2 |
+| CAP-029 | The system shall export capacity, holds and power economics as CSV and through NB-01 / NB-… | S | Both | P2 |
 | CAP-030 | The system shall show 12 months of power history per site and use it for the ratchet rule.… | M | Both | P2 |
 | CAP-031 | The system shall send metered kWh and peak kW per tenant cabinet to billing (NB-07). | S | Colo | P3 |
 | CAP-032 | The system shall send delivered and lost GPU-hours per customer job to billing (NB-07). | S | Neo | P3 |
@@ -3211,17 +3192,11 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | XC-011 | The system shall run every screen inside an iframe with `shell=false` (no menu, no top bar… | M | Both | P1 |
 | XC-012 | The system shall scale the UI for TVs from 2200 px with charts, map, tooltips and 3D align… | S | Both | P2 |
 | XC-013 | The system shall show no horizontal overflow, no cut text and no NaN / undefined at 1280 a… | M | Both | P1 |
-| XC-014 | The system shall provide Help & FAQ with a FAQ (categories, search, answers linking to scr… | M | Both | P1 |
-| XC-015 | The Facility integration tab shall hold one site integration survey per datacenter (collec… | M | Both | P1 |
-| XC-016 | The data model explorer shall show every entity and relationship (ontology around one enti… | S | Both | P1 |
-| XC-017 | The system shall provide a demo playbook ("The 13:20 call") per business model with "Open | C | Both | P1 |
 | XC-018 | The system shall use the NST / Vision Waves design system (Poppins chrome, Inter tabular n… | M | Both | P1 |
 | XC-019 | Status words shall be consistent: incidents Critical / High / Medium / Low, alarms Critica… | M | Both | P1 |
 | XC-020 | Every list shall use the common list toolbar (Showing N of M, search, ≤ 2 quick filters, r… | M | Both | P1 |
 | XC-021 | List pages shall open with an analytics strip of six tiles whose bars, pills and facts cli… | S | Both | P1 |
 | XC-022 | The system shall keep per-viewer conveniences (collapsed sections, chosen layout, legend s… | S | Both | P1 |
-| XC-023 | The system shall expose the Help documents and the survey at stable URLs so the portal and… | S | Both | P1 |
-| XC-024 | The customer engagement guide shall be searchable by keyword or problem with synonyms, dee… | S | Both | P1 |
 | ANL-001 | The system shall show the widgets above, read from Programs & Projects, without storing pr… | M | Both | P2 |
 | ANL-002 | The system shall mark a project **late** when its forecast finish is after its target or S… | M | Both | P2 |
 | ANL-003 | The system shall compute EV = budget × progress, CPI and SPI from the module's figures. | M | Both | P2 |
@@ -4098,27 +4073,7 @@ The physical record of each datacenter below the asset: where each rack and devi
 | Custom fields and tags | Defined in Platform Engineering; SynapseDC reads them and shows filled counts / tag rules on datacenter entities | XC-020 | API-PEN-03 | P2 |
 | Fields / tags admin screens | Not built — Platform Engineering screen (link) | — | API-PEN-03 | — |
 
-### B.29 Data model
-
-**Route** `/data-model` (frames `/data-model.html`) · **Menu** Reference › Data model · **Status** Not built as a module — the model is registered in Intelligence Hub; the explorer is a Help document · **Phase** P1
-
-| Feature | What the user sees / does | FR | Data from | Phase |
-| --- | --- | --- | --- | --- |
-| Explorer | Ontology around one entity, full map by domain, hierarchy; fields marked Import / Live / Derived; counts | XC-016 | DC-STORE (document) | P1 |
-| Register model | Entities, fields, relationships sent to Intelligence Hub | — | API-IHB-01 | P1 |
-
-### B.30 Help & FAQ
-
-**Route** `/help?tab=faq|docs|customer|survey&doc=&s=` · **Menu** Reference › Help & FAQ · **Status** Build · **Phase** P1
-
-| Tab | Feature | What the user sees / does | FR | Data from | Phase |
-| --- | --- | --- | --- | --- | --- |
-| FAQ | Questions | Six categories, search, category pills, answers linking to screens and documents | XC-014 | DC-STORE Help | P1 |
-| Documents | Library and reader | Field guide, GPU anatomy, demo playbook, personas, platform overview, data model, import template, backups, integration guide, interface specification, BRD, embed guide, platform menu, customer guide; in-app reader with section chips, Open in new tab | XC-014, XC-017, XC-023 | DC-STORE Help; API-ITSM-12 (articles) | P1 |
-| Customer guide | Engagement guide | Searchable by keyword / problem, deep links per entry, per-model monitoring statements | XC-024 | DC-STORE Help | P1 |
-| Facility integration | Site survey | One survey per datacenter: collector, BMS, equipment, BMCs, firewall rules, records, sign-off; progress, outstanding; JSON download / import | XC-015 | DC-STORE / JSON | P1 |
-
-### B.31 Summary — built vs consumed
+### B.29 Summary — built vs consumed
 
 | Screen | Status | Tabs / features built | Modules consumed (API ids) | Phase |
 | --- | --- | --- | --- | --- |
@@ -4145,8 +4100,6 @@ The physical record of each datacenter below the asset: where each rack and devi
 | Change management | Build — Overview only | Paired widgets, freezes, conflicts, policies, lead time, detail table | API-ITSM-06/07/10, API-ITSM-01, API-PRJ-03 | P2 |
 | Compliance | Build | Overview, Frameworks & controls, Policies, Violations, Decision records, Audit | API-SOC-04, API-INV-03, API-OAP-01, API-IPM-02, API-ITSM-07/10 | P3 |
 | Customization | Not built — Platform Engineering | — (reads custom fields and tags) | API-PEN-03 | — |
-| Data model | Not built as a module — Intelligence Hub | Explorer as a Help document | API-IHB-01 | P1 |
-| Help & FAQ | Build | FAQ, Documents, Customer guide, Facility integration | API-ITSM-12 | P1 |
 | Shell (menu, switches, search, Opstral AI, embed) | Build | Cross-cutting chapter 7.12 | API-PEN-01/02, API-AIF-01/02 | P1 / P2 |
 
 ---
