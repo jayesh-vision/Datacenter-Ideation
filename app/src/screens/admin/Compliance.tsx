@@ -59,7 +59,7 @@ export function Compliance() {
   const run = (f: () => Promise<unknown>, ok: string, body?: string) => f().then(() => toast.show(ok, body)).catch(e => toast.show('Not done', String(e.message ?? e)));
 
   return (
-    <div className="page dcim">
+    <div className="page dcim head-1line">
       <PageHead title="Compliance" sub="Framework controls evidenced by policies that run on the estate itself; manual controls carry their attestation"
         actions={<><Btn icon={I.FolderPlus} onClick={() => setForm('framework')}>New framework</Btn><Btn icon={I.ListPlus} onClick={() => setForm('control')}>New control</Btn><Btn variant="filled" icon={I.FileCode2} onClick={() => setForm('policy')}>New policy</Btn></>} />
       <Tabs value={tab} onChange={v => set({ tab: v === 'posture' ? '' : v, pol: '', q: '', cst: '' })} tabs={[{ id: 'posture', label: 'Overview' }, { id: 'controls', label: 'Frameworks & controls', count: c.controls.length }, { id: 'policies', label: 'Policies', count: c.policies.length },

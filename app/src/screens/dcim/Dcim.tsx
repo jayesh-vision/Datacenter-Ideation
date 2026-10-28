@@ -63,7 +63,7 @@ export function Dcim() {
   const go = (t: DcimTab, extra: Record<string, string> = {}) => set({ tab: t === 'overview' ? '' : t, ...extra });
 
   return (
-    <div className="page dcim">
+    <div className="page dcim head-1line">
       <PageHead {...subHead('dcim', tab, { title: 'DCIM', sub: 'Sites, floor plans, racks, devices, cabling and power — the inventory record behind every operations screen' })}
         actions={<>
           <select className="select" value={dcId} onChange={e => set({ dc: e.target.value, hall: '' })} aria-label="Datacenter scope">

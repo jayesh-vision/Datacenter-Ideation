@@ -64,7 +64,7 @@ export function Changes() {
   const sites = [...new Set(all.map(c => c.dcId))].sort();
 
   return (
-    <div className="page dcim planner">
+    <div className="page dcim planner head-1line">
       <PageHead title="Change management" sub="Every change to the estate: operations changes, maintenance windows and the change request behind each delivery work order — classed, approved through the matrix, checked against freezes and policies, reviewed after"
         actions={<><Btn icon={I.Wrench} onClick={() => set({ new: 'maintenance' })}>Schedule maintenance</Btn><Btn variant="filled" icon={I.Plus} onClick={() => set({ new: 'change' })}>Raise a change</Btn></>} />
       <StatGrid>

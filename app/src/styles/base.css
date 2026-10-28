@@ -500,3 +500,11 @@ body.dm-noscroll { overflow: hidden; }
   html { zoom: var(--vz); }
   :root { --vh100: calc(100vh / var(--vz)); --vw100: calc(100vw / var(--vz)); }
 }
+
+/* one-line page head (28-Oct-2026, user): title + subtitle left, live chip · scope · actions right, as Security Ops / GPU Fleet */
+.page.head-1line > .page-head { flex-wrap: nowrap; align-items: center; gap: 24px; }
+.page.head-1line > .page-head > .row { flex: 1 1 auto; min-width: 0; }
+.page.head-1line > .page-head p { max-width: 920px; }
+.page.head-1line > .page-head .page-actions { flex: none; display: flex; gap: 12px; align-items: center; white-space: nowrap; }
+.page.head-1line > .page-head .page-actions .select { max-width: 200px; text-overflow: ellipsis; }
+@media (max-width: 1320px) { .page.head-1line > .page-head .page-actions .select { max-width: 170px; } }
