@@ -15,6 +15,7 @@
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.9 | 27-Oct-2026 | First complete draft: all modules, module split against the existing platform, colocation + NeoCloud first |
+| 0.9.5 | 28-Oct-2026 | Section 17 application realisation for Singularity: the ideation code as the UI reference, what each part becomes, the stack and libraries with versions (no UI / chart / state library, no JAR in the frontend), design-system reuse, screen → reference-code map, screens not to generate, mock-to-live rules and acceptance rules (GEN-001…016) |
 | 0.9.4 | 28-Oct-2026 | Expected API responses moved from the end of the document into section 9 (9.11–9.25), next to the integration requirements |
 | 0.9.3 | 28-Oct-2026 | Help & FAQ and the documents removed (internal reference material, not product scope) |
 | 0.9.2 | 28-Oct-2026 | Section 3.5 modules used through their APIs, 3.6 what SynapseDC builds; Appendix B screen-by-screen and feature-by-feature catalogue; section 9.11 expected API responses per module |
@@ -27,9 +28,10 @@
 - Section 8 holds the **analytics-only** pages that sit over existing platform modules.
 - Section 9 lists, per **existing platform module**, what SynapseDC reads from it, sends to it and through which interface.
 - Sections 10–15: data, non-functional requirements, phasing, risks and open decisions, traceability, glossary.
+- Section 17: how the application is generated (Singularity) from this BRD and the ideation code: UI reference, libraries, screen-to-code map, what not to generate, mock-to-live and acceptance rules.
 - Section 9.11–9.25: the expected request and response of every API SynapseDC consumes from the existing modules. Appendix B: every screen built, tab by tab and feature by feature, with its requirement ids, data source and phase.
 
-Requirement identifiers: `<PFX>-nnn` (functional), `BRULE-<PFX>-nn` (business rule), `US-<PFX>-nn` (user story), `ARCH-nnn` (build boundary), `NFR-nnn`, `INTG-nnn`, `DATA-nnn`. Priority uses MoSCoW: **M** must, **S** should, **C** could. Model: **Both**, **Colo** (colocation), **Neo** (NeoCloud / GPU cloud). Phase: **P1** MVP, **P2**, **P3** (section 12). Anything the prototype does not yet decide is marked **(to discuss)**.
+Requirement identifiers: `<PFX>-nnn` (functional), `BRULE-<PFX>-nn` (business rule), `US-<PFX>-nn` (user story), `ARCH-nnn` (build boundary), `NFR-nnn`, `INTG-nnn`, `DATA-nnn`, `GEN-nnn` (generation rule). Priority uses MoSCoW: **M** must, **S** should, **C** could. Model: **Both**, **Colo** (colocation), **Neo** (NeoCloud / GPU cloud). Phase: **P1** MVP, **P2**, **P3** (section 12). Anything the prototype does not yet decide is marked **(to discuss)**.
 
 ---
 
@@ -119,6 +121,15 @@ Requirement identifiers: `<PFX>-nnn` (functional), `BRULE-<PFX>-nn` (business ru
   - 14.3 Requirement index
 - 15 Glossary
 - 16 Approvals and sign-off
+- 17 Application realisation: ideation reference, stack and generation rules
+  - 17.1 How the two inputs divide the work
+  - 17.2 The ideation code: what each part is and what it becomes
+  - 17.3 Technology stack and libraries
+  - 17.4 Design system and UI kit: mandatory reuse
+  - 17.5 Screen to reference-code map (screens to generate)
+  - 17.6 In the ideation code but NOT to be generated
+  - 17.7 Replacing the mock with live data
+  - 17.8 Generation and acceptance rules
 - Appendix A — Requirement index
 - Appendix B — Screen and feature catalogue
 
@@ -4487,6 +4498,154 @@ The requirement index (every FR, business rule and user story by chapter, with m
 | Design partner — NeoCloud operator | | | |
 
 **Review checklist for approvers:** the module split in section 3.2 is right for your module; the data SynapseDC reads from and sends to your module (section 9) exists or can be provided; the open decisions in 13.4 that name you have an owner and a date; the P1 scope is what the pilot sites need.
+
+
+---
+
+## 17 Application realisation: ideation reference, stack and generation rules
+
+This section is for the team, and for the **Singularity** code-generation product, that turn this BRD into the live application. Singularity receives two inputs: **this BRD** and the **SynapseDC ideation code** (the `app/` folder of the ideation repository, live at `https://datacenter-ideation.vercel.app`). Every screen in Appendix B exists in the ideation code. The generated frontend must look, lay out and behave like it.
+
+### 17.1 How the two inputs divide the work
+
+| Question | Source that wins | Why |
+| --- | --- | --- |
+| What is built, and what is consumed from an existing module | **BRD** (3.2, 3.4–3.6, Appendix B status column) | The ideation code also holds screens that belong to existing modules. Those are not generated (17.6). |
+| Where data comes from (API, OAP, SynapseDC store) | **BRD** (section 9, 9.11–9.25, Appendix B "Data from") | The ideation code serves everything from an in-memory mock. |
+| Layout, components, styling, interaction, states, wording, URL parameters | **Ideation code** | It is the signed-off UI reference. |
+| Business rules and formulas (impact, money, ride-through, GPU time lost, capacity, power economics, compliance) | **BRD business rules**, implemented as in the ideation read models (`app/src/mock/*.ts`, `app/src/planner/lib/*`) | The mock read models are the reference implementation of every BRULE. |
+| Field names and shapes on the screen side | **Ideation contract** `app/src/api/types.ts` | Screens already consume these shapes. API adapters map module responses onto them. |
+| Anything in conflict | **BRD**, then raise the difference (to discuss) | — |
+
+### 17.2 The ideation code: what each part is and what it becomes
+
+| Path in the ideation repo | What it is | In the generated application |
+| --- | --- | --- |
+| `app/src/api/types.ts` | The API contract: every shape the screens consume | **Keep** as the frontend data contract. Generate the OpenAPI document (NB-01) from it. |
+| `app/src/api/index.ts`, `app/src/api/ext-twin.ts` | The only module screens import for data: async `getX()` functions, mutations, `useQuery`; each function names its future REST path in a comment | **Keep the signatures.** Replace each body with a call to the SynapseDC backend (NB-01 path in the comment). The backend calls the module API (9.11–9.25), OAP, or its own read model and store. |
+| `app/src/mock/*` | Seeded mock estate (`seed.ts`, `generate.ts`, `personas.ts`, `geo.ts`, `incidents.ts`, `vintage.ts`), the mock server (`server.ts`), and the **read models** | **Not shipped.** The generator, seed and estate ageing are demo data only. The read models become SynapseDC backend services (table 17.5). |
+| `app/src/planner/lib/*` | The planner engine (templates, sizing, cost / NPV / IRR, schedule, rules, governance, sourcing, materials, execute, closeout) | **Keep** as the planner engine. It is datacenter-specific (DC-STORE). It runs in the backend, or client-side over backend data. |
+| `app/src/mock/p2b/*`, `app/src/planner/compat/*` | Planner record store, adapter from the estate, seed templates and benchmarks | The store becomes the **DC-STORE planner tables**. The adapter becomes calls to the Inventory, Inventory Planning, IP Management, Supply Chain and Programs & Projects APIs. Templates and benchmarks are seed data for the customer to replace. |
+| `app/src/screens/**` | Every screen and tab | **Generate from these** for the screens marked Build in Appendix B. |
+| `app/src/ui/*` | The shared UI kit (17.4) | **Keep and reuse.** Never re-implement a control a kit component covers. |
+| `app/src/charts/*` | Hand-built SVG charts: TimeChart, Donut, BarList, Sparkline, HeatGrid | **Keep.** No charting library is used. |
+| `app/src/shell/*` | Layout (rail, top bar, breadcrumbs), sub-menus, ⌘K palette, Opstral AI drawer, embed mode | **Keep.** The menu comes from `Layout.tsx` NAV and `submenus.tsx`. |
+| `app/src/lib/*` | Formatters (`format.ts`: money, numbers, dates by geography), vocabulary (`vocab.ts`), GPU catalogue (`gpuSpec.ts`), fabric planes, big-screen scaling, forecast | **Keep.** |
+| `app/src/styles/*.css` | App CSS: `app.css`, `base.css` (shared classes, page rhythm), one file per screen area | **Keep.** Per-screen CSS does layout only. |
+| `app/design-system/*` | NST / Vision Waves design system (`nst-design-system.css`, `components.css`, tokens, themes, fonts, COMPONENTS.md) | **Keep as is.** It is the platform design system. |
+| `app/.qa/*` | Playwright and tsx checks per screen (layout, overflow, data reconciliation) | **Reuse as acceptance tests** (17.8). |
+| `app/public/*` | Static guides (field guide, interface spec, BRD …) | Not part of the application. |
+
+### 17.3 Technology stack and libraries
+
+The ideation frontend is a single-page **React** application. It uses **no UI component library** (no Ant Design, MUI, Bootstrap), **no charting library** and **no state-management library**. It also includes **no Java library or JAR**. The generated frontend shall use the same stack and the same library versions (major and minor):
+
+| Library | Version | Used for | Where in the ideation code | Rule |
+| --- | --- | --- | --- | --- |
+| react, react-dom | 19.3 | UI | everywhere | **Required** |
+| react-router-dom | 7.18 | routes, URL-backed state (`useSearchParams`) | `App.tsx`, every screen | **Required**. Every tab, filter and selection lives in the URL. |
+| typescript | 5.9 | types; the contract in `api/types.ts` | everywhere | **Required**. Strict build: `tsc -b`. |
+| vite + @vitejs/plugin-react | 8.3 / 5.2 | dev server and build | `vite.config.ts` | **Required** |
+| lucide-react | 1.47 | every icon | everywhere | **Required**. No other icon set. |
+| leaflet (+ @types/leaflet) | 1.9.4 | estate map, region / circle maps; Esri basemaps (Light, Streets, Satellite, Terrain) | `screens/overview/DcMap.tsx`, `CircleMap.tsx`, `ui/Map.tsx` | **Required** for 7.1 / 7.2 maps |
+| three | 0.186 | 3D scenes | `screens/site/twin/*`, `screens/site/twin2/*`, `screens/ne/twin3d/*` | **Required** for the layout / digital twin and the device 3D view |
+| @react-three/fiber | 9.8 | React renderer for three | same | **Required** |
+| @react-three/drei | 10.7 | camera controls, helpers | same | **Required**. Labels are DOM anchors, never drei `Html` (it breaks under React 19). |
+| @react-three/postprocessing + postprocessing | 3.1 / 6.39 | ambient occlusion and LED bloom in the realistic twin and the device 3D view; switched off automatically on slow GPUs | `twin2/Scene2.tsx`, `ne/twin3d/Device3D.tsx` | **Required** (P2 realistic twin) |
+| pdfmake | 0.3.11 | plan review pack PDF | `screens/planning/pack/review/pdf.ts` | **Required** for 7.9 packs (lazy loaded) |
+| @expo-google-fonts/inter | 0.4.2 | Inter TTF fonts embedded in the PDF | `pack/review/pdfFonts.ts` | **Required** with pdfmake |
+| exceljs | 4.4.0 | plan review pack workbook (XLSX) | `pack/review/xlsx.ts` | **Required** for 7.9 packs (lazy loaded) |
+| fflate | 0.8.3 | review pack ZIP (PDF, workbook, CSV, SVG drawings, manifest with SHA-256) | `pack/review/zip.ts` | **Required** for 7.9 packs (lazy loaded) |
+| bpmn-js | 18.31 | process swimlane view of work-order processes | `screens/workorders/BpmnView.tsx` | **Not used**: that screen belongs to Programs & Projects (17.6) |
+| d3-scale, d3-shape, d3-time | 4 / 3 / 3 | declared in package.json, not imported by any screen | — | **Do not add**. Charts are the hand-built SVG components in `src/charts`. |
+| playwright | 1.63 (dev) | acceptance and layout checks | `app/.qa/*` | **Required** for 17.8 |
+| Fonts | Poppins (chrome), Inter (tabular numbers) from the design system | — | `design-system/fonts`, Google Fonts | **Required** |
+
+The backend that serves the SynapseDC API (NB-01), the read models and DC-STORE is **not prescribed by the ideation code**. It follows the platform's standard service stack (language, framework and any JARs are the platform team's choice; to discuss). It calls the existing modules and the OAP telemetry services only through their APIs (3.4).
+
+### 17.4 Design system and UI kit: mandatory reuse
+
+| Element | Rule | Reference |
+| --- | --- | --- |
+| Design system | Load `nst-design-system.css` and `components.css` first. Colours only through NST tokens (`--vw-color-*`, `--primaryColor*`). Classes `.nst-table`, `.nst-btn`, `.vw-chip`, `.vw-card-section`. No secondary left menus inside screens; use tabs, pills and cards instead. | `app/src/main.tsx`, `design-system/COMPONENTS.md` |
+| Kit components | `Chip, Btn, IconBtn, Info, Panel, PanelLink, Kpi, Tabs, Seg, SearchBox, Field, Toggle, CheckBox, Avatar, Bar, Empty, KV, Drawer, Modal, Menu, Stat, ConfirmDelete` | `ui/kit.tsx` |
+| Lists | `ListToolbar` (Showing N of M · search · ≤ 2 quick filters · refresh · Filters panel · ⋮ actions; URL-backed with `onApply`) and `DataTable` (light header band, wrapping cells, left-aligned, equal-width pills, sticky header) | `ui/ListToolbar.tsx`, `ui/DataTable.tsx` |
+| Analytics strip | `StatGrid` of six `StatTile`s with a fixed rhythm (label 18 · number 34 · qualifier 18 · bar); tiles click through to filters | `ui/Analytics.tsx` |
+| KPI card | `OpsKpi`: white card, grey icon, light metric, 3 px top accent for state only | `screens/ops/shared.tsx` |
+| Status | status chips, Meter, StackBar, entity links, freshness (`Fresh`); words from `lib/vocab.ts` (incidents Critical / High / Medium / Low; alarms Critical / Major / Minor / Warning) | `ui/status.tsx`, `lib/vocab.ts` |
+| Sections | collapsible `FacSections` / `FacSection` with a summary card when closed, remembered per viewer | `ui/Sections.tsx` |
+| Money and numbers | `fmtMoney`, `fmtNum`, `MoneyIcon` from the geography; never a literal currency symbol | `lib/format.ts`, `ui/Money.tsx` |
+| Info bubble | `Info` on every widget (`info` prop on Panel, Kpi, OpsKpi, StatTile, SummaryStrip items) | `ui/kit.tsx` |
+| Page | `PageHead` + `usePage(crumbs, sentinelCtx)`; tab bar a direct child of `.page`, pinned under the top bar; list toolbars and grid headers pinned below it | `shell/page.tsx`, `styles/base.css` |
+| Palette | slate / white, brand blue accent; red / amber only for faults; calm blue-grey ramp for bars; no yellow | `styles/base.css`, `ui/Analytics.tsx` |
+| Large screens | `lib/bigscreen.ts` installed in `main.tsx`; CSS uses `var(--vh100)` / `var(--vw100)`, never raw `vh` / `vw` | `lib/bigscreen.ts` |
+| Embed | `?shell=false` hides the rail and top bar (`shell/embed.ts`) | `shell/embed.ts` |
+
+### 17.5 Screen to reference-code map (screens to generate)
+
+Generate each screen from the files listed. The BRD chapter gives the requirements, Appendix B gives the features, and 9.11–9.25 gives the data.
+
+| Screen | Route | Reference source (ideation `app/src/`) | Backend read model (from the mock) | BRD | App. B |
+| --- | --- | --- | --- | --- | --- |
+| Command Center | `/` (`?lens=build`) | `screens/CommandCenter.tsx`, `screens/command/*`, `screens/ops/DcCard.tsx`, `screens/overview/DcMap.tsx` | `mock/server.ts` (situation, areas, `explain`), `screens/command/pbModel.ts` | 7.1 | B.1 |
+| Datacenters list | `/datacenters` | `screens/Datacenters.tsx`, `screens/ops/DcCard.tsx` | `server.ts` (`dcMap`, summaries) | 7.2 | B.2 |
+| Datacenter page | `/datacenters/:id?tab=` | `screens/site/Site.tsx` and every file in `screens/site/` (Attention, Metrics, Timeline, Equipment, Gpu, Assets, Details, Customers, Revenue, Access, FlagRow, SummaryStrip, TwinHost); schematic twin `screens/site/twin/*` (**frozen: reproduce as is**); realistic twin `screens/site/twin2/*` | `server.ts`, `mock/physical.ts`, `safety.ts`, `lifecycle.ts`, `access.ts`, `ops.ts`, `api/ext-twin.ts` | 7.2 | B.3 |
+| Device page | `/ne/:id?tab=` | `screens/ne/*` (Overview, Hardware, Links, Impact, NeAlerts, Physical), `screens/ne/twin/*` (2D fallback), `screens/ne/twin3d/*` (3D view, paths) | `server.ts` (`networkElement`), `physical.ts`, `lifecycle.ts`, `gpu-view.ts` | 7.2 | B.4 |
+| Customer page | `/customers/:id` | `screens/CustomerDetail.tsx`, `styles/customer.css` | `mock/revenue.ts`, `server.ts` (`customer`), `ops.ts` | 7.6 | B.5 |
+| Facilities | `/facilities?tab=` | `screens/Facilities.tsx`, `screens/physical/*` | `physical.ts`, `safety.ts`, `maintenance.ts`, `lifecycle.ts` | 7.3 | B.6 |
+| GPU Fleet | `/gpu?gtab=` | `screens/Gpu.tsx`, `screens/gpu/PowerUse.tsx`, `lib/gpuSpec.ts`, `lib/fabric.ts` | `mock/gpu.ts` (story data only), `mock/gpu-view.ts`, `mock/power-econ.ts` | 7.4 | B.7 |
+| Alerts (datacenter view) | `/alerts` | `screens/Alerts.tsx` | `server.ts` (scope, `scopeFor`, correlation) | 7.5 | B.8 |
+| Incident view, Problems | `/incidents`, `/incidents/:id` | `screens/Incidents.tsx`, `screens/IncidentDetail.tsx`, `screens/ops/process.tsx` | `mock/incidents.ts` (RCA, actions), `ops.ts`, `revenue.ts` | 7.5 | B.9 |
+| Revenue Impact | `/revenue` | `screens/Revenue.tsx`, `screens/revenue/parts.tsx` | `mock/revenue.ts` | 7.6 | B.10 |
+| Security Ops, Security data sources | `/secops?tab=`, `/security-sources` | `screens/secops/*` | `mock/secops.ts` (over the Security Ops API) | 7.7 | B.11–B.12 |
+| Capacity, Power economics | `/capacity?tab=` | `screens/Capacity.tsx`, `screens/capacity/PowerEconomics.tsx` | `mock/capacity.ts`, `mock/power-econ.ts` | 7.8 | B.13 |
+| Planner | `/planning…` | `screens/planning/**` | `planner/lib/*`, `mock/p2b/*` | 7.9 | B.14–B.20 |
+| DCIM | `/dcim?tab=`, `/dcim/racks/:id`, `/dcim/types/:id` | `screens/dcim/*` | `mock/dcim.ts`, `server.ts` `dcimRun` | 7.10 | B.21 |
+| Analytics pages | (widgets only) | `screens/ipam/Ipam.tsx` (Insights tiles), `screens/delivery/Overview.tsx`, `dash.tsx`, `screens/workorders/WorkOrders.tsx` (KPIs tab), `screens/changes/ChangeOverview.tsx`, `screens/dcim/Insights.tsx` | `mock/ipam.ts`, `delivery.ts`, `workflow.ts`, `changemgmt.ts` (become analytics over the module APIs) | 8 | B.22–B.26 |
+| Compliance | `/compliance?tab=` | `screens/admin/Compliance.tsx` | `mock/compliance.ts` | 7.11 | B.27 |
+| Shell | every route | `shell/*`, `App.tsx`, `main.tsx` | `mock/sentinel.ts` (Opstral AI, becomes AI Foundry) | 7.12 | — |
+
+### 17.6 In the ideation code but NOT to be generated
+
+These screens exist in the ideation code only to show the whole flow. Each belongs to an existing platform module (3.5). The generated application links to the module's screen instead. Only the analytics widgets listed in 17.5 are generated from them.
+
+| Ideation screen | Route | Belongs to | Generate |
+| --- | --- | --- | --- |
+| Delivery: programmes, projects, work-order pages, commissioning actions | `/delivery…`, `/delivery/projects/:id`, `/delivery/programmes/:id`, `/delivery/work-orders/:id` | Plan to Build Programs & Projects | analytics widgets only (B.22–B.24) |
+| Work orders: My tasks, Running work, Processes (bpmn-js), instance page | `/workorders…` | Programs & Projects / Field Force Management | KPI widgets only |
+| IP & Network CRUD (prefixes, VRFs, VLANs, addresses, ASNs, FHRP, ranges, integrations tab) | `/ipam?tab=` | Plan to Build IP Management | Insights widgets only |
+| Change management records: list, change page, approvals, calendar, freezes, standard catalogue, policies | `/changes…`, `/changes/:id` | Services & ITSM Change Management | Overview analytics only; DCIM raises CRs through the ITSM API |
+| Incident record fields (assignment, state, work notes) | inside `/incidents/:id` | Services & ITSM Incidents | the datacenter view only (impact, RCA, actions, verification, money, on call) |
+| Customization (custom fields, tags) | `/customization` | Platform Engineering | nothing |
+| Data model explorer | `/data-model` | Intelligence Hub | nothing |
+| Help & FAQ and the documents | `/help`, `/*.html` | internal reference | nothing |
+| Parked screens: Estate, Locations, Reconciliation, Services, Customers list, Topology page | redirects in `App.tsx` | — | nothing (keep the redirects only if old links must work) |
+
+### 17.7 Replacing the mock with live data
+
+| ID | Rule |
+| --- | --- |
+| GEN-001 | Keep every function name, argument and return type in `api/index.ts`. Only replace the body. Screens must not change because the data source changed. |
+| GEN-002 | Each body calls the SynapseDC backend at the NB-01 path written next to it (for example `getRevenue({ dcId })` → `GET /api/dco/v1/revenue-impact?dcId=`). |
+| GEN-003 | The backend serves each call from one of three sources, as Appendix B "Data from" says: an existing module API through an adapter (9.11–9.25), the OAP telemetry consumer API, or a SynapseDC read model over DC-STORE. |
+| GEN-004 | The read models are ported from the mock files in table 17.5 with the same rules and the same output shapes. The data generation (`generate.ts`, `seed.ts`, `incidents.ts` story data, `vintage.ts`, the fault injections in `gpu.ts`) is **not** ported. |
+| GEN-005 | `onDataChange` (the mock's change feed) becomes a server push (SSE or WebSocket) fed by the event bus (NB-02 / NB-03) and the module events (API-…-events). Screens refetch on it, as they do now. |
+| GEN-006 | Persona (business model) and geography stop regenerating data. They select the vocabulary (`mock/personas.ts` vocab → configuration), the currency and formats (`mock/geo.ts` → configuration) and the deployment default / overrides (`mock/override.ts` → `VITE_PERSONA_DEFAULT`, `VITE_PERSONA_OVERRIDE`, `VITE_GEO_OVERRIDE`). |
+| GEN-007 | Opstral AI (`mock/sentinel.ts`, deterministic answers) is replaced by AI Foundry agents (API-AIF-01) that use the SynapseDC API as tools (API-AIF-02). The suggested questions and the deep-link answers stay. |
+| GEN-008 | Mock latency, `structuredClone` and the in-memory overlays (`dcimCr`, IPAM `crud`, delivery moves, SecOps triage) are removed. Their effects become real writes through the module APIs or DC-STORE. |
+| GEN-009 | No mock data ships in production. A demo tenant may load the ideation estate through the import template (10.2). |
+
+### 17.8 Generation and acceptance rules
+
+| ID | Rule |
+| --- | --- |
+| GEN-010 | The generated screens shall match the ideation screens at 1280 and 1440 px: same layout, components, order of widgets, wording, empty states, drawers and URL parameters. Reference: the live ideation application with `?persona=colocation` or `?persona=neocloud` and `?geo=in` or `?geo=us`. |
+| GEN-011 | Every screen keeps its URL contract (`?tab=`, `?gtab=`, filters, `?dc=`, selected object) so deep links and embeds work. The full list is in the embed guide of the ideation repo (`docs/dco-embed-guide.html`). |
+| GEN-012 | The schematic twin (`screens/site/twin/*`) is signed off. Reproduce it as is: same scene, colours, camera poses and panel. |
+| GEN-013 | New widgets get an info bubble. New lists use ListToolbar and DataTable. New tabs are added to a sub-menu in `shell/submenus.tsx`, or they have no way in. |
+| GEN-014 | Heavy features stay lazy-loaded as in the ideation code: planner routes, the review pack builders (pdfmake, exceljs, fflate), the realistic twin and 3D views. |
+| GEN-015 | Acceptance: the ideation QA scripts are the reference checks. Port them to the generated application and run them per screen: layout and overflow (`grids.mjs`, `toolbars.mjs`, `analytics.mjs`, `tiles2.mjs`, `sticky.mjs`, `tabs-survey.mjs`, `bigscreen.mjs`, `embed.mjs`), screens (`cc-hero.mjs`, `site-sticky.mjs`, `facilities.mjs`, `gpu.mjs`, `revenue.mjs`, `customer.mjs`, `capacity.mjs`, `dcim.mjs`, `p2b-wizard.mjs`, `p2b-plans.mjs`, `admin.mjs`, `twin2.mjs`, `devtwin.mjs`, `map.mjs`), and reconciliation (`revenue-check.ts`, `dcim-check.ts`, `physical-check.ts`, `access-check.ts`, `secops-check.ts`, `cc-numbers.ts`), with the data now coming from the live sources. |
+| GEN-016 | A screen is done when it passes its checks with no horizontal overflow, no cut text, no NaN / undefined and no console errors at 1280 and 1440, and its figures reconcile with the lists they link to (NFR-007). |
 
 ---
 
