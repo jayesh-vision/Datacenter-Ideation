@@ -15,6 +15,7 @@
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.9 | 27-Oct-2026 | First complete draft: all modules, module split against the existing platform, colocation + NeoCloud first |
+| 0.9.6 | 28-Oct-2026 | Section 9.26 write-back: every UI action that updates an existing module (W-01…34), every automatic write (A-01…15), what stays in the modules' own screens, write rules WR-001…008; new write APIs API-INV-09…12, API-IPM-04, API-SOC-08 |
 | 0.9.5 | 28-Oct-2026 | Section 17 application realisation for Singularity: the ideation code as the UI reference, what each part becomes, the stack and libraries with versions (no UI / chart / state library, no JAR in the frontend), design-system reuse, screen → reference-code map, screens not to generate, mock-to-live rules and acceptance rules (GEN-001…016) |
 | 0.9.4 | 28-Oct-2026 | Expected API responses moved from the end of the document into section 9 (9.11–9.25), next to the integration requirements |
 | 0.9.3 | 28-Oct-2026 | Help & FAQ and the documents removed (internal reference material, not product scope) |
@@ -102,6 +103,7 @@ Requirement identifiers: `<PFX>-nnn` (functional), `BRULE-<PFX>-nn` (business ru
   - 9.23 Supply Chain
   - 9.24 Platform Engineering
   - 9.25 Intelligence Hub
+  - 9.26 Write-back: what the SynapseDC UI updates in the existing modules
 - 10 Data requirements
   - 10.1 Entity model
   - 10.2 Onboarding data (the import template)
@@ -277,7 +279,7 @@ SynapseDC builds **nothing** of the modules below — no database, no backend, n
 | --- | --- | --- | --- | --- |
 | Opstral Ops Toolkit | **OAP telemetry ingestion / consumer services** (ClickHouse) | every live reading, 24 h / 30 d / 12 m history, roll-ups, top-N, freshness | every Operate screen; Capacity; Power economics | API-OAP-01…06 |
 | Opstral Ops Toolkit | System Alerts | alarm record, raise / clear, acknowledge, scope tags, on-call and paging | Command Center, Datacenter page, Alerts, Incidents view, Facilities, GPU Fleet | API-ALR-01…07 |
-| Opstral Ops Toolkit | Security Ops | detections, cases, rules, vulnerabilities, sensors; datacenter context written back | Security Ops (all sub-menus), Security data sources, Access & security | API-SOC-01…07 |
+| Opstral Ops Toolkit | Security Ops | detections, cases, rules, vulnerabilities, sensors; datacenter context written back | Security Ops (all sub-menus), Security data sources, Access & security | API-SOC-01…08 |
 | Opstral Ops Toolkit | Telemetry Ops · Data Ops · Infra Ops · Fin Ops | collector / pipeline state; scheduler jobs and nodes; cost data; power cost written back | Datacenter header, GPU Fleet, Power economics | API-OPS-01…04 |
 | Services & ITSM | Incidents · Problems | incident and problem records; SynapseDC writes impact, RCA, actions, worklog | Incidents (datacenter view), Problems, Command Center, Revenue Impact | API-ITSM-01…05, 13 |
 | Services & ITSM | Change Management | changes, approvals, windows, freezes; change requests raised from DCIM, incidents, maintenance, planner | DCIM, Incidents, Change management overview, Ops log | API-ITSM-06…09, 13 |
@@ -287,9 +289,9 @@ SynapseDC builds **nothing** of the modules below — no database, no backend, n
 | Operate to Acquire (BSS) | CRM · Customers | customers, tier, account manager; contracts, SLA, credit rules, contracted kW, GPU rate | Revenue Impact, Customer page, Command Center "Who is affected", Datacenter Customers tab | API-BSS-01, 02, 10 |
 | Operate to Acquire (BSS) | Orders · Plans & Products Catalog | services with placement and charge; products; cross-connect orders | Revenue Impact, impact everywhere, Tenants tab | API-BSS-03, 04, 09 |
 | Operate to Acquire (BSS) | Experience and Care | customer notices; impact per customer; SLA credits and metered usage written back | Incidents view (communications), Revenue Impact | API-BSS-05…08 |
-| Plan to Build | Inventory | sites, rooms, racks, devices, components, device types, lifecycle; DCIM extensions it can carry | Datacenters, Datacenter page, Device page, DCIM, Assets, Planner | API-INV-01…08 |
+| Plan to Build | Inventory | sites, rooms, racks, devices, components, device types, lifecycle; DCIM extensions it can carry | Datacenters, Datacenter page, Device page, DCIM, Assets, Planner | API-INV-01…12 |
 | Plan to Build | Inventory Planning | capacity targets and holds; reservations written back | Capacity, Planner | API-IPL-01, 02 |
-| Plan to Build | IP Management | prefixes, VRFs, VLANs, addresses; assignment from DCIM | IP & Network insights, DCIM device drawer, Planner IP plan | API-IPM-01…03 |
+| Plan to Build | IP Management | prefixes, VRFs, VLANs, addresses; assignment from DCIM | IP & Network insights, DCIM device drawer, Planner IP plan | API-IPM-01…04 |
 | Plan to Build | Programs & Projects (incl. work orders, commissioning) | programmes, projects, milestones, cost, risks, change orders, work orders, process tasks, commissioning tests, POs; project created from an approved plan | Programs & Projects insights, Work orders KPIs, Commissioning, Planner Delivery tab, Command Center build lens | API-PRJ-01…08 |
 | Supply Chain | Vendors · Contracts · Materials · Warehouses · Procurement · Field Force Management | vendor contracts and support, prices and lead times, stock and spares, POs from the plan BoM, field visits | Planner materials and sourcing, Assets (spares, RMA), Access (contractor visits) | API-SCM-01…05 |
 | AI Foundry | Models and agents | Opstral AI copilot answers over SynapseDC read models | Opstral AI drawer on every screen | API-AIF-01, 02 |
@@ -2515,13 +2517,13 @@ SynapseDC assumes these APIs exist (ARCH-001). A module team that cannot offer o
 | --- | --- | --- | --- |
 | OAP telemetry services | query latest / range / roll-up / top-N / histogram; freshness | ingest (OTLP / remote write); metric catalogue | — |
 | Ops Toolkit System Alerts | alerts by site / device / state; alert by id | raise / update / clear alert; add scope and placement tags; acknowledge | alert raised / cleared |
-| Ops Toolkit Security Ops | detections, cases, rules, vulnerabilities, sensors by site | datacenter context dictionaries; physical exceptions; case links | detection raised, case changed |
+| Ops Toolkit Security Ops | detections, cases, rules, vulnerabilities, sensors by site | triage and escalate (SOC-07); case phase, playbook step, note, vulnerability decision (SOC-08); rules (SOC-03); context dictionaries and physical exceptions (SOC-06) | detection raised, case changed |
 | Ops Toolkit Telemetry / Data / Infra / Fin Ops | pipeline and scheduler integration state; cost data | collector configuration; power cost figures | pipeline state changed |
 | Services & ITSM | incidents, problems, changes (with class, window, approvals, freezes), tickets, maintenance windows, knowledge articles | create / update incident, worklog, resolve; create change request, attach work items, transition; create problem; create ticket | incident / change / ticket changed |
 | BSS (CRM, Customers, Orders, Catalog, Experience and Care) | customers, contracts and SLA, services with placement, products | impact per customer; notices; SLA credits; metered usage | customer / contract / order changed |
-| Plan to Build Inventory | sites, rooms, racks, devices, modules, lifecycle, owners | DCIM extensions it can carry; observed state for reconciliation | asset created / changed |
+| Plan to Build Inventory | sites, rooms, racks, devices, modules, lifecycle, owners | create / edit / retire rack (INV-09); install, move, set status of a device (INV-10); modules and ports (INV-11); device and module types (INV-12); DCIM extensions and observed state (INV-07) — all under a change request | asset created / changed |
 | Plan to Build Inventory Planning | capacity targets, holds | reservations from approved plans | plan / hold changed |
-| Plan to Build IP Management | prefixes, VRFs, VLANs, addresses | address assignment from DCIM (under a CR) | address changed |
+| Plan to Build IP Management | prefixes, VRFs, VLANs, addresses | assign / release address (IPM-03); reserve next address, carve next prefix (IPM-04) — under a change request | address changed |
 | Plan to Build Programs & Projects | programmes, projects, milestones, work orders, POs, commissioning, risks, change orders, cost | create project from an approved plan; handover status | project / work order changed |
 | Supply Chain | vendors, contracts, catalogue prices, lead times, stock, POs, FFM jobs | BoM with sourcing; spare draw-down | PO / stock changed |
 | Platform Engineering | identity, roles, scopes, flags, custom fields, tags | — | — |
@@ -2532,7 +2534,7 @@ SynapseDC assumes these APIs exist (ARCH-001). A module team that cannot offer o
 
 For every API SynapseDC consumes (section 3.5), this appendix gives the call, who calls it, the request, an example of the expected response and the fields SynapseDC needs (M = must, O = optional). Paths are illustrative: each module team owns its real API, and an adapter in SynapseDC maps the real response onto these fields. A field a module cannot provide goes to the API gap list (ARCH-004) — SynapseDC never builds a local substitute. Times are RFC 3339 UTC; ids are the module's stable ids; money is `{ amount, currency }`.
 
-The sections that follow give one module each: 9.12 OAP telemetry · 9.13 System Alerts · 9.14 Security Ops · 9.15 Telemetry / Data / Infra / Fin Ops · 9.16 Services & ITSM · 9.17 AI Foundry · 9.18 BSS · 9.19 Inventory · 9.20 Inventory Planning · 9.21 IP Management · 9.22 Programs & Projects · 9.23 Supply Chain · 9.24 Platform Engineering · 9.25 Intelligence Hub.
+The sections that follow give one module each: 9.12 OAP telemetry · 9.13 System Alerts · 9.14 Security Ops · 9.15 Telemetry / Data / Infra / Fin Ops · 9.16 Services & ITSM · 9.17 AI Foundry · 9.18 BSS · 9.19 Inventory · 9.20 Inventory Planning · 9.21 IP Management · 9.22 Programs & Projects · 9.23 Supply Chain · 9.24 Platform Engineering · 9.25 Intelligence Hub. Section 9.26 lists every write SynapseDC makes into these modules.
 
 ### 9.12 Telemetry — OAP ingestion / consumer services (ClickHouse)
 
@@ -3005,6 +3007,16 @@ The sections that follow give one module each: 9.12 OAP telemetry · 9.13 System
 | `state`, `disposition`, `caseId`, `by`, `at` | enum / string / time | M (disposition, caseId O) | queue state survives refresh; audit |
 
 ---
+
+#### API-SOC-08 Case progress and vulnerability decision
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `POST /cases/{id}/advance`, `POST /cases/{id}/steps/{n}`, `POST /cases/{id}/notes`, `PATCH /vulnerabilities/{id}` | Out | Security Ops Cases (advance phase, run a playbook step, add a note) and Vulnerabilities (set the decision: Act / Attend / Track, mitigated, accepted with reason) (SEC-013, SEC-017, SEC-032) | on user action |
+
+**Request body (vulnerability):** `{ "decision": "Attend", "status": "Mitigated", "note": "ACL restricts the BMC VLAN", "by": "soc.analyst@operator.com" }`
+
+**Expected response:** `200` `{ "id": "VUL-0042", "decision": "Attend", "status": "Mitigated", "updated": "2026-10-28T09:12:00Z" }`.
 
 ### 9.15 Ops Toolkit — Telemetry, Data, Infra and Fin Ops
 
@@ -3810,6 +3822,73 @@ Stays in DC-STORE whatever Inventory decides: work items under a change request,
 
 ---
 
+#### API-INV-09 Create, update and retire racks
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `POST /racks`, `PATCH /racks/{id}`, `POST /racks/{id}/retire` | Out | DCIM New rack, Edit rack, Retire rack (DCIM-012, DCIM-018); Planner "Start the build" for planned racks (PLN-026) | on user action, under a change request |
+
+**Request body (create):**
+```json
+{ "changeRequest": "CHG-2311", "site": "IL-DC-009", "room": "IL-DC-009-F1-H2", "name": "RACK-B12",
+  "uHeight": 48, "budgetKw": 40, "owner": "operator", "tenantId": null, "status": "Planned" }
+```
+
+**Expected response:** `201` `{ "id": "RACK-B12", "version": 1, "status": "Planned" }`. Retire is refused with `409` while the rack holds a device.
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `version` | string / int | M | DCIM rack page, concurrency |
+| `status` | enum Planned / Active / Retired | M | floor plan ghosts, lists |
+| `error.code`, `error.message` | string | O | form message when refused |
+
+#### API-INV-10 Install, move and set the status of a device
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `POST /assets`, `PATCH /assets/{id}` (`rackId`, `u`, `status`) | Out | DCIM Install device, Move (form and drag-and-drop on the elevation), Set status (DCIM-012, DCIM-013, DCIM-019); Planner "Start the build" for planned devices (PLN-026) | on user action, under a change request |
+
+**Request body (install):**
+```json
+{ "changeRequest": "CHG-2311", "typeId": "DGX-H100", "rackId": "RACK-B12", "u": 10, "uSize": 8,
+  "name": "GPU-205", "role": "GPU", "status": "Planned", "reservePorts": true }
+```
+
+**Request body (move):** `{ "changeRequest": "CHG-2312", "rackId": "RACK-B14", "u": 22 }` · **(status):** `{ "changeRequest": "STD-07-0451", "status": "Maintenance" }`
+
+**Expected response:** `201` / `200` `{ "id": "GPU-205", "version": 3, "rackId": "RACK-B12", "u": 10, "status": "Planned", "interfaces": 14 }`. `409` when the U range is taken or reserved; `422` when the rack power budget would be exceeded.
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `id`, `version`, `rackId`, `u`, `status` | string / int / enum | M | elevation, device drawer |
+| `interfaces` | int | O | reserved ports created with the device |
+| `error.code` (`U_CLASH`, `U_RESERVED`, `BUDGET`) | string | O | drop preview and form message |
+
+#### API-INV-11 Modules and ports
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `POST /assets/{id}/modules`, `POST /assets/{id}/modules/{slot}/replace`, `DELETE /assets/{id}/modules/{slot}`, `PATCH /assets/{id}/ports/{name}` | Out | DCIM device drawer: install / swap / remove a module (a line card adds its ports), edit port description and admin state (DCIM-014, DCIM-015) | on user action, under a change request (hot-swap PSU / fan and port label = standard change) |
+
+**Request body (swap):** `{ "changeRequest": "STD-05-0112", "moduleTypeId": "PSU-3000W-AC", "serial": "PS2309K11" }` · **(port):** `{ "changeRequest": "STD-02-0390", "description": "to SPINE-01 Eth1/7", "adminState": "up" }`
+
+**Expected response:** `200` `{ "assetId": "LEAF-03", "slot": "PSU2", "state": "OK", "version": 18 }`.
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `slot`, `state`, `version` | string / enum / int | M | Bays list, Hardware tab |
+| `ports[]` (added by a line card) | array | O | ports list |
+
+#### API-INV-12 Device and module types
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `POST /device-types`, `POST /module-types`, `POST /device-types/import` | Out | DCIM Catalogue: New device type, New module type, Import JSON (DCIM-010) | on user action (catalogue edits need no change request) |
+
+**Request body:** `{ "vendor": "Supermicro", "model": "SYS-821GE-TNHR", "uSize": 8, "role": "GPU", "typicalW": 10200 }`
+
+**Expected response:** `201` `{ "id": "SM-821GE", "vendor": "Supermicro", "model": "SYS-821GE-TNHR" }`. When the Inventory catalogue is read-only for SynapseDC, the call is refused and the type is requested from the Inventory team (ARCH-004); the U / W / port templates stay in DC-STORE.
+
 ### 9.20 Plan to Build — Inventory Planning
 
 Module: Inventory Planning. SynapseDC uses it for capacity targets and holds, and writes the reservations that approved plans create. It is used on Capacity (Overview, Reservations), the Planner and the Command Center build lens.
@@ -3911,6 +3990,20 @@ Module: IP Management. SynapseDC uses it for prefixes, VLANs and the addresses o
 | `id`, `address`, `vrf` | string | M | show the new address, audit with the CR |
 
 ---
+
+#### API-IPM-04 Reserve the next free address or carve the next prefix
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `POST /prefixes/{id}/next-address`, `POST /prefixes/{id}/next-prefix` | Out | Planner IP and network plan at "Start the build" (PLN-026); DCIM device drawer "Assign next free address" (DCIM-031) | on user action |
+
+**Request body:** `{ "count": 2, "description": "GPU-205 mgmt0, bmc", "deviceId": "GPU-205" }` · `{ "length": 22, "description": "Hall 2 production" }`
+
+**Expected response:** `201` `{ "addresses": ["10.9.44.21/24", "10.9.44.22/24"] }` · `{ "prefix": "10.9.48.0/22", "vrf": "DEFAULT" }`; `409` when the prefix is full.
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `addresses[]` / `prefix`, `vrf` | string | M | plan IP sheet, device addresses |
 
 ### 9.22 Plan to Build — Programs & Projects
 
@@ -4246,6 +4339,84 @@ Module: Intelligence Hub (data model registry, data lake). SynapseDC registers i
 | Field | Type | Req. | Used for |
 | --- | --- | --- | --- |
 | `status` | enum registered / rejected | M | export health under Data Ops |
+
+### 9.26 Write-back: what the SynapseDC UI updates in the existing modules
+
+SynapseDC does not only read the existing modules. Many actions on its screens **update** them, and some updates happen automatically. Every update goes through the module's write API (ARCH-007), so the module applies its own validation, approvals and audit. The tables below list every write: first the user actions screen by screen, then the automatic writes. Expected requests and responses are in 9.12–9.25.
+
+**Rules for every write**
+
+| ID | Rule |
+| --- | --- |
+| WR-001 | A user action is sent **on behalf of the signed-in user** (their platform token, API-PEN-01), so the module records the real actor. Automatic writes use the SynapseDC service account and carry the reason (rule, incident, plan). |
+| WR-002 | Every write carries an `Idempotency-Key`; an update of an existing record sends `If-Match` with the version the user saw. A `409` / `412` reloads the record and shows what changed. |
+| WR-003 | Inventory and IP Management writes from DCIM and the Planner carry a **change request** (standard, open or new; DCIM-020). Without one the write is not sent. |
+| WR-004 | The module's answer wins. When it refuses a write (validation, approval, freeze, permission), SynapseDC shows the module's message and saves nothing locally; there is no optimistic local copy (ARCH-003). |
+| WR-005 | After a successful write SynapseDC refreshes from the module (response body, then the module event), never from its own guess of the result. |
+| WR-006 | Automatic writes retry with back-off (1 min, 5 min, 30 min, then hourly for 24 h). A write still failing raises a Data Ops alarm (NFR-017) and shows "not synced" on the record. |
+| WR-007 | Every write is in the SynapseDC audit trail with the module, API id, the module's record id and version, the actor and the change request. |
+| WR-008 | Datacenter-specific data (RCA feedback, action steps, plans, compliance, U reservations, power contracts) is written to DC-STORE, not to a module. These rows are marked DC-STORE below. |
+
+**A. User actions that update a module, screen by screen**
+
+| # | Screen › action | Module updated | Write API | What is written | Change request | Phase |
+| --- | --- | --- | --- | --- | --- | --- |
+| W-01 | Alerts, Datacenter → Needs attention › Acknowledge alarm | Ops Toolkit System Alerts | API-ALR-04 | acknowledged by, time, note | — | P1 |
+| W-02 | Alerts › Correlate selected alarms into an incident (ALM-036) | Services & ITSM Incidents; System Alerts | API-ITSM-03, API-ALR-05 | new incident with type, severity, site, affected CIs, alarm ids; alarms linked to it | — | P1 |
+| W-03 | Incident view › Acknowledge / move state (investigating, mitigated, resolved) | Services & ITSM Incidents | API-ITSM-04 | state, time, actor | — | P1 |
+| W-04 | Incident view › Add worklog line (ALM-024) | Services & ITSM Incidents | API-ITSM-04 | work note (text, author) | — | P1 |
+| W-05 | Incident view › Set an action step done / skipped (ALM-020) | DC-STORE; Services & ITSM Incidents | API-ITSM-04 | step state in DC-STORE; a summary work note in ITSM | — | P1 |
+| W-06 | Incident view › Run closure checks and resolve (ALM-022) | Services & ITSM Incidents | API-ITSM-04 | verification result, resolution code and note | — | P1 |
+| W-07 | Incident view › Confirm / reject an RCA hypothesis (ALM-019) | DC-STORE | — | feedback; a work note in ITSM | — | P1 |
+| W-08 | Incident view › Raise emergency change (ALM-021) | Services & ITSM Change Management | API-ITSM-08 | emergency change linked to the incident: scope CIs, window, rollback | the new CR itself | P1 |
+| W-09 | Incident view › Page / escalate the on-call engineer | Ops Toolkit System Alerts (paging) | API-ALR-06 | page or escalation to the next tier | — | P2 |
+| W-10 | Facilities → Maintenance › Schedule maintenance (FAC-026) | Services & ITSM Change Management / Maintenance | API-ITSM-08 | Maintenance change naming the plant asset, window, impact (what-if) | the new CR itself | P2 |
+| W-11 | DCIM › New rack (DCIM-012) | Plan to Build Inventory | API-INV-09 | rack (site, room, name, U height, budget kW, owner / tenant, status Planned) + extensions (API-INV-07) | yes | P1 |
+| W-12 | DCIM › Edit / retire rack (DCIM-018) | Plan to Build Inventory | API-INV-09 | changed fields; status Retired (empty racks only) | yes | P1 |
+| W-13 | DCIM › Install device (DCIM-012) | Plan to Build Inventory | API-INV-10 | planned device in rack + U, type, name, role; reserved ports | yes | P1 |
+| W-14 | DCIM › Move device by form or drag-and-drop (DCIM-013) | Plan to Build Inventory | API-INV-10 | new rack and U | yes | P2 |
+| W-15 | DCIM › Set device status (DCIM-019) | Plan to Build Inventory | API-INV-10 | Active / Maintenance / Decommissioning … | yes (standard for Maintenance) | P1 |
+| W-16 | DCIM device drawer › Install / swap / remove module (DCIM-015) | Plan to Build Inventory | API-INV-11 | module in slot, serial, state; ports a line card adds | yes (hot-swap PSU / fan = standard) | P2 |
+| W-17 | DCIM device drawer › Edit port description / admin state (DCIM-014) | Plan to Build Inventory | API-INV-11 | port description, admin state | yes (standard) | P2 |
+| W-18 | DCIM device drawer › Connect / disconnect a cable (DCIM-014) | Plan to Build Inventory (if it carries cables) or DC-STORE | API-INV-07 | cable ends, type, structured route | yes (standard patch cord) | P1 |
+| W-19 | DCIM rack page › Reserve / release units (DCIM-016) | DC-STORE | — | U range, reason, expiry | yes (standard) | P2 |
+| W-20 | DCIM → Power › New power panel / feed (DCIM-017) | Plan to Build Inventory (if it carries them) or DC-STORE | API-INV-07 | panel (busway A / B, −48 V), feed (V, A, phases, rating) | yes | P1 |
+| W-21 | DCIM → Catalogue › New device / module type, import, component templates (DCIM-010) | Plan to Build Inventory (types); DC-STORE (templates) | API-INV-12 | vendor, model; U, typical W, port and power templates | — | P2 |
+| W-22 | DCIM device drawer › Assign next free address / unassign / set primary (DCIM-031) | Plan to Build IP Management | API-IPM-04, API-IPM-03 | address bound to device and interface; primary flag | yes | P2 |
+| W-23 | DCIM → Change requests › Raise change request (DCIM-020) | Services & ITSM Change Management | API-ITSM-08 | normal or standard CR (template STD-07 / 02 / 05), site, scope records, window | the new CR itself | P1 |
+| W-24 | DCIM → Change requests, change page › Execute planned work, one or all (DCIM-021) | Plan to Build Inventory / IP Management; Services & ITSM | API-INV-09…11, API-IPM-03 / 04, API-ITSM-09 | the record changes the work items hold; each work item marked done on the CR; CR completed when all are done | approved CR | P2 |
+| W-25 | DCIM › Cancel planned work (DCIM-021) | Services & ITSM Change Management | API-ITSM-09 | work item removed from the CR | — | P2 |
+| W-26 | Planner › Start the build (PLN-026, PLN-041) | Programs & Projects; Supply Chain Procurement; Inventory Planning; IP Management; Inventory | API-PRJ-06, API-SCM-04, API-IPL-02, API-IPM-04, API-INV-09 / 10 | project from the plan (milestones, budget, BoM); vendor orders per vendor and phase; capacity holds; reserved addresses and prefixes; planned racks and devices | delivery CRs are raised by Programs & Projects | P2 |
+| W-27 | Planner › Plan completed after hand-over (PLN-027) | Inventory Planning; Inventory | API-IPL-02, API-INV-10 | holds released; planned devices set Active when Programs & Projects reports hand-over (API-PRJ-07) | yes (from the project) | P2 |
+| W-28 | Capacity › Start a capacity plan (CAP-027) | DC-STORE (draft plan) | — | draft plan for the dimension and site | — | P2 |
+| W-29 | Security Ops → Detections › Triage (close, false positive) / escalate to a case (SEC-032) | Ops Toolkit Security Ops | API-SOC-07 | triage outcome, reason; new case with the detections | — | P2 |
+| W-30 | Security Ops → Cases › Advance phase, run a playbook step, add a note (SEC-013) | Ops Toolkit Security Ops | API-SOC-08 | phase, step result, note | — | P2 |
+| W-31 | Security Ops → Vulnerabilities › Set decision / status (SEC-017) | Ops Toolkit Security Ops | API-SOC-08 | SSVC decision, status, reason | — | P2 |
+| W-32 | Security Ops → Threat coverage › Enable, edit, create, delete a rule (SEC-016) | Ops Toolkit Security Ops | API-SOC-03 | Sigma source, status, version | — | P2 |
+| W-33 | Compliance › Policy on / off, attest a control, new policy / control / framework | DC-STORE | — | policy state, attestation with evidence and date | — | P3 |
+| W-34 | Any screen › Ask Opstral AI (XC-008) | AI Foundry | API-AIF-01 | question and page context (answer comes back; nothing stored in a module) | — | P2 |
+
+**B. Automatic writes (no user action)**
+
+| # | Trigger | Module updated | Write API | What is written | Phase |
+| --- | --- | --- | --- | --- | --- |
+| A-01 | Collector reading or event crosses a rule | Ops Toolkit System Alerts | API-ALR-03 | alarm raise / update / clear with the raw event | P1 |
+| A-02 | Alarm placed and scoped | Ops Toolkit System Alerts | API-ALR-05 | scope, site → rack → device → port, rack id, shared fault id | P1 |
+| A-03 | Correlation opens an incident (incl. GPU incidents, power-contract incident) | Services & ITSM Incidents | API-ITSM-03 | incident with type, severity, site, alarms, affected CIs | P1 |
+| A-04 | Impact, RCA, recommended actions or money change | Services & ITSM Incidents | API-ITSM-04 | impact summary (services, customers, premium), RCA hypotheses with evidence, actions, revenue at risk, as fields or a work note | P1 |
+| A-05 | Incidents group by cause (e.g. one optics lot) | Services & ITSM Problems | API-ITSM-05 | problem record, linked incidents | P2 |
+| A-06 | A completed change is the leading RCA hypothesis | Services & ITSM Change Management | API-ITSM-09 | "Caused an incident" flag with the incident id | P2 |
+| A-07 | Incident opened or severity raised | Ops Toolkit System Alerts (paging) | API-ALR-06 | page to the on-call rota | P1 |
+| A-08 | Customer impacted, notice due (15 / 30 / 60 min, updates 1 / 2 / 4 h) | BSS Experience and Care | API-BSS-05, API-BSS-06 | impact per customer; the notice | P1 / P2 |
+| A-09 | Incident closed, month end | BSS Customers | API-BSS-07 | SLA credits owed (minutes, tier, amount) | P2 |
+| A-10 | Daily / month end | BSS (to the customer's billing) | API-BSS-08 | kWh and peak kW per cabinet; GPU hours per job | P2 |
+| A-11 | Power economics recalculated | Ops Toolkit Fin Ops | API-OPS-04 | power cost per site, sold MW-month, GPU-hour | P2 |
+| A-12 | Collector discovery (6–24 h) | Plan to Build Inventory | API-INV-07 | observed serial, model, OS, modules, LLDP for reconciliation | P1 |
+| A-13 | DCIM, IPAM, change windows or access log change | Ops Toolkit Security Ops | API-SOC-06 | datacenter context dictionaries; physical exceptions | P2 |
+| A-14 | Every poll / push | OAP telemetry ingestion | API-OAP-05 | metrics with labels | P1 |
+| A-15 | SynapseDC release | Intelligence Hub | API-IHB-01 | entity and field definitions | P1 |
+
+**C. Updates that stay in the module's own screens** (SynapseDC links to them and has no write for them): approving or rejecting a change and CAB decisions; assigning an incident or ticket; work-order progress, checklists, sign-off, purchase-order receipt and commissioning test results (Programs & Projects); IP prefix, VRF, VLAN and range administration; customer, contract and order records; vendor, contract and stock records; custom fields and tags.
 
 ---
 
