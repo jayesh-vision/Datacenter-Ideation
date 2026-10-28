@@ -7,7 +7,7 @@ import { buildMetadata } from "@/seo";
 
 type Params = { params: Promise<{ page: string }> };
 
-/** Pages in the site map that have no content yet (blog, case studies, videos, glossary, about, pricing, legal). */
+/** Pages in the site map that have no content yet (blog, case studies, videos, pricing, legal). */
 export const dynamicParams = false;
 export const generateStaticParams = () => Object.keys(placeholders).map((page) => ({ page }));
 

@@ -64,7 +64,6 @@ export const navigation: NavItem[] = [
 				heading: "Learn",
 				links: [
 					{ label: "FAQ", desc: "Common questions answered", icon: "circle-help", href: "/faq" },
-					{ label: "Glossary", desc: "Datacenter terms defined", icon: "book-open", href: "/glossary" },
 					{ label: "Blog", desc: "Field notes from datacenter operations", icon: "newspaper", href: "/blog" },
 					{ label: "Case studies", desc: "Pilot results, basis stated", icon: "line-chart", href: "/case-studies" },
 					{ label: "Videos", desc: "See the platform run", icon: "video", href: "/videos" },
@@ -174,7 +173,6 @@ export const placeholders: Record<string, { title: string; icon: string; desc: s
 	blog: { title: "Blog", icon: "newspaper", desc: "Field notes on running datacenters: power, cooling, GPUs and money.", plan: ["Why free racks are not sellable racks", "The cost of one failed GPU", "Alarm scope: site, edge, dependency, downstream"] },
 	"case-studies": { title: "Case studies", icon: "line-chart", desc: "Pilot results from colocation and GPU cloud operators, with the basis stated for every figure.", plan: ["Colocation pilot (one site)", "NeoCloud pilot (one site)"] },
 	videos: { title: "Videos", icon: "video", desc: "Short walk-throughs of the product.", plan: ["The 13:20 call: a UPS on battery, end to end", "Walking the 3D datacenter layout", "GPU Fleet: blast radius and placement"] },
-	glossary: { title: "Glossary", icon: "book-open", desc: "Datacenter, power, cooling, GPU and inventory terms, as the product uses them.", plan: ["Ride-through, ATS, busway, PDU", "Xid, DCGM, NVLink, InfiniBand rail", "Take-or-pay, demand ratchet, committed kW"] },
 	customers: { title: "Customers", icon: "building", desc: "Operators running SynapseDC.", plan: ["Customer logos", "Quotes"] },
 	pricing: { title: "Pricing", icon: "receipt", desc: "Value first, then pricing from the commercial team.", plan: ["Packaging by business model", "Pilot terms"] },
 	privacy: { title: "Privacy policy", icon: "lock", desc: "How this website handles personal data.", plan: ["To be supplied by legal"] },

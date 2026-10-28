@@ -7,7 +7,7 @@ import { buildMetadata } from "@/seo";
 
 export const metadata = buildMetadata({
 	title: "Resources",
-	description: "SynapseDC resources: FAQ, glossary, blog, case studies, videos, and how SynapseDC differs from DCIM, BMS and ITSM.",
+	description: "SynapseDC resources: FAQ, blog, case studies, videos, and how SynapseDC differs from DCIM, BMS and ITSM.",
 	path: "/resources",
 });
 
