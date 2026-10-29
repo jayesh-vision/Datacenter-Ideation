@@ -244,7 +244,7 @@ export function DcimArt() {
 					)}
 					{k === "plan" && (
 						<Label x={92} y={y + 32} size={8.5} color={C.sky}>
-							U18–U22 · install under CHG-2041
+							U18–U22 · under CHG-2041
 						</Label>
 					)}
 				</g>
@@ -288,7 +288,7 @@ export function DcimArt() {
 				Install GPU-022 · U18–U22
 			</Label>
 			<Label x={296} y={250} size={9}>
-				reserve U · install · connect 8 ports
+				reserve · install · 8 ports
 			</Label>
 			<g className="a-in" style={d(1.3)}>
 				<Chip x={296} y={266} color={C.ok} w={128}>
@@ -561,7 +561,7 @@ export function TwinArt() {
 			<rect x={448} y={121} width="152" height="4" rx="2" fill={C.line} />
 			<rect x={448} y={121} width={152 * 0.83} height="4" rx="2" fill={C.sky} className="a-grow" style={d(0.8)} />
 			{[
-				["Fed by", "UPS-2 · busway A · PDU-A/B"],
+				["Fed by", "UPS-2 · bus A · PDU-A/B"],
 				["Inlet", "22.1 °C · 44 % RH"],
 				["Devices", "8 × DGX H100 · 2 ToR"],
 				["Issue", "PSU1 failed · RMA open"],
@@ -729,7 +729,7 @@ export function RevenueArt() {
 			{/* ranked issues */}
 			<Card x={24} y={52} w={312} h={262} />
 			<Label x={40} y={74} size={10}>
-				COSTING THE MOST RIGHT NOW · ONE ISSUE PER SERVICE
+				COSTING THE MOST · ONE ISSUE PER SERVICE
 			</Label>
 			{issues.map(([t, sub, m, v, c], i) => (
 				<g key={t} className="a-in" style={d(0.1 + i * 0.12)}>
@@ -845,7 +845,7 @@ export function FacilitiesArt() {
 			<Flow d="M150 72 L 150 108" color={C.ok} delay={0.3} />
 			<Card x={120} y={184} w={60} h={24} r={7} tone="card2" />
 			<Label x={150} y={200} size={9} anchor="middle">
-				DG · standby
+				DG standby
 			</Label>
 			<path d="M150 148 L 150 184" fill="none" stroke={C.line2} strokeWidth="2" strokeDasharray="3 4" />
 			<Beacon x={56} y={108} />
@@ -859,7 +859,7 @@ export function FacilitiesArt() {
 			{[
 				["UPS 14 min", "on battery · 62 %", 92],
 				["DG 5 MVA", "starts in 12 s", 190],
-				["Fuel 38 h", "at today's load", 262],
+				["Fuel 38 h", "at this load", 262],
 			].map(([a, b, x], i) => (
 				<g key={String(a)} className="a-in" style={d(0.7 + i * 0.1)}>
 					<Label x={Number(x)} y={280} size={12} color={C.ink} weight={500}>
@@ -894,7 +894,7 @@ export function FacilitiesArt() {
 				No spare on floor 2
 			</Label>
 			<Label x={496} y={278} size={8.5}>
-				heat 1.6 MW · capacity 1.7 MW
+				1.6 of 1.7 MW cooling
 			</Label>
 			<Label x={496} y={296} size={8.5} color={C.ink}>
 				What-if UPS-2 down:

@@ -126,24 +126,24 @@ export function CapacityArt() {
 					</g>
 				);
 			})}
-			<Card x={400} y={44} w={200} h={210} />
+			<Card x={392} y={44} w={224} h={210} />
 			<Label x={416} y={66} size={11}>
 				POWER BILL · MONTH
 			</Label>
-			<Ring x={460} y={150} r={40} v={0.68} label="68%" />
-			<Label x={520} y={120} size={11} color={C.ink}>
+			<Ring x={448} y={150} r={38} v={0.68} label="68%" />
+			<Label x={500} y={120} size={11} color={C.ink}>
 				energy
 			</Label>
-			<Label x={520} y={146} size={11} color={C.ink}>
+			<Label x={500} y={146} size={11} color={C.ink}>
 				demand charge
 			</Label>
-			<Label x={520} y={172} size={11} color={C.fault}>
+			<Label x={500} y={172} size={11} color={C.fault}>
 				idle block 310 kW
 			</Label>
 			<Label x={416} y={236} size={12} color={C.ice} weight={500}>
 				$14.2k / mo paid, not sold
 			</Label>
-			<Card x={400} y={272} w={200} h={88} />
+			<Card x={392} y={272} w={224} h={88} />
 			<Label x={416} y={294} size={11}>
 				PER SOLD GPU-HOUR
 			</Label>
@@ -376,7 +376,7 @@ export function NeocloudArt() {
 				JOB llm-pretrain-34b
 			</Label>
 			<Label x={396} y={128} size={13} color={C.ink} weight={500}>
-				Stalled · 152 GPUs · QuantLedger AI
+				Stalled · 152 GPUs · 1 customer
 			</Label>
 			<Label x={396} y={148} size={11} color={C.fault}>
 				$625 / h · checkpoint 52 min ago
