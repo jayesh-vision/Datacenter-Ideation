@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CtaBand, ModuleGrid, PageHero, Section } from "@/components/Blocks";
+import { CtaBand, ModuleTiles, PageHero, Section } from "@/components/Blocks";
+import { Anatomy } from "@/components/platform/Anatomy";
 import { Icon } from "@/components/Icon";
-import { Reveal } from "@/components/Reveal";
 import { roles } from "@/data/solutions";
 import { JsonLd, breadcrumbSchema, buildMetadata } from "@/seo";
 
@@ -18,12 +18,15 @@ export async function generateMetadata({ params }: Params) {
 	return buildMetadata({ title: `For ${r.name}`, description: `${r.headline} ${r.summary}`.slice(0, 158), path: `/roles/${r.slug}` });
 }
 
-/** ROLES › <role>. Content in @/data/solutions (BRD §4). */
+/** ROLES › <role>. Hero → the role's questions spotlighted on its main screen → module tiles → CTA. Content in @/data/solutions (BRD §4). */
 export default async function RolePage({ params }: Params) {
 	const { slug } = await params;
 	const r = roles.find((x) => x.slug === slug);
 	if (!r) notFound();
 	const crumbs = [{ name: "Home", href: "/" }, { name: "Solutions", href: "/solutions" }, { name: r.name, href: `/roles/${r.slug}` }];
+	const art = r.art ?? r.modules[0];
+	const heroArt = r.modules.find((m) => m !== art) ?? art;
+	const items = r.questions.map((q, i) => ({ title: q, text: r.answers[i]?.text ?? "", area: r.answers[i]?.area }));
 	return (
 		<>
 			<JsonLd schema={breadcrumbSchema(crumbs.map((c) => ({ name: c.name, path: c.href })))} />
@@ -32,18 +35,18 @@ export default async function RolePage({ params }: Params) {
 				title={r.headline}
 				summary={r.summary}
 				crumbs={crumbs}
-				art={r.modules[0]}
-				actions={<Link href="/contact" className="btn btn-primary">Book a demo <Icon name="arrow" size={16} /></Link>}
+				art={heroArt}
+				actions={
+					<Link href="/contact" className="btn btn-primary">
+						Book a demo <Icon name="arrow" size={16} />
+					</Link>
+				}
 			/>
-			<Section kicker="Your questions" title="What you ask, answered on one screen.">
-				<div className="questions">
-					{r.questions.map((q, i) => (
-						<Reveal key={q} className="question" delay={i * 60}>{q}</Reveal>
-					))}
-				</div>
+			<Section tone="soft" kicker="Your questions" title={r.askTitle} intro={r.screenIntro}>
+				<Anatomy art={art} items={items} all />
 			</Section>
-			<Section tone="soft" kicker="Your screens" title="Where you will spend your day.">
-				<ModuleGrid slugs={r.modules} />
+			<Section kicker="Your screens" title="Where you will spend your day.">
+				<ModuleTiles slugs={r.modules} />
 			</Section>
 			<CtaBand />
 		</>

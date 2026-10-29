@@ -1,10 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CtaBand, FeatureCards, ModuleGrid, PageHero, Section } from "@/components/Blocks";
+import { CtaBand, FeatureCards, ModuleTiles, PageHero, Section } from "@/components/Blocks";
 import { Icon } from "@/components/Icon";
-import { Anatomy } from "@/components/platform/Anatomy";
+import { AlsoRow, Anatomy } from "@/components/platform/Anatomy";
 import { RoleStrip } from "@/components/platform/RoleStrip";
-import { Reveal } from "@/components/Reveal";
 import { moduleBySlug, modules } from "@/data/modules";
 import { JsonLd, breadcrumbSchema, buildMetadata, softwareSchema } from "@/seo";
 
@@ -64,24 +63,7 @@ export default async function ModulePage({ params }: Params) {
 			{shown.length > 0 ? (
 				<Section tone="soft" kicker="On the screen" title="What the screen holds." intro={m.screenIntro}>
 					<Anatomy art={m.slug} items={m.capabilities} />
-					{rest.length > 0 && (
-						<div className="an-more">
-							<p className="an-more-k">Also on the screen</p>
-							<div className="an-more-grid">
-								{rest.map((c, i) => (
-									<Reveal key={c.title} className="an-also" delay={i * 60}>
-										<span className="card-ico">
-											<Icon name={c.icon ?? "layers"} size={20} />
-										</span>
-										<span>
-											<h3>{c.title}</h3>
-											<p>{c.text}</p>
-										</span>
-									</Reveal>
-								))}
-							</div>
-						</div>
-					)}
+					<AlsoRow items={rest} />
 				</Section>
 			) : (
 				<Section tone="soft" kicker="Capabilities" title={`What ${m.name} does.`}>
@@ -90,7 +72,7 @@ export default async function ModulePage({ params }: Params) {
 			)}
 
 			<Section kicker="Related" title="Works together with" intro={`${m.name} shares one estate model with the modules it hands off to.`}>
-				<ModuleGrid slugs={m.related} />
+				<ModuleTiles slugs={m.related} />
 			</Section>
 
 			<CtaBand />

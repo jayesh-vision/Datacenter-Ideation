@@ -95,6 +95,29 @@ export function ModuleGrid({ slugs }: { slugs?: string[] }) {
 	);
 }
 
+/** Module tiles with the module's own illustration (the /platform overview shape). `wide` = art beside the text. */
+export function ModuleTiles({ slugs, wide = false }: { slugs: string[]; wide?: boolean }) {
+	const list = slugs.map((s) => modules.find((m) => m.slug === s)!).filter(Boolean);
+	return (
+		<div className={`stg-grid n-${wide ? 1 : Math.min(list.length, 3)}${!wide && list.length > 3 ? " n-many" : ""}`}>
+			{list.map((m, i) => (
+				<Reveal key={m.slug} delay={(i % 3) * 60} className={`mt-cell${wide ? " wide" : ""}`}>
+					<Link href={`/platform/${m.slug}`} className="mt">
+						<ArtFor id={m.slug} className="mt-art" />
+						<span className="mt-body">
+							<strong>
+								<Icon name={m.icon} size={17} />
+								{m.name}
+							</strong>
+							<span>{m.short}</span>
+						</span>
+					</Link>
+				</Reveal>
+			))}
+		</div>
+	);
+}
+
 export function FeatureCards({ items, cols = 3 }: { items: { title: string; text: string; icon?: string }[]; cols?: 2 | 3 | 4 }) {
 	return (
 		<div className={`grid-${cols}`}>

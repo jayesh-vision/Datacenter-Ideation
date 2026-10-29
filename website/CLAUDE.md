@@ -51,6 +51,13 @@ steps through on its own while in view until the visitor points at an item; no n
 without an `area` go in "Also on the screen") → related modules with stage chips → CTA. Columns stack below 1260 px. A new module needs
 askTitle, askIntro, screenIntro, answers and areas. Copy is product statements only, never "pick / click / hover" instructions.
 
+## Solutions menu pages (29-Oct-2026, user: "the same kind of change")
+`/solutions/<model>`: hero → the model's facts as one definition panel (`.defs`, `factsTitle` per model, privacy as a "Never read" row) →
+**On the screen**: the model's illustration (`colocation` / `neocloud` art) with its `pains` spotlighted (`pain.area`), each row linking to
+its module; pains without an area in "Also answered" → `ModuleTiles` → CTA. `/roles/<role>`: hero → the role's three questions spotlighted
+on its main screen (`role.art` ?? modules[0]; `answers[i].text/area`, `askTitle`, `screenIntro`, all written per role) → `ModuleTiles`.
+`ModuleTiles` (Blocks.tsx) = the /platform overview tiles; use it wherever modules are listed instead of the icon cards.
+
 ## Platform overview (29-Oct-2026, user)
 `/platform`: the hero (PlatformMap) and the Architecture section are fixed (user: do not change). Between them, the modules by stage
 in full rows: Plan | Build, then Operate (4 columns, Command Center spanning two), then Govern | Across the product (one wide tile each);

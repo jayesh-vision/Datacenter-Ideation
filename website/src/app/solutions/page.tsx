@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArtFor } from "@/components/art";
 import { CtaBand, Kicker, Section } from "@/components/Blocks";
 import { Icon } from "@/components/Icon";
 import { Reveal, RevealHeading } from "@/components/Reveal";
@@ -113,18 +114,18 @@ export default function SolutionsPage() {
 
 			{/* Business models + roles */}
 			<Section tone="soft" kicker="By business model" title="Two business models in the first release." intro="One estate model; the vocabulary, what is monitored inside the rack and how value is counted follow your business.">
-				<div className="grid-2">
+				<div className="stg-grid n-2">
 					{first.map((s) => (
-						<Reveal key={s.slug}>
-							<Link href={`/solutions/${s.slug}`} className="card">
-								<span className="card-ico">
-									<Icon name={s.icon} size={20} />
+						<Reveal key={s.slug} className="mt-cell">
+							<Link href={`/solutions/${s.slug}`} className="mt">
+								<ArtFor id={s.slug} className="mt-art" />
+								<span className="mt-body">
+									<strong>
+										<Icon name={s.icon} size={17} />
+										{s.name}
+									</strong>
+									<span>{s.headline}</span>
 								</span>
-								<strong>{s.name}</strong>
-								<span>{s.headline}</span>
-								<em>
-									SynapseDC for {s.name.split(" ")[0]} <Icon name="arrow" size={14} />
-								</em>
 							</Link>
 						</Reveal>
 					))}
