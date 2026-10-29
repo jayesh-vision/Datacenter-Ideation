@@ -45,10 +45,8 @@ SynapseDC is the END-TO-END platform to **plan, build and operate** datacenters,
 ## Module pages (29-Oct-2026, user: "not visually appealing", "always Three questions … irritating")
 `/platform/<slug>` = one template (`app/platform/[slug]/page.tsx`): dark hero with `proof` as stat tiles → **Who opens it** (`askTitle` /
 `askIntro` written per module in `data/modules.ts`, never a shared sentence; `RoleStrip` = role icon, question, `answers[i]`) → **Where each
-capability lives** (`components/platform/Anatomy.tsx`: the module's illustration with numbered pins at `Capability.pin` on the 640 × 420
-canvas, beside an accordion list stretched to the drawing's height; only the active item shows its text; capabilities without a pin go in
-the "Also on the screen" row with their `icon`) → related modules with stage chips → CTA. Pins sit at panel corners, never over the
-drawing's own numbers. Columns stack below 1260 px. A new module needs askTitle, askIntro, answers and pins.
+capability lives** (`components/platform/Anatomy.tsx`: the module's illustration (no markers drawn over it — pins looked odd, user 29-Oct-2026) beside an accordion list of the capabilities that carry `pin`, stretched to the drawing's height; only the active item shows its text; capabilities without a pin go in
+the "Also on the screen" row with their `icon`) → related modules with stage chips → CTA.  Columns stack below 1260 px. A new module needs askTitle, askIntro, answers and pins.
 
 ## GPU & AI is the flagship use case (28-Oct-2026, user)
 GPU Fleet is part of the solution, NOT an add-on (the user reversed an add-on idea the same day): no "add-on", no packaging /
