@@ -26,7 +26,16 @@ await p.goto(`${BASE}/macd?new=1&cat=MAC-A01&${Q}`, { waitUntil: 'networkidle' }
 const rk = await p.$$eval('.mc-form select', ss => { const s = ss[2]; const o = [...s.options].find(x => { const m = x.text.match(/· (\d+) U free · ([\d.]+)\/([\d.]+) kW/); return m && +m[1] >= 8 && +m[2] < +m[3] * 0.5; }); return o?.value; });
 if (!rk) fail('no rack with room'); else {
   await p.selectOption('.mc-form select >> nth=2', rk); await p.waitForSelector('.mc-preview'); await p.waitForTimeout(300); await check('new request');
-  await p.click('text=Submit request'); await p.waitForURL(/\/macd\/requests\//); await p.waitForSelector('.mc-track');
+  /* save as a draft → the request page in Draft → edit (quantity 2) → submit from the drawer */
+  await p.click('.drawer button:has-text("Save as draft")'); await p.waitForURL(/\/macd\/requests\//); await p.waitForSelector('.mc-track');
+  if (!(await p.$eval('.mc-steps li.is-now span', e => e.textContent)).includes('Draft')) fail('not a draft after Save as draft');
+  await check('draft page');
+  await p.click('.page-head button:has-text("Edit draft")'); await p.waitForSelector('.mc-form'); await p.waitForSelector('.mc-preview');
+  await p.fill('.mc-form input[type=number]', '2'); await p.waitForTimeout(500); await check('edit draft');
+  await p.click('.drawer button:has-text("Submit request")'); await p.waitForFunction(() => document.querySelector('.mc-steps li.is-now span')?.textContent !== 'Draft', null, { timeout: 5000 }).catch(() => {});
+  const st = await p.$eval('.mc-steps li.is-now span', e => e.textContent);
+  if (st !== 'Feasibility') fail(`after submit: ${st}`);
+  if (!(await p.$eval('.mc-hist', e => e.innerText)).includes('quantity 1 → 2')) fail('edit not in history');
   const step = async (label, modal) => { await p.click(`.page-head button:has-text("${label}")`); if (modal) { await p.waitForSelector('.modal'); await p.click(`.modal button:has-text("${modal}")`); } await p.waitForTimeout(400); };
   const stage = () => p.$eval('.mc-steps li.is-now span, .mc-steps li:last-child span', e => e.textContent);
   await step(await p.$('.page-head button:has-text("send the quote")') ? 'send the quote' : 'schedule it');

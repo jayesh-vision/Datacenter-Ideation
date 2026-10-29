@@ -4,8 +4,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { createMacd, defaultDcId, getDatacenter, getDatacenters, previewMacd, useQuery } from '../../api';
-import type { MacdCheck, MacdKind, MacdPriority, MacdView } from '../../api/types';
+import { actMacd, createMacd, updateMacd, defaultDcId, getDatacenter, getDatacenters, previewMacd, useQuery } from '../../api';
+import type { MacdCheck, MacdKind, MacdPriority, MacdRequest, MacdView } from '../../api/types';
 import { Btn, Drawer, Field, Seg } from '../../ui/kit';
 import { fmtDateTime } from '../../lib/format';
 import { KINDS, KIND_ICON, hrs, money, mrcLine } from './common';
@@ -13,20 +13,20 @@ import { KINDS, KIND_ICON, hrs, money, mrcLine } from './common';
 type Preview = Awaited<ReturnType<typeof previewMacd>>;
 export const CHECK_ICON: Record<MacdCheck['result'], I.LucideIcon> = { Pass: I.CircleCheck, Warn: I.CircleAlert, Fail: I.CircleX };
 export function Checks({ checks }: { checks: MacdCheck[] }) {
-  return <ul className="mc-checks">{checks.map((c, i) => { const Ic = CHECK_ICON[c.result]; return <li key={i} className={`is-${c.result.toLowerCase()}`}><Ic size={15} /><span className="cell-2"><b>{c.label}</b><small>{c.detail}</small></span></li>; })}</ul>;
+  return <ul className="mc-checks">{checks.map((c, i) => { const Ic = CHECK_ICON[c.result]; return <li key={i} className={`is-${c.result.toLowerCase()}`}><Ic size={15} /><span className="mc-ck"><b>{c.label}</b><small>{c.detail}</small></span></li>; })}</ul>;
 }
 
-export function NewRequest({ all, dcId: scopeDc, cat, rack, onClose, toast }: { all: MacdView; dcId: string; cat: string; rack: string; onClose: () => void; toast: (t: string, b?: string, l?: { to: string; label: string }) => void }) {
+export function NewRequest({ all, dcId: scopeDc, cat, rack, edit, onClose, toast }: { all: MacdView; dcId: string; cat: string; rack: string; edit?: MacdRequest; onClose: () => void; toast: (t: string, b?: string, l?: { to: string; label: string }) => void }) {
   const nav = useNavigate();
-  const c0 = all.catalog.find(c => c.id === cat);
+  const c0 = all.catalog.find(c => c.id === (edit?.catalogId ?? cat));
   const [kind, setKind] = useState<MacdKind>(c0?.kind ?? 'Add');
   const [catId, setCat] = useState(c0?.id ?? all.catalog.find(c => c.kind === 'Add')?.id ?? all.catalog[0]?.id ?? '');
-  const [dcId, setDc] = useState(scopeDc || (rack ? rack.replace(/^([A-Z]{2}-DC-\d{3}).*/, '$1') : defaultDcId()));
-  const [rackId, setRack] = useState(rack);
-  const [toRackId, setTo] = useState('');
-  const [qty, setQty] = useState(1);
-  const [priority, setPrio] = useState<MacdPriority>('Standard');
-  const [detail, setDetail] = useState('');
+  const [dcId, setDc] = useState(edit?.dcId || scopeDc || (rack ? rack.replace(/^([A-Z]{2}-DC-\d{3}).*/, '$1') : defaultDcId()));
+  const [rackId, setRack] = useState(edit?.rackId ?? rack);
+  const [toRackId, setTo] = useState(edit?.toRackId ?? '');
+  const [qty, setQty] = useState(edit?.qty ?? 1);
+  const [priority, setPrio] = useState<MacdPriority>(edit?.priority ?? 'Standard');
+  const [detail, setDetail] = useState(edit && edit.detail !== c0?.desc ? edit.detail : '');
   const [pv, setPv] = useState<Preview | null>(null);
   const [err, setErr] = useState('');
   const [failed, setFailed] = useState('');
@@ -36,7 +36,7 @@ export function NewRequest({ all, dcId: scopeDc, cat, rack, onClose, toast }: { 
   const item = all.catalog.find(c => c.id === catId);
   const needsRack = item && item.object !== 'IP addresses' && item.object !== 'Access';
   const racks = useMemo(() => (site?.dc.racks ?? []).filter(r => !/ODF/i.test(r.role)).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })), [site]);
-  const draft = { catalogId: catId, dcId, rackId: needsRack ? rackId || undefined : undefined, toRackId: item?.kind === 'Move' ? toRackId || undefined : undefined, qty, priority, detail };
+  const draft = { catalogId: catId, dcId, customerId: edit?.customerId, rackId: needsRack ? rackId || undefined : undefined, toRackId: item?.kind === 'Move' ? toRackId || undefined : undefined, qty, priority, detail };
   const key = JSON.stringify(draft);
   useEffect(() => {
     let live = true; setErr('');
@@ -45,16 +45,28 @@ export function NewRequest({ all, dcId: scopeDc, cat, rack, onClose, toast }: { 
     return () => { live = false; };
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
   const pickKind = (k: MacdKind) => { setKind(k); const first = all.catalog.find(c => c.kind === k); if (first) setCat(first.id); };
-  const submit = () => { setBusy(true); createMacd(draft).then(id => { toast(`${id} submitted`, pv?.title, { to: `/macd/requests/${id}`, label: 'Open the request' }); onClose(); nav(`/macd/requests/${id}`); }).catch(e => { setFailed(String(e.message ?? e)); setBusy(false); }); };
+  const isDraft = !edit || edit.stage === 'Draft';
+  /* save: a new request (submitted or kept as a draft) or the edit of an existing one; submitting an edited draft saves it first */
+  const save = (submitNow: boolean) => {
+    setBusy(true);
+    const p = edit ? updateMacd(edit.id, draft).then(id => (submitNow && edit.stage === 'Draft' ? actMacd(id, 'submit').then(() => id) : id)) : createMacd(draft, !submitNow);
+    p.then(id => {
+      toast(edit ? (submitNow && edit.stage === 'Draft' ? `${id} submitted` : `${id} saved`) : submitNow ? `${id} submitted` : `${id} saved as a draft`, pv?.title, { to: `/macd/requests/${id}`, label: 'Open the request' });
+      onClose(); if (!edit) nav(`/macd/requests/${id}`);
+    }).catch(e => { setFailed(String(e.message ?? e)); setBusy(false); });
+  };
   const fails = pv?.checks.filter(c => c.result === 'Fail').length ?? 0;
   const live = (dcs ?? []).filter(d => d.status === 'on-air');
   /* the default datacenter may not be in service yet: start on the first live one */
   useEffect(() => { if (live.length && !live.some(d => d.id === dcId)) { setDc(live[0].id); setRack(''); } }, [live.length]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <Drawer open onClose={onClose} width={720} title="New MACD request" sub="Move, add, change or disconnect something in a datacenter"
+    <Drawer open onClose={onClose} width={720} title={edit ? `Edit ${edit.id}` : 'New MACD request'} sub={edit ? (edit.stage === 'Draft' ? 'Draft: nothing is checked or scheduled until you submit it' : `${edit.stage}: saving re-runs the feasibility checks`) : 'Move, add, change or disconnect something in a datacenter'}
       foot={<div className="row" style={{ justifyContent: 'space-between', width: '100%', gap: 8 }}>
         <span className="vw-label">{failed ? <span className="so-bad">{failed}</span> : err ? err : fails ? `${fails} check${fails === 1 ? '' : 's'} failing: it waits in Feasibility` : pv ? `Due ${fmtDateTime(pv.due)} (${hrs(pv.slaH)} SLA)` : ''}</span>
-        <span className="row" style={{ gap: 8 }}><Btn onClick={onClose}>Cancel</Btn><Btn variant="filled" icon={I.Send} disabled={!pv || busy} onClick={submit}>Submit request</Btn></span></div>}>
+        <span className="row" style={{ gap: 8 }}><Btn onClick={onClose}>Cancel</Btn>
+          {isDraft && <Btn icon={I.Save} disabled={!pv || busy} onClick={() => save(false)}>{edit ? 'Save draft' : 'Save as draft'}</Btn>}
+          {isDraft ? <Btn variant="filled" icon={I.Send} disabled={!pv || busy} onClick={() => save(true)}>Submit request</Btn>
+            : <Btn variant="filled" icon={I.Save} disabled={!pv || busy} onClick={() => save(false)}>Save changes</Btn>}</span></div>}>
       <div className="col mc-form" style={{ gap: 14 }}>
         <Field label="What kind of request">
           <Seg options={KINDS.map(k => ({ id: k, label: k, icon: KIND_ICON[k] }))} value={kind} onChange={pickKind} />

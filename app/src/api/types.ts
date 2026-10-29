@@ -858,7 +858,7 @@ export interface SecOpsView {
    freeze, open incident, GPU pool) → quote → change request → scheduled work → verification → records and billing updated (mock/macd.ts). */
 export type MacdKind = 'Move' | 'Add' | 'Change' | 'Disconnect';
 export type MacdObject = 'Equipment' | 'Cabinet' | 'Power circuit' | 'Cross-connect' | 'Network port' | 'IP addresses' | 'GPU nodes' | 'Access';
-export type MacdStage = 'Submitted' | 'Feasibility' | 'Quote' | 'Scheduled' | 'In progress' | 'Verification' | 'Completed' | 'Rejected' | 'Cancelled';
+export type MacdStage = 'Draft' | 'Submitted' | 'Feasibility' | 'Quote' | 'Scheduled' | 'In progress' | 'Verification' | 'Completed' | 'Rejected' | 'Cancelled';
 export type MacdPriority = 'Standard' | 'Expedited' | 'Emergency';
 export type MacdChannel = 'Customer portal' | 'Account manager' | 'Email' | 'API' | 'Internal';
 export type MacdSla = 'On track' | 'At risk' | 'Breached' | 'Met' | 'Missed';

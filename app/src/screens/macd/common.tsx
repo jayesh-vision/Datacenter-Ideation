@@ -5,7 +5,7 @@ import type { MacdKind, MacdObject, MacdPriority, MacdRequest, MacdSla, MacdStag
 import { fmtMoney } from '../../lib/format';
 
 export const KINDS: MacdKind[] = ['Move', 'Add', 'Change', 'Disconnect'];
-export const FLOW: MacdStage[] = ['Submitted', 'Feasibility', 'Quote', 'Scheduled', 'In progress', 'Verification', 'Completed'];
+export const FLOW: MacdStage[] = ['Draft', 'Submitted', 'Feasibility', 'Quote', 'Scheduled', 'In progress', 'Verification', 'Completed'];
 export const OPEN_STAGES: MacdStage[] = ['Submitted', 'Feasibility', 'Quote', 'Scheduled', 'In progress', 'Verification'];
 export const OBJECTS: MacdObject[] = ['Equipment', 'Cabinet', 'Power circuit', 'Cross-connect', 'Network port', 'IP addresses', 'GPU nodes', 'Access'];
 export const isOpen = (r: MacdRequest) => OPEN_STAGES.includes(r.stage);
@@ -14,14 +14,14 @@ export const KIND_ICON: Record<MacdKind, I.LucideIcon> = { Move: I.MoveRight, Ad
 export const OBJ_ICON: Record<MacdObject, I.LucideIcon> = { Equipment: I.Server, Cabinet: I.Archive, 'Power circuit': I.PlugZap, 'Cross-connect': I.Cable, 'Network port': I.EthernetPort, 'IP addresses': I.Network, 'GPU nodes': I.Cpu, Access: I.KeyRound };
 const KIND_TONE = { Move: 'purple', Add: 'info', Change: 'cyan', Disconnect: 'neutral' } as const;
 export const KindChip = ({ k }: { k: MacdKind }) => { const Ic = KIND_ICON[k]; return <Chip tone={KIND_TONE[k]}><span className="mc-kind"><Ic size={12} />{k}</span></Chip>; };
-const STAGE_TONE: Record<MacdStage, 'neutral' | 'info' | 'cyan' | 'purple' | 'success' | 'orange' | 'error'> = { Submitted: 'neutral', Feasibility: 'neutral', Quote: 'purple', Scheduled: 'cyan', 'In progress': 'info', Verification: 'info', Completed: 'success', Rejected: 'error', Cancelled: 'neutral' };
+const STAGE_TONE: Record<MacdStage, 'neutral' | 'info' | 'cyan' | 'purple' | 'success' | 'orange' | 'error'> = { Draft: 'neutral', Submitted: 'neutral', Feasibility: 'neutral', Quote: 'purple', Scheduled: 'cyan', 'In progress': 'info', Verification: 'info', Completed: 'success', Rejected: 'error', Cancelled: 'neutral' };
 export const StageChip = ({ s }: { s: MacdStage }) => <Chip tone={STAGE_TONE[s]} dot>{s}</Chip>;
 const SLA_TONE: Record<MacdSla, 'success' | 'orange' | 'error' | 'neutral' | 'info'> = { 'On track': 'info', 'At risk': 'orange', Breached: 'error', Met: 'success', Missed: 'error' };
-export const SlaChip = ({ s }: { s: MacdSla }) => <Chip tone={SLA_TONE[s]}>{s}</Chip>;
+export const SlaChip = ({ s, draft }: { s: MacdSla; draft?: boolean }) => draft ? <Chip tone="neutral">Not started</Chip> : <Chip tone={SLA_TONE[s]}>{s}</Chip>;
 export const PrioChip = ({ p }: { p: MacdPriority }) => p === 'Standard' ? <span className="vw-label">Standard</span> : <Chip tone={p === 'Emergency' ? 'error' : 'orange'}>{p}</Chip>;
 
 export const hrs = (h: number) => { const a = Math.abs(h); return a < 1 ? `${Math.round(a * 60)} min` : a < 48 ? `${Math.round(a)} h` : `${Math.round(a / 24)} d`; };
-export const slaLine = (r: MacdRequest) => r.stage === 'Completed' ? (r.sla === 'Met' ? `met with ${hrs(r.slaLeftH)} to spare` : `missed by ${hrs(r.slaLeftH)}`) : !isOpen(r) ? r.stage.toLowerCase() : r.slaLeftH >= 0 ? `${hrs(r.slaLeftH)} left` : `${hrs(r.slaLeftH)} over`;
+export const slaLine = (r: MacdRequest) => r.stage === 'Draft' ? 'the clock starts when it is submitted' : r.stage === 'Completed' ? (r.sla === 'Met' ? `met with ${hrs(r.slaLeftH)} to spare` : `missed by ${hrs(r.slaLeftH)}`) : !isOpen(r) ? r.stage.toLowerCase() : r.slaLeftH >= 0 ? `${hrs(r.slaLeftH)} left` : `${hrs(r.slaLeftH)} over`;
 export const money = (n: number) => fmtMoney(n, 0);
 export const mrcLine = (n: number) => (n === 0 ? '—' : `${n > 0 ? '+' : '−'}${fmtMoney(Math.abs(n), 0)}/mo`);
 export const plural = (n: number, w: string, ws = `${w}s`) => `${n} ${n === 1 ? w : ws}`;

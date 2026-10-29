@@ -257,6 +257,8 @@ export function useQuery<T>(fn: () => Promise<T>, deps: unknown[]): { data: T | 
 /* ---- MACD (28-Oct-2026): Move · Add · Change · Disconnect requests */
 export const getMacd = () => wait(S.macd);                                                            // GET /macd (requests, catalogue, sites, metrics)
 export const previewMacd = (d: import("./types").MacdDraft) => mutate(() => structuredClone(S.macdPreview(d)));          // POST /macd/preview (feasibility + charges, nothing saved)
-export const createMacd = (d: import('./types').MacdDraft) => mutate(() => S.macdCreate(d));          // POST /macd
+export const createMacd = (d: import('./types').MacdDraft, draft = false) => mutate(() => S.macdCreate(d, draft)); // POST /macd (draft: ?draft=true)
+export const updateMacd = (id: string, d: import('./types').MacdDraft) => mutate(() => S.macdUpdate(id, d)); // PATCH /macd/:id (draft, submitted, feasibility)
+export const MACD_EDITABLE = S.MACD_EDITABLE;
 export const actMacd = (id: string, action: S.MacdAction, note?: string) => mutate(() => S.macdAct(id, action, note)); // POST /macd/:id/:action
 export const noteMacd = (id: string, text: string) => mutate(() => S.macdAddNote(id, text));          // POST /macd/:id/notes

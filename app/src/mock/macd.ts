@@ -66,11 +66,11 @@ const TEAMS = ['Network engineering', 'Server team', 'Storage team', 'Platform o
 
 /* ------------------------------------------------------------------ the user's moves (reset on regenerate) */
 interface Base extends Omit<MacdRequest, 'checks' | 'tasks' | 'sla' | 'slaLeftH' | 'changeStatus' | 'changeBlocked'> { seeded: boolean }
-const ov = { patch: new Map<string, Partial<Base>>(), created: [] as Base[], notes: new Map<string, { at: number; by: string; text: string }[]>(), seq: 0 };
+const ov = { patch: new Map<string, Partial<Base>>(), created: [] as Base[], notes: new Map<string, { at: number; by: string; text: string }[]>(), seq: 0, gone: new Set<string>() };
 let view: MacdView | null = null, viewDb: Db | null = null;
 let seedCache: Base[] | null = null, seedDb: Db | null = null;
 export const clearMacd = () => { view = null; };
-export const resetMacd = () => { ov.patch.clear(); ov.created.length = 0; ov.notes.clear(); ov.seq = 0; view = null; seedCache = null; };
+export const resetMacd = () => { ov.patch.clear(); ov.created.length = 0; ov.notes.clear(); ov.gone.clear(); ov.seq = 0; view = null; seedCache = null; };
 
 /* ------------------------------------------------------------------ seed */
 const shortRack = (r: Rack) => r.name;
@@ -194,12 +194,30 @@ function seed(db: Db): Base[] {
         workRef: si(stage) >= si('In progress') ? `WO-${String(seedOf(o.id + 'wo') % 90000 + 10000)}` : undefined, history: [] });
     }
   }
+  /* a few drafts: saved but not submitted yet (no SLA clock, no checks run by the team); own stream so nothing above moves */
+  for (const dc of live) {
+    const r = mulberry32(seedOf(`${dc.id}:macd:draft`));
+    if (!chance(r, 0.3)) continue;
+    const pool = cat.filter(c => c.kind === 'Add' || c.kind === 'Change'), c = pick(r, pool);
+    const custs = custAt(db, dc), external = db.persona === 'colocation' || db.persona === 'neocloud';
+    const cust = external && custs.length ? pick(r, custs) : undefined;
+    const rack = pickRack(r, dc, c, cust?.id);
+    if (!rack && c.object !== 'IP addresses' && c.object !== 'Access') continue;
+    const qty = qtyFor(r, c), { uDelta, kwDelta } = deltas(c, qty), p = priceOf(db, c);
+    const billable = !!cust && (c.nrcR !== 0 || c.mrcR !== 0);
+    const id = `MACD-${String(++n).padStart(4, '0')}`, created = now - Math.round(between(r, 0.5, 52) * HOUR);
+    out.push({ id, kind: c.kind, object: c.object, catalogId: c.id, title: titleOf(c, qty, rack, undefined, cust, c.object === 'Cross-connect' ? pick(r, XC_DEST) : undefined), detail: c.desc, seeded: true,
+      dcId: dc.id, room: rack?.room, rackId: rack?.id, rackName: rack?.name, neIds: [], customerId: cust?.id, customerName: cust?.name,
+      requester: ppl[(seedOf(id) + 3) % ppl.length], owner: ppl[(seedOf(id) + 3) % ppl.length], channel: cust ? 'Account manager' : 'Internal',
+      priority: 'Standard', stage: 'Draft', created, due: created + slaHours(c, 'Standard') * HOUR,
+      qty, unit: c.unit, uDelta, kwDelta, nrc: billable ? p.nrc * (c.unit === 'kW' ? 1 : qty) : 0, mrcDelta: billable ? p.mrc * (c.unit === 'kW' ? Math.abs(kwDelta) : qty) : 0, billable, history: [] });
+  }
   seedDb = db; seedCache = out; return out;
 }
 
 /* seed + the user's moves */
 function bases(db: Db): Base[] {
-  return [...seed(db).map(b => { const p = ov.patch.get(b.id); return p ? { ...b, ...p } : b; }), ...ov.created.map(b => { const p = ov.patch.get(b.id); return p ? { ...b, ...p } : b; })];
+  return [...seed(db), ...ov.created].filter(b => !ov.gone.has(b.id)).map(b => { const p = ov.patch.get(b.id); return p ? { ...b, ...p } : b; });
 }
 export const macdBase = (db: Db, id: string) => bases(db).find(b => b.id === id);
 export const macdCatalogDef = (id: string) => catById(id);
@@ -208,6 +226,8 @@ export function macdPatch(id: string, p: Partial<Base>, by: string, text: string
   ov.notes.set(id, [...(ov.notes.get(id) ?? []), { at, by, text }]);
   view = null;
 }
+/* a draft thrown away (never submitted): it leaves the register */
+export function macdDiscard(id: string) { const i = ov.created.findIndex(b => b.id === id); if (i >= 0) ov.created.splice(i, 1); else ov.gone.add(id); ov.patch.delete(id); ov.notes.delete(id); view = null; }
 export function macdNote(id: string, by: string, text: string, at: number) { ov.notes.set(id, [...(ov.notes.get(id) ?? []), { at, by, text }]); view = null; }
 
 /* the change records the seeded requests run under (Change management lists them with source MACD) */
@@ -312,6 +332,7 @@ function tasksOf(b: Base, c: CatDef, crStatus: ChangeStatus | undefined): MacdTa
   return t.map(({ at0, ...x }) => {
     let state: MacdTask['state'] = dead ? (s >= at0 ? 'Done' : 'Skipped') : s >= at0 ? 'Done' : 'Waiting';
     if (b.stage === 'Rejected' || b.stage === 'Cancelled') { /* nothing open */ }
+    else if (b.stage === 'Draft') { /* nothing runs until it is submitted */ }
     else if (state === 'Waiting' && !open) { state = 'Open'; open = true; }
     if (x.key === 'cr' && state !== 'Done' && crStatus === 'Pending approval') state = 'Open';
     return { ...x, state };
@@ -325,15 +346,15 @@ export function macdView(db: Db, ctx: MacdCtx): MacdView {
   const reqs: MacdRequest[] = bases(db).map(b => {
     const c = catById(b.catalogId)!;
     const cr = b.changeId ? ctx.cr(b.changeId) : undefined;
-    const open = !['Completed', 'Rejected', 'Cancelled'].includes(b.stage);
-    const slaLeftH = Math.round(((b.due - (b.completedAt ?? now)) / HOUR) * 10) / 10;
+    const open = !['Draft', 'Completed', 'Rejected', 'Cancelled'].includes(b.stage);
+    const slaLeftH = b.stage === 'Draft' ? slaHours(c, b.priority) : Math.round(((b.due - (b.completedAt ?? now)) / HOUR) * 10) / 10;
     const total = b.due - b.created;
-    const sla: MacdSla = b.stage === 'Completed' ? (b.completedAt! <= b.due ? 'Met' : 'Missed') : !open ? 'Met' : now > b.due ? 'Breached' : b.due - now < total * 0.25 ? 'At risk' : 'On track';
+    const sla: MacdSla = b.stage === 'Draft' ? 'On track' : b.stage === 'Completed' ? (b.completedAt! <= b.due ? 'Met' : 'Missed') : !open ? 'Met' : now > b.due ? 'Breached' : b.due - now < total * 0.25 ? 'At risk' : 'On track';
     const { seeded: _s, ...rest } = b;
-    return { ...rest, changeStatus: cr?.status, changeBlocked: cr?.blocked, checks: open || b.stage === 'Rejected' ? macdChecks(db, b, ctx) : [], tasks: tasksOf(b, c, cr?.status), sla, slaLeftH,
+    return { ...rest, changeStatus: cr?.status, changeBlocked: cr?.blocked, checks: open || b.stage === 'Draft' || b.stage === 'Rejected' ? macdChecks(db, b, ctx) : [], tasks: tasksOf(b, c, cr?.status), sla, slaLeftH,
       history: [...(b.seeded ? historyOf(b, c) : b.history), ...(ov.notes.get(b.id) ?? [])].sort((x, y) => x.at - y.at) };
   }).sort((a, b) => b.created - a.created);
-  const open = reqs.filter(r => !['Completed', 'Rejected', 'Cancelled'].includes(r.stage));
+  const open = reqs.filter(r => !['Draft', 'Completed', 'Rejected', 'Cancelled'].includes(r.stage));
   const done30 = reqs.filter(r => r.stage === 'Completed' && r.completedAt! > now - 30 * DAY);
   const cyc = (xs: MacdRequest[]) => xs.length ? Math.round(xs.reduce((s, r) => s + (r.completedAt! - r.created), 0) / xs.length / HOUR) : 0;
   const onTime = (xs: MacdRequest[]) => xs.length ? Math.round((xs.filter(r => r.sla === 'Met').length / xs.length) * 100) : 100;
@@ -343,11 +364,11 @@ export function macdView(db: Db, ctx: MacdCtx): MacdView {
       kwPending: Math.round(o.reduce((s, r) => s + Math.max(0, r.kwDelta), 0) * 10) / 10, uPending: o.reduce((s, r) => s + Math.max(0, r.uDelta), 0) };
   }).sort((a, b) => b.breached - a.breached || b.atRisk - a.atRisk || b.open - a.open);
   const day0 = new Date(now); day0.setHours(0, 0, 0, 0);
-  const trend = Array.from({ length: 14 }, (_, i) => { const day = day0.getTime() - (13 - i) * DAY; return { day, opened: reqs.filter(r => r.created >= day && r.created < day + DAY).length, done: reqs.filter(r => r.completedAt && r.completedAt >= day && r.completedAt < day + DAY).length }; });
+  const trend = Array.from({ length: 14 }, (_, i) => { const day = day0.getTime() - (13 - i) * DAY; return { day, opened: reqs.filter(r => r.stage !== 'Draft' && r.created >= day && r.created < day + DAY).length, done: reqs.filter(r => r.completedAt && r.completedAt >= day && r.completedAt < day + DAY).length }; });
   const kinds: MacdKind[] = ['Move', 'Add', 'Change', 'Disconnect'];
   const catalog: MacdCatalogItem[] = catFor(db).filter(c => c.object !== 'GPU nodes' || hasGpu(db)).map(({ nrcR: _n, mrcR: _m, who: _w, w: _ww, risk: _r, cr: _c, ...c }) => {
     const p = priceOf(db, catById(c.id)!), d = done30.filter(r => r.catalogId === c.id);
-    return { ...c, nrc: p.nrc, mrc: p.mrc, uses30: reqs.filter(r => r.catalogId === c.id && r.created > now - 30 * DAY).length, avgCycleH: d.length ? cyc(d) : undefined, onTimePct: d.length ? onTime(d) : undefined };
+    return { ...c, nrc: p.nrc, mrc: p.mrc, uses30: reqs.filter(r => r.stage !== 'Draft' && r.catalogId === c.id && r.created > now - 30 * DAY).length, avgCycleH: d.length ? cyc(d) : undefined, onTimePct: d.length ? onTime(d) : undefined };
   });
   const ftr = done30.filter(r => r.firstTimeRight !== undefined);
   view = {
@@ -367,6 +388,7 @@ export function macdView(db: Db, ctx: MacdCtx): MacdView {
 /* the request's own timeline, derived from its dates and stage */
 function historyOf(b: Base, c: CatDef): { at: number; by: string; text: string }[] {
   if (!b.seeded) return [];
+  if (b.stage === 'Draft') return [{ at: b.created, by: b.requester, text: 'Saved as a draft; not submitted yet' }];
   const h: { at: number; by: string; text: string }[] = [{ at: b.created, by: b.requester, text: `Submitted through ${b.channel === 'Internal' ? 'the internal request form' : b.channel.toLowerCase()} (${b.priority.toLowerCase()})` }];
   const s = si(b.stage), span = (b.completedAt ?? b.due) - b.created;
   const at = (f: number) => Math.min(b.created + span * f, b.completedAt ?? Infinity);
@@ -382,8 +404,9 @@ function historyOf(b: Base, c: CatDef): { at: number; by: string; text: string }
 }
 
 /* ------------------------------------------------------------------ a new request (validated; the server raises the side effects) */
-export function macdNewBase(db: Db, d: import('../api/types').MacdDraft, by: string): Base {
-  const b = macdDraftBase(db, d, by, `MACD-${String(seed(db).length + ov.created.length + 1).padStart(4, '0')}`);
+export function macdNewBase(db: Db, d: import('../api/types').MacdDraft, by: string, draft = false): Base {
+  const b = macdDraftBase(db, d, by, `MACD-${String(seed(db).length + ov.seq + 1).padStart(4, '0')}`);
+  if (draft) { b.stage = 'Draft'; b.history = [{ at: db.now, by, text: 'Saved as a draft; not submitted yet' }]; }
   ov.seq++; ov.created.push(b); view = null;
   return b;
 }
