@@ -57,12 +57,12 @@ export default async function ModulePage({ params }: Params) {
 				}
 			/>
 
-			<Section kicker="Who opens it" title={`Three questions ${m.name} answers.`} intro={`What people ask in the first minutes, who asks it, and what the screen answers with, for ${models} operators.`}>
+			<Section kicker="Who opens it" title={m.askTitle ?? `Three questions ${m.name} answers.`} intro={m.askIntro ?? `What people ask in the first minutes, who asks it, and what the screen answers with, for ${models} operators.`}>
 				<RoleStrip questions={m.questions} askedBy={m.askedBy} answers={m.answers} />
 			</Section>
 
 			{pinned.length > 0 ? (
-				<Section tone="soft" kicker="On the screen" title={`Where each capability lives.`} intro={`${m.name} on one screen, numbered. Pick a number on the drawing or in the list to see what that part of the screen does.`}>
+				<Section tone="soft" kicker="On the screen" title="What the screen holds." intro={m.screenIntro}>
 					<Anatomy art={m.slug} items={m.capabilities} />
 					{rest.length > 0 && (
 						<div className="an-more">

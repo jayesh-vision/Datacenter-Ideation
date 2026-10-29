@@ -914,7 +914,7 @@ export function FacilitiesArt() {
 					PM: UPS-2 battery · 14 Nov
 				</Chip>
 			</g>
-			<Msg text="Hover any node to trace up- and downstream · ride-through, cooling spare and what-if per asset" tone={C.fault} />
+			<Msg text="Every node traces up- and downstream · ride-through, cooling spare and what-if per asset" tone={C.fault} />
 		</Art>
 	);
 }

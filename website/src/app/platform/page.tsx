@@ -36,7 +36,7 @@ export default function PlatformPage() {
 				<div className="wrap">
 					<div className="pd-hero-head">
 						<h1 className="h-1">Plan, build and operate. One estate model across all of it.</h1>
-						<p className="lead">Every block reads and writes the same record of your datacenters. Click a block to see what it holds.</p>
+						<p className="lead">Every block reads and writes the same record of your datacenters.</p>
 					</div>
 					<PlatformMap />
 				</div>
