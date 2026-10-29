@@ -132,8 +132,9 @@ section.soft{background:var(--soft);border-block:1px solid var(--line)}
 .op-scroll{overflow-x:auto}
 .op-scroll .dx{min-width:900px}
 /* fits */
-.fits-head{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start;margin-bottom:36px}
-.fits-head p{font-size:16px}
+.fits-head{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:start;margin-bottom:40px}
+.fits-head h2{margin:0}
+.fits-head p{grid-column:span 2;font-size:16px;margin:6px 0 0;max-width:none}
 .fit{gap:14px}
 .fit p{font-size:14px;flex:1}
 .fit .btn{align-self:start;height:36px;font-size:13px}
@@ -171,6 +172,7 @@ footer{border-top:1px solid var(--line);padding-block:56px 28px;font-size:13.5px
   .nav{display:none}
   .grid3,.grid4{grid-template-columns:repeat(2,minmax(0,1fr))}
   .leads,.fits-head,.faq{grid-template-columns:minmax(0,1fr);gap:28px}
+  .fits-head{gap:14px}.fits-head p{grid-column:auto}
   .fgrid{grid-template-columns:repeat(2,1fr)}
   section{padding-block:72px}
 }
@@ -379,12 +381,12 @@ footer{border-top:1px solid var(--line);padding-block:56px 28px;font-size:13.5px
   <div class="wrap">
     <div class="fits-head">
       <h2>How it fits.</h2>
-      <p>SynapseDC is part of the VisionWaves platform: it runs under the same governed plane as every other VisionWaves fabric, uses Opstral AI for its AI and the platform's existing modules for records, both through their APIs, and reads the systems already running your datacenter rather than replacing them.</p>
+      <p>SynapseDC runs on the VisionWaves platform, under the same governed plane as every other fabric. It uses Opstral AI and the platform's modules through their APIs, and reads the systems already in your datacenter rather than replacing them.</p>
     </div>
     <div class="grid3">
-      <article class="card fit"><span class="eyebrow">Platform architecture</span><p>Domain fabrics on shared foundations, under one governed plane.</p><a class="btn btn-p" href="/platform">See the platform architecture</a></article>
-      <article class="card fit"><span class="eyebrow">Governance</span><p>Every disruptive step waits for a named approver. Plant control stays with your BMS.</p><a class="btn btn-p" href="/trust-governance">Trust and governance</a></article>
-      <article class="card fit"><span class="eyebrow">Integrations</span><p>Reads BMS, power, cooling, BMC and GPU telemetry, and works with the ITSM, CRM and IPAM systems already in use.</p><a class="btn btn-p" href="/platform/integrations">See what it connects to</a></article>
+      <article class="card fit"><span class="eyebrow">Platform architecture</span><p>Domain fabrics on shared foundations, all under one governed plane.</p><a class="btn btn-p" href="/platform">Explore the architecture</a></article>
+      <article class="card fit"><span class="eyebrow">Governance</span><p>Every disruptive step waits for a named approver; plant control stays with your BMS.</p><a class="btn btn-p" href="/trust-governance">Explore governance</a></article>
+      <article class="card fit"><span class="eyebrow">Integrations</span><p>Reads BMS, power, cooling, BMC and GPU data; works with your ITSM, CRM and IPAM.</p><a class="btn btn-p" href="/platform/integrations">Explore integrations</a></article>
     </div>
   </div>
 </section>
