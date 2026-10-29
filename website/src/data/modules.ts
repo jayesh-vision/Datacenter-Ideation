@@ -58,7 +58,7 @@ export const modules: Module[] = [
 		askedBy: ["NOC engineer", "Head of operations", "Shift lead"],
 		answers: ["The map and the worst-first column point at the site and the incident.", "Premium customers at risk, counted from the physical paths the fault sits on.", "Ranked recommendations, with the money and customers each one protects."],
 		capabilities: [
-			{ title: "One health score you can explain", text: "GPU fleet (or incident response), power, cooling and network, each scored as healthy ÷ total. The status follows the worst single issue, so one UPS on battery reads Critical even at 98%.", icon: "gauge", pin: [190, 112] },
+			{ title: "One health score you can explain", text: "GPU fleet, power, cooling and network, each scored as healthy ÷ total. The status follows the worst single issue, so one UPS on battery reads Critical even at 98%.", icon: "gauge", pin: [190, 112] },
 			{ title: "Numbers that add up", text: "Critical, High, Past SLA and premium-customer tiles each open the filtered list with the same count. Nothing on the screen is typed in.", icon: "check", pin: [168, 48] },
 			{ title: "Live estate map", text: "Rippling pins for critical sites, animated dashes on backhaul that is down, search by site, city or region, and a summary card per site.", icon: "radio-tower", pin: [422, 112] },
 			{ title: "Datacenters worst-first", text: "A scrolling column of every live site with its worst open incident, likely cause, customers at risk and the time left to SLA.", icon: "building-2", pin: [602, 112] },

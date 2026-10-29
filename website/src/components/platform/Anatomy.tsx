@@ -6,7 +6,8 @@ import type { Capability } from "@/data/modules";
 
 /**
  * "Anatomy of the screen": the module's illustration with numbered pins, and the pinned
- * capabilities as a numbered list beside it. Hovering or clicking either side lights the other.
+ * capabilities as a numbered list beside it, stretched to the drawing's height. Hovering or clicking
+ * either side lights the other; only the active capability shows its text (the list stays as tall as the drawing).
  */
 export function Anatomy({ art, items }: { art: string; items: Capability[] }) {
 	const pinned = items.filter((c) => c.pin);
@@ -38,7 +39,9 @@ export function Anatomy({ art, items }: { art: string; items: Capability[] }) {
 							<span className="an-num">{i + 1}</span>
 							<span>
 								<h3>{c.title}</h3>
-								<p>{c.text}</p>
+								<span className="an-body">
+									<p>{c.text}</p>
+								</span>
 							</span>
 						</button>
 					</li>
