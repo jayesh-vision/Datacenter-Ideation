@@ -922,7 +922,7 @@ table.t { width: 100%; border-collapse: collapse; font-size: 15px; }
 .co-card p { flex: 0 0 auto; }
 
 /* home: integrations panel (replaces the marquee, 28-Oct-2026) */
-.ig { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); gap: 56px; align-items: center; }
+.ig { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 56px; align-items: center; }
 .ig-head { display: grid; gap: 18px; justify-items: start; }
 .ig-head .kicker { margin-bottom: 0; }
 .ig-head .btn { margin-top: 8px; }
@@ -936,5 +936,6 @@ table.t { width: 100%; border-collapse: collapse; font-size: 15px; }
 .ig-name strong { display: block; font-family: var(--font-head), sans-serif; font-weight: 500; font-size: 15px; color: var(--ink); }
 .ig-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .ig-chips span { padding: 5px 12px; border-radius: 999px; background: var(--soft); border: 1px solid var(--line); font-size: 13.5px; color: var(--ink-2); white-space: nowrap; }
-@media (max-width: 1100px) { .ig { grid-template-columns: minmax(0, 1fr); gap: 32px; } }
+@media (max-width: 1260px) { .ig { grid-template-columns: minmax(0, 1fr); gap: 32px; } }
 @media (max-width: 600px) { .ig-row { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 16px; } .ig-chips span { white-space: normal; } }
+.ig-head h2 { font-size: clamp(28px, 2.8vw, 38px); }

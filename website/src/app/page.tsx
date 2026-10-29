@@ -133,7 +133,7 @@ export default function Home() {
 				<div className="wrap ig">
 					<div className="ig-head">
 						<Kicker>Integrations</Kicker>
-						<RevealHeading className="h-2">Works with the systems you already run.</RevealHeading>
+						<RevealHeading className="h-2">{"Works with the systems\nyou already run."}</RevealHeading>
 						<p className="section-intro">SynapseDC reads the building, the network, the servers and the GPUs through a read-only collector, and syncs incidents, customers, addresses and security events with the tools your teams use.</p>
 						<Link className="btn btn-ghost" href="/integrations">
 							All integrations <Icon name="arrow" size={16} />
