@@ -10,7 +10,7 @@ export function Kicker({ children }: { children: ReactNode }) {
 }
 
 /** Dark page hero: copy on the left, an illustration (or nothing) on the right. */
-export function PageHero({ kicker, title, summary, actions, art, crumbs }: { kicker?: string; title: string; summary?: string; actions?: ReactNode; art?: string; crumbs?: { name: string; href: string }[] }) {
+export function PageHero({ kicker, title, summary, actions, art, crumbs, stats }: { kicker?: string; title: string; summary?: string; actions?: ReactNode; art?: string; crumbs?: { name: string; href: string }[]; stats?: { value: string; label: string }[] }) {
 	return (
 		<section className="canvas page-hero on-dark">
 			<div className="canvas-glow" aria-hidden="true" />
@@ -30,6 +30,16 @@ export function PageHero({ kicker, title, summary, actions, art, crumbs }: { kic
 					<h1 className="h-1">{title}</h1>
 					{summary && <p className="lead">{summary}</p>}
 					{actions && <div className="actions">{actions}</div>}
+					{stats && stats.length > 0 && (
+						<div className="ph-stats">
+							{stats.map((s) => (
+								<div key={s.label}>
+									<b>{s.value}</b>
+									<span>{s.label}</span>
+								</div>
+							))}
+						</div>
+					)}
 				</div>
 				{art && <ArtFor id={art} />}
 			</div>
@@ -57,8 +67,11 @@ export function Section({ id, kicker, title, intro, children, tone = "white", ce
 export function ModuleCard({ m }: { m: Module }) {
 	return (
 		<Link href={`/platform/${m.slug}`} className="card">
-			<span className="card-ico">
-				<Icon name={m.icon} size={20} />
+			<span className="card-top">
+				<span className="card-ico">
+					<Icon name={m.icon} size={20} />
+				</span>
+				<span className="card-stage">{m.stage}</span>
 			</span>
 			<strong>{m.name}</strong>
 			<span>{m.short}</span>

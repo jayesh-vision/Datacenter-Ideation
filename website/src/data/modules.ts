@@ -10,6 +10,10 @@ export type Model = "Colocation" | "NeoCloud" | "Both";
 export interface Capability {
 	title: string;
 	text: string;
+	/** Icon for the compact cards (capabilities without a pin). */
+	icon?: string;
+	/** Where this capability sits on the module's illustration, in the art's 640 × 420 canvas. Pinned capabilities are numbered on the drawing. */
+	pin?: [number, number];
 }
 
 export interface Module {
@@ -28,6 +32,8 @@ export interface Module {
 	questions: string[];
 	/** Who typically asks each question, same order as `questions`. */
 	askedBy: string[];
+	/** What the screen answers with, same order as `questions` (the role strip on the module page). */
+	answers?: string[];
 	capabilities: Capability[];
 	/** Worked-example figures. */
 	proof?: { value: string; label: string }[];
@@ -50,13 +56,14 @@ export const modules: Module[] = [
 			"SynapseDC Command Center: estate health, live datacenter map, critical incidents, affected customers and ranked recommendations on one screen.",
 		questions: ["Where is it failing right now?", "Which customers are exposed?", "What should the team do first?"],
 		askedBy: ["NOC engineer", "Head of operations", "Shift lead"],
+		answers: ["The map and the worst-first column point at the site and the incident.", "Premium customers at risk, counted from the physical paths the fault sits on.", "Ranked recommendations, with the money and customers each one protects."],
 		capabilities: [
-			{ title: "One health score you can explain", text: "GPU fleet (or incident response), power, cooling and network, each scored as healthy ÷ total. The status follows the worst single issue, so one UPS on battery reads Critical even at 98%." },
-			{ title: "Live estate map", text: "Rippling pins for critical sites, animated dashes on backhaul that is down, search by site, city or region, and a summary card per site." },
-			{ title: "Datacenters worst-first", text: "A scrolling column of every live site with its worst open incident, likely cause, customers at risk and the time left to SLA." },
-			{ title: "Numbers that add up", text: "Critical, High, Past SLA and premium-customer tiles each open the filtered list with the same count. Nothing on the screen is typed in." },
-			{ title: "Recommendations, approval-gated", text: "Ranked actions from Opstral AI. Disruptive steps wait for a person to approve them." },
-			{ title: "Plan & build lens", text: "A slim strip and lens for plans in review, builds in flight and capacity not yet live." },
+			{ title: "One health score you can explain", text: "GPU fleet (or incident response), power, cooling and network, each scored as healthy ÷ total. The status follows the worst single issue, so one UPS on battery reads Critical even at 98%.", icon: "gauge", pin: [190, 112] },
+			{ title: "Numbers that add up", text: "Critical, High, Past SLA and premium-customer tiles each open the filtered list with the same count. Nothing on the screen is typed in.", icon: "check", pin: [168, 48] },
+			{ title: "Live estate map", text: "Rippling pins for critical sites, animated dashes on backhaul that is down, search by site, city or region, and a summary card per site.", icon: "radio-tower", pin: [422, 112] },
+			{ title: "Datacenters worst-first", text: "A scrolling column of every live site with its worst open incident, likely cause, customers at risk and the time left to SLA.", icon: "building-2", pin: [602, 112] },
+			{ title: "Recommendations, approval-gated", text: "Ranked actions from Opstral AI. Disruptive steps wait for a person to approve them.", icon: "sparkles", pin: [602, 391] },
+			{ title: "Plan & build lens", text: "A slim strip and lens for plans in review, builds in flight and capacity not yet live.", icon: "drafting-compass" },
 		],
 		proof: [
 			{ value: "23", label: "datacenters on one screen" },
