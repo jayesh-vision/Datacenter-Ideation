@@ -15,6 +15,7 @@
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.9 | 27-Oct-2026 | First complete draft: all modules, module split against the existing platform, colocation + NeoCloud first |
+| 0.9.8 | 29-Oct-2026 | MACD drafts: stage Draft before Submitted (BRULE-MACD-01), save / edit / submit / discard a draft and edit a request until feasibility is done (MACD-029, MACD-030) |
 | 0.9.7 | 28-Oct-2026 | New module 7.13 MACD (move, add, change and disconnect requests): catalogue, intake, live feasibility, quote, change request, DCIM space hold, field work, verification with record and billing updates; MACD-001…028, BRULE-MACD-01…10, US-MACD-01…08; integrations INTG-060…061, write-back W-35…42 and A-16, new API-BSS-11; Appendix B.29 |
 | 0.9.6 | 28-Oct-2026 | Section 9.26 write-back: every UI action that updates an existing module (W-01…34), every automatic write (A-01…15), what stays in the modules' own screens, write rules WR-001…008; new write APIs API-INV-09…12, API-IPM-04, API-SOC-08 |
 | 0.9.5 | 28-Oct-2026 | Section 17 application realisation for Singularity: the ideation code as the UI reference, what each part becomes, the stack and libraries with versions (no UI / chart / state library, no JAR in the frontend), design-system reuse, screen → reference-code map, screens not to generate, mock-to-live rules and acceptance rules (GEN-001…016) |
@@ -2285,7 +2286,7 @@ These datacenter-specific records extend the Plan to Build Inventory asset recor
 ### 7.13.2 Business rules
 | ID | Rule |
 | --- | --- |
-| BRULE-MACD-01 | Stages: Submitted → Feasibility → Quote (only when the request is billable: a customer request with a one-time or monthly charge) → Scheduled → In progress → Verification → Completed. Side exits: Rejected (from Submitted, Feasibility or Quote, with a reason) and Cancelled (before work starts). |
+| BRULE-MACD-01 | Stages: Draft (saved, not submitted: no SLA clock, not counted as open, editable, can be discarded) → Submitted → Feasibility → Quote (only when the request is billable: a customer request with a one-time or monthly charge) → Scheduled → In progress → Verification → Completed. Side exits: Rejected (from Submitted, Feasibility or Quote, with a reason) and Cancelled (before work starts). |
 | BRULE-MACD-02 | SLA clock from submission: the catalogue item's standard or expedited hours; Emergency = 4 h. Open: Breached when now > due, At risk when less than 25 % of the SLA time is left, else On track. Closed: Met when closed by the due date, else Missed. |
 | BRULE-MACD-03 | Feasibility checks against the live estate: (1) rack space = the largest free U gap (DCIM free slots, holds included) ≥ U needed → Pass, total free ≥ need → Warn, else Fail; (2) rack power after the change ≤ 80 % of the budget → Pass, ≤ 100 % → Warn, else Fail; (3) the tenant's contracted kW exceeded → Warn (quote a power upgrade with it); (4) rack inlet ≥ 27 °C → Warn, ≥ 29 °C → Fail; (5) free panel ports for a cross-connect; (6) healthy idle GPU nodes ≥ nodes requested; (7) free hall positions for a cabinet; (8) busway and UPS headroom for a power circuit; (9) device records exist for what is moved or removed; (10) a change freeze before the due date → Warn (standard changes still run unless the freeze is emergency-only); (11) an open Critical or High incident at the site → Warn. |
 | BRULE-MACD-04 | A request with a failing (Fail) check cannot be accepted. It stays in Feasibility until the blocker is cleared, or it is rejected with a reason. |
@@ -2327,6 +2328,8 @@ These datacenter-specific records extend the Plan to Build Inventory asset recor
 | MACD-026 | The system shall send the request status to the customer portal when the stage changes: accepted, quote, scheduled window, done (BSS Experience and Care; to discuss). | S | Both | P3 |
 | MACD-027 | The system shall book site access for the crew or the customer for catalogue items that need it, and show it on Access & security (to discuss). | C | Both | P3 |
 | MACD-028 | The system shall start a request from DCIM (a rack or device) or the customer page, pre-filled with the rack and the customer. | S | Both | P3 |
+| MACD-029 | The system shall save a request as a draft and keep it out of the open count and the SLA until it is submitted; the requester can edit, submit or discard it. | M | Both | P1 |
+| MACD-030 | The system shall let the requester edit a request (type, rack, target, quantity, priority, details) while it is a draft, submitted or in feasibility, re-run the checks and charges and record what changed in the history; after that it can only be cancelled. | M | Both | P1 |
 
 ### 7.13.4 User stories and acceptance criteria
 **US-MACD-01** As a MACD desk agent, I want feasibility checked against the live rack before I accept, so that I do not promise space or power that is not there. (MACD-003, MACD-005)
@@ -5014,7 +5017,7 @@ These screens exist in the ideation code only to show the whole flow. Each belon
 
 ## Appendix A — Requirement index
 
-500 functional requirements, 201 business rules, 102 user stories, 12 build-boundary requirements, 61 integration requirements, 16 data requirements, 20 non-functional requirements. By phase: P1 207, P2 262, P3 31. By priority: M 310, S 170, C 20. By model: Both 421, Colo 21, Neo 58.
+502 functional requirements, 201 business rules, 102 user stories, 12 build-boundary requirements, 61 integration requirements, 16 data requirements, 20 non-functional requirements. By phase: P1 209, P2 262, P3 31. By priority: M 312, S 170, C 20. By model: Both 423, Colo 21, Neo 58.
 
 | ID | Requirement | Pri | Model | Phase |
 | --- | --- | --- | --- | --- |
@@ -5482,6 +5485,8 @@ These screens exist in the ideation code only to show the whole flow. Each belon
 | MACD-026 | The system shall send the request status to the customer portal when the stage changes: ac… | S | Both | P3 |
 | MACD-027 | The system shall book site access for the crew or the customer for catalogue items that ne… | C | Both | P3 |
 | MACD-028 | The system shall start a request from DCIM (a rack or device) or the customer page, pre-fi… | S | Both | P3 |
+| MACD-029 | The system shall save a request as a draft and keep it out of the open count and the SLA u… | M | Both | P1 |
+| MACD-030 | The system shall let the requester edit a request (type, rack, target, quantity, priority,… | M | Both | P1 |
 | ANL-001 | The system shall show the widgets above, read from Programs & Projects, without storing pr… | M | Both | P2 |
 | ANL-002 | The system shall mark a project **late** when its forecast finish is after its target or S… | M | Both | P2 |
 | ANL-003 | The system shall compute EV = budget × progress, CPI and SPI from the module's figures. | M | Both | P2 |
@@ -6367,11 +6372,12 @@ The physical record of each datacenter below the asset: where each rack and devi
 | Insights | Tiles | Open by type, past SLA / at risk, completed in 30 d within SLA, average cycle time, first time right, monthly revenue added (or kW / U added) | MACD-015 | DC-STORE macd; API-BSS-11 | P2 |
 | Insights | Flow and pipeline | Opened vs completed per day (14 d), pipeline by stage → board | MACD-015 | DC-STORE macd | P2 |
 | Insights | Needs attention, datacenters, types, adds | Past SLA, failing feasibility, blocked / waiting changes, quotes > 3 d, at risk; per datacenter; per type; kW, U, cross-connects, GPU nodes, cabinets added | MACD-015, MACD-023 | DC-STORE macd; API-ITSM-07 | P2 |
-| Requests | List | Search; quick filters type and stage; panel: object, SLA, priority, customer, checks, open only; row → request page | MACD-016 | DC-STORE macd | P2 |
+| Requests | List | Search; quick filters type and stage (Draft first); panel: object, SLA, priority, customer, checks, open only / drafts; row → request page | MACD-016 | DC-STORE macd | P2 |
 | Requests | Board | One column per open stage, cards worst SLA first, waiting-approval marker | MACD-016 | DC-STORE macd; API-ITSM-07 | P2 |
 | Schedule | Work windows | Today and the next 14 days by day, change id and approval state, owner, policy blocks; not scheduled yet | MACD-017 | DC-STORE macd; API-ITSM-07 | P2 |
 | Catalogue | Request types | Type, object, SLA, NRC / MRC, standard / normal, records updated, 30-day use and on-time %; Request → New request | MACD-001, MACD-018 | DC-STORE macd; API-BSS-04 | P2 |
 | New request | Form | Type, item, datacenter, rack (and target), quantity, priority, notes; live preview of checks, charges, U, kW and due date | MACD-002, MACD-003, MACD-004 | API-INV-02, API-INV-03; API-OAP-01; API-OPS-02; API-BSS-01/02; API-ITSM-06 | P2 |
+| New request / request page | Drafts | Save as draft (not submitted: no SLA clock, not open); Edit draft, Submit, Discard; Edit request while submitted or in feasibility (checks re-run, change in the history); Requests → Show → Drafts | MACD-029, MACD-030 | DC-STORE macd | P1 |
 | Request page | Stage line and clock | Stages, due date, SLA left / over, work window, closed, reason | MACD-011, MACD-013, MACD-019 | DC-STORE macd | P2 |
 | Request page | Actions | Feasible (send the quote / schedule), customer accepted the quote, start the work (needs the approved change), work done, verified, failed verification, reject, cancel | MACD-005…012 | API-BSS-11; API-ITSM-08/09/11; API-INV-09…11; API-IPM-04; DC-STORE | P2 |
 | Request page | What and where, charges and change | Rack → DCIM, devices, customer, quantity, U, kW; NRC / MRC; change request with state; space hold; work order; billing | MACD-019, MACD-022 | DC-STORE; API-ITSM-07; API-BSS-02 | P2 |

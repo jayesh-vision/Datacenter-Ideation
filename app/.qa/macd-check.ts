@@ -26,7 +26,7 @@ for (const p of personas) {
     const m = v.requests.filter(r => r.ref?.startsWith('XC-'));
     if (xc.length !== m.length || xc.some(x => !m.some(r => r.ref === x.id))) fail(`${p} XC orders ${xc.length} ≠ MACD ${m.length}`);
   }
-  const open = v.requests.filter(r => !['Completed', 'Rejected', 'Cancelled'].includes(r.stage));
+  const open = v.requests.filter(r => !['Draft', 'Completed', 'Rejected', 'Cancelled'].includes(r.stage));
   if (open.length !== v.metrics.open) fail(`${p} open ${v.metrics.open} ≠ ${open.length}`);
   if (v.sites.reduce((s, x) => s + x.open, 0) !== open.length) fail(`${p} Σ site open`);
   if (v.metrics.byStage.reduce((s, x) => s + x.n, 0) !== open.length) fail(`${p} Σ by stage`);
@@ -41,9 +41,22 @@ for (const p of personas) {
   if (cat && rk) {
     try {
       const pv = S.macdPreview({ catalogId: 'MAC-A01', dcId: dc.id, rackId: rk.id, qty: 2, priority: 'Standard', detail: '' });
-      const id = S.macdCreate({ catalogId: 'MAC-A01', dcId: dc.id, rackId: rk.id, qty: 2, priority: 'Standard', detail: 'QA' });
-      const u0 = rk.usedU;
+      /* draft → edit → submit; a second draft is discarded */
+      const open0 = S.macd().metrics.open;
+      const id = S.macdCreate({ catalogId: 'MAC-A01', dcId: dc.id, rackId: rk.id, qty: 1, priority: 'Standard', detail: 'QA' }, true);
+      let d0 = S.macd().requests.find(x => x.id === id)!;
+      if (d0.stage !== 'Draft' || S.macd().metrics.open !== open0) fail(`${p} draft ${d0.stage}, open ${open0} → ${S.macd().metrics.open}`);
+      S.macdUpdate(id, { catalogId: 'MAC-A01', dcId: dc.id, rackId: rk.id, qty: 2, priority: 'Standard', detail: 'QA' });
+      d0 = S.macd().requests.find(x => x.id === id)!;
+      if (d0.qty !== 2 || d0.uDelta !== 4 || !d0.history.some(h => h.text.startsWith('Draft edited'))) fail(`${p} draft edit qty ${d0.qty} U ${d0.uDelta}`);
+      S.macdAct(id, 'submit');
+      if (S.macd().requests.find(x => x.id === id)!.stage !== 'Feasibility' || S.macd().metrics.open !== open0 + 1) fail(`${p} submit`);
+      const gone = S.macdCreate({ catalogId: 'MAC-A01', dcId: dc.id, rackId: rk.id, qty: 1, priority: 'Standard', detail: 'QA' }, true);
+      S.macdAct(gone, 'discard'); if (S.macd().requests.some(x => x.id === gone)) fail(`${p} discard`);
       S.macdAct(id, 'accept');
+      let edited = false; try { S.macdUpdate(id, { catalogId: 'MAC-A01', dcId: dc.id, rackId: rk.id, qty: 3, priority: 'Standard', detail: 'QA' }); edited = true; } catch { /* expected */ }
+      if (edited) fail(`${p} edit allowed after feasibility`);
+      const u0 = rk.usedU;
       let r = S.macd().requests.find(x => x.id === id)!;
       if (r.stage === 'Quote') { S.macdAct(id, 'quote'); r = S.macd().requests.find(x => x.id === id)!; }
       if (r.stage !== 'Scheduled' || !r.changeId?.startsWith('CHG-')) fail(`${p} e2e not scheduled: ${r.stage} ${r.changeId}`);

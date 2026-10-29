@@ -12,7 +12,7 @@ import { FLOW, KINDS, KindChip, OBJECTS, OBJ_ICON, OPEN_STAGES, PrioChip, SlaChi
 function useRows(p: MacdProps) {
   const { v, q } = p;
   const kind = q('kind'), stage = q('stage'), open = q('open'), sla = q('sla'), obj = q('obj'), prio = q('prio'), cust = q('cust'), chk = q('chk'), search = q('q');
-  const rows = v.requests.filter(r => (!kind || r.kind === kind) && (!stage || r.stage === stage) && (!open || isOpen(r)) && (!sla || r.sla === sla) && (!obj || r.object === obj) && (!prio || r.priority === prio)
+  const rows = v.requests.filter(r => (!kind || r.kind === kind) && (!stage || r.stage === stage) && (!open || (open === 'draft' ? r.stage === 'Draft' : isOpen(r))) && (!sla || r.sla === sla) && (!obj || r.object === obj) && (!prio || r.priority === prio)
     && (!cust || (cust === '_int' ? !r.customerId : r.customerId === cust))
     && (!chk || (chk === 'fail' ? isOpen(r) && r.checks.some(c => c.result === 'Fail') : chk === 'blocked' ? !!r.changeBlocked : chk === 'cr' ? r.changeStatus === 'Pending approval' : true))
     && (!search || `${r.id} ${r.title} ${r.dcId} ${r.rackName ?? ''} ${r.customerName ?? ''} ${r.requester} ${r.changeId ?? ''} ${r.ref ?? ''} ${r.workRef ?? ''}`.toLowerCase().includes(search.toLowerCase())));
@@ -37,7 +37,7 @@ function Toolbar({ p, shown, layout }: { p: MacdProps; shown: number; layout?: '
         { id: 'prio', label: 'Priority', value: f.prio, anyLabel: 'Any priority', onChange: x => set({ prio: x }), options: (['Emergency', 'Expedited', 'Standard'] as const).map(s => ({ id: s, label: s, count: count(r => r.priority === s) })) },
         ...(custs.length ? [{ id: 'cust', label: 'Customer', value: f.cust, anyLabel: 'Any customer', onChange: (x: string) => set({ cust: x }), options: [...custs.map(([id, name]) => ({ id, label: name, count: count(r => r.customerId === id) })), ...(v.requests.some(r => !r.customerId) ? [{ id: '_int', label: 'Internal teams', count: count(r => !r.customerId) }] : [])] }] : []),
         { id: 'chk', label: 'Checks', value: f.chk, anyLabel: 'Any', onChange: x => set({ chk: x }), options: [{ id: 'fail', label: 'Failing feasibility', count: count(r => isOpen(r) && r.checks.some(c => c.result === 'Fail')) }, { id: 'cr', label: 'Change waiting for approval', count: count(r => r.changeStatus === 'Pending approval') }, { id: 'blocked', label: 'Change blocked by policy', count: count(r => !!r.changeBlocked) }] },
-        ...(layout === 'board' ? [] : [{ id: 'open', label: 'Show', value: f.open, anyLabel: 'All requests', onChange: (x: string) => set({ open: x }), options: [{ id: '1', label: 'Open only', count: count(isOpen) }] }])
+        ...(layout === 'board' ? [] : [{ id: 'open', label: 'Show', value: f.open, anyLabel: 'All requests', onChange: (x: string) => set({ open: x }), options: [{ id: '1', label: 'Open only', count: count(isOpen) }, { id: 'draft', label: 'Drafts (not submitted)', count: count(r => r.stage === 'Draft') }] }])
       ]} />
   );
 }
@@ -48,16 +48,16 @@ export function RequestsView(p: MacdProps) {
   const now = p.v.now;
   return (
     <section className="vw-card-section dcim-table">
-      <DataTable rows={rows} pageSize={30} defaultSort={{ key: 'created', dir: 'desc' }} onRow={r => nav(`/macd/requests/${r.id}`)} rowClass={r => (isOpen(r) ? '' : 'is-muted')}
+      <DataTable rows={rows} pageSize={30} defaultSort={{ key: 'created', dir: 'desc' }} onRow={r => nav(`/macd/requests/${r.id}`)} rowClass={r => (isOpen(r) || r.stage === 'Draft' ? '' : 'is-muted')}
         toolbar={<Toolbar p={p} shown={rows.length} />}
         cols={[
-          { key: 'created', header: 'Submitted', sort: r => r.created, render: r => <span className="cell-2"><span className="nowrap">{fmtAgo(r.created, now)}</span><small className="mono">{r.id}</small></span> },
+          { key: 'created', header: 'Submitted', sort: r => r.created, render: r => <span className="cell-2"><span className="nowrap">{r.stage === 'Draft' ? `Draft · saved ${fmtAgo(r.created, now)}` : fmtAgo(r.created, now)}</span><small className="mono">{r.id}</small></span> },
           { key: 'kind', header: 'Type', sort: r => r.kind, render: r => <KindChip k={r.kind} /> },
           { key: 't', header: 'Request', wrap: true, sort: r => r.title, render: r => { const Ic = OBJ_ICON[r.object]; return <span className="cell-2"><b>{r.title}</b><small className="mc-obj"><Ic size={12} />{r.object} · {r.dcId}{r.room ? ` · ${r.room}` : ''}</small></span>; } },
           { key: 'who', header: 'For', wrap: true, sort: r => r.customerName ?? r.requester, render: r => <span className="cell-2"><span>{r.customerName ?? r.requester}</span><small>{r.customerName ? `${r.requester} · ${r.channel}` : 'Internal'}</small></span> },
           { key: 'prio', header: 'Priority', sort: r => ['Emergency', 'Expedited', 'Standard'].indexOf(r.priority), hideBelow: 1380, render: r => <PrioChip p={r.priority} /> },
           { key: 'stage', header: 'Stage', sort: r => FLOW.indexOf(r.stage), render: r => <span className="cell-2"><StageChip s={r.stage} /><small className="mono">{r.changeId ? `${r.changeId}${r.changeStatus === 'Pending approval' ? ' · awaiting approval' : ''}` : r.ref ?? ''}</small></span> },
-          { key: 'sla', header: 'SLA', sort: r => (isOpen(r) ? r.slaLeftH : 1e6), render: r => <span className="cell-2"><SlaChip s={r.sla} /><small>{slaLine(r)}</small></span> },
+          { key: 'sla', header: 'SLA', sort: r => (isOpen(r) ? r.slaLeftH : 1e6), render: r => <span className="cell-2"><SlaChip s={r.sla} draft={r.stage === 'Draft'} /><small>{slaLine(r)}</small></span> },
           { key: 'mrc', header: 'Monthly', sort: r => r.mrcDelta, hideBelow: 1380, render: r => <span className="rev-amt">{r.billable ? mrcLine(r.mrcDelta) : '—'}</span> }
         ]} />
     </section>

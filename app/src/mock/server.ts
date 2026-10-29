@@ -38,7 +38,7 @@ import { templateInfo } from './delivery-templates';
 import { assignWorkOrder, claimTask, completeTask, failWorkOrder, instances as wfInstances, kpis as wfKpis, processes as wfProcesses, requestAccess, resetWorkflow, retryInstance, retryWorkOrder, signOffWorkOrder, tasks as wfTasks, tickCheck, workOrderDetail } from './workflow';
 import { approveStep, changeRegister, clearChangeMgmt, resetChangeMgmt, stepsApproved } from './changemgmt';
 import { addControl, addFramework, addPolicy, attestControl, clearCompliance, complianceView, resetCompliance, setPolicyActive } from './compliance';
-import { clearMacd, resetMacd, macdView, macdChecks, macdBase, macdCatalogDef, macdPatch, macdNote, macdNewBase, macdDraftBase, macdCrTitle, rollbackOf as macdRollback, slaHours as macdSlaHours, type MacdCtx } from './macd';
+import { clearMacd, resetMacd, macdView, macdChecks, macdBase, macdCatalogDef, macdPatch, macdNote, macdDiscard, macdNewBase, macdDraftBase, macdCrTitle, rollbackOf as macdRollback, slaHours as macdSlaHours, type MacdCtx } from './macd';
 import { clearSecOps, resetSecOps, secCaseAdvance, secCaseNote, secCaseStep, secEscalate, secopsView, secRuleDelete, secRuleSave, secRuleToggle, secTriage, secVulnSet } from './secops';
 import { addField as addField_, addTag as addTag_, customization as customization_, resetCustomization } from './customization';
 import { monthsTo, dateAfterMonths, WARN, CRIT } from '../lib/forecast';
@@ -1568,16 +1568,31 @@ export const plannerStoreSerial = p2bSerial;
    (standard change), the field work, then verification updates the rack (U, budget, contracted kW) and closes the change. */
 const macdCtx = (): MacdCtx => { const reg = changeRegister(db); const by = new Map(reg.changes.map(c => [c.id, c])); return { freezes: reg.freezes, cr: id => { const c = by.get(id); return c ? { status: c.status, blocked: blockedBy(c) } : undefined; } }; };
 export const macd = () => macdView(db, macdCtx());
-export type MacdAction = 'accept' | 'reject' | 'quote' | 'start' | 'complete' | 'verify' | 'rework' | 'cancel';
+export type MacdAction = 'submit' | 'discard' | 'accept' | 'reject' | 'quote' | 'start' | 'complete' | 'verify' | 'rework' | 'cancel';
 export function macdPreview(d: MacdDraft) {
   const b = macdDraftBase(db, d, ME);
   const c = macdCatalogDef(b.catalogId)!;
   return { title: b.title, checks: macdChecks(db, b, macdCtx()), nrc: b.nrc, mrcDelta: b.mrcDelta, billable: b.billable, uDelta: b.uDelta, kwDelta: b.kwDelta, due: b.due, slaH: macdSlaHours(c, d.priority), standard: c.standard, customerName: b.customerName };
 }
-export function macdCreate(d: MacdDraft) {
-  const b = macdNewBase(db, d, ME);
-  audit_({ actor: ME, object: b.id, field: 'MACD request', prev: '—', next: `submitted: ${b.title}`, source: 'MACD' });
+export function macdCreate(d: MacdDraft, draft = false) {
+  const b = macdNewBase(db, d, ME, draft);
+  audit_({ actor: ME, object: b.id, field: 'MACD request', prev: '—', next: `${draft ? 'draft saved' : 'submitted'}: ${b.title}`, source: 'MACD' });
   changed(); return b.id;
+}
+/* edit a request before the team commits to it: a draft any time, a submitted request until feasibility is done (checks re-run) */
+export const MACD_EDITABLE: MacdStage[] = ['Draft', 'Submitted', 'Feasibility'];
+export function macdUpdate(id: string, d: MacdDraft) {
+  const b = macdBase(db, id); if (!b) throw new Error('Unknown request');
+  if (!MACD_EDITABLE.includes(b.stage)) throw new Error(`${id} is ${b.stage.toLowerCase()}: it can no longer be edited (cancel it and raise a new one)`);
+  const nb = macdDraftBase(db, d, ME, id), c = macdCatalogDef(nb.catalogId)!;
+  const what = [nb.catalogId !== b.catalogId && 'type', nb.rackId !== b.rackId && 'rack', nb.toRackId !== b.toRackId && 'target', nb.qty !== b.qty && `quantity ${b.qty} → ${nb.qty}`,
+    nb.priority !== b.priority && `priority ${b.priority.toLowerCase()} → ${nb.priority.toLowerCase()}`, nb.dcId !== b.dcId && 'datacenter', nb.detail !== b.detail && 'details'].filter(Boolean) as string[];
+  if (!what.length) return id;
+  const draft = b.stage === 'Draft', created = draft ? db.now : b.created;
+  const { id: _i, history: _h, stage: _s, created: _c, requester: _r, owner: _o, channel: _ch, seeded: _sd, ...fields } = nb;
+  macdPatch(id, { ...fields, created, due: created + macdSlaHours(c, nb.priority) * HOUR }, ME, `${draft ? 'Draft edited' : 'Request amended'}: ${what.join(', ')}${draft ? '' : '; feasibility checks re-run'}`, db.now);
+  audit_({ actor: ME, object: id, field: 'MACD request', prev: '—', next: `edited: ${what.join(', ')}`, source: 'MACD' });
+  changed(); return id;
 }
 export function macdAddNote(id: string, text: string) { if (!macdBase(db, id)) throw new Error('Unknown request'); if (!text.trim()) throw new Error('Write a note'); macdNote(id, ME, text.trim(), db.now); changed(); }
 const nextWindow = (p: MacdPriority) => { if (p === 'Emergency') return db.now + HOUR; const d = new Date(db.now + DAY); d.setHours(22, 0, 0, 0); return d.getTime(); };
@@ -1632,6 +1647,12 @@ export function macdAct(id: string, action: MacdAction, note?: string) {
       macdPatch(id, { stage: 'In progress', workRef }, ME, `Work started under ${b.changeId} (${workRef})`, db.now); say('In progress');
       break;
     }
+    case 'submit': {
+      need('Draft');
+      macdPatch(id, { stage: 'Feasibility', created: db.now, due: db.now + macdSlaHours(c, b.priority) * HOUR }, ME, `Submitted (${b.priority.toLowerCase()}); feasibility checks run`, db.now); say('Feasibility');
+      break;
+    }
+    case 'discard': need('Draft'); macdDiscard(id); audit_({ actor: ME, object: id, field: 'MACD request', prev: 'Draft', next: 'discarded', source: 'MACD' }); break;
     case 'complete': need('In progress'); macdPatch(id, { stage: 'Verification' }, ME, note?.trim() ? `Work done: ${note.trim()}` : 'Work done; verification', db.now); say('Verification'); break;
     case 'rework': need('Verification'); macdPatch(id, { stage: 'In progress', firstTimeRight: false }, ME, `Verification failed${note?.trim() ? `: ${note.trim()}` : ''}; back to the field team`, db.now); say('In progress'); break;
     case 'verify': {
