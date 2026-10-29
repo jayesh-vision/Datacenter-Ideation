@@ -23,8 +23,8 @@ export async function generateMetadata({ params }: Params) {
 /**
  * PLATFORM › <module>. One template for every module; content in @/data/modules.
  * Order: dark hero (+ the worked-example figures) → who asks what (white) → anatomy of the screen:
- * the illustration with numbered pins beside the pinned capabilities, the rest as icon cards (soft)
- * → related modules (white) → CTA (dark). A module whose capabilities carry no `pin` yet falls back
+ * the illustration with the active capability's panel spotlighted, beside the capability list; the rest as
+ * icon cards (soft) → related modules (white) → CTA (dark). A module whose capabilities carry no `area` falls back
  * to the plain capability grid.
  */
 export default async function ModulePage({ params }: Params) {
@@ -33,8 +33,8 @@ export default async function ModulePage({ params }: Params) {
 	if (!m) notFound();
 	const path = `/platform/${m.slug}`;
 	const models = m.models === "Both" ? "Colocation and NeoCloud" : m.models;
-	const pinned = m.capabilities.filter((c) => c.pin);
-	const rest = m.capabilities.filter((c) => !c.pin);
+	const shown = m.capabilities.filter((c) => c.area);
+	const rest = m.capabilities.filter((c) => !c.area);
 	return (
 		<>
 			<JsonLd schema={[softwareSchema(m.name, m.metaDesc, path, m.capabilities.map((c) => c.title)), breadcrumbSchema([{ name: "Home", path: "/" }, { name: "Platform", path: "/platform" }, { name: m.name, path }])]} />
@@ -61,7 +61,7 @@ export default async function ModulePage({ params }: Params) {
 				<RoleStrip questions={m.questions} askedBy={m.askedBy} answers={m.answers} />
 			</Section>
 
-			{pinned.length > 0 ? (
+			{shown.length > 0 ? (
 				<Section tone="soft" kicker="On the screen" title="What the screen holds." intro={m.screenIntro}>
 					<Anatomy art={m.slug} items={m.capabilities} />
 					{rest.length > 0 && (

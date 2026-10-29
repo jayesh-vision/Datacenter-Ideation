@@ -44,9 +44,17 @@ SynapseDC is the END-TO-END platform to **plan, build and operate** datacenters,
 
 ## Module pages (29-Oct-2026, user: "not visually appealing", "always Three questions … irritating")
 `/platform/<slug>` = one template (`app/platform/[slug]/page.tsx`): dark hero with `proof` as stat tiles → **Who opens it** (`askTitle` /
-`askIntro` written per module in `data/modules.ts`, never a shared sentence; `RoleStrip` = role icon, question, `answers[i]`) → **Where each
-capability lives** (`components/platform/Anatomy.tsx`: the module's illustration (no markers drawn over it — pins looked odd, user 29-Oct-2026) beside an accordion list of the capabilities that carry `pin`, stretched to the drawing's height; only the active item shows its text; capabilities without a pin go in
-the "Also on the screen" row with their `icon`) → related modules with stage chips → CTA.  Columns stack below 1260 px. A new module needs askTitle, askIntro, answers and pins.
+`askIntro` written per module in `data/modules.ts`, never a shared sentence; `RoleStrip` = role icon, question, `answers[i]`) → **What the
+screen holds** (`screenIntro`; `components/platform/Anatomy.tsx`: the illustration and the capability list in one panel; the active
+capability's `Capability.area` [x, y, w, h on the 640 × 420 canvas] is spotlighted on the drawing (the rest dims, the frame glides), the list
+steps through on its own while in view until the visitor points at an item; no numbers or markers drawn on the illustration; capabilities
+without an `area` go in "Also on the screen") → related modules with stage chips → CTA. Columns stack below 1260 px. A new module needs
+askTitle, askIntro, screenIntro, answers and areas. Copy is product statements only, never "pick / click / hover" instructions.
+
+## Platform overview (29-Oct-2026, user)
+`/platform`: the hero (PlatformMap) and the Architecture section are fixed (user: do not change). Between them, the modules by stage
+in full rows: Plan | Build, then Operate (4 columns, Command Center spanning two), then Govern | Across the product (one wide tile each);
+paired blocks share header rows via subgrid so tiles line up. Tiles show the module's own illustration. Design principles = numbered list.
 
 ## GPU & AI is the flagship use case (28-Oct-2026, user)
 GPU Fleet is part of the solution, NOT an add-on (the user reversed an add-on idea the same day): no "add-on", no packaging /
