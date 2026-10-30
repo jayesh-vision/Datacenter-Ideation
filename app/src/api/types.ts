@@ -307,6 +307,41 @@ export interface GpuJob {
   state: GpuJobState; started: number; lastCheckpoint: number; checkpointMin: number; stepMs: number; baselineMs: number; mfu: number;
   since?: number; cause?: string; causeNeId?: string; incidentId?: string; serviceId?: string;
 }
+/* ---- GPU capacity as a product (30-Oct-2026): how the installed GPUs are sold, and whether a node is fit to sell.
+   Derived (mock/gpu-market.ts) from the jobs and customers; prices stay the flat GPU-hour rate (tier pricing = BSS catalogue, to discuss). */
+export type GpuSellTier = 'reserved' | 'on-demand' | 'spot';          // committed contract · pay as you go · interruptible, reclaimed for reserved customers
+export type GpuInstanceState = 'running' | 'provisioning' | 'preempted';
+/* one node rented by one customer as an instance of the model's instance type (8 GPUs + the host's vCPU, RAM, NVMe, network) */
+export interface GpuInstance {
+  id: string; neId: string; dcId: string; clusterId: string; jobId: string; customerId: string; model: GpuModel; tier: GpuSellTier; type: string;
+  state: GpuInstanceState; started: number; ratePerHour: number; gpuHours: number; preemptible: boolean; jobState: GpuJobState; incidentId?: string;
+}
+/* a spot instance taken back in the last 24 h */
+export interface GpuPreemption { id: string; at: number; instanceId: string; neId: string; dcId: string; clusterId: string; customerId: string; model: GpuModel; reason: string; takenBy?: string; gpuHoursLost: number; notified: boolean }
+/* Sellable · Held back (idle but below the benchmark or reliability bar) · Burn-in (under test) · Hold (cordoned) · Out of service (failed / RMA) */
+export type GpuReadyStatus = 'Sellable' | 'Held back' | 'Burn-in' | 'Hold' | 'Out of service';
+export interface GpuReadiness {
+  status: GpuReadyStatus; grade: 'A' | 'B' | 'C';
+  burnIn: { result: 'pass' | 'running' | 'fail'; at: number; hours: number };            // 24 h full-load test after install or repair
+  bench: { score: number; hbmTbs: number; hbmRef: number; busGbs: number; busRef: number; at: number };   // % of the model's reference: HBM bandwidth and in-node all-reduce bus bandwidth
+  reliability: number; interruptions30d: number;                                          // uptime % and interruptions over 30 days
+  why: string[];
+}
+/* GPUs of one model / site / pod by how they are sold */
+export interface GpuOccupancyRow {
+  key: string; label: string; sub?: string; dcId?: string; clusterId?: string; model?: GpuModel; vendor?: GpuVendor;
+  installed: number; reserved: number; onDemand: number; spot: number; available: number; heldBack: number; out: number;
+  sold: number; sellable: number; occupancyPct: number; soldOut: boolean; unsoldPerDay: number; interruptions24h: number;
+}
+export interface GpuMarketCustomer { customerId: string; name: string; premium: boolean; instances: number; gpus: number; reserved: number; onDemand: number; spot: number; ratePerHour: number; sites: string[]; hurt: number }
+export interface GpuMarket {
+  installed: number; sold: number; reserved: number; onDemand: number; spot: number; available: number; heldBack: number; out: number; sellable: number;
+  occupancyPct: number; unsoldPerDay: number; soldOut: number; interruptions24h: number; gpuHoursLost24h: number;
+  series: number[];                                   // 24 h, hourly: % of in-service GPUs that were sold
+  byModel: GpuOccupancyRow[]; byPlace: GpuOccupancyRow[]; placeKind: 'site' | 'pod';
+  instances: GpuInstance[]; preemptions: GpuPreemption[]; customers: GpuMarketCustomer[];
+  readiness: Record<GpuReadyStatus, number>;          // nodes
+}
 /* liquid-cooling loop (coolant distribution unit) feeding a GPU row or tenant AI cages */
 export interface Cdu { id: string; dcId: string; name: string; room: string; racks: string[]; capacityKw: number; loadKw: number; supplyC: number; returnC: number; flowLpm: number; flowNominal: number; pump: 'A' | 'B'; state: 'ok' | 'warn' | 'bad'; note?: string }
 /* colocation: a tenant's high-density AI cabinet — tenant-owned GPUs, operator-owned power and cooling */

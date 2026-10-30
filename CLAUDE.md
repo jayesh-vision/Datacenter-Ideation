@@ -283,6 +283,15 @@ viewer can fold it away above the lists (22-Oct-2026, user). Check: `node .qa/gp
 The tab bar (`.gpu-tabbar`) is pinned under the top bar on /gpu; list toolbars and grid headers pin below it (`--gpu-tabs-h`); 8 tabs fit one row at 1280.
 Network rails cells are one line (ports · errors). A flush Panel around a plain `.dt-scroll` table now clips instead of scrolling (base.css), which fixed a
 header offset gap inside the panel. Check: `node .qa/gpu-sticky.mjs` (W=1280).
+GPU capacity as a product (30-Oct-2026, user: "RunPod / Vast.ai cover a lot we don't"): read model `mock/gpu-market.ts` (derived per data version and scope from
+the jobs + customers; fingerprints hold; Cloud + NeoCloud only — enterprise charges back, so `market` is null there). A node in a job = one INSTANCE of the model's
+instance type (`lib/gpuSpec.ts` `GPU_HOST` / `instanceType`), tier reserved (premium customer) · on-demand · spot (~55% of on-demand inference, seeded per job);
+spot interruptions in the last 24 h per pod (reclaimed for a reserved customer, firmware drain, node failure). Fit to sell per node (`readinessOf`, every persona):
+24 h burn-in, benchmark vs `GPU_BENCH` reference (HBM TB/s, in-node bus GB/s; < 95% held back), 30-day reliability (< 99% held back), grade A / B / C; status
+Sellable · Held back · Burn-in · Hold · Out of service. Occupancy = sold ÷ (sold + available). UI: GPU Fleet tab **Occupancy** (`gtab=occupancy`, `screens/gpu/
+Occupancy.tsx`: strip, by model, 24 h, by site / pod, Instances · Interruptions · Customers `oview=`), Nodes "Fit to sell" column + Show → Held back / Grade C
+(`gview=held|gradec`), node drawer "Fit to sell" block. Money stays the flat GPU-hour rate (tier pricing = BSS catalogue, to discuss). Checks: `GEO=us npx tsx
+.qa/gpu-market-check.ts`, `GEO=us node .qa/gpu.mjs neocloud`. Not in the BRD yet.
 GPU telemetry follows the NVIDIA DCGM exporter: `Gpu` carries the DCGM fields (comments name them: util / SM active / tensor /
 mem copy / DRAM, FB used, GPU + HBM temp, power + energy, SM + mem clock, P-state, fan, throttle reasons, ECC SBE/DBE, retired
 pages + row remap, PCIe replay + traffic, NVLink errors + traffic, last Xid); `GpuNode.series` = 24 h hourly history built AFTER the

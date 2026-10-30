@@ -35,7 +35,8 @@ for (const W of [1440, 1280]) {
     if (hs.length !== 2 || Math.abs(hs[0] - hs[1]) > 1) bad(`heroes@${W} ${hs}`);
     await p.click('.gpu-heat button.gpu-node'); await p.waitForTimeout(500);
     if (!(await p.$('.drawer .gpu-gpus'))) bad('node drawer'); await check('node-drawer'); await p.keyboard.press('Escape');
-    for (const t of ['jobs', 'nodes', 'telemetry', 'cooling', 'fabric']) { await open(`/gpu?gtab=${t}`); await check(t); if (t === 'telemetry' && !(await p.$('.gpu-lead'))) bad(`${persona}@${W} telemetry tab has no leaders`); }
+    for (const t of ['jobs', 'nodes', 'occupancy', 'telemetry', 'cooling', 'fabric']) { await open(`/gpu?gtab=${t}`); await check(t); if (t === 'telemetry' && !(await p.$('.gpu-lead'))) bad(`${persona}@${W} telemetry tab has no leaders`);
+      if (t === 'occupancy') { const has = !!(await p.$('.gpu-occ')); if (has !== (persona !== 'enterprise')) bad(`${persona}@${W} occupancy tab ${has ? 'shown' : 'missing'}`); if (has) { await open('/gpu?gtab=occupancy&oview=interruptions'); await check('interruptions'); await open('/gpu?gtab=nodes&gview=held'); await check('nodes-held'); if (!(await p.$('.dt-table tbody tr'))) bad(`${persona}@${W} no held-back nodes`); } } }
     /* the device page of a GPU node shows its DCGM detail; the equipment list shows the GPU strip */
     await open('/gpu?gtab=nodes'); await p.waitForSelector('.dt-table tbody tr .mono', { timeout: 15000 }); const first = await p.$eval('.dt-table tbody tr .mono', e => e.textContent);
     await open(`/ne/KA-DC-020-${first}?tab=gpus`); await p.waitForSelector('.gpu-gpus', { timeout: 8000 }).catch(() => bad(`${persona}@${W} device page has no GPU tab`)); await check('device-gpus');

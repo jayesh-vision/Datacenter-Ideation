@@ -2,10 +2,11 @@
    per-node heat map, nodes, cooling loops, GPU racks and the InfiniBand rails. Derived only from
    db.gpu, the alarms and the services, so it matches every other screen. */
 
-import type { AiCage, Cdu, Gpu, GpuCluster, GpuJob, GpuNode, Persona } from '../api/types';
+import type { AiCage, Cdu, Gpu, GpuCluster, GpuInstance, GpuJob, GpuMarket, GpuNode, GpuReadiness, Persona } from '../api/types';
 import type { Db } from './generate';
 import { isDrift, jobRate } from './gpu';
 import { gpuSpec } from '../lib/gpuSpec';
+import { buildMarket, readinessOf } from './gpu-market';
 
 const HOUR = 3600000;
 export type Worst = 'ok' | 'warn' | 'bad';
@@ -17,7 +18,7 @@ export interface GpuJobRow extends GpuJob {
 }
 /* one accelerator model in scope: how many, where, how busy and how healthy */
 export interface GpuModelRow { model: GpuNode['model']; vendor: GpuNode['vendor']; nodes: number; gpus: number; inJob: number; util: number; degraded: number; failed: number; sites: string[]; clusters: number; powerKw: number }
-export interface GpuNodeRow extends GpuNode { cluster: string; job?: string; jobState?: string; owner?: string; util: number; maxTemp: number; throttled: number; xid?: Gpu['xid']; worst: Worst; alerts: number; rackName: string; room: string; drift: boolean }
+export interface GpuNodeRow extends GpuNode { cluster: string; job?: string; jobState?: string; owner?: string; util: number; maxTemp: number; throttled: number; xid?: Gpu['xid']; worst: Worst; alerts: number; rackName: string; room: string; drift: boolean; ready: GpuReadiness; instance?: GpuInstance }
 export interface GpuClusterRow extends GpuCluster { gpus: number; inJob: number; spare: number; out: number; healthy: number; degraded: number; failed: number; jobs: number; util: number; powerKw: number; worst: Worst; cells: { neId: string; state: GpuNode['state']; worst: Worst; jobId?: string; g: { h: Gpu['health']; u: number; t: number; th: Gpu['throttle'] }[] }[] }
 export interface GpuRackRow { id: string; name: string; dcId: string; room: string; drawKw: number; budgetKw: number; liquid: boolean; nodes: number; maxTemp: number; cdu?: string; state: Worst }
 /* DCGM-level view of the whole fleet (or one site): distributions, 24 h history, error leaders */
@@ -48,6 +49,7 @@ export interface GpuView {
   cages: (AiCage & { tenant: string; premium: boolean; pct: number; revenue: number })[];
   cageTotals: { cages: number; contractedKw: number; drawKw: number; tenants: number; revenue: number; liquid: number };
   telemetry: GpuTelemetry | null;
+  market: GpuMarket | null;                 // how the GPUs are sold (null where capacity is not rented by the hour)
 }
 
 const xidText: Record<number, string> = { 79: 'Fell off the bus', 74: 'NVLink error', 48: 'Uncorrectable ECC', 63: 'Row remap', 94: 'Contained ECC', 95: 'Uncontained ECC' };
@@ -61,7 +63,7 @@ export function gpuView(db: Db, persona: Persona, dcId?: string): GpuView {
     kind: 'none', dcId, now, rate, rateLabel: '', sites: [],
     fleet: { nodes: 0, gpus: 0, nodeState: { 'in-job': 0, idle: 0, drained: 0, failed: 0, 'burn-in': 0 }, gpuHealth: { healthy: 0, degraded: 0, failed: 0 }, inJobGpus: 0, spareGpus: 0, outGpus: 0, allocatedPct: 0, utilInJobs: 0, throttle: { thermal: 0, hw: 0, power: 0 }, hottest: 0, xid: [], sbe: 0, dbe: 0, remapPending: 0, driftNodes: 0, driverStd: st?.driverStd ?? '', rmaOpen: 0, burnIn: 0, liquidNodes: 0, powerKw: 0, models: [] },
     jobsSummary: { running: 0, slowed: 0, stalled: 0, atRisk: 0, idle: 0, total: 0, gpus: 0 }, waste: { rate: 0, stalled: 0, slowed: 0, idle: 0, soFar: 0, redo: 0, atStake: 0 },
-    jobs: [], clusters: [], nodes: [], cdus: [], racks: [], rails: [], cages: [], cageTotals: { cages: 0, contractedKw: 0, drawKw: 0, tenants: 0, revenue: 0, liquid: 0 }, telemetry: null
+    jobs: [], clusters: [], nodes: [], cdus: [], racks: [], rails: [], cages: [], cageTotals: { cages: 0, contractedKw: 0, drawKw: 0, tenants: 0, revenue: 0, liquid: 0 }, telemetry: null, market: null
   };
   if (!st) return empty;
   const dcById = new Map(db.datacenters.map(d => [d.id, d]));
@@ -89,6 +91,10 @@ export function gpuView(db: Db, persona: Persona, dcId?: string): GpuView {
   const liveAlerts = db.alerts.filter(a => a.state !== 'cleared' && a.neId && st.nodes.has(a.neId));
   const alertsOn = new Map<string, number>(); liveAlerts.forEach(a => alertsOn.set(a.neId!, (alertsOn.get(a.neId!) ?? 0) + 1));
 
+  /* fit to sell + how each node is sold (gpu-market.ts) */
+  const ready = new Map(nodesAll.map(n => [n.neId, readinessOf(n, now)]));
+  const market = buildMarket(db, persona, nodesAll, ready, now, dcId);
+  const instByNode = new Map((market?.instances ?? []).map(i => [i.neId, i]));
   const worstOf = (n: GpuNode): Worst => (n.health === 'failed' || n.state === 'failed' ? 'bad' : n.health === 'degraded' || n.gpus.some(g => g.throttle !== 'none') || n.ib.some(p => p.state !== 'up') ? 'warn' : 'ok');
   const nodes: GpuNodeRow[] = nodesAll.map(n => {
     const j = n.jobId ? jobById.get(n.jobId) : undefined;
@@ -96,7 +102,7 @@ export function gpuView(db: Db, persona: Persona, dcId?: string): GpuView {
     const xid = n.gpus.map(g => g.xid).filter(Boolean).sort((a, b) => b!.at - a!.at)[0] ?? undefined;
     return { ...n, cluster: clusterById.get(n.clusterId)?.name ?? '', job: j?.name, jobState: j?.state, owner: j ? cust.get(j.customerId)?.name : undefined,
       util: Math.round(n.gpus.reduce((a, g) => a + g.util, 0) / 8), maxTemp: Math.max(...n.gpus.map(g => g.tempC)), throttled: n.gpus.filter(g => g.throttle !== 'none').length, xid,
-      worst: worstOf(n), alerts: alertsOn.get(n.neId) ?? 0, rackName: rk?.name ?? n.rackId, room: rk ? `${rk.floor} · ${rk.room}` : '', drift: isDrift(n) };
+      worst: worstOf(n), alerts: alertsOn.get(n.neId) ?? 0, rackName: rk?.name ?? n.rackId, room: rk ? `${rk.floor} · ${rk.room}` : '', drift: isDrift(n), ready: ready.get(n.neId)!, instance: instByNode.get(n.neId) };
   });
 
   /* jobs and the GPU time they are losing */
@@ -166,7 +172,7 @@ export function gpuView(db: Db, persona: Persona, dcId?: string): GpuView {
     },
     jobsSummary: { running: jobs.filter(j => j.state === 'running').length, slowed: jobs.filter(j => j.state === 'slowed').length, stalled: jobs.filter(j => j.state === 'stalled').length, atRisk: jobs.filter(j => j.state === 'at-risk').length, idle: jobs.filter(j => j.state === 'idle').length, total: jobs.length, gpus: sum(j => j.gpus) },
     waste: { rate: sum(j => j.wasteRate), stalled: sum(j => j.wasteRate, j => j.state === 'stalled'), slowed: sum(j => j.wasteRate, j => j.state === 'slowed'), idle: sum(j => j.wasteRate, j => j.state === 'idle'), soFar: sum(j => j.wasteSoFar + j.redo), redo: sum(j => j.redo), atStake: sum(j => j.atStake) },
-    jobs, clusters, nodes, cdus, racks, rails, cages: [], cageTotals: empty.cageTotals, telemetry: buildTelemetry(nodesAll, jobById, now)
+    jobs, clusters, nodes, cdus, racks, rails, cages: [], cageTotals: empty.cageTotals, telemetry: buildTelemetry(nodesAll, jobById, now), market
   };
 }
 

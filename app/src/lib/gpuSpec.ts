@@ -47,3 +47,17 @@ export const gpuSpec = (m: GpuModel): GpuSpec => BY_MODEL.get(m) ?? GPU_SPECS[2]
 /* 'NVIDIA H100 SXM 80 GB' */
 export const gpuName = (m: GpuModel) => `${gpuSpec(m).vendor} ${m}`;
 export const GPU_VENDORS: GpuVendor[] = ['NVIDIA', 'Intel'];
+
+/* What one node of each model is sold as (30-Oct-2026): the host behind the 8 accelerators (instance type), and the figures a node
+   must reach before it is sold — HBM bandwidth and the in-node all-reduce bus bandwidth as the acceptance benchmark measures them. */
+export const GPU_HOST: Record<GpuModel, { vcpu: number; ramGb: number; nvmeTb: number; netGbps: number }> = {
+  'B200 SXM 192 GB': { vcpu: 224, ramGb: 4096, nvmeTb: 30, netGbps: 3200 }, 'H200 SXM 141 GB': { vcpu: 224, ramGb: 2048, nvmeTb: 30, netGbps: 3200 },
+  'H100 SXM 80 GB': { vcpu: 224, ramGb: 2048, nvmeTb: 30, netGbps: 3200 }, 'A100 SXM 80 GB': { vcpu: 256, ramGb: 2048, nvmeTb: 30, netGbps: 1600 },
+  'L40S PCIe 48 GB': { vcpu: 192, ramGb: 1024, nvmeTb: 15, netGbps: 200 }, 'T4 PCIe 16 GB': { vcpu: 80, ramGb: 384, nvmeTb: 7.6, netGbps: 50 },
+  'Gaudi 3 OAM 128 GB': { vcpu: 192, ramGb: 2048, nvmeTb: 30, netGbps: 4800 }, 'Max 1550 OAM 128 GB': { vcpu: 224, ramGb: 2048, nvmeTb: 30, netGbps: 1600 }
+};
+export const GPU_BENCH: Record<GpuModel, { hbmTbs: number; busGbs: number }> = {
+  'B200 SXM 192 GB': { hbmTbs: 8.0, busGbs: 1400 }, 'H200 SXM 141 GB': { hbmTbs: 4.8, busGbs: 740 }, 'H100 SXM 80 GB': { hbmTbs: 3.35, busGbs: 740 }, 'A100 SXM 80 GB': { hbmTbs: 2.0, busGbs: 480 },
+  'L40S PCIe 48 GB': { hbmTbs: 0.86, busGbs: 48 }, 'T4 PCIe 16 GB': { hbmTbs: 0.32, busGbs: 24 }, 'Gaudi 3 OAM 128 GB': { hbmTbs: 3.7, busGbs: 1200 }, 'Max 1550 OAM 128 GB': { hbmTbs: 3.3, busGbs: 420 }
+};
+export const instanceType = (m: GpuModel) => { const h = GPU_HOST[m]; return `8× ${gpuSpec(m).short} · ${h.vcpu} vCPU · ${h.ramGb >= 1000 ? `${h.ramGb / 1024} TB` : `${h.ramGb} GB`} RAM · ${h.nvmeTb} TB NVMe`; };

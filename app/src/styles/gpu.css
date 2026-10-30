@@ -170,3 +170,27 @@ button.gpu-node:hover { border-color: var(--primaryColor500); }
 @media (max-width: 1360px) { .page.gpu .gpu-tabbar .tab { padding-left: 8px; padding-right: 8px; gap: 5px; font-size: 13px; } .page.gpu .gpu-tabbar .tab .count { margin-left: 2px; } }
 .gpu-rail { flex-direction: row; align-items: baseline; gap: 6px; padding: 3px 8px; white-space: nowrap; }
 .gpu-rails td { padding-top: 8px !important; padding-bottom: 8px !important; }
+
+/* occupancy (30-Oct-2026): how the GPUs are sold */
+.gpu-occ { container-type: inline-size; }
+.gpu-occ-grid { display: grid; grid-template-columns: minmax(0, 8fr) minmax(0, 4fr); gap: 16px; align-items: stretch; }
+.gpu-occ-grid > .panel { min-width: 0; }
+@container (max-width: 1060px) { .gpu-occ-grid { grid-template-columns: minmax(0, 1fr); } }
+.gpu-occ-split { display: block; min-width: 108px; }
+.gpu-occ-split .dco-bar { margin: 0; }
+.gpu-occ-facts { display: flex; gap: 24px; padding-top: 10px; margin-top: 6px; border-top: 1px solid var(--vw-color-slate-100); }
+.gpu-occ-facts span { display: flex; flex-direction: column; gap: 2px; }
+.gpu-occ-facts em { font-style: normal; font-size: 11.5px; color: var(--vw-color-gray-500); }
+.gpu-occ-facts b { font-size: 15px; font-weight: 500; color: var(--vw-color-gray-900); }
+.gpu-occ-legend { margin-left: auto; }
+.gpu-occ .dt-table .dco-bar { height: 8px; }
+/* node drawer: fit to sell */
+.gpu-fit { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border: 1px solid var(--vw-color-slate-200); border-radius: 10px; background: var(--vw-color-slate-25, #fafcff); }
+.gpu-fit-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.gpu-fit-h b { font-size: 13px; font-weight: 600; color: var(--vw-color-gray-800); display: inline-flex; align-items: center; gap: 4px; }
+.gpu-fit-figs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.gpu-fit-figs > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.gpu-fit-figs em { font-style: normal; font-size: 11.5px; color: var(--vw-color-gray-500); }
+.gpu-fit-figs b { font-size: 13.5px; font-weight: 500; color: var(--vw-color-gray-900); font-variant-numeric: tabular-nums; }
+.gpu-fit-figs small { font-size: 11.5px; color: var(--vw-color-gray-500); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gpu-jobcell { display: block; min-width: 140px; max-width: 240px; }
