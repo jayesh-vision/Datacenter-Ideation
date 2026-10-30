@@ -74,7 +74,12 @@ export function priceLine(plan: T.PlannerPlan, raw: BomItem, pc: PriceContext): 
   } else if (option.unitPrice && (cat.stockable || raw.kind === 'rack')) {
     line = { ...raw, unitCost: option.unitPrice, total: raw.qty * option.unitPrice, manufacturer: option.manufacturer, model: option.model, spec: raw.spec.includes(option.model) ? raw.spec : `${option.model} · ${raw.spec}` };
   } else line = { ...raw, manufacturer: raw.manufacturer === 'To tender' ? option.manufacturer : raw.manufacturer, model: raw.model ?? option.model };
-  return { ...line, vendorName: option.vendor, substituted, priced: true };
+  /* a model the catalogue does not carry (a router line card named by the network family) is bought from its maker, not from the
+     catalogue's default vendor for the kind (29-Oct-2026: a Juniper MPC10E line card was ordered from Arista) */
+  const ownModel = !!raw.model && line.model === raw.model && !cat.options.some(o => o.model === raw.model) && raw.manufacturer && raw.manufacturer !== 'To tender';
+  /* the estate writes makers in capitals (JUNIPER): name the vendor as its vendor record does */
+  const maker = ownModel ? ((pc.vendors ?? []) as { name: string }[]).find(v => v.name.toLowerCase().startsWith(raw.manufacturer.toLowerCase()))?.name ?? raw.manufacturer.replace(/\b([A-Z])([A-Z]+)\b/g, (_, a: string, b: string) => a + b.toLowerCase()) : undefined;
+  return { ...line, vendorName: maker ?? option.vendor, substituted, priced: true };
 }
 
 /* ================================================================== models a line may swap to */

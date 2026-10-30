@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { getAlerts, getChanges, getDatacenter, getIncidents, getSitePhysical, useQuery, clockNow, usePersona, hasGpuNow } from '../../api';
+import { getDatacenter, getIncidents, useQuery, clockNow, usePersona, hasGpuNow } from '../../api';
 import { usePage, Loading, useSentinel } from '../../shell/page';
 import { Btn, Chip } from '../../ui/kit';
 import { RolloutChip, Fresh } from '../../ui/status';
@@ -77,9 +77,6 @@ export function Site() {
   const { data, loading } = useQuery(() => getDatacenter(id), [id]);
   const { data: incs } = useQuery(() => getIncidents({ dcId: id, status: 'open' }), [id]);
   /* counts on the Facility sub tabs (same rules as the Facilities screen's own tabs) */
-  const { data: falerts } = useQuery(() => getAlerts({ dcId: id, state: 'open' }), [id]);
-  const { data: fchanges } = useQuery(() => getChanges({ dcId: id }), [id]);
-  const { data: fphys } = useQuery(() => getSitePhysical(id), [id]);
   /* header collapse — per-viewer convenience, collapsed by default to give the tabs room */
   const [compact, setCompact] = useState(() => { try { return localStorage.getItem('dco.site.header') !== 'expanded'; } catch { return true; } });
   const toggleHead = () => setCompact(c => { try { localStorage.setItem('dco.site.header', c ? 'expanded' : 'compact'); } catch { /* storage blocked */ } return !c; });
@@ -101,13 +98,7 @@ export function Site() {
   const group = groupOf(tab);
   lastSub[group] = tab;
   const visible = (t: Tab) => t !== 'gpu' || hasGpuNow(dc.id);
-  const facAlerts = (falerts ?? []).filter(a => a.source === 'Power' || a.source === 'Cooling' || a.source === 'Environment').length;
-  const facMaint = (fchanges ?? []).filter(c => c.kind === 'Maintenance' && c.status !== 'Completed').length;
-  const countOf = (t: Tab): number | undefined => t === 'attention' ? data.summary.openIncidents + data.summary.critAlerts : t === 'elements' ? data.summary.installed : t === 'customers' ? data.summary.customers
-    : t === 'fcooling' ? data.dc.cooling.units.filter(u => u.status !== 'Operational').length || undefined
-    : t === 'fenv' ? data.dc.cooling.sensors.filter(z => z.tempC > 27).length || undefined
-    : t === 'fspof' ? fphys?.spofs.length || undefined
-    : t === 'fmaint' ? facAlerts + facMaint || undefined : undefined;
+  /* tabs carry no counts (user, 30-Oct-2026) */
   const labelOf = (t: Tab) => t === 'customers' ? vocab.customers : t === 'revenue' ? vocab.money.noun : SUB_LABEL[t] ?? TABS.find(x => x.id === t)!.label;
   const now = clockNow();
   const staleCol = dc.collectors.filter(c => c.state !== 'up');
@@ -215,18 +206,16 @@ export function Site() {
       <div className="pills" role="tablist" aria-label="Datacenter sections">
           {GROUPS.map(g => {
             const subs = g.tabs.filter(visible);
-            const n = subs.reduce((a, t) => a + (countOf(t) ?? 0), 0);
             const on = group === g.id;
             return <button key={g.id} type="button" role="tab" aria-selected={on} data-group={g.id} className={`pill${on ? ' is-active' : ''}`}
               title={subs.map(labelOf).join(' · ')}
               onClick={() => go(lastSub[g.id] && visible(lastSub[g.id]!) ? lastSub[g.id]! : subs[0])}>
-              <g.icon size={14} />{g.label}{n ? <span className="count">{n}</span> : null}</button>;
+              <g.icon size={14} />{g.label}</button>;
           })}
       </div>
       <div className="site-subtabs" role="tablist" aria-label={GROUPS.find(g => g.id === group)!.label}>
         {GROUPS.find(g => g.id === group)!.tabs.filter(visible).map(t => {
-          const n = countOf(t);
-          return <button key={t} type="button" role="tab" aria-selected={tab === t} data-sub={t} className={`site-subtab${tab === t ? ' is-active' : ''}`} onClick={() => go(t)}>{labelOf(t)}{n ? <span className="count">{n}</span> : null}</button>;
+          return <button key={t} type="button" role="tab" aria-selected={tab === t} data-sub={t} className={`site-subtab${tab === t ? ' is-active' : ''}`} onClick={() => go(t)}>{labelOf(t)}</button>;
         })}
       </div>
       </div>

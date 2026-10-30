@@ -49,7 +49,7 @@ export function FloorPlans({ dcId, onSite }: { dcId: string; onSite: (id: string
             <span key={f} className="dcim-fp-floor"><small>{f}</small>
               {halls.filter(h => h.floor === f).map(h => (
                 <button key={h.id} type="button" role="tab" aria-selected={h.id === hallId} className={`dcim-hall-pill${h.id === hallId ? ' is-on' : ''}`} onClick={() => setP('hall', h.id)}>
-                  {h.name}<b>{h.racks}</b>
+                  {h.name}
                 </button>
               ))}
             </span>

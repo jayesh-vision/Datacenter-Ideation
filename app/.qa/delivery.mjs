@@ -2,7 +2,7 @@
 // usage: node .qa/delivery.mjs [persona] [geo]   (W=1280)
 import { chromium } from 'playwright';
 const P = process.argv[2] ?? 'neocloud', G = process.argv[3] ?? 'in', W = Number(process.env.W ?? 1440);
-const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: W, height: 900 } });
+const b = await chromium.launch(process.env.PW_CHROME ? { executablePath: process.env.PW_CHROME } : {}); const p = await b.newPage({ viewport: { width: W, height: 900 } });
 const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (m.type() === 'error' && !/Failed to load resource|arcgis/.test(m.text())) errs.push(m.text()); });
 let bad = 0; const ok = (c, m) => { console.log(`  ${c ? '✓' : '✗'} ${m}`); if (!c) bad++; };
 const go = async (u) => { await p.evaluate(u => { history.pushState({}, '', u); dispatchEvent(new PopStateEvent('popstate')); }, u); await p.waitForTimeout(800); };

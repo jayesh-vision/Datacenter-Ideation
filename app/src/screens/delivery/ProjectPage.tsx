@@ -16,6 +16,7 @@ import { useToast } from '../ops/shared';
 import { NotFound } from '../NotFound';
 import { SCOPE_ICON, SCOPE_LABEL } from './scopes';
 import { HEALTH_TONE, STATE_TONE, WO_TONE } from './Delivery';
+import { DOC_RANK, permitNow, poNow, woNow } from './order';
 import '../../styles/dcim.css';
 import '../../styles/planner.css';
 import '../../styles/ipam.css';
@@ -50,7 +51,7 @@ export function ProjectPage() {
         </>} />
       {p.waitsOn?.length ? <p className="note note--info"><I.DoorClosed size={15} /><span>Waiting at its programme gate: work cannot start until {p.waitsOn.map((w, i) => <span key={w}>{i ? ', ' : ''}<Link className="ent-link" to={`/delivery/projects/${w}`}>{w}</Link></span>)} {p.waitsOn.length === 1 ? 'is' : 'are'} delivered.</span></p> : null}
       <ProjectHero v={data} />
-      <Tabs value={tab} onChange={setTab} tabs={[{ id: 'overview', label: 'Overview' }, { id: 'schedule', label: 'Schedule' }, { id: 'workorders', label: 'Work orders', count: data.workOrders.length }, { id: 'procurement', label: 'Purchase orders', count: data.pos.length }, { id: 'commissioning', label: 'Commissioning' }, { id: 'risks', label: 'Risks', count: data.risks.filter(r => r.state !== 'Closed').length }, { id: 'cost', label: 'Cost', count: data.changeOrders.length || undefined }, { id: 'permits', label: 'Permits & design' }, { id: 'history', label: 'History' }]} />
+      <Tabs value={tab} onChange={setTab} tabs={[{ id: 'overview', label: 'Overview' }, { id: 'schedule', label: 'Schedule' }, { id: 'workorders', label: 'Work orders' }, { id: 'procurement', label: 'Purchase orders' }, { id: 'commissioning', label: 'Commissioning' }, { id: 'risks', label: 'Risks' }, { id: 'cost', label: 'Cost' }, { id: 'permits', label: 'Permits & design' }, { id: 'history', label: 'History' }]} />
       {tab === 'overview' && <ProjectDashboard v={data} onTab={t => setTab(t as Tab)} run={run} />}
       {tab === 'schedule' && <Schedule v={data} />}
       {tab === 'risks' && <Panel title="Risk register" icon={I.ShieldAlert} count={data.risks.filter(r => r.state !== 'Closed').length} actions={<Btn size="sm" icon={I.Plus} onClick={() => setForm('risk')}>Raise a risk</Btn>}
@@ -60,7 +61,7 @@ export function ProjectPage() {
           {st !== 'Closed' ? <Btn size="sm" onClick={() => run(() => setRiskState(rid, 'Closed'), 'Risk closed')}>Close</Btn> : <Btn size="sm" onClick={() => run(() => setRiskState(rid, 'Open'), 'Risk reopened')}>Reopen</Btn>}</span>} />
       </Panel>}
       {tab === 'cost' && <CostTab v={data} onRaise={() => setForm('co')} run={run} />}
-      {tab === 'workorders' && <section className="vw-card-section dcim-table"><DataTable rows={data.workOrders} pageSize={20} defaultSort={{ key: 'w', dir: 'asc' }} cols={[
+      {tab === 'workorders' && <section className="vw-card-section dcim-table"><DataTable rows={[...data.workOrders].sort(woNow)} pageSize={20} cols={[
         { key: 'id', header: 'Work order', wrap: true, render: w => <span className="cell-2"><Link className="ent-link mono" to={`/delivery/work-orders/${w.id}`} onClick={e => e.stopPropagation()}>{w.id}</Link><small>{w.title}</small></span> },
         { key: 'c', header: 'Crew', render: w => <span className="cell-2"><span>{w.crew}</span><small>{w.kind}</small></span> },
         { key: 'w', header: 'Window', sort: w => w.start, render: w => <span className="cell-2"><span className="nowrap">{fmtDate(w.start)}</span><small className="nowrap">to {fmtDate(w.end)}</small></span> },
@@ -69,7 +70,7 @@ export function ProjectPage() {
         { key: 'ch', header: 'Change', render: w => <span className="cell-2"><span className="mono">{w.changeId}</span><small>{w.changeState}</small></span> },
         { key: 's', header: 'Status', render: w => <Chip tone={WO_TONE[w.state]} dot>{w.state}</Chip> },
         { key: 'a', header: '', render: w => w.state !== 'Done' ? <Btn size="sm" onClick={() => run(() => advanceWorkOrder(w.id), `${w.id} ${w.state === 'In progress' ? 'completed' : 'started'}`)}>{w.state === 'In progress' ? 'Complete' : 'Start'}</Btn> : null }]} /></section>}
-      {tab === 'procurement' && <section className="vw-card-section dcim-table"><DataTable rows={data.pos} pageSize={20} defaultSort={{ key: 'd', dir: 'asc' }} cols={[
+      {tab === 'procurement' && <section className="vw-card-section dcim-table"><DataTable rows={[...data.pos].sort(poNow)} pageSize={20} cols={[
         { key: 'id', header: 'PO', render: o => <span className="mono">{o.id}</span> },
         { key: 'i', header: 'Item', wrap: true, render: o => <span className="cell-2"><b>{o.item}</b><small>{o.lines ? `${o.lines.length} line${o.lines.length === 1 ? '' : 's'} · ${o.contract ? `contract ${o.contract}` : 'no supply contract'}` : `${o.qty} × ${fmtMoney(o.unitCost)}`}</small></span> },
         { key: 's', header: 'Supplier', render: o => o.supplier },
@@ -82,11 +83,11 @@ export function ProjectPage() {
         <ol className="pl-steps">{data.tests.map(t => <li key={t.level} className={t.state === 'Passed' ? 'is-approved' : t.state === 'Scheduled' ? 'is-pending' : ''}><span className="pl-step-n">L{t.level}</span><span className="cell-2"><b>{t.name}</b><small>{t.scope} · due {fmtDate(t.due)} · witness {t.witness}{t.snags ? ` · ${t.snags} snags` : ''} · {t.state}</small></span></li>)}</ol>
       </Panel>}
       {tab === 'permits' && <div className="pl-ov">
-        <Panel title="Permits" icon={I.Stamp} count={data.permits.length} flush>{data.permits.length ? <DataTable rows={data.permits} pageSize={10} cols={[
+        <Panel title="Permits" icon={I.Stamp} count={data.permits.length} flush>{data.permits.length ? <DataTable rows={[...data.permits].sort(permitNow)} pageSize={10} cols={[
           { key: 'n', header: 'Permit', wrap: true, render: x => <span className="cell-2"><b>{x.name}</b><small>{x.authority}</small></span> },
           { key: 'd', header: 'Needed by', render: x => <span className="nowrap">{fmtDate(x.due)}</span> },
           { key: 's', header: 'State', render: x => <Chip tone={x.state === 'Granted' ? 'success' : x.state === 'Submitted' ? 'info' : 'warning'} dot>{x.state}</Chip> }]} /> : <p className="vw-label" style={{ padding: 16 }}>No permit needed for this scope.</p>}</Panel>
-        <Panel title="Design documents" icon={I.FileText} count={data.docs.length} flush><DataTable rows={data.docs} pageSize={10} cols={[
+        <Panel title="Design documents" icon={I.FileText} count={data.docs.length} flush><DataTable rows={[...data.docs].sort((a, b) => DOC_RANK[a.state] - DOC_RANK[b.state] || b.updated - a.updated)} pageSize={10} cols={[
           { key: 'k', header: 'Document', render: x => <b>{x.kind}</b> }, { key: 'r', header: 'Rev', render: x => <span className="mono">{x.rev}</span> }, { key: 'a', header: 'Author', render: x => x.author },
           { key: 's', header: 'State', render: x => <Chip tone={x.state === 'In review' ? 'info' : x.state === 'Draft' ? 'neutral' : 'success'} dot>{x.state}</Chip> }]} /></Panel>
       </div>}

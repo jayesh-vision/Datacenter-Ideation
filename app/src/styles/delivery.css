@@ -81,7 +81,8 @@ path.dl-c-ac { fill: none; stroke: var(--vw-color-amber-500); stroke-width: 2.4;
 .dl-pcard-top { display: flex; align-items: center; gap: 10px; } .dl-pcard-top .cell-2 { flex: 1; min-width: 0; } .dl-pcard-top b { font-weight: 500; font-size: 14.5px; }
 .dl-pcard p { margin: 0; font-size: 12.5px; color: var(--ink-600); line-height: 1.45; min-height: 36px; }
 .dl-pcard-bar { height: 8px; } .dl-pcard-bar em { position: absolute; right: 0; top: -18px; font-style: normal; font-size: 11.5px; color: var(--ink-600); }
-.dl-pcard-figs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+/* the count needs little room, the finish date the most (it was cut to "04-Nov-…" at 1280) */
+.dl-pcard-figs { display: grid; grid-template-columns: minmax(0, .7fr) minmax(0, 1fr) minmax(0, 1.3fr); gap: 6px; }
 .dl-pcard-figs > span { display: flex; flex-direction: column; padding: 8px 9px; border-radius: 8px; background: var(--vw-color-slate-50); font-size: 11.5px; color: var(--ink-500); min-width: 0; }
 .dl-pcard-figs b { font-size: 14px; font-weight: 400; color: var(--ink-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dl-pcard-foot { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ink-500); padding-top: 8px; border-top: 1px solid var(--vw-color-slate-100); }

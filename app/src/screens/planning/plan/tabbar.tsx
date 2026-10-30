@@ -37,7 +37,7 @@ export function PlanTabs<T extends string>({ tabs, value, onChange, extra }: { t
   const hidden = tabs.filter(t => !shown.includes(t));
   const btn = (t: TabDef<T>, live = true) => (
     <button key={t.id} data-id={live ? t.id : undefined} role={live ? 'tab' : undefined} aria-selected={live ? value === t.id : undefined} tabIndex={live ? undefined : -1} className={`tab${live && value === t.id ? ' is-active' : ''}`} onClick={live ? () => onChange(t.id) : undefined}>
-      {t.label}{t.count !== undefined && <span className="count">{t.count}</span>}
+      {t.label}
     </button>
   );
   return (
@@ -45,8 +45,8 @@ export function PlanTabs<T extends string>({ tabs, value, onChange, extra }: { t
     <div className="pn-tabbar" ref={row}>
       <div className="tabs" role="tablist">
         {shown.map(t => btn(t))}
-        {hidden.length > 0 && <Menu align="right" items={hidden.map(t => ({ label: t.count !== undefined ? `${t.label} (${t.count})` : t.label, onClick: () => onChange(t.id) }))}
-          trigger={open => <button type="button" className="tab pn-tab-more" data-more={hidden.map(t => t.id).join(',')} onClick={open} aria-haspopup="menu">More<span className="count">{hidden.length}</span><ChevronDown size={14} /></button>} />}
+        {hidden.length > 0 && <Menu align="right" items={hidden.map(t => ({ label: t.label, onClick: () => onChange(t.id) }))}
+          trigger={open => <button type="button" className="tab pn-tab-more" data-more={hidden.map(t => t.id).join(',')} onClick={open} aria-haspopup="menu">More<ChevronDown size={14} /></button>} />}
       </div>
       <div className="pn-tab-probe-wrap" aria-hidden><div className="pn-tab-probe" ref={probe}>{tabs.map(t => btn(t, false))}</div></div>
     </div>

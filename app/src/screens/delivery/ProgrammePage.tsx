@@ -16,6 +16,7 @@ import { useToast } from '../ops/shared';
 import { NotFound } from '../NotFound';
 import { HEALTH_TONE, STATE_TONE } from './Delivery';
 import { CostCurve, Gantt, NewProjectWizard, PROG_ICON, RAG_LABEL, RAG_TONE } from './parts';
+import { byNow } from './order';
 import '../../styles/dcim.css';
 import '../../styles/planner.css';
 import '../../styles/ipam.css';
@@ -51,7 +52,7 @@ export function ProgrammePage() {
         </>} />
       {P.status === 'On hold' && <p className="note note--warning"><I.Pause size={15} /><span>On hold: no new work orders should start until the programme is reactivated.</span></p>}
       <ProgrammeHero g={g} />
-      <Tabs value={tab} onChange={setTab} tabs={[{ id: 'overview', label: 'Overview' }, { id: 'projects', label: 'Projects', count: g.projects.length }, { id: 'risks', label: 'Risks', count: g.risks.length }, { id: 'materials', label: 'Materials' }, { id: 'changes', label: 'Change orders', count: g.changeOrders.length }, { id: 'history', label: 'History' }]} />
+      <Tabs value={tab} onChange={setTab} tabs={[{ id: 'overview', label: 'Overview' }, { id: 'projects', label: 'Projects' }, { id: 'risks', label: 'Risks' }, { id: 'materials', label: 'Materials' }, { id: 'changes', label: 'Change orders' }, { id: 'history', label: 'History' }]} />
 
       {tab === 'overview' && <div className="dl-dash">
         <Panel className="dl-span-8" title="Phase roadmap" icon={I.GanttChart} info="The projects in their order; hatched = waiting on a gate (a project it depends on is not delivered), amber = long-lead, red = late. Click one to open it.">
@@ -83,7 +84,7 @@ export function ProgrammePage() {
         </Panel>
         <Panel className="dl-span-6" title="Materials" icon={I.Package} info="Purchase orders per project: delivered, in transit, still on order and late.">
           <ul className="dl-mat">{g.materials.map(m => { const t = Math.max(1, m.delivered + m.inTransit + m.open - m.inTransit); const open = m.open - m.inTransit - m.late; return (
-            <li key={m.projectId}><span className="dl-bud2-l"><span>{pname.get(m.projectId)?.replace(/^[A-Z]{2}-DC-\d{3} · /, '')}</span><small>{m.delivered + m.open} orders · {fmtMoney(m.value)}</small></span>
+            <li key={m.projectId}><span className="dl-bud2-l"><span>{pname.get(m.projectId)?.replace(/^[A-Z]{2}-DC-\d{3} · /, '')}</span><small>{m.delivered + m.open} {m.delivered + m.open === 1 ? 'order' : 'orders'} · {fmtMoney(m.value)}</small></span>
               {m.delivered + m.open ? <span className="dl-mat-bar"><i className="is-d" style={{ flex: m.delivered }} /><i className="is-t" style={{ flex: m.inTransit }} /><i className="is-o" style={{ flex: Math.max(0, open) }} /><i className="is-l" style={{ flex: m.late }} /></span> : <span className="vw-label">no orders</span>}
               <em>{t ? `${m.delivered}/${m.delivered + m.open}` : ''}</em></li>); })}</ul>
           <div className="dl-c-legend"><span><i className="dl-sw is-md" />Delivered</span><span><i className="dl-sw is-mt" />In transit</span><span><i className="dl-sw is-mo" />On order</span><span><i className="dl-sw is-f" />Late</span></div>
@@ -92,7 +93,7 @@ export function ProgrammePage() {
           {g.changeOrders.length ? <ul className="ipam-find">{g.changeOrders.slice(0, 5).map(c => <li key={c.id}><button type="button" onClick={() => nav(`/delivery/projects/${c.projectId}?tab=cost`)}><SevDot s={c.state === 'Submitted' ? 'minor' : c.state === 'Rejected' ? 'warning' : 'warning'} /><span className="cell-2"><b>{c.title}</b><small>{c.id} · {c.budgetDelta >= 0 ? '+' : ''}{fmtMoney(c.budgetDelta)} · {c.scheduleDays >= 0 ? '+' : ''}{c.scheduleDays} days · {c.state}</small></span></button></li>)}</ul> : <p className="vw-label">No change orders on this programme.</p>}
         </Panel>
       </div>}
-      {tab === 'projects' && <section className="vw-card-section dcim-table"><DataTable rows={g.projects} pageSize={20} onRow={(p: DeliveryProject) => nav(`/delivery/projects/${p.id}`)} cols={[
+      {tab === 'projects' && <section className="vw-card-section dcim-table"><DataTable rows={[...g.projects].sort(byNow)} pageSize={20} onRow={(p: DeliveryProject) => nav(`/delivery/projects/${p.id}`)} cols={[
         { key: 'n', header: 'Project', wrap: true, render: p => <span className="cell-2"><b>{p.name}</b><small><span className="mono">{p.id}</span>{p.template ? ` · ${p.template}` : ' · from the planner'}</small></span> },
         { key: 'st', header: 'Stage', render: p => <span className="cell-2"><Chip tone={STATE_TONE[p.state]} dot>{p.state}</Chip>{p.waitsOn?.length ? <small>waits on {p.waitsOn.join(', ')}</small> : null}</span> },
         { key: 'h', header: 'Health', render: p => <Chip tone={HEALTH_TONE[p.health]} dot>{p.health}</Chip> },
@@ -149,7 +150,7 @@ function ProgrammeHero({ g }: { g: ProgrammeView }) {
         <em className={done + 0.05 < elapsed ? 'is-bad' : ''}>{Math.round(elapsed * 100)}% of the time used{done + 0.05 < elapsed ? ' · behind' : ' · in step'}</em></div>
       <div className="dl-hero-f"><small>Budget</small><b>{fmtMoney(g.budget)}</b><em>{fmtMoney(g.actual)} spent · {fmtMoney(g.earned)} earned</em></div>
       <div className="dl-hero-f"><small>Forecast finish</small><b>{fmtDate(g.forecastFinish)}</b><em className={slip > 0 ? 'is-bad' : ''}>{slip > 0 ? `${slip} days after the baseline` : 'on the baseline'}</em></div>
-      <div className="dl-hero-f"><small>Open</small><b>{g.openWorkOrders} work orders</b><em>{g.risks.length} risks · {g.changeOrders.filter(x => x.state === 'Submitted').length} change orders waiting</em></div>
+      <div className="dl-hero-f"><small>Open</small><b>{g.openWorkOrders} work order{g.openWorkOrders === 1 ? '' : 's'}</b><em>{g.risks.length} risk{g.risks.length === 1 ? '' : 's'} · {g.changeOrders.filter(x => x.state === 'Submitted').length} change order{g.changeOrders.filter(x => x.state === 'Submitted').length === 1 ? '' : 's'} waiting</em></div>
     </section>
   );
 }

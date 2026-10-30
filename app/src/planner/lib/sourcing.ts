@@ -137,9 +137,12 @@ export function sourceBom(plan: T.PlannerPlan, ev: Evaluation, bom: Bom, ctx: So
   function line0GoLive() { return phases[0]?.goLive ?? plan.targetGoLive; }
 
   const lines: SourcedLine[] = bom.lines.map(raw => {
-    const cat = CATALOGUE[raw.kind];
+    /* a carrier's installation charge or circuit (leased wave, dark fibre lease) is bought from that carrier, never a catalogue line system
+       (29-Oct-2026: Delivery ordered "36 × WaveLogic 5 line system" from Ciena for a 36-month Tata wavelength) */
+    const carrier = raw.kind === 'dci' && /^(Carrier (installation|service)|Dark fibre (installation|lease))/.test(raw.item);
+    const cat = carrier ? undefined : CATALOGUE[raw.kind];
     // Lines come priced from buildBom (materials.priceLine); a bill built elsewhere is priced here the same way.
-    const line: BomItem = raw.priced ? raw : priceLine(plan, raw, pc);
+    const line: BomItem = carrier ? { ...raw, model: undefined, vendorName: raw.manufacturer } : raw.priced ? raw : priceLine(plan, raw, pc);
     const option: CatalogueOption | undefined = cat ? optionOf(line.model) ?? chooseOption(raw.kind, line0GoLive(), ctx.assetModels, ctx.vendors).option : undefined;
     const substituted = line.substituted;
     if (substituted && cat) warnings.push(`${cat.label}: skipped ${substituted}; using ${option?.model ?? line.model}`);
@@ -204,7 +207,8 @@ export function sourceBom(plan: T.PlannerPlan, ev: Evaluation, bom: Bom, ctx: So
   // Purchase orders: one per vendor per phase, under the vendor's supply or framework contract.
   const byKey = new Map<string, VendorOrder>();
   const agreements: NonNullable<SourcedBom['agreements']> = [];
-  for (const l of lines) for (const a of l.allocations.filter(x => x.source === 'procure')) {
+  /* monthly service charges (circuits) are a commitment billed by the carrier, not something ordered */
+  for (const l of lines.filter(x => !x.monthly)) for (const a of l.allocations.filter(x => x.source === 'procure')) {
     if (a.agreement) { agreements.push({ item: l.item, value: Math.round(a.qty * a.unitCost), note: a.note, phaseId: a.phaseId }); continue; }
     const vName = a.vendorName ?? 'To tender'; const key = `${vName}|${a.phaseId ?? ''}`;
     const ph = phases.find(x => x.id === a.phaseId);

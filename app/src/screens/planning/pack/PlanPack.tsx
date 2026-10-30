@@ -171,7 +171,7 @@ export function PlanPack({ plan, ev, template, benchmarks, data, siteName, dcIds
       <div className="pk-nav" role="tablist" aria-label="Plan pack sections">
         {nav.map(n => (
           <button key={n.key} type="button" role="tab" aria-selected={section === n.key} className={`pk-nav-btn${section === n.key ? ' is-active' : ''}${n.family ? ' is-family' : ''}`} onClick={() => setSection(n.key)}>
-            <n.icon size={14} />{n.label}{n.count !== undefined && n.count !== '' && <span className="count">{n.count}</span>}
+            <n.icon size={14} />{n.label}
           </button>
         ))}
       </div>

@@ -16,6 +16,7 @@ import type * as T from '../../planner/p2b/types';
 import { evaluate } from '../../planner/lib/engine';
 import { baselineScenario } from '../../planner/lib/governance';
 import { buildBom } from '../../planner/lib/outputs';
+import { moveReservations, reservationRequests, writeReservations, type Store } from '../../planner/lib/reservations';
 import { plannerDataFromSnapshot } from '../../planner/lib/plannerData';
 
 let store: MockDB | null = null;
@@ -74,7 +75,28 @@ function build(db: Db): MockDB {
   validate(snap, db.now);
   snap.auditEvents = [...snap.auditEvents, ...planAuditTrail(snap.plannerPlans as unknown as T.PlannerPlan[], snap.auditEvents as { id: string }[])];
   out.hydrate(snap);
+  seedHolds(out, db.now);
   return out;
+}
+
+/* A demo plan seeded as Approved / Executing never went through the approval that writes its capacity holds, so Capacity → Reservations
+   showed none (30-Oct-2026 check). Write them now exactly as approval does (Reserved), and commit them for a plan already executing. */
+function seedHolds(out: MockDB, now: number) {
+  const st: Store = {
+    list: e => out.getAll(e, { pageSize: 1_000_000 }).data as Record<string, unknown>[],
+    get: (e, id) => out.getById(e, id), create: (e, r) => { out.create(e, r); }, update: (e, id, patch) => { out.update(e, id, patch); },
+  };
+  const snapNow: Record<string, unknown> = {}; for (const e of out.entities()) snapNow[e] = out.getAllRaw(e);
+  const data = plannerDataFromSnapshot(snapNow);
+  const tpls = out.getAllRaw('plannerTemplates') as unknown as T.PlannerTemplate[], bms = out.getAllRaw('plannerBenchmarks') as unknown as T.PlannerBenchmark[];
+  const scns = out.getAllRaw('plannerScenarios') as unknown as T.PlannerScenario[];
+  for (const p of out.getAllRaw('plannerPlans') as unknown as T.PlannerPlan[]) {
+    if (p.isDeleted || (p.status !== 'Approved' && p.status !== 'Executing')) continue;
+    const ev = evaluate(p, baselineScenario(p) ?? scns.find(x => x.id === (p.approvedScenarioId ?? p.preferredScenarioId)) ?? null, tpls, bms, undefined, data);
+    const approvedAt = p.approvals.filter(a => a.at).map(a => a.at!).sort().slice(-1)[0] ?? new Date(now).toISOString();
+    writeReservations(st, p, reservationRequests(p, ev, data), { customerId: p.customerId, isDeleted: false, createdAt: approvedAt, updatedAt: approvedAt, createdBy: p.ownerName, createdById: 'system' }, p.ownerName);
+    if (p.status === 'Executing') moveReservations(st, p.id, 'Committed', { at: new Date(now).toISOString() });
+  }
 }
 
 /* ------------------------------------------------------------------ approved plans pass every hard rule on OUR estate
@@ -158,6 +180,13 @@ function localize(S: Seed, db: Db) {
   for (const coll of [S.plannerPlans, S.plannerScenarios, S.plannerTemplates, S.programs, S.changeRequests, S.maintenanceWindows, S.permits, S.designDocuments] as unknown[][]) coll.forEach(r => walk(r));
   /* a plan on one of our sites takes that site's type (P2B named a type per demo campus) */
   for (const p of S.plannerPlans as T.PlannerPlan[]) { const dc = S.dataCenters.find(d => d.id === p.dataCenterId); if (dc?.dcTypeKey && p.scope !== 'new-dc' && p.scope !== 'edge') p.dcTypeKey = dc.dcTypeKey; }
+  /* permit authorities as this geography names them (29-Oct-2026: an India hall fit-out was permitted by a US "County fire marshal") */
+  const AUTH: Record<string, [string, string?]> = us
+    ? { 'Regional authority': ['State environmental agency'], 'Distribution operator': ['Electric utility'], 'Transmission operator': ['Transmission operator (ISO / RTO)'] }
+    : { County: ['Chief Electrical Inspector (CEIG)'], 'County fire marshal': ['State fire services (Fire NOC)', 'Fire NOC inspection'], 'Loudoun County': [`${city('ASH')} municipal corporation`],
+        'State environmental agency': ['State pollution control board'], 'Regional authority': ['State pollution control board'], 'Dominion Energy': ['State distribution company'],
+        'Distribution operator': ['State distribution company'], 'Transmission operator': ['State transmission utility'] };
+  for (const p of S.plannerPlans as T.PlannerPlan[]) for (const pm of p.permits ?? []) { const a = AUTH[pm.authority]; if (a) { pm.authority = a[0]; if (a[1]) pm.name = a[1]; } }
 }
 
 /** Move every future date of a plan (go-live, phases, stage windows, permits, waves) out by `days`. */

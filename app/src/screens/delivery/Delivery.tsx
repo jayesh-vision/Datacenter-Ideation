@@ -8,6 +8,7 @@ import { DeliveryOverview } from './Overview';
 import { NewProgrammeModal, NewProjectWizard, PROG_ICON, RAG_LABEL, RAG_TONE } from './parts';
 import '../../styles/delivery.css';
 import type { DeliveryProject, WorkOrder } from '../../api/types';
+import { ACTIVE, byNow, DOC_RANK, permitNow, progNow, testNow, woNow } from './order';
 import { usePage, PageHead, Loading } from '../../shell/page';
 import { SubTabs, subCrumb, subHead } from '../../shell/submenus';
 import { Btn, Chip, Panel } from '../../ui/kit';
@@ -46,7 +47,10 @@ export function Delivery() {
   const pname = useMemo(() => new Map((d?.projects ?? []).map(p => [p.id, p.name])), [d]);
   if (!d || !queue || !progs) return <Loading />;
   const progOf = new Map(progs.flatMap(g => g.programme.projectIds.map(pid => [pid, g.programme] as const)));
-  const ps = d.projects;
+  /* what matters now comes first (30-Oct-2026, user: "the first 5 rows matter most in the demo"): work under way and needing attention,
+     then what starts next, then what is done — every list on this screen opens in that order (a column header still re-sorts) */
+  const ps = [...d.projects].sort(byNow);
+  const live = new Set(ps.filter(p => ACTIVE.includes(p.state)).map(p => p.id));
   const openWo = d.workOrders.filter(w => w.state !== 'Done');
   const waitingApproval = (queue ?? []).filter(p => p.status === 'In review');
   const advance = (w: WorkOrder) => { setBusy(w.id); advanceWorkOrder(w.id).then(st => toast.show(`${w.id} ${st === 'Done' ? 'completed' : 'started'}`, `${w.changeId} ${st === 'Done' ? 'implemented' : 'approved'}; the project's progress updates.`)).catch(e => toast.show('Not started', String(e.message ?? e))).finally(() => setBusy('')); };
@@ -63,7 +67,7 @@ export function Delivery() {
   ];
   const projCols: Col<DeliveryProject>[] = [
     { key: 'n', header: 'Project', sort: p => p.id, wrap: true, render: p => <span className="cell-2"><b>{p.name}</b><small><span className="mono">{p.id}</span> · {p.manager}{progOf.get(p.id) ? ` · ${progOf.get(p.id)!.name}` : ''}</small></span> },
-    { key: 's', header: 'Scope', sort: p => p.scope, render: p => { const Ic = SCOPE_ICON[p.scope]; return <span className="row nowrap" style={{ gap: 6 }}><Ic size={14} className="muted" />{SCOPE_LABEL[p.scope]}</span>; } },
+    { key: 's', header: 'Scope', sort: p => p.scope, wrap: true, render: p => { const Ic = SCOPE_ICON[p.scope]; return <span className="row" style={{ gap: 6, alignItems: 'flex-start' }}><Ic size={14} className="muted" />{SCOPE_LABEL[p.scope]}</span>; } },
     { key: 'dc', header: 'Site', sort: p => p.dcId, render: p => <span className="mono">{p.dcId}</span> },
     { key: 'pr', header: 'Progress', sort: p => p.progress, render: p => <Meter pct={p.progress * 100} width={56} color="var(--primaryColor500)" label={`${Math.round(p.progress * 100)}%`} /> },
     { key: 'b', header: 'Budget', sort: p => p.budget, render: p => <span className="cell-2"><span className="rev-amt">{fmtMoney(p.budget)}</span><small className="nowrap">CPI {p.cpi} · SPI {p.spi}</small></span> },
@@ -84,24 +88,24 @@ export function Delivery() {
       <SubTabs screen="delivery" value={tab} onChange={setTab} tabs={[{ id: 'overview', label: 'Overview' }, { id: 'programmes', label: 'Programmes', count: progs.length }, { id: 'projects', label: 'Projects', count: ps.length }, { id: 'workorders', label: 'Work orders', count: openWo.length }, { id: 'commissioning', label: 'Commissioning' }, { id: 'permits', label: 'Permits', count: d.permits.filter(p => p.state !== 'Granted').length }, { id: 'design', label: 'Design' }, { id: 'todo', label: 'To do' }]} />
 
       {tab === 'overview' && <DeliveryOverview />}
-      {tab === 'programmes' && <div className="dl-progs">{progs.map(g => { const Ic = PROG_ICON[g.programme.type]; const slip = Math.round((g.forecastFinish - g.baselineFinish) / 864e5); return (
+      {tab === 'programmes' && <div className="dl-progs">{[...progs].sort(progNow).map(g => { const Ic = PROG_ICON[g.programme.type]; const slip = Math.round((g.forecastFinish - g.baselineFinish) / 864e5); return (
         <button key={g.programme.id} type="button" className={`dl-pcard is-${g.rag}`} onClick={() => nav(`/delivery/programmes/${g.programme.id}`)}>
-          <span className="dl-pcard-top"><span className="dl-prog-ico"><Ic size={17} /></span><span className="cell-2"><b>{g.programme.name}</b><small>{g.programme.type} · <span className="mono">{g.programme.id}</span>{g.programme.status !== 'Active' ? ` · ${g.programme.status}` : ''}</small></span><Chip tone={RAG_TONE[g.rag]} size="xs" dot>{RAG_LABEL[g.rag]}</Chip></span>
+          <span className="dl-pcard-top"><span className="dl-prog-ico"><Ic size={17} /></span><span className="cell-2"><b>{g.programme.name}</b><small>{g.programme.type} · <span className="mono nowrap">{g.programme.id}</span>{g.programme.status !== 'Active' ? ` · ${g.programme.status}` : ''}</small></span><Chip tone={RAG_TONE[g.rag]} size="xs" dot>{RAG_LABEL[g.rag]}</Chip></span>
           <p>{g.programme.description}</p>
           <span className="dl-pcard-bar"><i style={{ width: `${Math.round(g.completion * 100)}%` }} /><em>{Math.round(g.completion * 100)}%</em></span>
-          <span className="dl-pcard-figs"><span><b>{g.projects.length}</b>projects</span><span><b>{fmtMoney(g.budget)}</b>budget</span><span><b className={slip > 0 ? 'is-late' : ''}>{fmtDate(g.forecastFinish)}</b>{slip > 0 ? `${slip} d late` : 'on baseline'}</span></span>
-          <span className="dl-pcard-foot">{g.gates.some(x => x.waitsOn.length) ? <><I.DoorClosed size={13} />{g.gates.filter(x => x.waitsOn.length).length} at a gate</> : <><I.DoorOpen size={13} />all gates open</>} · {g.risks.length} risks · sponsor {g.programme.sponsor}</span>
+          <span className="dl-pcard-figs"><span><b>{g.projects.length}</b>{g.projects.length === 1 ? 'project' : 'projects'}</span><span><b>{fmtMoney(g.budget)}</b>budget</span><span><b className={slip > 0 ? 'is-late' : ''}>{fmtDate(g.forecastFinish)}</b>{slip > 0 ? `${slip} d late` : 'on baseline'}</span></span>
+          <span className="dl-pcard-foot">{g.gates.some(x => x.waitsOn.length) ? <><I.DoorClosed size={13} />{g.gates.filter(x => x.waitsOn.length).length} at a gate</> : <><I.DoorOpen size={13} />all gates open</>} · {g.risks.length} risk{g.risks.length === 1 ? '' : 's'} · sponsor {g.programme.sponsor}</span>
         </button>); })}
         <button type="button" className="dl-pcard is-new" onClick={() => setForm('programme')}><I.FolderPlus size={20} /><b>New programme</b><small>Group projects, or start a greenfield build from the blueprint</small></button>
       </div>}
       {tab === 'projects' && (() => { const rows = ps.filter(p => (!f1 || p.state === f1) && (!f2 || p.health === f2) && has(`${p.id} ${p.name} ${p.dcId} ${p.manager}`, q)); return (
-        <section className="vw-card-section dcim-table"><DataTable rows={rows} cols={projCols} pageSize={30} onRow={p => nav(`/delivery/projects/${p.id}`)} defaultSort={{ key: 'st', dir: 'asc' }}
+        <section className="vw-card-section dcim-table"><DataTable rows={rows} cols={projCols} pageSize={30} onRow={p => nav(`/delivery/projects/${p.id}`)}
           toolbar={listTb(rows.length, ps.length, 'projects', [{ id: 'f1', label: 'Stage', quick: true, value: f1, anyLabel: 'Any stage', onChange: v => set({ f1: v }), options: opts(ps, p => p.state) }, { id: 'f2', label: 'Health', quick: true, value: f2, anyLabel: 'Any health', onChange: v => set({ f2: v }), options: opts(ps, p => p.health) }])} /></section>); })()}
-      {tab === 'workorders' && (() => { const pool = d.workOrders; const rows = pool.filter(w => (f1 ? w.state === f1 : true) && (!f2 || w.kind === f2) && has(`${w.id} ${w.title} ${w.crew} ${w.changeId} ${w.dcId}`, q)); return (
-        <section className="vw-card-section dcim-table"><DataTable rows={rows} cols={woCols} pageSize={30} defaultSort={{ key: 's', dir: 'asc' }}
+      {tab === 'workorders' && (() => { const pool = d.workOrders; const rows = pool.filter(w => (f1 ? w.state === f1 : true) && (!f2 || w.kind === f2) && has(`${w.id} ${w.title} ${w.crew} ${w.changeId} ${w.dcId}`, q)).sort(woNow); return (
+        <section className="vw-card-section dcim-table"><DataTable rows={rows} cols={woCols} pageSize={30}
           toolbar={listTb(rows.length, pool.length, 'work orders', [{ id: 'f1', label: 'Status', quick: true, value: f1, anyLabel: 'Any status', onChange: v => set({ f1: v }), options: opts(pool, w => w.state) }, { id: 'f2', label: 'Kind', quick: true, value: f2, anyLabel: 'Any kind', onChange: v => set({ f2: v }), options: opts(pool, w => w.kind) }])} /></section>); })()}
-      {tab === 'commissioning' && (() => { const rows = d.tests.map(t => ({ ...t, id: `${t.projectId}:${t.level}` })).filter(t => (!f1 || t.state === f1) && has(`${t.projectName} ${t.name} ${t.dcId}`, q)); return (
-        <section className="vw-card-section dcim-table"><DataTable rows={rows} pageSize={30} defaultSort={{ key: 'd', dir: 'asc' }} onRow={t => nav(`/delivery/projects/${t.projectId}?tab=commissioning`)}
+      {tab === 'commissioning' && (() => { const rows = d.tests.map(t => ({ ...t, id: `${t.projectId}:${t.level}` })).filter(t => (!f1 || t.state === f1) && has(`${t.projectName} ${t.name} ${t.dcId}`, q)).sort(testNow); return (
+        <section className="vw-card-section dcim-table"><DataTable rows={rows} pageSize={30} onRow={t => nav(`/delivery/projects/${t.projectId}?tab=commissioning`)}
           toolbar={listTb(rows.length, d.tests.length, 'tests', [{ id: 'f1', label: 'Result', quick: true, value: f1, anyLabel: 'Any result', onChange: v => set({ f1: v }), options: opts(d.tests, t => t.state) }])} cols={[
           { key: 'l', header: 'Level', sort: t => t.level, render: t => <Chip tone="neutral" size="xs">L{t.level}</Chip> },
           { key: 'n', header: 'Test', wrap: true, render: t => <span className="cell-2"><b>{t.name}</b><small>{t.scope}</small></span> },
@@ -109,16 +113,16 @@ export function Delivery() {
           { key: 'd', header: 'Due', sort: t => t.due, render: t => <span className="nowrap">{fmtDate(t.due)}</span> },
           { key: 'w', header: 'Witness', render: t => t.witness },
           { key: 's', header: 'Result', sort: t => t.state, render: t => <Chip tone={t.state === 'Passed' ? 'success' : t.state === 'Failed' ? 'error' : t.state === 'Scheduled' ? 'info' : 'neutral'} dot>{t.state}</Chip> }]} /></section>); })()}
-      {tab === 'permits' && (() => { const rows = d.permits.filter(p => (!f1 || p.state === f1) && has(`${p.name} ${p.authority} ${p.projectId}`, q)); return (
-        <section className="vw-card-section dcim-table"><DataTable rows={rows} pageSize={30} defaultSort={{ key: 'd', dir: 'asc' }} onRow={p => nav(`/delivery/projects/${p.projectId}?tab=permits`)}
+      {tab === 'permits' && (() => { const rows = d.permits.filter(p => (!f1 || p.state === f1) && has(`${p.name} ${p.authority} ${p.projectId}`, q)).sort(permitNow); return (
+        <section className="vw-card-section dcim-table"><DataTable rows={rows} pageSize={30} onRow={p => nav(`/delivery/projects/${p.projectId}?tab=permits`)}
           toolbar={listTb(rows.length, d.permits.length, 'permits', [{ id: 'f1', label: 'State', quick: true, value: f1, anyLabel: 'Any state', onChange: v => set({ f1: v }), options: opts(d.permits, p => p.state) }])} cols={[
           { key: 'n', header: 'Permit', wrap: true, render: p => <span className="cell-2"><b>{p.name}</b><small>{p.authority}</small></span> },
           { key: 'p', header: 'Project', wrap: true, render: p => pname.get(p.projectId) },
           { key: 'd', header: 'Needed by', sort: p => p.due, render: p => <span className="nowrap">{fmtDate(p.due)}</span> },
           { key: 'o', header: 'Owner', render: p => p.owner },
           { key: 's', header: 'State', sort: p => p.state, render: p => <Chip tone={p.state === 'Granted' ? 'success' : p.state === 'Submitted' ? 'info' : 'warning'} dot>{p.state}</Chip> }]} /></section>); })()}
-      {tab === 'design' && (() => { const rows = d.docs.filter(x => (!f1 || x.state === f1) && has(`${x.title} ${x.kind} ${x.author}`, q)); return (
-        <section className="vw-card-section dcim-table"><DataTable rows={rows} pageSize={30} defaultSort={{ key: 'u', dir: 'desc' }} onRow={x => nav(`/delivery/projects/${x.projectId}?tab=permits`)}
+      {tab === 'design' && (() => { const rows = d.docs.filter(x => (!f1 || x.state === f1) && has(`${x.title} ${x.kind} ${x.author}`, q)).sort((a, b) => (live.has(a.projectId) ? 0 : 1) - (live.has(b.projectId) ? 0 : 1) || DOC_RANK[a.state] - DOC_RANK[b.state] || b.updated - a.updated); return (
+        <section className="vw-card-section dcim-table"><DataTable rows={rows} pageSize={30} onRow={x => nav(`/delivery/projects/${x.projectId}?tab=permits`)}
           toolbar={listTb(rows.length, d.docs.length, 'documents', [{ id: 'f1', label: 'State', quick: true, value: f1, anyLabel: 'Any state', onChange: v => set({ f1: v }), options: opts(d.docs, x => x.state) }])} cols={[
           { key: 't', header: 'Document', wrap: true, render: x => <span className="cell-2"><b>{x.kind}</b><small>{x.title.split(' — ')[1]}</small></span> },
           { key: 'r', header: 'Rev', render: x => <span className="mono">{x.rev}</span> },

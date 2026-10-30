@@ -6,7 +6,7 @@ import type { PlanScope, PlannerPlan } from '../../api/types';
 import type * as T from '../../planner/p2b/types';
 import type { Db } from '../generate';
 import { activeGeo } from '../geo';
-import { p2bStore } from './index';
+import { p2bStore, plannerStoreSerial } from './index';
 import { USD_RATE } from './adapter';
 import { evaluate, type Evaluation } from '../../planner/lib/engine';
 import { buildBom, buildInitiation } from '../../planner/lib/outputs';
@@ -35,9 +35,44 @@ interface Bridged {
 }
 let cacheKey = ''; let cache: Bridged[] = [];
 
+/* Milestones from the plan's schedule, per phase: the orders (long lead, alongside), the field work and the commissioning, ending at the
+   phase's go-live. Names follow the plan family, so Delivery raises the right work orders (install / cut-in / cabling / commissioning). */
+const WK = 7 * 864e5;
+function phaseTasks(p: T.PlannerPlan, ev: Evaluation, approved: number, now: number): { name: string; weeks: number; start: number; end: number; longLead?: boolean }[] {
+  const phases = (p.phases?.length ? p.phases : [{ id: 'P1', name: p.title, goLive: p.targetGoLive }]) as { id: string; name: string; goLive: string }[];
+  const WORK: Partial<Record<T.PlannerScope, [string, string, number]>> = {
+    plant: ['Plant install and cut-ins', 'Commission the plant (L1–L5)', 6], hall: ['Install racks, power and cabling', 'Commission the hall (L1–L5)', 6],
+    pod: ['Install racks, power and cabling', 'Commission the pod (L1–L5)', 5], retrofit: ['Install manifolds, CDUs and cabling', 'Commission the liquid loop (L1–L5)', 5],
+    rack: ['Install the racks and cabling', 'Commission and hand over', 2], network: ['Install line cards and optics at both ends', 'Commission and cut over the paths', 3],
+  };
+  const [work, cx, workWeeks] = WORK[p.scope] ?? ['Install and cable', 'Commission and hand over', 4];
+  const out: { name: string; weeks: number; start: number; end: number; longLead?: boolean }[] = [];
+  let prev = Math.min(approved || now, now);
+  const multi = phases.length > 1;
+  phases.forEach((ph, i) => {
+    const goLive = ms(ph.goLive) || ms(p.targetGoLive);
+    const tag = multi ? ` · ${ph.name}` : '';
+    const eq = ev.schedule.filter(x => x.kind === 'equipment' && (x.phaseId ?? 'P1') === ph.id);
+    if (i === 0) out.push({ name: 'Design and method statements', start: prev, end: Math.max(prev + 2 * WK, Math.min(...eq.map(x => ms(x.orderBy)).filter(Boolean), prev + 4 * WK)), weeks: 0 });
+    if (eq.length) {
+      const s0 = Math.max(prev, Math.min(...eq.map(x => ms(x.orderBy)))), e0 = Math.max(s0 + WK, ...eq.map(x => ms(x.needBy)));
+      /* the items, not the lead-time group they were looked up in ("Carrier wave (regional): Carrier installation · Path 1") */
+      const names = [...new Set(eq.map(x => (x.item.split(': ').pop() ?? x.item).replace(/^\d+ × /, '').replace(/, \d+ × .*$/, '').split(' · ')[0]))];
+      out.push({ name: `Procurement · ${names.slice(0, 3).join(', ')}${names.length > 3 ? ` +${names.length - 3}` : ''}${tag}`, start: s0, end: e0, weeks: 0, longLead: true });
+    }
+    const cxStart = goLive - Math.max(1, Math.round(workWeeks / 2)) * WK;
+    const wStart = Math.max(prev + WK, cxStart - workWeeks * WK);
+    out.push({ name: `${work}${tag}`, start: wStart, end: cxStart, weeks: 0 });
+    out.push({ name: `${cx}${tag}`, start: cxStart, end: goLive, weeks: 0 });
+    prev = cxStart;
+  });
+  return out.filter(t => t.end > t.start).map(t => ({ ...t, weeks: Math.max(1, Math.round((t.end - t.start) / WK)) })).sort((a, b) => a.start - b.start);
+}
+
 export function bridgedPlans(db: Db): Bridged[] {
   const st = p2bStore(db);
-  const key = ['plannerPlans', 'plannerScenarios', 'plannerTemplates', 'plannerBenchmarks', 'boms', 'devices', 'racks', 'vendors', 'contracts', 'assetModels'].map(e => st.version(e)).join('.') + String(db.now);
+  const key = ['plannerPlans', 'plannerScenarios', 'plannerTemplates', 'plannerBenchmarks', 'boms', 'devices', 'racks', 'vendors', 'contracts', 'assetModels'].map(e => st.version(e)).join('.') + String(db.now) + `|${plannerStoreSerial()}`;
+  /* the store serial changes when the persona or geography rebuilds the store: entity versions alone repeat across stores */
   if (key === cacheKey) return cache;
   cacheKey = key;
   const all = st.getAllRaw('plannerPlans') as unknown as T.PlannerPlan[];
@@ -56,8 +91,10 @@ export function bridgedPlans(db: Db): Bridged[] {
     const ev: Evaluation = evaluate(p, baselineScenario(p) ?? scn, tpls, bms, undefined, data);
     const bom = buildBom(p, ev, bms);
     const init = buildInitiation(p, ev, tpls.find(t => t.id === p.templateId), bom);
-    const tasks = init.projects.map(x => ({ name: x.name, start: ms(x.start), end: ms(x.end), weeks: Math.max(1, Math.round((ms(x.end) - ms(x.start)) / (7 * 864e5))), longLead: x.longLead })).filter(t => t.end > t.start).sort((a, b) => a.start - b.start);
-    const capex = bom.lines.filter(l => l.total > 0).map(l => ({ line: `${l.item}${l.spec ? ` · ${l.spec}` : ''}`, amount: fromUsd(l.total), basis: `${l.qty} × ${l.item}` }));
+    const fromInit = init.projects.map(x => ({ name: x.name, start: ms(x.start), end: ms(x.end), weeks: Math.max(1, Math.round((ms(x.end) - ms(x.start)) / (7 * 864e5))), longLead: x.longLead })).filter(t => t.end > t.start).sort((a, b) => a.start - b.start);
+    /* a plan that runs as ONE project gets its milestones from its own schedule (29-Oct-2026: it showed a single milestone and no work orders) */
+    const tasks = fromInit.length > 1 ? fromInit : phaseTasks(p, ev, ms(p.approvals.filter(a => a.at).slice(-1)[0]?.at) || ms(p.createdAt), db.now);
+    const capex = bom.lines.filter(l => l.total > 0 && !l.monthly).map(l => ({ line: `${l.item}${l.spec ? ` · ${l.spec}` : ''}`, amount: fromUsd(l.total), basis: `${l.qty} × ${l.item}` }));
     const approved = p.approvals.filter(a => a.at);
     const s = ev.sizing;
     const plan: PlannerPlan = {
@@ -66,7 +103,7 @@ export function bridgedPlans(db: Db): Bridged[] {
       redundancy: String(ev.params.redundancy?.value ?? 'N+1').startsWith('2N') ? '2N' : 'N+1', tier: (String(ev.params.tier?.value ?? 'Tier III') as PlannerPlan['tier']),
       cooling: /liquid|immersion/.test(String(ev.params.coolingType?.value)) ? 'Liquid-to-chip' : /rear/.test(String(ev.params.coolingType?.value)) ? 'Rear-door' : 'Air',
       plant: p.scope === 'plant' ? (bom.lines.some(l => /UPS/i.test(l.item)) ? 'UPS' : bom.lines.some(l => /generator/i.test(l.item)) ? 'Generator' : 'Cooling') : undefined,
-      target: ms(p.targetGoLive), owner: p.ownerName,
+      target: Math.max(ms(p.targetGoLive), ...(p.phases ?? []).map(ph => ms(ph.goLive))), owner: p.ownerName,
       approvals: approved.map((a, i) => ({ step: i + 1, role: a.role, who: a.person ?? a.role, decision: a.decision === 'Rejected' ? 'Rejected' : 'Approved', at: ms(a.at), comment: a.reason })),
       history: [{ at: ms(p.createdAt), who: p.ownerName, text: `Plan created (${tpls.find(t => t.id === p.templateId)?.name ?? p.scope})` }, ...approved.map(a => ({ at: ms(a.at), who: a.person ?? a.role, text: `${a.step}: ${a.decision}` }))],
       capacityPlanIds: [], createdRacks: [], scenario: scn?.name ?? 'Base case', source: 'Planner',
