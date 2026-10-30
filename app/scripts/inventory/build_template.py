@@ -321,7 +321,7 @@ S['GPU_Clusters'] = ('GpuCluster', 'Only for GPU estates.', [
     ('cooling', 'Y', 'list', 'air_liquid', 'GpuCluster.cooling', ''),
     ('node_count (calc)', 'F', 'formula', '', 'GpuCluster.nodes', 'Calculated from GPU_Nodes.'),
 ])
-S['GPU_Nodes'] = ('GpuNode', 'One row per GPU server; it must also be in Devices with role = GPU.', [
+S['GPU_Nodes'] = ('GpuNode', 'One row per GPU server in service; it must also be in Devices with role = GPU. A GPU host that is racked but not yet commissioned into a cluster (lifecycle Planned / Ready, monitored N) has no row yet.', [
     ('device_id', 'Y', 'ref', 'Devices', 'GpuNode.neId', ''),
     ('cluster_id', 'Y', 'ref', 'GPU_Clusters', 'GpuNode.clusterId', ''),
     ('gpu_model', 'Y', 'list', 'gpu_model', 'GpuNode.model', 'Must match the cluster.'),
@@ -464,8 +464,10 @@ if BACKUP:
         ('order_id', 'id'), ('kind', 'Cross-connect / Remote hands'), ('site_id', 'dcId'), ('customer_id', 'customerId'), ('detail', 'route or task'), ('state', 'state'), ('opened', 'ordered / opened'), ('due_or_minutes', 'due / minutes')]])
     ORDER = list(S.keys())
     META = BACKUP.pop('_meta')[0]
+    SAMPLE = META[3] if len(META) > 3 and META[3] else ''  # a per-datacenter sample names its sites
     rows = {k: [[(D.fromisoformat(v) if isinstance(v, str) and len(v) == 10 and v[4:5] == '-' and v[7:8] == '-' and v[:4].isdigit() else v) for v in r] for r in BACKUP.get(k, [])] for k in ORDER}
 else:
+    SAMPLE = ''
     rows = {k: [] for k in ORDER}
     A = rows
 
@@ -805,8 +807,8 @@ wb = Workbook()
 ws = wb.active; ws.title = 'README'
 ws.sheet_view.showGridLines = False
 lines = [
-    (('DCO · Datacenter data backup · ' + {'network': 'Network operator', 'colocation': 'Colocation', 'cloud': 'Cloud', 'enterprise': 'Enterprise', 'neocloud': 'NeoCloud'}[META[0]] + ' · ' + {'in': 'India', 'us': 'USA'}[META[1]]) if BACKUP else 'DCO · Datacenter inventory import template', 'h1'),
-    *([(f'Backup of the complete mock estate as the tool holds it (data clock {META[2]} UTC). Same layout as the import template, so it can be re-imported as is. Snapshot_* sheets keep the alarms, incidents and changes of that moment for the record; they are not imported.', 'p')] if BACKUP else []),
+    ((('SynapseDC · Sample data for two datacenters · ' if SAMPLE else 'DCO · Datacenter data backup · ') + {'network': 'Network operator', 'colocation': 'Colocation', 'cloud': 'Cloud', 'enterprise': 'Enterprise', 'neocloud': 'NeoCloud'}[META[0]] + ' · ' + {'in': 'India', 'us': 'USA'}[META[1]] + (f' · {SAMPLE}' if SAMPLE else '')) if BACKUP else 'DCO · Datacenter inventory import template', 'h1'),
+    *([(f'A complete, end-to-end export of {SAMPLE} as the platform holds them (data clock {META[2]} UTC): the two sites, their floors, rooms, racks, power and cooling plant, every device with its ports, the cables between them, GPU clusters, the customers served there and their services, plus the physical, safety, lifecycle and maintenance records. Only links whose two ends are in these sites and only customers who buy something there are included. Use it as the worked example for the import template: every sheet is filled exactly the way the customer should fill it for their own datacenters, the Summary sheet shows what the platform will then display. Snapshot_* sheets keep the alarms, incidents and changes of that moment for the record; they are not imported.' if SAMPLE else f'Backup of the complete mock estate as the tool holds it (data clock {META[2]} UTC). Same layout as the import template, so it can be re-imported as is. Snapshot_* sheets keep the alarms, incidents and changes of that moment for the record; they are not imported.', 'p')] if BACKUP else []),
     ('Version 1.0 · 12-Oct-2026 · matches the DCO data model (app/src/api/types.ts)', 'sub'),
     ('', None),
     ('What this workbook is for', 'h2'),
@@ -972,7 +974,7 @@ checks = [
     ('Tenant racks name a tenant and contracted kW', f"=IF(COUNTIFS('Racks'!$J$2:$J${NR},\"tenant\",'Racks'!$K$2:$K${NR},\"\")+COUNTIFS('Racks'!$J$2:$J${NR},\"tenant\",'Racks'!$L$2:$L${NR},\"\")=0,\"OK\",\"FIX: tenant rack missing data\")", 'Colocation power-over-contract is measured against it.'),
     ('Liquid racks name a CDU', f"=IF(COUNTIFS('Racks'!$N$2:$N${NR},\"Y\",'Racks'!$O$2:$O${NR},\"\")=0,\"OK\",\"FIX: liquid rack without CDU\")", 'A CDU fault is traced to the racks it feeds.'),
     ('Rack budget fits site IT capacity', f'=IF(SUMPRODUCT(--({col(2)}{r0 + 5}:{col(1 + NS)}{r0 + 5}>{col(2)}{r0 + 6}:{col(1 + NS)}{r0 + 6}))=0,"OK","CHECK: racks exceed IT capacity")', 'Power and space views compare the two.'),
-    ('GPU nodes = Devices with role GPU', f"=IF(COUNTA('GPU_Nodes'!$A$2:$A${MAXR})=COUNTIF({rng('Devices', 'role')},\"GPU\"),\"OK\",\"FIX: GPU_Nodes and Devices differ\")", 'Each GPU node needs a rack position and a telemetry record.'),
+    ('GPU nodes = GPU devices in service', f"=IF(COUNTA('GPU_Nodes'!$A$2:$A${MAXR})=COUNTIFS({rng('Devices', 'role')},\"GPU\",{rng('Devices', 'monitored')},\"Y\"),\"OK\",\"FIX: GPU_Nodes and Devices differ\")", 'Each GPU node in service needs a rack position and a telemetry record; hosts not yet commissioned into a cluster have none.'),
     ('Every installed device has a power connection', f"=IF(SUMPRODUCT(('Devices'!$O$2:$O${ND}<>\"Planned\")*('Devices'!$A$2:$A${ND}<>\"\")*(COUNTIF({rng('Power_Connections', 'device_id')},'Devices'!$A$2:$A${ND})=0))=0,\"OK\",\"FIX: device without a power cord\")", 'Without it the power path, single-fed devices and UPS / PDU what-ifs cannot be traced.'),
     ('Power cords point at a known PDU', f"=IF(SUMPRODUCT(({rng('Power_Connections', 'pdu_id')}<>\"\")*(COUNTIF({rng('Rack_PDUs', 'pdu_id')},{rng('Power_Connections', 'pdu_id')})=0))=0,\"OK\",\"FIX: unknown pdu_id\")", 'The outlet map and failover check group cords by PDU.'),
     ('Every rack has an A and a B PDU', f"=IF(SUMPRODUCT(('Racks'!$A$2:$A${NR}<>\"\")*((COUNTIFS({rng('Rack_PDUs', 'rack_id')},'Racks'!$A$2:$A${NR},{rng('Rack_PDUs', 'side')},\"A\")=0)+(COUNTIFS({rng('Rack_PDUs', 'rack_id')},'Racks'!$A$2:$A${NR},{rng('Rack_PDUs', 'side')},\"B\")=0)))=0,\"OK\",\"CHECK: rack with one power side\")", 'A cabinet with one side is a single point of failure for everything in it.'),
