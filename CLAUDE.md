@@ -34,7 +34,7 @@ Inter tabular for numbers; colours only via NST tokens (`--vw-color-*`, `--prima
 `.nst-btn`, `.vw-chip`; no secondary left menus inside screens (tabs / pills / cards instead).
 App CSS: `src/styles/app.css` (from FFM), `base.css` (shared DCO classes), plus one css file per screen area.
 
-## QA bar (mandatory before calling anything done)
+## QA bar(mandatory before calling anything done)
 `node .qa/shot.mjs "/route|name" …` → full-page screenshots in `.qa/out/` + text/overflow/console checks.
 Review every screen critically; every control must work; no NaN/undefined; no horizontal overflow at 1280/1440.
 
