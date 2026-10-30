@@ -33,7 +33,7 @@ import { registerPlannerMoney, registerPlannerStore } from '../planner/compat/re
 import { USD_RATE } from './p2b/adapter';
 import { plannerQueue as queue_ } from './p2b/bridge';
 import { p2bStore, plannerStoreSerial as p2bSerial, resetPlanner2, subscribePlanner } from './p2b';
-import { addRisk, advanceWorkOrder, createProgramme, createTemplateProject, decideChangeOrder, deliveryProgramme as deliveryProgramme_, deliveryProgrammes, deliveryProject as deliveryProject_, deliveryProjects, handover as handover_, raiseChangeOrder, receivePo, resetDelivery, runTest as runTest_, setProgrammeStatus, setRiskState, startTemplateProject, sumCurves } from './delivery';
+import { addDesignDoc, addPermit, addRisk, advanceWorkOrder, attachDeliveryFile, docAction, editPermit, permitAction, createProgramme, createTemplateProject, decideChangeOrder, deliveryProgramme as deliveryProgramme_, deliveryProgrammes, deliveryProject as deliveryProject_, deliveryProjects, handover as handover_, raiseChangeOrder, receivePo, resetDelivery, runTest as runTest_, setProgrammeStatus, setRiskState, startTemplateProject, sumCurves } from './delivery';
 import { templateInfo } from './delivery-templates';
 import { assignWorkOrder, claimTask, completeTask, failWorkOrder, instances as wfInstances, kpis as wfKpis, processes as wfProcesses, requestAccess, resetWorkflow, retryInstance, retryWorkOrder, signOffWorkOrder, tasks as wfTasks, tickCheck, workOrderDetail } from './workflow';
 import { approveStep, changeRegister, clearChangeMgmt, resetChangeMgmt, stepsApproved } from './changemgmt';
@@ -1506,6 +1506,12 @@ export function deliveryRaiseCo(pid: string, x: Parameters<typeof raiseChangeOrd
 export function deliveryDecideCo(id: string, d: 'Approved' | 'Rejected', note: string) { decideChangeOrder(db, id, d, note, ME); audit_({ actor: ME, object: id, field: 'change order', prev: 'Submitted', next: d, source: 'Delivery' }); changed(); }
 export function deliveryAddRisk(pid: string, x: Parameters<typeof addRisk>[2]) { const id = addRisk(db, pid, x, ME); audit_({ actor: ME, object: id, field: 'risk', prev: '—', next: x.title, source: 'Delivery' }); changed(); return id; }
 export function deliveryRiskState(id: string, to: 'Open' | 'Mitigating' | 'Closed') { setRiskState(db, id, to, ME); audit_({ actor: ME, object: id, field: 'risk', prev: '—', next: to, source: 'Delivery' }); changed(); }
+export function deliveryPermitAct(id: string, act: Parameters<typeof permitAction>[2], x: Parameters<typeof permitAction>[3] = {}) { const t = permitAction(db, id, act, x, ME); audit_({ actor: ME, object: id, field: 'permit', prev: '—', next: act, source: 'Delivery' }); changed(); return t; }
+export function deliveryEditPermit(id: string, x: Parameters<typeof editPermit>[2]) { editPermit(db, id, x, ME); audit_({ actor: ME, object: id, field: 'permit', prev: 'edited', next: 'updated', source: 'Delivery' }); changed(); }
+export function deliveryAddPermit(pid: string, x: Parameters<typeof addPermit>[2]) { const id = addPermit(db, pid, x, ME); audit_({ actor: ME, object: id, field: 'permit', prev: '—', next: x.name, source: 'Delivery' }); changed(); return id; }
+export function deliveryDocAct(id: string, act: Parameters<typeof docAction>[2], x: Parameters<typeof docAction>[3] = {}) { const t = docAction(db, id, act, x, ME); audit_({ actor: ME, object: id, field: 'design document', prev: '—', next: act, source: 'Delivery' }); changed(); return t; }
+export function deliveryAddDoc(pid: string, x: Parameters<typeof addDesignDoc>[2]) { const id = addDesignDoc(db, pid, x, ME); audit_({ actor: ME, object: id, field: 'design document', prev: '—', next: x.kind, source: 'Delivery' }); changed(); return id; }
+export function deliveryAttach(target: Parameters<typeof attachDeliveryFile>[1], x: Parameters<typeof attachDeliveryFile>[2]) { attachDeliveryFile(db, target, x, ME); audit_({ actor: ME, object: target.id, field: 'file', prev: '—', next: x.name, source: 'Delivery' }); changed(); }
 
 /* ---- Change management (P2B merge, phase 6): one register over operations changes, maintenance and delivery CRs (mock/changemgmt.ts) */
 export const changeMgmt = () => changeRegister(db);

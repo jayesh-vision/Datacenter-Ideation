@@ -351,3 +351,110 @@ path.dl-c-ac { fill: none; stroke: var(--vw-color-amber-500); stroke-width: 2.4;
 .dl-cal2-bar { display: flex; height: 4px; border-radius: 2px; overflow: hidden; background: var(--vw-color-slate-100); min-width: 4px; }
 .dl-cal2-bar i { display: block; } .dl-cal2-bar i.is-s { background: #93C5FD; } .dl-cal2-bar i.is-n { background: #1C81EF; } .dl-cal2-bar i.is-e { background: #F59E0B; }
 .dl-sw.is-s { background: #93C5FD; } .dl-sw.is-n { background: #1C81EF; } .dl-sw.is-e { background: #F59E0B; }
+
+/* Permits, design documents and project documents (30-Oct-2026; screens/delivery/documents.tsx) */
+.dd-proj { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.dd-drawer { display: flex; flex-direction: column; gap: 16px; }
+.dd-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.dd-steps li { position: relative; display: flex; flex-direction: column; gap: 2px; padding-top: 16px; font-size: 12px; color: var(--vw-color-slate-500); }
+.dd-steps li::before { content: ''; position: absolute; top: 5px; left: 10px; right: -4px; height: 2px; background: var(--vw-color-slate-200); }
+.dd-steps li:last-child::before { display: none; }
+.dd-steps li.is-on::before { background: var(--primaryColor300); }
+.dd-steps .dd-dot { position: absolute; top: 0; left: 0; width: 12px; height: 12px; border-radius: 50%; background: var(--vw-color-white); border: 2px solid var(--vw-color-slate-300); }
+.dd-steps li.is-on .dd-dot { background: var(--primaryColor500); border-color: var(--primaryColor500); }
+.dd-steps b { font-weight: 500; color: var(--vw-color-slate-700); }
+.dd-steps small { font-variant-numeric: tabular-nums; min-height: 1em; }
+.dd-note { display: flex; gap: 6px; align-items: flex-start; margin: 0; padding: 8px 10px; border-radius: 6px; background: var(--vw-color-slate-50); color: var(--vw-color-slate-700); font-size: 13px; }
+.dd-form { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--vw-color-slate-200); border-radius: 8px; background: var(--vw-color-slate-50); }
+.dd-form h4, .dd-h { margin: 0; font-size: 13px; font-weight: 600; color: var(--vw-color-slate-800); }
+.dd-h small { font-weight: 400; margin-left: 4px; }
+.dd-files { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--vw-color-slate-200); border-radius: 8px; }
+.dd-files li { display: flex; gap: 10px; align-items: flex-start; padding: 8px 12px; border-top: 1px solid var(--vw-color-slate-100); min-width: 0; }
+.dd-files li:first-child { border-top: 0; }
+.dd-files svg { flex: none; margin-top: 2px; }
+.dd-fname { overflow-wrap: anywhere; font-size: 12.5px; }
+.dd-fcell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dd-fcell small { color: var(--vw-color-slate-500); font-size: 12px; }
+.dd-num { overflow-wrap: anywhere; }
+
+/* File library tiles + document viewer (30-Oct-2026; screens/delivery/viewer.tsx) */
+.dd-fbtn { display: flex; gap: 10px; align-items: center; width: 100%; padding: 0; border: 0; background: transparent; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.dd-files li:hover { background: var(--vw-color-slate-50); }
+.dd-feye { margin-left: auto; color: var(--vw-color-slate-400); flex: none; }
+.dd-lib { display: flex; flex-direction: column; min-width: 0; }
+.dd-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; padding: 16px 14px; }
+.dd-tile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 22px 10px 14px; border-radius: 10px; background: var(--vw-color-slate-50); border: 1.5px solid transparent; cursor: pointer; text-align: center; min-width: 0; transition: border-color .12s, background .12s; }
+.dd-tile:hover { background: var(--vw-color-slate-100); }
+.dd-tile.is-sel, .dd-tile:focus-visible { border-color: var(--primaryColor500); outline: 0; background: var(--vw-color-white); }
+.dd-tile .dd-glyph { margin-bottom: 6px; }
+.dd-tile-name { font-size: 12.5px; font-weight: 500; color: var(--vw-color-slate-800); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.dd-tile small { font-size: 11.5px; color: var(--vw-color-slate-500); font-variant-numeric: tabular-nums; }
+.dv-wrap { position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; background: rgba(15, 23, 42, .72); }
+.dv-head { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: var(--vw-color-white); border-bottom: 1px solid var(--vw-color-slate-200); }
+.dv-title { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.dv-title b { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dv-title small { font-size: 12px; color: var(--vw-color-slate-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dv-count { font-size: 12px; color: var(--vw-color-slate-500); white-space: nowrap; }
+.dv-rec { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--primaryColor600); white-space: nowrap; }
+.dv-body { flex: 1; overflow: auto; display: flex; justify-content: center; align-items: flex-start; padding: 28px 16px 48px; }
+.dv-paper { width: min(820px, 100%); min-height: 900px; background: #fff; border-radius: 4px; box-shadow: 0 8px 30px rgba(0,0,0,.25); padding: 48px 56px 64px; position: relative; color: var(--vw-color-slate-800); font-size: 13.5px; line-height: 1.55; display: flex; flex-direction: column; gap: 12px; }
+.dv-letter { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 14px; border-bottom: 2px solid var(--vw-color-slate-800); }
+.dv-letter div { display: flex; flex-direction: column; }
+.dv-letter b { font-size: 15px; }
+.dv-letter small { font-size: 12px; color: var(--vw-color-slate-500); text-transform: uppercase; letter-spacing: .06em; }
+.dv-stamp { padding: 4px 12px; border: 2px solid; border-radius: 4px; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; transform: rotate(-4deg); }
+.dv-stamp.is-ok { color: var(--vw-color-green-700); } .dv-stamp.is-bad { color: var(--vw-color-red-600); } .dv-stamp.is-info { color: var(--primaryColor600); }
+.dv-h { margin: 6px 0 0; font-size: 20px; font-weight: 600; }
+.dv-paper h4 { margin: 8px 0 0; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--vw-color-slate-600); }
+.dv-paper p { margin: 0; }
+.dv-paper ul { margin: 0; padding-left: 20px; }
+.dv-check { list-style: none; padding-left: 0 !important; } .dv-check li { display: flex; gap: 8px; align-items: center; } .dv-check svg { color: var(--vw-color-green-600); }
+.dv-meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 24px; margin: 4px 0; padding: 12px 14px; background: var(--vw-color-slate-50); border-radius: 6px; }
+.dv-meta div { display: flex; gap: 8px; } .dv-meta dt { width: 110px; flex: none; color: var(--vw-color-slate-500); font-size: 12.5px; } .dv-meta dd { margin: 0; font-weight: 500; overflow-wrap: anywhere; }
+.dv-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.dv-table th { text-align: left; font-weight: 600; padding: 6px 8px; border-bottom: 1.5px solid var(--vw-color-slate-700); }
+.dv-table td { padding: 6px 8px; border-bottom: 1px solid var(--vw-color-slate-200); vertical-align: top; }
+.dv-table tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px solid var(--vw-color-slate-700); }
+.dv-sign { display: flex; gap: 40px; margin-top: 24px; } .dv-sign div { display: flex; flex-direction: column; gap: 4px; min-width: 200px; }
+.dv-sigline { font-family: 'Brush Script MT', 'Segoe Script', cursive; font-size: 19px; color: var(--primaryColor700); border-bottom: 1px solid var(--vw-color-slate-400); padding-bottom: 2px; }
+.dv-sign small { font-size: 11.5px; color: var(--vw-color-slate-500); }
+.dv-foot { position: absolute; left: 56px; right: 56px; bottom: 22px; display: flex; justify-content: space-between; font-size: 11px; color: var(--vw-color-slate-400); border-top: 1px solid var(--vw-color-slate-200); padding-top: 8px; }
+.dv-none { align-items: center; justify-content: center; text-align: center; min-height: 420px; }
+.dv-none h3 { margin: 8px 0 0; font-size: 16px; }
+.dv-sheet { width: min(1100px, 100%); background: #fff; border-radius: 4px; box-shadow: 0 8px 30px rgba(0,0,0,.25); padding: 12px; }
+.dv-sheet.is-cad { background: #10172a; }
+.dv-svg { width: 100%; height: auto; display: block; font-family: Inter, sans-serif; font-size: 11px; }
+.dv-svg text { fill: var(--vw-color-slate-700); }
+.dv-frame { stroke: var(--vw-color-slate-700); stroke-width: 1.5; }
+.dv-ln line, .dv-ln path { stroke: var(--vw-color-slate-600); stroke-width: 1.4; fill: none; }
+.dv-ln .dv-ret { stroke: var(--vw-color-red-400); stroke-dasharray: 5 3; }
+.dv-ln .dv-bus { stroke: var(--vw-color-slate-800); stroke-width: 4; }
+.dv-box { fill: var(--vw-color-white); stroke: var(--vw-color-slate-600); stroke-width: 1.2; }
+.dv-room { fill: none; stroke: var(--vw-color-slate-700); stroke-width: 2; }
+.dv-aisle { fill: var(--vw-color-blue-50); stroke: none; }
+.dv-rack { fill: var(--vw-color-slate-100); stroke: var(--vw-color-slate-500); }
+.dv-rack.is-new { fill: var(--primaryColor100); stroke: var(--primaryColor500); }
+.dv-sm { font-size: 10px; }
+.dv-tb rect { fill: #fff; stroke: var(--vw-color-slate-700); stroke-width: 1.2; } .dv-tb line { stroke: var(--vw-color-slate-700); } .dv-tb text { font-size: 10.5px; } .dv-tb .dv-tb-b { font-weight: 700; font-size: 12px; }
+.dv-water { font-size: 72px; font-weight: 700; fill: var(--vw-color-slate-200) !important; opacity: .7; transform: rotate(-12deg); transform-origin: 500px 330px; }
+.dv-sheet.is-cad .dv-svg text { fill: #cbd5e1; } .dv-sheet.is-cad .dv-ln line, .dv-sheet.is-cad .dv-ln path, .dv-sheet.is-cad .dv-frame { stroke: #7dd3fc; }
+.dv-sheet.is-cad .dv-box, .dv-sheet.is-cad .dv-tb rect, .dv-sheet.is-cad .dv-rack { fill: #10172a; stroke: #7dd3fc; } .dv-sheet.is-cad .dv-aisle { fill: #1e3a5f; }
+.dv-cap { margin: 8px 4px 0; font-size: 12px; color: var(--vw-color-slate-500); }
+.dv-xls { width: min(1100px, 100%); background: #fff; border-radius: 4px; box-shadow: 0 8px 30px rgba(0,0,0,.25); overflow: hidden; }
+.dv-xls-bar { display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--vw-color-green-700); }
+.dv-xls-tab { padding: 3px 12px; border-radius: 4px; font-size: 12px; color: #fff; opacity: .75; } .dv-xls-tab.is-on { background: #fff; color: var(--vw-color-green-800); opacity: 1; font-weight: 600; }
+.dv-xls-bar small { margin-left: auto; color: #e2f5e9 !important; font-size: 12px; }
+.dv-xls-grid { overflow: auto; max-height: calc(var(--vh100) - 200px); }
+.dv-xls-grid table { border-collapse: collapse; font-size: 12.5px; min-width: 100%; }
+.dv-xls-grid th, .dv-xls-grid td { border: 1px solid var(--vw-color-slate-200); padding: 4px 10px; white-space: nowrap; text-align: left; }
+.dv-xls-grid th { background: var(--vw-color-slate-100); font-weight: 500; color: var(--vw-color-slate-500); text-align: center; position: sticky; top: 0; }
+.dv-rn { background: var(--vw-color-slate-100); color: var(--vw-color-slate-500); text-align: center !important; width: 36px; }
+.dv-hd { font-weight: 600; background: var(--vw-color-green-50); }
+.dv-zip ul { list-style: none; padding: 0; } .dv-zip li { display: flex; align-items: center; gap: 10px; padding: 6px 4px; border-bottom: 1px solid var(--vw-color-slate-100); } .dv-zip li small { margin-left: auto; color: var(--vw-color-slate-500); }
+@media print { .dv-head { display: none; } .dv-wrap { position: static; background: none; } }
+/* the Documents tab is three panels, not a page-long list: their toolbars and column headers stay in place
+   (the page-level pin offsets left a gap above the toolbar and slid rows under the header) */
+.dd-proj .dt-toolbar, .dd-proj .dt > .dt-toolbar { position: static !important; }
+.dd-proj .dt-table thead th { position: static !important; }
+.dd-lib > .dt-toolbar { border-bottom: 1px solid var(--vw-color-slate-200); }
+.dd-fname .vw-chip, .dd-fname .chip { margin-left: 8px; vertical-align: 1px; }

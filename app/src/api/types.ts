@@ -734,10 +734,21 @@ export type WoState = 'Planned' | 'Awaiting change' | 'Ready' | 'In progress' | 
 export interface WorkOrder { id: string; projectId: string; dcId: string; title: string; kind: 'Install' | 'Cabling' | 'Electrical' | 'Mechanical' | 'Commissioning' | 'Migration' | 'Civil' | 'Decommission'; crew: string; crewKind: 'Own technicians' | 'Contractor'; start: number; end: number; state: WoState; changeId: string; changeState: 'Draft' | 'Pending approval' | 'Approved' | 'Implemented'; rackIds: string[]; kit: 'Ready' | 'Partial' | 'On order' | 'Not ordered' }
 export interface PurchaseOrder { id: string; projectId: string; supplier: string; item: string; qty: number; unitCost: number; total: number; ordered: number; due: number; state: 'Draft' | 'Ordered' | 'In transit' | 'Delivered' | 'Late'; leadWeeks: number; /** sourced orders: the vendor's contract and the order lines */ contract?: string; lines?: { item: string; qty: number }[] }
 export interface CxTest { level: 1 | 2 | 3 | 4 | 5; name: string; scope: string; due: number; state: 'Passed' | 'Failed' | 'Scheduled' | 'Not started'; witness: string; snags: number }
-export interface Permit { id: string; projectId: string; name: string; authority: string; submitted?: number; due: number; state: 'Not needed' | 'To submit' | 'Submitted' | 'Granted' | 'Expired'; owner: string }
-export interface DesignDoc { id: string; projectId: string; title: string; kind: 'Design basis' | 'Single-line diagram' | 'Cooling P&ID' | 'Floor layout' | 'Cable schedule' | 'Method statement' | 'As-built'; rev: string; state: 'Draft' | 'In review' | 'Issued for construction' | 'As-built'; updated: number; author: string }
+/* Permits and design documents (30-Oct-2026, after P2B's Permits / Design registers): type, the authority's reference, granted and expiry dates
+   (validity by type), the files on record, notes; Rejected comes only from the user's moves */
+export type PermitType = 'Planning / zoning' | 'Building' | 'Environmental' | 'Electrical' | 'Fire / life safety' | 'Utility connection' | 'Occupancy' | 'Right of way' | 'Decommission';
+export interface DlFile { name: string; kb: number; at: number; by: string; label: string }
+export interface Permit { id: string; projectId: string; name: string; authority: string; submitted?: number; due: number; state: 'Not needed' | 'To submit' | 'Submitted' | 'Granted' | 'Rejected' | 'Expired'; owner: string;
+  type: PermitType; ref?: string; granted?: number; expires?: number; files: DlFile[]; notes?: string; added?: boolean }
+export type DesignDiscipline = 'Architectural' | 'Structural' | 'Electrical' | 'Mechanical' | 'Network' | 'Civil';
+export interface DesignDoc { id: string; projectId: string; title: string; kind: 'Design basis' | 'Single-line diagram' | 'Cooling P&ID' | 'Floor layout' | 'Cable schedule' | 'Method statement' | 'As-built'; rev: string; state: 'Draft' | 'In review' | 'Issued for construction' | 'As-built'; updated: number; author: string;
+  number: string; discipline: DesignDiscipline; reviewer: string; issued?: number; sheets: number; files: DlFile[]; notes?: string; added?: boolean }
+/* the project's document library: every record the project produced (plan pack, orders, method statements, test certificates, approvals,
+   handover) plus files the user attached */
+export type ProjectDocCategory = 'Plan and approval' | 'Contracts and orders' | 'Permits' | 'Design' | 'Method statements and safety' | 'Test and commissioning' | 'Change control' | 'Handover' | 'Other';
+export interface ProjectDocument { id: string; projectId: string; title: string; category: ProjectDocCategory; ref?: string; file: DlFile; to?: string; uploaded?: boolean }
 export interface DeliveryProjectView {
-  project: DeliveryProject; milestones: DeliveryMilestone[]; workOrders: WorkOrder[]; pos: PurchaseOrder[]; tests: CxTest[]; permits: Permit[]; docs: DesignDoc[];
+  project: DeliveryProject; milestones: DeliveryMilestone[]; workOrders: WorkOrder[]; pos: PurchaseOrder[]; tests: CxTest[]; permits: Permit[]; docs: DesignDoc[]; files: ProjectDocument[];
   history: { at: number; who: string; text: string }[]; plan?: PlannerPlan; canHandover: boolean;
   risks: ProjectRisk[]; changeOrders: ChangeOrder[]; costCurve: CostPoint[];
 }

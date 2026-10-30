@@ -167,6 +167,12 @@ export const raiseChangeOrder = (pid: string, x: Parameters<typeof S.deliveryRai
 export const decideChangeOrder = (id: string, d: 'Approved' | 'Rejected', note: string) => mutate(() => S.deliveryDecideCo(id, d, note)); // POST /delivery/change-orders/:id/decision
 export const addProjectRisk = (pid: string, x: Parameters<typeof S.deliveryAddRisk>[1]) => mutate(() => S.deliveryAddRisk(pid, x)); // POST /delivery/projects/:id/risks
 export const setRiskState = (id: string, to: 'Open' | 'Mitigating' | 'Closed') => mutate(() => S.deliveryRiskState(id, to)); // PATCH /delivery/risks/:id
+export const permitAction = (id: string, act: Parameters<typeof S.deliveryPermitAct>[1], x?: Parameters<typeof S.deliveryPermitAct>[2]) => mutate(() => S.deliveryPermitAct(id, act, x)); // POST /delivery/permits/:id/{submit|grant|reject|renew|not-needed}
+export const editPermit = (id: string, x: Parameters<typeof S.deliveryEditPermit>[1]) => mutate(() => S.deliveryEditPermit(id, x)); // PATCH /delivery/permits/:id
+export const addPermit = (pid: string, x: Parameters<typeof S.deliveryAddPermit>[1]) => mutate(() => S.deliveryAddPermit(pid, x)); // POST /delivery/projects/:id/permits
+export const designDocAction = (id: string, act: Parameters<typeof S.deliveryDocAct>[1], x?: Parameters<typeof S.deliveryDocAct>[2]) => mutate(() => S.deliveryDocAct(id, act, x)); // POST /delivery/design-documents/:id/{review|issue|revise}
+export const addDesignDoc = (pid: string, x: Parameters<typeof S.deliveryAddDoc>[1]) => mutate(() => S.deliveryAddDoc(pid, x)); // POST /delivery/projects/:id/design-documents
+export const attachDeliveryFile = (target: Parameters<typeof S.deliveryAttach>[0], x: Parameters<typeof S.deliveryAttach>[1]) => mutate(() => S.deliveryAttach(target, x)); // POST /delivery/{permits|design-documents|projects}/:id/files
 
 /* ---- Security Ops (26-Oct-2026): one security data lake (OTel → OCSF tables in ClickHouse), Sigma rules tagged with MITRE ATT&CK,
    NIST SP 800-61 cases, SSVC-prioritised vulnerabilities, CIS / STIG hardening, IEC 62443 OT zones, physical security, NIST CSF 2.0 posture */

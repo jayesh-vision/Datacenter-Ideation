@@ -17,7 +17,7 @@ export const woNow = (a: WorkOrder, b: WorkOrder) => (WO_RANK[a.state] ?? 3) - (
 const TEST_RANK: Record<CxTest['state'], number> = { Failed: 0, Scheduled: 0, 'Not started': 1, Passed: 2 };
 export const testNow = (a: CxTest, b: CxTest) => TEST_RANK[a.state] - TEST_RANK[b.state] || (a.state === 'Passed' ? b.due - a.due : a.due - b.due);
 /* permits still to get first (filed, then to file, soonest first), granted last */
-const PERMIT_RANK: Record<Permit['state'], number> = { Expired: 0, Submitted: 0, 'To submit': 1, 'Not needed': 3, Granted: 2 };
+const PERMIT_RANK: Record<Permit['state'], number> = { Expired: 0, Rejected: 0, Submitted: 0, 'To submit': 1, 'Not needed': 3, Granted: 2 };
 export const permitNow = (a: Permit, b: Permit) => PERMIT_RANK[a.state] - PERMIT_RANK[b.state] || (a.state === 'Granted' ? b.due - a.due : a.due - b.due);
 export const DOC_RANK: Record<DesignDoc['state'], number> = { 'In review': 0, 'Issued for construction': 1, Draft: 2, 'As-built': 3 };
 

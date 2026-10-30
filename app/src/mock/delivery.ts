@@ -12,7 +12,7 @@
    Delivery is the source of truth for the build (14-Oct-2026): the planner reads these records through compat/delivery/handoff
    (registered at the end of this file) and keeps only its holds and plan-type records. Cost: earned value = budget × progress, actual from a per-project factor, CPI / SPI from those.
    Derived per data version; the user's moves (start / complete a work order, run a test, hand over) live in an overlay. */
-import type { ChangeOrder, CostPoint, CxTest, DeliveryMilestone, DeliveryProject, DeliveryProjectView, DesignDoc, Permit, PlannerPlan, Programme, ProgrammeView, ProjectRisk, PurchaseOrder, RiskCategory, WorkOrder } from '../api/types';
+import type { ChangeOrder, CostPoint, CxTest, DeliveryMilestone, DeliveryProject, DeliveryProjectView, DesignDoc, DlFile, Permit, PermitType, PlannerPlan, ProjectDocument, Programme, ProgrammeView, ProjectRisk, PurchaseOrder, RiskCategory, WorkOrder } from '../api/types';
 import { greenfieldProjects, seedPortfolio, synth, TEMPLATES, type TplProject } from './delivery-templates';
 import type { Db } from './generate';
 import { activeGeo } from './geo';
@@ -43,6 +43,7 @@ import { registerDelivery, type DeliveryRef } from '../planner/compat/delivery/h
 const bridged = (db: Db, p: PlannerPlan) => bridgedPlans(db).find(b => b.plan.id === p.id);
 import { mulberry32, seedOf, between } from '../lib/rng';
 import { DAY } from './seed';
+import { enrichDoc, enrichPermit, nextRev, permitRef, projectLibrary, validTo } from './delivery-docs';
 
 const WEEK = 7 * DAY;
 const clamp = (x: number) => Math.max(0, Math.min(1, x));
@@ -52,9 +53,11 @@ interface Overlay {
   /* 14-Oct-2026: the user's projects and programmes, programme status, dependencies, change orders and risks */
   projects: TplProject[]; programmes: Programme[]; progStatus: Map<string, Programme['status']>; deps: Map<string, Record<string, string[]>>;
   started: Map<string, number>; assign: Map<string, { crewKind: WorkOrder['crewKind']; crew: string }>; cos: Map<string, ChangeOrder[]>; coState: Map<string, Pick<ChangeOrder, 'state' | 'decidedBy' | 'decidedAt' | 'note'>>; risks: Map<string, ProjectRisk[]>; riskState: Map<string, ProjectRisk['state']>; seq: number;
+  /* 30-Oct-2026: permits, design documents and project files the user added or moved */
+  permitAdd: Map<string, Permit[]>; permitPatch: Map<string, Partial<Permit>>; docAdd: Map<string, DesignDoc[]>; docPatch: Map<string, Partial<DesignDoc>>; files: Map<string, ProjectDocument[]>;
 }
-const overlay: Overlay = { po: new Set(), wo: new Map(), tests: new Map(), handed: new Map(), log: new Map(), projects: [], programmes: [], progStatus: new Map(), deps: new Map(), started: new Map(), assign: new Map(), cos: new Map(), coState: new Map(), risks: new Map(), riskState: new Map(), seq: 0 };
-export const resetDelivery = () => { overlay.po.clear(); overlay.wo.clear(); overlay.tests.clear(); overlay.handed.clear(); overlay.log.clear(); overlay.projects.length = 0; overlay.programmes.length = 0; overlay.progStatus.clear(); overlay.deps.clear(); overlay.started.clear(); overlay.assign.clear(); overlay.cos.clear(); overlay.coState.clear(); overlay.risks.clear(); overlay.riskState.clear(); overlay.seq = 0; vCache = null; };
+const overlay: Overlay = { po: new Set(), wo: new Map(), tests: new Map(), handed: new Map(), log: new Map(), projects: [], programmes: [], progStatus: new Map(), deps: new Map(), started: new Map(), assign: new Map(), cos: new Map(), coState: new Map(), risks: new Map(), riskState: new Map(), seq: 0, permitAdd: new Map(), permitPatch: new Map(), docAdd: new Map(), docPatch: new Map(), files: new Map() };
+export const resetDelivery = () => { overlay.po.clear(); overlay.wo.clear(); overlay.tests.clear(); overlay.handed.clear(); overlay.log.clear(); overlay.projects.length = 0; overlay.programmes.length = 0; overlay.progStatus.clear(); overlay.deps.clear(); overlay.started.clear(); overlay.assign.clear(); overlay.cos.clear(); overlay.coState.clear(); overlay.risks.clear(); overlay.riskState.clear(); overlay.seq = 0; overlay.permitAdd.clear(); overlay.permitPatch.clear(); overlay.docAdd.clear(); overlay.docPatch.clear(); overlay.files.clear(); vCache = null; };
 let vCache: { key: string; db: Db; list: DeliveryProjectView[] } | null = null;
 
 const crews = () => (activeGeo().id === 'in'
@@ -297,20 +300,23 @@ function view(db: Db, src: Src): DeliveryProjectView {
   /* the plan's own permit register when it has one (the planner's living list), else the scope's usual permits */
   const register = bridged(db, p)?.source.permits ?? [];
   const PERMIT_STATE: Record<string, Permit['state']> = { Approved: 'Granted', Applied: 'Submitted', 'In review': 'Submitted', Expired: 'Expired', 'Not started': 'To submit' };
-  const permits: Permit[] = register.length
+  const permits0 = register.length
     ? register.map((pm, i) => { const due = new Date(pm.neededBefore).getTime(); const filed = pm.appliedAt ? new Date(pm.appliedAt).getTime() : due - pm.leadWeeks * WEEK; const state: Permit['state'] = delivered ? 'Granted' : PERMIT_STATE[pm.status] ?? 'To submit';
       return { id: `PMT-${pid.slice(4)}-${i + 1}`, projectId: pid, name: pm.name, authority: pm.authority, due, submitted: state === 'Submitted' || state === 'Granted' ? Math.min(filed, now) : undefined, owner: manager, state }; })
     : permitDefs.map(([name, authority, due], i) => ({ id: `PMT-${pid.slice(4)}-${i + 1}`, projectId: pid, name, authority, due, submitted: due - 10 * WEEK < now ? due - 10 * WEEK : undefined, owner: manager,
-    state: delivered || due <= now ? 'Granted' : due - 10 * WEEK <= now ? 'Submitted' : 'To submit' }));
+    state: (delivered || due <= now ? 'Granted' : due - 10 * WEEK <= now ? 'Submitted' : 'To submit') as Permit['state'] }));
+  /* type, reference, granted / expiry dates and files (mock/delivery-docs.ts), then what the user added or moved */
+  const permits: Permit[] = [...permits0.map(x => enrichPermit(x, p.dcId, now)), ...(overlay.permitAdd.get(pid) ?? [])].map(x => ({ ...x, ...(overlay.permitPatch.get(x.id) ?? {}) }));
   /* design documents */
   const docKinds: DesignDoc['kind'][] = fam === 'firmware' || fam === 'onboard' ? ['Design basis', 'Method statement'] : fam === 'decom' ? ['Method statement', 'Cable schedule']
     : fam === 'cooling' ? ['Design basis', 'Cooling P&ID', 'Method statement'] : fam === 'design' ? ['Design basis', 'Floor layout', 'Single-line diagram'] : fam === 'civil' ? ['Design basis', 'Floor layout', 'Method statement']
     : fam === 'network' ? ['Design basis', 'Method statement', 'Cable schedule'] : p.scope === 'refresh' ? ['Design basis', 'Method statement', 'Cable schedule'] : p.scope === 'plant-upgrade' ? ['Design basis', 'Single-line diagram', 'Method statement']
     : ['Design basis', 'Single-line diagram', ...(p.cooling !== 'Air' || p.scope === 'new-site' || p.scope === 'new-hall' ? ['Cooling P&ID' as const] : []), 'Floor layout', 'Cable schedule', 'Method statement'];
-  const docs: DesignDoc[] = [...docKinds, ...(delivered ? ['As-built' as const] : [])].map((kind, i) => {
+  const docCtx = { dcId: p.dcId, fam, scope: p.scope, people: ppl, start, now };
+  const docs: DesignDoc[] = [...[...docKinds, ...(delivered ? ['As-built' as const] : [])].map((kind, i) => {
     const issued = start + (i + 2) * WEEK;
-    return { id: `DOC-${pid.slice(4)}-${i + 1}`, projectId: pid, title: `${kind} — ${p.name}`, kind, rev: delivered ? 'C' : issued <= now ? 'B' : 'A', state: kind === 'As-built' ? 'As-built' : issued <= now ? 'Issued for construction' : i < 2 ? 'In review' : 'Draft', updated: Math.min(now, issued), author: ppl[(i + 3) % ppl.length] ?? manager };
-  });
+    return enrichDoc({ id: `DOC-${pid.slice(4)}-${i + 1}`, projectId: pid, title: `${kind} — ${p.name}`, kind, rev: delivered ? 'C' : issued <= now ? 'B' : 'A', state: kind === 'As-built' ? 'As-built' : issued <= now ? 'Issued for construction' : i < 2 ? 'In review' : 'Draft', updated: Math.min(now, issued), author: ppl[(i + 3) % ppl.length] ?? manager }, i, docCtx);
+  }), ...(overlay.docAdd.get(pid) ?? [])].map(x => ({ ...x, ...(overlay.docPatch.get(x.id) ?? {}) }));
   /* progress and cost */
   /* an approved project the build has not started yet has no planned progress (it showed "SPI 0, behind schedule") */
   const planned = p.status === 'Approved' && !delivered ? 0 : clamp((now - start) / Math.max(1, finish - start));
@@ -352,7 +358,8 @@ function view(db: Db, src: Src): DeliveryProjectView {
   for (const d of docs) if (d.state === 'Issued for construction') ev.push({ at: at(d.updated), who: d.author, text: `${d.kind} issued for construction (rev ${d.rev})` });
   for (const x of permits) {
     if (x.submitted) ev.push({ at: at(x.submitted), who: x.owner, text: `${x.name} filed with ${x.authority}` });
-    if (x.state === 'Granted') ev.push({ at: at(x.due - WEEK), who: x.authority, text: `${x.name} granted` });
+    if (x.granted) ev.push({ at: at(x.granted), who: x.authority, text: `${x.name} granted${x.ref ? ` (${x.ref})` : ''}` });
+    if (x.state === 'Expired' && x.expires) ev.push({ at: at(x.expires), who: x.authority, text: `${x.name} expired` });
   }
   for (const w of wos) {
     if (w.state === 'In progress' || w.state === 'Done') ev.push({ at: at(w.start), who: w.crew, text: `${w.id} started: ${w.title} (${w.changeId} approved)` });
@@ -386,7 +393,8 @@ function view(db: Db, src: Src): DeliveryProjectView {
   /* a handed-over project earned and spent its money up to its finish, not up to today */
   const tEnd = delivered ? Math.min(project.finish, now) : now;
   for (const t of ticks.sort((a, b) => a - b)) { const f = clamp((tEnd - t0) > 0 ? (Math.min(t, tEnd) - t0) / (tEnd - t0) : 0); costCurve.push({ t, pv: Math.round(project.budgetApproved * clamp((t - t0) / Math.max(1, project.finish - t0))), ev: t <= now ? Math.round(earned * f) : null, ac: t <= now ? Math.round(actual * f) : null }); }
-  return { project, milestones, workOrders: wos, pos, tests, permits, docs, history, plan: src.template ? undefined : p, canHandover: !delivered && passed && !openWo && p.status === 'Executing', risks, changeOrders: cos, costCurve };
+  const files = projectLibrary({ pid, planId: src.template ? undefined : p.id, template: src.template, name: p.name, manager, now, created: p.created || start, approvedAt, delivered, finish: project.finish, pos, wos, tests, permits, docs, cos, added: overlay.files.get(pid) ?? [] });
+  return { project, milestones, workOrders: wos, pos, tests, permits, docs, files, history, plan: src.template ? undefined : p, canHandover: !delivered && passed && !openWo && p.status === 'Executing', risks, changeOrders: cos, costCurve };
 }
 
 /* ---- the user's moves */
@@ -550,6 +558,74 @@ export function addRisk(db: Db, pid: string, x: { title: string; category: RiskC
 export function setRiskState(db: Db, riskId: string, to: ProjectRisk['state'], who: string) {
   const v = deliveryProjects(db).find(x => x.risks.some(r => r.id === riskId)); if (!v) throw new Error('Unknown risk');
   overlay.riskState.set(riskId, to); log(v.project.id, who, `Risk ${to === 'Closed' ? 'closed' : to === 'Mitigating' ? 'being mitigated' : 'reopened'}: ${v.risks.find(r => r.id === riskId)!.title}`, db.now); bump();
+}
+
+/* ---- permits, design documents and project files (30-Oct-2026, after P2B's registers): the user's moves, kept in the overlay */
+const findPermit = (db: Db, id: string) => { for (const v of deliveryProjects(db)) { const x = v.permits.find(q => q.id === id); if (x) return { v, x }; } throw new Error('Unknown permit'); };
+const findDoc = (db: Db, id: string) => { for (const v of deliveryProjects(db)) { const x = v.docs.find(q => q.id === id); if (x) return { v, x }; } throw new Error('Unknown design document'); };
+const patchPermit = (id: string, patch: Partial<Permit>) => overlay.permitPatch.set(id, { ...(overlay.permitPatch.get(id) ?? {}), ...patch });
+const patchDoc = (id: string, patch: Partial<DesignDoc>) => overlay.docPatch.set(id, { ...(overlay.docPatch.get(id) ?? {}), ...patch });
+export type PermitAct = 'submit' | 'grant' | 'reject' | 'renew' | 'not-needed';
+export function permitAction(db: Db, id: string, act: PermitAct, x: { ref?: string; expires?: number; note?: string }, who: string) {
+  const { v, x: pm } = findPermit(db, id); const now = db.now;
+  const ok: Record<PermitAct, Permit['state'][]> = { submit: ['To submit', 'Rejected'], grant: ['Submitted'], reject: ['Submitted'], renew: ['Granted', 'Expired'], 'not-needed': ['To submit'] };
+  if (!ok[act].includes(pm.state)) throw new Error(`A ${pm.state.toLowerCase()} permit cannot be ${({ submit: 'filed', grant: 'granted', reject: 'refused', renew: 'renewed', 'not-needed': 'marked not needed' } as const)[act]}`);
+  if (act === 'reject' && !x.note?.trim()) throw new Error('Say why the authority refused it');
+  const f = (name: string, label: string, by = who): DlFile => ({ name, kb: 120 + (pm.files.length * 37) % 400, at: now, by, label });
+  const resub = pm.state === 'Rejected' || act === 'renew';
+  const ref = x.ref?.trim() || (act === 'submit' || act === 'renew' ? permitRef(pm.id, pm.type, v.project.dcId, now, resub ? `-R${pm.files.filter(q => q.label === 'Application').length}` : '') : pm.ref);
+  if (act === 'submit' || act === 'renew') patchPermit(id, { state: 'Submitted', submitted: now, ref, granted: undefined, expires: undefined, notes: x.note?.trim() || pm.notes, files: [f(`${ref?.replace(/\//g, '-')}_application.pdf`, act === 'renew' ? 'Renewal application' : 'Application'), ...pm.files] });
+  else if (act === 'grant') { const expires = x.expires ?? validTo(pm.type, now); patchPermit(id, { state: 'Granted', granted: now, ref, expires, notes: x.note?.trim() || pm.notes, files: [f(`${ref?.replace(/\//g, '-')}_approval.pdf`, 'Approval certificate', pm.authority), ...pm.files] }); }
+  else if (act === 'reject') patchPermit(id, { state: 'Rejected', notes: x.note!.trim(), files: [f(`${(ref ?? pm.id).replace(/\//g, '-')}_refusal.pdf`, 'Refusal letter', pm.authority), ...pm.files] });
+  else patchPermit(id, { state: 'Not needed', notes: x.note?.trim() || pm.notes });
+  const text = act === 'submit' ? `${pm.name} ${resub ? 're-filed' : 'filed'} with ${pm.authority} (${ref})` : act === 'grant' ? `${pm.name} granted (${ref})` : act === 'reject' ? `${pm.name} refused by ${pm.authority}: ${x.note!.trim()}` : act === 'renew' ? `${pm.name} renewal filed (${ref})` : `${pm.name} marked not needed`;
+  log(v.project.id, who, text, now); bump(); return text;
+}
+export function editPermit(db: Db, id: string, x: { ref?: string; owner?: string; due?: number; expires?: number; notes?: string }, who: string) {
+  const { v, x: pm } = findPermit(db, id);
+  if (x.expires && pm.granted && x.expires <= pm.granted) throw new Error('The expiry must be after the grant date');
+  patchPermit(id, { ...(x.ref !== undefined ? { ref: x.ref.trim() || undefined } : {}), ...(x.owner ? { owner: x.owner } : {}), ...(x.due ? { due: x.due } : {}), ...(x.expires !== undefined ? { expires: x.expires || undefined } : {}), ...(x.notes !== undefined ? { notes: x.notes.trim() || undefined } : {}) });
+  log(v.project.id, who, `${pm.name} updated`, db.now); bump();
+}
+export function addPermit(db: Db, pid: string, x: { name: string; type: PermitType; authority: string; due: number; owner: string }, who: string) {
+  const v = deliveryProject(db, pid); if (!v) throw new Error('Unknown project');
+  if (!x.name.trim() || !x.authority.trim()) throw new Error('Give the permit a name and its authority');
+  const id = `PMT-${pid.slice(4)}-M${++overlay.seq}`;
+  overlay.permitAdd.set(pid, [...(overlay.permitAdd.get(pid) ?? []), { id, projectId: pid, name: x.name.trim(), type: x.type, authority: x.authority.trim(), due: x.due, owner: x.owner || who, state: 'To submit', files: [], added: true }]);
+  log(pid, who, `Permit added: ${x.name.trim()} (${x.authority.trim()})`, db.now); bump(); return id;
+}
+export type DocAct = 'review' | 'issue' | 'revise';
+export function docAction(db: Db, id: string, act: DocAct, x: { reviewer?: string; note?: string }, who: string) {
+  const { v, x: d } = findDoc(db, id); const now = db.now;
+  const ok: Record<DocAct, DesignDoc['state'][]> = { review: ['Draft'], issue: ['In review'], revise: ['Issued for construction'] };
+  if (!ok[act].includes(d.state)) throw new Error(`A document ${d.state.toLowerCase()} cannot be ${act === 'review' ? 'sent for review' : act === 'issue' ? 'issued' : 'revised'}`);
+  const rev = act === 'review' ? d.rev : nextRev(d.rev);
+  const fl = (label: string): DlFile => ({ name: `${d.number}_R${rev}.${d.kind === 'Cable schedule' ? 'xlsx' : 'pdf'}`, kb: 400 + (d.files.length * 211) % 4000, at: now, by: d.author, label });
+  const files = act === 'review' ? d.files : [fl(`Current revision ${rev}`), ...d.files.map(q => q.label.startsWith('Current revision') ? { ...q, label: q.label.replace('Current', 'Superseded') } : q)];
+  const reviewer = x.reviewer?.trim() || d.reviewer;
+  patchDoc(id, act === 'issue' ? { state: 'Issued for construction', rev, issued: now, updated: now, reviewer, files, notes: x.note?.trim() || d.notes } : act === 'revise' ? { state: 'In review', rev, issued: undefined, updated: now, files, notes: x.note?.trim() || d.notes } : { state: 'In review', updated: now, reviewer, notes: x.note?.trim() || d.notes });
+  const text = act === 'review' ? `${d.kind} ${d.number} sent to ${reviewer} for review` : act === 'issue' ? `${d.kind} issued for construction (rev ${rev}, reviewed by ${reviewer})` : `${d.kind} revision ${rev} opened${x.note ? `: ${x.note}` : ''}`;
+  log(v.project.id, who, text, now); bump(); return text;
+}
+export function addDesignDoc(db: Db, pid: string, x: { kind: DesignDoc['kind']; discipline: DesignDoc['discipline']; title: string; author: string; reviewer: string }, who: string) {
+  const v = deliveryProject(db, pid); if (!v) throw new Error('Unknown project');
+  const n = v.docs.length + 1; const id = `DOC-${pid.slice(4)}-M${++overlay.seq}`;
+  const d = enrichDoc({ id, projectId: pid, title: `${x.title.trim() || x.kind} — ${v.project.name}`, kind: x.kind, discipline: x.discipline, rev: 'A', state: 'Draft', updated: db.now, author: x.author || who, reviewer: x.reviewer || undefined, added: true }, n - 1, { dcId: v.project.dcId, fam: '', scope: v.project.scope, people: activeGeo().people, start: db.now, now: db.now });
+  overlay.docAdd.set(pid, [...(overlay.docAdd.get(pid) ?? []), { ...d, files: d.files.filter(f => f.label.startsWith('Current')) }]);
+  log(pid, who, `Design document added: ${x.kind} ${d.number} (draft, rev A)`, db.now); bump(); return id;
+}
+/** attach a file: to a permit, a design document or the project's library */
+export function attachDeliveryFile(db: Db, target: { kind: 'permit' | 'doc' | 'project'; id: string }, x: { name: string; kb: number; label: string; title?: string; category?: ProjectDocument['category'] }, who: string) {
+  if (!x.name.trim()) throw new Error('Pick a file');
+  const f: DlFile = { name: x.name.trim(), kb: Math.max(1, Math.round(x.kb)), at: db.now, by: who, label: x.label || 'Attachment' };
+  if (target.kind === 'permit') { const { v, x: pm } = findPermit(db, target.id); patchPermit(pm.id, { files: [f, ...pm.files] }); log(v.project.id, who, `${f.name} attached to ${pm.name}`, db.now); }
+  else if (target.kind === 'doc') { const { v, x: d } = findDoc(db, target.id); patchDoc(d.id, { files: [f, ...d.files] }); log(v.project.id, who, `${f.name} attached to ${d.kind} ${d.number}`, db.now); }
+  else {
+    const v = deliveryProject(db, target.id); if (!v) throw new Error('Unknown project');
+    const doc: ProjectDocument = { id: `DOC-${target.id.slice(4)}-U${++overlay.seq}`, projectId: target.id, title: x.title?.trim() || f.name, category: x.category ?? 'Other', file: { ...f, label: x.category ?? 'Other' }, uploaded: true };
+    overlay.files.set(target.id, [...(overlay.files.get(target.id) ?? []), doc]); log(target.id, who, `Document attached: ${doc.title} (${f.name})`, db.now);
+  }
+  bump();
 }
 
 /* sum several projects' cost curves on one grid (programme and portfolio views) */

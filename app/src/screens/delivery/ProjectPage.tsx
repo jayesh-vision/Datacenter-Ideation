@@ -16,7 +16,8 @@ import { useToast } from '../ops/shared';
 import { NotFound } from '../NotFound';
 import { SCOPE_ICON, SCOPE_LABEL } from './scopes';
 import { HEALTH_TONE, STATE_TONE, WO_TONE } from './Delivery';
-import { DOC_RANK, permitNow, poNow, woNow } from './order';
+import { poNow, woNow } from './order';
+import { ProjectDocuments } from './documents';
 import '../../styles/dcim.css';
 import '../../styles/planner.css';
 import '../../styles/ipam.css';
@@ -51,7 +52,7 @@ export function ProjectPage() {
         </>} />
       {p.waitsOn?.length ? <p className="note note--info"><I.DoorClosed size={15} /><span>Waiting at its programme gate: work cannot start until {p.waitsOn.map((w, i) => <span key={w}>{i ? ', ' : ''}<Link className="ent-link" to={`/delivery/projects/${w}`}>{w}</Link></span>)} {p.waitsOn.length === 1 ? 'is' : 'are'} delivered.</span></p> : null}
       <ProjectHero v={data} />
-      <Tabs value={tab} onChange={setTab} tabs={[{ id: 'overview', label: 'Overview' }, { id: 'schedule', label: 'Schedule' }, { id: 'workorders', label: 'Work orders' }, { id: 'procurement', label: 'Purchase orders' }, { id: 'commissioning', label: 'Commissioning' }, { id: 'risks', label: 'Risks' }, { id: 'cost', label: 'Cost' }, { id: 'permits', label: 'Permits & design' }, { id: 'history', label: 'History' }]} />
+      <Tabs value={tab} onChange={setTab} tabs={[{ id: 'overview', label: 'Overview' }, { id: 'schedule', label: 'Schedule' }, { id: 'workorders', label: 'Work orders' }, { id: 'procurement', label: 'Purchase orders' }, { id: 'commissioning', label: 'Commissioning' }, { id: 'risks', label: 'Risks' }, { id: 'cost', label: 'Cost' }, { id: 'permits', label: 'Documents' }, { id: 'history', label: 'History' }]} />
       {tab === 'overview' && <ProjectDashboard v={data} onTab={t => setTab(t as Tab)} run={run} />}
       {tab === 'schedule' && <Schedule v={data} />}
       {tab === 'risks' && <Panel title="Risk register" icon={I.ShieldAlert} count={data.risks.filter(r => r.state !== 'Closed').length} actions={<Btn size="sm" icon={I.Plus} onClick={() => setForm('risk')}>Raise a risk</Btn>}
@@ -82,15 +83,7 @@ export function ProjectPage() {
       {tab === 'commissioning' && <Panel title="Commissioning L1–L5" icon={I.ClipboardCheck} info="Run in order; start-up testing (L3+) needs the installation work orders done. Handover follows a passed L5.">
         <ol className="pl-steps">{data.tests.map(t => <li key={t.level} className={t.state === 'Passed' ? 'is-approved' : t.state === 'Scheduled' ? 'is-pending' : ''}><span className="pl-step-n">L{t.level}</span><span className="cell-2"><b>{t.name}</b><small>{t.scope} · due {fmtDate(t.due)} · witness {t.witness}{t.snags ? ` · ${t.snags} snags` : ''} · {t.state}</small></span></li>)}</ol>
       </Panel>}
-      {tab === 'permits' && <div className="pl-ov">
-        <Panel title="Permits" icon={I.Stamp} count={data.permits.length} flush>{data.permits.length ? <DataTable rows={[...data.permits].sort(permitNow)} pageSize={10} cols={[
-          { key: 'n', header: 'Permit', wrap: true, render: x => <span className="cell-2"><b>{x.name}</b><small>{x.authority}</small></span> },
-          { key: 'd', header: 'Needed by', render: x => <span className="nowrap">{fmtDate(x.due)}</span> },
-          { key: 's', header: 'State', render: x => <Chip tone={x.state === 'Granted' ? 'success' : x.state === 'Submitted' ? 'info' : 'warning'} dot>{x.state}</Chip> }]} /> : <p className="vw-label" style={{ padding: 16 }}>No permit needed for this scope.</p>}</Panel>
-        <Panel title="Design documents" icon={I.FileText} count={data.docs.length} flush><DataTable rows={[...data.docs].sort((a, b) => DOC_RANK[a.state] - DOC_RANK[b.state] || b.updated - a.updated)} pageSize={10} cols={[
-          { key: 'k', header: 'Document', render: x => <b>{x.kind}</b> }, { key: 'r', header: 'Rev', render: x => <span className="mono">{x.rev}</span> }, { key: 'a', header: 'Author', render: x => x.author },
-          { key: 's', header: 'State', render: x => <Chip tone={x.state === 'In review' ? 'info' : x.state === 'Draft' ? 'neutral' : 'success'} dot>{x.state}</Chip> }]} /></Panel>
-      </div>}
+      {tab === 'permits' && <ProjectDocuments project={p} permits={data.permits} docs={data.docs} files={data.files} view={data} toast={toast.show} />}
       {tab === 'history' && <Panel title="History" icon={I.History}><ul className="pl-hist">{[...data.history].reverse().map((h, i) => <li key={i}><small>{fmtDate(h.at)}</small><span><b>{h.who}</b> — {h.text}</span></li>)}</ul></Panel>}
       <ChangeOrderModal open={form === 'co'} pid={p.id} budget={p.budgetApproved} onClose={() => setForm(null)} onDone={t => { setForm(null); toast.show(t, 'It waits for its approver on the Cost tab.'); }} />
       <RiskModal open={form === 'risk'} pid={p.id} onClose={() => setForm(null)} onDone={t => { setForm(null); toast.show(t); }} />
