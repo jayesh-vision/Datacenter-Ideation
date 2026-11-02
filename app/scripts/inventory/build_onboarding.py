@@ -1,11 +1,12 @@
-"""SynapseDC customer onboarding template (colocation): the minimum a customer must send to onboard a datacenter.
+"""SynapseDC customer onboarding template (colocation or NeoCloud): the minimum a customer must send to onboard a datacenter.
 Nine data sheets instead of the full import template's 35: everything the platform discovers itself (ports, links, optics, modules,
 live readings) or takes from integrations later (BMS points, sensors, access control, ITSM, warranty) is left out.
 
 usage (from app/):
   npx tsx scripts/inventory/export_backup.ts colocation in /tmp/colo.json MH-DC-001,MH-DC-002
   python scripts/inventory/build_onboarding.py out.xlsx /tmp/colo.json      (needs openpyxl)
-Without the json the sheets are empty (blank template)."""
+  NeoCloud: export neocloud instead; the workbook then has no tenant columns and adds GPU_Clusters + GPU_Nodes.
+Without the json the sheets are empty (blank template; a 3rd argument `neocloud` picks that variant)."""
 import sys, json, datetime as D
 from collections import Counter, defaultdict
 from openpyxl import Workbook
@@ -16,6 +17,8 @@ from openpyxl.utils import get_column_letter as col
 
 OUT = sys.argv[1]
 SRC = json.load(open(sys.argv[2])) if len(sys.argv) > 2 else None
+PERSONA = SRC['_meta'][0][0] if SRC else (sys.argv[3] if len(sys.argv) > 3 else 'colocation')
+NEO = PERSONA == 'neocloud'
 MAXR = 3000
 NAVY, BLUE, GREY, AMBER, GREEN = '1F3A5F', '2B6CB0', '5B6B80', 'B7791F', '2F855A'
 F = lambda c: PatternFill('solid', fgColor=c)
@@ -146,52 +149,130 @@ SHEETS = {
  ]),
 }
 ORDER = list(SHEETS)
+if NEO:
+    LOOK.update({
+        'cabinet_purpose': ['GPU pod', 'Compute', 'Storage', 'Core network', 'Access network', 'Network', 'ODF / patching'],
+        'device_role': ['GPU server', 'Server', 'Storage', 'Switch', 'Router', 'Firewall', 'Console server'],
+        'segment': ['AI lab', 'SaaS', 'Fintech', 'Healthcare', 'Pharma', 'Automotive', 'Media', 'Retail', 'Education', 'Government', 'Enterprise', 'Other'],
+        'service_type': ['Reserved cluster', 'On-demand GPUs', 'Storage volume', 'CPU instances'],
+        'service_unit': ['GPU', 'TB', 'vCPU'],
+        'gpu_model': ['B200 SXM 192 GB', 'H200 SXM 141 GB', 'H100 SXM 80 GB', 'A100 SXM 80 GB', 'L40S PCIe 48 GB', 'T4 PCIe 16 GB', 'Gaudi 3 OAM 128 GB', 'Max 1550 OAM 128 GB'],
+        'gpu_vendor': ['NVIDIA', 'Intel'],
+        'scheduler': ['Kubernetes', 'Slurm'],
+        'fabric_type': ['InfiniBand NDR 400G', 'InfiniBand HDR 200G', 'InfiniBand XDR 800G', 'Ethernet RoCE 400G', 'Ethernet RoCE 100G'],
+        'gpu_cooling': ['Air', 'Liquid'],
+    })
+    desc, cols = SHEETS['Cabinets']
+    SHEETS['Cabinets'] = ('Every cabinet / rack: GPU pods, storage, compute, network and patching.', [c for c in cols if c[0] not in ('owner', 'customer_id', 'contracted_kw', 'tenant_u_used')])
+    desc, cols = SHEETS['Devices']
+    cols = list(cols); cols.insert(11, ('in_service', 'R', 'list', 'yn', 'Y = handed over to operations and monitored. N = racked but still in burn-in / not yet commissioned (no GPU_Nodes row yet).', 'OpsState in-service / unmonitored'))
+    SHEETS['Devices'] = ('All your racked equipment: GPU servers, CPU servers, storage, switches, routers, firewalls. Ports, links, optics, GPUs inside a server and modules are discovered once monitoring is connected.', cols)
+    SHEETS['GPU_Clusters'] = ('One row per GPU cluster (pod): one GPU model, one scheduler, one scale-out fabric.', [
+        ('cluster_id', 'R', 'text', '', 'Unique code, e.g. MH-DC-001-POD-1.', 'GpuCluster.id'),
+        ('site_id', 'R', 'ref', 'Sites', '', 'GpuCluster.dcId'),
+        ('room_id', 'R', 'ref', 'Rooms', 'Hall the cluster stands in.', 'GpuCluster.room'),
+        ('cluster_name', 'R', 'text', '', 'Name your teams use, e.g. AI-POD-1.', 'GpuCluster.name'),
+        ('gpu_model', 'R', 'list', 'gpu_model', 'One model per cluster.', 'GpuCluster.model'),
+        ('gpu_vendor', 'R', 'list', 'gpu_vendor', 'Decides the telemetry source (NVIDIA DCGM, Intel hl-smi / XPU Manager).', 'GpuSpec.vendor'),
+        ('scheduler', 'R', 'list', 'scheduler', 'Where jobs are scheduled.', 'GpuCluster.scheduler'),
+        ('fabric_type', 'R', 'list', 'fabric_type', 'GPU-to-GPU scale-out network between nodes.', 'GpuCluster.fabric'),
+        ('rails_or_ports', 'O', 'integer', '', 'InfiniBand: rails per node (usually 8). Ethernet: fabric ports per node.', 'GpuCluster.fabric'),
+        ('cooling', 'R', 'list', 'gpu_cooling', 'Liquid = direct-to-chip on a CDU (the cabinets then name the CDU).', 'GpuCluster.cooling'),
+    ])
+    SHEETS['GPU_Nodes'] = ('One row per GPU server in service (in_service = Y in Devices), with the cluster it belongs to and the service it is sold under. The GPUs inside are discovered.', [
+        ('device_id', 'R', 'ref', 'Devices', 'The GPU server from Devices (role = GPU server).', 'GpuNode.neId'),
+        ('site_id', 'R', 'ref', 'Sites', 'Same site as its cluster.', 'GpuNode.dcId'),
+        ('cluster_id', 'R', 'ref', 'GPU_Clusters', '', 'GpuNode.clusterId'),
+        ('gpu_count', 'R', 'integer', '', 'GPUs in the server, usually 8.', 'GpuNode.gpus.length'),
+        ('service_id', 'C', 'ref', 'Services', 'Required when the node is sold: the Reserved cluster / On-demand GPUs service it runs. Blank = free capacity or a spare.', 'Service.path (job nodes)'),
+        ('driver_version', 'O', 'text', '', 'GPU driver installed (filled by telemetry if blank).', 'GpuNode.driver'),
+        ('firmware', 'O', 'text', '', 'VBIOS / firmware (filled by telemetry if blank).', 'GpuNode.firmware'),
+    ])
+    SHEETS['Customers'] = ('Every customer renting GPUs, storage or CPU capacity at these sites.', SHEETS['Customers'][1])
+    SHEETS['Services'] = ('Every contracted service: reserved clusters, on-demand GPUs, storage volumes, CPU instances. Revenue impact, SLA credits and GPU occupancy are calculated from these.', [
+        ('service_id', 'R', 'text', '', 'Contract / order line id from billing.', 'Service.id'),
+        ('customer_id', 'R', 'ref', 'Customers', '', 'Service.customerId'),
+        ('site_id', 'R', 'ref', 'Sites', '', 'Service.dcId'),
+        ('service_type', 'R', 'list', 'service_type', 'Reserved cluster = a committed term; On-demand GPUs = billed by use.', 'Service.type'),
+        ('cluster_id', 'C', 'ref', 'GPU_Clusters', 'Required for GPU services. Which nodes run it is set on GPU_Nodes.service_id.', 'Service.path'),
+        ('device_id', 'C', 'ref', 'Devices', 'Required for storage volumes and CPU instances: the storage system or host it is delivered on.', 'Service.neId'),
+        ('quantity', 'R', 'number', '', 'GPU services: GPUs (= the GPUs on its nodes). Storage: TB. CPU: vCPU.', 'Service.qty'),
+        ('unit', 'R', 'list', 'service_unit', 'GPU / TB / vCPU.', 'Service.unit'),
+        ('sla_target_pct', 'R', 'number', '', 'Availability target in the contract, e.g. 99.9.', 'Service.slaTarget'),
+        ('monthly_charge_inr', 'R', 'number', '', 'Monthly recurring charge in ₹ (no currency sign).', 'Service.revenueMonthly'),
+    ])
+    ORDER = ['Sites', 'Rooms', 'Cabinets', 'Power_Plant', 'Rack_PDUs', 'Cooling_Units', 'Devices', 'GPU_Clusters', 'Customers', 'Services', 'GPU_Nodes']
 
 # ------------------------------------------------------------------ sample rows from the export (export_backup.ts column order)
 rows = {k: [] for k in ORDER}
+def put(_sheet, **kw):
+    rows[_sheet].append([kw.get(c[0]) for c in SHEETS[_sheet][1]])
 META = None
 if SRC:
     META = SRC['_meta'][0]
     day = lambda v: D.date.fromisoformat(v) if isinstance(v, str) and len(v) == 10 else v
     STATUS = {'on-air': 'Live', 'in-progress': 'Being built', 'planned': 'Planned'}
-    PURPOSE = {'Core': 'Core network', 'Access': 'Access network'}
+    PURPOSE = {'Core': 'Core network', 'Access': 'Access network', 'GPU': 'GPU pod'}
+    ROLE = {'GPU': 'GPU server'} if NEO else {}
     for s in SRC['Sites']:
         name = s[1] if s[1] != s[0] else f'{s[10]} ({s[0]})'
-        rows['Sites'].append([s[0], name, STATUS.get(s[4], s[4]), s[5], s[8], s[9], s[10], s[11], s[12], day(s[13]), s[14], s[16], s[15]])
+        put('Sites', site_id=s[0], site_name=name, status=STATUS.get(s[4], s[4]), tier=s[5], state=s[8], city=s[9], address=s[10], latitude=s[11], longitude=s[12],
+            commissioned_on=day(s[13]), it_capacity_kw=s[14], cooling_capacity_kw=s[16], design_pue=s[15])
     floor = {f[1]: f for f in SRC['Floors']}
     for r in SRC['Rooms']:
         f = floor[r[1]]
-        rows['Rooms'].append([r[2], r[0], f[2], f[3], r[3], r[4], r[8]])
+        put('Rooms', room_id=r[2], site_id=r[0], floor_name=f[2], floor_level=f[3], room_name=r[3], room_type=r[4], cooling_method=r[8])
     tenantU = Counter()
     for d in SRC['Devices']:
         if d[15] == 'tenant': tenantU[d[11]] += d[13] or 1
     rackOf = {d[0]: d[11] for d in SRC['Devices']}
     for r in SRC['Racks']:
         ten = r[9] == 'tenant'
-        rows['Cabinets'].append([r[0], r[1], r[2], r[3], PURPOSE.get(r[6], r[6]), r[7], r[8], r[9], r[10] if ten else None, r[11] if ten else None, r[13], r[14], tenantU[r[0]] if ten and tenantU[r[0]] else None])
+        put('Cabinets', cabinet_id=r[0], site_id=r[1], room_id=r[2], cabinet_name=r[3], purpose=PURPOSE.get(r[6], r[6]), height_u=r[7], power_budget_kw=r[8], owner=r[9],
+            customer_id=r[10] if ten else None, contracted_kw=r[11] if ten else None, liquid_cooled=r[13], cdu_id=r[14], tenant_u_used=tenantU[r[0]] if ten and tenantU[r[0]] else None)
     for f in SRC['Power_Feeds']:
         if f[2] != 'AC': continue
-        rows['Power_Plant'].append([f[0], f[1], 'Utility feed', f[3], f[5], 'kW', f[6], None, None])
+        put('Power_Plant', asset_id=f[0], site_id=f[1], asset_type='Utility feed', name=f[3], capacity=f[5], capacity_unit='kW', redundancy=f[6])
     for u in SRC['UPS']:
-        rows['Power_Plant'].append([u[0], u[1], 'UPS', u[3], u[7], 'kW', u[8], u[9], None])
+        put('Power_Plant', asset_id=u[0], site_id=u[1], asset_type='UPS', name=u[3], capacity=u[7], capacity_unit='kW', redundancy=u[8], autonomy_min=u[9])
     for g in SRC['Generators']:
-        rows['Power_Plant'].append([g[0], g[1], 'Generator', g[2], g[3], 'kVA', 'N', round(g[5] * 60) if g[5] else None, day(g[6])])
+        put('Power_Plant', asset_id=g[0], site_id=g[1], asset_type='Generator', name=g[2], capacity=g[3], capacity_unit='kVA', redundancy='N', autonomy_min=round(g[5] * 60) if g[5] else None, last_test_on=day(g[6]))
     for p in SRC['DC_Plant']:
-        if p[3] == 'Rectifier': rows['Power_Plant'].append([p[0], p[1], 'Rectifier', p[4], p[8], 'kW', 'N+1', None, None])
-        else: rows['Power_Plant'].append([p[0], p[1], 'Battery bank', p[4], round(p[5] * p[6] / 1000, 1), 'kW', 'N', round(p[9] * 60) if p[9] else None, day(p[10])])
+        if p[3] == 'Rectifier': put('Power_Plant', asset_id=p[0], site_id=p[1], asset_type='Rectifier', name=p[4], capacity=p[8], capacity_unit='kW', redundancy='N+1')
+        else: put('Power_Plant', asset_id=p[0], site_id=p[1], asset_type='Battery bank', name=p[4], capacity=round(p[5] * p[6] / 1000, 1), capacity_unit='kW', redundancy='N', autonomy_min=round(p[9] * 60) if p[9] else None, last_test_on=day(p[10]))
     plantIds = {p[0] for p in rows['Power_Plant']}
     for p in SRC['Rack_PDUs']:
-        up = p[11] if p[11] in plantIds else None
-        rows['Rack_PDUs'].append([p[0], p[2], p[3], p[9], up, p[5]])
+        put('Rack_PDUs', pdu_id=p[0], cabinet_id=p[2], side=p[3], capacity_kw=p[9], fed_from=p[11] if p[11] in plantIds else None, model=p[5])
     for c in SRC['Cooling_Units']:
-        rows['Cooling_Units'].append([c[0], c[1], c[2], c[3], c[4], c[7], c[8]])
+        put('Cooling_Units', unit_id=c[0], site_id=c[1], room_id=c[2], name=c[3], unit_type=c[4], capacity_kw=c[7], supply_setpoint_c=c[8])
     for d in SRC['Devices']:
         if d[15] != 'operator' or d[14] == 'Planned': continue
-        rows['Devices'].append([d[0], d[1], d[2], d[3], d[5].title() if d[5] and d[5].isupper() else d[5], d[6], d[8], d[9], d[11], d[12], d[13], d[7]])
+        put('Devices', device_id=d[0], site_id=d[1], hostname=d[2], role=ROLE.get(d[3], d[3]), vendor=d[5].title() if d[5] and d[5].isupper() else d[5], model=d[6], serial_number=d[8],
+            management_ip=d[9], cabinet_id=d[11], u_position=d[12], u_size=d[13], in_service=d[17], os_version=d[7])
     for c in SRC['Customers']:
-        rows['Customers'].append([c[0], c[1], c[2], c[6], c[7]])
-    for s in SRC['Services']:
-        rows['Services'].append([s[0], s[1], s[3], s[2], rackOf.get(s[4]), s[5], s[8], s[9], s[11], s[12]])
+        put('Customers', customer_id=c[0], customer_name=c[1], segment=c[2], premium=c[6], account_manager=c[7])
+    if NEO:
+        import re
+        for g in SRC['GPU_Clusters']:
+            fab = g[5].split(' · ')[0]; m = re.match(r'Ethernet (\d+G) RoCE', fab)
+            fab = f'Ethernet RoCE {m.group(1)}' if m else fab
+            n = re.search(r'(\d+) (rails|ports)', g[5])
+            put('GPU_Clusters', cluster_id=g[0], site_id=g[1], room_id=g[2], cluster_name=g[3], gpu_model=g[6], gpu_vendor='Intel' if g[6].startswith(('Gaudi', 'Max')) else 'NVIDIA',
+                scheduler=g[4], fabric_type=fab, rails_or_ports=int(n.group(1)) if n else None, cooling=g[7].title())
+        svcOf, clOf = {}, {g[0]: g[1] for g in SRC['GPU_Nodes']}
+        siteOf = {d[0]: d[1] for d in SRC['Devices']}
+        for s in SRC['Services']:
+            for i in (s[7] or '').split(';'):
+                if i: svcOf[i] = s[0]
+        for g in SRC['GPU_Nodes']:
+            put('GPU_Nodes', device_id=g[0], site_id=siteOf[g[0]], cluster_id=g[1], gpu_count=g[4], service_id=svcOf.get(g[0]), driver_version=g[7], firmware=g[8])
+        for s in SRC['Services']:
+            gpu = s[9] == 'GPU'; ids = [i for i in (s[7] or '').split(';') if i]
+            put('Services', service_id=s[0], customer_id=s[1], site_id=s[3], service_type=s[2], cluster_id=clOf[ids[0]] if gpu else None, device_id=None if gpu else s[4],
+                quantity=s[8], unit=s[9], sla_target_pct=s[11], monthly_charge_inr=s[12])
+    else:
+        for s in SRC['Services']:
+            put('Services', service_id=s[0], customer_id=s[1], site_id=s[3], service_type=s[2], cabinet_id=rackOf.get(s[4]), location_detail=s[5], quantity=s[8], unit=s[9], sla_target_pct=s[11], monthly_charge_inr=s[12])
 
 # ------------------------------------------------------------------ workbook
 wb = Workbook()
@@ -272,24 +353,36 @@ summ = lambda sheet, val, extra='': (lambda j: wrap(j, f"SUMIFS({rng(sheet, val)
 measures = [
     ('Rooms', cnt('Rooms')),
     ('Cabinets', cnt('Cabinets')),
-    ('  tenant cabinets', cnt('Cabinets', f",{rng('Cabinets', 'owner')},\"tenant\"")),
+    *([] if NEO else [('  tenant cabinets', cnt('Cabinets', f",{rng('Cabinets', 'owner')},\"tenant\""))]),
     ('  liquid-cooled cabinets', cnt('Cabinets', f",{rng('Cabinets', 'liquid_cooled')},\"Y\"")),
     ('Cabinet power budget (kW)', summ('Cabinets', 'power_budget_kw')),
     ('Site IT capacity (kW)', summ('Sites', 'it_capacity_kw')),
-    ('Contracted tenant power (kW)', summ('Cabinets', 'contracted_kw')),
+    *([] if NEO else [('Contracted tenant power (kW)', summ('Cabinets', 'contracted_kw'))]),
     ('UPS modules', cnt('Power_Plant', f",{rng('Power_Plant', 'asset_type')},\"UPS\"")),
     ('Cooling units', cnt('Cooling_Units')),
     ('Operator devices', cnt('Devices')),
     ('Services', cnt('Services')),
     ('Monthly recurring charge (₹)', summ('Services', 'monthly_charge_inr')),
 ]
+if NEO:
+    measures[2:2] = [('  GPU pod cabinets', cnt('Cabinets', f",{rng('Cabinets', 'purpose')},\"GPU pod\""))]
+    i = [m[0] for m in measures].index('Operator devices')
+    measures[i] = ('Devices', cnt('Devices'))
+    measures[i + 1:i + 1] = [
+        ('  GPU servers in service', cnt('Devices', f",{rng('Devices', 'role')},\"GPU server\",{rng('Devices', 'in_service')},\"Y\"")),
+        ('GPU clusters', cnt('GPU_Clusters')),
+        ('GPU nodes', cnt('GPU_Nodes')),
+        ('GPUs installed', summ('GPU_Nodes', 'gpu_count')),
+        ('GPUs sold (GPU services)', summ('Services', 'quantity', f",{rng('Services', 'unit')},\"GPU\"")),
+    ]
 r0 = 5
 for i, (label, fn) in enumerate(measures):
     r = r0 + i; sm.cell(r, 1, label).border = BOX
     for j in range(NS):
         c = sm.cell(r, 2 + j, fn(j)); c.border = BOX; c.number_format = '#,##0'
     c = sm.cell(r, 2 + NS, f'=SUM({col(2)}{r}:{col(1 + NS)}{r})'); c.border = BOX; c.font = Font(bold=True); c.number_format = '#,##0'
-BUD, CAP = r0 + 4, r0 + 5
+_lab = [m[0] for m in measures]
+BUD, CAP = r0 + _lab.index('Cabinet power budget (kW)'), r0 + _lab.index('Site IT capacity (kW)')
 
 def uniq(sheet, key):
     R = rng(sheet, key)
@@ -310,15 +403,30 @@ checks = [
     ('Power strips sit in a known cabinet', ref('Rack_PDUs', 'cabinet_id', 'Cabinets', 'cabinet_id'), ''),
     ('Power strips are fed from a known UPS / rectifier', ref('Rack_PDUs', 'fed_from', 'Power_Plant', 'asset_id', 'fed_from'), 'The power path from utility to cabinet is traced through it.'),
     ('Every cabinet has an A and a B strip', f"=IF(SUMPRODUCT(({cab('cabinet_id')}<>\"\")*((COUNTIFS({pdu('cabinet_id')},{cab('cabinet_id')},{pdu('side')},\"A\")=0)+(COUNTIFS({pdu('cabinet_id')},{cab('cabinet_id')},{pdu('side')},\"B\")=0)))=0,\"OK\",\"CHECK: cabinet with one power side\")", 'A cabinet on one side only is a single point of failure.'),
-    ('Tenant cabinets name a customer and contracted kW', f"=IF(COUNTIFS({cab('owner')},\"tenant\",{cab('customer_id')},\"\")+COUNTIFS({cab('owner')},\"tenant\",{cab('contracted_kw')},\"\")=0,\"OK\",\"FIX: tenant cabinet missing customer or kW\")", 'Power over contract is measured against it.'),
-    ('Tenant cabinets name a known customer', ref('Cabinets', 'customer_id', 'Customers', 'customer_id', 'customer_id'), ''),
+    *([] if NEO else [('Tenant cabinets name a customer and contracted kW', f"=IF(COUNTIFS({cab('owner')},\"tenant\",{cab('customer_id')},\"\")+COUNTIFS({cab('owner')},\"tenant\",{cab('contracted_kw')},\"\")=0,\"OK\",\"FIX: tenant cabinet missing customer or kW\")", 'Power over contract is measured against it.')]),
+    *([] if NEO else [('Tenant cabinets name a known customer', ref('Cabinets', 'customer_id', 'Customers', 'customer_id', 'customer_id'), '')]),
     ('Liquid cabinets name a known CDU', f"=IF(SUMPRODUCT(({cab('liquid_cooled')}=\"Y\")*(COUNTIF({rng('Cooling_Units', 'unit_id')},{cab('cdu_id')})=0))=0,\"OK\",\"FIX: liquid cabinet without a known CDU\")", 'A CDU fault is traced to the cabinets it cools.'),
     ('Services name a known customer', ref('Services', 'customer_id', 'Customers', 'customer_id'), 'Revenue impact adds up only if every service has a customer.'),
-    ('Services name a known cabinet', ref('Services', 'cabinet_id', 'Cabinets', 'cabinet_id'), 'A fault on the cabinet, its power or cooling is charged to the services in it.'),
+    *([] if NEO else [('Services name a known cabinet', ref('Services', 'cabinet_id', 'Cabinets', 'cabinet_id'), 'A fault on the cabinet, its power or cooling is charged to the services in it.')]),
     ('Every customer has at least one service', f"=IF(SUMPRODUCT(({rng('Customers', 'customer_id')}<>\"\")*(COUNTIF({rng('Services', 'customer_id')},{rng('Customers', 'customer_id')})=0))=0,\"OK\",\"CHECK: customer without a service\")", ''),
     ('Live sites have a commissioning date', f"=IF(COUNTIFS({rng('Sites', 'status')},\"Live\",{rng('Sites', 'commissioned_on')},\"\")=0,\"OK\",\"FIX: Live site without commissioned_on\")", ''),
     ('Cabinet budgets fit the site IT capacity', f'=IF(SUMPRODUCT(({col(2)}{BUD}:{col(1 + NS)}{BUD}<>"")*({col(2)}{BUD}:{col(1 + NS)}{BUD}>{col(2)}{CAP}:{col(1 + NS)}{CAP}))=0,"OK","CHECK: cabinets exceed IT capacity")', 'Capacity views compare the two.'),
 ]
+if NEO:
+    gn, gc, sv = lambda k: rng('GPU_Nodes', k), lambda k: rng('GPU_Clusters', k), lambda k: rng('Services', k)
+    i = [c[0] for c in checks].index('Services name a known customer')
+    checks[i:i] = [
+        ('GPU cluster ids are unique', uniq('GPU_Clusters', 'cluster_id'), ''),
+        ('GPU clusters stand in a known room', ref('GPU_Clusters', 'room_id', 'Rooms', 'room_id'), ''),
+        ('GPU nodes are listed once', uniq('GPU_Nodes', 'device_id'), ''),
+        ('GPU nodes are GPU servers in Devices', f"=IF(SUMPRODUCT(({gn('device_id')}<>\"\")*(COUNTIFS({rng('Devices', 'device_id')},{gn('device_id')},{rng('Devices', 'role')},\"GPU server\")=0))=0,\"OK\",\"FIX: GPU node not a GPU server in Devices\")", 'Its rack, power and cooling path come from the device row.'),
+        ('Every GPU server in service has a GPU_Nodes row', f"=IF(COUNTA('GPU_Nodes'!$A$2:$A${MAXR})=COUNTIFS({rng('Devices', 'role')},\"GPU server\",{rng('Devices', 'in_service')},\"Y\"),\"OK\",\"FIX: GPU_Nodes and in-service GPU servers differ\")", 'GPU telemetry, jobs and occupancy are counted per node.'),
+        ('GPU nodes belong to a known cluster at their site', f"=IF(SUMPRODUCT(({gn('cluster_id')}<>\"\")*(COUNTIFS({gc('cluster_id')},{gn('cluster_id')},{gc('site_id')},{gn('site_id')})=0))=0,\"OK\",\"FIX: node cluster unknown or at another site\")", ''),
+        ('GPU nodes are sold under a known GPU service', f"=IF(SUMPRODUCT(({gn('service_id')}<>\"\")*(COUNTIFS({sv('service_id')},{gn('service_id')},{sv('unit')},\"GPU\")=0))=0,\"OK\",\"FIX: node names an unknown or non-GPU service\")", 'Occupancy = GPUs sold ÷ GPUs available to sell.'),
+        ('GPU services name a known cluster', f"=IF(SUMPRODUCT(({sv('unit')}=\"GPU\")*(COUNTIF({gc('cluster_id')},{sv('cluster_id')})=0))=0,\"OK\",\"FIX: GPU service without a known cluster\")", 'A fault on any node of the cluster is charged to the job it hurts.'),
+        ('GPU service quantity = GPUs on its nodes', f"=IF(SUMPRODUCT(({sv('unit')}=\"GPU\")*({sv('quantity')}<>SUMIFS({gn('gpu_count')},{gn('service_id')},{sv('service_id')})))=0,\"OK\",\"FIX: GPU service quantity differs from its nodes\")", 'Revenue and GPU time lost are computed per node.'),
+        ('Storage / CPU services name a known device', f"=IF(SUMPRODUCT(({sv('service_id')}<>\"\")*({sv('unit')}<>\"GPU\")*(COUNTIF({rng('Devices', 'device_id')},{sv('device_id')})=0))=0,\"OK\",\"FIX: service without a known device\")", ''),
+    ]
 r = r0 + len(measures) + 2
 sm.cell(r, 1, 'Checks before sending').font = Font(size=12, bold=True, color=BLUE)
 r += 1
@@ -335,15 +443,16 @@ sm.column_dimensions[col(3 + NS)].width = 60
 ws.sheet_view.showGridLines = False
 sample = META and META[3]
 L = [
-    ('SynapseDC · Datacenter onboarding template · Colocation · India', 'h1'),
+    (f'SynapseDC · Datacenter onboarding template · {"NeoCloud (GPU cloud)" if NEO else "Colocation"} · India', 'h1'),
     (f'Filled in with two sample datacenters ({sample}) end to end, as a worked example. Replace the sample rows with your own sites (or keep them for reference and delete them before sending).' if sample else 'Blank template.', 'sub'),
     (f'Version 1.0 · {D.date.today().strftime("%d-%b-%Y")}', 'sub'),
     ('', None),
     ('What this workbook is for', 'h2'),
-    ('The minimum SynapseDC needs from you to onboard a colocation datacenter: the sites, their rooms and cabinets, the power and cooling plant, your own equipment, and the customers with the services they buy. With it, every alarm can be placed on the floor plan, traced through the power and cooling path, and turned into the customers, services and revenue it affects.', 'p'),
+    (('The minimum SynapseDC needs from you to onboard a GPU cloud datacenter: the sites, their halls and cabinets, the power and cooling plant, every racked device, the GPU clusters and the GPU servers in them, and the customers with the GPU, storage and CPU services they rent. With it, every alarm can be placed on the floor plan, traced through the power and cooling path to the GPU nodes, and turned into the jobs, customers and revenue it affects; GPU occupancy (sold vs available) is counted from the nodes and services.' if NEO else
+      'The minimum SynapseDC needs from you to onboard a colocation datacenter: the sites, their rooms and cabinets, the power and cooling plant, your own equipment, and the customers with the services they buy. With it, every alarm can be placed on the floor plan, traced through the power and cooling path, and turned into the customers, services and revenue it affects.'), 'p'),
     ('', None),
     ('How to fill it', 'h2'),
-    ('1. Fill the sheets in tab order: a sheet only points at ids from the sheets before it (Sites → Rooms → Cabinets → Power plant → Power strips → Cooling → Devices → Customers → Services).', 'p'),
+    ('1. Fill the sheets in tab order: a sheet only points at ids from the sheets before it (' + ' → '.join(n.replace('_', ' ') for n in ORDER) + ').', 'p'),
     ('2. Row 1 holds the column keys. Do not rename, reorder or delete columns. Hover over a header for what to enter; Field_Guide lists every column with an example.', 'p'),
     ('3. Header colours: dark blue = required · amber = required in some cases (the note says when) · grey = optional.', 'p'),
     ('4. Columns with fixed values have a dropdown. Dates are YYYY-MM-DD. Numbers are plain, without units or currency signs.', 'p'),
@@ -351,14 +460,15 @@ L = [
     ('6. Open the Checks sheet when you finish. The counts per site must match what you expect and every check must say OK.', 'p'),
     ('', None),
     ('What we do NOT ask for, and why', 'h2'),
-    ('Tenant equipment inside leased cabinets: you do not see it, and the platform does not need it.', 'p'),
-    ('Ports, interfaces, links, optics, line cards and firmware: discovered from your equipment once the collector is connected (SNMP / gNMI / LLDP / Redfish).', 'p'),
+    *([('The GPUs inside each server (serials, UUIDs, memory, NVLink / NVSwitch), DCGM / hl-smi telemetry, Xid and ECC events, job and pod details from the scheduler: read from the servers and the scheduler (Kubernetes / Slurm) once connected.', 'p')] if NEO else
+      [('Tenant equipment inside leased cabinets: you do not see it, and the platform does not need it.', 'p')]),
+    ('Ports, interfaces, links' + (' (incl. InfiniBand / RoCE rails)' if NEO else '') + ', optics, line cards and firmware: discovered from your equipment once the collector is connected (SNMP / gNMI / LLDP / Redfish).', 'p'),
     ('Live readings (power draw, UPS load, battery state, temperatures, humidity, CDU flow), alarms and events: they stream in from the BMS, EPMS and devices.', 'p'),
     ('Sensors, BMS points, access-control doors and CCTV: taken from the BMS / access-control integration, captured in the facility integration survey.', 'p'),
     ('Integration endpoints, collector placement and firewall rules: the facility integration survey, one per datacenter, sent separately.', 'p'),
     ('', None),
     ('Useful later (not needed to go live)', 'h2'),
-    ('Fire and leak-detection zones, patch panels and trunk cables, warranty and support contracts, spares, the preventive-maintenance plan and the on-call rota. We will ask for them once the sites are live.', 'p'),
+    ('Fire and leak-detection zones, patch panels and trunk cables, warranty and support contracts, spares, the preventive-maintenance plan and the on-call rota' + (', GPU benchmark / burn-in results and instance pricing tiers' if NEO else '') + '. We will ask for them once the sites are live.', 'p'),
     ('', None),
     ('Sheets', 'h2'),
 ]

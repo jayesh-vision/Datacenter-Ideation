@@ -50,6 +50,8 @@ const DOCS: Doc[] = [
     blurb: 'Every entity from region to cable and how they connect: ontology, full map and containment hierarchy, with fields marked Import, Live or Derived.' },
   { id: 'onboarding', group: 'data', icon: I.ClipboardList, href: '/downloads/synapsedc-onboarding-template-colocation-in.xlsx', download: true, title: 'Onboarding template · Colocation',
     blurb: 'The minimum to ask a colocation customer for: sites, rooms, cabinets, power and cooling plant, their own equipment, customers and services. Nine sheets with dropdowns and import checks, filled with MH-DC-001 and MH-DC-002 end to end as the example.' },
+  { id: 'onboarding-neo', group: 'data', icon: I.Cpu, href: '/downloads/synapsedc-onboarding-template-neocloud-in.xlsx', download: true, title: 'Onboarding template · NeoCloud (GPU)',
+    blurb: 'The minimum to ask a GPU cloud for: the colocation sheets without tenant columns, plus GPU clusters (model, scheduler, fabric) and GPU nodes (cluster, GPU count, the service each node is sold under). Import checks reconcile nodes, devices and GPUs sold; MH-DC-001 and MH-DC-002 filled end to end.' },
   { id: 'template', group: 'data', icon: I.FileSpreadsheet, href: '/downloads/dco-inventory-import-template.xlsx', download: true, title: 'Inventory import template',
     blurb: 'What a customer sends to onboard their datacenters: one sheet per entity, a field dictionary, lookups and summary checks, with two illustrative sites filled in.' },
   { id: 'backup', group: 'data', icon: I.DatabaseBackup, href: '/downloads/dco-data-backup/dco-backup-neocloud-us-2026-10-12.xlsx', download: true, title: 'Estate data backups',
