@@ -721,6 +721,8 @@ export interface PlannerArtefacts {
 export interface PlannerBenchmark {
   /** Bumped on every edit so baselines can say which value they used. */
   version?: number;
+  /** Retired values stay in the library (baselines name the version they used) but the planner no longer reads them. */
+  retiredAt?: string; retiredBy?: string; retireReason?: string;
 }
 // ── Planner · E ──
 // Plant upgrade and network uplift. Optional fields merged into existing interfaces (declaration merging, so the

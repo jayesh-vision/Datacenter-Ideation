@@ -15,6 +15,7 @@ import { completeFromHandover } from '../../planner/lib/closeout';
 import { baselineScenario } from '../../planner/lib/governance';
 import { contextForPlan, sourcingReady, vendorOrderRecords, type VendorOrderRecord } from '../../planner/lib/packModel';
 import { sourceBom, type SourcingContext } from '../../planner/lib/sourcing';
+import { activeBenchmarks } from '../../planner/lib/benchCatalog';
 import type { Store } from '../../planner/lib/reservations';
 import type { MockDB } from './store';
 
@@ -77,7 +78,7 @@ export function bridgedPlans(db: Db): Bridged[] {
   cacheKey = key;
   const all = st.getAllRaw('plannerPlans') as unknown as T.PlannerPlan[];
   const plans = all.filter(p => PAST.includes(p.status) && !p.isDeleted);
-  const tpls = st.getAllRaw('plannerTemplates') as unknown as T.PlannerTemplate[], bms = st.getAllRaw('plannerBenchmarks') as unknown as T.PlannerBenchmark[];
+  const tpls = st.getAllRaw('plannerTemplates') as unknown as T.PlannerTemplate[], bms = activeBenchmarks(st.getAllRaw('plannerBenchmarks') as unknown as T.PlannerBenchmark[]);
   const scns = st.getAllRaw('plannerScenarios') as unknown as T.PlannerScenario[];
   const snap: Record<string, unknown> = {}; for (const e of st.entities()) snap[e] = st.getAllRaw(e);
   const data = plannerDataFromSnapshot(snap);
@@ -140,7 +141,7 @@ export function completeFromDelivery(db: Db, plnId: string, who: string, notes?:
 /** Plans waiting in the planner (in review, or approved but not yet executed), for the Delivery pipeline. */
 export function plannerQueue(db: Db): { id: string; name: string; status: 'In review' | 'Approved'; capex: number; waitingFor?: string; dcId?: string }[] {
   const st = p2bStore(db);
-  const tpls = st.getAllRaw('plannerTemplates') as unknown as T.PlannerTemplate[], bms = st.getAllRaw('plannerBenchmarks') as unknown as T.PlannerBenchmark[];
+  const tpls = st.getAllRaw('plannerTemplates') as unknown as T.PlannerTemplate[], bms = activeBenchmarks(st.getAllRaw('plannerBenchmarks') as unknown as T.PlannerBenchmark[]);
   const scns = st.getAllRaw('plannerScenarios') as unknown as T.PlannerScenario[];
   const snap: Record<string, unknown> = {}; for (const e of st.entities()) snap[e] = st.getAllRaw(e);
   const data = plannerDataFromSnapshot(snap);

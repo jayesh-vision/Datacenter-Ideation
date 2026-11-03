@@ -846,6 +846,16 @@ item, e.g. Commissioning) and the six screens spread it into `PageHead`. Insight
 Planner, IP & Network and DCIM show their analytics strip (StatGrid) on the **Insights** sub-menu only; Plans, IP space etc. open straight on
 the list. Benchmarks has one ListToolbar per view above its panels (search, Reference value / Site type quick filters, Cooling / Tier / Region /
 Confidence in the panel; Rules: Area / Severity) filtering every table and chart of the view (`?metric site cooling tier region conf area sev`).
+Benchmarks CRUD, phase A (03-Nov-2026, user: "Add a value opens the same generic form on every tab … how does a user add cost, efficiency, rules?"):
+each tab has its own add button + drawer (`VIEW_ADD` in `planner/lib/benchCatalog.ts`: Add cost value · Add efficiency value · Add lead time · Add sizing value); the
+measure list is that tab's measures only (from the library, tab's main measure first) and the measure fixes the unit (locked) and category; "applies to" shows only the
+fields the engine matches that measure on (`MEASURE_DIMS`: capex/itCapex → site type, PUE → cooling + climate, staff → tier, tariff → region, design temps → climate,
+floor loading → cooling; others = one value for every plan); new items only where the engine reads them (`OPEN_FAMILIES`: leadWeeks:<item>). One active value per
+measure + case (`caseKey` / `duplicateOf`; `saveBenchmark` refuses, the drawer shows "Open that value"); low ≤ typical ≤ high. Values are retired, never deleted
+(`retiredAt/By/Reason`, `retireBenchmark` / `restoreBenchmark`; `useBenchmarks()` and the bridge read active values only, `useBenchmarkLibrary()` everything; Filters →
+Status → Retired), Duplicate for another case, History from the audit log (`useBenchmarkAudit`). Seed has one duplicate case (liquidThresholdKw ×2, same value): the drawer
+flags it. Rules are still read-only (phase B: configure limit / severity / templates; phase C: impact preview, approval of confirmed values, CSV import / export).
+Check: `node .qa/p2b-benchmarks.mjs neocloud us` (W=1280|1440).
 Delivery's header shows one action per sub-menu (planner on Insights, New programme on Programs, New project on Projects).
 DCIM → Insights (`screens/dcim/Insights.tsx`, `?tab=overview`, now the default `/dcim`): Needs attention (same predicates as the Racks / Cabling /
 Power / Devices list filters, each row opens that filtered list), sites and halls by power pressure (85% marker), rack density and device

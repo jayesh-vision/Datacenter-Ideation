@@ -1,25 +1,31 @@
 /* Planner → Benchmarks & rules: the reference values every estimate reads, organised by the question they answer ("What does it cost
    to build, per kW?", "What PUE can we expect?", "How long does equipment take to arrive?"), each with its source and date, and the
    rules the plan templates check, grouped into Must pass and Should pass. Charts from charts/library.tsx: RangeBar for ranges,
-   PueMatrix for cooling × climate, LeadBars for equipment lead times. Values are edited in a drawer; every edit bumps the version and
-   is audited, so an approved plan can say which value it used. Engine keys never reach the screen (METRIC_INFO names them). */
+   PueMatrix for cooling × climate, LeadBars for equipment lead times. Each tab adds its own kind of value (planner/lib/benchCatalog.ts:
+   the measure fixes the unit and the applies-to fields the engine matches; one active value per case). Values are edited in a drawer;
+   every edit bumps the version and is audited, so an approved plan can say which value it used; values are retired, never deleted.
+   Engine keys never reach the screen (METRIC_INFO names them). */
 import { useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
 import { DataTable, type Col } from '../../ui/DataTable';
-import { Btn, Chip, Drawer, Empty, Field, Panel, Seg, Toggle } from '../../ui/kit';
-import { useBenchmarks, useEstate, usePlannerActions, useTemplates } from '../../planner/lib/usePlanner';
+import { Btn, Chip, Drawer, Empty, Field, Panel, Seg } from '../../ui/kit';
+import { useBenchmarkAudit, useBenchmarkLibrary, useEstate, usePlannerActions, useTemplates } from '../../planner/lib/usePlanner';
+import { OPEN_FAMILIES, VIEW_ADD, VIEW_CATEGORIES, dimsOf, duplicateOf, measuresFor, viewOf, type BenchDim, type BenchView } from '../../planner/lib/benchCatalog';
 import { CLIMATE_LABEL, COOLING_LABEL, METRIC_INFO, RULE_PLAIN, metricDetail, metricKey } from '../../planner/lib/labels';
 import { DC_TYPE_CATALOG } from '../../planner/p2b/dcTypes';
 import { DC_TIERS } from '../../planner/p2b/enums';
 import type * as T from '../../planner/p2b/types';
 import { clockMs } from '../../planner/compat/clock';
-import { ASPECT_LABEL, NumInput, SCOPE_LABEL, SelectInput, TextInput, date, money, num } from './common';
+import { ASPECT_LABEL, NumInput, ReasonModal, SCOPE_LABEL, SelectInput, TextInput, date, money, num, type ReasonRequest } from './common';
 import { LeadBars, PueMatrix, RangeBar, Tip } from './charts/library';
 
 type View = 'cost' | 'efficiency' | 'lead' | 'sizing' | 'rules';
 type BRow = T.PlannerBenchmark & { name: string; applies: string };
+type EditState = { b: T.PlannerBenchmark | null; view: BenchView; preset?: Partial<T.PlannerBenchmark> };
+const DIM_LABEL: Record<BenchDim, string> = { dcTypeKey: 'Site type', tier: 'Tier', coolingType: 'Cooling', climate: 'Climate', regionId: 'Region' };
+const RetiredTag = ({ b }: { b: T.PlannerBenchmark }) => (b.retiredAt ? <Chip size="xs" tone="neutral">Retired</Chip> : null);
 const CATEGORY_LABEL: Record<T.PlannerBenchmark['category'], string> = { cost: 'Cost', performance: 'Efficiency', sustainability: 'Sustainability', leadtime: 'Lead time', sizing: 'Sizing', staffing: 'Staffing' };
 const dcTypeName = (k?: string) => (k ? DC_TYPE_CATALOG.find(p => p.key === k)?.name ?? k : '');
 
@@ -47,7 +53,10 @@ const rangeText = (b: T.PlannerBenchmark) => (b.low === undefined && b.high === 
 export function BenchmarksTab() {
   const [sp] = useSearchParams();
   const apply = useParamPatch();
-  const benchmarks = useBenchmarks();
+  const library = useBenchmarkLibrary();
+  const state = sp.get('state') ?? '';
+  /* active values by default; Filters → Status → Retired shows the retired ones instead */
+  const benchmarks = useMemo(() => library.filter(b => (state === 'retired') === !!b.retiredAt), [library, state]);
   const templates = useTemplates();
   const estate = useEstate();
   const view = (sp.get('view') as View) || 'cost';
@@ -55,12 +64,14 @@ export function BenchmarksTab() {
   /* one toolbar for the whole view (user, 21-Oct-2026: "the same filters, search and quick filters as Plans and Templates") */
   const site = sp.get('site') ?? '', cooling = sp.get('cooling') ?? '', tier = sp.get('tier') ?? '', reg = sp.get('region') ?? '', conf = sp.get('conf') ?? '';
   const area = sp.get('area') ?? '', sev = sp.get('sev') ?? '';
-  const CLEAR = { q: '', metric: '', site: '', cooling: '', tier: '', region: '', conf: '', area: '', sev: '' };
-  const [edit, setEdit] = useState<T.PlannerBenchmark | 'new' | null>(null);
+  const CLEAR = { q: '', metric: '', site: '', cooling: '', tier: '', region: '', conf: '', area: '', sev: '', state: '' };
+  const [edit, setEdit] = useState<EditState | null>(null);
+  const addNew = () => setEdit({ b: null, view: view === 'rules' ? 'cost' : view });
   const region = (id?: string) => (id ? estate.regions.find(r => r.id === id)?.name ?? id : '');
   const appliesLabel = (b: T.PlannerBenchmark) => [dcTypeName(b.appliesTo.dcTypeKey), b.appliesTo.coolingType && COOLING_LABEL[b.appliesTo.coolingType], b.appliesTo.climate && CLIMATE_LABEL[b.appliesTo.climate], b.appliesTo.tier, region(b.appliesTo.regionId)].filter(Boolean).join(' · ');
   const all = useMemo<BRow[]>(() => benchmarks.map(b => ({ ...b, name: benchName(b), applies: appliesLabel(b) })), [benchmarks, estate]); // eslint-disable-line react-hooks/exhaustive-deps
-  const open = (b: BRow) => setEdit(benchmarks.find(x => x.id === b.id) ?? null);
+  const openB = (b?: T.PlannerBenchmark) => b && setEdit({ b, view: viewOf(b) });
+  const open = (b: BRow) => openB(library.find(x => x.id === b.id));
 
   /* the questions each view answers */
   const g = useMemo(() => {
@@ -88,7 +99,7 @@ export function BenchmarksTab() {
     && (!tier || b.appliesTo.tier === tier) && (!reg || b.appliesTo.regionId === reg) && (!conf || (conf === 'confirmed') === !b.indicative) && matchQ(b));
   const viewRows: BRow[] = view === 'cost' ? [...g.capex, ...g.otherCost] : view === 'efficiency' ? [...g.pue, ...g.otherEff] : view === 'lead' ? [...g.leadWeeks, ...g.build, ...g.logistics] : g.sizing;
   const shownRows = listed(viewRows);
-  const filtered = !!(q || metric || site || cooling || tier || reg || conf);
+  const filtered = !!(q || metric || site || cooling || tier || reg || conf || state);
   const opt = <K extends string>(keys: K[], of: (b: BRow) => K | undefined, label: (k: K) => string, cur: string) =>
     keys.filter(k => k === cur || viewRows.some(b => of(b) === k)).map(k => ({ id: k, label: label(k), count: viewRows.filter(b => of(b) === k).length }));
   const metrics = [...new Set(viewRows.map(b => metricKey(b.metric)))];
@@ -100,21 +111,23 @@ export function BenchmarksTab() {
       { id: 'cooling', label: 'Cooling', value: cooling, anyLabel: 'Any cooling', onChange: v => apply({ cooling: v }), options: opt(Object.keys(COOLING_LABEL) as T.PlannerCoolingType[], b => b.appliesTo.coolingType, k => COOLING_LABEL[k], cooling) },
       { id: 'tier', label: 'Tier', value: tier, anyLabel: 'Any tier', onChange: v => apply({ tier: v }), options: opt([...DC_TIERS], b => b.appliesTo.tier, k => k, tier) },
       { id: 'region', label: 'Region', value: reg, anyLabel: 'Any region', onChange: v => apply({ region: v }), options: opt(estate.regions.map(r => r.id), b => b.appliesTo.regionId, k => region(k), reg) },
+      { id: 'state', label: 'Status', value: state, anyLabel: 'Active', onChange: v => apply({ state: v }), options: [{ id: 'retired', label: 'Retired', count: library.filter(b => b.retiredAt && VIEW_CATEGORIES[view as BenchView].includes(b.category)).length }] },
       { id: 'conf', label: 'Confidence', value: conf, anyLabel: 'Confirmed and indicative', onChange: v => apply({ conf: v }), options: [{ id: 'confirmed', label: 'Confirmed', count: viewRows.filter(b => !b.indicative).length }, { id: 'indicative', label: 'Indicative', count: viewRows.filter(b => b.indicative).length }] },
     ]} />;
-  const emptyVals = <Empty icon={I.Inbox} title="No values match" action={filtered ? <Btn onClick={() => apply(CLEAR)}>Clear filters</Btn> : <Btn icon={I.Plus} onClick={() => setEdit('new')}>Add a value</Btn>}>Clear the search or add a value for the planner to use.</Empty>;
+  const addLabel = view === 'rules' ? '' : VIEW_ADD[view].button;
+  const emptyVals = <Empty icon={I.Inbox} title={state === 'retired' ? 'No retired values' : 'No values match'} action={filtered ? <Btn onClick={() => apply(CLEAR)}>Clear filters</Btn> : <Btn icon={I.Plus} onClick={addNew}>{view === 'rules' ? '' : VIEW_ADD[view].empty}</Btn>}>{state === 'retired' ? 'Values retired from this tab show here; open one to restore it.' : 'Clear the search or add a value for the planner to use.'}</Empty>;
 
   return (
     <div className="pn-lib">
       <div className="pn-lib-bar">
         <Seg<View> size="sm" value={view} onChange={v => apply({ ...CLEAR, view: v === 'cost' ? '' : v })} options={[{ id: 'cost', label: `Costs · ${counts.cost}` }, { id: 'efficiency', label: `Efficiency · ${counts.efficiency}` }, { id: 'lead', label: `Lead times · ${counts.lead}` }, { id: 'sizing', label: `Sizing & staffing · ${counts.sizing}` }, { id: 'rules', label: `Rules · ${counts.rules}` }]} />
-        {view !== 'rules' && <Btn icon={I.Plus} onClick={() => setEdit('new')}>Add a value</Btn>}
+        {view !== 'rules' && <Btn variant="filled" icon={I.Plus} onClick={addNew}>{addLabel}</Btn>}
       </div>
       {toolbar && <section className="vw-card-section pn-lib-tb">{toolbar}</section>}
 
       {view === 'cost' && <>
         <Panel flush icon={I.DollarSign} count={listed(g.capex).length} title="What does it cost to build, per kW?" sub="Plant and fit-out cost for each kW of IT, by site type, cheapest first. The planner uses the typical value unless our own delivered builds say otherwise." info="Build cost per kW of IT load, excluding land and IT equipment. The bar shows low to high on one scale for every site type; the dark tick is the typical value. Click a row to change it.">
-          <ValueTable rows={listed(g.capex)} onRow={open} empty={emptyVals} shared first={{ title: 'Site type', render: b => <span className="cell-2 pn-name-cell"><b>{dcTypeName(b.appliesTo.dcTypeKey) || 'All site types'}</b>{[b.appliesTo.coolingType && COOLING_LABEL[b.appliesTo.coolingType], b.appliesTo.tier, region(b.appliesTo.regionId)].filter(Boolean).join(' · ') && <small>{[b.appliesTo.coolingType && COOLING_LABEL[b.appliesTo.coolingType], b.appliesTo.tier, region(b.appliesTo.regionId)].filter(Boolean).join(' · ')}</small>}</span> }} />
+          <ValueTable rows={listed(g.capex)} onRow={open} empty={emptyVals} shared first={{ title: 'Site type', render: b => <span className="cell-2 pn-name-cell"><b>{dcTypeName(b.appliesTo.dcTypeKey) || 'All site types'} <RetiredTag b={b} /></b>{[b.appliesTo.coolingType && COOLING_LABEL[b.appliesTo.coolingType], b.appliesTo.tier, region(b.appliesTo.regionId)].filter(Boolean).join(' · ') && <small>{[b.appliesTo.coolingType && COOLING_LABEL[b.appliesTo.coolingType], b.appliesTo.tier, region(b.appliesTo.regionId)].filter(Boolean).join(' · ')}</small>}</span> }} />
         </Panel>
         <Panel flush icon={I.Receipt} count={listed(g.otherCost).length} title="Other cost inputs" sub="IT equipment, plant prices, labour, maintenance, staff, energy, migration and disposal prices used in CapEx and OpEx." info="Every other cost the estimates read. Filter by reference value or search; click a row to change it.">
           <ValueTable rows={listed(g.otherCost)} onRow={open} empty={emptyVals} />
@@ -123,7 +136,7 @@ export function BenchmarksTab() {
 
       {view === 'efficiency' && <>
         <Panel flush icon={I.Gauge} count={listed(g.pue).length} title="What PUE can we expect?" sub="Typical PUE for each cooling choice in each climate, with its range. Lower is better; the best value is green and paler cells are more efficient. Click a value to change it." info="PUE = total facility power ÷ IT power. The planner picks the cell for the plan's cooling and the site's climate.">
-          <PueMatrix rows={listed(g.pue)} onEdit={b => setEdit(benchmarks.find(x => x.id === b.id) ?? null)} />
+          <PueMatrix rows={listed(g.pue)} onEdit={b => openB(library.find(x => x.id === b.id))} />
         </Panel>
         <Panel flush icon={I.Droplets} count={listed(g.otherEff).length} title="Water, carbon and other efficiency values" sub="Used for the sustainability figures of a plan." info="Water use, grid carbon intensity and any PUE value not tied to one cooling and climate pair.">
           <ValueTable rows={listed(g.otherEff)} onRow={open} empty={emptyVals} />
@@ -132,7 +145,7 @@ export function BenchmarksTab() {
 
       {view === 'lead' && <>
         <Panel icon={I.Truck} count={listed(g.leadWeeks).length} title="How long does equipment take to arrive?" sub="Weeks from order to delivery on site, longest first. The planner orders at the high end plus contingency and flags anything that cannot arrive in time." info="Each bar runs from the low to the high lead time; the dark tick is the typical value. Amber bars are long-lead items. Click a row to change it.">
-          <LeadBars rows={listed(g.leadWeeks)} onEdit={b => setEdit(benchmarks.find(x => x.id === b.id) ?? null)} />
+          <LeadBars rows={listed(g.leadWeeks)} onEdit={b => openB(library.find(x => x.id === b.id))} />
         </Panel>
         <div className="pn-two">
           <Panel flush icon={I.CalendarClock} count={listed(g.build).length} title="How long does a build take?" sub="From start to the first hall or pod ready for service, from our delivery history.">
@@ -152,7 +165,7 @@ export function BenchmarksTab() {
 
       {view === 'rules' && <RulesView rows={ruleRows} q={q} area={area} sev={sev} apply={apply} />}
 
-      {edit && <BenchmarkDrawer b={edit === 'new' ? null : edit} onClose={() => setEdit(null)} />}
+      {edit && <BenchmarkDrawer key={`${edit.b?.id ?? 'new'}-${edit.view}-${edit.preset ? 'dup' : ''}`} edit={edit} library={library} onOpen={setEdit} onClose={() => setEdit(null)} />}
     </div>
   );
 }
@@ -164,7 +177,7 @@ function ValueTable({ rows, first, onRow, toolbar, empty, shared, compact }: { r
   const sharedMin = Math.max(0, Math.min(...rows.map(b => b.low ?? b.value ?? 0)) * 0.8);
   const cols: Col<BRow>[] = [
     first ? { key: 'name', header: first.title, sort: b => b.name, wrap: true, render: first.render }
-      : { key: 'name', header: 'Reference value', sort: b => b.name, wrap: true, render: b => { const use = benchUse(b); const body = <span className="cell-2 pn-name-cell"><b>{b.name}</b>{b.applies && <small>{b.applies}</small>}</span>;
+      : { key: 'name', header: 'Reference value', sort: b => b.name, wrap: true, render: b => { const use = benchUse(b); const body = <span className="cell-2 pn-name-cell"><b>{b.name} <RetiredTag b={b} /></b>{b.applies && <small>{b.applies}</small>}</span>;
         return use ? <Tip content={{ title: b.name, rows: [], note: use }}>{body}</Tip> : body; } },
     { key: 'v', header: 'Typical', sort: b => b.value ?? b.high ?? 0, render: b => <span className="num pn-nowrap"><b style={{ fontWeight: 500 }}>{withUnit(b.value ?? b.high, b.unit)}</b></span> },
     { key: 'range', header: 'Range', sort: b => (b.high ?? 0) - (b.low ?? 0), render: b => (b.low === undefined && b.high === undefined ? <span className="vw-label">—</span>
@@ -210,40 +223,115 @@ function RulesView({ rows, q, area, sev, apply }: { rows: { id: string; rule: T.
   </>;
 }
 
-function BenchmarkDrawer({ b, onClose }: { b: T.PlannerBenchmark | null; onClose: () => void }) {
+/** Add or change one reference value. The tab decides the kind of value; the measure decides the unit and which "applies to" fields
+ *  the planner matches it on; another active value for the same case blocks the save (open it instead). Existing values also offer
+ *  Duplicate for another case, Retire / Restore and their history. */
+function BenchmarkDrawer({ edit, library, onOpen, onClose }: { edit: EditState; library: T.PlannerBenchmark[]; onOpen: (s: EditState) => void; onClose: () => void }) {
   const actions = usePlannerActions();
   const estate = useEstate();
-  const [f, setF] = useState<Partial<T.PlannerBenchmark>>(b ?? { metric: 'capexPerKw', category: 'cost', unit: 'USD/kW', indicative: true, appliesTo: {}, source: '', sourceDate: new Date(clockMs()).toISOString() });
+  const b = edit.b, view = b ? viewOf(b) : edit.view, retired = !!b?.retiredAt;
+  const measures = useMemo(() => measuresFor(view, library), [view, library]);
+  const blank: Partial<T.PlannerBenchmark> = { metric: measures[0]?.metric, category: measures[0]?.category, unit: measures[0]?.unit, indicative: true, appliesTo: {}, source: '', sourceDate: new Date(clockMs()).toISOString() };
+  const [f, setF] = useState<Partial<T.PlannerBenchmark>>(b ?? { ...blank, ...edit.preset });
+  const [newItem, setNewItem] = useState(''); // a new equipment item (open families only)
+  const [ask, setAsk] = useState<ReasonRequest | null>(null);
+  const history = useBenchmarkAudit(b?.id);
   const set = (p: Partial<T.PlannerBenchmark>) => setF(x => ({ ...x, ...p }));
+  const isNewItem = !b && (f.metric ?? '').startsWith('new:');
+  const family = isNewItem ? f.metric!.slice(4) : metricKey(f.metric ?? '');
+  const metric = isNewItem ? (newItem.trim() ? `${family}:${newItem.trim()}` : '') : f.metric ?? '';
+  const measure = measures.find(m => m.metric === f.metric);
+  const dim = dimsOf(metric || family);
+  const pickMeasure = (id: string) => {
+    if (id.startsWith('new:')) { const fam = id.slice(4); const like = measures.find(m => m.family === fam); set({ metric: id, category: like?.category ?? VIEW_CATEGORIES[view][0], unit: like?.unit ?? '', appliesTo: {} }); return; }
+    const m = measures.find(x => x.metric === id); set({ metric: id, category: m?.category, unit: m?.unit, appliesTo: {} });
+  };
   const applies = (p: Partial<T.PlannerBenchmark['appliesTo']>) => set({ appliesTo: { ...(f.appliesTo ?? {}), ...p } });
-  const ok = !!f.metric && !!f.unit && !!f.source && (f.value !== undefined || (f.low !== undefined && f.high !== undefined));
+  const cleanApplies = Object.fromEntries(Object.entries(f.appliesTo ?? {}).filter(([k, v]) => v && dim.dims.includes(k as BenchDim))) as T.PlannerBenchmark['appliesTo'];
+  const dup = metric ? duplicateOf(library, { id: b?.id, metric, appliesTo: cleanApplies }) : undefined;
+  const caseMoved = !b || b.metric !== metric || JSON.stringify(b.appliesTo ?? {}) !== JSON.stringify(cleanApplies);
+  /* checks shown next to the fields */
+  const missingDims = dim.required ? dim.dims.filter(d => !cleanApplies[d]) : [];
+  const hasValue = f.value !== undefined || (f.low !== undefined && f.high !== undefined);
+  const order = [f.low, f.value, f.high].filter((x): x is number => x !== undefined);
+  const badOrder = order.some((x, i) => i > 0 && x < order[i - 1]);
+  const errors = [!metric && (isNewItem ? 'Name the equipment item.' : 'Pick what it measures.'), missingDims.length && `Say which ${missingDims.map(d => DIM_LABEL[d].toLowerCase()).join(' and ')} it applies to.`, !hasValue && 'Give a typical value, or a low and a high.', badOrder && 'Low ≤ typical ≤ high.', !f.source?.trim() && 'Say where the figure comes from.', dup && caseMoved && 'Another value already covers this case.'].filter(Boolean) as string[];
   const save = () => {
     const id = b?.id ?? actions.newId('BM');
-    actions.saveBenchmark({ ...(b ?? { id, bmId: id, customerId: 'CUST-001', isDeleted: false, createdAt: new Date(clockMs()).toISOString(), createdBy: actions.actor, createdById: actions.actorId ?? 'me', updatedAt: new Date(clockMs()).toISOString() }), ...f, label: f.label?.trim() || METRIC_INFO[metricKey(f.metric!)]?.name || f.metric!, appliesTo: Object.fromEntries(Object.entries(f.appliesTo ?? {}).filter(([, v]) => v)) } as T.PlannerBenchmark);
-    onClose();
+    const fam = METRIC_INFO[family]?.name;
+    const label = f.label?.trim() || (isNewItem ? `Lead time · ${newItem.trim()}` : b?.label ?? library.find(x => x.metric === metric)?.label ?? fam ?? metric);
+    const rec = { ...(b ?? { id, bmId: id, customerId: 'CUST-001', isDeleted: false, createdAt: new Date(clockMs()).toISOString(), createdBy: actions.actor, createdById: actions.actorId ?? 'me', updatedAt: new Date(clockMs()).toISOString() }), ...f, metric, label, appliesTo: cleanApplies } as T.PlannerBenchmark;
+    if (actions.saveBenchmark(rec).ok) onClose();
   };
-  const metricOpts = Object.entries(METRIC_INFO).filter(([k]) => !k.includes(':') && !['leadWeeks', 'durationWeeks', 'downtime', 'transferDays'].includes(k)).map(([k, v]) => ({ id: k, label: v.name }));
-  const use = b ? METRIC_INFO[b.metric]?.use ?? METRIC_INFO[metricKey(b.metric)]?.use : METRIC_INFO[f.metric ?? '']?.use;
+  const dimField = (d: BenchDim) => {
+    const req = !!dim.required, ro = !!b && retired;
+    const opts = d === 'dcTypeKey' ? DC_TYPE_CATALOG.map(p => ({ id: p.key, label: p.name })) : d === 'tier' ? DC_TIERS.map(t => ({ id: t, label: t }))
+      : d === 'coolingType' ? (Object.keys(COOLING_LABEL) as T.PlannerCoolingType[]).map(c => ({ id: c, label: COOLING_LABEL[c] })) : d === 'climate' ? Object.keys(CLIMATE_LABEL).map(c => ({ id: c, label: CLIMATE_LABEL[c] }))
+      : estate.regions.map(r => ({ id: r.id, label: r.name }));
+    return <Field key={d} label={DIM_LABEL[d]} required={req}><SelectInput value={(cleanApplies[d] as string) ?? ''} placeholder={req ? 'Choose' : 'Any (default)'} disabled={ro} options={opts} onChange={v => applies({ [d]: v || undefined })} /></Field>;
+  };
+  const families = [...new Set(measures.map(m => m.family))];
+  const title = b ? benchName(b) : VIEW_ADD[view].title;
+  const use = METRIC_INFO[metric]?.use ?? METRIC_INFO[family]?.use ?? measure?.use;
   return (
-    <Drawer open onClose={onClose} width={560} title={b ? benchName(b) : 'Add a reference value'} sub={b ? `${use ? `${use} ` : ''}Version ${b.version ?? 1}.` : 'A value with its source and date; indicative until confirmed by our own sites.'}
-      foot={<div className="row" style={{ justifyContent: 'flex-end' }}><Btn onClick={onClose}>Cancel</Btn><Btn variant="filled" icon={I.Save} disabled={!ok} onClick={save}>{b ? 'Save' : 'Add'}</Btn></div>}>
-      <div className="pn-grid-2">
-        <Field label="What it measures" required>{b?.metric.includes(':') ? <TextInput value={benchName(b)} onChange={() => undefined} disabled /> : <SelectInput value={f.metric} options={metricOpts} onChange={v => set({ metric: v })} />}</Field>
-        <Field label="Group" required><SelectInput value={f.category} options={(Object.keys(CATEGORY_LABEL) as T.PlannerBenchmark['category'][]).map(c => ({ id: c, label: CATEGORY_LABEL[c] }))} onChange={v => set({ category: v })} /></Field>
-        <Field label="Name shown to planners" style={{ gridColumn: 'span 2' }}><TextInput value={f.label ?? ''} onChange={v => set({ label: v })} placeholder={METRIC_INFO[metricKey(f.metric ?? '')]?.name ?? ''} /></Field>
-        <Field label="Low"><NumInput value={f.low} onChange={v => set({ low: v })} /></Field>
-        <Field label="Typical"><NumInput value={f.value} onChange={v => set({ value: v })} /></Field>
-        <Field label="High"><NumInput value={f.high} onChange={v => set({ high: v })} /></Field>
-        <Field label="Unit" required><TextInput value={f.unit ?? ''} onChange={v => set({ unit: v })} /></Field>
-        <Field label="Site type"><SelectInput value={f.appliesTo?.dcTypeKey ?? ''} placeholder="Any" options={DC_TYPE_CATALOG.map(p => ({ id: p.key, label: p.name }))} onChange={v => applies({ dcTypeKey: v || undefined })} /></Field>
-        <Field label="Tier"><SelectInput value={f.appliesTo?.tier ?? ''} placeholder="Any" options={DC_TIERS.map(t => ({ id: t, label: t }))} onChange={v => applies({ tier: v || undefined })} /></Field>
-        <Field label="Cooling"><SelectInput value={f.appliesTo?.coolingType ?? ''} placeholder="Any" options={(Object.keys(COOLING_LABEL) as T.PlannerCoolingType[]).map(c => ({ id: c, label: COOLING_LABEL[c] }))} onChange={v => applies({ coolingType: (v || undefined) as T.PlannerCoolingType | undefined })} /></Field>
-        <Field label="Climate"><SelectInput value={f.appliesTo?.climate ?? ''} placeholder="Any" options={Object.keys(CLIMATE_LABEL).map(c => ({ id: c, label: CLIMATE_LABEL[c] }))} onChange={v => applies({ climate: v || undefined })} /></Field>
-        <Field label="Region"><SelectInput value={f.appliesTo?.regionId ?? ''} placeholder="Any" options={estate.regions.map(r => ({ id: r.id, label: r.name }))} onChange={v => applies({ regionId: v || undefined })} /></Field>
-        <Field label="As of"><TextInput type="date" value={(f.sourceDate ?? '').slice(0, 10)} onChange={v => set({ sourceDate: v ? `${v}T00:00:00.000Z` : f.sourceDate })} /></Field>
-        <Field label="Source" required style={{ gridColumn: 'span 2' }}><TextInput value={f.source ?? ''} onChange={v => set({ source: v })} placeholder="Where the figure comes from" /></Field>
-        <Field label="Indicative" hint="not yet confirmed by our own sites"><Toggle on={!!f.indicative} onChange={v => set({ indicative: v })} /></Field>
+    <Drawer open onClose={onClose} width={600} title={title}
+      sub={b ? <span className="row" style={{ gap: 6, flexWrap: 'wrap' }}><Chip size="xs" outline>{CATEGORY_LABEL[b.category]}</Chip><span className="mono">v{b.version ?? 1}</span>{retired ? <Chip size="xs" tone="neutral">Retired {date(b.retiredAt!)}</Chip> : <Chip size="xs" tone={b.indicative ? 'warning' : 'success'} outline>{b.indicative ? 'Indicative' : 'Confirmed'}</Chip>}</span> : VIEW_ADD[view].sub}
+      foot={<div className="row" style={{ justifyContent: 'space-between', gap: 8 }}>
+        <span className="row" style={{ gap: 8 }}>
+          {b && !retired && <Btn icon={I.Copy} onClick={() => onOpen({ b: null, view, preset: { metric: b.metric, category: b.category, unit: b.unit, value: b.value, low: b.low, high: b.high, source: b.source, sourceDate: b.sourceDate, indicative: true, appliesTo: { ...b.appliesTo }, label: b.label } })}>Duplicate for another case</Btn>}
+          {b && !retired && <Btn icon={I.Archive} onClick={() => setAsk({ title: `Retire ${benchName(b)}?`, description: 'The planner stops reading this value: plans of this case fall back to the next matching value or the built-in default. Approved baselines keep the version they used, and you can restore it later.', okText: 'Retire value', danger: true, needsReason: true, placeholder: 'Why it is retired (kept in its history)', onOk: r => { actions.retireBenchmark(b, r); onClose(); } })}>Retire</Btn>}
+          {b && retired && <Btn icon={I.RotateCcw} onClick={() => { if (actions.restoreBenchmark(b).ok) onClose(); }}>Restore</Btn>}
+        </span>
+        <span className="row" style={{ gap: 8 }}><Btn onClick={onClose}>{retired ? 'Close' : 'Cancel'}</Btn>{!retired && <Btn variant="filled" icon={I.Save} disabled={errors.length > 0} onClick={save}>{b ? 'Save new version' : 'Add value'}</Btn>}</span>
+      </div>}>
+      <div className="pn-bm-form">
+        {retired && <div className="pn-bm-note is-muted"><I.Archive size={15} /><span>Retired by {b!.retiredBy ?? '—'} on {date(b!.retiredAt!)}{b!.retireReason ? `: ${b!.retireReason}` : ''}. The planner does not read it.</span></div>}
+        <section>
+          <h4>What it measures</h4>
+          {b ? <div className="pn-bm-measure"><b>{benchName(b)}</b>{use && <span>{use}</span>}</div>
+            : <Field label="Measure" required hint={use}>
+              <select className="select" value={f.metric ?? ''} onChange={e => pickMeasure(e.target.value)}>
+                {families.map(fam => { const ms = measures.filter(m => m.family === fam); const open = OPEN_FAMILIES[fam];
+                  return ms.length === 1 && !open ? <option key={fam} value={ms[0].metric}>{ms[0].metric.includes(':') ? `${ms[0].familyName} · ${ms[0].name}` : ms[0].name}</option>
+                    : <optgroup key={fam} label={ms[0].familyName}>{ms.map(m => <option key={m.metric} value={m.metric}>{m.name}</option>)}{open && <option value={`new:${fam}`}>Another {open.label.toLowerCase()}…</option>}</optgroup>; })}
+              </select>
+            </Field>}
+          {isNewItem && <Field label={OPEN_FAMILIES[family].label} required hint={OPEN_FAMILIES[family].note}><TextInput value={newItem} onChange={setNewItem} placeholder={OPEN_FAMILIES[family].placeholder} /></Field>}
+          <div className="pn-bm-unit"><I.Lock size={13} />Unit <b>{f.unit || '—'}</b><span className="vw-label">· set by the measure{/^USD/.test(f.unit ?? '') ? ', in the planner currency (USD)' : ''}</span></div>
+        </section>
+        <section>
+          <h4>Applies to</h4>
+          {dim.dims.length ? <div className="pn-grid-2">{dim.dims.map(dimField)}</div> : <p className="vw-label" style={{ margin: 0 }}>One value for every plan: the planner reads it whatever the site type, tier, cooling, climate or region.</p>}
+          {dim.dims.length > 0 && <p className="vw-label" style={{ margin: '6px 0 0' }}>{dim.note}</p>}
+          {dup && caseMoved && <div className="pn-bm-note is-warn"><I.TriangleAlert size={15} /><span><b>{benchName(dup)}</b> already has a value for this case (v{dup.version ?? 1}, typical {withUnit(dup.value ?? dup.high, dup.unit)}). One value per case: change that one, or pick another case.</span><Btn size="sm" onClick={() => onOpen({ b: dup, view })}>Open that value</Btn></div>}
+          {b && !caseMoved && !retired && duplicateOf(library, b) && <div className="pn-bm-note is-warn"><I.TriangleAlert size={15} /><span>Another active value covers the same case, so the planner reads whichever comes first. Retire one of them.</span><Btn size="sm" onClick={() => onOpen({ b: duplicateOf(library, b)!, view })}>Open the other</Btn></div>}
+        </section>
+        <section>
+          <h4>Value</h4>
+          <div className="pn-grid-3">
+            <Field label="Low"><NumInput value={f.low} onChange={v => set({ low: v })} disabled={retired} /></Field>
+            <Field label="Typical" hint="what the planner uses"><NumInput value={f.value} onChange={v => set({ value: v })} disabled={retired} /></Field>
+            <Field label="High"><NumInput value={f.high} onChange={v => set({ high: v })} disabled={retired} /></Field>
+          </div>
+          {badOrder && <span className="field-error">Low must not exceed typical, and typical must not exceed high.</span>}
+        </section>
+        <section>
+          <h4>Source</h4>
+          <div className="pn-grid-2">
+            <Field label="Where the figure comes from" required style={{ gridColumn: 'span 2' }}><TextInput value={f.source ?? ''} onChange={v => set({ source: v })} placeholder="e.g. Supplier quotes 2026, last three builds" disabled={retired} /></Field>
+            <Field label="As of"><TextInput type="date" value={(f.sourceDate ?? '').slice(0, 10)} onChange={v => set({ sourceDate: v ? `${v}T00:00:00.000Z` : f.sourceDate })} disabled={retired} /></Field>
+            <Field label="Confidence" hint={f.indicative ? 'not yet confirmed by our own sites' : 'confirmed by our own delivered sites'}><Seg<'i' | 'c'> size="sm" value={f.indicative ? 'i' : 'c'} onChange={v => !retired && set({ indicative: v === 'i' })} options={[{ id: 'i', label: 'Indicative' }, { id: 'c', label: 'Confirmed' }]} /></Field>
+            <Field label="Name shown to planners" style={{ gridColumn: 'span 2' }}><TextInput value={f.label ?? ''} onChange={v => set({ label: v })} placeholder={b?.label ?? (isNewItem ? `Lead time · ${newItem || '…'}` : library.find(x => x.metric === metric)?.label ?? '')} disabled={retired} /></Field>
+          </div>
+        </section>
+        {!retired && errors.length > 0 && !(errors.length === 1 && dup) && <p className="vw-label" style={{ margin: 0 }}>To save: {errors.join(' ')}</p>}
+        {b && <section>
+          <h4>History</h4>
+          {history.length ? <ol className="pn-bm-hist">{history.map(e => <li key={e.id}><b>{e.action.replace(/^benchmark /, '')}</b><span>{e.summary.replace(/^Benchmark [^:]*?(v\d+ → v\d+: )?/, (_m, v) => v ?? '')}{e.reason ? ` · “${e.reason}”` : ''}</span><small>{e.actorName} · {date(e.timestamp)}</small></li>)}</ol>
+            : <p className="vw-label" style={{ margin: 0 }}>v{b.version ?? 1} as loaded from the {b.indicative ? 'benchmark set' : 'confirmed benchmark set'}; no edits since. Every save adds a version here (old → new).</p>}
+        </section>}
       </div>
+      <ReasonModal req={ask} onClose={() => setAsk(null)} />
     </Drawer>
   );
 }

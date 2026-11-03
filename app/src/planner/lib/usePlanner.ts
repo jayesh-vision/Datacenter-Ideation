@@ -23,6 +23,7 @@ import type { RecordChanges } from './replaceClose';
 import { recordedVendorOrders, type VendorOrderRecord } from './packModel';
 import type { VendorOrder } from './sourcing';
 import * as G from './governance';
+import { activeBenchmarks, duplicateOf } from './benchCatalog';
 import { moveReservations } from './reservations';
 import { clockMs } from '../compat/clock';
 import type { PlanReviewComment, PlanReviewRequest, ReviewDelivery, ReviewEmail } from './reviews';
@@ -37,7 +38,12 @@ const sid = (p: string) => `${p}-${clockMs().toString(36).toUpperCase()}${Math.f
 export const TENANT_ID = 'CUST-001';
 
 export const useTemplates = () => (useEntityList('plannerTemplates', BIG).data?.data ?? []) as unknown as T.PlannerTemplate[];
-export const useBenchmarks = () => (useEntityList('plannerBenchmarks', BIG).data?.data ?? []) as unknown as T.PlannerBenchmark[];
+/** Values the planner reads: retired ones are left out. */
+export const useBenchmarks = () => { const data = useEntityList('plannerBenchmarks', BIG).data?.data; return useMemo(() => activeBenchmarks((data ?? EMPTY) as unknown as T.PlannerBenchmark[]), [data]); };
+/** The whole library, retired values included (Benchmarks screen). */
+export const useBenchmarkLibrary = () => { const data = useEntityList('plannerBenchmarks', BIG).data?.data; return useMemo(() => ((data ?? EMPTY) as unknown as T.PlannerBenchmark[]).filter(b => !b.isDeleted), [data]); };
+/** A benchmark's history: created, edited (old → new), retired, restored; newest first. */
+export const useBenchmarkAudit = (id?: string) => { const data = useEntityList('auditEvents', { pageSize: 100000 }).data?.data; return useMemo(() => ((data ?? EMPTY) as unknown as T.AuditEvent[]).filter(e => id && e.entityType === 'Benchmark' && e.entityId === id).sort((a, b) => b.timestamp.localeCompare(a.timestamp)), [data, id]); };
 const EMPTY: never[] = [];
 export const usePlans = () => { const data = useEntityList('plannerPlans', BIG).data?.data; return useMemo(() => ((data ?? EMPTY) as unknown as T.PlannerPlan[]).filter(p => !p.isDeleted), [data]); };
 export const usePlan = (id?: string) => { const p = (useEntityDetail('plannerPlans', id).data ?? undefined) as unknown as T.PlannerPlan | undefined; return p?.isDeleted ? undefined : p; };
@@ -438,16 +444,34 @@ export function usePlannerActions() {
       invalidate(); return rec;
     },
     cloneTemplate(t: T.PlannerTemplate, name: string) { const id = sid('TPL'); const rec: T.PlannerTemplate = { ...t, id, tplId: id, ...meta(), name, version: 1, status: 'draft', ownerName: actor, inheritsFrom: t.id, params: [], rules: [] }; db.create('plannerTemplates', rec as unknown as Record<string, unknown>); log('Template', id, 'created', `Template ${name} created from ${t.name} v${t.version}`); invalidate(); return rec; },
-    /** Save a benchmark. Value edits bump its version and are audited old → new. */
-    saveBenchmark(b: T.PlannerBenchmark) {
+    /** Save a benchmark. Value edits bump its version and are audited old → new. Refused when another active value already
+     *  covers the same measure and case (the planner would read whichever comes first). */
+    saveBenchmark(b: T.PlannerBenchmark): { ok: true } | { ok: false; reason: string } {
       const old = db.getById('plannerBenchmarks', b.id) as unknown as T.PlannerBenchmark | undefined;
-      if (!old) { db.create('plannerBenchmarks', { ...b, version: 1, ...meta() } as unknown as Record<string, unknown>); log('Benchmark', b.id, 'created', `Benchmark ${b.label} created: ${b.value ?? `${b.low}–${b.high}`} ${b.unit} (${b.source})`); invalidate(); return; }
+      const all = db.getAll('plannerBenchmarks', { pageSize: 100000 }).data as unknown as T.PlannerBenchmark[];
+      const caseMoved = !old || old.metric !== b.metric || JSON.stringify(old.appliesTo ?? {}) !== JSON.stringify(b.appliesTo ?? {});
+      const dup = caseMoved && !b.retiredAt ? duplicateOf(all, b) : undefined;
+      if (dup) return refuse(`${dup.label} already has a value for this case (v${dup.version ?? 1}). Edit that value instead.`);
+      if (!old) { db.create('plannerBenchmarks', { ...b, version: 1, ...meta() } as unknown as Record<string, unknown>); log('Benchmark', b.id, 'created', `Benchmark ${b.label} created: ${b.value ?? `${b.low}–${b.high}`} ${b.unit} (${b.source})`); invalidate(); return { ok: true }; }
       const keys: (keyof T.PlannerBenchmark)[] = ['value', 'low', 'high', 'unit', 'source', 'sourceDate', 'indicative', 'appliesTo', 'label', 'metric', 'category'];
       const changes = keys.filter(k => JSON.stringify(old[k] ?? null) !== JSON.stringify(b[k] ?? null)).map(k => ({ field: String(k), from: typeof old[k] === 'object' ? JSON.stringify(old[k]) : old[k], to: typeof b[k] === 'object' ? JSON.stringify(b[k]) : b[k] }));
       const version = changes.length ? (old.version ?? 1) + 1 : (old.version ?? 1);
       db.update('plannerBenchmarks', b.id, { ...b, version, updatedAt: now(), updatedBy: actor } as unknown as Record<string, unknown>);
       if (changes.length) log('Benchmark', b.id, 'benchmark edited', `Benchmark ${b.label} v${old.version ?? 1} → v${version}: ${G.changesText(changes)}`, { changes });
-      invalidate();
+      invalidate(); return { ok: true };
+    },
+    /** Retire a value: the planner stops reading it (plans fall back to the next value or the built-in default); baselines keep it. */
+    retireBenchmark(b: T.PlannerBenchmark, reason: string) {
+      db.update('plannerBenchmarks', b.id, { retiredAt: now(), retiredBy: actor, retireReason: reason, updatedAt: now(), updatedBy: actor });
+      log('Benchmark', b.id, 'benchmark retired', `Benchmark ${b.label} v${b.version ?? 1} retired`, { reason }); invalidate();
+    },
+    /** Bring a retired value back, unless another active value now covers its case. */
+    restoreBenchmark(b: T.PlannerBenchmark): { ok: true } | { ok: false; reason: string } {
+      const all = db.getAll('plannerBenchmarks', { pageSize: 100000 }).data as unknown as T.PlannerBenchmark[];
+      const dup = duplicateOf(all, b);
+      if (dup) return refuse(`${dup.label} already has an active value for this case; retire it first.`);
+      db.update('plannerBenchmarks', b.id, { retiredAt: undefined, retiredBy: undefined, retireReason: undefined, updatedAt: now(), updatedBy: actor });
+      log('Benchmark', b.id, 'benchmark restored', `Benchmark ${b.label} v${b.version ?? 1} restored`); invalidate(); return { ok: true };
     },
     newId: sid,
   }), [actor, actorId, log, refuse, update, invalidate, meta, templatesAll, benchmarksAll, qc]);
