@@ -15,6 +15,7 @@
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.9 | 27-Oct-2026 | First complete draft: all modules, module split against the existing platform, colocation + NeoCloud first |
+| 0.9.9 | 03-Nov-2026 | Planner Benchmarks configuration (7.9): per-tab add forms with the measure fixing unit and applies-to fields, one value per case, retire / restore, version history, effect on open plans, approval of confirmed values, rules created and configured per template (limits, overrides), CSV export / import with a dry run; BRULE-PLN-16…20, PLN-049…058, US-PLN-08…11 |
 | 0.9.8 | 29-Oct-2026 | MACD drafts: stage Draft before Submitted (BRULE-MACD-01), save / edit / submit / discard a draft and edit a request until feasibility is done (MACD-029, MACD-030) |
 | 0.9.7 | 28-Oct-2026 | New module 7.13 MACD (move, add, change and disconnect requests): catalogue, intake, live feasibility, quote, change request, DCIM space hold, field work, verification with record and billing updates; MACD-001…028, BRULE-MACD-01…10, US-MACD-01…08; integrations INTG-060…061, write-back W-35…42 and A-16, new API-BSS-11; Appendix B.29 |
 | 0.9.6 | 28-Oct-2026 | Section 9.26 write-back: every UI action that updates an existing module (W-01…34), every automatic write (A-01…15), what stays in the modules' own screens, write rules WR-001…008; new write APIs API-INV-09…12, API-IPM-04, API-SOC-08 |
@@ -1755,6 +1756,11 @@ It sizes the plan from templates and benchmarks, checks it against rules, compar
 | BRULE-PLN-13 | Reviewers for "Send for review" = the holders of the approval path's roles minus the requester and the submitter. The request records who answered; the hub shows "Your review" to a reviewer who has not answered and "Review sent" to the planner. No e-mail is sent by the prototype (to discuss). |
 | BRULE-PLN-14 | A plan's tab bar always fits one row: tabs that do not fit fold into "More". Family tabs use short labels (Equipment, Inventory, Waves, Plant, Paths, Site fit). |
 | BRULE-PLN-15 | Record changes at closeout (wave close, disposal certificates, the migration meter reading, site retirement) go through one audited action, allowed on executing and completed plans only. |
+| BRULE-PLN-16 | Benchmark values: each tab adds only its own kind of value (Costs, Efficiency, Lead times, Sizing & staffing). The measure fixes the unit and the group, and only the applies-to fields the engine matches it on are offered: build cost and IT cost per rack → site type; PUE → cooling + climate; staff per MW → tier; energy tariff → region; design temperatures → climate; floor loading → cooling; every other measure = one value for every plan. New items are allowed only where the engine reads them (equipment lead times, matched by the bill of materials' lead item). One active value per measure and case: a second one is refused with a link to the existing value. Low ≤ typical ≤ high; a source is required. |
+| BRULE-PLN-17 | Values are retired, never deleted (with a reason); a retired value is not read and plans of its case fall back to the next matching value or the engine default. Approved baselines keep the version they used. Every save is a new version, audited old → new. |
+| BRULE-PLN-18 | Changing a confirmed value, or confirming one (new or indicative), needs approval by a Capacity Planner other than the requester. Until it is approved the planner keeps reading today's value; a proposed new value is not read at all. Rejecting keeps the value (or drops the proposed one). Indicative values save directly. |
+| BRULE-PLN-19 | A rule = a check the planner engine runs (its logic is never configured) plus settings carried by templates: name, area, Must / Should pass, the limit (only for the checks that compare against one, with unit, default and direction), standard and source. A nearer template's differing copy overrides the shared settings; a template never carries two rules for the same check. Every rule change bumps the version of each template it touches and is audited with its reason. |
+| BRULE-PLN-20 | Before a value or rule change is saved, the open plans (Draft, In review, Rejected, On hold) are re-evaluated with and without it and the differences shown (CapEx, OpEx per month, late items, rule results). Approved, executing and completed plans keep their baseline. A CSV import is a dry run first: lines match by id, else by measure and case, and are classed New / Changed / Unchanged / Rejected with the reason; only Apply saves, and confirmed changes go for approval. |
 
 ### 7.9.3 Functional requirements
 | ID | Requirement | Priority | Model | Phase |
@@ -1762,7 +1768,7 @@ It sizes the plan from templates and benchmarks, checks it against rules, compar
 | PLN-001 | The system shall offer the six plan families and their plan types listed in 7.9.1, each with its own wizard steps and plan-page tabs. | M | Both | P2 |
 | PLN-002 | The system shall keep a template library (plan types, site types, modules) with inheritance, versions, variants, publish and retire. | M | Both | P2 |
 | PLN-003 | The system shall show, for each template: its inheritance chain, wizard areas, approval path, outputs, inputs with defaults, rules, the plans using it and its versions. | M | Both | P2 |
-| PLN-004 | The system shall keep versioned benchmarks for costs, efficiency (PUE), lead times, sizing and staffing, and rules, filterable by site type, cooling, tier, region and confidence. | M | Both | P2 |
+| PLN-004 | The system shall keep versioned benchmarks for costs, efficiency (PUE), lead times, sizing and staffing, and rules, filterable by site type, cooling, tier, region, confidence and status (active, awaiting approval, retired); values and rules are maintained on the Benchmarks screen (PLN-049…058). | M | Both | P2 |
 | PLN-005 | The system shall guide plan creation in a wizard:<br>• plan type;<br>• requirements (name, needed-by date, where, how much, workload mix, tier);<br>• one step per design area (12 areas);<br>• scenarios;<br>• review. | M | Both | P2 |
 | PLN-006 | The system shall derive inputs from the requirements and say how many it filled and why. | M | Both | P2 |
 | PLN-007 | The system shall show the source of each input (override, template, benchmark, derived) and let the user reset it. | M | Both | P2 |
@@ -1807,6 +1813,16 @@ It sizes the plan from templates and benchmarks, checks it against rules, compar
 | PLN-046 | The system shall show per plan an Overview dashboard: what and why with the Draft → In review → Approved → In delivery → Completed tracker, key dates, needs attention (failing rules, late items, conditions, decision due, review comments, submit blockers), phases, cost · capacity · readiness, inputs changed from the template, what the plan produces. | M | Both | P2 |
 | PLN-047 | The system shall show on every plan ONE status line: state in words, whose decision, blockers, conditions, template drift, the build in Programs & Projects, an open review and an open revision. | M | Both | P2 |
 | PLN-048 | The system shall list in the plan pack what the plan creates with links into Programs & Projects, IP Management and DCIM once the build has started. | S | Both | P2 |
+| PLN-049 | The system shall offer on each Benchmarks tab its own add action (Add cost value, Add efficiency value, Add lead time, Add sizing value) whose form lists only that tab's measures, starts on the tab's main measure, locks the unit and shows only the applies-to fields the measure is matched on (BRULE-PLN-16). | M | Both | P2 |
+| PLN-050 | The system shall refuse a second active value for the same measure and case, link to the existing value, and check low ≤ typical ≤ high and a source before saving. | M | Both | P2 |
+| PLN-051 | The system shall let a planner retire and restore a value (with a reason), duplicate it for another case, and see its version history (old → new, who, when); a Status filter lists values awaiting approval or retired. | M | Both | P2 |
+| PLN-052 | The system shall show, before a value change is saved, its effect on the open plans: CapEx, OpEx per month, late items and rule results before and after (BRULE-PLN-20). | S | Both | P2 |
+| PLN-053 | The system shall send changes to confirmed values for approval (reason, notice bar with the pending count, Awaiting approval tag and filter, proposed change shown on the value) and let a Capacity Planner other than the requester approve or reject them (BRULE-PLN-18). | M | Both | P2 |
+| PLN-054 | The system shall let a template owner create a rule by picking a check from the catalogue of checks the planner runs (grouped by area, showing the templates that use it today) and adding it to one or more templates. | S | Both | P2 |
+| PLN-055 | The system shall let a template owner change a rule's name, area, Must / Should pass, limit (with its unit, default and direction), standard and source (BRULE-PLN-19). | M | Both | P2 |
+| PLN-056 | The system shall show where a rule applies and let the owner, per template, use the shared settings, set its own (an override of severity and limit), remove it, or add the rule to another plan type, rule set, module or site type; overrides are marked in the rule list. | M | Both | P2 |
+| PLN-057 | The system shall show, before a rule change is saved, which open plans start or stop failing it, take a reason, keep the rule's history, and let the owner remove a rule from every template with a reason. | S | Both | P2 |
+| PLN-058 | The system shall export each Benchmarks tab's values (with id, version and status) and the rules to CSV, and import values from CSV with a dry run (New / Changed / Unchanged / Rejected with reasons) before applying (BRULE-PLN-20). | S | Both | P2 |
 
 ### 7.9.4 User stories and acceptance criteria
 **US-PLN-01** As a capacity planner, I want to create a GPU pod plan from a template, so that sizing, cost and schedule come from agreed benchmarks. (PLN-005, PLN-006, PLN-033)
@@ -1830,11 +1846,23 @@ It sizes the plan from templates and benchmarks, checks it against rules, compar
 **US-PLN-07** As a reviewer, I want a PDF / XLSX / ZIP review pack, so that I can review offline. (PLN-020)
 - The ZIP manifest checksums match its files, and the PDF has no blank pages.
 
+**US-PLN-08** As a capacity planner, I want to add a lead time for new equipment from the Lead times tab, so that plans ordering it are scheduled with it. (PLN-049, PLN-050)
+- Given the Lead times tab, when I choose "Another equipment item…", name it "Busway (1600 A)" and enter 10 / 14 / 20 weeks with a source, then it is listed under equipment lead times in weeks; a second value for the same item is refused with "Open that value".
+
+**US-PLN-09** As a design authority, I want to raise a rule's limit and see which plans it affects before I save, so that the change is deliberate. (PLN-055, PLN-057)
+- Given the fuel-on-site rule at 24 hours, when I set 72, then the drawer lists the open plans that start warning, the save names the templates it changes, and the rule's history shows "limit 24 → 72 hours" with my reason.
+
+**US-PLN-10** As a capacity planner, I want changes to confirmed values approved by a second planner, so that plan estimates do not move on one person's edit. (PLN-053)
+- Given a confirmed lead time, when I change it, then the button reads "Send for approval", the planner keeps the old value, and I cannot approve it myself; when a second Capacity Planner approves, it becomes the next version and the history shows request and approval.
+
+**US-PLN-11** As a capacity planner, I want to refresh benchmark values from a spreadsheet, so that the yearly update is not typed by hand. (PLN-058)
+- Given an exported Costs CSV with one value changed, one new line, a wrong unit and a repeated line, when I import it, then the dry run shows 1 New, 1 Changed, 2 Rejected with reasons and the rest Unchanged, and only Apply saves.
+
 ### 7.9.5 Data
 | Entity | Read / write | System of record | Notes |
 | --- | --- | --- | --- |
 | Plan, scenario, approval, review, comment | Read / write | Planner (SynapseDC store); capacity holds written to Inventory Planning through its API | audited |
-| Template, benchmark | Read / write | Planner | versioned |
+| Template, benchmark, rule | Read / write | Planner | versioned; benchmark values retired (never deleted) and changes to confirmed values held as pending until approved; rules live in templates (shared settings + per-template overrides); audited |
 | Site baseline (halls, racks, power, cooling, IP) | Read | Plan to Build Inventory, IP Management, SynapseDC telemetry | as-is |
 | Catalogue, stock, vendor contracts | Read | Supply Chain Materials, Warehouses, Contracts, Vendors | sourcing |
 | Holds | Write | Inventory Planning | on approval |
@@ -5017,7 +5045,7 @@ These screens exist in the ideation code only to show the whole flow. Each belon
 
 ## Appendix A — Requirement index
 
-502 functional requirements, 201 business rules, 102 user stories, 12 build-boundary requirements, 61 integration requirements, 16 data requirements, 20 non-functional requirements. By phase: P1 209, P2 262, P3 31. By priority: M 312, S 170, C 20. By model: Both 423, Colo 21, Neo 58.
+512 functional requirements, 206 business rules, 106 user stories, 12 build-boundary requirements, 61 integration requirements, 16 data requirements, 20 non-functional requirements. By phase: P1 209, P2 272, P3 31. By priority: M 318, S 174, C 20. By model: Both 433, Colo 21, Neo 58.
 
 | ID | Requirement | Pri | Model | Phase |
 | --- | --- | --- | --- | --- |
@@ -5378,6 +5406,16 @@ These screens exist in the ideation code only to show the whole flow. Each belon
 | PLN-046 | The system shall show per plan an Overview dashboard: what and why with the Draft → In rev… | M | Both | P2 |
 | PLN-047 | The system shall show on every plan ONE status line: state in words, whose decision, block… | M | Both | P2 |
 | PLN-048 | The system shall list in the plan pack what the plan creates with links into Programs & Pr… | S | Both | P2 |
+| PLN-049 | The system shall offer on each Benchmarks tab its own add action (Add cost value, Add effi… | M | Both | P2 |
+| PLN-050 | The system shall refuse a second active value for the same measure and case, link to the e… | M | Both | P2 |
+| PLN-051 | The system shall let a planner retire and restore a value (with a reason), duplicate it fo… | M | Both | P2 |
+| PLN-052 | The system shall show, before a value change is saved, its effect on the open plans: CapEx… | S | Both | P2 |
+| PLN-053 | The system shall send changes to confirmed values for approval (reason, notice bar with th… | M | Both | P2 |
+| PLN-054 | The system shall let a template owner create a rule by picking a check from the catalogue … | S | Both | P2 |
+| PLN-055 | The system shall let a template owner change a rule's name, area, Must / Should pass, limi… | M | Both | P2 |
+| PLN-056 | The system shall show where a rule applies and let the owner, per template, use the shared… | M | Both | P2 |
+| PLN-057 | The system shall show, before a rule change is saved, which open plans start or stop faili… | S | Both | P2 |
+| PLN-058 | The system shall export each Benchmarks tab's values (with id, version and status) and the… | S | Both | P2 |
 | DCIM-001 | The system shall present the hierarchy site → floor → hall → row → rack → device → compone… | M | Both | P1 |
 | DCIM-002 | The system shall store (in the Inventory record through its API where it carries the field… | M | Both | P1 |
 | DCIM-003 | The system shall store (in the Inventory record through its API where it carries the field… | M | Both | P1 |
@@ -6115,13 +6153,18 @@ The planner's landing page: plans that need action and the portfolio at a glance
 
 ### B.17 Planner — Benchmarks
 
-**Route** `/planning?tab=benchmarks&metric=&site=&cooling=&tier=&region=&conf=` · **Menu** Plan & Build › Planner › Benchmarks · **Status** Build · **Phase** P2
+**Route** `/planning?tab=benchmarks&view=&q=&metric=&site=&cooling=&tier=&region=&conf=&state=&area=&sev=` · **Menu** Plan & Build › Planner › Benchmarks · **Status** Build · **Phase** P2
 
 | Feature | What the user sees / does | FR | Data from | Phase |
 | --- | --- | --- | --- | --- |
 | Views | Costs · Efficiency · Lead times · Sizing & staffing · Rules, each with charts and tables | PLN-004 | DC-STORE benchmarks; API-SCM-02 (prices, lead times) | P2 |
 | Toolbar per view | Search, Reference value / Site type quick filters, Cooling / Tier / Region / Confidence (Rules: Area / Severity) | PLN-044 | DC-STORE benchmarks | P2 |
-| Add / edit benchmark | Drawer; versioned | PLN-004 | DC-STORE benchmarks | P2 |
+| Add a value (per tab) | Add cost / efficiency value, Add lead time, Add sizing value: the tab's measures only, unit locked, applies-to fields the measure is matched on, new equipment lead-time items | PLN-049 | DC-STORE benchmarks | P2 |
+| Value drawer | Duplicate guard ("Open that value"), low ≤ typical ≤ high, source; Save new version · Duplicate for another case · Retire / Restore; history | PLN-050, PLN-051 | DC-STORE benchmarks, audit | P2 |
+| Effect on open plans | CapEx, OpEx / month, late items, rule results before → after for Draft / In review / Rejected / On hold plans | PLN-052 | DC-RM planner engine | P2 |
+| Approval of confirmed values | Send for approval with a reason; notice bar, Awaiting approval tag and Status filter; approve / reject by a second Capacity Planner | PLN-053 | DC-STORE benchmarks | P2 |
+| New rule / rule drawer | Check from the catalogue; name, area, Must / Should pass, limit with unit and default, standard, source; where it applies (shared / own settings / remove / add to a template); effect on open plans; reason; history; remove from every template | PLN-054…057 | DC-STORE templates, audit | P2 |
+| CSV export / import | ⋮ Export N values (CSV) per tab, Export rules (CSV); Import values from CSV → dry run (New / Changed / Unchanged / Rejected) → Apply | PLN-058 | DC-STORE benchmarks | P2 |
 
 ### B.18 Planner — New plan wizard
 
