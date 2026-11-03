@@ -43,6 +43,8 @@ export const useBenchmarks = () => { const data = useEntityList('plannerBenchmar
 /** The whole library, retired values included (Benchmarks screen). */
 export const useBenchmarkLibrary = () => { const data = useEntityList('plannerBenchmarks', BIG).data?.data; return useMemo(() => ((data ?? EMPTY) as unknown as T.PlannerBenchmark[]).filter(b => !b.isDeleted), [data]); };
 /** A benchmark's history: created, edited (old → new), retired, restored; newest first. */
+/** A rule's history (Rule audit lines: created, changed, added to / removed from templates); newest first. */
+export const useRuleAudit = (id?: string) => { const data = useEntityList('auditEvents', { pageSize: 100000 }).data?.data; return useMemo(() => ((data ?? EMPTY) as unknown as T.AuditEvent[]).filter(e => id && e.entityType === 'Rule' && e.entityId === id).sort((a, b) => b.timestamp.localeCompare(a.timestamp)), [data, id]); };
 export const useBenchmarkAudit = (id?: string) => { const data = useEntityList('auditEvents', { pageSize: 100000 }).data?.data; return useMemo(() => ((data ?? EMPTY) as unknown as T.AuditEvent[]).filter(e => id && e.entityType === 'Benchmark' && e.entityId === id).sort((a, b) => b.timestamp.localeCompare(a.timestamp)), [data, id]); };
 const EMPTY: never[] = [];
 export const usePlans = () => { const data = useEntityList('plannerPlans', BIG).data?.data; return useMemo(() => ((data ?? EMPTY) as unknown as T.PlannerPlan[]).filter(p => !p.isDeleted), [data]); };
@@ -459,6 +461,21 @@ export function usePlannerActions() {
       db.update('plannerBenchmarks', b.id, { ...b, version, updatedAt: now(), updatedBy: actor } as unknown as Record<string, unknown>);
       if (changes.length) log('Benchmark', b.id, 'benchmark edited', `Benchmark ${b.label} v${old.version ?? 1} → v${version}: ${G.changesText(changes)}`, { changes });
       invalidate(); return { ok: true };
+    },
+    /** Change a rule in the templates that carry it: set (add or replace) or remove (null) its copy per template. Each template
+     *  is saved through saveTemplate (version bump + audit); the rule gets its own history line with what changed and why. */
+    applyRule(ruleId: string, edits: Record<string, T.PlannerRuleDef | null>, action: 'created' | 'changed' | 'removed', what: string, reason?: string): { ok: true } | { ok: false; reason: string } {
+      const ids = Object.keys(edits);
+      if (!ids.length) return refuse('Nothing to change.');
+      const all = db.getAll('plannerTemplates', { pageSize: 100000 }).data as unknown as T.PlannerTemplate[];
+      for (const id of ids) {
+        const t = all.find(x => x.id === id); if (!t) continue;
+        const e = edits[id], has = t.rules.some(r => r.id === ruleId);
+        if (e && !has && t.rules.some(r => r.check === e.check)) return refuse(`${t.name} already checks this with rule ${t.rules.find(r => r.check === e.check)!.id}.`);
+        const rules = e === null ? t.rules.filter(r => r.id !== ruleId) : has ? t.rules.map(r => (r.id === ruleId ? e : r)) : [...t.rules, e];
+        this.saveTemplate({ ...t, rules });
+      }
+      log('Rule', ruleId, action, `Rule ${ruleId} ${action}: ${what}`, { reason }); return { ok: true };
     },
     /** Retire a value: the planner stops reading it (plans fall back to the next value or the built-in default); baselines keep it. */
     retireBenchmark(b: T.PlannerBenchmark, reason: string) {

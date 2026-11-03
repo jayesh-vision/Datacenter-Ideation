@@ -487,3 +487,12 @@ button.pn-lead-row:hover { background: var(--vw-color-slate-50); }
 .pn-bm-hist li { display: grid; grid-template-columns: 90px 1fr; gap: 2px 10px; padding: 8px 0; border-bottom: 1px solid var(--vw-color-slate-100, #eef2f6); font-size: 12.5px; }
 .pn-bm-hist li b { text-transform: capitalize; font-weight: 500; }
 .pn-bm-hist li small { grid-column: 2; color: var(--vw-color-slate-500, #64748b); }
+/* Benchmarks → Rules: configure / new rule (Benchmarks.tsx RuleDrawer) */
+.pn-rule-where { width: 100%; }
+.pn-rule-where td { vertical-align: middle; }
+.pn-rule-where tr.is-off td { opacity: .55; }
+.pn-rule-scope { display: flex; flex-direction: column; gap: 6px; min-width: 200px; }
+.pn-rule-impact { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; font-size: 13px; }
+.pn-rule-impact b { font-size: 18px; font-weight: 500; margin-right: 4px; }
+.pn-rule-impact b.is-bad { color: var(--vw-color-red-600, #dc2626); }
+.pn-rule-impact b.is-good { color: var(--vw-color-green-600, #16a34a); }

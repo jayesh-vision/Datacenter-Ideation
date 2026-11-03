@@ -5,13 +5,17 @@
    the measure fixes the unit and the applies-to fields the engine matches; one active value per case). Values are edited in a drawer;
    every edit bumps the version and is audited, so an approved plan can say which value it used; values are retired, never deleted.
    Engine keys never reach the screen (METRIC_INFO names them). */
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
 import { DataTable, type Col } from '../../ui/DataTable';
 import { Btn, Chip, Drawer, Empty, Field, Panel, Seg } from '../../ui/kit';
-import { useBenchmarkAudit, useBenchmarkLibrary, useEstate, usePlannerActions, useTemplates } from '../../planner/lib/usePlanner';
+import { useBenchmarkAudit, useBenchmarkLibrary, useBenchmarks, useEstate, usePlannerActions, usePlans, useRuleAudit, useTemplates } from '../../planner/lib/usePlanner';
+import { LIMIT_INFO, RULE_TEMPLATE_KINDS, checkCatalog, isOverride, nextRuleId, ruleImpact, ruleIndex, withRule, type ImpactRow, type RuleEntry, type RuleStatus } from '../../planner/lib/ruleCatalog';
+import { usePlannerData } from '../../planner/lib/plannerData';
+import { estateActuals } from '../../planner/lib/ai';
+import type { EstateActuals } from '../../planner/lib/engine';
 import { OPEN_FAMILIES, VIEW_ADD, VIEW_CATEGORIES, dimsOf, duplicateOf, measuresFor, viewOf, type BenchDim, type BenchView } from '../../planner/lib/benchCatalog';
 import { CLIMATE_LABEL, COOLING_LABEL, METRIC_INFO, RULE_PLAIN, metricDetail, metricKey } from '../../planner/lib/labels';
 import { DC_TYPE_CATALOG } from '../../planner/p2b/dcTypes';
@@ -86,11 +90,8 @@ export function BenchmarksTab() {
       sizing: cat('sizing', 'staffing'),
     };
   }, [all]);
-  const ruleRows = useMemo(() => {
-    const seen = new Map<string, { id: string; rule: T.PlannerRuleDef; from: string[] }>();
-    for (const t of templates) for (const r of t.rules) { const x = seen.get(r.id) ?? { id: r.id, rule: r, from: [] }; x.from.push(t.name); seen.set(r.id, x); }
-    return [...seen.values()];
-  }, [templates]);
+  const ruleRows = useMemo(() => ruleIndex(templates), [templates]);
+  const [ruleEdit, setRuleEdit] = useState<RuleState | null>(null);
   const counts: Record<View, number> = { cost: g.capex.length + g.otherCost.length, efficiency: g.pue.length + g.otherEff.length, lead: g.leadWeeks.length + g.build.length + g.logistics.length, sizing: g.sizing.length, rules: ruleRows.length };
 
   /* every table and chart of the view reads the same filtered rows */
@@ -121,7 +122,7 @@ export function BenchmarksTab() {
     <div className="pn-lib">
       <div className="pn-lib-bar">
         <Seg<View> size="sm" value={view} onChange={v => apply({ ...CLEAR, view: v === 'cost' ? '' : v })} options={[{ id: 'cost', label: `Costs · ${counts.cost}` }, { id: 'efficiency', label: `Efficiency · ${counts.efficiency}` }, { id: 'lead', label: `Lead times · ${counts.lead}` }, { id: 'sizing', label: `Sizing & staffing · ${counts.sizing}` }, { id: 'rules', label: `Rules · ${counts.rules}` }]} />
-        {view !== 'rules' && <Btn variant="filled" icon={I.Plus} onClick={addNew}>{addLabel}</Btn>}
+        {view !== 'rules' ? <Btn variant="filled" icon={I.Plus} onClick={addNew}>{addLabel}</Btn> : <Btn variant="filled" icon={I.Plus} onClick={() => setRuleEdit({ entry: null })}>New rule</Btn>}
       </div>
       {toolbar && <section className="vw-card-section pn-lib-tb">{toolbar}</section>}
 
@@ -163,7 +164,8 @@ export function BenchmarksTab() {
         </Panel>
       )}
 
-      {view === 'rules' && <RulesView rows={ruleRows} q={q} area={area} sev={sev} apply={apply} />}
+      {view === 'rules' && <RulesView rows={ruleRows} q={q} area={area} sev={sev} apply={apply} onOpen={r => setRuleEdit({ entry: r })} />}
+      {ruleEdit && <RuleDrawer key={ruleEdit.entry?.id ?? 'new'} state={ruleEdit} onClose={() => setRuleEdit(null)} />}
 
       {edit && <BenchmarkDrawer key={`${edit.b?.id ?? 'new'}-${edit.view}-${edit.preset ? 'dup' : ''}`} edit={edit} library={library} onOpen={setEdit} onClose={() => setEdit(null)} />}
     </div>
@@ -191,7 +193,7 @@ function ValueTable({ rows, first, onRow, toolbar, empty, shared, compact }: { r
 }
 
 /** rules from every template, once, in two groups: must pass (blocks submission) and should pass (warns) */
-function RulesView({ rows, q, area, sev, apply }: { rows: { id: string; rule: T.PlannerRuleDef; from: string[] }[]; q: string; area: string; sev: string; apply: (p: Record<string, string>) => void }) {
+function RulesView({ rows, q, area, sev, apply, onOpen }: { rows: RuleEntry[]; q: string; area: string; sev: string; apply: (p: Record<string, string>) => void; onOpen: (r: RuleEntry) => void }) {
   type R = (typeof rows)[number];
   const what = (r: R) => RULE_PLAIN[r.rule.check] ?? r.rule.title;
   const shown = rows.filter(r => (!area || r.rule.aspect === area) && (!sev || r.rule.severity === sev) && (!q || `${what(r)} ${r.rule.title} ${r.id} ${r.rule.standard ?? ''} ${ASPECT_LABEL[r.rule.aspect]}`.toLowerCase().includes(q.toLowerCase())));
@@ -205,8 +207,8 @@ function RulesView({ rows, q, area, sev, apply }: { rows: { id: string; rule: T.
     { key: 'r', header: 'What is checked', sort: what, wrap: true, render: r => <span className="cell-2 pn-name-cell"><b>{what(r)}</b><small>{RULE_PLAIN[r.rule.check] ? `${r.rule.title} · ` : ''}<span className="mono">{r.id}</span></small></span> },
     { key: 'a', header: 'Area', sort: r => ASPECT_LABEL[r.rule.aspect], render: r => ASPECT_LABEL[r.rule.aspect] },
     { key: 'std', header: 'Standard', wrap: true, render: r => r.rule.standard ?? <span className="vw-label">Internal</span> },
-    { key: 'lim', header: 'Limit', sort: r => r.rule.threshold ?? -1, render: r => (r.rule.threshold !== undefined ? <span className="num">{num(r.rule.threshold, 2)}</span> : <span className="vw-label">—</span>) },
-    { key: 'from', header: 'In templates', sort: r => r.from.length, render: r => <Tip className="is-dotted" content={{ title: `${r.from.length} template${r.from.length === 1 ? '' : 's'} check this`, rows: [], note: r.from.slice(0, 12).join(', ') + (r.from.length > 12 ? ` and ${r.from.length - 12} more` : '') }}><span className="pn-nowrap">{r.from.length} template{r.from.length === 1 ? '' : 's'}</span></Tip> },
+    { key: 'lim', header: 'Limit', sort: r => r.rule.threshold ?? -1, render: r => (LIMIT_INFO[r.rule.check] ? <span className="num pn-nowrap">{num(r.rule.threshold ?? LIMIT_INFO[r.rule.check].dflt, 2)} {LIMIT_INFO[r.rule.check].unit}{r.rule.threshold === undefined && <span className="vw-label"> (default)</span>}</span> : <span className="vw-label">—</span>) },
+    { key: 'from', header: 'In templates', sort: r => r.carriers.length, render: r => <span className="row pn-nowrap" style={{ gap: 6 }}><Tip className="is-dotted" content={{ title: `${r.carriers.length} template${r.carriers.length === 1 ? '' : 's'} check this`, rows: [], note: r.carriers.map(c => c.template.name).slice(0, 12).join(', ') + (r.carriers.length > 12 ? ` and ${r.carriers.length - 12} more` : '') }}><span>{r.carriers.length} template{r.carriers.length === 1 ? '' : 's'}</span></Tip>{r.differs && <Chip size="xs" tone="info" outline>Overrides</Chip>}</span> },
   ];
   const group = (sev: 'hard' | 'soft') => shown.filter(r => r.rule.severity === sev);
   return <>
@@ -215,8 +217,8 @@ function RulesView({ rows, q, area, sev, apply }: { rows: { id: string; rule: T.
       <Panel key={x} flush icon={x === 'hard' ? I.ShieldAlert : I.ShieldCheck} count={group(x).length} title={x === 'hard' ? 'Must pass' : 'Should pass'}
         sub={x === 'hard' ? 'A plan cannot be submitted while any of these fails.' : 'A plan can be submitted, but the reviewer sees a warning with the reason.'}
         actions={<Chip tone={x === 'hard' ? 'error' : 'warning'} size="xs" outline>{x === 'hard' ? 'Blocks submission' : 'Warns the reviewer'}</Chip>}
-        info="Every rule any template checks, once. The limit is the threshold the check compares against; In templates lists the templates that carry it.">
-        <DataTable<R> rows={group(x)} cols={cols} pageSize={25} defaultSort={{ key: 'a', dir: 'asc' }}
+        info="Every rule any template checks, once. The limit is the threshold the check compares against; In templates lists the templates that carry it (Overrides = some templates use their own settings). Click a rule to change its settings or where it applies.">
+        <DataTable<R> rows={group(x)} cols={cols} pageSize={25} defaultSort={{ key: 'a', dir: 'asc' }} onRow={onOpen}
           empty={<Empty icon={I.Inbox} title="No rules match" action={(q || area) ? <Btn onClick={() => apply({ q: '', area: '', sev: '' })}>Clear filters</Btn> : undefined}>{q || area ? 'Clear the search or the area filter to see every rule.' : 'No template carries a rule of this kind.'}</Empty>} />
       </Panel>
     ))}
@@ -335,3 +337,177 @@ function BenchmarkDrawer({ edit, library, onOpen, onClose }: { edit: EditState; 
     </Drawer>
   );
 }
+
+/* ------------------------------------------------------------------ rules: configure / new rule */
+type RuleState = { entry: RuleEntry | null };
+type Scope = 'shared' | 'own' | 'off';
+const STATUS_TONE: Record<RuleStatus, 'success' | 'error' | 'warning' | 'neutral'> = { pass: 'success', fail: 'error', warn: 'warning', 'n/a': 'neutral', absent: 'neutral' };
+const STATUS_WORD: Record<RuleStatus, string> = { pass: 'Passes', fail: 'Fails', warn: 'Warns', 'n/a': 'Not applicable', absent: 'Not checked' };
+const StatusChip = ({ s }: { s: RuleStatus }) => <Chip size="xs" tone={STATUS_TONE[s]} outline={s === 'n/a' || s === 'absent'}>{STATUS_WORD[s]}</Chip>;
+const isBad = (s: RuleStatus) => s === 'fail' || s === 'warn';
+
+/** Configure one rule (or add one from the catalogue of checks): its settings, the templates that carry it (shared settings, their
+ *  own override, or not checked there), the effect on open plans before saving, and its history. Check logic stays in the engine. */
+function RuleDrawer({ state, onClose }: { state: RuleState; onClose: () => void }) {
+  const templates = useTemplates();
+  const plans = usePlans();
+  const benchmarks = useBenchmarks();
+  const data = usePlannerData();
+  const estate = useEstate();
+  const actions = usePlannerActions();
+  const e = state.entry;
+  const checks = useMemo(() => checkCatalog(templates), [templates]);
+  const [check, setCheck] = useState(e?.rule.check ?? '');
+  const ruleId = useMemo(() => e?.id ?? nextRuleId(templates), [e, templates]);
+  const ck = checks.find(c => c.check === check);
+  const lim = LIMIT_INFO[check];
+  const [def, setDef] = useState<Omit<T.PlannerRuleDef, 'id' | 'check'>>(e ? { title: e.rule.title, aspect: e.rule.aspect, severity: e.rule.severity, threshold: e.rule.threshold, standard: e.rule.standard, source: e.rule.source } : { title: '', aspect: 'power', severity: 'soft' });
+  const setD = (p: Partial<typeof def>) => setDef(x => ({ ...x, ...p }));
+  /* where it applies: per template, shared settings / its own override / not checked */
+  const initial = useMemo(() => Object.fromEntries((e?.carriers ?? []).map(c => [c.template.id, { scope: (isOverride(e!, c) ? 'own' : 'shared') as Scope, own: { severity: c.rule.severity, threshold: c.rule.threshold } }])), [e]);
+  const [where, setWhere] = useState<Record<string, { scope: Scope; own: { severity: T.PlannerRuleSeverity; threshold?: number } }>>(initial);
+  const [ask, setAsk] = useState<ReasonRequest | null>(null);
+  const [reason, setReason] = useState('');
+  const history = useRuleAudit(e?.id);
+  const pickCheck = (c: string) => {
+    setCheck(c); const x = checks.find(k => k.check === c);
+    setD({ title: RULE_PLAIN[c] ?? '', aspect: x?.aspect ?? def.aspect, threshold: LIMIT_INFO[c]?.dflt });
+    /* suggest the templates that use this check today and do not carry another rule for it */
+    setWhere(Object.fromEntries((x?.usedIn ?? []).filter(t => !t.rules.some(r => r.check === c)).map(t => [t.id, { scope: 'shared' as Scope, own: { severity: def.severity } }])));
+  };
+  const tplName = (id: string) => templates.find(t => t.id === id)?.name ?? id;
+  const shared: T.PlannerRuleDef = { id: ruleId, check, ...def, title: def.title.trim() || RULE_PLAIN[check] || check, threshold: lim ? def.threshold : undefined, standard: def.standard?.trim() || undefined, source: def.source?.trim() || undefined };
+  /* the edits a save would make: only templates whose copy changes */
+  const edits = useMemo(() => {
+    const out: Record<string, T.PlannerRuleDef | null> = {};
+    if (!check) return out;
+    for (const [id, w] of Object.entries(where)) {
+      const t = templates.find(x => x.id === id); if (!t) continue;
+      const cur = t.rules.find(r => r.id === ruleId);
+      const want = w.scope === 'off' ? null : w.scope === 'own' ? { ...shared, severity: w.own.severity, threshold: lim ? w.own.threshold : undefined } : shared;
+      if (JSON.stringify(cur ?? null) !== JSON.stringify(want)) out[id] = want;
+    }
+    return out;
+  }, [where, templates, ruleId, check, JSON.stringify(shared)]); // eslint-disable-line react-hooks/exhaustive-deps
+  const nEdits = Object.keys(edits).length;
+  const carrying = Object.values(where).filter(w => w.scope !== 'off').length;
+  /* effect on open plans, re-run 400 ms after the last change */
+  const [impact, setImpact] = useState<ImpactRow[] | null>(null);
+  useEffect(() => {
+    setImpact(null); if (!nEdits) return;
+    const h = setTimeout(() => {
+      const after = withRule(templates, ruleId, edits);
+      const act = new Map<string, EstateActuals>();
+      const actualsOf = (p: T.PlannerPlan) => { const k = p.dcTypeKey ?? ''; if (!act.has(k)) act.set(k, k ? estateActuals(k, estate) : { sampleSites: 0 }); return act.get(k)!; };
+      setImpact(ruleImpact(plans, templates, after, ruleId, benchmarks, actualsOf, data));
+    }, 400);
+    return () => clearTimeout(h);
+  }, [edits]); // eslint-disable-line react-hooks/exhaustive-deps
+  const starts = impact?.filter(r => !isBad(r.before) && isBad(r.after)) ?? [], stops = impact?.filter(r => isBad(r.before) && !isBad(r.after)) ?? [];
+  const errors = [!check && 'Pick what is checked.', lim && def.threshold === undefined && 'Set the limit.', !e && carrying === 0 && 'Add it to at least one template.', e && nEdits === 0 && 'Nothing changed yet.'].filter(Boolean) as string[];
+  const changeText = () => {
+    if (!e) return `created (${STATUS_SEV[shared.severity]}${lim ? `, limit ${shared.threshold} ${lim.unit}` : ''}) in ${Object.keys(edits).map(tplName).join(', ')}`;
+    const parts: string[] = [];
+    const d0 = e.rule;
+    if (d0.title !== shared.title) parts.push(`name "${d0.title}" → "${shared.title}"`);
+    if (d0.aspect !== shared.aspect) parts.push(`area ${ASPECT_LABEL[d0.aspect]} → ${ASPECT_LABEL[shared.aspect]}`);
+    if (d0.severity !== shared.severity) parts.push(`${STATUS_SEV[d0.severity]} → ${STATUS_SEV[shared.severity]}`);
+    if (lim && d0.threshold !== shared.threshold) parts.push(`limit ${d0.threshold ?? lim.dflt} → ${shared.threshold} ${lim.unit}`);
+    if ((d0.standard ?? '') !== (shared.standard ?? '')) parts.push('standard changed');
+    const added = Object.keys(edits).filter(id => edits[id] && !e.carriers.some(c => c.template.id === id)), removed = Object.keys(edits).filter(id => edits[id] === null);
+    const own = Object.keys(edits).filter(id => edits[id] && where[id]?.scope === 'own');
+    if (added.length) parts.push(`added to ${added.map(tplName).join(', ')}`);
+    if (removed.length) parts.push(`removed from ${removed.map(tplName).join(', ')}`);
+    if (own.length) parts.push(`own settings in ${own.map(tplName).join(', ')}`);
+    return parts.join('; ') || 'templates updated';
+  };
+  const save = () => { if (actions.applyRule(ruleId, edits, e ? 'changed' : 'created', changeText(), reason.trim() || undefined).ok) onClose(); };
+  const removeAll = () => setAsk({ title: `Remove ${ruleId} from every template?`, description: `${carrying} template${carrying === 1 ? '' : 's'} stop checking it. Plans already approved keep the result in their baseline. The history keeps what it was.`, okText: 'Remove rule', danger: true, needsReason: true, placeholder: 'Why the rule is removed (kept in its history)',
+    onOk: r => { if (actions.applyRule(ruleId, Object.fromEntries(e!.carriers.map(c => [c.template.id, null])), 'removed', `from every template (${e!.carriers.map(c => c.template.name).join(', ')})`, r).ok) onClose(); } });
+  const addable = templates.filter(t => RULE_TEMPLATE_KINDS.includes(t.kind) && t.status !== 'deprecated' && !where[t.id] && !t.rules.some(r => r.check === check && r.id !== ruleId));
+  const kindName: Record<string, string> = { plan: 'Plan type', ruleset: 'Rule set', aspect: 'Module', profile: 'Site type' };
+  const shownCarriers = Object.keys(where);
+  return (
+    <Drawer open onClose={onClose} width={680} title={e ? (RULE_PLAIN[e.rule.check] ?? e.rule.title) : 'New rule'}
+      sub={e ? <span className="row" style={{ gap: 6, flexWrap: 'wrap' }}><span className="mono">{e.id}</span><Chip size="xs" tone={e.rule.severity === 'hard' ? 'error' : 'warning'} outline>{e.rule.severity === 'hard' ? 'Must pass' : 'Should pass'}</Chip><span className="vw-label">{ASPECT_LABEL[e.rule.aspect]} · in {e.carriers.length} template{e.carriers.length === 1 ? '' : 's'}</span></span>
+        : 'Pick a check the planner already runs, set how strict it is and which templates carry it. The check itself is part of the planner engine.'}
+      foot={<div className="row" style={{ justifyContent: 'space-between', gap: 8 }}>
+        <span>{e && <Btn icon={I.Trash2} onClick={removeAll}>Remove from every template</Btn>}</span>
+        <span className="row" style={{ gap: 8 }}><Btn onClick={onClose}>Cancel</Btn><Btn variant="filled" icon={I.Save} disabled={errors.length > 0} onClick={save}>{e ? `Save${nEdits ? ` to ${nEdits} template${nEdits === 1 ? '' : 's'}` : ''}` : 'Create rule'}</Btn></span>
+      </div>}>
+      <div className="pn-bm-form">
+        <section>
+          <h4>What is checked</h4>
+          {e ? <div className="pn-bm-measure"><b>{RULE_PLAIN[e.rule.check] ?? e.rule.title}</b><span>Check <span className="mono">{e.rule.check}</span> · the logic is part of the planner engine; here you set how strict it is and where it applies.</span></div>
+            : <Field label="Check" required hint={ck ? `Used today by ${ck.rules.length} rule${ck.rules.length === 1 ? '' : 's'} in ${ck.usedIn.map(t => t.name).slice(0, 4).join(', ')}${ck.usedIn.length > 4 ? ` and ${ck.usedIn.length - 4} more` : ''}.` : 'Grouped by area.'}>
+              <select className="select" value={check} onChange={ev => pickCheck(ev.target.value)}>
+                <option value="" disabled>Choose a check</option>
+                {(Object.keys(ASPECT_LABEL) as T.PlannerAspect[]).filter(a => checks.some(c => c.aspect === a)).map(a => <optgroup key={a} label={ASPECT_LABEL[a]}>{checks.filter(c => c.aspect === a).map(c => <option key={c.check} value={c.check}>{c.plain}{LIMIT_INFO[c.check] ? ' (has a limit)' : ''}</option>)}</optgroup>)}
+              </select>
+            </Field>}
+        </section>
+        {check && <section>
+          <h4>Settings {e && <span className="vw-label" style={{ fontWeight: 400 }}>· shared by every template that does not override them</span>}</h4>
+          <div className="pn-grid-2">
+            <Field label="Name shown in rule results" style={{ gridColumn: 'span 2' }}><TextInput value={def.title} onChange={v => setD({ title: v })} placeholder={RULE_PLAIN[check] ?? ''} /></Field>
+            <Field label="Area" required><SelectInput value={def.aspect} options={(Object.keys(ASPECT_LABEL) as T.PlannerAspect[]).map(a => ({ id: a, label: ASPECT_LABEL[a] }))} onChange={v => setD({ aspect: v })} /></Field>
+            <Field label="When it fails" required hint={def.severity === 'hard' ? 'The plan cannot be submitted.' : 'The plan can be submitted; reviewers see a warning.'}><Seg<T.PlannerRuleSeverity> size="sm" value={def.severity} onChange={v => setD({ severity: v })} options={[{ id: 'hard', label: 'Must pass' }, { id: 'soft', label: 'Should pass' }]} /></Field>
+            {lim ? <Field label={`Limit · ${lim.label}`} required style={{ gridColumn: 'span 2' }} hint={`${lim.dir === 'min' ? 'At least' : 'At most'} this value passes. Default ${lim.dflt} ${lim.unit} when no limit is set.${lim.note ? ` ${lim.note}` : ''}`}>
+              <NumInput value={def.threshold} onChange={v => setD({ threshold: v, title: v === undefined || def.threshold === undefined ? def.title : def.title.replace(new RegExp(`\\b${String(def.threshold).replace('.', '\\.')}\\b`), String(v)) })} unit={lim.unit} /></Field>
+              : <p className="vw-label" style={{ gridColumn: 'span 2', margin: 0 }}>This check has no limit to set: it compares the plan with the site, the bill or the schedule directly.</p>}
+            <Field label="Standard"><TextInput value={def.standard ?? ''} onChange={v => setD({ standard: v })} placeholder="e.g. TIA-942, Uptime Tier III, internal" /></Field>
+            <Field label="Source"><TextInput value={def.source ?? ''} onChange={v => setD({ source: v })} placeholder="Where the requirement comes from" /></Field>
+          </div>
+        </section>}
+        {check && <section>
+          <h4>Where it applies <span className="vw-label" style={{ fontWeight: 400 }}>· {carrying} template{carrying === 1 ? '' : 's'}; plans inherit rules from their template chain</span></h4>
+          {shownCarriers.length ? <table className="nst-table pn-rule-where"><thead><tr><th>Template</th><th>Settings here</th><th /></tr></thead><tbody>
+            {shownCarriers.map(id => { const t = templates.find(x => x.id === id); const w = where[id]; if (!t) return null;
+              const setW = (p: Partial<typeof w>) => setWhere(x => ({ ...x, [id]: { ...x[id], ...p } }));
+              return <tr key={id} className={w.scope === 'off' ? 'is-off' : ''}>
+                <td><span className="cell-2"><b>{t.name}</b><small>{kindName[t.kind] ?? t.kind} · v{t.version}{t.status !== 'published' ? ` · ${t.status}` : ''}</small></span></td>
+                <td><div className="pn-rule-scope">
+                  <SelectInput<Scope> value={w.scope} options={[{ id: 'shared', label: 'Shared settings' }, { id: 'own', label: 'Own settings (override)' }, { id: 'off', label: e?.carriers.some(c => c.template.id === id) ? 'Remove from this template' : 'Not added' }]} onChange={v => setW({ scope: v })} />
+                  {w.scope === 'own' && <span className="row" style={{ gap: 6 }}><Seg<T.PlannerRuleSeverity> size="sm" value={w.own.severity} onChange={v => setW({ own: { ...w.own, severity: v } })} options={[{ id: 'hard', label: 'Must' }, { id: 'soft', label: 'Should' }]} />{lim && <NumInput value={w.own.threshold} onChange={v => setW({ own: { ...w.own, threshold: v } })} unit={lim.unit} style={{ width: 110 }} />}</span>}
+                  {w.scope === 'own' && w.own.severity === def.severity && (!lim || w.own.threshold === def.threshold) && <small className="vw-label">Same as the shared settings: change the severity{lim ? ' or the limit' : ''} to override.</small>}
+                </div></td>
+                <td>{edits[id] !== undefined && <Chip size="xs" tone="info" outline>{edits[id] === null ? 'Removed' : e?.carriers.some(c => c.template.id === id) ? 'Changed' : 'Added'}</Chip>}</td>
+              </tr>; })}
+          </tbody></table> : <p className="vw-label" style={{ margin: 0 }}>No template carries it yet.</p>}
+          <Field label="Add to a template" hint="Plan types, rule sets, modules and site types. A template that already checks this with another rule is not offered.">
+            <select className="select" value="" onChange={ev => { const id = ev.target.value; if (id) setWhere(x => ({ ...x, [id]: { scope: 'shared', own: { severity: def.severity, threshold: def.threshold } } })); }}>
+              <option value="">Choose a template…</option>
+              {(['plan', 'ruleset', 'aspect', 'profile'] as const).map(k => { const ts = addable.filter(t => t.kind === k); return ts.length ? <optgroup key={k} label={`${kindName[k]}s`}>{ts.map(t => <option key={t.id} value={t.id}>{t.name}{ck?.usedIn.includes(t) ? ' · uses this check' : ''}</option>)}</optgroup> : null; })}
+            </select>
+          </Field>
+        </section>}
+        {check && nEdits > 0 && <section>
+          <h4>Effect on open plans</h4>
+          {!impact ? <p className="vw-label" style={{ margin: 0 }}>Re-checking the draft and in-review plans…</p>
+            : !impact.length ? <p className="vw-label" style={{ margin: 0 }}>No open plan uses the templates this changes. Approved and executing plans keep the result in their baseline.</p>
+            : <>
+              <div className="pn-rule-impact">
+                <span><b className={starts.length ? 'is-bad' : ''}>{starts.length}</b> start failing or warning</span>
+                <span><b className={stops.length ? 'is-good' : ''}>{stops.length}</b> stop failing</span>
+                <span><b>{impact.length - starts.length - stops.length}</b> unchanged</span>
+                <span className="vw-label">of {impact.length} open plan{impact.length === 1 ? '' : 's'} re-checked</span>
+              </div>
+              <table className="nst-table pn-rule-where"><thead><tr><th>Plan</th><th>Now</th><th>After saving</th></tr></thead><tbody>
+                {[...impact].sort((a, b) => Number(isBad(b.after) && !isBad(b.before)) - Number(isBad(a.after) && !isBad(a.before)) || Number(b.before !== b.after) - Number(a.before !== a.after)).map(r =>
+                  <tr key={r.plan.id}><td><span className="cell-2"><b>{r.plan.title}</b><small>{r.plan.id} · {r.plan.status}{r.detail ? ` · ${r.detail}` : ''}</small></span></td><td><StatusChip s={r.before} /></td><td><StatusChip s={r.after} /></td></tr>)}
+              </tbody></table>
+            </>}
+          <Field label="Reason for the change" hint="Kept in the rule's history and the templates' audit."><TextInput value={reason} onChange={setReason} placeholder="e.g. Board raised the fuel autonomy to 36 h" /></Field>
+        </section>}
+        {e && <section>
+          <h4>History</h4>
+          {history.length ? <ol className="pn-bm-hist">{history.map(h => <li key={h.id}><b>{h.action}</b><span>{h.summary.replace(/^Rule [^:]+: /, '')}{h.reason ? ` · “${h.reason}”` : ''}</span><small>{h.actorName} · {date(h.timestamp)}</small></li>)}</ol>
+            : <p className="vw-label" style={{ margin: 0 }}>Loaded with the templates; no changes since. Every save adds a line here and bumps the version of each template it changes.</p>}
+        </section>}
+        {errors.length > 0 && check && <p className="vw-label" style={{ margin: 0 }}>To save: {errors.join(' ')}</p>}
+      </div>
+      <ReasonModal req={ask} onClose={() => setAsk(null)} />
+    </Drawer>
+  );
+}
+const STATUS_SEV: Record<T.PlannerRuleSeverity, string> = { hard: 'must pass', soft: 'should pass' };

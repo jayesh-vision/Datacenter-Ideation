@@ -854,8 +854,17 @@ floor loading → cooling; others = one value for every plan); new items only wh
 measure + case (`caseKey` / `duplicateOf`; `saveBenchmark` refuses, the drawer shows "Open that value"); low ≤ typical ≤ high. Values are retired, never deleted
 (`retiredAt/By/Reason`, `retireBenchmark` / `restoreBenchmark`; `useBenchmarks()` and the bridge read active values only, `useBenchmarkLibrary()` everything; Filters →
 Status → Retired), Duplicate for another case, History from the audit log (`useBenchmarkAudit`). Seed has one duplicate case (liquidThresholdKw ×2, same value): the drawer
-flags it. Rules are still read-only (phase B: configure limit / severity / templates; phase C: impact preview, approval of confirmed values, CSV import / export).
-Check: `node .qa/p2b-benchmarks.mjs neocloud us` (W=1280|1440).
+flags it. Check: `node .qa/p2b-benchmarks.mjs neocloud us` (W=1280|1440).
+Rules CRUD, phase B (03-Nov-2026): `planner/lib/ruleCatalog.ts`. A rule = an engine check (logic stays in engine.ts / scope checks, never configured) carried
+by templates with its own settings; `ruleIndex` lists every rule once (shared definition = the most common copy; a differing copy in a template = an override,
+the "Overrides" chip — resolveTemplate already lets a nearer template's copy win). Rules tab: **New rule** (pick a check from `checkCatalog`, grouped by area;
+id `R-CUS-nn`; templates that use the check suggested) and row → drawer: name, area, Must / Should pass, limit only for the 11 checks that read one (`LIMIT_INFO`:
+unit, default, at least / at most; a number in the name follows the limit), standard, source; **Where it applies** per template = Shared settings / Own settings
+(override: severity + limit) / Remove, plus Add to a template (plan types, rule sets, modules, site types; never a second rule for the same check in one template);
+**Effect on open plans** (`ruleImpact`: Draft / In review / Rejected / On hold plans whose chain changes, evaluated before and after, 400 ms after the last edit;
+approved plans keep their baseline); reason; history (`useRuleAudit`, Rule audit lines); Remove from every template (reason). Saves go through
+`applyRule` → `saveTemplate` per template (version bump + template audit). Check: `node .qa/p2b-rules.mjs neocloud us` (W=1280|1440). Phase C still open: impact
+preview for benchmark values, approval of confirmed values, CSV import / export.
 Delivery's header shows one action per sub-menu (planner on Insights, New programme on Programs, New project on Projects).
 DCIM → Insights (`screens/dcim/Insights.tsx`, `?tab=overview`, now the default `/dcim`): Needs attention (same predicates as the Racks / Cabling /
 Power / Devices list filters, each row opens that filtered list), sites and halls by power pressure (85% marker), rack density and device
