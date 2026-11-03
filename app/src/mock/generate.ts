@@ -504,14 +504,14 @@ export function generate(persona: Persona = 'network'): Db {
      nearest sites and its nearest hub (`geo.dci.hubs`), each hub to its three nearest hubs; then the ports are dealt out one link per
      neighbour per round (nearest first, the PE with most free ports at each end, so a pair's links land on both routers), and any
      port left over goes to the nearest site that still has one. Each link carries its transport circuit (`Link.dci`).
-     ONLY colocation × USA (user, 03-Nov-2026: "keep every other persona and geography exactly as before"); everywhere else the
+     ONLY colocation × USA and NeoCloud × USA (user, 03-Nov-2026: "keep every other persona and geography exactly as before", then NeoCloud USA too); elsewhere the
      original random pairing below runs unchanged and links carry no `dci`. */
   const stubs: Interface[] = [];
   for (const n of nes) if (n.isPe && n.discovery !== 'not-discovered') {
     const pool = freeIf.get(n.id)!;
     for (let k = 1; k <= 5; k++) { const idx = pool.findIndex(i => i.speedMbps === 10000 && /(xe-0\/0\/|Te0\/0\/0\/|1\/1\/c)/.test(i.name) && (i.name.endsWith(`/${k}`) || i.name.endsWith(`c${k + 1}`))); if (idx >= 0) stubs.push(pool.splice(idx, 1)[0]); }
   }
-  if (!(persona === 'colocation' && activeGeo().id === 'us')) {
+  if (!((persona === 'colocation' || persona === 'neocloud') && activeGeo().id === 'us')) {
     const bh = shuffle(r, stubs);
     const used = new Set<string>();
     /* the hero PE's ports pair first so its forecast cards are stable */

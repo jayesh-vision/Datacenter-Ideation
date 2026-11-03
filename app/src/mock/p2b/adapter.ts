@@ -155,7 +155,7 @@ export function adaptEstate(db: Db): Record<string, Record<string, unknown>[]> {
   /* backhaul circuits (planner network family: carriers, diversity) */
   const carriers = G.dci.carriers;
   carriers.forEach((n, i) => push('providers', { id: `PRV-${i + 1}`, provId: `PRV-${i + 1}`, name: n, uptimeSlaPct: 99.9, restorationHrs: 4 }));
-  /* with a DCI model (colocation × USA) one circuit per transport circuit; elsewhere every Backhaul-role link, as before */
+  /* with a DCI model (colocation / NeoCloud × USA) one circuit per transport circuit; elsewhere every Backhaul-role link, as before */
   const hasDci = db.links.some(l => l.dci);
   db.links.filter(l => l.role === 'Backhaul' && (!hasDci || (l.protocol === 'LLDP' && l.dci))).forEach((l, i) => {
     const cid = `CKT-${l.id}`;

@@ -124,7 +124,7 @@ User ask: show revenue degradation caused by datacenter issues and which issue c
   Environment = zone cards with safe-band tracks. Styles in `styles/facilities.css`. Check: `node .qa/facilities.mjs`.
 - Data center interconnect (03-Nov-2026, user asked what the map lines are; then "make the DCI change only for colocation + USA; keep every
   other persona and geography exactly as before"): the map lines are inter-datacenter router links (each PE's five reserved 10G backhaul ports).
-  **Colocation × USA only**: ports are paired by geography in `mock/generate.ts` (each site → 2 nearest sites + nearest hub, hubs → 3 nearest hubs,
+  **Colocation × USA and NeoCloud × USA only** (NeoCloud added the same day: production always opens NeoCloud): ports are paired by geography in `mock/generate.ts` (each site → 2 nearest sites + nearest hub, hubs → 3 nearest hubs,
   `GeoDef.dci.hubs` / `.carriers`; ≤ 4 links per pair; leftovers only within 1.5 × the site's farthest neighbour, else spare), role always Backhaul,
   and each link carries `Link.dci` (Dark fibre ≤ 120 km route · Wavelength ≤ 1,200 km · Long-haul wavelength; carrier alternating per pair, circuit id,
   route km = 1.35 × great circle + 6, latency). The map then says "DCI", has a DCI legend toggle that draws the whole mesh, and the link tooltip shows

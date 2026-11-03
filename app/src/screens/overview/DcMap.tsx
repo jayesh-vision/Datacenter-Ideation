@@ -40,7 +40,7 @@ export const dciDown = (links: DcLinkPair[]) => {
   if (!hasDci(links)) return `${links.filter(l => l.down).length} backhaul down`;
   const n = links.reduce((a, l) => a + l.down, 0); return `${n} DCI link${n === 1 ? '' : 's'} down`;
 };
-/* only colocation × USA models the interconnect (Link.dci); elsewhere the map keeps its backhaul wording and has no mesh toggle */
+/* only colocation and NeoCloud × USA model the interconnect (Link.dci); elsewhere the map keeps its backhaul wording and has no mesh toggle */
 export const hasDci = (links: DcLinkPair[]) => links.some(l => l.kind);
 
 export function DcMap({ pins, links = [], onNav, height = 520 }: { pins: DcPin[]; links?: DcLinkPair[]; onNav: (path: string) => void; height?: number }) {
