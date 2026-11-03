@@ -23,7 +23,8 @@ import type { RecordChanges } from './replaceClose';
 import { recordedVendorOrders, type VendorOrderRecord } from './packModel';
 import type { VendorOrder } from './sourcing';
 import * as G from './governance';
-import { activeBenchmarks, duplicateOf } from './benchCatalog';
+import { activeBenchmarks, duplicateOf, changedFields, BENCH_APPROVER_ROLE } from './benchCatalog';
+import { PEOPLE } from '../compat/people';
 import { moveReservations } from './reservations';
 import { clockMs } from '../compat/clock';
 import type { PlanReviewComment, PlanReviewRequest, ReviewDelivery, ReviewEmail } from './reviews';
@@ -476,6 +477,41 @@ export function usePlannerActions() {
         this.saveTemplate({ ...t, rules });
       }
       log('Rule', ruleId, action, `Rule ${ruleId} ${action}: ${what}`, { reason }); return { ok: true };
+    },
+    /** Ask for a change to a confirmed value (or a new / newly confirmed one). The planner keeps reading today's fields until a
+     *  Capacity Planner other than the requester approves; a pending new value is not read at all. */
+    requestBenchmarkChange(next: T.PlannerBenchmark, reason?: string): { ok: true } | { ok: false; reason: string } {
+      const old = db.getById('plannerBenchmarks', next.id) as unknown as T.PlannerBenchmark | undefined;
+      const all = db.getAll('plannerBenchmarks', { pageSize: 100000 }).data as unknown as T.PlannerBenchmark[];
+      if (old?.pending) return refuse(`${old.label} already has a change awaiting approval.`);
+      const dup = duplicateOf(all, next); if (dup && (!old || old.metric !== next.metric || JSON.stringify(old.appliesTo) !== JSON.stringify(next.appliesTo))) return refuse(`${dup.label} already has a value for this case. Edit that value instead.`);
+      const req = { requestedBy: actor, requestedById: actorId, requestedAt: now(), reason };
+      if (!old) {
+        db.create('plannerBenchmarks', { ...next, version: 1, ...meta(), pending: { kind: 'new', patch: {}, ...req } } as unknown as Record<string, unknown>);
+        log('Benchmark', next.id, 'change requested', `Benchmark ${next.label} proposed (confirmed): ${next.value ?? `${next.low}–${next.high}`} ${next.unit} (${next.source}); waiting for approval`, { reason });
+      } else {
+        const keys = changedFields(old, next); const patch = Object.fromEntries(keys.map(k => [k, next[k]])) as Partial<T.PlannerBenchmark>;
+        db.update('plannerBenchmarks', old.id, { pending: { kind: 'change', patch, ...req }, updatedAt: now(), updatedBy: actor });
+        log('Benchmark', old.id, 'change requested', `Benchmark ${old.label} v${old.version ?? 1}: change requested — ${G.changesText(keys.map(k => ({ field: String(k), from: typeof old[k] === 'object' ? JSON.stringify(old[k]) : old[k], to: typeof next[k] === 'object' ? JSON.stringify(next[k]) : next[k] })))}`, { reason });
+      }
+      invalidate(); return { ok: true };
+    },
+    /** Approve a pending benchmark change: a Capacity Planner who did not request it. The change becomes the next version. */
+    approveBenchmarkChange(b: T.PlannerBenchmark): { ok: true } | { ok: false; reason: string } {
+      const p = b.pending; if (!p) return refuse('Nothing is waiting for approval.');
+      const me = PEOPLE.find(x => x.id === actorId);
+      if (me?.role !== BENCH_APPROVER_ROLE) return refuse(`Only a ${BENCH_APPROVER_ROLE} can approve benchmark changes.`);
+      if (actorId && actorId === p.requestedById) return refuse('The person who asked for the change cannot approve it.');
+      if (p.kind === 'new') { db.update('plannerBenchmarks', b.id, { pending: undefined, updatedAt: now(), updatedBy: actor }); log('Benchmark', b.id, 'change approved', `Benchmark ${b.label} approved (requested by ${p.requestedBy}); the planner reads it from now on`); invalidate(); return { ok: true }; }
+      db.update('plannerBenchmarks', b.id, { pending: undefined });
+      const r = this.saveBenchmark({ ...b, ...p.patch, pending: undefined } as T.PlannerBenchmark);
+      if (!r.ok) { db.update('plannerBenchmarks', b.id, { pending: p }); return r; }
+      log('Benchmark', b.id, 'change approved', `Benchmark ${b.label}: change requested by ${p.requestedBy} approved`); invalidate(); return { ok: true };
+    },
+    rejectBenchmarkChange(b: T.PlannerBenchmark, reason: string) {
+      const p = b.pending; if (!p) return;
+      db.update('plannerBenchmarks', b.id, { pending: undefined, ...(p.kind === 'new' ? { isDeleted: true } : {}), updatedAt: now(), updatedBy: actor });
+      log('Benchmark', b.id, 'change rejected', `Benchmark ${b.label}: change requested by ${p.requestedBy} rejected`, { reason }); invalidate();
     },
     /** Retire a value: the planner stops reading it (plans fall back to the next value or the built-in default); baselines keep it. */
     retireBenchmark(b: T.PlannerBenchmark, reason: string) {

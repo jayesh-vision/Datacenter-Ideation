@@ -496,3 +496,14 @@ button.pn-lead-row:hover { background: var(--vw-color-slate-50); }
 .pn-rule-impact b { font-size: 18px; font-weight: 500; margin-right: 4px; }
 .pn-rule-impact b.is-bad { color: var(--vw-color-red-600, #dc2626); }
 .pn-rule-impact b.is-good { color: var(--vw-color-green-600, #16a34a); }
+.pn-bm-note.is-info { background: var(--vw-color-blue-50, #eff6ff); color: var(--vw-color-blue-900, #1e3a8a); }
+.pn-bm-approve { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+.pn-bm-bar { align-items: center; }
+.pn-up { color: var(--vw-color-red-600, #dc2626); }
+.pn-down { color: var(--vw-color-green-600, #16a34a); }
+.pn-imp-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.pn-imp-tiles button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; border: 1px solid var(--vw-color-slate-200, #e2e8f0); border-radius: 8px; background: #fff; cursor: pointer; font: inherit; }
+.pn-imp-tiles button.is-on { border-color: var(--primaryColor, #2563eb); box-shadow: 0 0 0 1px var(--primaryColor, #2563eb) inset; }
+.pn-imp-tiles b { font-size: 20px; font-weight: 500; }
+.pn-imp-tiles span { font-size: 12.5px; color: var(--vw-color-slate-500, #64748b); }
+.pn-imp-list { max-height: 360px; overflow: auto; }

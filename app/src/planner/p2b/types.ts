@@ -723,6 +723,9 @@ export interface PlannerBenchmark {
   version?: number;
   /** Retired values stay in the library (baselines name the version they used) but the planner no longer reads them. */
   retiredAt?: string; retiredBy?: string; retireReason?: string;
+  /** A change to a confirmed value (or a value being confirmed) waiting for a Capacity Planner other than the requester. Until it is
+   *  approved the planner keeps reading the current fields; a pending new value is not read at all. */
+  pending?: { kind: 'new' | 'change'; patch: Partial<PlannerBenchmark>; requestedBy: string; requestedById?: string; requestedAt: string; reason?: string };
 }
 // ── Planner · E ──
 // Plant upgrade and network uplift. Optional fields merged into existing interfaces (declaration merging, so the

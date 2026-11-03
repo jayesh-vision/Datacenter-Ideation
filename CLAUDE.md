@@ -863,8 +863,17 @@ unit, default, at least / at most; a number in the name follows the limit), stan
 (override: severity + limit) / Remove, plus Add to a template (plan types, rule sets, modules, site types; never a second rule for the same check in one template);
 **Effect on open plans** (`ruleImpact`: Draft / In review / Rejected / On hold plans whose chain changes, evaluated before and after, 400 ms after the last edit;
 approved plans keep their baseline); reason; history (`useRuleAudit`, Rule audit lines); Remove from every template (reason). Saves go through
-`applyRule` → `saveTemplate` per template (version bump + template audit). Check: `node .qa/p2b-rules.mjs neocloud us` (W=1280|1440). Phase C still open: impact
-preview for benchmark values, approval of confirmed values, CSV import / export.
+`applyRule` → `saveTemplate` per template (version bump + template audit). Check: `node .qa/p2b-rules.mjs neocloud us` (W=1280|1440).
+Phase C (03-Nov-2026), in `benchCatalog.ts`: **effect on open plans** in the value drawer (`benchImpact`: Draft / In review / Rejected / On hold plans evaluated with today's
+values and with the edit, 400 ms after the last change; rows where CapEx, OpEx / month, late items or rule results move; plans that take the figure from their own inputs
+or delivered actuals do not move). **Approval**: changing a confirmed value or confirming one (`needsApproval`) = "Send for approval" → `PlannerBenchmark.pending`
+(`requestBenchmarkChange`; the planner keeps reading today's fields, a pending NEW value is not read at all), notice bar + Status → Awaiting approval + chip; approve /
+reject by a `BENCH_APPROVER_ROLE` (Capacity Planner) other than the requester (`approveBenchmarkChange` applies the patch via saveBenchmark = next version;
+"Switch to <name>" for the demo); history keeps request + decision. Indicative values save directly. **CSV**: ⋮ Export N values (CSV, columns `CSV_COLUMNS`, with
+id / version / status) per tab, Export rules (CSV) on Rules; ⋮ Import values from CSV → `planImport` dry run (match by id, else measure + case; unit, measure, tab,
+applies-to fields, numbers, order, source, date, duplicates in the file, retired / pending targets are rejected with the reason) → tiles New / Changed / Unchanged /
+Rejected → Apply (confirmed changes go for approval). `changedFields` compares applies-to by fields and the as-of date by day (a re-imported export is all Unchanged).
+Check: `node .qa/p2b-bench-govern.mjs neocloud us` (W=1280|1440).
 Delivery's header shows one action per sub-menu (planner on Insights, New programme on Programs, New project on Projects).
 DCIM → Insights (`screens/dcim/Insights.tsx`, `?tab=overview`, now the default `/dcim`): Needs attention (same predicates as the Racks / Cabling /
 Power / Devices list filters, each row opens that filtered list), sites and halls by power pressure (85% marker), rack density and device
