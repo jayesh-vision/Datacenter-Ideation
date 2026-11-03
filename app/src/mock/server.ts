@@ -743,14 +743,16 @@ export function commandCenter() {
       /* for the command center's datacenter column (one DcCard per site) */
       condition, servicesDegraded: sm.servicesDegraded, customers: sm.customers, linksDown: sm.linksDown, unreachable: sm.unreachable, edge: sm.edge, facilityIssues: sm.facilityIssues };
   });
-  /* inter-datacenter backhaul, one row per site pair (for the estate map) */
-  const pairMap = new Map<string, { a: string; z: string; n: number; down: number }>();
+  /* data center interconnect, one row per site pair (for the estate map): its 10G links, the transport under them (Link.dci) */
+  const pairMap = new Map<string, { a: string; z: string; n: number; down: number; gbps: number; kind?: string; km?: number; latencyMs?: number; carriers: string[]; hub: boolean }>();
   for (const l of lldp) {
     const da = db.neById.get(l.aNe)!.dcId, dz = db.neById.get(l.zNe)!.dcId;
     if (da === dz) continue;
     const [x, y] = da < dz ? [da, dz] : [dz, da];
-    const e = pairMap.get(`${x}|${y}`) ?? { a: x, z: y, n: 0, down: 0 };
+    const e = pairMap.get(`${x}|${y}`) ?? { a: x, z: y, n: 0, down: 0, gbps: 0, carriers: [], hub: false };
     e.n++; if (l.state === 'down') e.down++;
+    e.gbps += l.capacityMbps / 1000;
+    if (l.dci) { e.kind = l.dci.kind; e.km = l.dci.km; e.latencyMs = l.dci.latencyMs; e.hub ||= l.dci.hub; if (!e.carriers.includes(l.dci.carrier)) e.carriers.push(l.dci.carrier); }
     pairMap.set(`${x}|${y}`, e);
   }
   const dcLinks = [...pairMap.values()];

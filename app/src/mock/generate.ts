@@ -3,7 +3,7 @@
 
 import { mulberry32, seedOf, pick, intBetween, between, chance, type Rnd } from '../lib/rng';
 import type {
-  Alert, AuditEntry, CapacityPlan, Change, Circle, CoolingUnit, Customer, Datacenter, EnvSensor, Incident, Interface, Link, LinkState, Location,
+  Alert, AuditEntry, CapacityPlan, Change, Circle, CoolingUnit, Customer, Datacenter, DciKind, EnvSensor, Incident, Interface, Link, LinkState, Location,
   NetworkElement, NeRole, Persona, Protocol, Rack, ReconTask, Region, RolloutStatus, Service, ServiceType, Severity, UpsUnit, CableCore
 } from '../api/types';
 import { NE_CATEGORY } from '../api/types';
@@ -499,29 +499,95 @@ export function generate(persona: Persona = 'network'): Db {
   }
 
   const HERO = edgeId(persona, dcAt(1), 1);
-  /* inter-DC backhaul: each live PE offers its five reserved backhaul ports */
+  /* inter-DC backhaul = data center interconnect (DCI): each live PE offers its five reserved 10G backhaul ports, and the ports
+     are paired by GEOGRAPHY (user, 03-Nov-2026: the old random pairing drew Denver to every coast). Graph: every site to its two
+     nearest sites and its nearest hub (`geo.dci.hubs`), each hub to its three nearest hubs; then the ports are dealt out one link per
+     neighbour per round (nearest first, the PE with most free ports at each end, so a pair's links land on both routers), and any
+     port left over goes to the nearest site that still has one. Each link carries its transport circuit (`Link.dci`).
+     ONLY colocation × USA (user, 03-Nov-2026: "keep every other persona and geography exactly as before"); everywhere else the
+     original random pairing below runs unchanged and links carry no `dci`. */
   const stubs: Interface[] = [];
   for (const n of nes) if (n.isPe && n.discovery !== 'not-discovered') {
     const pool = freeIf.get(n.id)!;
     for (let k = 1; k <= 5; k++) { const idx = pool.findIndex(i => i.speedMbps === 10000 && /(xe-0\/0\/|Te0\/0\/0\/|1\/1\/c)/.test(i.name) && (i.name.endsWith(`/${k}`) || i.name.endsWith(`c${k + 1}`))); if (idx >= 0) stubs.push(pool.splice(idx, 1)[0]); }
   }
-  const bh = shuffle(r, stubs);
-  const used = new Set<string>();
-  /* the hero PE's ports pair first so its forecast cards are stable */
-  bh.sort((a, b) => (a.neId === HERO ? -1 : 0) - (b.neId === HERO ? -1 : 0));
-  for (let i = 0; i < bh.length; i++) {
-    const a = bh[i]; if (used.has(a.id)) continue;
-    const dcA = neById.get(a.neId)!.dcId;
-    const z = bh.find((x, j) => j > i && !used.has(x.id) && neById.get(x.neId)!.dcId !== dcA);
-    if (!z) continue;
-    used.add(a.id); used.add(z.id);
-    const rr = mulberry32(seedOf(a.id));
-    a.peer = { neId: z.neId, ifName: z.name }; z.peer = { neId: a.neId, ifName: a.name };
-    const zdc = neById.get(z.neId)!.dcId;
-    a.description = `Backhaul to ${zdc}`; z.description = `Backhaul to ${dcA}`;
-    const l = mkLink('LLDP', a, z, chance(rr, 0.5) ? 'Backhaul' : 'Uplink', dcA, rr);
-    mkLink('BGP', a, z, 'Peering', dcA, rr, l);
-    if (chance(rr, 0.6)) mkLink('LSP', a, z, l.role, dcA, rr, l);
+  if (!(persona === 'colocation' && activeGeo().id === 'us')) {
+    const bh = shuffle(r, stubs);
+    const used = new Set<string>();
+    /* the hero PE's ports pair first so its forecast cards are stable */
+    bh.sort((a, b) => (a.neId === HERO ? -1 : 0) - (b.neId === HERO ? -1 : 0));
+    for (let i = 0; i < bh.length; i++) {
+      const a = bh[i]; if (used.has(a.id)) continue;
+      const dcA = neById.get(a.neId)!.dcId;
+      const z = bh.find((x, j) => j > i && !used.has(x.id) && neById.get(x.neId)!.dcId !== dcA);
+      if (!z) continue;
+      used.add(a.id); used.add(z.id);
+      const rr = mulberry32(seedOf(a.id));
+      a.peer = { neId: z.neId, ifName: z.name }; z.peer = { neId: a.neId, ifName: a.name };
+      const zdc = neById.get(z.neId)!.dcId;
+      a.description = `Backhaul to ${zdc}`; z.description = `Backhaul to ${dcA}`;
+      const l = mkLink('LLDP', a, z, chance(rr, 0.5) ? 'Backhaul' : 'Uplink', dcA, rr);
+      mkLink('BGP', a, z, 'Peering', dcA, rr, l);
+      if (chance(rr, 0.6)) mkLink('LSP', a, z, l.role, dcA, rr, l);
+    }
+  } else {
+    shuffle(r, stubs); /* the old random pairing's draws, kept so the generator's shared stream does not move */
+    const G = activeGeo();
+    const pos = new Map(G.dcs.map(row => [row[0], { lat: row[8], lng: row[9] }]));
+    const km = (a: string, b: string) => { const p = pos.get(a)!, q = pos.get(b)!, R = Math.PI / 180; const h = Math.sin((q.lat - p.lat) * R / 2) ** 2 + Math.cos(p.lat * R) * Math.cos(q.lat * R) * Math.sin((q.lng - p.lng) * R / 2) ** 2; return 6371 * 2 * Math.asin(Math.sqrt(h)); };
+    /* free ports per site, grouped by PE in port order */
+    const free = new Map<string, Map<string, Interface[]>>();
+    for (const i of stubs) { const dc = neById.get(i.neId)!.dcId; const m = free.get(dc) ?? new Map<string, Interface[]>(); (m.get(i.neId) ?? m.set(i.neId, []).get(i.neId)!).push(i); free.set(dc, m); }
+    for (const m of free.values()) for (const xs of m.values()) xs.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    const freeCount = (dc: string) => [...(free.get(dc)?.values() ?? [])].reduce((a, xs) => a + xs.length, 0);
+    const takePort = (dc: string, avoid?: string) => {
+      const pes = [...free.get(dc)!.entries()].filter(([, xs]) => xs.length).sort((a, b) => b[1].length - a[1].length || Number(a[0] === avoid) - Number(b[0] === avoid) || a[0].localeCompare(b[0]));
+      return pes[0][1].shift()!;
+    };
+    const sites = [...free.keys()];
+    const hubs = G.dci.hubs.filter(h => free.has(h));
+    const nearest = (dc: string, among: string[], n: number) => among.filter(x => x !== dc).sort((a, b) => km(dc, a) - km(dc, b)).slice(0, n);
+    const NEAR = 2;
+    const edges = new Map<string, { a: string; z: string; km: number; hub: boolean }>();
+    const addEdge = (a: string, z: string, hub: boolean) => { const [x, y] = a < z ? [a, z] : [z, a]; const k = `${x}|${y}`; const e = edges.get(k); if (e) e.hub ||= hub; else edges.set(k, { a: x, z: y, km: km(x, y), hub }); };
+    for (const dc of sites) {
+      nearest(dc, sites, NEAR).forEach(z => addEdge(dc, z, false));
+      if (!hubs.includes(dc)) nearest(dc, hubs, 1).forEach(h => addEdge(dc, h, false));
+      else nearest(dc, hubs, 3).forEach(h => addEdge(dc, h, true));
+    }
+    const order = [...edges.values()].sort((a, b) => Number(b.hub) - Number(a.hub) || a.km - b.km || a.a.localeCompare(b.a));
+    const pairN = new Map<string, number>();
+    const connect = (dcA: string, dcZ: string, hub: boolean) => {
+      const a = takePort(dcA), z = takePort(dcZ);
+      const rr = mulberry32(seedOf(a.id));
+      a.peer = { neId: z.neId, ifName: z.name }; z.peer = { neId: a.neId, ifName: a.name };
+      a.description = `Backhaul to ${dcZ}`; z.description = `Backhaul to ${dcA}`;
+      chance(rr, 0.5); /* was the Backhaul / Uplink coin flip; kept so each link's own draws stay aligned */
+      const l = mkLink('LLDP', a, z, 'Backhaul', dcA, rr);
+      const key = dcA < dcZ ? `${dcA}|${dcZ}` : `${dcZ}|${dcA}`, nth = pairN.get(key) ?? 0; pairN.set(key, nth + 1);
+      const route = Math.round(km(dcA, dcZ) * 1.35 + 6); /* fibre follows roads and rail, plus the metro tails at both ends */
+      const kind: DciKind = route <= 120 ? 'Dark fibre' : route <= 1200 ? 'Wavelength' : 'Long-haul wavelength';
+      const carrier = G.dci.carriers[(seedOf(key) + nth) % G.dci.carriers.length]; /* a pair's links alternate carriers (diverse routes) */
+      const code = carrier.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase();
+      l.dci = { kind, carrier, circuit: `${code}/${kind === 'Dark fibre' ? 'DF' : 'WAVE'}/${String(seedOf(`${a.id}|${z.id}`) % 900000 + 100000)}`, km: route, latencyMs: Math.round(route * 0.05 + 2) / 10, hub };
+      mkLink('BGP', a, z, 'Peering', dcA, rr, l);
+      if (chance(rr, 0.6)) mkLink('LSP', a, z, l.role, dcA, rr, l);
+    };
+    const MAX_PER_PAIR = 4; /* at most 4 × 10G between two sites; more would be a 100G upgrade (see the capacity plan) */
+    const nOf = (a: string, z: string) => pairN.get(a < z ? `${a}|${z}` : `${z}|${a}`) ?? 0;
+    for (let progress = true; progress;) {
+      progress = false;
+      for (const e of order) if (freeCount(e.a) && freeCount(e.z) && nOf(e.a, e.z) < MAX_PER_PAIR) { connect(e.a, e.z, e.hub); progress = true; }
+    }
+    /* a port still free goes to the nearest site with one, only if that is no farther than 1.5 × this site's farthest neighbour;
+       otherwise it stays a spare backhaul port (back in the free pool, no peer) */
+    const reach = new Map(sites.map(dc => [dc, Math.max(0, ...[...edges.values()].filter(e => e.a === dc || e.z === dc).map(e => e.km))]));
+    for (const dc of sites) while (freeCount(dc)) {
+      const z = nearest(dc, sites.filter(x => freeCount(x) && nOf(dc, x) < MAX_PER_PAIR), 1)[0];
+      if (!z || km(dc, z) > 1.5 * reach.get(dc)! || km(dc, z) > 1.5 * reach.get(z)!) break;
+      connect(dc, z, false);
+    }
+    for (const m of free.values()) for (const [neId, xs] of m) freeIf.get(neId)!.push(...xs);
   }
 
   /* hero PE: link forecast cards and protocol counts from the reference screens */

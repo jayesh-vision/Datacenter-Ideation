@@ -1,3 +1,4 @@
+import { fmtNum } from '../../lib/format';
 import { sevLabel } from '../../lib/vocab';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
@@ -12,7 +13,8 @@ export interface DcPin {
   /* extra words the map search matches on, e.g. "Illinois · Midwest" */
   place?: string;
 }
-export interface DcLinkPair { a: string; z: string; n: number; down: number }
+/* one site pair of the data center interconnect (DCI): n × 10G router links over dark fibre or carrier wavelengths */
+export interface DcLinkPair { a: string; z: string; n: number; down: number; gbps?: number; kind?: string; km?: number; latencyMs?: number; carriers?: string[]; hub?: boolean }
 
 const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services';
 /* the geography's bounds: India or the USA */
@@ -32,7 +34,15 @@ const loadBase = (): BaseId => { try { const v = localStorage.getItem('dco.map.b
 /* Live estate map. Sites are rings sized by estate weight and coloured by state; a site
    with an open critical / high incident ripples, one with lesser incidents pulses slowly. Backhaul that is
    down is drawn as moving red dashes. Clicking a site opens its summary and fans out its
-   backhaul to peer sites. Basemap is switchable (light / streets / satellite / terrain). */
+   interconnect (DCI) to peer sites. Basemap is switchable (light / streets / satellite / terrain). */
+/* "N DCI links down", for the map title and the Command center map head */
+export const dciDown = (links: DcLinkPair[]) => {
+  if (!hasDci(links)) return `${links.filter(l => l.down).length} backhaul down`;
+  const n = links.reduce((a, l) => a + l.down, 0); return `${n} DCI link${n === 1 ? '' : 's'} down`;
+};
+/* only colocation × USA models the interconnect (Link.dci); elsewhere the map keeps its backhaul wording and has no mesh toggle */
+export const hasDci = (links: DcLinkPair[]) => links.some(l => l.kind);
+
 export function DcMap({ pins, links = [], onNav, height = 520 }: { pins: DcPin[]; links?: DcLinkPair[]; onNav: (path: string) => void; height?: number }) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
@@ -43,6 +53,7 @@ export function DcMap({ pins, links = [], onNav, height = 520 }: { pins: DcPin[]
   const [base, setBase] = useState<BaseId>(loadBase);
   const [baseOpen, setBaseOpen] = useState(false);
   const [show, setShow] = useState<Record<PinKind, boolean>>({ crit: true, warn: true, ok: true });
+  const [mesh, setMesh] = useState(false); /* the whole interconnect, not only links that are down / the selected site's */
   const [sel, setSel] = useState<string | null>(null);
   const [hint, setHint] = useState(false);
   const [findOpen, setFindOpen] = useState(false);
@@ -116,19 +127,21 @@ export function DcMap({ pins, links = [], onNav, height = 520 }: { pins: DcPin[]
     });
   }, [pins, show]);
 
-  /* backhaul: links that are down are always shown; the selected site fans out all of its links */
+  /* interconnect: links that are down are always shown; the selected site fans out all of its pairs; "Interconnect" draws the whole mesh */
   useEffect(() => {
     const g = linkLayer.current, f = fanLayer.current; if (!g || !f) return;
     g.clearLayers(); f.clearLayers();
     const line = (l: DcLinkPair, to: L.LayerGroup, fan: boolean) => {
       const a = byId.get(l.a), z = byId.get(l.z); if (!a || !z) return;
       const down = l.down > 0;
-      L.polyline(arc([a.lat, a.lng], [z.lat, z.lng]), { className: `dclink${down ? ' is-down' : ''}${fan ? ' is-fan' : ''}`, weight: down ? 2.5 : 1.6, color: down ? '#ef4444' : '#1C81EF', opacity: down ? 0.95 : 0.55, interactive: true })
-        .bindTooltip(`<b>${l.a} ↔ ${l.z}</b><br>${l.n} backhaul link${l.n === 1 ? '' : 's'}${down ? ` · ${l.down} down` : ' · all up'}`, { sticky: true, className: 'map-tip' }).addTo(to);
+      const facts = [l.kind, l.km != null ? `${fmtNum(l.km)} km` : '', l.latencyMs != null ? `${l.latencyMs} ms` : ''].filter(Boolean).join(' · ');
+      L.polyline(arc([a.lat, a.lng], [z.lat, z.lng]), { className: `dclink${down ? ' is-down' : ''}${fan ? ' is-fan' : ''}${!down && !fan ? ' is-mesh' : ''}`, weight: down ? 2.5 : l.hub ? 2.2 : 1.6, color: down ? '#ef4444' : '#1C81EF', opacity: down ? 0.95 : fan ? 0.55 : 0.35, interactive: true })
+        .bindTooltip(l.kind ? `<b>${l.a} ↔ ${l.z}</b>${facts ? `<br>${facts}` : ''}<br>${l.n} × 10G${down ? ` · ${l.down} down` : ' · all up'}${l.carriers?.length ? `<br>${l.carriers.join(' · ')}` : ''}` : `<b>${l.a} ↔ ${l.z}</b><br>${l.n} backhaul link${l.n === 1 ? '' : 's'}${down ? ` · ${l.down} down` : ' · all up'}`, l.kind ? { sticky: true, direction: 'top', offset: [0, -8], className: 'map-tip is-dci' } : { sticky: true, className: 'map-tip' }).addTo(to);
     };
+    if (mesh) links.filter(l => l.a !== sel && l.z !== sel && (!l.down || !(show.crit || show.warn))).forEach(l => line({ ...l, down: 0 }, g, false));
     if (show.crit || show.warn) links.filter(l => l.down > 0 && l.a !== sel && l.z !== sel).forEach(l => line(l, g, false));
     if (sel) links.filter(l => l.a === sel || l.z === sel).forEach(l => line(l, f, true));
-  }, [links, byId, sel, show]);
+  }, [links, byId, sel, show, mesh]);
 
   const counts = { crit: pins.filter(p => p.kind === 'crit').length, warn: pins.filter(p => p.kind === 'warn').length, ok: pins.filter(p => p.kind === 'ok').length };
   const issues = pins.filter(p => p.kind !== 'ok');
@@ -173,9 +186,10 @@ export function DcMap({ pins, links = [], onNav, height = 520 }: { pins: DcPin[]
             <i />{KIND[k].label}<b>{counts[k]}</b>
           </button>
         ))}
-        <span className="dcmap-leg-link" title="Backhaul between datacenters that is down"><i />Link down</span>
+        {hasDci(links) && <button type="button" className={`dcmap-leg-mesh${mesh ? '' : ' is-off'}`} aria-pressed={mesh} title={mesh ? 'Hide the data center interconnect' : 'Show the data center interconnect (DCI): every site pair linked by dark fibre or a carrier wavelength'} onClick={() => setMesh(m => !m)}><i />DCI<b>{links.length}</b></button>}
+        <span className="dcmap-leg-link" title={hasDci(links) ? 'An interconnect link between two datacenters that is down' : 'Backhaul between datacenters that is down'}><i />{hasDci(links) ? 'Down' : 'Link down'}</span>
       </div>
-      {full && <div className="dcmap-fulltitle"><b>Live estate</b><span>{pins.length} datacenters · {counts.crit} with critical / high · {links.filter(l => l.down).length} backhaul down</span></div>}
+      {full && <div className="dcmap-fulltitle"><b>Live estate</b><span>{pins.length} datacenters · {counts.crit} with critical / high · {dciDown(links)}</span></div>}
       {sel && byId.get(sel) && <SiteCard p={byId.get(sel)!} onClose={() => setSel(null)} onNav={path => nav.current(path)} />}
       {hint && <div className="dcmap-hint">Click the map, then scroll to zoom</div>}
     </div>

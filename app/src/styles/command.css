@@ -445,6 +445,11 @@
 .dcmap-legend button b { margin-left: 5px; font-weight: 500; color: var(--vw-color-gray-900); font-family: var(--num); }
 .dcmap-legend button.is-ok i { --c: var(--primaryColor500); } .dcmap-legend button.is-warn i { --c: var(--vw-color-amber-500); } .dcmap-legend button.is-crit i { --c: var(--vw-color-red-500); }
 .dcmap-legend button.is-off { opacity: .45; text-decoration: line-through; }
+/* "Interconnect" toggle: off by default (the mesh is drawn on demand), so its off state is quiet rather than struck through */
+.dcmap-legend button.dcmap-leg-mesh { border-left: 1px solid var(--vw-color-slate-200); border-radius: 0 7px 7px 0; padding-left: 10px; }
+.dcmap-legend button.dcmap-leg-mesh.is-off { opacity: .7; text-decoration: none; }
+.dcmap-legend button.dcmap-leg-mesh i { width: 18px !important; height: 0 !important; border: 0 !important; border-top: 2px solid var(--primaryColor500) !important; border-radius: 0 !important; margin: 0 6px 0 0 !important; background: none !important; }
+.dcmap-legend button.dcmap-leg-mesh:not(.is-off) { background: var(--primaryColor50, #eff6ff); color: var(--primaryColor700); }
 .dcmap-leg-link { display: inline-flex; align-items: center; gap: 6px; padding: 0 8px 0 10px; border-left: 1px solid var(--vw-color-slate-200); white-space: nowrap; }
 .dcmap-leg-link i { width: 18px !important; height: 0 !important; border: 0 !important; border-top: 2px dashed var(--vw-color-red-500) !important; border-radius: 0 !important; margin: 0 !important; background: none !important; }
 .dcmap-hint { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 600; padding: 8px 14px; border-radius: 10px; background: rgba(15, 23, 42, .78); color: #fff; font-size: 12.5px; pointer-events: none; white-space: nowrap; }
@@ -642,3 +647,5 @@
 .hero-fact .hero-fact-i { position: absolute; top: 6px; right: 6px; margin: 0; }
 @media (max-width: 1280px) { .hero-area-sites { margin-top: 2px; } .hero-site { height: 16px; font-size: 10px; padding: 0 5px; } }
 .hero-sites-l { font-size: var(--vw-font-label-xs); color: var(--vw-color-gray-500); white-space: nowrap; margin-right: 2px; flex-shrink: 0; }
+/* DCI link tooltip: wraps in a fixed width so it fits the narrow hero map */
+.leaflet-tooltip.map-tip.is-dci { white-space: normal; width: 220px; }

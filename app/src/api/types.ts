@@ -91,7 +91,12 @@ export type LinkState = 'up' | 'down' | 'init' | 'idle' | 'standby';
 export interface Link {
   id: string; protocol: Protocol; aNe: string; aIf: string; zNe: string; zIf: string; dcId: string; capacityMbps: number; utilPct: number;
   state: LinkState; role: 'Fabric' | 'Uplink' | 'Backhaul' | 'Peering' | 'Access'; sessions: number; growthPct: number; history: number[]; physical: { cable: string; strand: string; aPort: string; zPort: string } | null;
+  /* inter-datacenter links only: the transport circuit under the router-to-router link */
+  dci?: DciCircuit;
 }
+/* data center interconnect: dark fibre within a metro, a carrier wavelength between regions, long-haul beyond ~1,200 km */
+export type DciKind = 'Dark fibre' | 'Wavelength' | 'Long-haul wavelength';
+export interface DciCircuit { kind: DciKind; carrier: string; circuit: string; km: number; latencyMs: number; hub: boolean }
 
 export type ServiceType =
   | 'IRV' | 'Leased Line' | 'L2VPN' | 'L3VPN' | 'Other'                                   // network / telco

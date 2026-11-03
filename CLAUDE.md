@@ -122,6 +122,14 @@ User ask: show revenue degradation caused by datacenter issues and which issue c
   layout, HTML nodes over SVG edges, animated flow, hover traces upstream/downstream), 24 h load chart vs capacity, "If utility power
   fails" ride-through (UPS min → DG kW → fuel hours + readiness checks), rack load tiles + table. Cooling = heat balance + unit cards.
   Environment = zone cards with safe-band tracks. Styles in `styles/facilities.css`. Check: `node .qa/facilities.mjs`.
+- Data center interconnect (03-Nov-2026, user asked what the map lines are; then "make the DCI change only for colocation + USA; keep every
+  other persona and geography exactly as before"): the map lines are inter-datacenter router links (each PE's five reserved 10G backhaul ports).
+  **Colocation × USA only**: ports are paired by geography in `mock/generate.ts` (each site → 2 nearest sites + nearest hub, hubs → 3 nearest hubs,
+  `GeoDef.dci.hubs` / `.carriers`; ≤ 4 links per pair; leftovers only within 1.5 × the site's farthest neighbour, else spare), role always Backhaul,
+  and each link carries `Link.dci` (Dark fibre ≤ 120 km route · Wavelength ≤ 1,200 km · Long-haul wavelength; carrier alternating per pair, circuit id,
+  route km = 1.35 × great circle + 6, latency). The map then says "DCI", has a DCI legend toggle that draws the whole mesh, and the link tooltip shows
+  type / km / ms / n × 10G / carriers; planner circuits use the DCI carrier. Every other persona × geography keeps the old random pairing, wording and
+  data byte for byte (verified by hashing all collections before / after); `hasDci(links)` in DcMap switches the UI.
 - Datacenters list has a list ⇄ tiles switch (ListToolbar `layout` prop); tiles reuse `screens/ops/DcCard.tsx`, the same card as the
   Command center's Critical-now lane (worst open incident per site, or a quiet variant). Check: `node .qa/dc-tiles.mjs`.
 - Estate map (`overview/DcMap.tsx`, 04-Oct-2026): Esri basemaps Light/Streets/Satellite/Terrain (remembered), rippling pins for

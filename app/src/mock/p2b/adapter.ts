@@ -153,11 +153,14 @@ export function adaptEstate(db: Db): Record<string, Record<string, unknown>[]> {
   for (const s of db.services) push('services', { id: s.id, svcId: s.id, name: `${s.type} ${s.id}`, type: s.type, customerRef: s.customerId, dataCenterId: s.dcId, deviceId: s.neId, ifName: s.ifName, rackId: db.neById.get(s.neId)?.rackId, pathDeviceIds: s.path, cableIds: s.linkIds, bandwidthMbps: s.bandwidthMbps, utilPct: s.utilPct, status: s.status, slaTarget: s.slaTarget, uptime30d: s.uptime30d, growthPct: s.growthPct, revenueMonthly: Math.round(toUsd(s.revenueMonthly)), critical: s.critical, qty: s.qty, unit: s.unit });
 
   /* backhaul circuits (planner network family: carriers, diversity) */
-  const carriers = G.id === 'us' ? ['Lumen', 'Zayo', 'AT&T'] : ['Tata Communications', 'Airtel Business', 'Jio Enterprise'];
+  const carriers = G.dci.carriers;
   carriers.forEach((n, i) => push('providers', { id: `PRV-${i + 1}`, provId: `PRV-${i + 1}`, name: n, uptimeSlaPct: 99.9, restorationHrs: 4 }));
-  db.links.filter(l => l.role === 'Backhaul').forEach((l, i) => {
+  /* with a DCI model (colocation × USA) one circuit per transport circuit; elsewhere every Backhaul-role link, as before */
+  const hasDci = db.links.some(l => l.dci);
+  db.links.filter(l => l.role === 'Backhaul' && (!hasDci || (l.protocol === 'LLDP' && l.dci))).forEach((l, i) => {
     const cid = `CKT-${l.id}`;
-    push('circuits', { id: cid, cktId: cid, cid: l.id, providerId: `PRV-${(i % carriers.length) + 1}`, circuitTypeId: 'Backhaul', status: l.state === 'down' ? 'Offline' : 'Active', commitRateMbps: l.capacityMbps, description: `${l.aNe} ${l.aIf} → ${l.zNe}`, purpose: 'Backhaul', diversityGroup: `${l.dcId}-backhaul` });
+    const prov = l.dci ? carriers.indexOf(l.dci.carrier) : i % carriers.length;
+    push('circuits', { id: cid, cktId: cid, cid: l.id, providerId: `PRV-${prov + 1}`, circuitTypeId: 'Backhaul', ...(l.dci ? { carrierCircuit: l.dci.circuit, medium: l.dci.kind, routeKm: l.dci.km } : {}), status: l.state === 'down' ? 'Offline' : 'Active', commitRateMbps: l.capacityMbps, description: `${l.aNe} ${l.aIf} → ${l.zNe}`, purpose: 'Backhaul', diversityGroup: `${l.dcId}-backhaul` });
     push('circuitTerminations', { id: `${cid}-A`, ctermId: `${cid}-A`, circuitId: cid, side: 'A', dataCenterId: l.dcId, deviceId: l.aNe, portSpeedMbps: l.capacityMbps });
     const z = db.neById.get(l.zNe);
     push('circuitTerminations', { id: `${cid}-Z`, ctermId: `${cid}-Z`, circuitId: cid, side: 'Z', dataCenterId: z?.dcId, deviceId: l.zNe, portSpeedMbps: l.capacityMbps });

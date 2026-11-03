@@ -6,7 +6,7 @@ import { usePage, Loading, useSentinel } from '../shell/page';
 import { Panel, Chip, Drawer, Info, Seg } from '../ui/kit';
 import { StackBar } from '../ui/status';
 import { Sparkline } from '../charts/Sparkline';
-import { DcMap, type DcPin } from './overview/DcMap';
+import { DcMap, dciDown, hasDci, type DcPin } from './overview/DcMap';
 import { ROLLOUT, sevChipCls, sevLabel } from '../lib/vocab';
 import { fmtAgo, fmtDow, fmtDur, fmtNum, fmtShortDate, fmtTime } from '../lib/format';
 import '../styles/command.css';
@@ -179,8 +179,8 @@ function Situation({ d, lens, setLens, pb }: { d: CC; lens: Lens; setLens: (l: L
         <div className="hero-map">
           <DcMap pins={pins} links={d.dcLinks} onNav={nav} height={600} />
           <div className="hero-map-head">
-            <span className="vw-card-activity-label">Live estate<Info text="Every live datacenter on the map: red pins have a Critical / High incident, amber pins an incident or critical alarm, dashed red lines a backhaul link that is down. Click a pin for its summary and backhaul fan-out; use the tools to search, change the basemap or focus on issues." /></span>
-            <span className="vw-label">{d.dcMap.length} datacenters · {d.dcMap.filter(x => x.worstSev && x.worstSev <= 2).length} with critical / high · {d.dcLinks.filter(l => l.down).length} backhaul down</span>
+            <span className="vw-card-activity-label">Live estate<Info text={hasDci(d.dcLinks) ? 'Every live datacenter on the map: red pins have a Critical / High incident, amber pins an incident or critical alarm, dashed red lines a DCI link that is down. DCI (data center interconnect) = the router-to-router links between datacenters (10G each), over dark fibre inside a metro and carrier wavelengths between regions; every site homes to its nearest sites and a hub. Click a pin for its summary and its DCI links; the DCI legend item draws the whole mesh; use the tools to search, change the basemap or focus on issues.' : 'Every live datacenter on the map: red pins have a Critical / High incident, amber pins an incident or critical alarm, dashed red lines a backhaul link that is down. Click a pin for its summary and backhaul fan-out; use the tools to search, change the basemap or focus on issues.'} /></span>
+            <span className="vw-label">{d.dcMap.length} datacenters · {d.dcMap.filter(x => x.worstSev && x.worstSev <= 2).length} with critical / high · {dciDown(d.dcLinks)}</span>
           </div>
         </div>
         <DcColumn d={d} now={now} />

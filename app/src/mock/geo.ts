@@ -33,6 +33,9 @@ export interface GeoDef {
   map: { bounds: [[number, number], [number, number]]; thumbTile: string };
   /* the demo question Opstral AI suggests ("What is at risk in Pune?") */
   heroCity: string;
+  /* data center interconnect (DCI): the sites every other site homes to (meshed between themselves) and the carriers selling
+     wavelengths / dark fibre between them; links are paired by distance in mock/generate.ts */
+  dci: { hubs: string[]; carriers: string[] };
 }
 
 const IN: GeoDef = {
@@ -41,7 +44,8 @@ const IN: GeoDef = {
   regions: REGIONS, circles: CIRCLES, cities: CITIES, dcs: DCS, customers: CUSTOMERS,
   customerPlaces: CUSTOMERS.map(c => [c[2], c[3]]), renameCustomer: {},
   people: PEOPLE, accountManagers: ACCOUNT_MANAGERS, renamePeople: {},
-  map: { bounds: [[7.5, 68.5], [34.0, 93.0]], thumbTile: '5/14/22' }, heroCity: 'Pune'
+  map: { bounds: [[7.5, 68.5], [34.0, 93.0]], thumbTile: '5/14/22' }, heroCity: 'Pune',
+  dci: { hubs: ['MH-DC-001', 'DL-DC-009', 'KA-DC-020', 'TN-DC-022', 'WB-DC-016', 'TS-DC-023'], carriers: ['Tata Communications', 'Airtel Business', 'Jio Enterprise'] }
 };
 
 /* The USA estate: the same 24 sites by position (status, device counts, category and tier are
@@ -113,7 +117,8 @@ const US: GeoDef = {
   customerPlaces: US_PLACES, renameCustomer: US_RENAME,
   people: US_PEOPLE, accountManagers: ['Rachel Adams', 'Brian Foster', 'Monica Reyes', 'Kevin Walsh', 'Laura Bennett'],
   renamePeople: Object.fromEntries(PEOPLE.map((p, i) => [p, US_PEOPLE[i]]).concat(ACCOUNT_MANAGERS.map((p, i) => [p, ['Rachel Adams', 'Brian Foster', 'Monica Reyes', 'Kevin Walsh', 'Laura Bennett'][i]]))),
-  map: { bounds: [[24.0, -125.5], [49.5, -66.5]], thumbTile: '5/12/8' }, heroCity: 'Ashburn'
+  map: { bounds: [[24.0, -125.5], [49.5, -66.5]], thumbTile: '5/12/8' }, heroCity: 'Ashburn',
+  dci: { hubs: ['VA-DC-001', 'IL-DC-009', 'TX-DC-005', 'CA-DC-021', 'CA-DC-020', 'GA-DC-011'], carriers: ['Lumen', 'Zayo', 'AT&T'] }
 };
 
 export const GEOS: GeoDef[] = [IN, US];
