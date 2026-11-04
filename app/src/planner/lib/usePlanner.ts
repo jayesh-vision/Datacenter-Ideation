@@ -438,7 +438,7 @@ export function usePlannerActions() {
     saveTemplate(t: T.PlannerTemplate): T.PlannerTemplate {
       const old = db.getById('plannerTemplates', t.id) as unknown as T.PlannerTemplate | undefined;
       if (!old) { const rec = { ...t, ...meta(), createdAt: t.createdAt ?? now() }; db.create('plannerTemplates', rec as unknown as Record<string, unknown>); log('Template', t.id, 'created', `Template ${t.name} v${t.version} created`); invalidate(); return rec; }
-      const CONTENT: (keyof T.PlannerTemplate)[] = ['name', 'description', 'params', 'rules', 'requiredAspects', 'outputs', 'approvalPath', 'executesAs', 'blueprintKey', 'appliesTo', 'inheritsFrom', 'demand', 'items', 'scope', 'dcTypeKey', 'modules'];
+      const CONTENT: (keyof T.PlannerTemplate)[] = ['name', 'description', 'params', 'rules', 'requiredAspects', 'outputs', 'approvalPath', 'executesAs', 'blueprintKey', 'appliesTo', 'inheritsFrom', 'demand', 'items', 'scope', 'dcTypeKey', 'modules', 'atpSystem', 'perSite'];
       const changed = CONTENT.filter(k => JSON.stringify(old[k] ?? null) !== JSON.stringify(t[k] ?? null));
       const version = changed.length ? (old.version ?? 1) + 1 : old.version;
       /* an in-place content change of a published template keeps the old content, so plans pinned to it still evaluate against it */

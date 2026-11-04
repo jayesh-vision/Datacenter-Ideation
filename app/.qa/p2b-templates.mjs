@@ -80,6 +80,14 @@ if (await usedRow.count()) { const nm = (await usedRow.locator('td').first().inn
   const u = await drawer().locator('h4, .pn-sub, div', { hasText: /^Used by plan types/ }).count(); u ? ok(`${nm}: Used by plan types listed`) : fail('no Used by section'); await overflow('module drawer'); await shot('module');
   await p.locator('.drawer button[title="Close"]').last().click(); await p.waitForTimeout(300); }
 else fail('no module is used by a plan type');
+/* a commissioning checklist module: used by plan types, editor says what it is used as */
+await search('Commissioning · power'); await p.locator('.dt tbody tr').first().click(); await p.waitForSelector('.drawer');
+(await drawer().innerText()).match(/Used by plan types\s*\d+/) && !(await drawer().innerText()).includes('No plan type is built from it') ? ok('power commissioning checklist: used by plan types') : fail('checklist not used by any plan type');
+await drawer().locator('button', { hasText: /^Edit$/ }).click(); await p.waitForSelector('.drawer .pn-te');
+(await drawer().locator('.pn-te section', { has: p.locator('h4', { hasText: 'Used as' }) }).locator('select').inputValue().catch(() => '')) === 'Power' ? ok('editor: used as Power commissioning tests') : fail('no Used as = Power');
+await drawer().locator('button', { hasText: /^Cancel$/ }).click(); await p.waitForTimeout(200);
+await drawer().locator('button', { hasText: 'Discard draft' }).click(); await p.waitForSelector('.modal'); await modal().locator('button', { hasText: 'Discard draft' }).click(); await p.waitForTimeout(400);
+await p.locator('.drawer button[title="Close"]').last().click(); await p.waitForTimeout(300);
 /* edit a module that plan types are built from: its draft needs approval and re-estimates their open plans */
 await search('Capacity policy'); await p.locator('.dt tbody tr').first().click(); await p.waitForSelector('.drawer');
 await drawer().locator('button', { hasText: /^Edit$/ }).click(); await p.waitForSelector('.drawer .pn-te');
@@ -93,7 +101,7 @@ if (await mnum.count()) { const was = await mnum.inputValue(); await mnum.fill(S
 await p.locator('.drawer button[title="Close"]').last().click(); await p.waitForTimeout(300);
 await search(''); await p.locator('.pl-tpl button', { hasText: /Plan types/ }).click(); await p.waitForTimeout(300);
 await search('New datacenter'); await p.locator('.dt tbody tr').first().click(); await p.waitForSelector('.drawer');
-(await drawer().locator('.pn-te-mods.is-read > button').count()) >= 3 ? ok(`New datacenter built from ${await drawer().locator('.pn-te-mods.is-read > button').count()} modules`) : fail('New datacenter shows no modules');
+(await drawer().locator('.pn-te-mods.is-read > button').count()) >= 10 ? ok(`New datacenter built from ${await drawer().locator('.pn-te-mods.is-read > button').count()} modules`) : fail('New datacenter shows no modules');
 await p.locator('.drawer button[title="Close"]').last().click(); await p.waitForTimeout(300);
 /* 3 · retire / restore the QA copy */
 await search('QA hall'); await p.locator('.dt tbody tr').first().click(); await p.waitForSelector('.drawer');

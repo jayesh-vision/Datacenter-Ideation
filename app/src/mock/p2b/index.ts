@@ -67,7 +67,7 @@ function build(db: Db): MockDB {
   setRealism(climates, Math.round((hero?.power.feeds.filter(f => f.type === 'AC')[0]?.capacityKw ?? 10_000) * 2.5));
   seedPlanner(S);
   localize(S, db);
-  linkSeedModules(S.plannerTemplates as unknown as T.PlannerTemplate[]);
+  linkSeedModules(S.plannerTemplates as unknown as T.PlannerTemplate[], S.plannerPlans as unknown as T.PlannerPlan[]);
   const out = new MockDB();
   const snap: Record<string, Record<string, unknown>[]> = { ...estate };
   for (const k of ['plannerTemplates', 'plannerBenchmarks', 'plannerPlans', 'plannerScenarios', 'plannerFeedback', 'programs', 'projects', 'boms', 'purchaseOrders', 'permits', 'designDocuments', 'maintenanceWindows', 'disposalCertificates', 'changeRequests', 'capacityReservations'] as const)

@@ -423,8 +423,35 @@ export function buildBasisOfDesign(plan: T.PlannerPlan, ev: Evaluation, template
   // Keep only sections the plan type covers, plus the always-on ones.
   const sectionAspects: Record<string, T.PlannerAspect[]> = { resilience: ['resilience', 'power'], space: ['space'], power: ['power'], cooling: ['cooling'], network: ['network'], firesec: ['fire', 'security'], sustainability: ['sustainability'], operations: ['operations'], schedule: ['schedule'], cost: ['finance'], risks: ['risk', 'compliance'] };
   const kept = out.filter(sec => !sectionAspects[sec.id] || sectionAspects[sec.id].some(a => covered.has(a))).filter(sec => sec.rows.length || sec.text);
-  return modelFor(plan.scope).bod?.(ev, kept, template) ?? kept;
+  return followDocument(modelFor(plan.scope).bod?.(ev, kept, template) ?? kept, ev.resolved?.modules.find(m => m.kind === 'document' && BOD_DOC.test(m.name)));
 }
+/** The standard sections of the basis of design (ids of buildBasisOfDesign) and their names in a document template. */
+export const BOD_SECTIONS: [string, string][] = [['purpose', 'Purpose and demand'], ['site', 'Site and climate'], ['resilience', 'Tier and redundancy'], ['space', 'Space and building'], ['power', 'Power chain'], ['cooling', 'Cooling and environment'], ['network', 'Network'], ['firesec', 'Fire, life safety and security'], ['sustainability', 'Sustainability'], ['operations', 'Operations'], ['schedule', 'Phasing and schedule'], ['cost', 'Cost'], ['risks', 'Risks and permits'], ['standards', 'Standards and checks']];
+export const BOD_DOC = /basis of design/i;
+/** The document follows the plan type's "Basis of design" document module: its sections in the order it lists them; a standard
+ *  section it leaves out is dropped; a section it names that the planner does not write is shown for the author to complete;
+ *  sections a family adds are kept at the end. Sections are numbered in the order they appear. */
+function followDocument(secs: BodSection[], doc?: T.PlannerTemplate): BodSection[] {
+  let out = secs;
+  if (doc?.items?.length) {
+    const norm = (x: string) => x.trim().toLowerCase();
+    const std = new Map(BOD_SECTIONS.map(([id, n]) => [norm(n), id]));
+    const stdIds = new Set(BOD_SECTIONS.map(([id]) => id));
+    /* a section a family adds stays right after the standard section it follows */
+    const after = new Map<string, BodSection[]>(); let anchor = '';
+    for (const s of secs) if (stdIds.has(s.id)) anchor = s.id; else after.set(anchor, [...(after.get(anchor) ?? []), s]);
+    const ids = doc.items.map(it => std.get(norm(it)) ?? null);
+    const stdOrder = BOD_SECTIONS.map(([id]) => id);
+    const reordered = ids.some(x => x === null) || ids.some((x, i) => i > 0 && stdOrder.indexOf(x!) < stdOrder.indexOf(ids[i - 1]!));
+    /* the standard order with nothing added: keep the family's order, leave out what the document drops */
+    if (!reordered) return renumber(secs.filter(s => !stdIds.has(s.id) || ids.includes(s.id)));
+    out = [...(after.get('') ?? [])];
+    doc.items.forEach((it, i) => { const id = std.get(norm(it)); if (id) { const s = secs.find(x => x.id === id); if (s) out.push(s, ...(after.get(id) ?? [])); } else if (it.trim()) out.push({ id: `doc-${i}`, title: it.trim(), text: 'To be written by the design author (a section of the plan type\'s document template).', rows: [] }); });
+    out.push(...secs.filter(s => !stdIds.has(s.id) && !out.includes(s)));
+  }
+  return renumber(out);
+}
+const renumber = (secs: BodSection[]) => secs.map((s, i) => ({ ...s, title: `${i + 1}. ${s.title.replace(/^\d+\.\s*/, '')}` }));
 export const aspectsCovered = (t?: T.PlannerTemplate) => (t?.requiredAspects ?? []).filter(a => a.depth !== 'skipped').map(a => ASPECT_LABEL[a.aspect]);
 
 /* ================================================================== initiation pack */
@@ -640,7 +667,8 @@ function baseInitiation(plan: T.PlannerPlan, ev: Evaluation, template: T.Planner
     const related = bom.lines.filter(l => !l.monthly && l.leadItem && (!x.phaseId || !l.phaseId || l.phaseId === x.phaseId) && (x.item.toLowerCase().includes(l.leadItem.split(' ')[0].toLowerCase()) || l.leadItem.toLowerCase().includes(x.item.split(' ')[0].toLowerCase())));
     return { item: x.item, category: (related[0]?.category ?? 'Mixed') as BomCategory | 'Mixed', value: related.reduce((a, l) => a + l.total, 0), orderBy: x.orderBy, needBy: x.needBy, late: x.late };
   }).filter(o => o.value > 0);
-  const docs: Initiation['designDocs'] = [{ name: 'Basis of design', type: 'Concept Design', discipline: 'Architectural' }];
+  /* the basis of design, then any other document the plan type is built from (its document modules) */
+  const docs: Initiation['designDocs'] = [{ name: 'Basis of design', type: 'Concept Design', discipline: 'Architectural' }, ...(ev.resolved?.modules ?? []).filter(m => m.kind === 'document' && !BOD_DOC.test(m.name)).map(m => ({ name: m.name, type: 'Concept Design' as const, discipline: 'Architectural' as const }))];
   const covered = new Set((template?.requiredAspects ?? []).filter(a => a.depth !== 'skipped').map(a => a.aspect));
   if (REPLACE_SCOPES.includes(plan.scope)) {
     docs.push({ name: plan.scope === 'rack-replace' ? 'Rack swap list' : 'Old-to-new device list', type: 'Detailed Design', discipline: plan.scope === 'network-refresh' ? 'Network' : 'Architectural' }, { name: 'Cut-over runbook', type: 'Detailed Design', discipline: plan.scope === 'network-refresh' ? 'Network' : 'Electrical' });

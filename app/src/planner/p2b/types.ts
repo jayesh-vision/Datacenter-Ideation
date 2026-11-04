@@ -499,6 +499,9 @@ export interface PlannerTemplate extends BaseEntity {
   /** Plan types: the modules they are built from (aspect modules, rule sets, a demand profile). Their inputs and rules apply under
    *  the plan type's own chain (a plan type's or parent's copy wins); a demand profile sets the workload mix a new plan starts from. */
   modules?: string[];
+  /** Checklists: the commissioning test plan they are for (one ATP per level and plan phase on that system), or, with `perSite`,
+   *  the acceptance test every edge site passes. A checklist without it is a plain gate list. */
+  atpSystem?: AtpSystem; perSite?: boolean;
   /** A draft that is the next version of this published template (same lineage; publishing copies it onto that record). */
   versionOf?: string;
   /** Content of earlier published versions, newest last (plans pinned to one are evaluated against it). */
@@ -508,7 +511,7 @@ export interface PlannerTemplate extends BaseEntity {
   retiredAt?: string; retiredBy?: string; retireReason?: string;
   publishedAt?: string; publishedBy?: string;
 }
-export type PlannerTemplateContent = Pick<PlannerTemplate, 'name' | 'description' | 'ownerName' | 'params' | 'rules' | 'requiredAspects' | 'outputs' | 'approvalPath' | 'executesAs' | 'blueprintKey' | 'appliesTo' | 'inheritsFrom' | 'demand' | 'items' | 'scope' | 'dcTypeKey' | 'labels' | 'modules'>;
+export type PlannerTemplateContent = Pick<PlannerTemplate, 'name' | 'description' | 'ownerName' | 'params' | 'rules' | 'requiredAspects' | 'outputs' | 'approvalPath' | 'executesAs' | 'blueprintKey' | 'appliesTo' | 'inheritsFrom' | 'demand' | 'items' | 'scope' | 'dcTypeKey' | 'labels' | 'modules' | 'atpSystem' | 'perSite'>;
 export interface PlannerTemplateSnapshot { version: number; at: string; by: string; note?: string; content: PlannerTemplateContent }
 export interface PlannerBenchmark extends BaseEntity {
   bmId: string; metric: string; label: string; category: 'cost' | 'performance' | 'sizing' | 'leadtime' | 'staffing' | 'sustainability';
@@ -536,7 +539,7 @@ export interface PlannerApprovalRound { round: number; submittedAt: string; subm
 export interface PlannerCondition { id: string; text: string; owner: string; dueDate?: string; raisedBy: string; raisedAt: string; status: 'Open' | 'Closed'; closedAt?: string; closedBy?: string; evidence?: string; blocksExecution: boolean }
 /** Figures frozen at final approval. Later edits create a new revision; the baseline never changes. */
 export interface PlannerBaseline {
-  at: string; by: string; scenarioId?: string; scenarioName?: string; templateId: string; templateVersion: number;
+  at: string; by: string; scenarioId?: string; scenarioName?: string; templateId: string; templateVersion: number; moduleVersions?: Record<string, number>;
   params: Record<string, number | string | boolean>; designPowerKw: number; targetGoLive: string; phases: PlannerPhase[];
   capexTotal: number; contingencyUsd: number; opexMonthly: number; bomTotal: number; sourcedTotal?: number; buyTotal?: number;
   schedule: { item: string; orderBy: string; needBy: string; phase: string }[];
@@ -652,6 +655,8 @@ export interface PlannerPlan extends BaseEntity {
   revision?: string; revisionOf?: string; supersededBy?: string;
   /** Template version the plan was approved against (pinned). */
   templateVersion?: number;
+  /** Versions of the modules its template was built from at that time (pinned with it). */
+  moduleVersions?: Record<string, number>;
   approvalHistory?: PlannerApprovalRound[]; conditions?: PlannerCondition[];
   approvedScenarioId?: string; baseline?: PlannerBaseline; closeout?: PlannerCloseout;
   submittedAt?: string; submittedBy?: string; holdReason?: string; cancelReason?: string;

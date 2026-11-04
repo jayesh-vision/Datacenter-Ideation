@@ -52,7 +52,7 @@ export interface EstateActuals {
 
 export interface ResolvedTemplate { template: T.PlannerTemplate; chain: T.PlannerTemplate[]; params: T.PlannerParamDef[]; rules: T.PlannerRuleDef[]; modules: T.PlannerTemplate[] }
 /** Kinds a plan type can be built from (`PlannerTemplate.modules`). */
-export const MODULE_KINDS: T.PlannerTemplateKind[] = ['aspect', 'ruleset', 'demand'];
+export const MODULE_KINDS: T.PlannerTemplateKind[] = ['aspect', 'ruleset', 'demand', 'checklist', 'document'];
 
 /** Walk `inheritsFrom` up to the root; nearer templates override parameters and add rules. Modules the chain uses (aspect modules,
  *  rule sets with their own chain) apply first, so any copy in the plan type's chain wins over a module's. A nearer copy marked
@@ -1138,14 +1138,25 @@ export function planForScenario(plan: T.PlannerPlan, scenario?: T.PlannerScenari
  * Evaluate a plan. `data` is the platform data (see plannerData.ts); without it the engine
  * still runs, but checks against the real site are reported as not checked.
  */
-/** The templates with the plan's own template swapped for the version it is pinned to, when that version is stored. */
-export function pinnedTemplates(plan: Pick<T.PlannerPlan, 'templateId' | 'templateVersion'>, templates: T.PlannerTemplate[]): T.PlannerTemplate[] {
-  const v = plan.templateVersion; if (v === undefined) return templates;
-  const i = templates.findIndex(t => t.id === plan.templateId); if (i < 0) return templates;
-  const t = templates[i]; if (t.version === v) return templates;
-  const snap = t.history?.find(h => h.version === v); if (!snap) return templates;
-  const out = templates.slice(); out[i] = { ...t, ...JSON.parse(JSON.stringify(snap.content)), version: v }; return out;
+/** The templates with the plan's own template, and the modules it was built from, swapped for the versions the plan is pinned to,
+ *  when those versions are stored. */
+export function pinnedTemplates(plan: Pick<T.PlannerPlan, 'templateId' | 'templateVersion' | 'moduleVersions'>, templates: T.PlannerTemplate[]): T.PlannerTemplate[] {
+  const pins: [string, number][] = [...(plan.templateVersion !== undefined ? [[plan.templateId, plan.templateVersion] as [string, number]] : []), ...Object.entries(plan.moduleVersions ?? {})];
+  let out = templates;
+  for (const [id, v] of pins) {
+    const i = out.findIndex(t => t.id === id); if (i < 0) continue;
+    const t = out[i]; if (t.version === v) continue;
+    const snap = t.history?.find(h => h.version === v); if (!snap) continue;
+    if (out === templates) out = templates.slice();
+    out[i] = { ...t, ...JSON.parse(JSON.stringify(snap.content)), version: v };
+  }
+  return out;
 }
+/** Versions of the modules a template is built from, to pin on a plan with its template version. */
+export const moduleVersionsOf = (templateId: string, templates: T.PlannerTemplate[]) => {
+  const m = resolveTemplate(templateId, templates)?.modules ?? [];
+  return m.length ? Object.fromEntries(m.map(x => [x.id, x.version])) : undefined;
+};
 
 export function evaluate(basePlan: T.PlannerPlan, scenario: T.PlannerScenario | null | undefined, templates: T.PlannerTemplate[], benchmarks: T.PlannerBenchmark[], actuals?: EstateActuals, data?: PlannerData): Evaluation {
   const plan = planForScenario(basePlan, scenario);

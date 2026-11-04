@@ -9,7 +9,7 @@ import type * as T from '../../../planner/p2b/types';
 import type { Evaluation } from '../../../planner/lib/engine';
 import * as G from '../../../planner/lib/governance';
 import { requestState } from '../../../planner/lib/reviews';
-import { usePlanReviews, usePlans, useReviewComments } from '../../../planner/lib/usePlanner';
+import { usePlanReviews, usePlans, useReviewComments, useTemplates } from '../../../planner/lib/usePlanner';
 import type { DeliveryProjectView } from '../../../api/types';
 import { date, kw, money, pct } from '../common';
 import { projectUrl } from '../pack/records';
@@ -22,6 +22,7 @@ const linkBtn = (label: ReactNode, onClick: () => void) => <button type="button"
 
 /** One line under the header: the plan's state in words, then what needs the reader (links into the tabs or other screens). */
 export function PlanStatusLine({ plan, template, delivery, blockersN, closeout, onTab }: { plan: T.PlannerPlan; template?: T.PlannerTemplate; delivery?: DeliveryProjectView | null; blockersN: number; closeout?: { done: number; total: number }; onTab: Go }) {
+  const templates = useTemplates();
   const plans = usePlans();
   const reviews = usePlanReviews(plan.id); const comments = useReviewComments(plan.id);
   const review = reviews.find(x => requestState(x, plan).open);
@@ -50,6 +51,8 @@ export function PlanStatusLine({ plan, template, delivery, blockersN, closeout, 
   if (blocking.length && (s === 'Approved' || s === 'Executing')) parts.push({ k: 'cond', warn: true, node: <>{plural(blocking.length, 'condition')} block the build · {linkBtn('Approvals', () => onTab('approvals'))}</> });
   const drift = G.templateDrift(plan, template);
   if (drift) parts.push({ k: 'drift', warn: true, node: <>Template moved v{drift.from} → v{drift.to}; a revision adopts it</> });
+  const mdrift = G.moduleDrift(plan, templates);
+  if (mdrift.length) parts.push({ k: 'mdrift', warn: true, node: <>{mdrift.length === 1 ? `Module ${mdrift[0].name} moved v${mdrift[0].from} → v${mdrift[0].to}` : `${mdrift.length} modules moved on (${mdrift.map(m => `${m.name} v${m.from} → v${m.to}`).join(', ')})`}; the plan keeps the pinned version{mdrift.length === 1 ? '' : 's'} until a revision adopts {mdrift.length === 1 ? 'it' : 'them'}</> });
   if (delivery) parts.push({ k: 'dl', node: <>Build in Delivery as <Link className="ent-link mono" to={projectUrl(plan)}>{delivery.project.id}</Link> ({delivery.project.state.toLowerCase()}, {delivery.project.health}) · <Link className="ent-link" to={projectUrl(plan, 'workorders')}>{plural(delivery.workOrders.length, 'work order')}</Link> · <Link className="ent-link" to={projectUrl(plan, 'procurement')}>{plural(delivery.pos.length, 'purchase order')}</Link>{delivery.workOrders[0] ? <> · <Link className="ent-link mono" to={`/changes/${delivery.workOrders[0].changeId}`}>{delivery.workOrders[0].changeId}</Link>{delivery.workOrders.length > 1 ? ` +${delivery.workOrders.length - 1}` : ''}</> : null}</> });
   if (closeout && s === 'Executing') parts.push({ k: 'close', node: <>Close-out {closeout.done} of {closeout.total} checks</> });
   if (review) parts.push({ k: 'rv', node: <>Review <b>{review.revId}</b> sent {date(review.requestedAt)} to {review.reviewers.map(x => x.name).join(', ')} · {openComments ? plural(openComments, 'open comment') : 'no open comments'} · <Link className="ent-link" to={reviewUrl(plan.id)}>Open the review page</Link></> });

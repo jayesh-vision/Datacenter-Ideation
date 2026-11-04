@@ -9,6 +9,8 @@ import * as I from 'lucide-react';
 import { Btn, Chip, Field, Modal, Seg, Toggle } from '../../ui/kit';
 import { useBenchmarks, useEstate, usePlannerActions, usePlans, useTemplateAudit, useTemplates } from '../../planner/lib/usePlanner';
 import { MODULE_KINDS, resolveTemplate, type EstateActuals } from '../../planner/lib/engine';
+import { BOD_SECTIONS } from '../../planner/lib/outputs';
+import { ATP_SYSTEM } from '../../planner/p2b/enums';
 import { usePlannerData } from '../../planner/lib/plannerData';
 import { estateActuals } from '../../planner/lib/ai';
 import { APPROVAL_STEPS, ASPECT_ORDER, EXECUTES_AS, NEW_KINDS, TEMPLATE_APPROVER_ROLE, contentOf, dependents, liveTemplates, moduleBrings, needsPublishApproval, outputCatalog, paramCatalog, templateDiff, templateErrors, templateImpact, type TplChange, type TplImpactRow } from '../../planner/lib/templateCatalog';
@@ -205,14 +207,14 @@ export function TemplateEditor({ t, onDone }: { t: T.PlannerTemplate; onDone: ()
 
       {w.kind === 'plan' && <section>
         <h4>Modules <span className="vw-label" style={{ fontWeight: 400 }}>· {mods.length} used</span></h4>
-        <p className="vw-label" style={{ margin: 0 }}>Reusable parts this plan type is built from. Their inputs and rules apply unless the plan type{chain.length > 1 ? ' or its parent' : ''} sets its own copy; a demand profile sets the workload mix a new plan starts from. One module per area.</p>
+        <p className="vw-label" style={{ margin: 0 }}>Reusable parts this plan type is built from. Their inputs and rules apply unless the plan type{chain.length > 1 ? ' or its parent' : ''} sets its own copy; a demand profile sets the workload mix a new plan starts from; commissioning checklists become the build's test plans; the basis of design document sets the plan document's sections, other documents are added to Delivery's design documents. One per area or test system.</p>
         {mods.length > 0 && <div className="pn-te-mods">{mods.map(m => { const mine = (w.modules ?? []).includes(m.id); const ov = [...modRules(m).filter(r => w.rules.some(x => x.id === r.id)), ...modParams(m).filter(p => own.has(p.key))].length;
           return <div key={m.id}><Chip size="xs" tone="neutral">{KIND_LABEL[m.kind]}</Chip><b>{m.name} v{m.version}</b><small>{moduleBrings(m, withW)}{ov ? ` · ${ov} overridden here` : ''}{!mine ? ` · via ${chain.slice(1).find(c => c.modules?.includes(m.id))?.name ?? 'the parent'}` : ''}</small>
             {mine && <Btn size="sm" icon={I.X} onClick={() => set({ modules: (w.modules ?? []).filter(x => x !== m.id) })}>Remove</Btn>}</div>; })}</div>}
         <div className="row" style={{ gap: 6 }}>
           <select className="select" value={addMod} onChange={ev => setAddMod(ev.target.value)} style={{ maxWidth: 420 }}>
             <option value="">Add a module…</option>
-            {MODULE_KINDS.map(k => { const ms = live.filter(m => m.kind === k && m.status === 'published' && !mods.some(x => x.id === m.id)); return ms.length ? <optgroup key={k} label={`${KIND_LABEL[k]}s`}>{ms.map(m => <option key={m.id} value={m.id}>{m.name} · {moduleBrings(m, templates)}</option>)}</optgroup> : null; })}
+            {MODULE_KINDS.map(k => { const ms = live.filter(m => m.kind === k && m.status === 'published' && !mods.some(x => x.id === m.id) && (k !== 'checklist' || !!m.atpSystem)); return ms.length ? <optgroup key={k} label={`${KIND_LABEL[k]}s`}>{ms.map(m => <option key={m.id} value={m.id}>{m.name} · {moduleBrings(m, templates)}</option>)}</optgroup> : null; })}
           </select>
           <Btn size="sm" icon={I.Plus} disabled={!addMod} onClick={() => { set({ modules: [...(w.modules ?? []), addMod] }); setAddMod(''); }}>Add module</Btn>
         </div>
@@ -242,8 +244,15 @@ export function TemplateEditor({ t, onDone }: { t: T.PlannerTemplate; onDone: ()
         <Btn size="sm" icon={I.Plus} onClick={() => set({ demand: { ...w.demand!, phases: [...w.demand!.phases, { name: `Phase ${w.demand!.phases.length + 1}`, sharePct: 0, monthsFromStart: 0 }] } })}>Add phase</Btn>
       </section>}
 
+      {w.kind === 'checklist' && <section>
+        <h4>Used as</h4>
+        <SelectInput<string> value={w.perSite ? 'sat' : w.atpSystem ?? ''} options={[{ id: '', label: 'A gate list (shown, not turned into tests)' }, ...ATP_SYSTEM.map(s => ({ id: s, label: `${s} commissioning tests` })), { id: 'sat', label: 'Acceptance test for every edge site' }]} onChange={v => set(v === 'sat' ? { atpSystem: 'Integrated', perSite: true } : { atpSystem: (v || undefined) as T.PlannerTemplate['atpSystem'], perSite: undefined })} style={{ maxWidth: 360 }} />
+        {(w.atpSystem || w.perSite) && <p className="vw-label" style={{ margin: 0 }}>Write each test as <span className="mono">level | step | method | expected result</span> (levels L1 FAT · L2 SAT · L3 Pre-functional · L4 Functional · L5 IST). A plan type built from it gets one test plan per level{w.perSite ? ' for every edge site' : ' and phase'}; lines in another form are skipped.</p>}
+      </section>}
+
       {(w.kind === 'document' || w.kind === 'checklist') && <section>
         <h4>{w.kind === 'checklist' ? 'Items' : 'Sections'}</h4>
+        {w.kind === 'document' && /basis of design/i.test(w.name) && <p className="vw-label" style={{ margin: 0 }}>The planner writes these sections: {BOD_SECTIONS.map(([, n]) => n).join(' · ')}. Leave one out to drop it; reorder to change the document; any other name becomes an empty section for the design author.</p>}
         <ol className="pn-te-list">{(w.items ?? []).map((it, i) => <li key={i}><span className="pl-step-n">{i + 1}</span><TextInput value={it} onChange={v => set({ items: (w.items ?? []).map((x, k) => (k === i ? v : x)) })} style={{ height: 30 }} />
           <span className="pn-te-acts"><Btn size="sm" icon={I.ArrowUp} disabled={i === 0} onClick={() => set({ items: move(w.items ?? [], i, -1) })} title="Move up" /><Btn size="sm" icon={I.ArrowDown} disabled={i === (w.items ?? []).length - 1} onClick={() => set({ items: move(w.items ?? [], i, 1) })} title="Move down" /><Btn size="sm" icon={I.X} onClick={() => set({ items: (w.items ?? []).filter((_, k) => k !== i) })} title="Remove" /></span></li>)}</ol>
         <div className="row" style={{ gap: 6 }}><TextInput value={newItem} onChange={setNewItem} placeholder={w.kind === 'checklist' ? 'Add an item' : 'Add a section'} style={{ maxWidth: 360, height: 32 }} /><Btn size="sm" icon={I.Plus} disabled={!newItem.trim()} onClick={() => { set({ items: [...(w.items ?? []), newItem.trim()] }); setNewItem(''); }}>Add</Btn></div>

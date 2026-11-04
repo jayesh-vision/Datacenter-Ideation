@@ -98,8 +98,8 @@ export async function runExecution(env: ExecEnv, planIn: T.PlannerPlan, _viewed?
     const bomA = buildBom(plan, evA, env.benchmarks);
     const srcA = sourcing ? sourceBom(plan, evA, bomA, sourcing) : undefined;
     const baseline = buildBaseline({ plan, ev: evA, scenario: scn, template, benchmarks: env.benchmarks, bomTotal: bomA.total, sourcedTotal: srcA?.total, buyTotal: srcA?.buyTotal, actor: env.actor, at: at0 });
-    plan = { ...plan, baseline, approvedScenarioId: scn?.id, templateVersion: baseline.templateVersion };
-    db.update('plannerPlans', plan.id, { baseline, approvedScenarioId: scn?.id, templateVersion: baseline.templateVersion, updatedAt: now() } as Record<string, unknown>);
+    plan = { ...plan, baseline, approvedScenarioId: scn?.id, templateVersion: baseline.templateVersion, moduleVersions: baseline.moduleVersions };
+    db.update('plannerPlans', plan.id, { baseline, approvedScenarioId: scn?.id, templateVersion: baseline.templateVersion, moduleVersions: baseline.moduleVersions, updatedAt: now() } as Record<string, unknown>);
     warnings.push(`The plan was approved before baselines were kept; its figures were frozen now (${fmtUsd(baseline.capexTotal)} from ${baseline.scenarioName}).`);
     env.audit('Plan', plan.id, 'baseline frozen', `Baseline frozen at execution: ${fmtUsd(baseline.capexTotal)} CapEx from ${baseline.scenarioName}, template v${baseline.templateVersion}`);
   }

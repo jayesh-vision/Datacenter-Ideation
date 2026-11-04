@@ -12,7 +12,7 @@ import { planFigures, type PlanFigures } from './benchCatalog';
 import { STEP_ROLE } from './governance';
 
 export const TEMPLATE_APPROVER_ROLE = 'Capacity Planner';
-export const CONTENT_KEYS = ['name', 'description', 'ownerName', 'params', 'rules', 'requiredAspects', 'outputs', 'approvalPath', 'executesAs', 'blueprintKey', 'appliesTo', 'inheritsFrom', 'demand', 'items', 'scope', 'dcTypeKey', 'labels', 'modules'] as const satisfies readonly (keyof T.PlannerTemplateContent)[];
+export const CONTENT_KEYS = ['name', 'description', 'ownerName', 'params', 'rules', 'requiredAspects', 'outputs', 'approvalPath', 'executesAs', 'blueprintKey', 'appliesTo', 'inheritsFrom', 'demand', 'items', 'scope', 'dcTypeKey', 'labels', 'modules', 'atpSystem', 'perSite'] as const satisfies readonly (keyof T.PlannerTemplateContent)[];
 export const ASPECT_ORDER: T.PlannerAspect[] = ['space', 'power', 'cooling', 'network', 'it', 'fire', 'security', 'sustainability', 'resilience', 'operations', 'supply', 'schedule', 'finance', 'compliance', 'commissioning', 'migration', 'risk'];
 /** Kinds a user can create here. Site types are the engine's sizing catalogue (code), so they are edited, not created. */
 export const NEW_KINDS: { kind: T.PlannerTemplateKind; label: string; sub: string }[] = [
@@ -47,6 +47,8 @@ export function usesModule(planType: T.PlannerTemplate, moduleId: string, all: T
 /** What a module brings to a plan type built from it, in words. */
 export function moduleBrings(m: T.PlannerTemplate, all: T.PlannerTemplate[]) {
   if (m.kind === 'demand' && m.demand) return `Workload mix GPU ${m.demand.gpuPct} · compute ${m.demand.computePct} · storage ${m.demand.storagePct} %`;
+  if (m.kind === 'checklist') { const n = (m.items ?? []).length; return m.perSite ? `${n} acceptance steps for every edge site` : m.atpSystem ? `${n} ${m.atpSystem.toLowerCase()} commissioning tests (one test plan per level and phase)` : `${n} items · a gate list (not turned into test plans)`; }
+  if (m.kind === 'document') { const n = (m.items ?? []).length; return /basis of design/i.test(m.name) ? `${n} sections · the plan's basis of design follows it` : `${n} sections · added to Delivery's design documents`; }
   const r = resolveTemplate(m.id, all); const p = r?.params.length ?? 0, n = r?.rules.length ?? 0;
   return [p && `${p} input${p === 1 ? '' : 's'}`, n && `${n} rule${n === 1 ? '' : 's'}`].filter(Boolean).join(' · ') || 'Nothing to apply yet';
 }
@@ -88,8 +90,9 @@ export function templateErrors(t: T.PlannerTemplate, all: T.PlannerTemplate[]): 
   if (t.modules?.length) {
     const ms = t.modules.map(id => all.find(x => x.id === id)).filter((x): x is T.PlannerTemplate => !!x);
     if (ms.length < t.modules.length) e.push('A module it uses no longer exists; remove it.');
-    const area = (m: T.PlannerTemplate) => (m.kind === 'aspect' ? m.labels.find(l => l !== 'aspect') : m.kind === 'demand' ? 'demand' : undefined);
-    for (const m of ms) { const o = ms.find(x => x !== m && area(x) && area(x) === area(m)); if (o && ms.indexOf(m) < ms.indexOf(o)) e.push(`${m.name} and ${o.name} cover the same ${area(m) === 'demand' ? 'workload mix' : 'area'}; use one.`); }
+    const area = (m: T.PlannerTemplate) => (m.kind === 'aspect' ? m.labels.find(l => l !== 'aspect') : m.kind === 'demand' ? 'demand' : m.kind === 'checklist' ? (m.perSite ? 'site acceptance test' : m.atpSystem ? `${m.atpSystem.toLowerCase()} commissioning tests` : undefined) : m.kind === 'document' && /basis of design/i.test(m.name) ? 'basis of design' : undefined);
+    const what = (a?: string) => (a === 'demand' ? 'workload mix' : a && /tests?$|basis of design/.test(a) ? a : 'area');
+    for (const m of ms) { const o = ms.find(x => x !== m && area(x) && area(x) === area(m)); if (o && ms.indexOf(m) < ms.indexOf(o)) e.push(`${m.name} and ${o.name} cover the same ${what(area(m))}; use one.`); }
   }
   if (t.kind === 'plan' && !t.requiredAspects.some(a => a.depth === 'full')) e.push('A plan type covers at least one area in full.');
   if (t.demand) { const s = t.demand.gpuPct + t.demand.computePct + t.demand.storagePct; if (Math.round(s) !== 100) e.push(`The workload mix adds up to ${s}%, not 100%.`); const ph = t.demand.phases.reduce((a, p) => a + p.sharePct, 0); if (t.demand.phases.length && Math.round(ph) !== 100) e.push(`The phases add up to ${ph}%, not 100%.`); }
@@ -105,6 +108,7 @@ export function templateDiff(a: T.PlannerTemplateContent, b: T.PlannerTemplateCo
   const simple: [string, string, (x: T.PlannerTemplateContent) => string][] = [
     ['name', 'Name', x => x.name], ['description', 'Description', x => x.description], ['ownerName', 'Owner', x => x.ownerName], ['appliesTo', 'Applies to', x => x.appliesTo?.label],
     ['executesAs', 'Becomes a', x => pv(x.executesAs)], ['inheritsFrom', 'Inherits from', x => names(x.inheritsFrom)], ['labels', 'Labels', x => (x.labels ?? []).join(', ')],
+    ['atpSystem', 'Used as', x => (x.perSite ? 'Acceptance test for every edge site' : x.atpSystem ? `${x.atpSystem} commissioning tests` : '')],
   ];
   for (const [, label, f] of simple) if (f(a) !== f(b)) out.push({ area: 'Details', what: label, from: f(a) || '—', to: f(b) || '—' });
   const depth = (x: T.PlannerTemplateContent, s: T.PlannerAspect) => x.requiredAspects.find(r => r.aspect === s)?.depth ?? 'skipped';

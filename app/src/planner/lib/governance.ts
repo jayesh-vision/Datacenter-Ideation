@@ -305,7 +305,7 @@ export function revisionDraft(plan: T.PlannerPlan, allPlans: T.PlannerPlan[], ap
     ...plan, id, plnId: id, status: 'Draft', revision: letter, revisionOf: plan.id, supersededBy: undefined,
     params, paramSources, preferredScenarioId: undefined, reviewScenarioId: undefined, approvedScenarioId: undefined,
     approvals: [], approvalHistory: [], conditions: [], baseline: undefined, closeout: undefined, artefacts: undefined,
-    processInstanceId: undefined, templateVersion: undefined, submittedAt: undefined, submittedBy: undefined, approvalAmountUsd: undefined, approvalBand: undefined,
+    processInstanceId: undefined, templateVersion: undefined, moduleVersions: undefined, submittedAt: undefined, submittedBy: undefined, approvalAmountUsd: undefined, approvalBand: undefined,
     holdReason: undefined, cancelReason: undefined, statusBeforeHold: undefined,
     createdAt: at, updatedAt: at, createdBy: actor.name, createdById: actor.id ?? plan.createdById, wizardStepKey: 'requirements',
   };
@@ -348,6 +348,7 @@ export function buildBaseline(i: BaselineInput): T.PlannerBaseline {
   return {
     at: i.at, by: i.actor, scenarioId: i.scenario?.id, scenarioName: i.scenario?.name ?? 'Base case',
     templateId: plan.templateId, templateVersion: i.template?.version ?? ev.resolved?.template.version ?? 0,
+    moduleVersions: ev.resolved?.modules.length ? Object.fromEntries(ev.resolved.modules.map(m => [m.id, m.version])) : undefined,
     params: Object.fromEntries(Object.entries(ev.params).map(([k, s]) => [k, s.value])),
     designPowerKw: plan.designPowerKw, targetGoLive: plan.targetGoLive, phases: plan.phases.map(p => ({ ...p })),
     capexTotal: ev.estimate.capexTotal, contingencyUsd: contingency, opexMonthly: ev.estimate.opexMonthly,
@@ -370,6 +371,11 @@ export function templateDrift(plan: T.PlannerPlan, template?: T.PlannerTemplate)
   const pinned = plan.templateVersion ?? plan.baseline?.templateVersion;
   if (pinned === undefined || !template || template.version === pinned) return undefined;
   return { from: pinned, to: template.version };
+}
+
+/** Modules the plan is pinned to that have a newer version now (the plan keeps evaluating against the pinned one). */
+export function moduleDrift(plan: T.PlannerPlan, templates: T.PlannerTemplate[]): { id: string; name: string; from: number; to: number }[] {
+  return Object.entries(plan.moduleVersions ?? {}).flatMap(([id, v]) => { const m = templates.find(t => t.id === id && !t.versionOf); return m && m.version !== v ? [{ id, name: m.name, from: v, to: m.version }] : []; });
 }
 
 /* ------------------------------------------------------------------ wizard save */
@@ -454,7 +460,7 @@ export function onFinalApproval(store: Store, i: { plan: T.PlannerPlan; ev: Eval
   const artefacts: T.PlannerArtefacts = inherited.artefacts ? { ...inherited.artefacts, ...ids } : { ...(plan.artefacts ?? { createdAt: at, vehicle, purchaseOrderIds: [], subnetIds: [], vlanIds: [], permitIds: [], designDocIds: [] }), ...ids };
   return {
     patch: {
-      ...inherited, baseline, approvedScenarioId: i.scenario?.id, templateVersion: baseline.templateVersion, artefacts,
+      ...inherited, baseline, approvedScenarioId: i.scenario?.id, templateVersion: baseline.templateVersion, moduleVersions: baseline.moduleVersions, artefacts,
       phases: plan.phases.map(p => (p.status === 'Planned' ? { ...p, status: 'Approved' as const } : p)),
     },
     previous, notes: [`Baseline frozen: ${fmtUsd(baseline.capexTotal)} CapEx from ${baseline.scenarioName}, template v${baseline.templateVersion}.`, `${ids.reservationIds.length} capacity hold(s) and ${ids.rackReservationIds.length} rack-unit hold(s) written.`, ...notes],

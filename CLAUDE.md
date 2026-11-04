@@ -158,6 +158,9 @@ User ask: show revenue degradation caused by datacenter issues and which issue c
   ··· refresh · filter icon (Filters panel: categories / options / Reset to default / Apply filters) · ⋮ actions. URL-backed lists pass
   `onApply={useParamPatch()}`. All grid columns left-aligned (header = values). Check: `node .qa/toolbars.mjs`.
 - Palette: slate/white, brand blue accent, red/amber for faults only. The digital twin (`screens/site/twin`) is signed off — don't restyle it.
+  Two fixes made at the user's request (04-Nov-2026): faded racks / devices and the glass of the open room no longer catch clicks (`NO_RAY` in Scene.tsx: a faded
+  rack in front used to open instead of the device clicked; racks only opened from their label), and a collapsible search in the view tools (`twin/Search.tsx`:
+  floors, rooms, racks, equipment by name / role / model / serial / address, UPS / rectifier / batteries / cooling units / DG → flies there; plant opens its room).
 
 ## Command center layout (02-Oct-2026, after the user rejected the 17-box version)
 Hero card (08-Oct-2026, user) = three columns 30 / 40 / 30, 600 px tall: health ring + title/band + one verdict line + weakest area,
@@ -924,6 +927,17 @@ colocation·us); the GPU hall variant uses the GPU-heavy profile. `dependents().
 and its effect on their open plans is shown; editor section **Modules** (add / remove, what each brings, "N overridden here", via parent); drawer "Built from
 modules" / "Used by plan types"; Modules list column **Used by**. A copy flattens modules away (independent). Check: `node .qa/p2b-templates.mjs` (W=1280|1440),
 `node .qa/p2b-rules.mjs`.
+Templates phase D (04-Nov-2026): **checklists and documents are modules too** (`MODULE_KINDS` adds checklist, document). A checklist's `atpSystem`
+(+ `perSite`) makes it a commissioning test plan: `buildAtp.ts` `cxChecklists` reads the plan type's checklist modules (one ATP per level and phase;
+`perSite` = edge acceptance per site) instead of fixed ids; a checklist without it is a gate list (not offered as a module). The "Basis of design"
+document module sets the plan document (`outputs.ts` `followDocument`, `BOD_SECTIONS` = the 14 sections the planner writes): a dropped section is
+left out, a reordered list reorders (family sections stay after the section they follow; standard order keeps the family's order), an unknown name
+becomes an empty section for the author; sections are numbered without gaps. Other document modules join Delivery's design documents. Seed: the five
+commissioning checklists → new datacenter + site expansion, edge acceptance → edge rollout, Basis of design (items = the 14 sections) → every plan
+type; test plans, documents, design documents, cost and rules are identical to before (45 plans × 3 persona/geo). **Module versions are pinned**:
+`PlannerPlan.moduleVersions` / `PlannerBaseline.moduleVersions` are set with `templateVersion` (seed, baseline at approval, execution) and cleared on
+withdraw; `pinnedTemplates` swaps every pinned module for its stored version; `governance.moduleDrift` → the plan status line says which modules moved
+on. Check: `npx tsx --tsconfig tsconfig.app.json --import ./.qa/lib/css-hook.mjs .qa/template-pin-check.ts`.
 Delivery's header shows one action per sub-menu (planner on Insights, New programme on Programs, New project on Projects).
 DCIM → Insights (`screens/dcim/Insights.tsx`, `?tab=overview`, now the default `/dcim`): Needs attention (same predicates as the Racks / Cabling /
 Power / Devices list filters, each row opens that filtered list), sites and halls by power pressure (85% marker), rack density and device
