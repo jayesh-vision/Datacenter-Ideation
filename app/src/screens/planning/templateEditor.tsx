@@ -8,11 +8,12 @@ import { useEffect, useMemo, useState } from 'react';
 import * as I from 'lucide-react';
 import { Btn, Chip, Field, Modal, Seg, Toggle } from '../../ui/kit';
 import { useBenchmarks, useEstate, usePlannerActions, usePlans, useTemplateAudit, useTemplates } from '../../planner/lib/usePlanner';
-import { resolveTemplate, type EstateActuals } from '../../planner/lib/engine';
+import { MODULE_KINDS, resolveTemplate, type EstateActuals } from '../../planner/lib/engine';
 import { usePlannerData } from '../../planner/lib/plannerData';
 import { estateActuals } from '../../planner/lib/ai';
-import { APPROVAL_STEPS, ASPECT_ORDER, EXECUTES_AS, NEW_KINDS, TEMPLATE_APPROVER_ROLE, contentOf, dependents, liveTemplates, needsPublishApproval, outputCatalog, paramCatalog, templateDiff, templateErrors, templateImpact, type TplChange, type TplImpactRow } from '../../planner/lib/templateCatalog';
-import { CLIMATE_LABEL, COOLING_LABEL } from '../../planner/lib/labels';
+import { APPROVAL_STEPS, ASPECT_ORDER, EXECUTES_AS, NEW_KINDS, TEMPLATE_APPROVER_ROLE, contentOf, dependents, liveTemplates, moduleBrings, needsPublishApproval, outputCatalog, paramCatalog, templateDiff, templateErrors, templateImpact, type TplChange, type TplImpactRow } from '../../planner/lib/templateCatalog';
+import { CLIMATE_LABEL, COOLING_LABEL, RULE_PLAIN } from '../../planner/lib/labels';
+import { LIMIT_INFO, RULE_TEMPLATE_KINDS, checkCatalog, nextRuleId, ruleIndex } from '../../planner/lib/ruleCatalog';
 import { DC_TYPE_CATALOG } from '../../planner/p2b/dcTypes';
 import { PEOPLE } from '../../planner/compat/people';
 import { switchUser, useAuth } from '../../planner/compat/auth';
@@ -108,6 +109,38 @@ export function TemplateEditor({ t, onDone }: { t: T.PlannerTemplate; onDone: ()
   const [newOut, setNewOut] = useState('');
   const [addKey, setAddKey] = useState('');
   const [newItem, setNewItem] = useState('');
+  const [addRule, setAddRule] = useState('');
+
+  /* rules: this template's own copies (set here, overrides, switched off) over what it inherits */
+  /* what it would get without its own copies: the parent chain and every module (its own and inherited) */
+  const base = useMemo(() => resolveTemplate(w.id, withW.map(x => (x.id === w.id ? { ...w, params: [], rules: [] } : x))), [withW, w]);
+  const parentRules = useMemo(() => base?.rules ?? [], [base]);
+  const mods = resolved?.modules ?? [];
+  const modRules = (m: T.PlannerTemplate) => resolveTemplate(m.id, withW)?.rules ?? [];
+  const modParams = (m: T.PlannerTemplate) => resolveTemplate(m.id, withW)?.params ?? [];
+  const live = useMemo(() => liveTemplates(templates), [templates]);
+  const [addMod, setAddMod] = useState('');
+  const ruleRows = useMemo(() => {
+    const ids = [...new Set([...parentRules.map(r => r.id), ...w.rules.map(r => r.id)])];
+    return ids.map(id => ({ id, own: w.rules.find(r => r.id === id), inh: parentRules.find(r => r.id === id) }))
+      .sort((a, b) => { const ra = (a.own ?? a.inh)!, rb = (b.own ?? b.inh)!; return ra.severity.localeCompare(rb.severity) || ASPECT_ORDER.indexOf(ra.aspect) - ASPECT_ORDER.indexOf(rb.aspect) || (RULE_PLAIN[ra.check] ?? ra.title).localeCompare(RULE_PLAIN[rb.check] ?? rb.title); });
+  }, [parentRules, w.rules]);
+  const activeChecks = new Set(ruleRows.filter(r => !(r.own?.off)).map(r => (r.own ?? r.inh)!.check));
+  const library = useMemo(() => ruleIndex(templates).filter(e => e.carriers.length), [templates]);
+  const checks = useMemo(() => checkCatalog(templates), [templates]);
+  const libAdd = library.filter(e => !ruleRows.some(r => r.id === e.id) && !activeChecks.has(e.rule.check));
+  const newAdd = checks.filter(c => !activeChecks.has(c.check));
+  const inhFrom = (id: string) => chain.slice(1).find(c => c.rules.some(r => r.id === id))?.name ?? [...mods].reverse().find(m => modRules(m).some(r => r.id === id))?.name ?? 'Inherited';
+  const paramFrom = (key: string) => chain.slice(1).find(c => c.params.some(x => x.key === key))?.name ?? [...mods].reverse().find(m => modParams(m).some(x => x.key === key))?.name;
+  const setRule = (id: string, patch: Partial<T.PlannerRuleDef>) => setW(x => ({ ...x, rules: x.rules.map(r => (r.id === id ? { ...r, ...patch } : r)) }));
+  const dropRule = (id: string) => setW(x => ({ ...x, rules: x.rules.filter(r => r.id !== id) }));
+  const putRule = (r: T.PlannerRuleDef) => setW(x => ({ ...x, rules: [...x.rules.filter(y => y.id !== r.id), r] }));
+  const doAddRule = (v: string) => {
+    if (v.startsWith('check:')) { const c = checks.find(k => k.check === v.slice(6)); if (!c) return; putRule({ id: nextRuleId(withW), check: c.check, title: RULE_PLAIN[c.check] ?? c.plain, aspect: c.aspect, severity: 'soft', threshold: LIMIT_INFO[c.check]?.dflt }); }
+    else { const e = library.find(x => x.id === v); if (e) putRule(clone(e.rule)); }
+    setAddRule('');
+  };
+  const limitText = (r: T.PlannerRuleDef) => (LIMIT_INFO[r.check] ? `${num(r.threshold ?? LIMIT_INFO[r.check].dflt, 2)} ${LIMIT_INFO[r.check].unit}` : '—');
 
   const setParam = (key: string, patch: Partial<T.PlannerParamDef>) => setW(x => ({ ...x, params: x.params.map(p => (p.key === key ? { ...p, ...patch } : p)) }));
   const overrideParam = (p: T.PlannerParamDef) => setW(x => ({ ...x, params: [...x.params, clone(p)] }));
@@ -170,6 +203,21 @@ export function TemplateEditor({ t, onDone }: { t: T.PlannerTemplate; onDone: ()
         <SelectInput value="" placeholder="Add a step…" options={APPROVAL_STEPS.filter(s => !w.approvalPath.includes(s)).map(s => ({ id: s, label: s }))} onChange={v => v && set({ approvalPath: [...w.approvalPath, v] })} style={{ maxWidth: 260, marginTop: 8 }} />
       </section>}
 
+      {w.kind === 'plan' && <section>
+        <h4>Modules <span className="vw-label" style={{ fontWeight: 400 }}>· {mods.length} used</span></h4>
+        <p className="vw-label" style={{ margin: 0 }}>Reusable parts this plan type is built from. Their inputs and rules apply unless the plan type{chain.length > 1 ? ' or its parent' : ''} sets its own copy; a demand profile sets the workload mix a new plan starts from. One module per area.</p>
+        {mods.length > 0 && <div className="pn-te-mods">{mods.map(m => { const mine = (w.modules ?? []).includes(m.id); const ov = [...modRules(m).filter(r => w.rules.some(x => x.id === r.id)), ...modParams(m).filter(p => own.has(p.key))].length;
+          return <div key={m.id}><Chip size="xs" tone="neutral">{KIND_LABEL[m.kind]}</Chip><b>{m.name} v{m.version}</b><small>{moduleBrings(m, withW)}{ov ? ` · ${ov} overridden here` : ''}{!mine ? ` · via ${chain.slice(1).find(c => c.modules?.includes(m.id))?.name ?? 'the parent'}` : ''}</small>
+            {mine && <Btn size="sm" icon={I.X} onClick={() => set({ modules: (w.modules ?? []).filter(x => x !== m.id) })}>Remove</Btn>}</div>; })}</div>}
+        <div className="row" style={{ gap: 6 }}>
+          <select className="select" value={addMod} onChange={ev => setAddMod(ev.target.value)} style={{ maxWidth: 420 }}>
+            <option value="">Add a module…</option>
+            {MODULE_KINDS.map(k => { const ms = live.filter(m => m.kind === k && m.status === 'published' && !mods.some(x => x.id === m.id)); return ms.length ? <optgroup key={k} label={`${KIND_LABEL[k]}s`}>{ms.map(m => <option key={m.id} value={m.id}>{m.name} · {moduleBrings(m, templates)}</option>)}</optgroup> : null; })}
+          </select>
+          <Btn size="sm" icon={I.Plus} disabled={!addMod} onClick={() => { set({ modules: [...(w.modules ?? []), addMod] }); setAddMod(''); }}>Add module</Btn>
+        </div>
+      </section>}
+
       {(w.kind === 'plan' || w.kind === 'profile') && <section>
         <h4>Outputs</h4>
         <div className="row wrap" style={{ gap: 6 }}>{w.outputs.map(o => <Chip key={o} tone="neutral">{o}<button type="button" className="pn-te-x" aria-label={`Remove ${o}`} onClick={() => set({ outputs: w.outputs.filter(x => x !== o) })}><I.X size={12} /></button></Chip>)}{!w.outputs.length && <span className="vw-label">None</span>}</div>
@@ -206,12 +254,12 @@ export function TemplateEditor({ t, onDone }: { t: T.PlannerTemplate; onDone: ()
         <p className="vw-label" style={{ margin: '0 0 8px' }}>Set here = this template's own value (edit default and allowed values, or remove it to fall back to {chain.length > 1 ? 'the inherited one' : 'the planner default'}). Inherited = from {chain.length > 1 ? chain.slice(1).map(c => c.name).join(' › ') : 'nothing'}; Override copies it here.</p>
         <div className="pn-te-scroll"><table className="nst-table pn-te-tbl"><thead><tr><th>Input</th><th>Default</th><th>Allowed</th><th>From</th></tr></thead><tbody>
           {[...shownParams].sort((a, b) => ASPECT_ORDER.indexOf(a.aspect) - ASPECT_ORDER.indexOf(b.aspect) || a.label.localeCompare(b.label)).map(p => {
-            const mine = own.has(p.key); const inherited = chain.slice(1).find(c => c.params.some(x => x.key === p.key));
+            const mine = own.has(p.key); const inherited = paramFrom(p.key);
             return <tr key={p.key} className={mine ? 'is-own' : ''}>
               <td><span className="cell-2"><b>{p.label}</b><small>{ASPECT_LABEL[p.aspect]} · <span className="mono">{p.key}</span></small></span></td>
               <td>{mine ? defaultEditor(p) : fmtDefault(p)}</td>
               <td>{mine ? allowedEditor(p) : <span className="vw-label">{p.type === 'number' ? (p.min !== undefined || p.max !== undefined ? `${p.min ?? '…'} – ${p.max ?? '…'}` : 'any') : p.type === 'select' ? `${(p.options ?? []).length} options` : '—'}</span>}</td>
-              <td><span className="pn-te-from">{mine ? <Chip tone="info" size="xs">Set here</Chip> : <Chip tone="neutral" size="xs">{inherited?.name ?? 'Inherited'}</Chip>}{mine ? <Btn size="sm" icon={inherited ? I.Undo2 : I.Trash2} onClick={() => removeParam(p.key)}>{inherited ? 'Use inherited' : 'Remove'}</Btn> : <Btn size="sm" icon={I.PenLine} onClick={() => overrideParam(p)}>Override</Btn>}</span></td>
+              <td><span className="pn-te-from">{mine ? <Chip tone="info" size="xs">Set here</Chip> : <Chip tone="neutral" size="xs">{inherited ?? 'Inherited'}</Chip>}{mine ? <Btn size="sm" icon={inherited ? I.Undo2 : I.Trash2} onClick={() => removeParam(p.key)}>{inherited ? 'Use inherited' : 'Remove'}</Btn> : <Btn size="sm" icon={I.PenLine} onClick={() => overrideParam(p)}>Override</Btn>}</span></td>
             </tr>;
           })}
         </tbody></table></div>
@@ -222,10 +270,36 @@ export function TemplateEditor({ t, onDone }: { t: T.PlannerTemplate; onDone: ()
         <p className="vw-label" style={{ margin: '6px 0 0' }}>Only inputs the planner reads can be added; a new kind of input needs the engine to read it.</p>
       </section>}
 
-      <section>
-        <h4>Rules</h4>
-        <p className="vw-label" style={{ margin: 0 }}>{(resolved?.rules ?? w.rules).length} rules ({w.rules.length} set here). Rules are added, overridden and removed in Benchmarks → Rules for now.</p>
-      </section>
+      {RULE_TEMPLATE_KINDS.includes(w.kind) && <section>
+        <h4>Rules <span className="vw-label" style={{ fontWeight: 400 }}>· {ruleRows.filter(r => !r.own?.off).length} checked · {w.rules.filter(r => !r.off).length} set here{w.rules.some(r => r.off) ? ` · ${w.rules.filter(r => r.off).length} switched off` : ''}</span></h4>
+        <p className="vw-label" style={{ margin: 0 }}>Set here = this template's own copy (how strict, the limit). Inherited rules come from {chain.length > 1 ? chain.slice(1).map(c => c.name).join(' › ') : 'nothing'}: override to change them here, or switch one off for plans on this template{w.kind === 'plan' ? '' : ' and its variants'}. The check itself is part of the planner engine.</p>
+        {ruleRows.length > 0 && <div className="pn-te-scroll"><table className="nst-table pn-te-tbl"><thead><tr><th>What is checked</th><th>When it fails</th><th>Limit</th><th>From</th></tr></thead><tbody>
+          {ruleRows.map(({ id, own: o, inh }) => { const r = (o ?? inh)!; const lim = LIMIT_INFO[r.check];
+            return <tr key={id} className={o?.off ? 'is-off' : o ? 'is-own' : ''}>
+              <td><span className="cell-2"><b>{RULE_PLAIN[r.check] ?? r.title}</b><small>{ASPECT_LABEL[r.aspect]} · <span className="mono">{r.id}</span>{r.standard ? ` · ${r.standard}` : ''}</small></span></td>
+              <td>{o && !o.off ? <Seg<T.PlannerRuleSeverity> size="sm" value={o.severity} onChange={v => setRule(id, { severity: v })} options={[{ id: 'hard', label: 'Must' }, { id: 'soft', label: 'Should' }]} /> : <Chip size="xs" tone={o?.off ? 'neutral' : r.severity === 'hard' ? 'error' : 'warning'} outline>{o?.off ? 'Not checked' : r.severity === 'hard' ? 'Must pass' : 'Should pass'}</Chip>}</td>
+              <td>{o && !o.off && lim ? <NumInput value={o.threshold} placeholder={String(lim.dflt)} unit={lim.unit} onChange={v => setRule(id, { threshold: v })} style={{ maxWidth: 130 }} /> : <span className="vw-label" style={{ whiteSpace: 'nowrap' }}>{limitText(r)}</span>}</td>
+              <td><span className="pn-te-from">
+                {o?.off ? <Chip tone="neutral" size="xs">Switched off</Chip> : o ? <Chip tone="info" size="xs">{inh ? 'Override' : 'Set here'}</Chip> : <Chip tone="neutral" size="xs">{inhFrom(id)}</Chip>}
+                <span className="row" style={{ gap: 4 }}>
+                  {o?.off ? <Btn size="sm" icon={I.Power} onClick={() => dropRule(id)}>Switch on</Btn>
+                    : o ? <>{inh ? <Btn size="sm" icon={I.Undo2} onClick={() => dropRule(id)}>Use inherited</Btn> : <Btn size="sm" icon={I.Trash2} onClick={() => dropRule(id)}>Remove</Btn>}{inh && <Btn size="sm" icon={I.PowerOff} title="Switch off" onClick={() => putRule({ ...clone(inh), off: true })} />}</>
+                    : <><Btn size="sm" icon={I.PenLine} onClick={() => putRule(clone(inh!))}>Override</Btn><Btn size="sm" icon={I.PowerOff} onClick={() => putRule({ ...clone(inh!), off: true })}>Switch off</Btn></>}
+                </span>
+              </span></td>
+            </tr>; })}
+        </tbody></table></div>}
+        {!ruleRows.length && <p className="vw-label" style={{ margin: 0 }}>No rules yet.</p>}
+        {(libAdd.length > 0 || newAdd.length > 0) && <div className="row" style={{ gap: 6 }}>
+          <select className="select" value={addRule} onChange={ev => setAddRule(ev.target.value)} style={{ maxWidth: 420 }}>
+            <option value="">Add a rule…</option>
+            {libAdd.length > 0 && <optgroup label="Rules in the library (same settings as elsewhere)">{libAdd.sort((a, b) => ASPECT_ORDER.indexOf(a.rule.aspect) - ASPECT_ORDER.indexOf(b.rule.aspect)).map(e => <option key={e.id} value={e.id}>{ASPECT_LABEL[e.rule.aspect]} · {RULE_PLAIN[e.rule.check] ?? e.rule.title} ({e.id}{LIMIT_INFO[e.rule.check] ? `, ${limitText(e.rule)}` : ''})</option>)}</optgroup>}
+            {newAdd.length > 0 && <optgroup label="New rule from a check the planner runs">{newAdd.map(c => <option key={c.check} value={`check:${c.check}`}>{ASPECT_LABEL[c.aspect]} · {c.plain}</option>)}</optgroup>}
+          </select>
+          <Btn size="sm" icon={I.Plus} disabled={!addRule} onClick={() => doAddRule(addRule)}>Add rule</Btn>
+        </div>}
+        <p className="vw-label" style={{ margin: 0 }}>A check already run by another rule on this template is not offered twice. Names, standards and every template a rule is in: Benchmarks → Rules.</p>
+      </section>}
 
       <div className="pn-te-bar">
         <span className="vw-label">{errors.length ? `To save: ${errors.join(' ')}` : diff.length ? `${diff.length} change${diff.length === 1 ? '' : 's'} not saved` : 'No changes'}</span>

@@ -50,9 +50,13 @@ export interface EstateActuals {
   sampleRacks?: number;
 }
 
-export interface ResolvedTemplate { template: T.PlannerTemplate; chain: T.PlannerTemplate[]; params: T.PlannerParamDef[]; rules: T.PlannerRuleDef[] }
+export interface ResolvedTemplate { template: T.PlannerTemplate; chain: T.PlannerTemplate[]; params: T.PlannerParamDef[]; rules: T.PlannerRuleDef[]; modules: T.PlannerTemplate[] }
+/** Kinds a plan type can be built from (`PlannerTemplate.modules`). */
+export const MODULE_KINDS: T.PlannerTemplateKind[] = ['aspect', 'ruleset', 'demand'];
 
-/** Walk `inheritsFrom` up to the root; nearer templates override parameters and add rules. */
+/** Walk `inheritsFrom` up to the root; nearer templates override parameters and add rules. Modules the chain uses (aspect modules,
+ *  rule sets with their own chain) apply first, so any copy in the plan type's chain wins over a module's. A nearer copy marked
+ *  `off` switches the rule off (it is left out of the resolved rules). */
 export function resolveTemplate(templateId: string, all: T.PlannerTemplate[]): ResolvedTemplate | null {
   const byId = new Map(all.map(t => [t.id, t]));
   const chain: T.PlannerTemplate[] = [];
@@ -62,8 +66,16 @@ export function resolveTemplate(templateId: string, all: T.PlannerTemplate[]): R
   if (!chain.length) return null;
   const params = new Map<string, T.PlannerParamDef>();
   const rules = new Map<string, T.PlannerRuleDef>();
+  const modules: T.PlannerTemplate[] = [];
+  for (const t of [...chain].reverse()) for (const id of t.modules ?? []) {
+    const m = byId.get(id); if (!m || modules.includes(m) || !MODULE_KINDS.includes(m.kind)) continue;
+    modules.push(m);
+    const mc: T.PlannerTemplate[] = []; let x: T.PlannerTemplate | undefined = m; const ms = new Set<string>();
+    while (x && !ms.has(x.id)) { mc.push(x); ms.add(x.id); x = x.inheritsFrom ? byId.get(x.inheritsFrom) : undefined; }
+    for (const y of mc.reverse()) { y.params.forEach(p => params.set(p.key, p)); y.rules.forEach(r => rules.set(r.id, r)); }
+  }
   for (const t of [...chain].reverse()) { t.params.forEach(p => params.set(p.key, p)); t.rules.forEach(r => rules.set(r.id, r)); }
-  return { template: chain[0], chain, params: [...params.values()], rules: [...rules.values()] };
+  return { template: chain[0], chain, params: [...params.values()], rules: [...rules.values()].filter(r => !r.off), modules };
 }
 
 /** Effective parameters: template defaults, then the plan, then the scenario overrides. */

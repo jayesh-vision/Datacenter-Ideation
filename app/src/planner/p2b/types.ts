@@ -484,6 +484,8 @@ export interface PlannerRuleDef {
   id: string; aspect: PlannerAspect; severity: PlannerRuleSeverity; title: string;
   /** Engine check key (see planner/lib/engine.ts RULE_CHECKS). */
   check: string; threshold?: number; standard?: string; source?: string;
+  /** Switched off in this template: an inherited rule of the same id is not checked for plans on it (or its variants). */
+  off?: boolean;
 }
 export interface PlannerTemplate extends BaseEntity {
   tplId: string; kind: PlannerTemplateKind; name: string; description: string; version: number; status: 'draft' | 'published' | 'deprecated'; ownerName: string;
@@ -494,6 +496,9 @@ export interface PlannerTemplate extends BaseEntity {
   demand?: { gpuPct: number; computePct: number; storagePct: number; phases: { name: string; sharePct: number; monthsFromStart: number }[] };
   /** For document and checklist templates: the sections or items. */
   items?: string[];
+  /** Plan types: the modules they are built from (aspect modules, rule sets, a demand profile). Their inputs and rules apply under
+   *  the plan type's own chain (a plan type's or parent's copy wins); a demand profile sets the workload mix a new plan starts from. */
+  modules?: string[];
   /** A draft that is the next version of this published template (same lineage; publishing copies it onto that record). */
   versionOf?: string;
   /** Content of earlier published versions, newest last (plans pinned to one are evaluated against it). */
@@ -503,7 +508,7 @@ export interface PlannerTemplate extends BaseEntity {
   retiredAt?: string; retiredBy?: string; retireReason?: string;
   publishedAt?: string; publishedBy?: string;
 }
-export type PlannerTemplateContent = Pick<PlannerTemplate, 'name' | 'description' | 'ownerName' | 'params' | 'rules' | 'requiredAspects' | 'outputs' | 'approvalPath' | 'executesAs' | 'blueprintKey' | 'appliesTo' | 'inheritsFrom' | 'demand' | 'items' | 'scope' | 'dcTypeKey' | 'labels'>;
+export type PlannerTemplateContent = Pick<PlannerTemplate, 'name' | 'description' | 'ownerName' | 'params' | 'rules' | 'requiredAspects' | 'outputs' | 'approvalPath' | 'executesAs' | 'blueprintKey' | 'appliesTo' | 'inheritsFrom' | 'demand' | 'items' | 'scope' | 'dcTypeKey' | 'labels' | 'modules'>;
 export interface PlannerTemplateSnapshot { version: number; at: string; by: string; note?: string; content: PlannerTemplateContent }
 export interface PlannerBenchmark extends BaseEntity {
   bmId: string; metric: string; label: string; category: 'cost' | 'performance' | 'sizing' | 'leadtime' | 'staffing' | 'sustainability';

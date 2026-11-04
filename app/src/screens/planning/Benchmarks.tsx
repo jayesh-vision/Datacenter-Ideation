@@ -6,13 +6,14 @@
    every edit bumps the version and is audited, so an approved plan can say which value it used; values are retired, never deleted.
    Engine keys never reach the screen (METRIC_INFO names them). */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
 import { DataTable, type Col } from '../../ui/DataTable';
 import { Btn, Chip, Drawer, Empty, Field, Modal, Panel, Seg } from '../../ui/kit';
 import { useBenchmarkAudit, useBenchmarkLibrary, useBenchmarks, useEstate, usePlannerActions, usePlans, useRuleAudit, useTemplates } from '../../planner/lib/usePlanner';
-import { LIMIT_INFO, RULE_TEMPLATE_KINDS, checkCatalog, isOverride, nextRuleId, ruleImpact, ruleIndex, withRule, type ImpactRow, type RuleEntry, type RuleStatus } from '../../planner/lib/ruleCatalog';
+import { dependents } from '../../planner/lib/templateCatalog';
+import { LIMIT_INFO, RULE_TEMPLATE_KINDS, checkCatalog, isOverride, nextRuleId, nextTemplates, ruleImpact, ruleIndex, withRule, type ImpactRow, type RuleEntry, type RuleStatus } from '../../planner/lib/ruleCatalog';
 import { usePlannerData } from '../../planner/lib/plannerData';
 import { estateActuals } from '../../planner/lib/ai';
 import type { EstateActuals } from '../../planner/lib/engine';
@@ -227,7 +228,7 @@ function RulesView({ rows, q, area, sev, apply, onOpen }: { rows: RuleEntry[]; q
     { key: 'a', header: 'Area', sort: r => ASPECT_LABEL[r.rule.aspect], render: r => ASPECT_LABEL[r.rule.aspect] },
     { key: 'std', header: 'Standard', wrap: true, render: r => r.rule.standard ?? <span className="vw-label">Internal</span> },
     { key: 'lim', header: 'Limit', sort: r => r.rule.threshold ?? -1, render: r => (LIMIT_INFO[r.rule.check] ? <span className="num pn-nowrap">{num(r.rule.threshold ?? LIMIT_INFO[r.rule.check].dflt, 2)} {LIMIT_INFO[r.rule.check].unit}{r.rule.threshold === undefined && <span className="vw-label"> (default)</span>}</span> : <span className="vw-label">—</span>) },
-    { key: 'from', header: 'In templates', sort: r => r.carriers.length, render: r => <span className="row pn-nowrap" style={{ gap: 6 }}><Tip className="is-dotted" content={{ title: `${r.carriers.length} template${r.carriers.length === 1 ? '' : 's'} check this`, rows: [], note: r.carriers.map(c => c.template.name).slice(0, 12).join(', ') + (r.carriers.length > 12 ? ` and ${r.carriers.length - 12} more` : '') }}><span>{r.carriers.length} template{r.carriers.length === 1 ? '' : 's'}</span></Tip>{r.differs && <Chip size="xs" tone="info" outline>Overrides</Chip>}</span> },
+    { key: 'from', header: 'In templates', sort: r => r.carriers.length, render: r => <span className="row pn-nowrap" style={{ gap: 6 }}><Tip className="is-dotted" content={{ title: `${r.carriers.length} template${r.carriers.length === 1 ? '' : 's'} check this`, rows: [], note: r.carriers.map(c => c.template.name).slice(0, 12).join(', ') + (r.carriers.length > 12 ? ` and ${r.carriers.length - 12} more` : '') }}><span>{r.carriers.length} template{r.carriers.length === 1 ? '' : 's'}</span></Tip>{r.differs && <Chip size="xs" tone="info" outline>Overrides</Chip>}{r.pending.length > 0 && <Tip content={{ title: 'Waiting in a draft', rows: [], note: `${r.pending.map(x => `${x.template.name} v${x.draft.version}`).join(', ')}: live plans keep today's rule until the draft is published in Templates.` }}><Chip size="xs" tone="warning" outline>In draft</Chip></Tip>}</span> },
   ];
   const group = (sev: 'hard' | 'soft') => shown.filter(r => r.rule.severity === sev);
   return <>
@@ -401,7 +402,7 @@ function BenchmarkDrawer({ edit, library, onOpen, onClose }: { edit: EditState; 
 
 /* ------------------------------------------------------------------ rules: configure / new rule */
 type RuleState = { entry: RuleEntry | null };
-type Scope = 'shared' | 'own' | 'off';
+type Scope = 'shared' | 'own' | 'off' | 'disabled';
 const STATUS_TONE: Record<RuleStatus, 'success' | 'error' | 'warning' | 'neutral'> = { pass: 'success', fail: 'error', warn: 'warning', 'n/a': 'neutral', absent: 'neutral' };
 const STATUS_WORD: Record<RuleStatus, string> = { pass: 'Passes', fail: 'Fails', warn: 'Warns', 'n/a': 'Not applicable', absent: 'Not checked' };
 const StatusChip = ({ s }: { s: RuleStatus }) => <Chip size="xs" tone={STATUS_TONE[s]} outline={s === 'n/a' || s === 'absent'}>{STATUS_WORD[s]}</Chip>;
@@ -417,6 +418,9 @@ function RuleDrawer({ state, onClose }: { state: RuleState; onClose: () => void 
   const estate = useEstate();
   const actions = usePlannerActions();
   const e = state.entry;
+  /* edits are made against the next state (each template's open draft, else the live one); plans run the live one today */
+  const next = useMemo(() => nextTemplates(templates), [templates]);
+  const liveNow = useMemo(() => templates.filter(t => !t.isDeleted && !t.versionOf), [templates]);
   const checks = useMemo(() => checkCatalog(templates), [templates]);
   const [check, setCheck] = useState(e?.rule.check ?? '');
   const ruleId = useMemo(() => e?.id ?? nextRuleId(templates), [e, templates]);
@@ -425,7 +429,7 @@ function RuleDrawer({ state, onClose }: { state: RuleState; onClose: () => void 
   const [def, setDef] = useState<Omit<T.PlannerRuleDef, 'id' | 'check'>>(e ? { title: e.rule.title, aspect: e.rule.aspect, severity: e.rule.severity, threshold: e.rule.threshold, standard: e.rule.standard, source: e.rule.source } : { title: '', aspect: 'power', severity: 'soft' });
   const setD = (p: Partial<typeof def>) => setDef(x => ({ ...x, ...p }));
   /* where it applies: per template, shared settings / its own override / not checked */
-  const initial = useMemo(() => Object.fromEntries((e?.carriers ?? []).map(c => [c.template.id, { scope: (isOverride(e!, c) ? 'own' : 'shared') as Scope, own: { severity: c.rule.severity, threshold: c.rule.threshold } }])), [e]);
+  const initial = useMemo(() => Object.fromEntries((e?.carriers ?? []).map(c => [c.template.id, { scope: (c.rule.off ? 'disabled' : isOverride(e!, c) ? 'own' : 'shared') as Scope, own: { severity: c.rule.severity, threshold: c.rule.threshold } }])), [e]);
   const [where, setWhere] = useState<Record<string, { scope: Scope; own: { severity: T.PlannerRuleSeverity; threshold?: number } }>>(initial);
   const [ask, setAsk] = useState<ReasonRequest | null>(null);
   const [reason, setReason] = useState('');
@@ -443,24 +447,24 @@ function RuleDrawer({ state, onClose }: { state: RuleState; onClose: () => void 
     const out: Record<string, T.PlannerRuleDef | null> = {};
     if (!check) return out;
     for (const [id, w] of Object.entries(where)) {
-      const t = templates.find(x => x.id === id); if (!t) continue;
+      const t = next.find(x => x.id === id); if (!t) continue;
       const cur = t.rules.find(r => r.id === ruleId);
-      const want = w.scope === 'off' ? null : w.scope === 'own' ? { ...shared, severity: w.own.severity, threshold: lim ? w.own.threshold : undefined } : shared;
+      const want = w.scope === 'off' ? null : w.scope === 'disabled' ? { ...(cur ?? shared), off: true } : w.scope === 'own' ? { ...shared, severity: w.own.severity, threshold: lim ? w.own.threshold : undefined } : shared;
       if (JSON.stringify(cur ?? null) !== JSON.stringify(want)) out[id] = want;
     }
     return out;
-  }, [where, templates, ruleId, check, JSON.stringify(shared)]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [where, next, ruleId, check, JSON.stringify(shared)]); // eslint-disable-line react-hooks/exhaustive-deps
   const nEdits = Object.keys(edits).length;
-  const carrying = Object.values(where).filter(w => w.scope !== 'off').length;
+  const carrying = Object.values(where).filter(w => w.scope !== 'off' && w.scope !== 'disabled').length;
   /* effect on open plans, re-run 400 ms after the last change */
   const [impact, setImpact] = useState<ImpactRow[] | null>(null);
   useEffect(() => {
     setImpact(null); if (!nEdits) return;
     const h = setTimeout(() => {
-      const after = withRule(templates, ruleId, edits);
+      const after = withRule(next, ruleId, edits);
       const act = new Map<string, EstateActuals>();
       const actualsOf = (p: T.PlannerPlan) => { const k = p.dcTypeKey ?? ''; if (!act.has(k)) act.set(k, k ? estateActuals(k, estate) : { sampleSites: 0 }); return act.get(k)!; };
-      setImpact(ruleImpact(plans, templates, after, ruleId, benchmarks, actualsOf, data));
+      setImpact(ruleImpact(plans, liveNow, after, ruleId, benchmarks, actualsOf, data));
     }, 400);
     return () => clearTimeout(h);
   }, [edits]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -482,10 +486,13 @@ function RuleDrawer({ state, onClose }: { state: RuleState; onClose: () => void 
     if (own.length) parts.push(`own settings in ${own.map(tplName).join(', ')}`);
     return parts.join('; ') || 'templates updated';
   };
+  /* templates in use take the edit into their draft version (live plans keep today's rule until it is published) */
+  const inUse = (id: string) => { const t = templates.find(x => x.id === id); if (!t || t.status === 'draft') return false; if (templates.some(x => x.versionOf === id && !x.isDeleted)) return true; const d = dependents(t, templates, plans); return d.plans.length + d.variants.length + d.usedBy.length > 0; };
+  const viaDraft = Object.keys(edits).filter(inUse);
   const save = () => { if (actions.applyRule(ruleId, edits, e ? 'changed' : 'created', changeText(), reason.trim() || undefined).ok) onClose(); };
   const removeAll = () => setAsk({ title: `Remove ${ruleId} from every template?`, description: `${carrying} template${carrying === 1 ? '' : 's'} stop checking it. Plans already approved keep the result in their baseline. The history keeps what it was.`, okText: 'Remove rule', danger: true, needsReason: true, placeholder: 'Why the rule is removed (kept in its history)',
     onOk: r => { if (actions.applyRule(ruleId, Object.fromEntries(e!.carriers.map(c => [c.template.id, null])), 'removed', `from every template (${e!.carriers.map(c => c.template.name).join(', ')})`, r).ok) onClose(); } });
-  const addable = templates.filter(t => RULE_TEMPLATE_KINDS.includes(t.kind) && t.status !== 'deprecated' && !where[t.id] && !t.rules.some(r => r.check === check && r.id !== ruleId));
+  const addable = next.filter(t => RULE_TEMPLATE_KINDS.includes(t.kind) && t.status !== 'deprecated' && !where[t.id] && !t.rules.some(r => r.check === check && r.id !== ruleId));
   const kindName: Record<string, string> = { plan: 'Plan type', ruleset: 'Rule set', aspect: 'Module', profile: 'Site type' };
   const shownCarriers = Object.keys(where);
   return (
@@ -507,6 +514,7 @@ function RuleDrawer({ state, onClose }: { state: RuleState; onClose: () => void 
               </select>
             </Field>}
         </section>
+        {e && e.pending.length > 0 && <div className="pn-bm-note is-info"><I.GitCommitVertical size={15} /><span><b>Waiting in {e.pending.length === 1 ? 'a draft' : `${e.pending.length} drafts`}:</b> {e.pending.map((x, i) => <span key={x.template.id}>{i > 0 && ', '}<Link className="ent-link" to={`/planning?tab=templates&view=${x.template.kind === 'plan' ? 'plans' : x.template.kind === 'profile' ? 'sites' : 'modules'}&template=${x.template.id}`}>{x.template.name} v{x.draft.version}</Link> ({x.to === null ? 'removes it' : !x.from ? 'adds it' : x.to.off ? 'switches it off' : 'changes it'})</span>)}. Live plans keep today's rule until the draft is published in Templates; the settings below show the draft.</span></div>}
         {check && <section>
           <h4>Settings {e && <span className="vw-label" style={{ fontWeight: 400 }}>· shared by every template that does not override them</span>}</h4>
           <div className="pn-grid-2">
@@ -523,16 +531,16 @@ function RuleDrawer({ state, onClose }: { state: RuleState; onClose: () => void 
         {check && <section>
           <h4>Where it applies <span className="vw-label" style={{ fontWeight: 400 }}>· {carrying} template{carrying === 1 ? '' : 's'}; plans inherit rules from their template chain</span></h4>
           {shownCarriers.length ? <table className="nst-table pn-rule-where"><thead><tr><th>Template</th><th>Settings here</th><th /></tr></thead><tbody>
-            {shownCarriers.map(id => { const t = templates.find(x => x.id === id); const w = where[id]; if (!t) return null;
+            {shownCarriers.map(id => { const t = next.find(x => x.id === id); const w = where[id]; if (!t) return null;
               const setW = (p: Partial<typeof w>) => setWhere(x => ({ ...x, [id]: { ...x[id], ...p } }));
               return <tr key={id} className={w.scope === 'off' ? 'is-off' : ''}>
                 <td><span className="cell-2"><b>{t.name}</b><small>{kindName[t.kind] ?? t.kind} · v{t.version}{t.status !== 'published' ? ` · ${t.status}` : ''}</small></span></td>
                 <td><div className="pn-rule-scope">
-                  <SelectInput<Scope> value={w.scope} options={[{ id: 'shared', label: 'Shared settings' }, { id: 'own', label: 'Own settings (override)' }, { id: 'off', label: e?.carriers.some(c => c.template.id === id) ? 'Remove from this template' : 'Not added' }]} onChange={v => setW({ scope: v })} />
+                  <SelectInput<Scope> value={w.scope} options={[{ id: 'shared', label: 'Shared settings' }, { id: 'own', label: 'Own settings (override)' }, { id: 'off', label: e?.carriers.some(c => c.template.id === id) ? 'Remove from this template' : 'Not added' }, ...(w.scope === 'disabled' || (t.inheritsFrom && e) ? [{ id: 'disabled' as Scope, label: 'Switched off here' }] : [])]} onChange={v => setW({ scope: v })} />
                   {w.scope === 'own' && <span className="row" style={{ gap: 6 }}><Seg<T.PlannerRuleSeverity> size="sm" value={w.own.severity} onChange={v => setW({ own: { ...w.own, severity: v } })} options={[{ id: 'hard', label: 'Must' }, { id: 'soft', label: 'Should' }]} />{lim && <NumInput value={w.own.threshold} onChange={v => setW({ own: { ...w.own, threshold: v } })} unit={lim.unit} style={{ width: 110 }} />}</span>}
                   {w.scope === 'own' && w.own.severity === def.severity && (!lim || w.own.threshold === def.threshold) && <small className="vw-label">Same as the shared settings: change the severity{lim ? ' or the limit' : ''} to override.</small>}
                 </div></td>
-                <td>{edits[id] !== undefined && <Chip size="xs" tone="info" outline>{edits[id] === null ? 'Removed' : e?.carriers.some(c => c.template.id === id) ? 'Changed' : 'Added'}</Chip>}</td>
+                <td>{edits[id] !== undefined ? <Chip size="xs" tone="info" outline>{edits[id] === null ? 'Removed' : e?.carriers.some(c => c.template.id === id) ? 'Changed' : 'Added'}{inUse(id) ? ' · into draft' : ''}</Chip> : e?.pending.some(x => x.template.id === id) && <Chip size="xs" tone="warning" outline>In draft v{e.pending.find(x => x.template.id === id)!.draft.version}</Chip>}</td>
               </tr>; })}
           </tbody></table> : <p className="vw-label" style={{ margin: 0 }}>No template carries it yet.</p>}
           <Field label="Add to a template" hint="Plan types, rule sets, modules and site types. A template that already checks this with another rule is not offered.">
@@ -558,6 +566,7 @@ function RuleDrawer({ state, onClose }: { state: RuleState; onClose: () => void 
                   <tr key={r.plan.id}><td><span className="cell-2"><b>{r.plan.title}</b><small>{r.plan.id} · {r.plan.status}{r.detail ? ` · ${r.detail}` : ''}</small></span></td><td><StatusChip s={r.before} /></td><td><StatusChip s={r.after} /></td></tr>)}
               </tbody></table>
             </>}
+          {viaDraft.length > 0 && <p className="vw-label" style={{ margin: '0 0 8px' }}><I.GitCommitVertical size={13} style={{ verticalAlign: -2 }} /> {viaDraft.map(tplName).join(', ')} {viaDraft.length === 1 ? 'is' : 'are'} in use: the change goes into {viaDraft.length === 1 ? 'its' : 'their'} draft version and reaches plans once published in Templates (a second Capacity Planner approves).</p>}
           <Field label="Reason for the change" hint="Kept in the rule's history and the templates' audit."><TextInput value={reason} onChange={setReason} placeholder="e.g. Board raised the fuel autonomy to 36 h" /></Field>
         </section>}
         {e && <section>

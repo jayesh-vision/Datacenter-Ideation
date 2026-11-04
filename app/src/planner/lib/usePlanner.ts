@@ -438,7 +438,7 @@ export function usePlannerActions() {
     saveTemplate(t: T.PlannerTemplate): T.PlannerTemplate {
       const old = db.getById('plannerTemplates', t.id) as unknown as T.PlannerTemplate | undefined;
       if (!old) { const rec = { ...t, ...meta(), createdAt: t.createdAt ?? now() }; db.create('plannerTemplates', rec as unknown as Record<string, unknown>); log('Template', t.id, 'created', `Template ${t.name} v${t.version} created`); invalidate(); return rec; }
-      const CONTENT: (keyof T.PlannerTemplate)[] = ['name', 'description', 'params', 'rules', 'requiredAspects', 'outputs', 'approvalPath', 'executesAs', 'blueprintKey', 'appliesTo', 'inheritsFrom', 'demand', 'items', 'scope', 'dcTypeKey'];
+      const CONTENT: (keyof T.PlannerTemplate)[] = ['name', 'description', 'params', 'rules', 'requiredAspects', 'outputs', 'approvalPath', 'executesAs', 'blueprintKey', 'appliesTo', 'inheritsFrom', 'demand', 'items', 'scope', 'dcTypeKey', 'modules'];
       const changed = CONTENT.filter(k => JSON.stringify(old[k] ?? null) !== JSON.stringify(t[k] ?? null));
       const version = changed.length ? (old.version ?? 1) + 1 : old.version;
       /* an in-place content change of a published template keeps the old content, so plans pinned to it still evaluate against it */
@@ -454,7 +454,7 @@ export function usePlannerActions() {
     /** A new template: a copy (own inputs and rules, flattened from the source's chain, no inheritance), a variant (inherits) or blank (modules). Starts as a draft, v1. */
     createTemplate(o: { kind: T.PlannerTemplateKind; name: string; mode: 'copy' | 'variant' | 'blank'; source?: T.PlannerTemplate; resolved?: { params: T.PlannerParamDef[]; rules: T.PlannerRuleDef[] }; description?: string }): T.PlannerTemplate {
       const id = sid('TPL'); const s = o.source;
-      const base: Partial<T.PlannerTemplate> = s && o.mode !== 'blank' ? { ...contentOf(s), ...(o.mode === 'copy' ? { params: JSON.parse(JSON.stringify(o.resolved?.params ?? s.params)), rules: JSON.parse(JSON.stringify(o.resolved?.rules ?? s.rules)), inheritsFrom: s.inheritsFrom && !o.resolved ? s.inheritsFrom : undefined } : { params: [], rules: [], inheritsFrom: s.id }) }
+      const base: Partial<T.PlannerTemplate> = s && o.mode !== 'blank' ? { ...contentOf(s), ...(o.mode === 'copy' ? { params: JSON.parse(JSON.stringify(o.resolved?.params ?? s.params)), rules: JSON.parse(JSON.stringify(o.resolved?.rules ?? s.rules)), inheritsFrom: s.inheritsFrom && !o.resolved ? s.inheritsFrom : undefined, modules: o.resolved ? undefined : s.modules } : { params: [], rules: [], inheritsFrom: s.id }) }
         : { params: [], rules: [], requiredAspects: o.kind === 'aspect' ? [] : [], outputs: [], approvalPath: [], labels: [o.kind], appliesTo: { level: 'org', label: 'Whole organisation' }, ...(o.kind === 'demand' ? { demand: { gpuPct: 20, computePct: 60, storagePct: 20, phases: [{ name: 'Phase 1', sharePct: 100, monthsFromStart: 0 }] } } : {}), ...(o.kind === 'document' || o.kind === 'checklist' ? { items: [] } : {}) };
       const rec = { ...base, id, tplId: id, kind: o.kind, name: o.name, description: o.description ?? (s && o.mode !== 'blank' ? s.description : ''), ownerName: actor, version: 1, status: 'draft', ...meta() } as T.PlannerTemplate;
       db.create('plannerTemplates', rec as unknown as Record<string, unknown>);
@@ -555,20 +555,40 @@ export function usePlannerActions() {
       if (changes.length) log('Benchmark', b.id, 'benchmark edited', `Benchmark ${b.label} v${old.version ?? 1} → v${version}: ${G.changesText(changes)}`, { changes });
       invalidate(); return { ok: true };
     },
-    /** Change a rule in the templates that carry it: set (add or replace) or remove (null) its copy per template. Each template
-     *  is saved through saveTemplate (version bump + audit); the rule gets its own history line with what changed and why. */
-    applyRule(ruleId: string, edits: Record<string, T.PlannerRuleDef | null>, action: 'created' | 'changed' | 'removed', what: string, reason?: string): { ok: true } | { ok: false; reason: string } {
+    /** Change a rule in the templates that carry it: set (add or replace) or remove (null) its copy per template (ids = live
+     *  templates). A template nothing uses is saved in place (saveTemplate: version bump + audit); one that plans or variants use
+     *  is never changed in place: the edit goes into its draft version (opened when needed) and goes live when that is published.
+     *  The rule gets its own history line with what changed, where it waits and why. */
+    applyRule(ruleId: string, edits: Record<string, T.PlannerRuleDef | null>, action: 'created' | 'changed' | 'removed', what: string, reason?: string): { ok: true; drafted: string[] } | { ok: false; reason: string } {
       const ids = Object.keys(edits);
       if (!ids.length) return refuse('Nothing to change.');
       const all = db.getAll('plannerTemplates', { pageSize: 100000 }).data as unknown as T.PlannerTemplate[];
+      const plans = db.getAll('plannerPlans', { pageSize: 100000 }).data as unknown as T.PlannerPlan[];
+      const targets: [T.PlannerTemplate, T.PlannerTemplate | undefined][] = [];
       for (const id of ids) {
         const t = all.find(x => x.id === id); if (!t) continue;
-        const e = edits[id], has = t.rules.some(r => r.id === ruleId);
-        if (e && !has && t.rules.some(r => r.check === e.check)) return refuse(`${t.name} already checks this with rule ${t.rules.find(r => r.check === e.check)!.id}.`);
-        const rules = e === null ? t.rules.filter(r => r.id !== ruleId) : has ? t.rules.map(r => (r.id === ruleId ? e : r)) : [...t.rules, e];
-        this.saveTemplate({ ...t, rules });
+        const d = draftVersionOf(t, all);
+        if (d?.pendingPublish) return refuse(`${t.name} v${d.version} is waiting for approval to publish; approve, reject or withdraw it first.`);
+        const cur = d ?? t, e = edits[id];
+        if (e && !cur.rules.some(r => r.id === ruleId) && cur.rules.some(r => r.check === e.check && !r.off)) return refuse(`${t.name} already checks this with rule ${cur.rules.find(r => r.check === e.check)!.id}.`);
+        const d0 = dependents(t, all, plans);
+        targets.push([t, d ?? (t.status !== 'draft' && (d0.plans.length || d0.variants.length || d0.usedBy.length) ? undefined : t)]);
       }
-      log('Rule', ruleId, action, `Rule ${ruleId} ${action}: ${what}`, { reason }); return { ok: true };
+      const drafted: string[] = [];
+      for (const [t, direct] of targets) {
+        const e = edits[t.id];
+        const into = direct ?? this.startTemplateVersion(t);
+        const has = into.rules.some(r => r.id === ruleId);
+        const rules = e === null ? into.rules.filter(r => r.id !== ruleId) : has ? into.rules.map(r => (r.id === ruleId ? e : r)) : [...into.rules, e];
+        if (into.status === 'draft') {
+          db.update('plannerTemplates', into.id, { rules, updatedAt: now(), updatedBy: actor });
+          log('Template', into.versionOf ?? into.id, 'draft edited', `Template ${t.name}: draft v${into.version} — rule ${ruleId} ${e === null ? 'removed' : has ? 'changed' : 'added'} (from Benchmarks → Rules)`, { reason });
+          if (into.versionOf) drafted.push(`${t.name} v${into.version}`);
+        } else this.saveTemplate({ ...into, rules });
+      }
+      log('Rule', ruleId, action, `Rule ${ruleId} ${action}: ${what}${drafted.length ? ` — waiting in draft${drafted.length === 1 ? '' : 's'} ${drafted.join(', ')} until published` : ''}`, { reason });
+      if (drafted.length) message.info(`Saved into draft${drafted.length === 1 ? '' : 's'} ${drafted.join(', ')}. Plans keep today's rule until ${drafted.length === 1 ? 'it is' : 'they are'} published in Templates.`);
+      invalidate(); return { ok: true, drafted };
     },
     /** Ask for a change to a confirmed value (or a new / newly confirmed one). The planner keeps reading today's fields until a
      *  Capacity Planner other than the requester approves; a pending new value is not read at all. */

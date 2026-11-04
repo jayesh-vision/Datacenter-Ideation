@@ -5,14 +5,14 @@
    (`pinnedTemplates`, used by evaluate). Publishing a new version of a template that plans or variants use needs a second template
    approver; a brand-new or unused template publishes directly. */
 import type * as T from '../p2b/types';
-import { evaluate, type EstateActuals } from './engine';
+import { MODULE_KINDS, evaluate, resolveTemplate, type EstateActuals } from './engine';
 import type { PlannerData } from './plannerData';
 import { OPEN_PLAN_STATUSES } from './ruleCatalog';
 import { planFigures, type PlanFigures } from './benchCatalog';
 import { STEP_ROLE } from './governance';
 
 export const TEMPLATE_APPROVER_ROLE = 'Capacity Planner';
-export const CONTENT_KEYS = ['name', 'description', 'ownerName', 'params', 'rules', 'requiredAspects', 'outputs', 'approvalPath', 'executesAs', 'blueprintKey', 'appliesTo', 'inheritsFrom', 'demand', 'items', 'scope', 'dcTypeKey', 'labels'] as const satisfies readonly (keyof T.PlannerTemplateContent)[];
+export const CONTENT_KEYS = ['name', 'description', 'ownerName', 'params', 'rules', 'requiredAspects', 'outputs', 'approvalPath', 'executesAs', 'blueprintKey', 'appliesTo', 'inheritsFrom', 'demand', 'items', 'scope', 'dcTypeKey', 'labels', 'modules'] as const satisfies readonly (keyof T.PlannerTemplateContent)[];
 export const ASPECT_ORDER: T.PlannerAspect[] = ['space', 'power', 'cooling', 'network', 'it', 'fire', 'security', 'sustainability', 'resilience', 'operations', 'supply', 'schedule', 'finance', 'compliance', 'commissioning', 'migration', 'risk'];
 /** Kinds a user can create here. Site types are the engine's sizing catalogue (code), so they are edited, not created. */
 export const NEW_KINDS: { kind: T.PlannerTemplateKind; label: string; sub: string }[] = [
@@ -39,20 +39,34 @@ export const draftVersionOf = (t: T.PlannerTemplate, all: T.PlannerTemplate[]) =
 
 export { pinnedTemplates } from './engine';
 
-/** Plans and templates that depend on a template: every plan whose chain includes it (site types: plans of that type), variants. */
+/** Does this template's resolved chain use the module (directly, or a module inheriting from it)? */
+export function usesModule(planType: T.PlannerTemplate, moduleId: string, all: T.PlannerTemplate[]) {
+  const byId = new Map(all.map(x => [x.id, x]));
+  return (resolveTemplate(planType.id, all)?.modules ?? []).some(m => { const seen = new Set<string>(); let c: T.PlannerTemplate | undefined = m; while (c && !seen.has(c.id)) { if (c.id === moduleId) return true; seen.add(c.id); c = c.inheritsFrom ? byId.get(c.inheritsFrom) : undefined; } return false; });
+}
+/** What a module brings to a plan type built from it, in words. */
+export function moduleBrings(m: T.PlannerTemplate, all: T.PlannerTemplate[]) {
+  if (m.kind === 'demand' && m.demand) return `Workload mix GPU ${m.demand.gpuPct} · compute ${m.demand.computePct} · storage ${m.demand.storagePct} %`;
+  const r = resolveTemplate(m.id, all); const p = r?.params.length ?? 0, n = r?.rules.length ?? 0;
+  return [p && `${p} input${p === 1 ? '' : 's'}`, n && `${n} rule${n === 1 ? '' : 's'}`].filter(Boolean).join(' · ') || 'Nothing to apply yet';
+}
+/** Plans and templates that depend on a template: every plan whose chain includes it (site types: plans of that type), variants,
+ *  and for a module the plan types built from it (and their plans). */
 export function dependents(t: T.PlannerTemplate, all: T.PlannerTemplate[], plans: T.PlannerPlan[]) {
   const byId = new Map(all.map(x => [x.id, x]));
   const inChain = (id: string) => { const seen = new Set<string>(); let c = byId.get(id); while (c && !seen.has(c.id)) { if (c.id === t.id) return true; seen.add(c.id); c = c.inheritsFrom ? byId.get(c.inheritsFrom) : undefined; } return false; };
-  const ps = plans.filter(p => !p.isDeleted && (inChain(p.templateId) || (t.kind === 'profile' && !!t.dcTypeKey && p.dcTypeKey === t.dcTypeKey)));
+  const usedBy = MODULE_KINDS.includes(t.kind) ? liveTemplates(all).filter(x => x.kind === 'plan' && usesModule(x, t.id, all)) : [];
+  const viaModule = new Set(usedBy.map(x => x.id));
+  const ps = plans.filter(p => !p.isDeleted && (inChain(p.templateId) || viaModule.has(p.templateId) || (t.kind === 'profile' && !!t.dcTypeKey && p.dcTypeKey === t.dcTypeKey)));
   const open = ps.filter(p => OPEN_PLAN_STATUSES.includes(p.status));
   const variants = liveTemplates(all).filter(x => x.inheritsFrom === t.id);
-  return { plans: ps, open, live: ps.filter(p => !open.includes(p) && p.status !== 'Cancelled'), variants };
+  return { plans: ps, open, live: ps.filter(p => !open.includes(p) && p.status !== 'Cancelled'), variants, usedBy };
 }
 /** A new version of a template in use goes to a second template approver; a new or unused template publishes directly. */
 export function needsPublishApproval(draft: T.PlannerTemplate, all: T.PlannerTemplate[], plans: T.PlannerPlan[]) {
   const live = draft.versionOf ? all.find(x => x.id === draft.versionOf) : undefined;
   if (!live) return false;
-  const d = dependents(live, all, plans); return d.plans.length > 0 || d.variants.length > 0;
+  const d = dependents(live, all, plans); return d.plans.length > 0 || d.variants.length > 0 || d.usedBy.length > 0;
 }
 
 /** Problems that stop a draft from being saved or published. */
@@ -67,6 +81,15 @@ export function templateErrors(t: T.PlannerTemplate, all: T.PlannerTemplate[]): 
       if (typeof p.default === 'number' && ((p.min !== undefined && p.default < p.min) || (p.max !== undefined && p.default > p.max))) e.push(`${p.label}: the default is outside the allowed range.`);
     }
     if (p.type === 'select' && p.default !== undefined && p.default !== '' && !(p.options ?? []).includes(String(p.default))) e.push(`${p.label}: the default is not one of the options.`);
+  }
+  const own = t.rules.filter(r => !r.off);
+  for (const r of own) { const d = own.find(x => x.id !== r.id && x.check === r.check); if (d && r.id < d.id) e.push(`Rules ${r.id} and ${d.id} run the same check; keep one.`); }
+  if (t.inheritsFrom) { const inh = resolveTemplate(t.inheritsFrom, all)?.rules ?? []; for (const r of own) { const d = inh.find(x => x.id !== r.id && x.check === r.check); if (d && !t.rules.some(x => x.id === d.id && x.off)) e.push(`Rule ${r.id} runs the same check as inherited rule ${d.id}; switch that one off or remove ${r.id}.`); } }
+  if (t.modules?.length) {
+    const ms = t.modules.map(id => all.find(x => x.id === id)).filter((x): x is T.PlannerTemplate => !!x);
+    if (ms.length < t.modules.length) e.push('A module it uses no longer exists; remove it.');
+    const area = (m: T.PlannerTemplate) => (m.kind === 'aspect' ? m.labels.find(l => l !== 'aspect') : m.kind === 'demand' ? 'demand' : undefined);
+    for (const m of ms) { const o = ms.find(x => x !== m && area(x) && area(x) === area(m)); if (o && ms.indexOf(m) < ms.indexOf(o)) e.push(`${m.name} and ${o.name} cover the same ${area(m) === 'demand' ? 'workload mix' : 'area'}; use one.`); }
   }
   if (t.kind === 'plan' && !t.requiredAspects.some(a => a.depth === 'full')) e.push('A plan type covers at least one area in full.');
   if (t.demand) { const s = t.demand.gpuPct + t.demand.computePct + t.demand.storagePct; if (Math.round(s) !== 100) e.push(`The workload mix adds up to ${s}%, not 100%.`); const ph = t.demand.phases.reduce((a, p) => a + p.sharePct, 0); if (t.demand.phases.length && Math.round(ph) !== 100) e.push(`The phases add up to ${ph}%, not 100%.`); }
@@ -101,12 +124,15 @@ export function templateDiff(a: T.PlannerTemplateContent, b: T.PlannerTemplateCo
   }
   for (const [k, o] of pa) if (!pb.has(k)) out.push({ area: 'Inputs', what: o.label, from: 'Set here', to: 'Inherited or default' });
   const ra = new Map(a.rules.map(r => [r.id, r])), rb = new Map(b.rules.map(r => [r.id, r]));
-  for (const [id, r] of rb) { const o = ra.get(id); if (!o) out.push({ area: 'Rules', what: r.title, to: 'Added' }); else if (JSON.stringify(o) !== JSON.stringify(r)) out.push({ area: 'Rules', what: r.title, from: `${o.severity === 'hard' ? 'Must' : 'Should'}${o.threshold !== undefined ? ` · ${o.threshold}` : ''}`, to: `${r.severity === 'hard' ? 'Must' : 'Should'}${r.threshold !== undefined ? ` · ${r.threshold}` : ''}` }); }
-  for (const [id, o] of ra) if (!rb.has(id)) out.push({ area: 'Rules', what: o.title, from: 'Removed' });
+  const rt = (r: T.PlannerRuleDef) => (r.off ? 'Switched off' : `${r.severity === 'hard' ? 'Must' : 'Should'}${r.threshold !== undefined ? ` · ${r.threshold}` : ''}`);
+  for (const [id, r] of rb) { const o = ra.get(id); if (!o) out.push({ area: 'Rules', what: `${r.title} (${id})`, to: r.off ? 'Switched off here' : `Set here · ${rt(r)}` }); else if (JSON.stringify(o) !== JSON.stringify(r)) out.push({ area: 'Rules', what: `${r.title} (${id})`, from: rt(o), to: rt(r) }); }
+  for (const [id, o] of ra) if (!rb.has(id)) out.push({ area: 'Rules', what: `${o.title} (${id})`, from: o.off ? 'Switched off' : rt(o), to: o.off ? 'Switched on (inherited)' : 'Removed' });
   const mix = (x: T.PlannerTemplateContent) => (x.demand ? `${x.demand.gpuPct} / ${x.demand.computePct} / ${x.demand.storagePct} %` : '—');
   const phases = (x: T.PlannerTemplateContent) => (x.demand?.phases ?? []).map(p => `${p.name} ${p.sharePct}% @${p.monthsFromStart}m`).join(', ');
   if (mix(a) !== mix(b)) out.push({ area: 'Demand', what: 'GPU / compute / storage', from: mix(a), to: mix(b) });
   if (phases(a) !== phases(b)) out.push({ area: 'Demand', what: 'Phases', from: phases(a) || '—', to: phases(b) || '—' });
+  for (const m of added(a.modules ?? [], b.modules ?? [])) out.push({ area: 'Modules', what: names(m), to: 'Used' });
+  for (const m of added(b.modules ?? [], a.modules ?? [])) out.push({ area: 'Modules', what: names(m), from: 'Used', to: 'Removed' });
   for (const i of added(a.items ?? [], b.items ?? [])) out.push({ area: 'Items', what: i, to: 'Added' });
   for (const i of added(b.items ?? [], a.items ?? [])) out.push({ area: 'Items', what: i, from: 'Removed' });
   return out;

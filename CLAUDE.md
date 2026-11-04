@@ -910,6 +910,20 @@ the old content to `history`; the draft record is deleted. `saveTemplate` (used 
 lists the plans / variants that keep it; Restore; drafts can be deleted (draft versions: Discard). Versions and history section: live + earlier versions ("What
 changed since" modal) + audit lines (draft edits are logged on the live id). Rules in a template are still edited in Benchmarks → Rules (phase B moves them here
 and through the draft). Check: `node .qa/p2b-templates.mjs neocloud us` (W=1280|1440).
+Templates phase B (04-Nov-2026), rules inside a template: the draft editor's **Rules** table lists every rule the template checks (own copy = Must / Should
++ limit editable; Override copies an inherited one; **Switch off** = an own copy with `PlannerRuleDef.off`, which `resolveTemplate` drops, so plans on it and
+its variants stop checking it; Switch on / Use inherited / Remove), Add a rule = a library rule (same settings as elsewhere) or a new `R-CUS-nn` from a check;
+a check is never run twice (`templateErrors`). Benchmarks → Rules follows the lifecycle too: `applyRule` saves a template nothing uses in place, but a template
+that plans, variants or plan types use takes the edit into its draft version (opened when needed; refused while one awaits approval); the library shows the
+NEXT state (`nextTemplates`, `ruleIndex(...).pending`) with an "In draft" chip and a drawer note linking to the drafts. Phase C, **modules**: `PlannerTemplate.modules`
+(plan types; aspect modules, rule sets, a demand profile). `resolveTemplate` applies the chain's modules first (rule sets with their own chain), then the plan
+type's chain, so any plan-type copy wins (`ResolvedTemplate.modules`); a demand profile sets the wizard's starting workload mix (TypeStep, which now reads
+resolved inputs). Seed (`mock/p2b/moduleLinks.ts`): a root plan type uses a module only when it already carries ALL of its rules and inputs (one per area), then
+its copies identical to the module's are dropped, so every plan resolves to the same inputs / rules / results as before (checked for neocloud·us, network·in,
+colocation·us); the GPU hall variant uses the GPU-heavy profile. `dependents().usedBy` = plan types built from a module: a module version in use needs approval
+and its effect on their open plans is shown; editor section **Modules** (add / remove, what each brings, "N overridden here", via parent); drawer "Built from
+modules" / "Used by plan types"; Modules list column **Used by**. A copy flattens modules away (independent). Check: `node .qa/p2b-templates.mjs` (W=1280|1440),
+`node .qa/p2b-rules.mjs`.
 Delivery's header shows one action per sub-menu (planner on Insights, New programme on Programs, New project on Projects).
 DCIM → Insights (`screens/dcim/Insights.tsx`, `?tab=overview`, now the default `/dcim`): Needs attention (same predicates as the Racks / Cabling /
 Power / Devices list filters, each row opens that filtered list), sites and halls by power pressure (85% marker), rack density and device

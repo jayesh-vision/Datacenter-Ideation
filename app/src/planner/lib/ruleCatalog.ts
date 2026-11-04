@@ -3,9 +3,12 @@
    limit, standard. Templates inherit rules down their chain and a nearer template's copy with the same id overrides (resolveTemplate),
    so a per-template override is simply a differing copy. Users configure rules (settings, which templates carry them) and add new rules
    from the catalogue of checks; they never write check logic. ruleImpact re-evaluates the open plans with the changed templates so the
-   drawer can say which plans would start or stop failing before anything is saved. */
+   drawer can say which plans would start or stop failing before anything is saved.
+   Rules follow the template lifecycle: a template that plans or variants use is never changed in place, so a rule edit lands in its
+   draft version (opened when needed) and goes live when that draft is published. The library therefore shows the NEXT state
+   (`nextTemplates`: each live template with its draft's rules) and marks what is still waiting in a draft (`RuleEntry.pending`). */
 import type * as T from '../p2b/types';
-import { evaluate, type EstateActuals } from './engine';
+import { evaluate, resolveTemplate, type EstateActuals } from './engine';
 import type { PlannerData } from './plannerData';
 import { RULE_PLAIN } from './labels';
 import { RACK_BLOCK_PCT } from './placement';
@@ -26,18 +29,35 @@ export const LIMIT_INFO: Record<string, { label: string; unit: string; dflt: num
 };
 export const RULE_TEMPLATE_KINDS: T.PlannerTemplateKind[] = ['plan', 'ruleset', 'aspect', 'profile'];
 
-export interface RuleCarrier { template: T.PlannerTemplate; rule: T.PlannerRuleDef }
-export interface RuleEntry { id: string; rule: T.PlannerRuleDef; carriers: RuleCarrier[]; differs: boolean }
-const sig = (r: T.PlannerRuleDef) => JSON.stringify([r.title, r.aspect, r.severity, r.threshold ?? null, r.standard ?? null, r.source ?? null]);
+export interface RuleCarrier { template: T.PlannerTemplate; rule: T.PlannerRuleDef; draft?: T.PlannerTemplate }
+/** A template whose draft version changes this rule (to = null: the draft removes it). */
+export interface RulePending { template: T.PlannerTemplate; draft: T.PlannerTemplate; from?: T.PlannerRuleDef; to: T.PlannerRuleDef | null }
+export interface RuleEntry { id: string; rule: T.PlannerRuleDef; carriers: RuleCarrier[]; differs: boolean; pending: RulePending[] }
+const sig = (r: T.PlannerRuleDef) => JSON.stringify([r.title, r.aspect, r.severity, r.threshold ?? null, r.standard ?? null, r.source ?? null, !!r.off]);
 
-/** Every rule once, with the templates that carry it (their own copies) and whether those copies differ (overrides). */
+/** The open draft version of a live template, if any. */
+export const draftOf = (t: T.PlannerTemplate, all: T.PlannerTemplate[]) => all.find(x => x.versionOf === t.id && !x.isDeleted);
+/** The templates as they will be once every open draft version is published: live records (same ids) carrying their draft's rules. */
+export function nextTemplates(all: T.PlannerTemplate[]): T.PlannerTemplate[] {
+  const drafts = new Map(all.filter(t => t.versionOf && !t.isDeleted).map(t => [t.versionOf!, t]));
+  return all.filter(t => !t.isDeleted && !t.versionOf).map(t => { const d = drafts.get(t.id); return d ? { ...t, rules: d.rules, params: d.params, inheritsFrom: d.inheritsFrom } : t; });
+}
+
+/** Every rule once (next state), with the templates that carry it (their own copies), whether those copies differ (overrides) and
+ *  which drafts still hold the change. */
 export function ruleIndex(templates: T.PlannerTemplate[]): RuleEntry[] {
   const by = new Map<string, RuleEntry>();
-  for (const t of templates) if (!t.versionOf && !t.isDeleted) for (const r of t.rules) {
-    const e = by.get(r.id) ?? { id: r.id, rule: r, carriers: [], differs: false };
-    e.carriers.push({ template: t, rule: r }); by.set(r.id, e);
+  const entry = (r: T.PlannerRuleDef) => { const e = by.get(r.id) ?? { id: r.id, rule: r, carriers: [], differs: false, pending: [] }; by.set(r.id, e); return e; };
+  for (const t of templates) if (!t.versionOf && !t.isDeleted) {
+    const d = draftOf(t, templates); const rules = d ? d.rules : t.rules;
+    for (const r of rules) entry(r).carriers.push({ template: t, rule: r, draft: d });
+    if (d) for (const id of new Set([...t.rules, ...d.rules].map(r => r.id))) {
+      const from = t.rules.find(r => r.id === id), to = d.rules.find(r => r.id === id) ?? null;
+      if (JSON.stringify(from ?? null) !== JSON.stringify(to)) { const e = by.get(id) ?? (to ? entry(to) : from ? entry(from) : undefined); e?.pending.push({ template: t, draft: d, from, to }); }
+    }
   }
-  for (const e of by.values()) {
+  for (const e of [...by.values()]) {
+    if (!e.carriers.length) { e.differs = false; continue; } /* removed in every draft: still live until they are published */
     /* the shared definition = the most common copy; the others are overrides */
     const n = new Map<string, number>(); e.carriers.forEach(c => n.set(sig(c.rule), (n.get(sig(c.rule)) ?? 0) + 1));
     const top = [...n].sort((a, b) => b[1] - a[1])[0][0];
@@ -86,6 +106,8 @@ export function ruleImpact(plans: T.PlannerPlan[], before: T.PlannerTemplate[], 
     if (!OPEN_PLAN_STATUSES.includes(p.status) || p.isDeleted) continue;
     const chain = new Set<string>(); let t = after.find(x => x.id === p.templateId);
     while (t && !chain.has(t.id)) { chain.add(t.id); t = t.inheritsFrom ? after.find(x => x.id === t!.inheritsFrom) : undefined; }
+    /* and the modules the chain is built from, with their own chains */
+    for (const m of resolveTemplate(p.templateId, after)?.modules ?? []) { let x: T.PlannerTemplate | undefined = m; while (x && !chain.has(x.id)) { chain.add(x.id); x = x.inheritsFrom ? after.find(y => y.id === x!.inheritsFrom) : undefined; } }
     const touched = [...chain].some(id => { const a = before.find(x => x.id === id), b = after.find(x => x.id === id); return a !== b; });
     if (!touched) continue;
     const b = res(p, before), a = res(p, after);

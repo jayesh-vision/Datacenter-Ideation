@@ -8,14 +8,14 @@
    template approver. Retire (with reason, lists the plans and variants that keep it) / Restore; drafts can be deleted. */
 import { useMemo, useState } from 'react';
 import { KIND_LABEL, NewTemplateModal, PublishSection, TemplateEditor, VersionsSection, fmtDefault, optionLabel, type NewPreset } from './templateEditor';
-import { dependents, draftVersionOf, liveTemplates } from '../../planner/lib/templateCatalog';
+import { dependents, draftVersionOf, liveTemplates, moduleBrings, usesModule } from '../../planner/lib/templateCatalog';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
 import { DataTable, type Col } from '../../ui/DataTable';
 import { Btn, Chip, Drawer, Empty, KV, Panel, Seg } from '../../ui/kit';
 import { usePlannerActions, usePlans, useTemplates } from '../../planner/lib/usePlanner';
-import { resolveTemplate } from '../../planner/lib/engine';
+import { MODULE_KINDS, resolveTemplate } from '../../planner/lib/engine';
 import { dimensionsFor } from '../../planner/lib/dimensions';
 import { RULE_PLAIN } from '../../planner/lib/labels';
 import { DC_TYPE_CATALOG, type DcTypeProfile } from '../../planner/p2b/dcTypes';
@@ -93,9 +93,11 @@ export function TemplatesTab() {
     { key: 'uses', header: 'Plans', sort: p => p.uses, render: p => <span className="num">{p.uses}</span> },
     { key: 'status', header: 'Status', sort: p => p.profile?.status ?? '', render: p => (p.profile ? <Status t={p.profile} /> : <span className="vw-label">No profile</span>) },
   ];
+  const usedBy = useMemo(() => { const m = new Map<string, T.PlannerTemplate[]>(); if (view !== 'modules') return m; for (const t of tplRows) if (MODULE_KINDS.includes(t.kind)) m.set(t.id, live.filter(x => x.kind === 'plan' && usesModule(x, t.id, templates))); return m; }, [tplRows, live, templates, view]);
   const modCols: Col<TplRow>[] = [
     { key: 'name', header: 'Name', sort: t => t.name, wrap: true, render: t => name2(t.name, t.description) },
-    { key: 'kind', header: 'Kind', sort: t => KIND_LABEL[t.kind], render: t => KIND_LABEL[t.kind] },
+    { key: 'kind', header: 'Kind', sort: t => KIND_LABEL[t.kind], render: t => <span className="pn-nowrap">{KIND_LABEL[t.kind]}</span> },
+    { key: 'usedby', header: 'Used by', sort: t => usedBy.get(t.id)?.length ?? -1, render: t => { const u = usedBy.get(t.id); if (!u) return <span className="vw-label">—</span>; return u.length ? <Tip className="is-dotted" content={{ title: `${u.length} plan type${u.length === 1 ? '' : 's'} built from it`, rows: [], note: u.map(x => x.name).join(', ') }}><span className="pn-nowrap">{u.length} plan type{u.length === 1 ? '' : 's'}</span></Tip> : <span className="vw-label">Not used</span>; } },
     { key: 'status', header: 'Status', sort: t => t.status, render: t => <Status t={t} /> },
     { key: 'v', header: 'Version', sort: t => t.version, render: t => <span className="mono">v{t.version}</span> },
   ];
@@ -144,7 +146,10 @@ function TemplateDrawer({ t, onClose, onOpen, onNew }: { t: T.PlannerTemplate; o
   const params = t.kind === 'plan' && covered.size ? allParams.filter(p => covered.has(p.aspect)) : allParams;
   const hidden = allParams.length - params.length;
   const rules = resolved?.rules ?? t.rules;
+  const mods = resolved?.modules ?? [];
   const own = new Set(t.params.map(p => p.key));
+  /* where an inherited input comes from: the nearest template in the chain, else the module that carries it (later modules win) */
+  const srcOf = (key: string) => chain.find(c => c.params.some(x => x.key === key))?.name ?? [...mods].reverse().find(m => m.params.some(x => x.key === key))?.name ?? 'Inherited';
   const ownShown = params.filter(p => own.has(p.key)).length;
   const profile = t.kind === 'profile' ? DC_TYPE_CATALOG.find(p => p.key === t.dcTypeKey) : undefined;
   const liveRec = t.versionOf ? templates.find(x => x.id === t.versionOf) : undefined;
@@ -154,7 +159,7 @@ function TemplateDrawer({ t, onClose, onOpen, onNew }: { t: T.PlannerTemplate; o
   const isDraft = t.status === 'draft';
   const edit = () => { if (isDraft) { setEditing(true); document.querySelector('.drawer:last-of-type .drawer-body')?.scrollTo(0, 0); return; } const d = actions.startTemplateVersion(t); EDIT_ON_OPEN.id = d.id; onOpen(d.id); };
   const retire = () => setAsk({ title: `Retire ${t.name}?`, okText: 'Retire template', danger: true, needsReason: true, placeholder: 'Why it is retired (kept in its history)',
-    description: <>New plans cannot pick it any more. {dep.plans.length ? `${dep.plans.length} plan(s) on it keep working (${dep.open.length} still open)` : 'No plan uses it'}{dep.variants.length ? `; ${dep.variants.length} variant(s) still inherit from it: ${dep.variants.map(v => v.name).join(', ')}` : ''}. You can restore it later.</>,
+    description: <>New plans cannot pick it any more. {dep.plans.length ? `${dep.plans.length} plan(s) on it keep working (${dep.open.length} still open)` : 'No plan uses it'}{dep.variants.length ? `; ${dep.variants.length} variant(s) still inherit from it: ${dep.variants.map(v => v.name).join(', ')}` : ''}{dep.usedBy.length ? `; ${dep.usedBy.length} plan type(s) are built from it and keep it: ${dep.usedBy.map(v => v.name).join(', ')}` : ''}. You can restore it later.</>,
     onOk: r => actions.retireTemplate(t, r) });
   const discard = () => setAsk({ title: t.versionOf ? `Discard draft v${t.version}?` : `Delete ${t.name}?`, okText: t.versionOf ? 'Discard draft' : 'Delete draft', danger: true, needsReason: false,
     description: t.versionOf ? `The live v${liveRec?.version} is unchanged.` : 'The draft is removed; its history line stays in the audit log.',
@@ -187,6 +192,8 @@ function TemplateDrawer({ t, onClose, onOpen, onNew }: { t: T.PlannerTemplate; o
       {isDraft && <PublishSection t={t} ask={setAsk} onPublished={() => { if (liveRec) onOpen(liveRec.id); }} />}
       <KV cols={3} items={[['Applies to', t.appliesTo.label], ['Becomes a', t.executesAs ?? '—'], ['Owner', t.ownerName], ['Site type', DC_TYPE_CATALOG.find(p => p.key === t.dcTypeKey)?.name ?? '—'], ['Blueprint', t.blueprintKey ? optionLabel('', t.blueprintKey) : '—'], ['Updated', date(t.updatedAt)]]} />
       {chain.length > 1 && <><Sub>Inherits from</Sub><div className="pn-chain">{[...chain].reverse().map((c, i) => <span key={c.id} className="row" style={{ gap: 6 }}>{i > 0 && <I.ChevronRight size={14} />}{c.id === t.id ? <b>{c.name} v{c.version}</b> : <button type="button" className="ent-link" onClick={() => onOpen(c.id)}>{c.name} v{c.version}</button>}</span>)}</div><p className="vw-label" style={{ margin: '6px 0 0' }}>Nearer templates override inputs by key and add rules; this template's own inputs are marked below.</p></>}
+      {mods.length > 0 && <><Sub extra={<span className="vw-label">{mods.length}</span>}>Built from modules</Sub><div className="pn-te-mods is-read">{mods.map(m => <button key={m.id} type="button" onClick={() => onOpen(m.id)}><Chip size="xs" tone="neutral">{KIND_LABEL[m.kind]}</Chip><b>{m.name} v{m.version}</b><small>{moduleBrings(m, templates)}{!(t.modules ?? []).includes(m.id) ? ` · via ${chain.slice(1).find(c => c.modules?.includes(m.id))?.name ?? 'the parent'}` : ''}</small></button>)}</div><p className="vw-label" style={{ margin: '6px 0 0' }}>Their inputs and rules apply unless this plan type{chain.length > 1 ? ' or its parent' : ''} sets its own copy.</p></>}
+      {MODULE_KINDS.includes(t.kind) && !t.versionOf && <><Sub extra={<span className="vw-label">{dep.usedBy.length}</span>}>Used by plan types</Sub>{dep.usedBy.length ? <div className="row wrap" style={{ gap: 6 }}>{dep.usedBy.map(v => <button key={v.id} type="button" className="ent-link" onClick={() => onOpen(v.id)}>{v.name} v{v.version}</button>)}</div> : <p className="vw-label" style={{ margin: 0 }}>No plan type is built from it yet. Add it to a plan type in that plan type's editor (Modules).</p>}</>}
       {dep.variants.length > 0 && <><Sub extra={<span className="vw-label">{dep.variants.length}</span>}>Variants that inherit from it</Sub><div className="row wrap" style={{ gap: 6 }}>{dep.variants.map(v => <button key={v.id} type="button" className="ent-link" onClick={() => onOpen(v.id)}>{v.name} v{v.version}</button>)}</div></>}
       {profile && <><Sub>Typical site</Sub><div className="pn-facts">
         <div><span>Size</span><b>{range(profile.powerKw, kw)}</b></div><div><span>Racks</span><b>{range(profile.typicalRacks, n => num(n))}</b></div><div><span>kW per rack</span><b>{profile.kwPerRack ? `${num(profile.kwPerRack[0])} – ${num(profile.kwPerRack[1])}` : '—'}</b></div>
@@ -210,7 +217,7 @@ function TemplateDrawer({ t, onClose, onOpen, onNew }: { t: T.PlannerTemplate; o
         <Sub extra={<span className="vw-label">{params.length} input{params.length === 1 ? '' : 's'}, all pre-filled · {ownShown} set here</span>}>Inputs and defaults</Sub>
         {hidden > 0 && <p className="vw-label" style={{ margin: '0 0 8px' }}>{hidden} inherited input{hidden === 1 ? '' : 's'} for areas this plan type does not cover {hidden === 1 ? 'is' : 'are'} left out.</p>}
         <table className="nst-table" style={{ width: '100%' }}><thead><tr><th>Input</th><th>Area</th><th>Default</th><th>From</th></tr></thead><tbody>
-          {[...params].sort((a, b) => ASPECT_LABEL[a.aspect].localeCompare(ASPECT_LABEL[b.aspect])).map(p => <tr key={p.key}><td><span className="cell-2"><b>{p.label}</b>{p.help && <small>{p.help}</small>}</span></td><td>{ASPECT_LABEL[p.aspect]}</td><td className="num">{fmtDefault(p)}</td><td>{own.has(p.key) ? <Chip tone="info" size="xs">This template</Chip> : <Chip tone="neutral" size="xs">{chain.find(c => c.params.some(x => x.key === p.key))?.name ?? 'Inherited'}</Chip>}</td></tr>)}
+          {[...params].sort((a, b) => ASPECT_LABEL[a.aspect].localeCompare(ASPECT_LABEL[b.aspect])).map(p => <tr key={p.key}><td><span className="cell-2"><b>{p.label}</b>{p.help && <small>{p.help}</small>}</span></td><td>{ASPECT_LABEL[p.aspect]}</td><td className="num">{fmtDefault(p)}</td><td>{own.has(p.key) ? <Chip tone="info" size="xs">This template</Chip> : <Chip tone="neutral" size="xs">{srcOf(p.key)}</Chip>}</td></tr>)}
         </tbody></table>
       </>}
       {rules.length > 0 && <>

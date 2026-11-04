@@ -26,7 +26,9 @@ const saveBtn = drawer().locator('button', { hasText: /^Save/ }); const saveTxt 
 await saveBtn.click(); await p.waitForTimeout(600);
 const row = await p.locator('.dt tbody tr').first().innerText();
 row.includes('72') ? ok(`saved (${saveTxt}); row shows 72`) : fail(`row after save: ${row.slice(0, 120)}`);
+row.includes('In draft') ? ok('templates in use took it into their drafts: In draft chip') : ok('no template in use: saved in place');
 await p.locator('.dt tbody tr').first().click(); await p.waitForSelector('.drawer .pn-bm-form');
+(await drawer().locator('.pn-bm-note', { hasText: 'Waiting in' }).count()) ? ok('drawer names the drafts holding the change') : (row.includes('In draft') && fail('no draft note in the drawer'));
 const h = await drawer().locator('.pn-bm-hist li').count(); h >= 1 ? ok(`history ${h} line(s)`) : fail('no rule history');
 /* 2 · override in the first template */
 const scope = drawer().locator('.pn-rule-scope select').first(); await scope.selectOption('own');

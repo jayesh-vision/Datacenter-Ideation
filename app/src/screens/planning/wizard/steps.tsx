@@ -6,6 +6,7 @@ import { Chip, Field, Seg, Btn } from '../../../ui/kit';
 import type * as T from '../../../planner/p2b/types';
 import { DC_TYPE_CATALOG } from '../../../planner/p2b/dcTypes';
 import { modelFor } from '../../../planner/lib/scopes';
+import { resolveTemplate } from '../../../planner/lib/engine';
 import { capacityFromRequirements, deriveFromRequirements, dimensionsFor, REQUIREMENTS, requirementParamKeys, type RequirementField } from '../../../planner/lib/dimensions';
 import { CLIMATES, CLIMATE_LABEL, SITE_MODE, climateFromHint, fmtParam, fromDateInput, paramDefsFor, toDateInput, type StepProps } from '../../../planner/lib/wizardModel';
 import { siteBaseline, planAddedKw } from '../../../planner/lib/site';
@@ -30,8 +31,12 @@ export function TypeStep({ draft, patch, templates, template }: StepProps) {
   const choose = (t: T.PlannerTemplate) => {
     const scope = t.scope ?? draft.scope;
     const params = { ...draft.params }, paramSources = { ...draft.paramSources };
-    for (const key of requirementParamKeys(scope)) { const def = t.params.find(p => p.key === key); if (def?.default !== undefined && params[key] === undefined) { params[key] = def.default; paramSources[key] = 'template'; } }
-    const next = { ...draft, templateId: t.id, scope, params, paramSources };
+    /* inputs the plan type sets itself, inherits or takes from its modules; a demand profile module sets the starting workload mix */
+    const res = resolveTemplate(t.id, templates);
+    for (const key of requirementParamKeys(scope)) { const def = (res?.params ?? t.params).find(p => p.key === key); if (def?.default !== undefined && params[key] === undefined) { params[key] = def.default; paramSources[key] = 'template'; } }
+    const dm = res?.modules.find(m => m.kind === 'demand')?.demand;
+    const demand = dm ? { ...draft.demand, gpuPct: dm.gpuPct, computePct: dm.computePct, storagePct: dm.storagePct } : draft.demand;
+    const next = { ...draft, templateId: t.id, scope, params, paramSources, demand };
     const prof = DC_TYPE_CATALOG.find(p => p.key === draft.dcTypeKey);
     const siteKw = prof ? Math.round(((prof.powerKw[0] + (prof.powerKw[1] ?? prof.powerKw[0] * 4)) / 2) / 100) * 100 : 1000;
     const startKw: Partial<Record<T.PlannerScope, number>> = { 'server-refresh': 0, 'network-refresh': 0, 'rack-replace': 0, hall: prof?.highDensity ? 2500 : 1500, retrofit: 800, plant: 2000, network: 0, migration: 200, expansion: Math.max(2000, Math.round(siteKw / 2 / 100) * 100), 'new-dc': siteKw, portfolio: siteKw, edge: 0 };
@@ -39,7 +44,7 @@ export function TypeStep({ draft, patch, templates, template }: StepProps) {
     const mode = SITE_MODE[scope];
     const site: Partial<T.PlannerPlan> = mode === 'new' || mode === 'region' || mode === 'campus' ? { dataCenterId: undefined, peerDataCenterId: undefined } : mode === 'existing' ? { newSiteName: undefined, peerDataCenterId: undefined } : { newSiteName: undefined };
     if (mode !== 'existing') delete params.targetHallId;
-    const base: Partial<T.PlannerPlan> = { templateId: t.id, scope, params, paramSources, designPowerKw, ...(SITE_MODE[draft.scope] !== mode ? site : {}) };
+    const base: Partial<T.PlannerPlan> = { templateId: t.id, scope, params, paramSources, designPowerKw, demand, ...(SITE_MODE[draft.scope] !== mode ? site : {}) };
     patch({ ...base, ...(modelFor(scope).seedDraft?.({ ...draft, ...base } as T.PlannerPlan) ?? {}) });
   };
   const groups = [

@@ -716,7 +716,10 @@ function c_bench(b: Bits, metric: string, d: number) { return b.c.benchmarks.fin
 /** A rule's threshold from the plan's template chain (the published ruleset), if set. */
 function ruleThreshold(c: ScopeCtx, check: string): number | undefined {
   let t = c.templates.find(x => x.id === c.plan.templateId); const seen = new Set<string>();
-  while (t && !seen.has(t.id)) { seen.add(t.id); const r = t.rules.find(x => x.check === check); if (r?.threshold !== undefined) return r.threshold; t = t.inheritsFrom ? c.templates.find(x => x.id === t!.inheritsFrom) : undefined; }
+  const mods: string[] = [];
+  while (t && !seen.has(t.id)) { seen.add(t.id); mods.push(...(t.modules ?? [])); const r = t.rules.find(x => x.check === check); if (r?.off) return undefined; if (r?.threshold !== undefined) return r.threshold; t = t.inheritsFrom ? c.templates.find(x => x.id === t!.inheritsFrom) : undefined; }
+  /* then the modules the chain is built from (nearest template's modules first) */
+  for (const id of mods) { let m = c.templates.find(x => x.id === id); while (m && !seen.has(m.id)) { seen.add(m.id); const r = m.rules.find(x => x.check === check); if (r?.threshold !== undefined) return r.threshold; m = m.inheritsFrom ? c.templates.find(x => x.id === m!.inheritsFrom) : undefined; } }
   return undefined;
 }
 

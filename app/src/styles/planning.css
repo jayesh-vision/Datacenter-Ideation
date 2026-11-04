@@ -540,3 +540,11 @@ button.pn-lead-row:hover { background: var(--vw-color-slate-50); }
 .pn-te-vers > div.is-live { border-color: var(--vw-color-blue-200, #bfdbfe); }
 .pn-te-from { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .pn-te-tbl select { max-width: 200px; }
+.pn-te-tbl tr.is-off td { background: var(--vw-color-slate-50, #f8fafc); }
+.pn-te-tbl tr.is-off td:first-child b { color: var(--vw-color-slate-500, #64748b); text-decoration: line-through; text-decoration-color: var(--vw-color-slate-300, #cbd5e1); }
+.pn-te-mods { display: flex; flex-direction: column; gap: 6px; }
+.pn-te-mods > div, .pn-te-mods > button { display: flex; align-items: center; gap: 10px; font: inherit; font-size: 13px; padding: 6px 10px; border: 1px solid var(--vw-color-slate-200, #e2e8f0); border-radius: 8px; background: var(--vw-color-white, #fff); text-align: left; }
+.pn-te-mods > button { cursor: pointer; }
+.pn-te-mods > button:hover { border-color: var(--vw-color-blue-200, #bfdbfe); }
+.pn-te-mods b { font-weight: 500; white-space: nowrap; }
+.pn-te-mods small { flex: 1; color: var(--vw-color-slate-500, #64748b); }
