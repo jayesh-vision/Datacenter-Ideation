@@ -8,6 +8,7 @@ import { buildLayout, type Level, type Sel } from './layout';
 import { TwinScene, type Hover, type Layer, type Pick, type PosMap } from './Scene';
 import { buildAnchors, type Anchor } from './anchors';
 import { TwinPanel } from './Panel';
+import { TwinSearch } from './Search';
 import { buildAttention } from './attention';
 import '../../../styles/twin.css';
 
@@ -84,6 +85,7 @@ export default function Twin({ dcId }: { dcId: string }) {
             : <div className="twin-nogl"><I.Box size={28} /><b>3D view unavailable</b><span>This browser has no WebGL. Use the lists on the right to navigate floors, rooms, racks and equipment.</span></div>}
           {/* only view controls live on the canvas; navigation is the panel's path and lists */}
           <div className="twin-tools">
+            <TwinSearch L={L} dcId={dc.id} onGo={s => { setHover(null); setSel(s); }} />
             <Seg size="sm" value={layer} onChange={setLayer} options={LAYERS.map(l => ({ id: l.id, label: l.label }))} />
             <button type="button" className="nst-icon-btn twin-reset" title={full ? 'Exit expanded view (Esc)' : 'Expand view'} aria-label={full ? 'Exit expanded view' : 'Expand view'} aria-pressed={full} data-twin="fullscreen" onClick={toggleFull}>{full ? <I.Minimize2 size={15} /> : <I.Maximize2 size={15} />}</button>
             <button type="button" className="nst-icon-btn twin-reset" title="Reset view" aria-label="Reset view" data-twin="reset" onClick={() => { setSel({ floor: null, room: null, rack: null, ne: null }); setResetTick(t => t + 1); }}><I.RotateCcw size={15} /></button>

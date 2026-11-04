@@ -54,6 +54,8 @@ function Beacon({ h, sev }: { h: number; sev: 'critical' | 'major' }) {
   );
 }
 type Ev = { stopPropagation: () => void };
+/* faded objects (and the glass of the room you are in) must not catch clicks meant for what is behind them (04-Nov-2026, user) */
+const NO_RAY = () => null;
 
 /* faceplate texture: rows of small port rectangles + two handles, drawn once */
 let faceTex: CanvasTexture | null = null;
@@ -106,7 +108,7 @@ function Equipment({ ne, rk, ctx, detail, dim }: { ne: TwinNe; rk: RackL; ctx: C
   const op = ghost ? 0.3 : otherSel ? 0.35 : 1;
   return (
     <group position={[0, y, 0]}>
-      <mesh castShadow onClick={(e: Ev) => { e.stopPropagation(); ctx.onPick({ rack: rk.rack.id, ne: ne.id }); }}
+      <mesh castShadow raycast={dim ? NO_RAY : undefined} onClick={(e: Ev) => { e.stopPropagation(); ctx.onPick({ rack: rk.rack.id, ne: ne.id }); }}
         onPointerOver={(e: Ev) => { e.stopPropagation(); ctx.setHover({ kind: 'ne', title: ne.name, sub: `${ne.role} · ${ne.vendor} ${ne.model} · U${ne.u}${ne.uSize > 1 ? `–${ne.u + ne.uSize - 1}` : ''}${ne.opsState === 'tenant-owned' ? ' · tenant-owned' : noTelemetry ? ' · no telemetry' : ne.alarms ? ` · ${ne.alarms} alarm${ne.alarms > 1 ? 's' : ''}` : ' · healthy'}` }); }}
         onPointerOut={() => ctx.setHover(null)}>
         <boxGeometry args={[RACK_W - 0.07, h, RACK_D - 0.16]} />
@@ -149,7 +151,7 @@ function Rack3D({ rk, room, floor, ctx }: { rk: RackL; room: RoomL; floor: Floor
   const pick = (e: Ev) => { e.stopPropagation(); ctx.onPick({ rack: rk.rack.id }); };
   const over = (e: Ev) => { e.stopPropagation(); ctx.setHover({ kind: 'rack', title: rk.rack.name, sub: `${rk.rack.role} · ${rk.rack.usedU}/${rk.rack.heightU} U · ${rk.rack.drawKw} / ${rk.rack.budgetKw} kW · ${rk.rack.tempC}°C inlet · ${rk.nes.length} devices` }); };
   const out = () => ctx.setHover(null);
-  const ev = { onClick: pick, onPointerOver: over, onPointerOut: out };
+  const ev = dim ? { raycast: NO_RAY } : { onClick: pick, onPointerOver: over, onPointerOut: out };
   const metal = { rough: 0.45, metal: 0.35 };
   return (
     <group position={[rk.x, 0, rk.z]} rotation={[0, rk.rot, 0]}>
@@ -258,7 +260,7 @@ function Room3D({ room, floor, ctx }: { room: RoomL; floor: FloorL; ctx: Ctx }) 
       <mesh position={[0, 0.03, 0]} receiveShadow onClick={pick} onPointerOver={over} onPointerOut={out}><boxGeometry args={[room.w, 0.06, room.d]} /><Std color={slabTone(room, layer)} dim={dim} rough={0.95} /><Edges color={roomAtt ? ATT_C[roomAtt] : dim ? '#E2E8F0' : '#94A3B8'} lineWidth={roomAtt ? 2.2 : 1} /></mesh>
       {(level === 'building' || level === 'floor') && <SlabLabel room={room} y={0.07} dim={dim} />}
       {/* glass walls with visible edges */}
-      <mesh position={[0, 1.45, 0]} onClick={pick} onPointerOver={over} onPointerOut={out}><boxGeometry args={[room.w, 2.9, room.d]} /><meshPhysicalMaterial color="#DBEAFE" transparent opacity={dim ? 0.02 : zoomed ? 0.04 : 0.1} roughness={0.15} metalness={0} depthWrite={false} /><Edges color={dim ? '#EEF2F6' : '#94A3B8'} lineWidth={1} /></mesh>
+      <mesh position={[0, 1.45, 0]} raycast={zoomed || dim ? NO_RAY : undefined} onClick={pick} onPointerOver={over} onPointerOut={out}><boxGeometry args={[room.w, 2.9, room.d]} /><meshPhysicalMaterial color="#DBEAFE" transparent opacity={dim ? 0.02 : zoomed ? 0.04 : 0.1} roughness={0.15} metalness={0} depthWrite={false} /><Edges color={dim ? '#EEF2F6' : '#94A3B8'} lineWidth={1} /></mesh>
       {room.aisles.map((a, i) => <mesh key={i} position={[a.x, 0.065, a.z]} receiveShadow><boxGeometry args={[a.w, 0.01, a.d]} /><Std color={a.kind === 'cold' ? (thermal ? '#93C5FD' : P.cold) : (thermal ? '#FCA5A5' : P.hot)} dim={dim} rough={1} opacity={thermal ? 1 : 0.9} /></mesh>)}
       {zoomed && room.aisles.filter(a => a.kind === 'cold').map((a, i) => <mesh key={`c${i}`} position={[a.x, 2.25, a.z]}><boxGeometry args={[a.w, 0.08, a.d]} /><meshStandardMaterial color="#93C5FD" transparent opacity={thermal ? 0.35 : 0.2} depthWrite={false} /><Edges color="#93C5FD" /></mesh>)}
       {room.racks.map(rk => <Rack3D key={rk.rack.id} rk={rk} room={room} floor={floor} ctx={ctx} />)}
