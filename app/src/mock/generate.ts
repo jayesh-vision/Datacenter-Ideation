@@ -500,10 +500,9 @@ export function generate(persona: Persona = 'network'): Db {
 
   const HERO = edgeId(persona, dcAt(1), 1);
   /* inter-DC backhaul = data center interconnect (DCI): each live PE offers its five reserved 10G backhaul ports, and the ports
-     are paired by GEOGRAPHY (user, 03-Nov-2026: the old random pairing drew Denver to every coast). Graph: every site to its two
-     nearest sites and its nearest hub (`geo.dci.hubs`), each hub to its three nearest hubs; then the ports are dealt out one link per
-     neighbour per round (nearest first, the PE with most free ports at each end, so a pair's links land on both routers), and any
-     port left over goes to the nearest site that still has one. Each link carries its transport circuit (`Link.dci`).
+     are paired by GEOGRAPHY (user, 03-Nov-2026: the old random pairing drew Denver to every coast). Graph: the relative
+     neighbourhood graph of the sites (see below); then the ports are dealt out one link per neighbour per round (nearest first, the
+     hero router first, then the PE with most free ports at each end, so a pair's links land on both routers); ports left over stay spare. Each link carries its transport circuit (`Link.dci`).
      ONLY colocation × USA and NeoCloud × USA (user, 03-Nov-2026: "keep every other persona and geography exactly as before", then NeoCloud USA too); elsewhere the
      original random pairing below runs unchanged and links carry no `dci`. */
   const stubs: Interface[] = [];
@@ -541,7 +540,7 @@ export function generate(persona: Persona = 'network'): Db {
     for (const m of free.values()) for (const xs of m.values()) xs.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
     const freeCount = (dc: string) => [...(free.get(dc)?.values() ?? [])].reduce((a, xs) => a + xs.length, 0);
     const takePort = (dc: string, avoid?: string) => {
-      const pes = [...free.get(dc)!.entries()].filter(([, xs]) => xs.length).sort((a, b) => b[1].length - a[1].length || Number(a[0] === avoid) - Number(b[0] === avoid) || a[0].localeCompare(b[0]));
+      const pes = [...free.get(dc)!.entries()].filter(([, xs]) => xs.length).sort((a, b) => Number(b[0] === HERO) - Number(a[0] === HERO) || b[1].length - a[1].length || Number(a[0] === avoid) - Number(b[0] === avoid) || a[0].localeCompare(b[0]));
       return pes[0][1].shift()!;
     };
     const sites = [...free.keys()];
@@ -550,12 +549,16 @@ export function generate(persona: Persona = 'network'): Db {
     const NEAR = 2;
     const edges = new Map<string, { a: string; z: string; km: number; hub: boolean }>();
     const addEdge = (a: string, z: string, hub: boolean) => { const [x, y] = a < z ? [a, z] : [z, a]; const k = `${x}|${y}`; const e = edges.get(k); if (e) e.hub ||= hub; else edges.set(k, { a: x, z: y, km: km(x, y), hub }); };
-    for (const dc of sites) {
-      nearest(dc, sites, NEAR).forEach(z => addEdge(dc, z, false));
-      if (!hubs.includes(dc)) nearest(dc, hubs, 1).forEach(h => addEdge(dc, h, false));
-      else nearest(dc, hubs, 3).forEach(h => addEdge(dc, h, true));
+    /* relative neighbourhood graph: a and b are linked only when no third site is nearer to both of them than they are to each other,
+       so long-haul traffic passes through the sites on the way (Chicago reaches the Bay Area via Denver / Salt Lake, never direct);
+       a site left with one neighbour also gets its next nearest (two diverse paths). Hub = a link touching a regional hub. */
+    for (const a of sites) for (const b of sites) if (a < b) {
+      const d = km(a, b);
+      if (!sites.some(c => c !== a && c !== b && Math.max(km(a, c), km(b, c)) < d)) addEdge(a, b, hubs.includes(a) || hubs.includes(b));
     }
-    const order = [...edges.values()].sort((a, b) => Number(b.hub) - Number(a.hub) || a.km - b.km || a.a.localeCompare(b.a));
+    const degree = (dc: string) => [...edges.values()].filter(e => e.a === dc || e.z === dc).length;
+    for (const dc of sites) if (degree(dc) < NEAR) nearest(dc, sites, NEAR).forEach(z => addEdge(dc, z, hubs.includes(dc) || hubs.includes(z)));
+    const order = [...edges.values()].sort((a, b) => a.km - b.km || a.a.localeCompare(b.a));
     const pairN = new Map<string, number>();
     const connect = (dcA: string, dcZ: string, hub: boolean) => {
       const a = takePort(dcA), z = takePort(dcZ);
@@ -579,14 +582,7 @@ export function generate(persona: Persona = 'network'): Db {
       progress = false;
       for (const e of order) if (freeCount(e.a) && freeCount(e.z) && nOf(e.a, e.z) < MAX_PER_PAIR) { connect(e.a, e.z, e.hub); progress = true; }
     }
-    /* a port still free goes to the nearest site with one, only if that is no farther than 1.5 × this site's farthest neighbour;
-       otherwise it stays a spare backhaul port (back in the free pool, no peer) */
-    const reach = new Map(sites.map(dc => [dc, Math.max(0, ...[...edges.values()].filter(e => e.a === dc || e.z === dc).map(e => e.km))]));
-    for (const dc of sites) while (freeCount(dc)) {
-      const z = nearest(dc, sites.filter(x => freeCount(x) && nOf(dc, x) < MAX_PER_PAIR), 1)[0];
-      if (!z || km(dc, z) > 1.5 * reach.get(dc)! || km(dc, z) > 1.5 * reach.get(z)!) break;
-      connect(dc, z, false);
-    }
+    /* a port still free once every neighbour pair is full (or the neighbour has none left) stays a spare backhaul port (no peer) */
     for (const m of free.values()) for (const [neId, xs] of m) freeIf.get(neId)!.push(...xs);
   }
 
