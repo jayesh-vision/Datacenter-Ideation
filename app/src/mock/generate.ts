@@ -14,6 +14,7 @@ import { agePreviousGeneration, ageOperatorServers, isLegacyModel } from './vint
 import { addGpuChange, addGpuServices, buildGpuFleet, buildGpuHistory, buildGpuIncidents, injectGpuFaults, LIQUID_SITES, type GpuState } from './gpu';
 import { raisePowerContractAlerts } from './power-econ';
 import { PERSONA_BY_ID, edgeId } from './personas';
+import { markTransitPorts } from './internet';
 
 /* a host (compute / storage / GPU) or an opaque block of tenant equipment */
 const isHost = (n: NetworkElement) => NE_CATEGORY[n.role] === 'compute' || NE_CATEGORY[n.role] === 'storage';
@@ -926,6 +927,8 @@ export function generate(persona: Persona = 'network'): Db {
   raiseOperatorServerAlerts(db);
   /* power findings against the contract (21-Oct-2026): one alarm each, one incident for the costliest; appended last so nothing else moves; not in the network persona */
   raisePowerContractAlerts(db, persona, a => addAlert(db, a), { response: RESPONSE_SLA, resolve: RESOLVE_SLA });
+  /* internet edge (04-Nov-2026, NeoCloud × USA only): the border-router ports that carry the transit feeds; changes no other collection */
+  markTransitPorts(db);
   buildRecon(db);
   buildPlans(db);
   finaliseHealth(db);

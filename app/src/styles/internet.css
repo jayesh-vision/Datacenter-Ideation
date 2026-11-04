@@ -1,0 +1,19 @@
+/* Datacenter → Infrastructure → Internet & carriers (screens/site/Internet.tsx) — layout only */
+.inet-feeds { align-items: stretch; }
+.inet-feed { display: flex; flex-direction: column; gap: 10px; padding: 16px; }
+.inet-feed > header { display: flex; align-items: center; gap: 12px; }
+.inet-feed > header > div { display: flex; flex-direction: column; min-width: 0; }
+.inet-feed > header b { font-size: 15px; }
+.inet-side { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; font-weight: 600; flex: none;
+  background: var(--primaryColor50, var(--vw-color-blue-50)); color: var(--primaryColor, var(--vw-color-blue-600)); }
+.inet-feed h4 { margin: 6px 0 0; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: .04em; color: var(--vw-color-slate-500); display: flex; align-items: center; gap: 4px;
+  border-top: 1px solid var(--vw-color-slate-100); padding-top: 10px; }
+.inet-feed .kv dd { overflow-wrap: anywhere; }
+.inet-find { list-style: none; margin: 0; padding: 0; }
+.inet-find li { display: grid; grid-template-columns: 76px minmax(0, 1fr); align-items: start; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--vw-color-slate-100); }
+.inet-find li:first-child { border-top: 0; }
+.inet-find p { margin: 2px 0 4px; color: var(--vw-color-slate-600); font-size: 13px; }
+.inet-find small { color: var(--vw-color-slate-500); display: inline-flex; gap: 4px; align-items: baseline; }
+.inet-paths { align-items: start; }
+.inet-find li > .vw-chip { justify-self: start; margin-top: 2px; }
+.inet-feed .kv { row-gap: 8px; }

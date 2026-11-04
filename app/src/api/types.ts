@@ -385,11 +385,34 @@ export interface CablePath {
   linkId: string; aNe: string; aIf: string; zNe: string; zIf: string; kind: 'in-rack' | 'structured' | 'inter-site';
   hops: CableHop[]; state: PhysState; suspect: number | null; verdict: string; lengthM: number;
 }
-export type SpofDomain = 'Power' | 'Cooling' | 'Cabling' | 'Backhaul';
+export type SpofDomain = 'Power' | 'Cooling' | 'Cabling' | 'Backhaul' | 'Internet';
 /* a single point of failure: one thing whose loss takes devices, racks or links down */
 export interface Spof {
   id: string; dcId: string; domain: SpofDomain; severity: Severity; title: string; detail: string; fix: string;
   assets: string[]; neIds: string[]; rackIds: string[]; services: number; customers: number; to: string;
+}
+/* internet edge (04-Nov-2026, user: "which fibre, which plan, which router and which cabling gives the datacenter its internet, and is it HA?"):
+   the transit feeds a site buys from upstream providers, where each one lands, how it reaches the border router, and its BGP session.
+   NeoCloud × USA first (mock/internet.ts). */
+export type InetHa = 'redundant' | 'at-risk' | 'single';
+export interface TransitFeed {
+  id: string; dcId: string; side: 'A' | 'B'; provider: string; providerAsn: number; product: string; circuit: string; status: 'In service' | 'Ordered';
+  /* the plan: port, committed rate (95th percentile billing), price per Mbps, burst above the commit, term */
+  portMbps: number; commitMbps: number; billing: string; pricePerMbps: number; burstPerMbps: number; mrc: number; termMonths: number; termStart: number; termEnd: number; delivered?: number; due?: number;
+  sla: { availabilityPct: number; mttrH: number; latencyMs: number };
+  noc: { phone: string; portal: string; ticketPrefix: string }; accountManager: string;
+  /* where it lands: router port, optic, cross-connect, carrier demarc, building entry, street route, provider POP */
+  neId: string; ifName: string; optic: string; xc: string; demarc: string; entry: string; streetRoute: string; pop: string; popKm: number;
+  bgp: { state: 'Established' | 'Not configured'; localIp: string; peerIp: string; peerAsn: number; uptimeMin: number; received4: number; received6: number; announced: string[];
+    role: 'Primary' | 'Backup' | 'Active'; localPref: number; prepend: number; bfd: boolean; rpki: boolean; maxPrefix: number; auth: string };
+  traffic: { inMbps: number; outMbps: number };
+  path: CablePath | null;
+}
+export interface InetFinding { id: string; severity: Severity; kind: 'entry' | 'duct' | 'router' | 'single' | 'provider' | 'test'; title: string; detail: string; fix: string; feedIds: string[] }
+export interface SiteInternet {
+  dcId: string; asn: number; prefixes: string[]; mode: 'Active / active' | 'Primary / backup'; feeds: TransitFeed[]; ha: InetHa; haText: string;
+  lastTest: { at: number; result: 'Pass' | 'Partial'; text: string }; findings: InetFinding[];
+  totals: { inService: number; portMbps: number; commitMbps: number; inMbps: number; outMbps: number; mrc: number; providers: number };
 }
 export interface SitePhysical {
   dcId: string; pdus: RackPdu[]; cords: PowerCord[]; zones: CoolingZone[]; rackCooling: RackCooling[]; panels: PatchPanel[]; trunks: Trunk[];

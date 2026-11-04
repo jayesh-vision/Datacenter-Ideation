@@ -22,6 +22,7 @@ import { accessOf } from './access';
 import { siteLifecycle as siteLifecycle_, clearLifecycle } from './lifecycle';
 import { sitePm as sitePm_, clearMaintenance } from './maintenance';
 import { clearOps, colocationOrders as colocationOrders_, incidentOps as incidentOps_, onCall as onCall_, problems as problems_, resilienceTests as resilienceTests_ } from './ops';
+import { siteInternet as siteInternet_, internetSites, internetEstate } from './internet';
 import { cablePath as cablePath_, clearPhysical, devicePhysical as devicePhysical_, sitePhysicalPublic, whatIf as whatIf_ } from './physical';
 import { addCustomType, clearDcim, customTypeById, dcimCatalog as dcimCatalog_, dcimComponents as dcimComponents_, dcimModel, dcimOverlay, dcimRackView as dcimRackView_, freeSlots, resetDcimCustom } from './dcim';
 import { ipamSave as ipamSave_, ipamRemove as ipamRemove_, type IpamKind } from './ipam';
@@ -582,6 +583,8 @@ export function commandCenter() {
   const edgeAll = liveDcs.map(d => ({ id: d.id, e: edgeStatus(d.id) }));
   const edgeLost = edgeAll.filter(x => x.e.state === 'redundancy-lost'), edgeIsolated = edgeAll.filter(x => x.e.state === 'isolated');
   const join = (xs: string[], none: string) => (xs.length ? xs.join(' · ') : none);
+  /* internet transit feeds (NeoCloud × USA, 04-Nov-2026): each feed in service counts like a link; a site left with one feed is attention */
+  const inet = internetEstate(db);
   /* a GPU cloud reads its network as planes: InfiniBand, Ethernet front-end, management (the area is still called Network, user 12-Oct-2026) */
   const neo = persona === 'neocloud';
   const downBy = (pl: Plane) => linksDown.filter(l => planeOf(l) === pl).length;
@@ -609,10 +612,11 @@ export function commandCenter() {
       detail: join([...unitsFailed.map(u => `${u.name} failed`), ...(zonesHot.length ? [`${zonesHot.length} zone${zonesHot.length > 1 ? 's' : ''} >27°C`] : []), ...(unitsMaint.length ? [`${unitsMaint.length} in maint.`] : [])], 'All cooling units running · all zones in range'),
       to: unitsFailed[0] ? `/facilities?dc=${unitsFailed[0].dc}&tab=cooling` : '/facilities?tab=cooling', state: (unitsFailed.length || zonesHot.length ? 'attention' : 'ok') as AreaState,
       sites: siteList([...unitsFailed.map(u => ({ id: u.dc, note: `${u.name} failed` })), ...zonesHot.map(z => ({ id: z.dc, note: `${z.zone} ${z.tempC}°C` }))], id => `/facilities?dc=${id}&tab=cooling`) },
-    { key: 'network', label: 'Network', unit: 'estate healthy', value: pct(lldp.length - linksDown.length + live.length - unreachable.length, lldp.length + live.length), measure: neo ? 'Network cables up (InfiniBand, Ethernet, OOB) and nodes reachable' : 'Physical links up and devices reachable',
-      detail: netDetail, to: '/datacenters?view=edge', state: (edgeIsolated.length ? 'critical' : linksDown.length || unreachable.length || edgeLost.length ? 'attention' : 'ok') as AreaState,
+    { key: 'network', label: 'Network', unit: 'estate healthy', value: pct(lldp.length - linksDown.length + live.length - unreachable.length + inet.up, lldp.length + live.length + inet.feeds), measure: neo ? 'Network cables up (InfiniBand, Ethernet, OOB) and nodes reachable' : 'Physical links up and devices reachable',
+      detail: netDetail, to: '/datacenters?view=edge', state: (edgeIsolated.length ? 'critical' : linksDown.length || unreachable.length || edgeLost.length || inet.single.length ? 'attention' : 'ok') as AreaState,
       sites: siteList([...linksDown.map(l => ({ id: l.dcId, note: neo ? `${PLANE_SHORT[planeOf(l)]} cable down` : 'link down' })), ...unreachable.map(n => ({ id: n.dcId, note: 'device unreachable' })),
-        ...edgeLost.map(x => ({ id: x.id, note: 'edge redundancy lost' })), ...edgeIsolated.map(x => ({ id: x.id, crit: true, note: 'isolated — no edge link up' }))], id => `/datacenters/${id}?tab=topology`) }
+        ...edgeLost.map(x => ({ id: x.id, note: 'edge redundancy lost' })), ...edgeIsolated.map(x => ({ id: x.id, crit: true, note: 'isolated — no edge link up' })),
+        ...inet.single.map(id => ({ id, note: 'one internet feed' }))], id => inet.single.includes(id) ? `/datacenters/${id}?tab=internet` : `/datacenters/${id}?tab=topology`) }
   ];
   /* what the % counts and why the status word is what it is (12-Oct-2026, user: "97.7% and Critical — healthy or at risk?").
      The % is the share of items in a good state (higher is better); the status follows the worst single issue, so one UPS on
@@ -621,8 +625,8 @@ export function commandCenter() {
   const explain: Record<string, { good: number; total: number; items: string; why: string }> = {
     response: { good: open.length - breaching.length, total: open.length, items: 'open incidents within their resolution SLA',
       why: breaching.some(i => i.sev === 1) ? 'Critical because a Critical incident is past its SLA.' : breaching.length ? `Attention because ${breaching.length} incident${breaching.length === 1 ? ' is' : 's are'} past SLA.` : 'Normal: every open incident is within SLA.' },
-    network: { good: lldp.length - linksDown.length + live.length - unreachable.length, total: lldp.length + live.length, items: `${neo ? 'cables' : 'physical links'} up and devices reachable (${fmtNum(lldp.length)} ${neo ? 'cables' : 'links'} + ${fmtNum(live.length)} devices)`,
-      why: edgeIsolated.length ? `Critical because ${edgeIsolated.map(x => x.id).join(', ')} has no edge link up.` : linksDown.length || unreachable.length || edgeLost.length ? `Attention because ${[linksDown.length && `${linksDown.length} ${neo ? 'cables' : 'links'} are down`, unreachable.length && `${unreachable.length} devices are unreachable`, edgeLost.length && `${edgeLost.length} site${edgeLost.length === 1 ? ' has' : 's have'} lost edge redundancy`].filter(Boolean).join(', ')}.` : 'Normal: every link is up and every device reachable.' },
+    network: { good: lldp.length - linksDown.length + live.length - unreachable.length + inet.up, total: lldp.length + live.length + inet.feeds, items: `${neo ? 'cables' : 'physical links'} up and devices reachable (${fmtNum(lldp.length)} ${neo ? 'cables' : 'links'} + ${fmtNum(live.length)} devices${inet.feeds ? ` + ${inet.feeds} internet feeds` : ''})`,
+      why: edgeIsolated.length ? `Critical because ${edgeIsolated.map(x => x.id).join(', ')} has no edge link up.` : linksDown.length || unreachable.length || edgeLost.length || inet.single.length ? `Attention because ${[linksDown.length && `${linksDown.length} ${neo ? 'cables' : 'links'} are down`, unreachable.length && `${unreachable.length} devices are unreachable`, edgeLost.length && `${edgeLost.length} site${edgeLost.length === 1 ? ' has' : 's have'} lost edge redundancy`, inet.single.length && `${inet.single.join(', ')} ${inet.single.length === 1 ? 'has' : 'have'} one internet feed`].filter(Boolean).join(', ')}.` : 'Normal: every link is up and every device reachable.' },
     power: { good: upsAll.length - upsBad.length + feeds.length - feedsBad.length, total: upsAll.length + feeds.length, items: `UPS units online and utility feeds normal (${upsAll.length} UPS + ${feeds.length} feeds)`,
       why: plantUps.length ? `Critical because ${plantUps.map(u => `${u.name} at ${u.dc} is ${u.state.toLowerCase()}`).join(', ')} — that load is running on limited battery time.` : upsBad.length || feedsBad.length ? 'Attention because a UPS or a utility feed is not normal; the load is still protected.' : 'Normal: every UPS is online and every feed normal.' },
     cooling: { good: units.length - unitsFailed.length + zones.length - zonesHot.length, total: units.length + zones.length, items: `cooling units running and zones within 27°C (${units.length} units + ${zones.length} zones)`,
@@ -956,6 +960,9 @@ export function search(q: string) {
 /* used by the Sentinel copilot */
 /* physical last mile: rack PDUs + power cords, cooling coverage, structured cabling, single points of failure (mock/physical.ts) */
 export const sitePhysical = (dcId: string) => sitePhysicalPublic(db, dcId);
+/* internet edge: transit feeds, their cable paths and BGP sessions, HA verdict (NeoCloud × USA; null elsewhere) */
+export const siteInternet = (dcId: string) => siteInternet_(db, dcId, sitePhysicalPublic(db, dcId));
+export const hasInternetAt = (dcId: string) => internetSites(db).includes(dcId);
 export const devicePhysical = (neId: string) => devicePhysical_(db, neId);
 export const cablePath = (linkId: string) => cablePath_(db, linkId);
 export const whatIf = (dcId: string, assetId: string) => whatIf_(db, dcId, assetId);

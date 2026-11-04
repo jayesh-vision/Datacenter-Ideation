@@ -210,7 +210,7 @@ export function WhatIfCard({ dc, phys, initial }: { dc: Datacenter; phys: SitePh
 
 /* ---------------------------------------------------------------- SPOF list */
 
-const DOMAIN_ICON: Record<Spof['domain'], I.LucideIcon> = { Power: I.Zap, Cooling: I.Fan, Cabling: I.Cable, Backhaul: I.Route };
+const DOMAIN_ICON: Record<Spof['domain'], I.LucideIcon> = { Power: I.Zap, Cooling: I.Fan, Cabling: I.Cable, Backhaul: I.Route, Internet: I.Globe };
 export function SpofList({ spofs, empty, link, onPick, active }: { spofs: Spof[]; empty?: ReactNode; link?: boolean; onPick?: (s: Spof) => void; active?: string | null }) {
   if (!spofs.length) return <div className="panel-body">{empty ?? <Empty icon={I.ShieldCheck} title="No single point of failure found" />}</div>;
   return (

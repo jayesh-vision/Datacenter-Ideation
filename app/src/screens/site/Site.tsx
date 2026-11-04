@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
-import { getDatacenter, getIncidents, useQuery, clockNow, usePersona, hasGpuNow } from '../../api';
+import { getDatacenter, getIncidents, useQuery, clockNow, usePersona, hasGpuNow, hasInternetNow } from '../../api';
 import { usePage, Loading, useSentinel } from '../../shell/page';
 import { Btn, Chip } from '../../ui/kit';
 import { RolloutChip, Fresh } from '../../ui/status';
@@ -22,12 +22,13 @@ import { TopologyView } from '../Topology';
 import { TwinHost, useTwinView } from './TwinHost';
 import '../../styles/site.css';
 import { OpstralBtn } from '../../ui/OpstralMark';
+import { Internet } from './Internet';
 import { FacilitiesBody, type FacilityTab } from '../Facilities';
 
 export type SiteData = NonNullable<Awaited<ReturnType<typeof getDatacenter>>>;
 /* Operations tabs. Capex/Opex (finance) and discovery/reconciliation
    (inventory) belong to Plan & Build / Inventory, not here. */
-type Tab = 'overview' | 'attention' | 'topology' | 'metrics' | 'customers' | 'revenue' | 'gpu' | 'assets' | 'elements' | 'details' | 'access' | 'timeline'
+type Tab = 'overview' | 'attention' | 'topology' | 'metrics' | 'customers' | 'revenue' | 'gpu' | 'assets' | 'elements' | 'details' | 'access' | 'internet' | 'timeline'
   | 'fpower' | 'fcooling' | 'fenv' | 'fspof' | 'fmaint';
 const TABS: { id: Tab; label: string }[] = [
   /* Cabling ('equipment') is hidden per the user (02-Oct-2026); component kept, old ?tab=equipment links fall back to Overview */
@@ -37,7 +38,7 @@ const TABS: { id: Tab; label: string }[] = [
      (Customers · Revenue) → who came in and out (Access & security, 14-Oct-2026) → what happened (Ops log). */
   { id: 'overview', label: 'Overview' }, { id: 'attention', label: 'Attention' }, { id: 'metrics', label: 'Metrics' },
   { id: 'details', label: 'Space & ports' }, { id: 'gpu', label: 'GPU Fleet' }, { id: 'elements', label: 'Equipment' }, { id: 'assets', label: 'Assets' },
-  { id: 'topology', label: 'Topology' }, { id: 'customers', label: 'Customers' }, { id: 'revenue', label: 'Revenue' }, { id: 'access', label: 'Access & security' }, { id: 'timeline', label: 'Ops log' },
+  { id: 'topology', label: 'Topology' }, { id: 'customers', label: 'Customers' }, { id: 'revenue', label: 'Revenue' }, { id: 'access', label: 'Access & security' }, { id: 'internet', label: 'Internet & carriers' }, { id: 'timeline', label: 'Ops log' },
   /* the Facilities screen's own tabs, shown inside the Facility group (16-Oct-2026, user) */
   { id: 'fpower', label: 'Power & backup' }, { id: 'fcooling', label: 'Cooling' }, { id: 'fenv', label: 'Environment' },
   { id: 'fspof', label: 'Single points of failure' }, { id: 'fmaint', label: 'Maintenance & alarms' }
@@ -54,7 +55,7 @@ type Group = 'site' | 'facility' | 'infra' | 'business';
 const GROUPS: { id: Group; label: string; icon: I.LucideIcon; tabs: Tab[] }[] = [
   { id: 'site', label: 'Overview', icon: I.LayoutDashboard, tabs: ['overview', 'attention', 'metrics', 'timeline'] },
   { id: 'facility', label: 'Facility', icon: I.Zap, tabs: ['fpower', 'fcooling', 'fenv', 'access', 'fspof', 'fmaint'] },
-  { id: 'infra', label: 'Infrastructure', icon: I.Server, tabs: ['elements', 'gpu', 'topology', 'details', 'assets'] },
+  { id: 'infra', label: 'Infrastructure', icon: I.Server, tabs: ['elements', 'gpu', 'topology', 'internet', 'details', 'assets'] },
   { id: 'business', label: 'Business impact', icon: I.Users, tabs: ['customers', 'revenue'] }
 ];
 const SUB_LABEL: Partial<Record<Tab, string>> = { overview: 'Datacenter layout', attention: 'Needs attention', details: 'Space & ports', metrics: 'Metrics' };
@@ -93,11 +94,11 @@ export function Site() {
   if (loading && !data) return <Loading label="Loading site" />;
   if (!data) return <NotFound what="Datacenter" />;
   const { dc, summary: s } = data;
-  const tab: Tab = TABS.some(t => t.id === sp.get('tab')) && (sp.get('tab') !== 'gpu' || hasGpuNow(dc.id)) ? (sp.get('tab') as Tab) : 'overview';
+  const tab: Tab = TABS.some(t => t.id === sp.get('tab')) && (sp.get('tab') !== 'gpu' || hasGpuNow(dc.id)) && (sp.get('tab') !== 'internet' || hasInternetNow(dc.id)) ? (sp.get('tab') as Tab) : 'overview';
   const go = (t: Tab) => { const n = new URLSearchParams(sp); n.set('tab', t); ['role', 'disc', 'q', 'kind', 'view', 'cview', 'cause', 'layer', 'rview', 'dom', 'rdc', 'seg', 'gtab', 'gstate', 'aq', 'ares', 'atype', 'adoor', 'adir', 'rq', 'rstate', 'rroom', 'rrole', 'rpdu'].forEach(k => n.delete(k)); setSp(n, { replace: true }); };
   const group = groupOf(tab);
   lastSub[group] = tab;
-  const visible = (t: Tab) => t !== 'gpu' || hasGpuNow(dc.id);
+  const visible = (t: Tab) => (t !== 'gpu' || hasGpuNow(dc.id)) && (t !== 'internet' || hasInternetNow(dc.id));
   /* tabs carry no counts (user, 30-Oct-2026) */
   const labelOf = (t: Tab) => t === 'customers' ? vocab.customers : t === 'revenue' ? vocab.money.noun : SUB_LABEL[t] ?? TABS.find(x => x.id === t)!.label;
   const now = clockNow();
@@ -232,6 +233,7 @@ export function Site() {
       {tab === 'details' && <Details data={data} />}
       {FAC_TAB[tab] && <FacilitiesBody dcId={dc.id} tab={FAC_TAB[tab]!} onTab={t => go(FAC_BACK[t])} hideTabs hideStrip />}
       {tab === 'access' && <Access data={data} />}
+      {tab === 'internet' && <Internet data={data} />}
       {tab === 'timeline' && <Timeline data={data} />}
     </div>
   );

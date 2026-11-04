@@ -131,6 +131,16 @@ User ask: show revenue degradation caused by datacenter issues and which issue c
   route km = 1.35 × great circle + 6, latency). The map then says "DCI", has a DCI legend toggle that draws the whole mesh, and the link tooltip shows
   type / km / ms / n × 10G / carriers; planner circuits use the DCI carrier. Every other persona × geography keeps the old random pairing, wording and
   data byte for byte (verified by hashing all collections before / after); `hasDci(links)` in DcMap switches the UI.
+- Internet edge, phase 1 (04-Nov-2026, user: "which fibre, which plan, which router and cabling gives the datacenter its internet … HA"; phase 1 = records + HA,
+  **NeoCloud × USA only**): read model `mock/internet.ts` (seeded per site id). Each live site has two IP transit feeds (`TransitFeed`: provider + real ASN, plan = port /
+  commit / 95th-percentile billing / $ per Mbps (real USD, never `money()`) / burst / term, circuit, SLA, NOC, account manager), each on its own border-router port
+  (BDR-01 / BDR-02, a free 100G or 10G port; the generator's last phase `markTransitPorts` sets that port's description "Transit: …" + state, nothing else changes),
+  cross-connect → carrier demarc in the ODF rack → building entry → street route → provider POP (a `CablePath`, shown with `CablePathView`), one eBGP session
+  (full table, RPKI, BFD, TCP-AO; primary / backup or active / active; documentation / benchmarking addresses). Seeded findings: Tier II = one entry for both, dcAt(3)
+  shared duct, dcAt(16) both on BDR-01, dcAt(24) second feed on order (single), dcAt(11) one provider, dcAt(21) failover test overdue. HA = redundant / at-risk /
+  single. Shown: datacenter Infrastructure → **Internet & carriers** (`?tab=internet`, `site/Internet.tsx`, `styles/internet.css`; hidden where `hasInternetNow` is
+  false), Facility → Single points of failure domain **Internet** (physical.ts appends the findings), Command center Network row counts feeds in its % and
+  a single-fed site is Attention. Every other persona × geography is byte-identical (hash of every collection). Phase 2 = usage vs commit / 95th / cost; phase 3 = an ISP-down fault story.
 - Datacenters list has a list ⇄ tiles switch (ListToolbar `layout` prop); tiles reuse `screens/ops/DcCard.tsx`, the same card as the
   Command center's Critical-now lane (worst open incident per site, or a quiet variant). Check: `node .qa/dc-tiles.mjs`.
 - Estate map (`overview/DcMap.tsx`, 04-Oct-2026): Esri basemaps Light/Streets/Satellite/Terrain (remembered), rippling pins for

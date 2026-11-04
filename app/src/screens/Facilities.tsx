@@ -629,7 +629,7 @@ function DistSummary({ dc, phys, onRack }: { dc: Datacenter; phys: SitePhysical;
 
 /* ---------------------------------------------------------- resilience */
 
-const DOMAINS: SpofDomain[] = ['Power', 'Cooling', 'Cabling', 'Backhaul'];
+const DOMAINS: SpofDomain[] = ['Power', 'Cooling', 'Cabling', 'Backhaul', 'Internet'];
 function Resilience({ dc, phys }: { dc: Datacenter; phys: SitePhysical }) {
   const [sp, setSp] = useSearchParams();
   const dom = (sp.get('domain') as SpofDomain | null) ?? null;

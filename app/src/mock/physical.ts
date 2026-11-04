@@ -12,6 +12,7 @@
             inter-site links leave through the ODF onto the outside-plant cable (cores from the site's cable ledger).
    Tier II sites have one distribution path (one utility feed, one tray route, one building entry), which is what the
    single-point-of-failure list reports for them. */
+import { internetFindings, internetRouters } from './internet';
 import type {
   CableHop, CablePath, CoolingZone, Datacenter, Interface, Link, NetworkElement, PhysState, PowerCord, PowerSide, PduBank, RackCooling, RackPdu,
   PatchPanel, SitePhysical, Spof, Trunk, WhatIf, Severity
@@ -396,6 +397,10 @@ function buildSpofs(db: Db, dc: Datacenter, nes: NetworkElement[], pdus: RackPdu
       fix: 'Order a second, physically diverse entry (different duct, different street) for at least one span.',
       assets: [dc.cabling.cable], neIds: [...new Set(bh.flatMap(l => [l.aNe, l.zNe]).filter(id => db.neById.get(id)!.dcId === dc.id))], rackIds: [], links: bh.map(l => l.id), to: to('&spof=entry') });
   }
+  /* internet edge (NeoCloud × USA): the transit feeds' shared entry / duct / router, a single feed, one provider, an overdue failover test */
+  const routers = internetRouters(db, dc.id);
+  for (const f of internetFindings(db, dc.id)) add({ id: f.id, domain: 'Internet', severity: f.severity, title: f.title, detail: f.detail, fix: f.fix,
+    assets: f.feedIds, neIds: routers, rackIds: [...new Set(routers.map(id => db.neById.get(id)!.rackId))], to: `/datacenters/${dc.id}?tab=internet` });
   const rank: Record<Severity, number> = { critical: 0, major: 1, minor: 2, warning: 3 };
   return out.sort((a, b) => rank[a.severity] - rank[b.severity] || b.services - a.services);
 }

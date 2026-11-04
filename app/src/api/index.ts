@@ -61,6 +61,7 @@ export const getDevicePhysical = (neId: string) => wait(() => S.devicePhysical(n
 export const getCablePath = (linkId: string) => wait(() => S.cablePath(linkId));                   // GET /links/:id/cable-path
 export const getWhatIf = (dcId: string, assetId: string) => wait(() => S.whatIf(dcId, assetId));  // GET /datacenters/:id/what-if?asset
 export const getSiteSafety = (dcId: string) => wait(() => S.siteSafety(dcId));                   // GET /datacenters/:id/safety (fire, leak, access)
+export const getSiteInternet = (dcId: string) => wait(() => S.siteInternet(dcId));               // GET /datacenters/:id/internet (transit feeds, circuits, cable paths, BGP, HA findings)
 export const getSiteAccess = (dcId: string) => wait(() => S.siteAccess(dcId));                   // GET /datacenters/:id/access-log (visits, badge events, security exceptions, access review)
 export const getSiteLifecycle = (dcId: string) => wait(() => S.siteLifecycle(dcId));             // GET /datacenters/:id/lifecycle (warranty, support, RMA, spares)
 export const getDeviceLifecycle = (neId: string) => wait(() => S.deviceLifecycle(neId));         // GET /network-elements/:id/lifecycle
@@ -221,6 +222,7 @@ export const getPowerEconomics = (dcId?: string) => wait(() => S.powerEconomics(
 export const getGpu = (q: Parameters<typeof S.gpu>[0] = {}) => wait(() => S.gpu(q));                // GET /ai-infrastructure?dcId
 export const getGpuNode = (neId: string) => wait(() => S.gpuNode(neId));                          // GET /ai-infrastructure/nodes/:id
 export const hasGpuNow = (dcId?: string) => S.hasGpu(dcId);
+export const hasInternetNow = (dcId: string) => S.hasInternetAt(dcId);
 export const getRevenue = (q: Parameters<typeof S.revenue>[0] = {}) => wait(() => S.revenue(q));   // GET /revenue-impact?dcId
 export const getCommandCenter = () => wait(S.commandCenter);                                       // GET /command-center
 export const search = (q: string) => wait(() => S.search(q));                                       // GET /search?q
