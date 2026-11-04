@@ -33,7 +33,7 @@ const sig = (r: T.PlannerRuleDef) => JSON.stringify([r.title, r.aspect, r.severi
 /** Every rule once, with the templates that carry it (their own copies) and whether those copies differ (overrides). */
 export function ruleIndex(templates: T.PlannerTemplate[]): RuleEntry[] {
   const by = new Map<string, RuleEntry>();
-  for (const t of templates) for (const r of t.rules) {
+  for (const t of templates) if (!t.versionOf && !t.isDeleted) for (const r of t.rules) {
     const e = by.get(r.id) ?? { id: r.id, rule: r, carriers: [], differs: false };
     e.carriers.push({ template: t, rule: r }); by.set(r.id, e);
   }
@@ -51,7 +51,7 @@ export const isOverride = (e: RuleEntry, c: RuleCarrier) => sig(c.rule) !== sig(
 export interface CheckEntry { check: string; plain: string; aspect: T.PlannerAspect; usedIn: T.PlannerTemplate[]; rules: string[] }
 export function checkCatalog(templates: T.PlannerTemplate[]): CheckEntry[] {
   const by = new Map<string, CheckEntry>();
-  for (const t of templates) for (const r of t.rules) {
+  for (const t of templates) if (!t.versionOf && !t.isDeleted) for (const r of t.rules) {
     const c = by.get(r.check) ?? { check: r.check, plain: RULE_PLAIN[r.check] ?? r.title, aspect: r.aspect, usedIn: [], rules: [] };
     if (!c.usedIn.includes(t)) c.usedIn.push(t); if (!c.rules.includes(r.id)) c.rules.push(r.id); by.set(r.check, c);
   }

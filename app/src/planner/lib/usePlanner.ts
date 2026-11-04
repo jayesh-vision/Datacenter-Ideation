@@ -24,6 +24,7 @@ import { recordedVendorOrders, type VendorOrderRecord } from './packModel';
 import type { VendorOrder } from './sourcing';
 import * as G from './governance';
 import { activeBenchmarks, duplicateOf, changedFields, BENCH_APPROVER_ROLE } from './benchCatalog';
+import { TEMPLATE_APPROVER_ROLE, contentOf, dependents, draftVersionOf, needsPublishApproval, sameContent, templateDiff, templateErrors } from './templateCatalog';
 import { PEOPLE } from '../compat/people';
 import { moveReservations } from './reservations';
 import { clockMs } from '../compat/clock';
@@ -38,7 +39,8 @@ const sid = (p: string) => `${p}-${clockMs().toString(36).toUpperCase()}${Math.f
 /** Tenant of every record. The signed-in user carries an operator, not a customer id, so the platform tenant is used. */
 export const TENANT_ID = 'CUST-001';
 
-export const useTemplates = () => (useEntityList('plannerTemplates', BIG).data?.data ?? []) as unknown as T.PlannerTemplate[];
+export const useTemplates = () => { const d = useEntityList('plannerTemplates', BIG).data?.data; return useMemo(() => ((d ?? EMPTY) as unknown as T.PlannerTemplate[]).filter(t => !t.isDeleted), [d]); };
+export const useTemplateAudit = (id?: string) => { const data = useEntityList('auditEvents', { pageSize: 100000 }).data?.data; return useMemo(() => ((data ?? EMPTY) as unknown as T.AuditEvent[]).filter(e => id && e.entityType === 'Template' && e.entityId === id).sort((a, b) => b.timestamp.localeCompare(a.timestamp)), [data, id]); };
 /** Values the planner reads: retired ones are left out. */
 export const useBenchmarks = () => { const data = useEntityList('plannerBenchmarks', BIG).data?.data; return useMemo(() => activeBenchmarks((data ?? EMPTY) as unknown as T.PlannerBenchmark[]), [data]); };
 /** The whole library, retired values included (Benchmarks screen). */
@@ -439,7 +441,9 @@ export function usePlannerActions() {
       const CONTENT: (keyof T.PlannerTemplate)[] = ['name', 'description', 'params', 'rules', 'requiredAspects', 'outputs', 'approvalPath', 'executesAs', 'blueprintKey', 'appliesTo', 'inheritsFrom', 'demand', 'items', 'scope', 'dcTypeKey'];
       const changed = CONTENT.filter(k => JSON.stringify(old[k] ?? null) !== JSON.stringify(t[k] ?? null));
       const version = changed.length ? (old.version ?? 1) + 1 : old.version;
-      const rec = { ...t, version, updatedAt: now(), updatedBy: actor };
+      /* an in-place content change of a published template keeps the old content, so plans pinned to it still evaluate against it */
+      const history = version !== old.version && old.status === 'published' ? [...(old.history ?? []), { version: old.version, at: now(), by: actor, note: 'Edited in place', content: contentOf(old) }] : old.history;
+      const rec = { ...t, version, history, updatedAt: now(), updatedBy: actor };
       db.update('plannerTemplates', t.id, rec as unknown as Record<string, unknown>);
       const paramChanges: T.AuditChange[] = changed.includes('params') ? t.params.filter(p => JSON.stringify(old.params.find(o => o.key === p.key)) !== JSON.stringify(p)).map(p => ({ field: `param ${p.key} default`, from: old.params.find(o => o.key === p.key)?.default, to: p.default })) : [];
       const changes: T.AuditChange[] = [...changed.filter(k => k !== 'params').map(k => ({ field: String(k), from: '…', to: '…' })), ...paramChanges, ...(old.status !== t.status ? [{ field: 'status', from: old.status, to: t.status }] : []), ...(version !== old.version ? [{ field: 'version', from: old.version, to: version }] : [])];
@@ -447,6 +451,94 @@ export function usePlannerActions() {
       invalidate(); return rec;
     },
     cloneTemplate(t: T.PlannerTemplate, name: string) { const id = sid('TPL'); const rec: T.PlannerTemplate = { ...t, id, tplId: id, ...meta(), name, version: 1, status: 'draft', ownerName: actor, inheritsFrom: t.id, params: [], rules: [] }; db.create('plannerTemplates', rec as unknown as Record<string, unknown>); log('Template', id, 'created', `Template ${name} created from ${t.name} v${t.version}`); invalidate(); return rec; },
+    /** A new template: a copy (own inputs and rules, flattened from the source's chain, no inheritance), a variant (inherits) or blank (modules). Starts as a draft, v1. */
+    createTemplate(o: { kind: T.PlannerTemplateKind; name: string; mode: 'copy' | 'variant' | 'blank'; source?: T.PlannerTemplate; resolved?: { params: T.PlannerParamDef[]; rules: T.PlannerRuleDef[] }; description?: string }): T.PlannerTemplate {
+      const id = sid('TPL'); const s = o.source;
+      const base: Partial<T.PlannerTemplate> = s && o.mode !== 'blank' ? { ...contentOf(s), ...(o.mode === 'copy' ? { params: JSON.parse(JSON.stringify(o.resolved?.params ?? s.params)), rules: JSON.parse(JSON.stringify(o.resolved?.rules ?? s.rules)), inheritsFrom: s.inheritsFrom && !o.resolved ? s.inheritsFrom : undefined } : { params: [], rules: [], inheritsFrom: s.id }) }
+        : { params: [], rules: [], requiredAspects: o.kind === 'aspect' ? [] : [], outputs: [], approvalPath: [], labels: [o.kind], appliesTo: { level: 'org', label: 'Whole organisation' }, ...(o.kind === 'demand' ? { demand: { gpuPct: 20, computePct: 60, storagePct: 20, phases: [{ name: 'Phase 1', sharePct: 100, monthsFromStart: 0 }] } } : {}), ...(o.kind === 'document' || o.kind === 'checklist' ? { items: [] } : {}) };
+      const rec = { ...base, id, tplId: id, kind: o.kind, name: o.name, description: o.description ?? (s && o.mode !== 'blank' ? s.description : ''), ownerName: actor, version: 1, status: 'draft', ...meta() } as T.PlannerTemplate;
+      db.create('plannerTemplates', rec as unknown as Record<string, unknown>);
+      log('Template', id, 'created', `Template ${o.name} created${s && o.mode !== 'blank' ? ` as a ${o.mode === 'copy' ? 'copy' : 'variant'} of ${s.name} v${s.version}` : ' from blank'}`); invalidate(); return rec;
+    },
+    /** Open (or return) the draft that becomes the next version of a published or retired template; the live one keeps serving plans. */
+    startTemplateVersion(t: T.PlannerTemplate): T.PlannerTemplate {
+      const open = draftVersionOf(t, db.getAll('plannerTemplates', { pageSize: 100000 }).data as unknown as T.PlannerTemplate[]); if (open) return open;
+      const id = sid('TPL');
+      const rec = { ...t, ...contentOf(t), id, tplId: id, versionOf: t.id, version: t.version + 1, status: 'draft', history: undefined, pendingPublish: undefined, retiredAt: undefined, retiredBy: undefined, retireReason: undefined, ...meta() } as T.PlannerTemplate;
+      db.create('plannerTemplates', rec as unknown as Record<string, unknown>);
+      log('Template', t.id, 'version drafted', `Template ${t.name}: draft v${rec.version} opened from v${t.version}; v${t.version} keeps serving plans until it is published`); invalidate(); return rec;
+    },
+    /** Save a draft's content (no version bump while it is a draft); the history line lists what changed. */
+    saveTemplateDraft(t: T.PlannerTemplate): { ok: true } | { ok: false; reason: string } {
+      const old = db.getById('plannerTemplates', t.id) as unknown as T.PlannerTemplate | undefined;
+      if (!old || old.status !== 'draft') return refuse('Only a draft can be edited.');
+      if (old.pendingPublish) return refuse('This draft is waiting for approval; withdraw the request to edit it.');
+      const all = db.getAll('plannerTemplates', { pageSize: 100000 }).data as unknown as T.PlannerTemplate[];
+      const errs = templateErrors(t, all); if (errs.length) return refuse(errs[0]);
+      if (sameContent(old, t)) return { ok: true };
+      const diff = templateDiff(contentOf(old), contentOf(t));
+      db.update('plannerTemplates', t.id, { ...contentOf(t), updatedAt: now(), updatedBy: actor } as unknown as Record<string, unknown>);
+      log('Template', t.versionOf ?? t.id, 'draft edited', `Template ${t.name}: draft v${t.version} — ${diff.slice(0, 6).map(c => `${c.what}${c.to ? ` ${c.from ? `${c.from} → ` : ''}${c.to}` : ` ${c.from ?? ''}`}`).join('; ')}${diff.length > 6 ? ` and ${diff.length - 6} more` : ''}`, { changes: diff.map(c => ({ field: `${c.area}: ${c.what}`, from: c.from, to: c.to })) });
+      invalidate(); return { ok: true };
+    },
+    /** Publish a draft: a new template goes live; a draft version is copied onto the live record (old content kept in history).
+     *  When the template is in use, this only asks for approval (a second template approver publishes). */
+    publishTemplate(t: T.PlannerTemplate, reason?: string): { ok: true; pending?: boolean } | { ok: false; reason: string } {
+      const all = db.getAll('plannerTemplates', { pageSize: 100000 }).data as unknown as T.PlannerTemplate[];
+      const plans = db.getAll('plannerPlans', { pageSize: 100000 }).data as unknown as T.PlannerPlan[];
+      const cur = all.find(x => x.id === t.id); if (!cur || cur.status !== 'draft') return refuse('Only a draft can be published.');
+      const errs = templateErrors(cur, all); if (errs.length) return refuse(errs[0]);
+      if (needsPublishApproval(cur, all, plans)) {
+        if (cur.pendingPublish) return refuse('Already waiting for approval.');
+        db.update('plannerTemplates', cur.id, { pendingPublish: { requestedBy: actor, requestedById: actorId, requestedAt: now(), reason }, updatedAt: now() });
+        log('Template', cur.versionOf ?? cur.id, 'publish requested', `Template ${cur.name}: draft v${cur.version} sent for approval`, { reason }); invalidate(); return { ok: true, pending: true };
+      }
+      return this.applyTemplatePublish(cur, reason);
+    },
+    applyTemplatePublish(cur: T.PlannerTemplate, reason?: string, approvedBy?: string): { ok: true } | { ok: false; reason: string } {
+      const live = cur.versionOf ? db.getById('plannerTemplates', cur.versionOf) as unknown as T.PlannerTemplate | undefined : undefined;
+      const by = approvedBy ? ` (requested by ${cur.pendingPublish?.requestedBy}, approved by ${approvedBy})` : '';
+      if (!live) {
+        db.update('plannerTemplates', cur.id, { status: 'published', pendingPublish: undefined, publishedAt: now(), publishedBy: actor, updatedAt: now(), updatedBy: actor });
+        log('Template', cur.id, 'published', `Template ${cur.name} v${cur.version} published${by}`, { reason }); invalidate(); return { ok: true };
+      }
+      const diff = templateDiff(contentOf(live), contentOf(cur));
+      const history = [...(live.history ?? []), { version: live.version, at: now(), by: actor, content: contentOf(live) }];
+      db.update('plannerTemplates', live.id, { ...contentOf(cur), version: cur.version, status: 'published', history, retiredAt: undefined, retiredBy: undefined, retireReason: undefined, publishedAt: now(), publishedBy: actor, updatedAt: now(), updatedBy: actor } as unknown as Record<string, unknown>);
+      db.update('plannerTemplates', cur.id, { isDeleted: true, pendingPublish: undefined });
+      log('Template', live.id, 'published', `Template ${cur.name} v${cur.version} published, replacing v${live.version}${by}: ${diff.length} change${diff.length === 1 ? '' : 's'}`, { reason, changes: diff.map(c => ({ field: `${c.area}: ${c.what}`, from: c.from, to: c.to })) });
+      invalidate(); return { ok: true };
+    },
+    approveTemplatePublish(t: T.PlannerTemplate): { ok: true } | { ok: false; reason: string } {
+      const cur = db.getById('plannerTemplates', t.id) as unknown as T.PlannerTemplate | undefined; const p = cur?.pendingPublish;
+      if (!cur || !p) return refuse('Nothing is waiting for approval.');
+      if (PEOPLE.find(x => x.id === actorId)?.role !== TEMPLATE_APPROVER_ROLE) return refuse(`Only a ${TEMPLATE_APPROVER_ROLE} can approve a template version.`);
+      if (actorId && actorId === p.requestedById) return refuse('The person who asked to publish cannot approve it.');
+      return this.applyTemplatePublish(cur, p.reason, actor);
+    },
+    rejectTemplatePublish(t: T.PlannerTemplate, reason: string, withdraw = false) {
+      const p = t.pendingPublish; if (!p) return;
+      db.update('plannerTemplates', t.id, { pendingPublish: undefined, updatedAt: now(), updatedBy: actor });
+      log('Template', t.versionOf ?? t.id, withdraw ? 'publish withdrawn' : 'publish rejected', `Template ${t.name}: draft v${t.version} ${withdraw ? 'withdrawn by' : `requested by ${p.requestedBy} rejected by`} ${actor}; it stays a draft`, { reason }); invalidate();
+    },
+    /** Retire: new plans cannot pick it; plans and variants on it keep working. */
+    retireTemplate(t: T.PlannerTemplate, reason: string) {
+      db.update('plannerTemplates', t.id, { status: 'deprecated', retiredAt: now(), retiredBy: actor, retireReason: reason, updatedAt: now(), updatedBy: actor });
+      const d = dependents(t, db.getAll('plannerTemplates', { pageSize: 100000 }).data as unknown as T.PlannerTemplate[], db.getAll('plannerPlans', { pageSize: 100000 }).data as unknown as T.PlannerPlan[]);
+      log('Template', t.id, 'template retired', `Template ${t.name} v${t.version} retired (${d.plans.length} plan(s) and ${d.variants.length} variant(s) keep it)`, { reason }); invalidate();
+    },
+    restoreTemplate(t: T.PlannerTemplate, reason?: string) {
+      db.update('plannerTemplates', t.id, { status: 'published', retiredAt: undefined, retiredBy: undefined, retireReason: undefined, updatedAt: now(), updatedBy: actor });
+      log('Template', t.id, 'template restored', `Template ${t.name} v${t.version} restored: new plans can use it again`, { reason }); invalidate();
+    },
+    /** Delete a draft nobody uses (a discarded draft version leaves the live one untouched). */
+    discardTemplateDraft(t: T.PlannerTemplate): { ok: true } | { ok: false; reason: string } {
+      if (t.status !== 'draft') return refuse('Only a draft can be deleted.');
+      const d = dependents(t, db.getAll('plannerTemplates', { pageSize: 100000 }).data as unknown as T.PlannerTemplate[], db.getAll('plannerPlans', { pageSize: 100000 }).data as unknown as T.PlannerPlan[]);
+      if (!t.versionOf && (d.plans.length || d.variants.length)) return refuse(`${d.plans.length} plan(s) and ${d.variants.length} variant(s) use this draft.`);
+      db.update('plannerTemplates', t.id, { isDeleted: true, pendingPublish: undefined, updatedAt: now(), updatedBy: actor });
+      log('Template', t.versionOf ?? t.id, t.versionOf ? 'draft discarded' : 'template deleted', t.versionOf ? `Template ${t.name}: draft v${t.version} discarded` : `Template ${t.name} (draft) deleted`); invalidate(); return { ok: true };
+    },
     /** Save a benchmark. Value edits bump its version and are audited old → new. Refused when another active value already
      *  covers the same measure and case (the planner would read whichever comes first). */
     saveBenchmark(b: T.PlannerBenchmark): { ok: true } | { ok: false; reason: string } {

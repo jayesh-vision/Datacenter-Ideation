@@ -1126,8 +1126,18 @@ export function planForScenario(plan: T.PlannerPlan, scenario?: T.PlannerScenari
  * Evaluate a plan. `data` is the platform data (see plannerData.ts); without it the engine
  * still runs, but checks against the real site are reported as not checked.
  */
+/** The templates with the plan's own template swapped for the version it is pinned to, when that version is stored. */
+export function pinnedTemplates(plan: Pick<T.PlannerPlan, 'templateId' | 'templateVersion'>, templates: T.PlannerTemplate[]): T.PlannerTemplate[] {
+  const v = plan.templateVersion; if (v === undefined) return templates;
+  const i = templates.findIndex(t => t.id === plan.templateId); if (i < 0) return templates;
+  const t = templates[i]; if (t.version === v) return templates;
+  const snap = t.history?.find(h => h.version === v); if (!snap) return templates;
+  const out = templates.slice(); out[i] = { ...t, ...JSON.parse(JSON.stringify(snap.content)), version: v }; return out;
+}
+
 export function evaluate(basePlan: T.PlannerPlan, scenario: T.PlannerScenario | null | undefined, templates: T.PlannerTemplate[], benchmarks: T.PlannerBenchmark[], actuals?: EstateActuals, data?: PlannerData): Evaluation {
   const plan = planForScenario(basePlan, scenario);
+  templates = pinnedTemplates(plan, templates);
   const resolved = resolveTemplate(plan.templateId, templates);
   const profile = templates.find(t => t.kind === 'profile' && t.dcTypeKey === plan.dcTypeKey) ?? null;
   const params = effectiveParams(resolved, plan, scenario, profile);

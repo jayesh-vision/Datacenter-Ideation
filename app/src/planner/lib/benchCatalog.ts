@@ -83,14 +83,14 @@ export function measuresFor(view: BenchView, all: T.PlannerBenchmark[]): Measure
 /* ------------------------------------------------------------------ effect of a value change on open plans */
 export interface PlanFigures { capex: number; opexMonthly: number; late: number; hard: number; warn: number }
 export interface BenchImpactRow { plan: T.PlannerPlan; before: PlanFigures; after: PlanFigures }
-const figures = (ev: Evaluation): PlanFigures => ({ capex: ev.estimate.capexTotal, opexMonthly: ev.estimate.opexMonthly, late: ev.schedule.filter(s => s.late).length, hard: ev.hardFails, warn: ev.softWarns });
+export const planFigures = (ev: Evaluation): PlanFigures => ({ capex: ev.estimate.capexTotal, opexMonthly: ev.estimate.opexMonthly, late: ev.schedule.filter(s => s.late).length, hard: ev.hardFails, warn: ev.softWarns });
 /** Open plans (Draft / In review / Rejected / On hold) evaluated with today's values and with the changed set; only plans whose CapEx,
  *  OpEx, late items or rule results move are returned. Approved plans keep their baseline. */
 export function benchImpact(plans: T.PlannerPlan[], templates: T.PlannerTemplate[], before: T.PlannerBenchmark[], after: T.PlannerBenchmark[], actualsOf: (p: T.PlannerPlan) => EstateActuals, data: PlannerData): { rows: BenchImpactRow[]; checked: number } {
   const open = plans.filter(p => OPEN_PLAN_STATUSES.includes(p.status) && !p.isDeleted);
   const rows: BenchImpactRow[] = [];
   for (const p of open) {
-    const a = figures(evaluate(p, null, templates, before, actualsOf(p), data)), b = figures(evaluate(p, null, templates, after, actualsOf(p), data));
+    const a = planFigures(evaluate(p, null, templates, before, actualsOf(p), data)), b = planFigures(evaluate(p, null, templates, after, actualsOf(p), data));
     if (JSON.stringify(a) !== JSON.stringify(b)) rows.push({ plan: p, before: a, after: b });
   }
   return { rows, checked: open.length };

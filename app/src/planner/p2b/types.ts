@@ -494,7 +494,17 @@ export interface PlannerTemplate extends BaseEntity {
   demand?: { gpuPct: number; computePct: number; storagePct: number; phases: { name: string; sharePct: number; monthsFromStart: number }[] };
   /** For document and checklist templates: the sections or items. */
   items?: string[];
+  /** A draft that is the next version of this published template (same lineage; publishing copies it onto that record). */
+  versionOf?: string;
+  /** Content of earlier published versions, newest last (plans pinned to one are evaluated against it). */
+  history?: PlannerTemplateSnapshot[];
+  /** Publishing this draft is waiting for a second template approver. */
+  pendingPublish?: { requestedBy: string; requestedById?: string; requestedAt: string; reason?: string };
+  retiredAt?: string; retiredBy?: string; retireReason?: string;
+  publishedAt?: string; publishedBy?: string;
 }
+export type PlannerTemplateContent = Pick<PlannerTemplate, 'name' | 'description' | 'ownerName' | 'params' | 'rules' | 'requiredAspects' | 'outputs' | 'approvalPath' | 'executesAs' | 'blueprintKey' | 'appliesTo' | 'inheritsFrom' | 'demand' | 'items' | 'scope' | 'dcTypeKey' | 'labels'>;
+export interface PlannerTemplateSnapshot { version: number; at: string; by: string; note?: string; content: PlannerTemplateContent }
 export interface PlannerBenchmark extends BaseEntity {
   bmId: string; metric: string; label: string; category: 'cost' | 'performance' | 'sizing' | 'leadtime' | 'staffing' | 'sustainability';
   value?: number; low?: number; high?: number; unit: string;

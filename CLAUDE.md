@@ -883,6 +883,23 @@ id / version / status) per tab, Export rules (CSV) on Rules; ⋮ Import values f
 applies-to fields, numbers, order, source, date, duplicates in the file, retired / pending targets are rejected with the reason) → tiles New / Changed / Unchanged /
 Rejected → Apply (confirmed changes go for approval). `changedFields` compares applies-to by fields and the as-of date by day (a re-imported export is all Unchanged).
 Check: `node .qa/p2b-bench-govern.mjs neocloud us` (W=1280|1440).
+Templates lifecycle, phase A (04-Nov-2026, user: "how does a user create a template, edit it through its lifecycle, add / remove rules"):
+`planner/lib/templateCatalog.ts` + `screens/planning/templateEditor.tsx`. **New plan type / New module** (Templates panel header; not on Site types: those are the
+engine's sizing catalogue in code) = copy (own inputs + rules flattened from the source chain, no inheritance), variant (inherits) or blank (modules only); a plan type
+always starts from one of the same family (scope fixes the wizard). Starts as draft v1 and opens in the editor. **A published template is never edited in place**:
+Edit → `startTemplateVersion` = a draft record `versionOf: <live id>`, version n+1, beside the live one (list shows "Draft vN" on the live row; `liveTemplates()` hides
+draft versions and deleted records from lists, `ruleIndex` / `checkCatalog` skip them). Editor (drafts only, `saveTemplateDraft`, no version bump while a draft):
+details (name, description, owner, applies to org / region / site, becomes a, site type; family locked), wizard areas (In full / Brief / Skip per aspect), approval
+path (steps from `STEP_ROLE` + Finance (by amount), reorder / remove), outputs, inputs (own: default + allowed min / max or options, Remove / Use inherited; inherited:
+Override; add only inputs some template already defines — `paramCatalog`, the engine reads known keys), demand mix + phases (sum 100), document / checklist items;
+`templateErrors` validates. Draft drawer: **Changes from vN** (`templateDiff`, in words), **Effect on open plans** (`templateImpact`, plans pinned to the live version
+skip), Publish: a new or unused template publishes directly; a version of a template plans or variants use → `pendingPublish` → a second Capacity Planner approves
+(`approveTemplatePublish`, "Switch to" for the demo) / rejects / requester withdraws. Publishing a version copies its content onto the live record (same id) and pushes
+the old content to `history`; the draft record is deleted. `saveTemplate` (used by Benchmarks → Rules) also stores a snapshot when it bumps a published template.
+**Plans pinned to a version** (`templateVersion`) are evaluated against that stored content (`pinnedTemplates` in engine.ts `evaluate`). Retire needs a reason and
+lists the plans / variants that keep it; Restore; drafts can be deleted (draft versions: Discard). Versions and history section: live + earlier versions ("What
+changed since" modal) + audit lines (draft edits are logged on the live id). Rules in a template are still edited in Benchmarks → Rules (phase B moves them here
+and through the draft). Check: `node .qa/p2b-templates.mjs neocloud us` (W=1280|1440).
 Delivery's header shows one action per sub-menu (planner on Insights, New programme on Programs, New project on Projects).
 DCIM → Insights (`screens/dcim/Insights.tsx`, `?tab=overview`, now the default `/dcim`): Needs attention (same predicates as the Racks / Cabling /
 Power / Devices list filters, each row opens that filtered list), sites and halls by power pressure (85% marker), rack density and device
