@@ -11,6 +11,9 @@ const Twin2 = lazy(() => import('./twin2/Twin2'));
    and the realistic twin. `?twin=` wins, then the viewer's last choice (localStorage). */
 export type TwinView = 'schematic' | 'realistic';
 const KEY = 'dco.twin.view';
+/* Schematic hidden from the UI (04-Nov-2026, user: "hide the schematic view option, don't delete the code"): no View switch, every
+   viewer gets the realistic twin (a saved or linked ?twin=schematic is ignored). Set true to bring the switch and the schematic back. */
+export const SHOW_SCHEMATIC = false;
 const VIEWS: { id: TwinView; label: string; icon: typeof I.Box; title: string }[] = [
   { id: 'schematic', label: 'Schematic', icon: I.Box, title: 'Schematic 3D view: slate shell, graphite cabinets, overlays' },
   { id: 'realistic', label: 'Realistic', icon: I.Building2, title: 'Realistic 3D view: textured cabinets, perforated doors, trays, plant' }
@@ -21,7 +24,7 @@ const saved = (): TwinView => { try { const v = localStorage.getItem(KEY); retur
 export function useTwinView(): [TwinView, (v: TwinView) => void] {
   const [sp, setSp] = useSearchParams();
   const q = sp.get('twin');
-  const view: TwinView = isView(q) ? q : saved();
+  const view: TwinView = !SHOW_SCHEMATIC ? 'realistic' : isView(q) ? q : saved();
   const set = (v: TwinView) => {
     try { localStorage.setItem(KEY, v); } catch { /* storage blocked */ }
     const n = new URLSearchParams(sp); n.set('twin', v); setSp(n, { replace: true });
@@ -47,7 +50,7 @@ export function TwinHost({ dcId, view, onView }: { dcId: string; view: TwinView;
         <span className="vw-card-title-sm">Datacenter layout</span>
         <span className="twin-host-live" title="Health, temperature, power and cabling as the collectors report them now"><i />Live</span>
         <span className="vw-label twin-host-path">Building › Floor › Room › Rack › Equipment</span>
-        <TwinViewSwitch value={view} onChange={onView} />
+        {SHOW_SCHEMATIC && <TwinViewSwitch value={view} onChange={onView} />}
       </div>
       <Suspense fallback={<Loading label="Loading datacenter layout" />}>
         {view === 'realistic' ? <Twin2 key={dcId} dcId={dcId} /> : <Twin key={dcId} dcId={dcId} />}

@@ -199,7 +199,7 @@ unfiltered list. Check: `npx tsx .qa/cc-numbers.ts` (every hero figure vs the li
 the number is computed, what clicking does; persona vocabulary via `vocabNow()`. New widgets must get one.
 
 ## Realistic digital twin (08-Oct-2026, user) — a second 3D view, the first one untouched
-The datacenter Overview tab now hosts two 3D views (`site/TwinHost.tsx`): a slim bar "Digital twin · Building › Floor › Room › Rack ›
+**Schematic hidden from the UI (04-Nov-2026, user; code kept): `SHOW_SCHEMATIC = false` in `site/TwinHost.tsx` removes the View switch and every viewer gets the realistic twin (saved / linked `?twin=schematic` ignored); set it true to restore.** The datacenter Overview tab now hosts two 3D views (`site/TwinHost.tsx`): a slim bar "Digital twin · Building › Floor › Room › Rack ›
 Equipment" with a View switch Schematic | Realistic (`?twin=schematic|realistic` wins, then localStorage `dco.twin.view`; default
 schematic). Schematic = the signed-off twin in `site/twin/*` (still frozen). Realistic = `site/twin2/*`, a port of the user's friend's
 DC-Digital-View prototype (`../DC-Digital-View/`, untracked, kept as the visual reference): textured device bezels per role (server /
