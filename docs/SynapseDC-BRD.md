@@ -1720,7 +1720,7 @@ It sizes the plan from templates and benchmarks, checks it against rules, compar
     - build: new datacenter, expansion, portfolio, edge;
     - replace: server refresh, network refresh, rack replacement;
     - migration;
-  - templates with inheritance, versions and variants;
+  - templates with inheritance, versions and variants, a draft → publish lifecycle with approval, rules carried by templates, and plan types built from modules (aspect modules, rule sets, demand profiles, commissioning checklists, documents);
   - benchmarks (costs, efficiency, lead times, sizing and staffing, rules);
   - the wizard;
   - the planner engine: sizing, CapEx / OpEx, NPV / IRR / payback, schedule from lead times, rule checks, readiness;
@@ -1742,7 +1742,7 @@ It sizes the plan from templates and benchmarks, checks it against rules, compar
 | ID | Rule |
 | --- | --- |
 | BRULE-PLN-01 | A template inherits from its parent (resolved chain). A plan's effective input = plan override → template default → benchmark → planner-derived value, and the source is shown for each input. |
-| BRULE-PLN-02 | A content change to a template bumps its version. Plans keep the version they were made from, and template drift is flagged on the plan. |
+| BRULE-PLN-02 | A published template is never changed in place: a content change is made in a draft of its next version and goes live when that draft is published (BRULE-PLN-21, BRULE-PLN-22). Plans keep the version they were made from (BRULE-PLN-25), and template drift is flagged on the plan. |
 | BRULE-PLN-03 | CapEx band (delegation of authority):<br>• ≤ $50k Operational spend → Capacity Planner;<br>• ≤ $250k Departmental budget → Finance Manager;<br>• ≤ $1M Site programme → Finance Manager, then Facilities Director, with a business case;<br>• above $1M Capital programme → Finance Manager, then Executive, with a business case. |
 | BRULE-PLN-04 | The approval path = the template's path with the band's roles inserted at the finance step, or before the first band role, or at the end. The requester and the submitter cannot approve their own plan. |
 | BRULE-PLN-05 | Hard rule failures block submission. Soft rules warn. An approved demo or seeded plan that fails a hard rule on the live estate goes back to Draft, with the reason. |
@@ -1750,7 +1750,7 @@ It sizes the plan from templates and benchmarks, checks it against rules, compar
 | BRULE-PLN-07 | Figures follow the scenario in order: approved → in review → preferred → base. |
 | BRULE-PLN-08 | The bill of materials is priced once from the catalogue. Sourcing order per line: spare site capacity, then unheld stock, then the catalogue vendor under its contract. Edits to the bill add one CapEx line, "Bill of materials changes". |
 | BRULE-PLN-09 | Edit policy, the same for every editor on the plan page:<br>• Draft / Rejected = edit in place;<br>• In review = "Withdraw and save" (the round stays in History);<br>• Approved / Executing = "Draft revision B" (the edit is applied to the revision, audited "Raised to change: …"; map fields are re-based so the revision keeps its approved overrides); an open draft revision takes further edits ("Save to revision B"); a revision in review makes the plan read-only until it is decided;<br>• On hold / Completed / Cancelled / superseded = read-only, with the reason.<br>Risks and permits are a live register: status, rating, owner and mitigation save straight to any plan; adding, removing or renaming items drafts a revision. |
-| BRULE-PLN-10 | On approval a baseline is frozen: CapEx, contingency, OpEx, schedule, scenario and template version. Capacity and rack-unit holds are written. |
+| BRULE-PLN-10 | On approval a baseline is frozen: CapEx, contingency, OpEx, schedule, scenario, template version and the versions of the modules the template is built from. Capacity and rack-unit holds are written. |
 | BRULE-PLN-11 | "Start the build" hands the plan to Programs & Projects with the sourced BoM, vendor orders (one per vendor and phase), stock and rack holds, IP and the plan type's records. Handover in delivery completes the plan, and completing the plan signs the handover. |
 | BRULE-PLN-12 | Money is held in USD in the engine and shown in the geography's currency (India rate 50). |
 | BRULE-PLN-13 | Reviewers for "Send for review" = the holders of the approval path's roles minus the requester and the submitter. The request records who answered; the hub shows "Your review" to a reviewer who has not answered and "Review sent" to the planner. No e-mail is sent by the prototype (to discuss). |
@@ -1759,8 +1759,13 @@ It sizes the plan from templates and benchmarks, checks it against rules, compar
 | BRULE-PLN-16 | Benchmark values: each tab adds only its own kind of value (Costs, Efficiency, Lead times, Sizing & staffing). The measure fixes the unit and the group, and only the applies-to fields the engine matches it on are offered: build cost and IT cost per rack → site type; PUE → cooling + climate; staff per MW → tier; energy tariff → region; design temperatures → climate; floor loading → cooling; every other measure = one value for every plan. New items are allowed only where the engine reads them (equipment lead times, matched by the bill of materials' lead item). One active value per measure and case: a second one is refused with a link to the existing value. Low ≤ typical ≤ high; a source is required. |
 | BRULE-PLN-17 | Values are retired, never deleted (with a reason); a retired value is not read and plans of its case fall back to the next matching value or the engine default. Approved baselines keep the version they used. Every save is a new version, audited old → new. |
 | BRULE-PLN-18 | Changing a confirmed value, or confirming one (new or indicative), needs approval by a Capacity Planner other than the requester. Until it is approved the planner keeps reading today's value; a proposed new value is not read at all. Rejecting keeps the value (or drops the proposed one). Indicative values save directly. |
-| BRULE-PLN-19 | A rule = a check the planner engine runs (its logic is never configured) plus settings carried by templates: name, area, Must / Should pass, the limit (only for the checks that compare against one, with unit, default and direction), standard and source. A nearer template's differing copy overrides the shared settings; a template never carries two rules for the same check. Every rule change bumps the version of each template it touches and is audited with its reason. |
+| BRULE-PLN-19 | A rule = a check the planner engine runs (its logic is never configured) plus settings carried by templates: name, area, Must / Should pass, the limit (only for the checks that compare against one, with unit, default and direction), standard and source. A nearer template's differing copy overrides the shared settings; a template never carries two rules for the same check. Every rule change follows the template lifecycle (BRULE-PLN-23) and is audited with its reason. |
 | BRULE-PLN-20 | Before a value or rule change is saved, the open plans (Draft, In review, Rejected, On hold) are re-evaluated with and without it and the differences shown (CapEx, OpEx per month, late items, rule results). Approved, executing and completed plans keep their baseline. A CSV import is a dry run first: lines match by id, else by measure and case, and are classed New / Changed / Unchanged / Rejected with the reason; only Apply saves, and confirmed changes go for approval. |
+| BRULE-PLN-21 | Template lifecycle: draft → published → retired. A new template is a draft v1 that no plan can use: a plan type is a copy (every input and rule flattened from a published plan type of the same family; later changes to the source do not reach it) or a variant (inherits from it); a module (aspect module, rule set, demand profile, document, checklist) is blank, a copy or a variant. The family of a plan type is fixed (it decides the wizard steps and the checks). Site types come from the planner's sizing catalogue and are edited, not created. "Edit" on a published or retired template opens a draft of its next version beside the live one, which keeps serving plans; only one draft version is open at a time. A draft is refused while it has no name, a name another template of the same kind uses, a default outside its allowed range or options, no wizard area in full (plan types), a workload mix or phase split that does not add up to 100%, an empty document or checklist, two rules running the same check, or two modules for the same area or test system. A draft version can be discarded; a new draft nobody uses can be deleted. |
+| BRULE-PLN-22 | Publishing: a new template, or a version of a template nothing uses, publishes directly. A version of a template that plans, variants or plan types (for a module) use is sent for approval with a reason and published by a Capacity Planner other than the requester; reject or withdraw keeps the draft. Publishing copies the draft onto the live record (same id, so plans and variants keep pointing at it) and stores the replaced content as an earlier version. Retiring needs a reason: new plans cannot pick the template; plans, variants and plan types using it keep it; it can be restored. |
+| BRULE-PLN-23 | Rules inside a template: an own copy sets Must / Should pass and the limit; an inherited rule can be overridden (copied here) or switched off (not checked for plans on this template or its variants) and switched back on; a rule is added from the library (same settings as elsewhere) or created from a check the planner runs; a check is never run twice on one template. A rule change made in Benchmarks → Rules is saved in place only in templates nothing uses; templates in use take it into their draft version (opened when needed; refused while that draft awaits approval), and the rule library shows the state after those drafts are published, marked "In draft" with the drafts named. |
+| BRULE-PLN-24 | Modules: a plan type lists the modules it is built from. Their inputs and rules apply first; any copy in the plan type or its parents wins. One module per area (aspect modules), one demand profile, one checklist per test system and one basis-of-design document. A demand profile sets the workload mix a new plan of the type starts from. A checklist marked with a test system becomes the build's commissioning test plans (one per level L1–L5 and plan phase, from its lines of level, step, method and expected result separated by vertical bars); one marked "every edge site" becomes each edge site's acceptance test; a gate list is not a module. The "Basis of design" document sets the plan document: a standard section it leaves out is dropped, its order is the document's order (sections a family adds stay after the section they follow), a name the planner does not write becomes an empty section for the author, sections are numbered without gaps. Any other document module is added to the design documents the build is asked to produce. |
+| BRULE-PLN-25 | Pinning: when a plan is submitted or approved it is pinned to its template version and to the versions of the modules that template is built from (kept in the baseline). A pinned plan is evaluated, documented and handed over against those stored versions; later versions do not move it. The status line names a template or module that has moved on; a revision of the plan adopts the current versions. |
 
 ### 7.9.3 Functional requirements
 | ID | Requirement | Priority | Model | Phase |
@@ -1807,7 +1812,7 @@ It sizes the plan from templates and benchmarks, checks it against rules, compar
 | PLN-040 | The system shall warn before leaving the wizard with unsaved changes, and let the user jump to any completed step. | S | Both | P2 |
 | PLN-041 | The system shall send the plan's vendor orders (one per vendor and phase) to Programs & Projects / Procurement through their APIs, so the purchase orders there equal the plan's orders both before execution (Draft orders from the same sourcing) and after. | M | Both | P2 |
 | PLN-042 | The system shall record closeout changes through the audited action in BRULE-PLN-15 and show closeout checks (ready when every check passes or is marked for handover). | S | Both | P2 |
-| PLN-043 | The system shall let a template owner make a variant, publish or retire a template and edit input defaults on drafts; a content change bumps the version. | M | Both | P2 |
+| PLN-043 | The system shall let a template owner make a variant, duplicate, publish, retire and restore a template; every content change is made in a draft and published through the lifecycle (PLN-059…PLN-064, BRULE-PLN-21). | M | Both | P2 |
 | PLN-044 | The system shall filter benchmarks per view (reference value, site type, cooling, tier, region, confidence; rules by area and severity) across every table and chart of the view. | S | Both | P2 |
 | PLN-045 | The system shall show on the Command Center a Plan & build strip (capacity pipeline planned → approved → in build → commissioning → live, decisions due, week ahead) and a build lens, with plan approvals in Recommendations. | S | Both | P2 |
 | PLN-046 | The system shall show per plan an Overview dashboard: what and why with the Draft → In review → Approved → In delivery → Completed tracker, key dates, needs attention (failing rules, late items, conditions, decision due, review comments, submit blockers), phases, cost · capacity · readiness, inputs changed from the template, what the plan produces. | M | Both | P2 |
@@ -1823,6 +1828,16 @@ It sizes the plan from templates and benchmarks, checks it against rules, compar
 | PLN-056 | The system shall show where a rule applies and let the owner, per template, use the shared settings, set its own (an override of severity and limit), remove it, or add the rule to another plan type, rule set, module or site type; overrides are marked in the rule list. | M | Both | P2 |
 | PLN-057 | The system shall show, before a rule change is saved, which open plans start or stop failing it, take a reason, keep the rule's history, and let the owner remove a rule from every template with a reason. | S | Both | P2 |
 | PLN-058 | The system shall export each Benchmarks tab's values (with id, version and status) and the rules to CSV, and import values from CSV with a dry run (New / Changed / Unchanged / Rejected with reasons) before applying (BRULE-PLN-20). | S | Both | P2 |
+| PLN-059 | The system shall let a template owner create a plan type (a copy or a variant of a published plan type of the same family) or a module (aspect module, rule set, demand profile, document or checklist: blank, a copy or a variant), each starting as a draft v1 that no plan can use (BRULE-PLN-21). | M | Both | P2 |
+| PLN-060 | The system shall offer a draft editor for every field of a template: details (name, description, owner, applies to organisation / region / site, what an approved plan becomes, default site type; family locked), wizard areas (in full / brief / skip), approval path (add, reorder, remove steps), outputs, inputs (own default with allowed range or options; override an inherited input or fall back to it; add only inputs the planner reads), demand mix and phases, document sections and checklist items, and refuse to save with the reasons listed (BRULE-PLN-21). | M | Both | P2 |
+| PLN-061 | The system shall open, from Edit on a published or retired template, a draft of its next version beside the live one, mark the live row "Draft vN" in the lists, and let the owner discard a draft version or delete an unused new draft. | M | Both | P2 |
+| PLN-062 | The system shall show, before a draft version is published, its changes from the live version in words (area, what, was, now) and its effect on the open plans that use the template: CapEx, OpEx per month, late items and rule results before and after (plans pinned to the live version are left out). | S | Both | P2 |
+| PLN-063 | The system shall publish a draft directly or send it for approval with a reason, show the waiting request with who asked and why, and let a Capacity Planner other than the requester approve and publish it or reject it, and the requester withdraw it (BRULE-PLN-22). | M | Both | P2 |
+| PLN-064 | The system shall keep each template's earlier versions with "what changed since" against the live one and its history (created, drafted, edited, sent, approved, rejected, published, retired, restored, with who, when and why), and retire a template only with a reason that lists the plans, variants and plan types that keep it. | S | Both | P2 |
+| PLN-065 | The system shall list in the draft editor every rule the template checks (own, override, inherited with its source, switched off) and let the owner set Must / Should pass and the limit on its own copies, override, switch off or back on an inherited rule, remove a rule, and add one from the library or a new one from a check (BRULE-PLN-23). | M | Both | P2 |
+| PLN-066 | The system shall save a Benchmarks → Rules change into the draft version of every template in use that it touches, tell the user which drafts hold it, and mark those rules "In draft" in the rule library with links to the drafts (BRULE-PLN-23). | M | Both | P2 |
+| PLN-067 | The system shall let a template owner build a plan type from modules (add / remove; what each brings; how many of its settings the plan type overrides; modules inherited from the parent), show "Built from modules" on a plan type and "Used by plan types" on a module, list the plan types per module, and apply modules as in BRULE-PLN-24 to the wizard, the engine, the plan document and the build's test plans and design documents. | M | Both | P2 |
+| PLN-068 | The system shall pin a plan to its template version and module versions on submission and approval, evaluate it against them, and name on the plan's status line any template or module that has moved on (BRULE-PLN-25). | M | Both | P2 |
 
 ### 7.9.4 User stories and acceptance criteria
 **US-PLN-01** As a capacity planner, I want to create a GPU pod plan from a template, so that sizing, cost and schedule come from agreed benchmarks. (PLN-005, PLN-006, PLN-033)
@@ -1858,11 +1873,23 @@ It sizes the plan from templates and benchmarks, checks it against rules, compar
 **US-PLN-11** As a capacity planner, I want to refresh benchmark values from a spreadsheet, so that the yearly update is not typed by hand. (PLN-058)
 - Given an exported Costs CSV with one value changed, one new line, a wrong unit and a repeated line, when I import it, then the dry run shows 1 New, 1 Changed, 2 Rejected with reasons and the rest Unchanged, and only Apply saves.
 
+**US-PLN-12** As a template owner, I want a new version of a plan type that plans use to be approved before it replaces the live one, so that plans do not move on one person's edit. (PLN-061, PLN-062, PLN-063, PLN-064)
+- Given "Hall fit-out" v2 used by plans, when I click Edit, change a default and save, then draft v3 sits beside the live v2, the changes list "was / now" and the effect on open plans; the button reads "Send for approval"; when a second Capacity Planner approves, v3 is live, v2 is stored and "What changed since" lists the change.
+
+**US-PLN-13** As a design authority, I want to switch off an inherited rule in a regional variant, so that a regional exception does not change the parent standard. (PLN-065)
+- Given the Los Angeles GPU hall variant of "Hall fit-out", when I switch off "Free contiguous positions" in its draft and publish it, then plans of the variant no longer check that rule while "Hall fit-out" plans still do, and the change list shows "Switched off here".
+
+**US-PLN-14** As a commissioning lead, I want to add a test to the power commissioning checklist once, so that every new build gets it. (PLN-067, PLN-068)
+- Given "Commissioning · power" used by "New datacenter" and "Site expansion", when I add an L2 test and the new version is published, then draft plans of both types get it in their power L2 test plans, while an approved plan keeps its pinned version and its status line says "Module Commissioning · power moved v1 → v2".
+
+**US-PLN-15** As a template owner, I want to build a plan type from shared modules, so that power, cooling and document standards are kept in one place. (PLN-059, PLN-060, PLN-067)
+- Given a new plan type, when I add "Power · 2N" and "Basis of design", then its power inputs show "Power · 2N" as their source and its plans' document follows the module's sections; adding "Power · N+1" as well is refused (one module per area).
+
 ### 7.9.5 Data
 | Entity | Read / write | System of record | Notes |
 | --- | --- | --- | --- |
-| Plan, scenario, approval, review, comment | Read / write | Planner (SynapseDC store); capacity holds written to Inventory Planning through its API | audited |
-| Template, benchmark, rule | Read / write | Planner | versioned; benchmark values retired (never deleted) and changes to confirmed values held as pending until approved; rules live in templates (shared settings + per-template overrides); audited |
+| Plan, scenario, approval, review, comment | Read / write | Planner (SynapseDC store); capacity holds written to Inventory Planning through its API | audited; a submitted or approved plan carries its template version and module versions |
+| Template, benchmark, rule | Read / write | Planner | versioned; templates have a live record plus at most one draft of the next version, stored earlier versions, a pending publish request and the modules they are built from; benchmark values retired (never deleted) and changes to confirmed values held as pending until approved; rules live in templates (shared settings + per-template overrides + switched off); audited |
 | Site baseline (halls, racks, power, cooling, IP) | Read | Plan to Build Inventory, IP Management, SynapseDC telemetry | as-is |
 | Catalogue, stock, vendor contracts | Read | Supply Chain Materials, Warehouses, Contracts, Vendors | sourcing |
 | Holds | Write | Inventory Planning | on approval |
@@ -5045,7 +5072,7 @@ These screens exist in the ideation code only to show the whole flow. Each belon
 
 ## Appendix A — Requirement index
 
-512 functional requirements, 206 business rules, 106 user stories, 12 build-boundary requirements, 61 integration requirements, 16 data requirements, 20 non-functional requirements. By phase: P1 209, P2 272, P3 31. By priority: M 318, S 174, C 20. By model: Both 433, Colo 21, Neo 58.
+522 functional requirements, 211 business rules, 110 user stories, 12 build-boundary requirements, 61 integration requirements, 16 data requirements, 20 non-functional requirements. By phase: P1 209, P2 282, P3 31. By priority: M 326, S 176, C 20. By model: Both 443, Colo 21, Neo 58.
 
 | ID | Requirement | Pri | Model | Phase |
 | --- | --- | --- | --- | --- |
@@ -5416,6 +5443,16 @@ These screens exist in the ideation code only to show the whole flow. Each belon
 | PLN-056 | The system shall show where a rule applies and let the owner, per template, use the shared… | M | Both | P2 |
 | PLN-057 | The system shall show, before a rule change is saved, which open plans start or stop faili… | S | Both | P2 |
 | PLN-058 | The system shall export each Benchmarks tab's values (with id, version and status) and the… | S | Both | P2 |
+| PLN-059 | The system shall let a template owner create a plan type (a copy or a variant of a publish… | M | Both | P2 |
+| PLN-060 | The system shall offer a draft editor for every field of a template: details (name, descri… | M | Both | P2 |
+| PLN-061 | The system shall open, from Edit on a published or retired template, a draft of its next v… | M | Both | P2 |
+| PLN-062 | The system shall show, before a draft version is published, its changes from the live vers… | S | Both | P2 |
+| PLN-063 | The system shall publish a draft directly or send it for approval with a reason, show the … | M | Both | P2 |
+| PLN-064 | The system shall keep each template's earlier versions with "what changed since" against t… | S | Both | P2 |
+| PLN-065 | The system shall list in the draft editor every rule the template checks (own, override, i… | M | Both | P2 |
+| PLN-066 | The system shall save a Benchmarks → Rules change into the draft version of every template… | M | Both | P2 |
+| PLN-067 | The system shall let a template owner build a plan type from modules (add / remove; what e… | M | Both | P2 |
+| PLN-068 | The system shall pin a plan to its template version and module versions on submission and … | M | Both | P2 |
 | DCIM-001 | The system shall present the hierarchy site → floor → hall → row → rack → device → compone… | M | Both | P1 |
 | DCIM-002 | The system shall store (in the Inventory record through its API where it carries the field… | M | Both | P1 |
 | DCIM-003 | The system shall store (in the Inventory record through its API where it carries the field… | M | Both | P1 |
@@ -6149,7 +6186,12 @@ The planner's landing page: plans that need action and the portfolio at a glance
 | --- | --- | --- | --- | --- |
 | Views | Plan types · Site types · Modules, list or cards | PLN-002 | DC-STORE templates | P2 |
 | Template drawer | Inheritance chain, wizard areas, approval path, outputs, inputs with defaults, rules, plans using it, versions | PLN-003 | DC-STORE templates | P2 |
-| Template lifecycle | Make a variant, publish, retire; content change bumps the version | PLN-043 | DC-STORE templates | P2 |
+| New template | New plan type (copy / variant of the same family) · New module (aspect module, rule set, demand profile, document, checklist: blank / copy / variant) → draft v1 | PLN-059 | DC-STORE templates | P2 |
+| Draft editor | Details, wizard areas, approval path, outputs, inputs with allowed values, demand mix, sections / items, checklist "Used as"; errors listed before save | PLN-060 | DC-STORE templates | P2 |
+| Rules in the template | Own / override / inherited / switched off; Must · Should, limit; override, switch off / on, remove; add from the library or a new rule from a check | PLN-065 | DC-STORE templates | P2 |
+| Modules | Plan type editor: add / remove modules, what each brings, overridden here, via the parent; drawer "Built from modules" / "Used by plan types"; Modules list column Used by | PLN-067 | DC-STORE templates | P2 |
+| Template lifecycle | Edit → draft vN+1 beside the live one ("Draft vN" in the list); changes from the live version; effect on open plans; Publish or Send for approval → approve / reject / withdraw; discard draft | PLN-043, PLN-061…063 | DC-STORE templates; DC-RM planner engine | P2 |
+| Versions and history | Live and earlier versions, What changed since, history lines; Retire with a reason (plans, variants and plan types that keep it) / Restore | PLN-064 | DC-STORE templates, audit | P2 |
 
 ### B.17 Planner — Benchmarks
 
@@ -6163,7 +6205,7 @@ The planner's landing page: plans that need action and the portfolio at a glance
 | Value drawer | Duplicate guard ("Open that value"), low ≤ typical ≤ high, source; Save new version · Duplicate for another case · Retire / Restore; history | PLN-050, PLN-051 | DC-STORE benchmarks, audit | P2 |
 | Effect on open plans | CapEx, OpEx / month, late items, rule results before → after for Draft / In review / Rejected / On hold plans | PLN-052 | DC-RM planner engine | P2 |
 | Approval of confirmed values | Send for approval with a reason; notice bar, Awaiting approval tag and Status filter; approve / reject by a second Capacity Planner | PLN-053 | DC-STORE benchmarks | P2 |
-| New rule / rule drawer | Check from the catalogue; name, area, Must / Should pass, limit with unit and default, standard, source; where it applies (shared / own settings / remove / add to a template); effect on open plans; reason; history; remove from every template | PLN-054…057 | DC-STORE templates, audit | P2 |
+| New rule / rule drawer | Check from the catalogue; name, area, Must / Should pass, limit with unit and default, standard, source; where it applies (shared / own settings / switched off here / remove / add to a template); effect on open plans; reason; history; remove from every template; templates in use take the change into their drafts ("In draft" tag, drafts named) | PLN-054…057, PLN-066 | DC-STORE templates, audit | P2 |
 | CSV export / import | ⋮ Export N values (CSV) per tab, Export rules (CSV); Import values from CSV → dry run (New / Changed / Unchanged / Rejected) → Apply | PLN-058 | DC-STORE benchmarks | P2 |
 
 ### B.18 Planner — New plan wizard
@@ -6193,7 +6235,7 @@ Header (scope icon, status / revision chips, facts line, primary action, Send fo
 
 | Tab | Feature | What the user sees / does | FR | Data from | Phase |
 | --- | --- | --- | --- | --- | --- |
-| Header | Status line | State in words, whose decision, blockers, conditions, template drift, the build in Programs & Projects, open review / revision | PLN-047 | DC-STORE plans; API-PRJ-02 | P2 |
+| Header | Status line | State in words, whose decision, blockers, conditions, template and module drift, the build in Programs & Projects, open review / revision | PLN-047, PLN-068 | DC-STORE plans; API-PRJ-02 | P2 |
 | Header | What-if drawer | Scenarios on demand; figures follow approved → in review → preferred → base | PLN-039 | DC-STORE | P2 |
 | Overview | Dashboard | What and why, Draft → Completed tracker, next step, key dates, needs attention, phases, cost · capacity · readiness, inputs changed, outputs | PLN-046 | DC-STORE | P2 |
 | Project plan | Schedule | Phases with gates, "order in N wk" / "N wk late", Timeline view, PO numbers | PLN-011 | DC-STORE; API-PRJ-05 | P2 |
