@@ -57,7 +57,8 @@ export function TemplatesTab() {
   const closeTpl = () => { if ((loc.state as { tplOpen?: boolean } | null)?.tplOpen) nav(-1); else { const n = new URLSearchParams(sp); n.delete('template'); setSp(n, { replace: true }); } };
 
   const byId = useMemo(() => new Map(templates.map(t => [t.id, t])), [templates]);
-  const live = useMemo(() => liveTemplates(templates), [templates]);
+  // The benchmark set is the Benchmarks library itself (each value versioned there), not a template anyone builds from.
+  const live = useMemo(() => liveTemplates(templates).filter(t => t.kind !== 'benchmarkset'), [templates]);
   const drafts = useMemo(() => new Map(templates.filter(t => t.versionOf).map(t => [t.versionOf!, t])), [templates]);
   const [newTpl, setNewTpl] = useState<NewPreset | null>(null);
   const Status = ({ t }: { t: T.PlannerTemplate }) => { const d = drafts.get(t.id); return <span className="row pn-nowrap" style={{ gap: 4 }}><TemplateStatusChip s={t.status} />{t.pendingPublish && <Chip size="xs" tone="info" outline>Awaiting approval</Chip>}{d && <Chip size="xs" tone={d.pendingPublish ? 'info' : 'neutral'} outline>{d.pendingPublish ? `v${d.version} awaiting approval` : `Draft v${d.version}`}</Chip>}</span>; };

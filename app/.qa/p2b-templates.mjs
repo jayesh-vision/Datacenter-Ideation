@@ -53,9 +53,14 @@ else { await rtbl.locator('tr.is-own').first().locator('button', { hasText: /^(M
 const addSel = rtbl.locator('select').last(); const optV = await addSel.locator('optgroup').first().locator('option').first().getAttribute('value');
 const nR = await rtbl.locator('tbody tr').count(); await addSel.selectOption(optV); await rtbl.locator('button', { hasText: 'Add rule' }).click();
 (await rtbl.locator('tbody tr').count()) === nR + 1 ? ok(`rule ${optV} added from the library`) : fail('add rule did not add a row');
+{ const det = rtbl.locator('button[title="Name, standard and source"]').first();
+  if (await det.count()) { await det.click(); const g = rtbl.locator('.pn-te-rdet-grid'); await g.locator('input').nth(0).fill('QA renamed rule'); await g.locator('input').nth(1).fill('QA-STD 1');
+    (await rtbl.locator('tbody b', { hasText: 'QA renamed rule' }).count()) ? ok('own rule renamed + standard set') : fail('rule rename not shown'); await det.click(); }
+  else fail('no Details button on an own rule'); }
 await overflow('rules'); await shot('rules');
 await drawer().locator('button', { hasText: 'Save draft' }).click(); await p.waitForTimeout(500);
 const chg = await drawer().locator('.pn-te-pub section').first().locator('tbody tr').count(); chg >= 3 ? ok(`${chg} change(s) from v${v0}`) : fail('no change list');
+(await drawer().locator('.pn-te-pub section').first().getByText('QA renamed rule').count()) ? ok('rename listed in changes') : fail('rename missing from changes');
 await p.waitForSelector('.drawer .pn-te-pub >> text=/open plans|No open plan/', { timeout: 30000 }).catch(() => {});
 ok(`effect: ${(await drawer().locator('.pn-te-pub section').nth(1).innerText()).replace(/\s+/g, ' ').slice(0, 140)}`);
 await overflow('publish'); await shot('publish');
@@ -75,6 +80,7 @@ await modal().locator('button', { hasText: 'Close' }).last().click();
 await p.locator('.drawer button[title="Close"]').last().click(); await p.waitForTimeout(300);
 /* modules: the list says which plan types use each module, the module drawer lists them */
 await search(''); await p.locator('.pl-tpl button', { hasText: /Modules & rules/ }).click(); await p.waitForTimeout(300);
+(await p.locator('.dt tbody tr', { hasText: 'Benchmark set 2026' }).count()) ? fail('benchmark set still listed') : ok('benchmark set not listed as a module');
 const usedRow = p.locator('.dt tbody tr', { hasText: /\d+ plan types?/ }).first();
 if (await usedRow.count()) { const nm = (await usedRow.locator('td').first().innerText()).split('\n')[0]; await usedRow.click(); await p.waitForSelector('.drawer');
   const u = await drawer().locator('h4, .pn-sub, div', { hasText: /^Used by plan types/ }).count(); u ? ok(`${nm}: Used by plan types listed`) : fail('no Used by section'); await overflow('module drawer'); await shot('module');

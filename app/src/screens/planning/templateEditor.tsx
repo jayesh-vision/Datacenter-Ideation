@@ -4,7 +4,7 @@
    published template — "Edit" on one opens its next version as a draft first. PublishSection = changes from the live version, effect
    on open plans, then Publish or Send for approval (approve / reject by a second template approver). VersionsSection = the live
    version, the stored earlier versions (view what changed since) and the history lines. */
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import * as I from 'lucide-react';
 import { Btn, Chip, Field, Modal, Seg, Toggle } from '../../ui/kit';
 import { useBenchmarks, useEstate, usePlannerActions, usePlans, useTemplateAudit, useTemplates } from '../../planner/lib/usePlanner';
@@ -112,6 +112,7 @@ export function TemplateEditor({ t, onDone }: { t: T.PlannerTemplate; onDone: ()
   const [addKey, setAddKey] = useState('');
   const [newItem, setNewItem] = useState('');
   const [addRule, setAddRule] = useState('');
+  const [openRule, setOpenRule] = useState<string | null>(null);
 
   /* rules: this template's own copies (set here, overrides, switched off) over what it inherits */
   /* what it would get without its own copies: the parent chain and every module (its own and inherited) */
@@ -284,19 +285,24 @@ export function TemplateEditor({ t, onDone }: { t: T.PlannerTemplate; onDone: ()
         <p className="vw-label" style={{ margin: 0 }}>Set here = this template's own copy (how strict, the limit). Inherited rules come from {chain.length > 1 ? chain.slice(1).map(c => c.name).join(' › ') : 'nothing'}: override to change them here, or switch one off for plans on this template{w.kind === 'plan' ? '' : ' and its variants'}. The check itself is part of the planner engine.</p>
         {ruleRows.length > 0 && <div className="pn-te-scroll"><table className="nst-table pn-te-tbl"><thead><tr><th>What is checked</th><th>When it fails</th><th>Limit</th><th>From</th></tr></thead><tbody>
           {ruleRows.map(({ id, own: o, inh }) => { const r = (o ?? inh)!; const lim = LIMIT_INFO[r.check];
-            return <tr key={id} className={o?.off ? 'is-off' : o ? 'is-own' : ''}>
-              <td><span className="cell-2"><b>{RULE_PLAIN[r.check] ?? r.title}</b><small>{ASPECT_LABEL[r.aspect]} · <span className="mono">{r.id}</span>{r.standard ? ` · ${r.standard}` : ''}</small></span></td>
+            return <Fragment key={id}><tr className={o?.off ? 'is-off' : o ? 'is-own' : ''}>
+              <td><span className="cell-2"><b>{r.title || RULE_PLAIN[r.check]}</b><small>{ASPECT_LABEL[r.aspect]} · <span className="mono">{r.id}</span>{r.standard ? ` · ${r.standard}` : ''}{r.title && RULE_PLAIN[r.check] && r.title !== RULE_PLAIN[r.check] ? ` · checks: ${RULE_PLAIN[r.check]}` : ''}</small></span></td>
               <td>{o && !o.off ? <Seg<T.PlannerRuleSeverity> size="sm" value={o.severity} onChange={v => setRule(id, { severity: v })} options={[{ id: 'hard', label: 'Must' }, { id: 'soft', label: 'Should' }]} /> : <Chip size="xs" tone={o?.off ? 'neutral' : r.severity === 'hard' ? 'error' : 'warning'} outline>{o?.off ? 'Not checked' : r.severity === 'hard' ? 'Must pass' : 'Should pass'}</Chip>}</td>
               <td>{o && !o.off && lim ? <NumInput value={o.threshold} placeholder={String(lim.dflt)} unit={lim.unit} onChange={v => setRule(id, { threshold: v })} style={{ maxWidth: 130 }} /> : <span className="vw-label" style={{ whiteSpace: 'nowrap' }}>{limitText(r)}</span>}</td>
               <td><span className="pn-te-from">
                 {o?.off ? <Chip tone="neutral" size="xs">Switched off</Chip> : o ? <Chip tone="info" size="xs">{inh ? 'Override' : 'Set here'}</Chip> : <Chip tone="neutral" size="xs">{inhFrom(id)}</Chip>}
                 <span className="row" style={{ gap: 4 }}>
                   {o?.off ? <Btn size="sm" icon={I.Power} onClick={() => dropRule(id)}>Switch on</Btn>
-                    : o ? <>{inh ? <Btn size="sm" icon={I.Undo2} onClick={() => dropRule(id)}>Use inherited</Btn> : <Btn size="sm" icon={I.Trash2} onClick={() => dropRule(id)}>Remove</Btn>}{inh && <Btn size="sm" icon={I.PowerOff} title="Switch off" onClick={() => putRule({ ...clone(inh), off: true })} />}</>
+                    : o ? <><Btn size="sm" icon={I.Text} title="Name, standard and source" onClick={() => setOpenRule(openRule === id ? null : id)}>{openRule === id ? 'Done' : 'Details'}</Btn>{inh ? <Btn size="sm" icon={I.Undo2} onClick={() => dropRule(id)}>Use inherited</Btn> : <Btn size="sm" icon={I.Trash2} onClick={() => dropRule(id)}>Remove</Btn>}{inh && <Btn size="sm" icon={I.PowerOff} title="Switch off" onClick={() => putRule({ ...clone(inh), off: true })} />}</>
                     : <><Btn size="sm" icon={I.PenLine} onClick={() => putRule(clone(inh!))}>Override</Btn><Btn size="sm" icon={I.PowerOff} onClick={() => putRule({ ...clone(inh!), off: true })}>Switch off</Btn></>}
                 </span>
               </span></td>
-            </tr>; })}
+            </tr>{o && !o.off && openRule === id && <tr className="is-own pn-te-rdet"><td colSpan={4}><div className="pn-te-rdet-grid">
+              <Field label="Name"><TextInput value={o.title} onChange={v => setRule(id, { title: v })} placeholder={RULE_PLAIN[o.check] ?? ''} /></Field>
+              <Field label="Standard" hint="e.g. Uptime Tier III, ASHRAE TC9.9"><TextInput value={o.standard ?? ''} onChange={v => setRule(id, { standard: v || undefined })} /></Field>
+              <Field label="Source" hint="where the limit comes from"><TextInput value={o.source ?? ''} onChange={v => setRule(id, { source: v || undefined })} /></Field>
+              {inh && <small className="vw-label" style={{ gridColumn: '1 / -1' }}>This copy applies to plans on this template{w.kind === 'plan' ? '' : ' and its variants'}; {inhFrom(id)} keeps its own wording.</small>}
+            </div></td></tr>}</Fragment>; })}
         </tbody></table></div>}
         {!ruleRows.length && <p className="vw-label" style={{ margin: 0 }}>No rules yet.</p>}
         {(libAdd.length > 0 || newAdd.length > 0) && <div className="row" style={{ gap: 6 }}>
@@ -307,7 +313,7 @@ export function TemplateEditor({ t, onDone }: { t: T.PlannerTemplate; onDone: ()
           </select>
           <Btn size="sm" icon={I.Plus} disabled={!addRule} onClick={() => doAddRule(addRule)}>Add rule</Btn>
         </div>}
-        <p className="vw-label" style={{ margin: 0 }}>A check already run by another rule on this template is not offered twice. Names, standards and every template a rule is in: Benchmarks → Rules.</p>
+        <p className="vw-label" style={{ margin: 0 }}>A check already run by another rule on this template is not offered twice. Details on a rule set here edits its name, standard and source for this template; every template a rule is in: Benchmarks → Rules.</p>
       </section>}
 
       <div className="pn-te-bar">

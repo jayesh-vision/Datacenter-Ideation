@@ -542,6 +542,8 @@ button.pn-lead-row:hover { background: var(--vw-color-slate-50); }
 .pn-te-tbl select { max-width: 200px; }
 .pn-te-tbl tr.is-off td { background: var(--vw-color-slate-50, #f8fafc); }
 .pn-te-tbl tr.is-off td:first-child b { color: var(--vw-color-slate-500, #64748b); text-decoration: line-through; text-decoration-color: var(--vw-color-slate-300, #cbd5e1); }
+.pn-te-tbl tr.pn-te-rdet td { padding-top: 4px; }
+.pn-te-rdet-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 10px; align-items: start; }
 .pn-te-mods { display: flex; flex-direction: column; gap: 6px; }
 .pn-te-mods > div, .pn-te-mods > button { display: flex; align-items: center; gap: 10px; font: inherit; font-size: 13px; padding: 6px 10px; border: 1px solid var(--vw-color-slate-200, #e2e8f0); border-radius: 8px; background: var(--vw-color-white, #fff); text-align: left; }
 .pn-te-mods > button { cursor: pointer; }

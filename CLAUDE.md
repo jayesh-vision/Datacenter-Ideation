@@ -916,7 +916,7 @@ and through the draft). Check: `node .qa/p2b-templates.mjs neocloud us` (W=1280|
 Templates phase B (04-Nov-2026), rules inside a template: the draft editor's **Rules** table lists every rule the template checks (own copy = Must / Should
 + limit editable; Override copies an inherited one; **Switch off** = an own copy with `PlannerRuleDef.off`, which `resolveTemplate` drops, so plans on it and
 its variants stop checking it; Switch on / Use inherited / Remove), Add a rule = a library rule (same settings as elsewhere) or a new `R-CUS-nn` from a check;
-a check is never run twice (`templateErrors`). Benchmarks → Rules follows the lifecycle too: `applyRule` saves a template nothing uses in place, but a template
+a check is never run twice (`templateErrors`). Details on an own copy edits its name, standard and source for that template (the change list names them). The "Benchmark set 2026" record is hidden from Templates (05-Nov-2026: the Benchmarks library is versioned per value; nothing reads it). Benchmarks → Rules follows the lifecycle too: `applyRule` saves a template nothing uses in place, but a template
 that plans, variants or plan types use takes the edit into its draft version (opened when needed; refused while one awaits approval); the library shows the
 NEXT state (`nextTemplates`, `ruleIndex(...).pending`) with an "In draft" chip and a drawer note linking to the drafts. Phase C, **modules**: `PlannerTemplate.modules`
 (plan types; aspect modules, rule sets, a demand profile). `resolveTemplate` applies the chain's modules first (rule sets with their own chain), then the plan
