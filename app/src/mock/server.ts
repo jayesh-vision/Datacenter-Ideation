@@ -1,6 +1,7 @@
 /* The mock "backend": synchronous queries, derived roll-ups and mutations over
    one in-memory estate. Only src/api/index.ts talks to this module. */
 
+import { gaudi2RefCheck } from './gaudi2-ref';
 import { sevLabel } from '../lib/vocab';
 import type { MacdDraft, MacdPriority, MacdStage, NewPrefixInput, DcimModuleType, DcimCr, DcimCrOption, DcimOp, DcimChangeBoard, DcimCrRow, DcimPlanRow, DcimRunResult, DcimWorkItem, ChangeRecord,
   ActionStep, Alert, AlertScope, EdgeStatus, OpsState, AuditEntry, CapacityPlan, Change, ChangeStatus, Datacenter, DcSummary, Incident, IncidentStatus, Interface, Link, Location,
@@ -148,7 +149,7 @@ export function gpuNode(neId: string) {
   const job = n.jobId ? gpu({ dcId: n.dcId }).jobs.find(j => j.id === n.jobId) : undefined;
   const alerts = db.alerts.filter(a => a.neId === neId && a.state !== 'cleared');
   const spare = job ? [...db.gpu!.nodes.values()].find(x => x.clusterId === n.clusterId && x.state === 'idle' && x.health === 'healthy')?.neId : undefined;
-  return { node: row, job, alerts, spare, ne: db.neById.get(neId)! };
+  return { node: row, job, alerts, spare, ne: db.neById.get(neId)!, refCheck: n.ref ? gaudi2RefCheck(n) : undefined };
 }
 /* does this estate (or site) have GPU infrastructure the operator runs or hosts? */
 export const hasGpu = (dcId?: string) => !!db.gpu && ([...db.gpu.nodes.values()].some(n => !dcId || n.dcId === dcId) || db.gpu.cages.some(c => !dcId || c.dcId === dcId));

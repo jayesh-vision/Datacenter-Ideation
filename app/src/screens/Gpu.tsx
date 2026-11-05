@@ -601,6 +601,18 @@ export function GpuNodeDetail({ d }: { d: NonNullable<Awaited<ReturnType<typeof 
         <span><span className="vw-label">Telemetry</span>{spec.telemetry}</span>
         {hb && <span><span className="vw-label">Ports per card</span>21 internal + 3 external × 100 GbE · PCIe Gen4 x16</span>}
       </div>
+      {n.ref && d.refCheck && (
+        <div className="rev-sec gpu-ref" data-gpu-ref>
+          <div className="rev-sec-h"><b>Your card · GPU{n.ref.module}<Info text="This card is the real Gaudi 2 card from the habanalabs exporter scrape you shared, laid over one card of a spare node. Each row puts the exporter metric and its scraped value beside what this screen holds for the card; a tick means they are the same. The node's other 7 cards, and every other Gaudi 2 node, are modelled on the same limits: their serials, hosts and addresses are the mock's." /></b>
+            <span className="vw-label">host {n.ref.host} · VM {n.ref.vm} · module {n.ref.module} · exporter {n.ref.exporter} · scraped {n.ref.scrapedAt}</span></div>
+          <div className="dt-scroll"><table className="nst-table dt-table">
+            <thead><tr><th>Field</th><th>Exporter metric</th><th>Scraped</th><th>Shown here</th><th>Match</th></tr></thead>
+            <tbody>{d.refCheck.map(r => (
+              <tr key={r.field}><td>{r.field}</td><td><code>{r.metric}</code></td><td className="num mono">{r.scraped}</td><td className="num mono">{r.shown}</td>
+                <td>{r.ok ? <I.Check size={15} className="gpu-ok" aria-label="match" /> : <span className="gpu-bad">differs</span>}</td></tr>))}</tbody>
+          </table></div>
+        </div>
+      )}
       <div className="gpu-fit" data-gpu-fit>
         <div className="gpu-fit-h"><b>Fit to sell<Info text="Whether this node can be rented: the 24 h burn-in after install or repair, the acceptance benchmark against the model's reference (HBM bandwidth and in-node all-reduce bus bandwidth; below 95% a spare node is held back), 30-day reliability (under 99% held back) and interruptions. Grade A = benchmark ≥ 98%, reliability ≥ 99.8%, no interruption; C = below the bar. Sold as = the customer instance running on it." /></b><span className="row nowrap" style={{ gap: 6 }}><ReadyChip r={n.ready} /><Chip tone={n.ready.grade === 'A' ? 'success' : n.ready.grade === 'B' ? 'info' : 'warning'} size="xs">Grade {n.ready.grade}</Chip></span></div>
         <div className="gpu-fit-figs">
@@ -624,7 +636,7 @@ export function GpuNodeDetail({ d }: { d: NonNullable<Awaited<ReturnType<typeof 
             <thead><tr><th>GPU</th><th>Health</th><th>Util</th><th>Memory</th><th>{hb ? 'Chip · board' : 'Temp · HBM'}</th><th>Power</th><th>{hb ? 'SoC clock' : 'Clock · P-state'}</th><th>Throttle</th><th>ECC · pages</th><th>{hb ? 'RoCE ports' : spec.link ? `${spec.linkShort} err` : 'Link err'}</th><th>{nv ? 'Last Xid' : 'Last error'}</th></tr></thead>
             <tbody>{n.gpus.map(g => (
               <tr key={g.idx} className={g.health !== 'healthy' ? `is-${g.health}` : ''}>
-                <td className="mono">GPU{g.idx}</td>
+                <td className="mono nowrap" title={g.uuid ? `${g.serial} · ${g.uuid}` : g.serial}>GPU{g.idx}{n.ref?.module === g.idx && <small className="gpu-ref-tag"> your card</small>}</td>
                 <td><span className="row nowrap" style={{ gap: 6 }}><i className="gpu-sq" style={{ background: cellColor(g.health, g.util, g.throttle, n.state) }} />{g.health}</span></td>
                 <td className="num">{g.util}%</td>
                 <td className="num nowrap">{g.memUsedGb}/{g.memGb} GB</td>
@@ -640,7 +652,7 @@ export function GpuNodeDetail({ d }: { d: NonNullable<Awaited<ReturnType<typeof 
             <thead><tr><th>GPU</th><th>Util</th><th>HBM used</th><th>Chip · board</th><th>Power · limit</th><th>SoC clock</th><th>PCIe rx / tx</th><th>PCIe replay</th><th>Pending rows</th><th>Energy 24 h</th></tr></thead>
             <tbody>{n.gpus.map(g => (
               <tr key={g.idx} className={g.health !== 'healthy' ? `is-${g.health}` : ''}>
-                <td className="mono">GPU{g.idx}</td>
+                <td className="mono nowrap" title={g.uuid ? `${g.serial} · ${g.uuid}` : g.serial}>GPU{g.idx}{n.ref?.module === g.idx && <small className="gpu-ref-tag"> your card</small>}</td>
                 <td className="num">{g.util}%</td><td className="num nowrap">{g.memUsedGb}/{g.memGb} GB</td><td className="num nowrap">{g.tempC}° · {g.hbmC}°</td>
                 <td className="num nowrap">{g.powerW}/{g.tdpW} W</td><td className="num nowrap">{g.clockMhz} MHz</td>
                 <td className="num nowrap">{g.pcieRxGbs} / {g.pcieTxGbs} GB/s</td><td className={`num${g.pcieReplay > 100 ? ' gpu-bad' : g.pcieReplay ? ' gpu-warn' : ''}`}>{g.pcieReplay || '—'}</td>
@@ -650,7 +662,7 @@ export function GpuNodeDetail({ d }: { d: NonNullable<Awaited<ReturnType<typeof 
             <thead><tr><th>GPU</th><th>Util</th><th>SM active</th><th>SM occ.</th><th>Tensor</th><th>Mem copy</th><th>DRAM</th><th>Mem clock</th><th>Fan</th><th>PCIe rx / tx</th><th>PCIe replay</th><th>{spec.link ? spec.linkShort : 'Scale-up'} rx / tx</th><th>Energy 24 h</th></tr></thead>
             <tbody>{n.gpus.map(g => (
               <tr key={g.idx} className={g.health !== 'healthy' ? `is-${g.health}` : ''}>
-                <td className="mono">GPU{g.idx}</td>
+                <td className="mono nowrap" title={g.uuid ? `${g.serial} · ${g.uuid}` : g.serial}>GPU{g.idx}{n.ref?.module === g.idx && <small className="gpu-ref-tag"> your card</small>}</td>
                 <td className="num">{g.util}%</td><td className="num">{g.smActive}%</td><td className="num">{g.smOccupancy}%</td><td className="num">{g.tensorActive}%</td><td className="num">{g.memCopyUtil}%</td><td className="num">{g.dramActive}%</td>
                 <td className="num nowrap">{g.memClockMhz} MHz</td><td className="num">{n.cooling === 'air' ? `${g.fanPct}%` : '—'}</td>
                 <td className="num nowrap">{g.pcieRxGbs} / {g.pcieTxGbs} GB/s</td><td className={`num${g.pcieReplay > 100 ? ' gpu-bad' : g.pcieReplay ? ' gpu-warn' : ''}`}>{g.pcieReplay || '—'}</td>

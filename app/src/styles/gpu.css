@@ -194,3 +194,7 @@ button.gpu-node:hover { border-color: var(--primaryColor500); }
 .gpu-fit-figs b { font-size: 13.5px; font-weight: 500; color: var(--vw-color-gray-900); font-variant-numeric: tabular-nums; }
 .gpu-fit-figs small { font-size: 11.5px; color: var(--vw-color-gray-500); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gpu-jobcell { display: block; min-width: 140px; max-width: 240px; }
+/* the user's real Gaudi 2 card (mock/gaudi2-ref.ts): scraped vs shown */
+.gpu-ok { color: var(--vw-color-green-600); }
+.gpu-ref-tag { color: var(--primaryColor, var(--vw-color-blue-600)); font-family: Poppins, sans-serif; font-weight: 500; }
+.gpu-ref code { font-size: 12px; }

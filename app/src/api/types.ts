@@ -296,6 +296,7 @@ export interface Gpu {
   /* Intel Gaudi 2 (habanalabs exporter, 05-Nov-2026): habanalabs_nic_port_status — 21 internal ports (all-to-all to the other 7 cards) + 3 external
      (scale-out); on these cards hbmC holds habanalabs_temperature_onboard and tempC habanalabs_temperature_onchip */
   nic?: { up: number; ports: number; extUp: number; ext: number };
+  uuid?: string;                                  // habanalabs UUID label (the reference Gaudi 2 card)
   health: GpuHealth;
 }
 /* in-job: allocated to a running job · idle: healthy spare · drained: cordoned for maintenance · failed: awaiting RMA · burn-in: new or repaired, under test */
@@ -304,6 +305,8 @@ export interface GpuNode {
   neId: string; dcId: string; rackId: string; clusterId: string; model: GpuModel; vendor: GpuVendor; server: string; gpus: Gpu[]; state: GpuNodeState; jobId?: string;
   cooling: 'air' | 'liquid'; driver: string; firmware: string; powerKw: number; health: GpuHealth;
   ib: { rail: number; state: 'up' | 'down' | 'flapping'; errors: number }[]; note?: string; rma?: string;
+  /* the user's own Gaudi 2 card laid over one card of this node (mock/gaudi2-ref.ts): where the scrape came from */
+  ref?: { host: string; vm: string; module: number; exporter: string; scrapedAt: string };
   /* the last 24 hours, one sample per hour, across the node's 8 GPUs: mean utilisation, hottest GPU, node power */
   series: { util: number[]; tempC: number[]; powerKw: number[] };
 }

@@ -25,6 +25,7 @@ import { DAY, HOUR, MIN, NOW } from './seed';
 import { activeGeo, dcAt, money } from './geo';
 import { fmtMoney } from '../lib/format';
 import { gpuSpec } from '../lib/gpuSpec';
+import { applyGaudi2Ref } from './gaudi2-ref';
 
 export interface GpuState { nodes: Map<string, GpuNode>; clusters: GpuCluster[]; jobs: GpuJob[]; cdus: Cdu[]; cages: AiCage[]; ratePerGpuHour: number; driverStd: string }
 /* the parts of Db this module touches (kept structural to avoid an import cycle with generate.ts) */
@@ -166,6 +167,11 @@ export function buildGpuFleet(persona: Persona, datacenters: Datacenter[], nes: 
     if (node.rma && node.vendor !== 'NVIDIA') node.note = node.note!.replace(/^GPU(\d)/, 'Card $1');
     if (node.rma) { const bad = node.gpus[Number(node.note!.match(/(?:GPU|Card )(\d)/)![1])]; bad.health = 'failed'; bad.util = 0; bad.powerW = 0; bad.memUsedGb = 0; if (bad.nic) bad.nic = { ...bad.nic, up: 0, extUp: 0 }; const at = NOW - intBetween(rngOf(node.neId, 0x51), 30, 120) * HOUR; bad.xid = node.vendor === 'NVIDIA' ? { code: 79, at, text: 'GPU has fallen off the bus' } : null; node.health = 'failed'; }
     syncNode(node, ne);
+  }
+  /* the user's real Gaudi 2 card: card 5 of the first spare Gaudi 2 node at dcAt(6) (NeoCloud × USA) */
+  if (persona === 'neocloud' && activeGeo().id === 'us') {
+    const ref = [...state.nodes.values()].find(n => n.dcId === dcAt(6) && n.model === GAUDI2 && n.state === 'idle');
+    if (ref) { applyGaudi2Ref(ref); syncNode(ref, neById.get(ref.neId)!); }
   }
   return state;
 }

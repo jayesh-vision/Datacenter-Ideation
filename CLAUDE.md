@@ -305,6 +305,11 @@ figures (96 GB HBM2e, 550 W default limit, SoC clock fixed 1650 MHz, ~139 W idle
 (`GAUDI2_PLAN` in mock/gpu.ts: dcAt(6) pod 2, dcAt(17) pod 2); every other persona × geography hashes as before. `habana()` sets the exporter's readings
 on its own stream (`Gpu.nic` ports, hbmC = on-board temperature). Node detail shows Chip · board, SoC clock, RoCE ports and a habanalabs profiling table
 (no SM / tensor / fan / P-state); Telemetry → Metrics collected adds `HABANA_FIELDS`. Gaudi 3 still shows the DCGM-style columns.
+**The user's real card** (05-Nov-2026, user: "not exactly same as my exported data … how can I be sure"): `mock/gaudi2-ref.ts` `GAUDI2_REF` = the scrape
+copied as is (host g2-wyn101, VM x101-vm, module 5, serial AN30019288, UUID, driver 1.24.2-52a555d, fit firmware, every metric value), laid over card 5 of the
+first spare Gaudi 2 node at dcAt(6) (TX-DC-006-GPU-062); `GpuNode.ref` + `Gpu.uuid`; `gpuNode()` returns `refCheck` (scraped vs shown per field) → panel
+"Your card" on the node drawer / device GPUs tab. Proof against the raw file: `npx tsx .qa/gaudi2-ref-check.ts [file]` (parses the file itself). Other Gaudi 2
+cards are modelled (mock serials / hosts / addresses).
 GPU Fleet head (22-Oct-2026, user): one row — title + one-line subtitle left, live chip · datacenter select (200 px) · Opstral right, centred (`.gpu > .page-head` in `styles/gpu.css`); at 1280 the subtitle wraps inside the row. Check: `node .qa/gpu-head.mjs`.
 The two story cards (Biggest blast radius · Slowest job) sit in ONE collapsible section **Jobs needing attention** (`FacSection`, scope `gpu` / `gpu-site` on the
 datacenter tab, open by default, remembered per viewer; closed = four summary facts: GPUs stopped + incident, lost now, slowest job, lost now) so the
