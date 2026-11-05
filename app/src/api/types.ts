@@ -268,7 +268,7 @@ export interface DcSummary {
    per-GPU telemetry (DCGM-style), clusters (pods) on a rail-optimised InfiniBand fabric, the jobs running
    on them, liquid cooling, and — for colocation — tenant AI cages the operator sees only as power and cooling. */
 /* accelerator models in the fleet — datasheet figures per model in lib/gpuSpec.ts */
-export type GpuModel = 'B200 SXM 192 GB' | 'H200 SXM 141 GB' | 'H100 SXM 80 GB' | 'A100 SXM 80 GB' | 'L40S PCIe 48 GB' | 'T4 PCIe 16 GB' | 'Gaudi 3 OAM 128 GB' | 'Max 1550 OAM 128 GB';
+export type GpuModel = 'B200 SXM 192 GB' | 'H200 SXM 141 GB' | 'H100 SXM 80 GB' | 'A100 SXM 80 GB' | 'L40S PCIe 48 GB' | 'T4 PCIe 16 GB' | 'Gaudi 3 OAM 128 GB' | 'Gaudi 2 OAM 96 GB' | 'Max 1550 OAM 128 GB';
 export type GpuVendor = 'NVIDIA' | 'Intel';
 export type GpuHealth = 'healthy' | 'degraded' | 'failed';
 export type GpuThrottle = 'none' | 'thermal' | 'power-cap' | 'hw-slowdown';
@@ -293,6 +293,9 @@ export interface Gpu {
   pcieReplay: number; pcieRxGbs: number; pcieTxGbs: number;   // DCGM_FI_DEV_PCIE_REPLAY_COUNTER / DCGM_FI_PROF_PCIE_RX_BYTES / TX (GB/s)
   nvlinkErr: number; nvlinkRxGbs: number; nvlinkTxGbs: number; // DCGM_FI_DEV_NVLINK_*_ERROR_COUNT_TOTAL / DCGM_FI_PROF_NVLINK_RX_BYTES / TX (GB/s)
   xid: GpuXid | null;                             // DCGM_FI_DEV_XID_ERRORS
+  /* Intel Gaudi 2 (habanalabs exporter, 05-Nov-2026): habanalabs_nic_port_status — 21 internal ports (all-to-all to the other 7 cards) + 3 external
+     (scale-out); on these cards hbmC holds habanalabs_temperature_onboard and tempC habanalabs_temperature_onchip */
+  nic?: { up: number; ports: number; extUp: number; ext: number };
   health: GpuHealth;
 }
 /* in-job: allocated to a running job · idle: healthy spare · drained: cordoned for maintenance · failed: awaiting RMA · burn-in: new or repaired, under test */

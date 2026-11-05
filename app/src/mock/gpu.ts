@@ -22,7 +22,7 @@ import type { AiCage, Cdu, CoolingUnit, Customer, Datacenter, Gpu, GpuCluster, G
 import { mulberry32, seedOf, pick, intBetween, between, chance, type Rnd } from '../lib/rng';
 import { PERSONA_BY_ID } from './personas';
 import { DAY, HOUR, MIN, NOW } from './seed';
-import { dcAt, money } from './geo';
+import { activeGeo, dcAt, money } from './geo';
 import { fmtMoney } from '../lib/format';
 import { gpuSpec } from '../lib/gpuSpec';
 
@@ -42,15 +42,19 @@ const DRIVER_STD = '550.127.05', DRIVER_OLD = '535.183.01';
 /* which accelerator each pod runs, by site position (pod k takes entry k, the last entry repeats). The newest, liquid halls
    run H200 and B200; fault stories (Xid, ECC, NVLink) sit on NVIDIA training pods; T4 / L40S pods serve inference only. */
 const B200: GpuModel = 'B200 SXM 192 GB', H200: GpuModel = 'H200 SXM 141 GB', H100: GpuModel = 'H100 SXM 80 GB', A100: GpuModel = 'A100 SXM 80 GB',
-  L40S: GpuModel = 'L40S PCIe 48 GB', T4: GpuModel = 'T4 PCIe 16 GB', GAUDI3: GpuModel = 'Gaudi 3 OAM 128 GB', MAX: GpuModel = 'Max 1550 OAM 128 GB';
+  L40S: GpuModel = 'L40S PCIe 48 GB', T4: GpuModel = 'T4 PCIe 16 GB', GAUDI3: GpuModel = 'Gaudi 3 OAM 128 GB', GAUDI2: GpuModel = 'Gaudi 2 OAM 96 GB', MAX: GpuModel = 'Max 1550 OAM 128 GB';
 const SITE_PLAN: Record<number, GpuModel[]> = {
   1: [H100, H100, A100, L40S], 2: [H100, A100, L40S], 3: [H100, GAUDI3, A100], 4: [A100, L40S], 5: [H100, A100, GAUDI3, T4], 6: [GAUDI3, GAUDI3, H100],
   7: [A100, T4, L40S], 8: [H100, A100, L40S, T4], 9: [H100, H100, A100, L40S, T4], 10: [A100, L40S], 11: [H100, MAX, A100, L40S], 12: [T4, L40S],
   14: [GAUDI3, H100, L40S], 15: [L40S, A100], 16: [L40S, H100, H100, T4], 17: [A100, MAX, T4], 18: [T4, L40S], 19: [MAX, A100],
   20: [H200, H200, H200, B200, B200], 21: [H100, A100, GAUDI3, L40S], 22: [H200, H200, B200, B200, H200], 23: [H200, B200, H200, B200], 24: [H100, L40S]
 };
-const planFor = (dcId: string, liquid: boolean): GpuModel[] => {
-  for (let i = 1; i <= 24; i++) if (dcAt(i) === dcId) return SITE_PLAN[i] ?? [liquid ? H200 : H100];
+/* Intel Gaudi 2 pods (05-Nov-2026, user: "add Gaudi 2 with realistic metrics"): NeoCloud × USA only, every other persona × geography keeps its
+   plan byte for byte. The second pod at dcAt(6) (was a second Gaudi 3) and the second at dcAt(17) (was a Data Center GPU Max). */
+const GAUDI2_PLAN: Record<number, GpuModel[]> = { 6: [GAUDI3, GAUDI2, H100], 17: [A100, GAUDI2, T4] };
+const planFor = (dcId: string, liquid: boolean, persona: Persona): GpuModel[] => {
+  const g2 = persona === 'neocloud' && activeGeo().id === 'us';
+  for (let i = 1; i <= 24; i++) if (dcAt(i) === dcId) return (g2 && GAUDI2_PLAN[i]) || (SITE_PLAN[i] ?? [liquid ? H200 : H100]);
   return [liquid ? H200 : H100];
 };
 /* a node runs the previous driver branch only where its model has one (NVIDIA) */
@@ -74,7 +78,7 @@ export function buildGpuFleet(persona: Persona, datacenters: Datacenter[], nes: 
     const gpuNes = nes.filter(n => n.dcId === dc.id && n.role === 'GPU' && n.discovery !== 'not-discovered').sort((a, b) => a.id.localeCompare(b.id));
     if (!gpuNes.length) continue;
     const liquid = LIQUID_SITES().includes(dc.id);
-    const plan0 = planFor(dc.id, liquid);
+    const plan0 = planFor(dc.id, liquid, persona);
     /* GPU racks in liquid halls are high-density, direct-to-chip cooled */
     const gpuRacks = [...new Set(gpuNes.map(n => n.rackId))];
     gpuRacks.forEach(id => { const rk = dc.racks.find(r => r.id === id); if (rk) { rk.density = 'ai'; rk.liquid = liquid; } });
@@ -160,10 +164,21 @@ export function buildGpuFleet(persona: Persona, datacenters: Datacenter[], nes: 
     node.gpus = Array.from({ length: 8 }, (_, i) => gpuTelemetry(node, i, job, ne));
     if (node.state === 'failed' && !node.rma) node.gpus.forEach(g => { g.util = 0; g.powerW = 0; g.memUsedGb = 0; });
     if (node.rma && node.vendor !== 'NVIDIA') node.note = node.note!.replace(/^GPU(\d)/, 'Card $1');
-    if (node.rma) { const bad = node.gpus[Number(node.note!.match(/(?:GPU|Card )(\d)/)![1])]; bad.health = 'failed'; bad.util = 0; bad.powerW = 0; bad.memUsedGb = 0; const at = NOW - intBetween(rngOf(node.neId, 0x51), 30, 120) * HOUR; bad.xid = node.vendor === 'NVIDIA' ? { code: 79, at, text: 'GPU has fallen off the bus' } : null; node.health = 'failed'; }
+    if (node.rma) { const bad = node.gpus[Number(node.note!.match(/(?:GPU|Card )(\d)/)![1])]; bad.health = 'failed'; bad.util = 0; bad.powerW = 0; bad.memUsedGb = 0; if (bad.nic) bad.nic = { ...bad.nic, up: 0, extUp: 0 }; const at = NOW - intBetween(rngOf(node.neId, 0x51), 30, 120) * HOUR; bad.xid = node.vendor === 'NVIDIA' ? { code: 79, at, text: 'GPU has fallen off the bus' } : null; node.health = 'failed'; }
     syncNode(node, ne);
   }
   return state;
+}
+
+/* Gaudi 2 readings as the habanalabs exporter gives them (a real scrape, 05-Nov-2026): the SoC clock does not move (1650 MHz busy or idle),
+   the board sits ~10 °C under the chip when busy (both 26 °C on an idle card), idle power 128–148 W, no P-states, and 24 on-chip 100 GbE ports —
+   21 internal + 3 external, all up on a live card. Own stream per card, so nothing else moves. */
+function habana(g: Gpu, node: GpuNode, i: number, busy: boolean) {
+  const rr = rngOf(`${node.neId}#${i}`, 0x6a2);
+  g.clockMhz = 1650; g.memClockMhz = 3270; g.pstate = 'P0';
+  g.hbmC = busy ? g.tempC - intBetween(rr, 7, 13) : g.tempC - intBetween(rr, 0, 2);
+  const off = node.state === 'failed' && !node.rma;   // host not responding: nothing reports; an RMA node loses only its failed card (below)
+  g.nic = { up: off ? 0 : 21, ports: 21, extUp: off ? 0 : 3, ext: 3 };
 }
 
 function gpuTelemetry(node: GpuNode, i: number, job: GpuJob | undefined, ne: NetworkElement): Gpu {
@@ -197,6 +212,7 @@ function gpuTelemetry(node: GpuNode, i: number, job: GpuJob | undefined, ne: Net
   g.nvlinkTxGbs = busy && training ? r0(g.nvlinkRxGbs * between(rr, 0.85, 1.1)) : busy ? r0(between(rr, 5, 40)) : 0;
   g.energyKwh24 = r1((g.powerW * 24) / 1000 * between(rr, 0.9, 1.0));
   if (!spec.link) { g.nvlinkErr = 0; g.nvlinkRxGbs = 0; g.nvlinkTxGbs = 0; }   // PCIe cards: no scale-up link
+  if (spec.counters === 'habana') habana(g, node, i, busy);
   return g;
 }
 

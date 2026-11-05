@@ -299,6 +299,12 @@ where they did; drift = a node on its model's `driverOld`; job / service price =
 "GPU models" tab (vendor cards + model table → Nodes filtered by `?gmodel=` model or vendor), vendor tag + model on nodes, cluster cards,
 jobs, node drawer hardware row (`[data-gpu-hw]`), vendor-aware telemetry labels (DCGM / Intel Gaudi hl-smi / Intel XPU Manager).
 Check: `node .qa/gpu-models.mjs <persona>`.
+Intel **Gaudi 2** (05-Nov-2026, user shared a real `habanalabs` exporter scrape of one HL-225 card): catalogue entry `Gaudi 2 OAM 96 GB` with the scraped
+figures (96 GB HBM2e, 550 W default limit, SoC clock fixed 1650 MHz, ~139 W idle, 90 °C slowdown, PCIe Gen4 x16, 24 × 100 GbE on the card = 21 internal +
+3 external, driver 1.24.2 / FW 1.24.0-fw-62.6.2; HLS-Gaudi2 / Supermicro SYS-820GH-TNR2, Xeon 8380) and `counters: 'habana'`. **NeoCloud × USA only**
+(`GAUDI2_PLAN` in mock/gpu.ts: dcAt(6) pod 2, dcAt(17) pod 2); every other persona × geography hashes as before. `habana()` sets the exporter's readings
+on its own stream (`Gpu.nic` ports, hbmC = on-board temperature). Node detail shows Chip · board, SoC clock, RoCE ports and a habanalabs profiling table
+(no SM / tensor / fan / P-state); Telemetry → Metrics collected adds `HABANA_FIELDS`. Gaudi 3 still shows the DCGM-style columns.
 GPU Fleet head (22-Oct-2026, user): one row — title + one-line subtitle left, live chip · datacenter select (200 px) · Opstral right, centred (`.gpu > .page-head` in `styles/gpu.css`); at 1280 the subtitle wraps inside the row. Check: `node .qa/gpu-head.mjs`.
 The two story cards (Biggest blast radius · Slowest job) sit in ONE collapsible section **Jobs needing attention** (`FacSection`, scope `gpu` / `gpu-site` on the
 datacenter tab, open by default, remembered per viewer; closed = four summary facts: GPUs stopped + incident, lost now, slowest job, lost now) so the

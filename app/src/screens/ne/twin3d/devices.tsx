@@ -200,11 +200,11 @@ export function GpuServer({ d, gpu, labels }: DevProps) {
           );
         })}
         {/* scale-up switching behind the GPUs */}
-        {Array.from({ length: m.short === 'Gaudi 3' ? 0 : pcie ? 2 : 4 }, (_, k) => (
+        {Array.from({ length: m.short.startsWith('Gaudi') ? 0 : pcie ? 2 : 4 }, (_, k) => (
           <Pick key={k} id={`sw:${k}`} size={[0.06, 0.035, 0.06]} pos={[-0.14 + k * (pcie ? 0.28 : 0.093), trayY + 0.002, -0.14]}>
             <B s={[0.04, 0.002, 0.04]} m={MAT.substrate()} /><Heatsink w={0.06} h={0.035} d={0.06} p={[0, 0.002, 0]} m={liquid ? MAT.copper() : MAT.alu()} fins={16} />
           </Pick>))}
-        {labels && m.short !== 'Gaudi 3' && <Caption p={[0.12, trayY + 0.08, -0.2]} text={pcie ? 'PCIe switches' : m.vendor === 'Intel' ? 'Xe Link' : 'NVSwitch'} sub={m.link || 'no NVLink'} />}
+        {labels && !m.short.startsWith('Gaudi') && <Caption p={[0.12, trayY + 0.08, -0.2]} text={pcie ? 'PCIe switches' : m.vendor === 'Intel' ? 'Xe Link' : 'NVSwitch'} sub={m.link || 'no NVLink'} />}
         {liquid && <><mesh position={[-W / 2 + 0.03, trayY + 0.04, -0.1]} material={MAT.tubeBlue()}><boxGeometry args={[0.012, 0.012, 0.5]} /></mesh><mesh position={[-W / 2 + 0.05, trayY + 0.04, -0.1]} material={MAT.tubeRed()}><boxGeometry args={[0.012, 0.012, 0.5]} /></mesh></>}
       </Ex>
       {/* ---- front: fan wall over the GPU tray, NVMe bays + controls on the CPU tray */}
@@ -264,7 +264,7 @@ export function Accelerator({ gpu, chip, labels }: DevProps) {
   const g = gpu?.gpus[chip]; const m = gpu ? gpuSpec(gpu.model) : gpuSpec('H100 SXM 80 GB');
   const liquid = gpu?.cooling === 'liquid';
   const gddr = m.memType.startsWith('GDDR');
-  const stacks = gddr ? (m.short === 'T4' ? 8 : 12) : m.short === 'B200' || m.vendor === 'Intel' ? 8 : m.short === 'H200' ? 6 : 5;
+  const stacks = gddr ? (m.short === 'T4' ? 8 : 12) : m.short === 'Gaudi 2' ? 6 : m.short === 'B200' || m.vendor === 'Intel' ? 8 : m.short === 'H200' ? 6 : 5;
   const S = 4;                                  // shown at 4× so the package reads at desk scale
   const pw = 0.14 * S, pd = 0.08 * S;
   const lit = g ? Math.round((g.smActive / 100) * 80) : 0;

@@ -193,7 +193,7 @@ function insideGpu(c: Ctx): Scene {
     const g = c.gpu?.gpus[k];
     parts.push({ id: `gpu:${k}`, kind: 'compute', x: gx + (k % 4) * (gw + gg), y: k < 4 ? 60 : 382, w: gw, h: 148, label: `GPU ${k}`, sub: g ? `${g.util}% · ${g.tempC}°C · ${g.powerW} W` : m.short, state: gpuState(c, k), glow: !!g && g.util >= 30, fill: g ? g.util / 100 : 0, info: gpuInfo(c, k) });
   }
-  const sw = m.vendor === 'Intel' ? (m.short === 'Gaudi 3' ? { n: 1, label: 'On-chip RoCE · all-to-all', sub: m.link } : { n: 2, label: 'Xe Link bridge', sub: m.link })
+  const sw = m.vendor === 'Intel' ? (m.short.startsWith('Gaudi') ? { n: 1, label: 'On-chip RoCE · all-to-all', sub: m.link } : { n: 2, label: 'Xe Link bridge', sub: m.link })
     : m.link ? { n: m.short === 'A100' ? 6 : 4, label: 'NVSwitch', sub: m.link.split(' · ')[0] } : { n: 2, label: 'PCIe switch', sub: 'Gen4 / Gen5 · no NVLink' };
   const sx0 = gx + 10, swW = (4 * gw + 3 * gg - 20 - (sw.n - 1) * 12) / sw.n;
   const linkErr = c.gpu?.gpus.some(g => g.nvlinkErr > 100);
@@ -245,7 +245,7 @@ function chipGpu(c: Ctx): Scene {
   const m = c.gpu ? gpuSpec(c.gpu.model) : gpuSpec('H100 SXM 80 GB');
   const liquid = c.gpu?.cooling === 'liquid';
   const gddr = m.memType.startsWith('GDDR');
-  const stacks = gddr ? (m.short === 'T4' ? 8 : 12) : m.short === 'B200' || m.vendor === 'Intel' ? 8 : m.short === 'H200' ? 6 : 5;
+  const stacks = gddr ? (m.short === 'T4' ? 8 : 12) : m.short === 'Gaudi 2' ? 6 : m.short === 'B200' || m.vendor === 'Intel' ? 8 : m.short === 'H200' ? 6 : 5;
   const links = m.short === 'A100' ? 12 : m.link ? (m.linkShort === 'RoCE' ? 24 : m.linkShort === 'Xe Link' ? 16 : 18) : 0;
   const groups: Group[] = [{ x: 40, y: 30, w: 920, h: 525, label: `${m.vendor} ${m.model} · package (${m.form}) · GPU ${k}`, r: 22 }];
   const parts: Part[] = [];

@@ -21,6 +21,7 @@ export interface GpuSpec {
   driver: string; driverOld?: string; firmware: string; os: string;
   servers: Record<string, string>;  // by host vendor (the generator's NVIDIA / SUPERMICRO / DELL pick)
   launched: number;
+  counters?: 'habana';              // reported by the habanalabs exporter: no SM / tensor / fan / P-state counters, fixed SoC clock, NIC ports per card
 }
 
 const NV_DRIVER = '550.127.05', NV_DRIVER_OLD = '535.183.01';
@@ -39,6 +40,11 @@ export const GPU_SPECS: GpuSpec[] = [
     fabric: 'Ethernet 25G · 2 ports per node', use: 'inference', rateX: 0.08, telemetry: 'NVIDIA DCGM', driver: NV_DRIVER, driverOld: NV_DRIVER_OLD, firmware: 'VBIOS 90.04.96.00.A0', os: 'Ubuntu 22.04', servers: { NVIDIA: 'EGX T4 (8×T4)', SUPERMICRO: 'SYS-4029GP-TRT2 (8×T4)', DELL: 'PowerEdge R750xa (8×T4)' }, launched: 2018 },
   { model: 'Gaudi 3 OAM 128 GB', vendor: 'Intel', short: 'Gaudi 3', arch: 'Gaudi 3 (HL-325L)', memGb: 128, memType: 'HBM2e', tdpW: 900, form: 'OAM', link: 'On-chip RoCE · 24 × 200 GbE', linkShort: 'RoCE', clock: [1500, 1600], idleW: [95, 120], memClockMhz: 3700, memIdleMhz: 1600,
     fabric: 'Ethernet RoCE 200G · scale-out on the accelerator', use: 'training', rateX: 0.6, telemetry: 'Intel Gaudi (hl-smi · habanalabs exporter)', driver: 'habanalabs 1.18.0', firmware: 'Gaudi FW 1.18.0-fw-53.1.1', os: 'Ubuntu 22.04', servers: { NVIDIA: 'Gaudi 3 HLB-325L baseboard (8×Gaudi 3)', SUPERMICRO: 'SYS-822GA-NGR3 (8×Gaudi 3)', DELL: 'PowerEdge XE9680 (8×Gaudi 3)' }, launched: 2024 },
+  /* Gaudi 2 (05-Nov-2026, user: real habanalabs exporter output of an HL-225 card): 96 GB HBM2e (memory_total 103,079,215,104 B), default power
+     limit 550 W, SoC clock fixed at 1650 MHz (clock_soc = clock_soc_max), ~139 W idle, slowdown / shutdown at 90 °C, PCIe Gen4 x16, 24 × 100 GbE
+     on the card (21 internal = 3 to each of the other 7 cards, 3 external for scale-out), driver 1.24.2, firmware 1.24.0-fw-62.6.2 */
+  { model: 'Gaudi 2 OAM 96 GB', vendor: 'Intel', short: 'Gaudi 2', arch: 'Gaudi 2 (HL-225)', memGb: 96, memType: 'HBM2e', tdpW: 550, form: 'OAM', link: 'On-chip RoCE · 21 × 100 GbE in the node', linkShort: 'RoCE', clock: [1650, 1650], idleW: [128, 148], memClockMhz: 3270, memIdleMhz: 3270,
+    fabric: 'Ethernet RoCE 100G · 3 ports per card on the accelerator', use: 'training', rateX: 0.42, telemetry: 'Intel Gaudi (hl-smi · habanalabs exporter)', driver: 'habanalabs 1.24.2', firmware: 'Gaudi2 FW 1.24.0-fw-62.6.2', os: 'Ubuntu 22.04', servers: { NVIDIA: 'HLS-Gaudi2 (8×Gaudi 2)', SUPERMICRO: 'SYS-820GH-TNR2 (8×Gaudi 2)' }, launched: 2022, counters: 'habana' },
   { model: 'Max 1550 OAM 128 GB', vendor: 'Intel', short: 'Max 1550', arch: 'Xe HPC (Ponte Vecchio)', memGb: 128, memType: 'HBM2e', tdpW: 600, form: 'OAM', link: 'Xe Link · 16 links', linkShort: 'Xe Link', clock: [1450, 1600], idleW: [70, 90], memClockMhz: 3200, memIdleMhz: 1600,
     fabric: 'InfiniBand HDR 200G · 8 rails', use: 'training', rateX: 0.45, telemetry: 'Intel XPU Manager', driver: 'i915 · Level Zero 1.3.29735', firmware: 'GFX FW 2024.18', os: 'RHEL 9.4', servers: { NVIDIA: 'Data Center GPU Max x8 (8×Max 1550)', SUPERMICRO: 'SYS-821GV-TNR (8×Max 1550)', DELL: 'PowerEdge XE9640 (8×Max 1550)' }, launched: 2023 }
 ];
@@ -54,10 +60,20 @@ export const GPU_HOST: Record<GpuModel, { vcpu: number; ramGb: number; nvmeTb: n
   'B200 SXM 192 GB': { vcpu: 224, ramGb: 4096, nvmeTb: 30, netGbps: 3200 }, 'H200 SXM 141 GB': { vcpu: 224, ramGb: 2048, nvmeTb: 30, netGbps: 3200 },
   'H100 SXM 80 GB': { vcpu: 224, ramGb: 2048, nvmeTb: 30, netGbps: 3200 }, 'A100 SXM 80 GB': { vcpu: 256, ramGb: 2048, nvmeTb: 30, netGbps: 1600 },
   'L40S PCIe 48 GB': { vcpu: 192, ramGb: 1024, nvmeTb: 15, netGbps: 200 }, 'T4 PCIe 16 GB': { vcpu: 80, ramGb: 384, nvmeTb: 7.6, netGbps: 50 },
-  'Gaudi 3 OAM 128 GB': { vcpu: 192, ramGb: 2048, nvmeTb: 30, netGbps: 4800 }, 'Max 1550 OAM 128 GB': { vcpu: 224, ramGb: 2048, nvmeTb: 30, netGbps: 1600 }
+  'Gaudi 3 OAM 128 GB': { vcpu: 192, ramGb: 2048, nvmeTb: 30, netGbps: 4800 }, 'Gaudi 2 OAM 96 GB': { vcpu: 160, ramGb: 1024, nvmeTb: 30, netGbps: 2400 }, 'Max 1550 OAM 128 GB': { vcpu: 224, ramGb: 2048, nvmeTb: 30, netGbps: 1600 }
 };
 export const GPU_BENCH: Record<GpuModel, { hbmTbs: number; busGbs: number }> = {
   'B200 SXM 192 GB': { hbmTbs: 8.0, busGbs: 1400 }, 'H200 SXM 141 GB': { hbmTbs: 4.8, busGbs: 740 }, 'H100 SXM 80 GB': { hbmTbs: 3.35, busGbs: 740 }, 'A100 SXM 80 GB': { hbmTbs: 2.0, busGbs: 480 },
-  'L40S PCIe 48 GB': { hbmTbs: 0.86, busGbs: 48 }, 'T4 PCIe 16 GB': { hbmTbs: 0.32, busGbs: 24 }, 'Gaudi 3 OAM 128 GB': { hbmTbs: 3.7, busGbs: 1200 }, 'Max 1550 OAM 128 GB': { hbmTbs: 3.3, busGbs: 420 }
+  'L40S PCIe 48 GB': { hbmTbs: 0.86, busGbs: 48 }, 'T4 PCIe 16 GB': { hbmTbs: 0.32, busGbs: 24 }, 'Gaudi 3 OAM 128 GB': { hbmTbs: 3.7, busGbs: 1200 }, 'Gaudi 2 OAM 96 GB': { hbmTbs: 2.45, busGbs: 260 }, 'Max 1550 OAM 128 GB': { hbmTbs: 3.3, busGbs: 420 }
 };
 export const instanceType = (m: GpuModel) => { const h = GPU_HOST[m]; return `8× ${gpuSpec(m).short} · ${h.vcpu} vCPU · ${h.ramGb >= 1000 ? `${h.ramGb / 1024} TB` : `${h.ramGb} GB`} RAM · ${h.nvmeTb} TB NVMe`; };
+
+/* the habanalabs exporter's per-card metrics (Gaudi 2, from a real scrape, 05-Nov-2026), shown beside the DCGM fields on GPU Fleet → Telemetry */
+export const HABANA_FIELDS: { field: string; what: string }[] = [
+  { field: 'habanalabs_utilization', what: 'Accelerator (AIP) utilisation %' }, { field: 'habanalabs_memory_used_bytes / total_bytes', what: 'HBM used / total' },
+  { field: 'habanalabs_temperature_onchip / onboard', what: 'Chip and board temperature °C' }, { field: 'habanalabs_temperature_threshold_slowdown / shutdown', what: 'Slowdown and shutdown limits °C' },
+  { field: 'habanalabs_power_mW · power_default_limit_mW', what: 'Board power and its limit' }, { field: 'habanalabs_energy', what: 'Energy since boot (shown per 24 h)' },
+  { field: 'habanalabs_clock_soc_mhz / soc_max_mhz', what: 'SoC clock MHz (fixed on Gaudi 2)' }, { field: 'habanalabs_ecc_feature_mode · pending_rows_*', what: 'ECC on; rows waiting for a remap (single / double bit)' },
+  { field: 'habanalabs_pcie_rx / tx · pcie_replay_count', what: 'PCIe traffic and link retries' }, { field: 'habanalabs_pci_link_speed / width', what: 'PCIe generation and lanes (Gen4 x16)' },
+  { field: 'habanalabs_nic_port_status{port_type}', what: 'Each of the 24 on-chip 100 GbE ports up / down: internal (scale-up) and external (scale-out)' }
+];
