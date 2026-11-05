@@ -64,7 +64,7 @@ export function hostCpuOf(model: string): string {
   if (/DGX B200/.test(model)) return 'Intel Xeon Platinum 8570';
   if (/DGX H/.test(model)) return 'Intel Xeon Platinum 8480C';
   if (/DGX A100|AS-4124|XE8545/.test(model)) return 'AMD EPYC 7763';
-  if (/Gaudi2|Gaudi 2|SYS-820GH/.test(model)) return 'Intel Xeon Platinum 8380';
+  if (/Gaudi2|Gaudi 2|SYS-820GH|HLS-2H/.test(model)) return 'Intel Xeon Platinum 8380';
   if (/Gaudi|Max 1550|XE9640|SYS-821GV|SYS-822GA/.test(model)) return 'Intel Xeon Platinum 8480+';
   if (/R740|R640|Gen10|SYS-120U|SYS-220U/.test(model)) return 'Intel Xeon Gold 6248R';
   if (/R760|SYS-121H|DL380/.test(model)) return 'Intel Xeon Gold 6430';

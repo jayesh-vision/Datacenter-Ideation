@@ -603,10 +603,11 @@ export function GpuNodeDetail({ d }: { d: NonNullable<Awaited<ReturnType<typeof 
       </div>
       {n.ref && d.refCheck && (
         <div className="rev-sec gpu-ref" data-gpu-ref>
-          <div className="rev-sec-h"><b>Your card · GPU{n.ref.module}<Info text="This card is the real Gaudi 2 card from the habanalabs exporter scrape you shared, laid over one card of a spare node. Each row puts the exporter metric and its scraped value beside what this screen holds for the card; a tick means they are the same. The node's other 7 cards, and every other Gaudi 2 node, are modelled on the same limits: their serials, hosts and addresses are the mock's." /></b>
-            <span className="vw-label">host {n.ref.host} · VM {n.ref.vm} · module {n.ref.module} · exporter {n.ref.exporter} · scraped {n.ref.scrapedAt}</span></div>
+          <div className="rev-sec-h"><b>Your server and card · GPU{n.ref.module}<Info text="This node is your real Wiwynn HLS-2H server (read on the host with dmidecode, ipmitool fru, lscpu and lspci) and card 5 is your real Gaudi 2 card from the habanalabs exporter scrape, laid over a spare node. Each row puts the source (command or exporter metric) and the value read on your system beside what this screen holds; a tick means they are the same. The node's other 7 cards, and every other Gaudi 2 node, are modelled on the same limits: their serials, hosts and addresses are the mock's." /></b>
+            <span className="vw-label">host {n.ref.host} · VM {n.ref.vm} · module {n.ref.module} · exporter {n.ref.exporter} · scraped {n.ref.scrapedAt}</span>
+            <span className="vw-label">CPU {n.ref.server.cpu} · RAM {n.ref.server.ram} · {n.ref.server.board} · BIOS {n.ref.server.bios} · kernel {n.ref.server.kernel} · BMC {n.ref.server.bmc} (management address in inventory is modelled)</span></div>
           <div className="dt-scroll"><table className="nst-table dt-table">
-            <thead><tr><th>Field</th><th>Exporter metric</th><th>Scraped</th><th>Shown here</th><th>Match</th></tr></thead>
+            <thead><tr><th>Field</th><th>Source</th><th>Read on your system</th><th>Shown here</th><th>Match</th></tr></thead>
             <tbody>{d.refCheck.map(r => (
               <tr key={r.field}><td>{r.field}</td><td><code>{r.metric}</code></td><td className="num mono">{r.scraped}</td><td className="num mono">{r.shown}</td>
                 <td>{r.ok ? <I.Check size={15} className="gpu-ok" aria-label="match" /> : <span className="gpu-bad">differs</span>}</td></tr>))}</tbody>

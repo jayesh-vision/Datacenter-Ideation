@@ -149,7 +149,7 @@ export function gpuNode(neId: string) {
   const job = n.jobId ? gpu({ dcId: n.dcId }).jobs.find(j => j.id === n.jobId) : undefined;
   const alerts = db.alerts.filter(a => a.neId === neId && a.state !== 'cleared');
   const spare = job ? [...db.gpu!.nodes.values()].find(x => x.clusterId === n.clusterId && x.state === 'idle' && x.health === 'healthy')?.neId : undefined;
-  return { node: row, job, alerts, spare, ne: db.neById.get(neId)!, refCheck: n.ref ? gaudi2RefCheck(n) : undefined };
+  return { node: row, job, alerts, spare, ne: db.neById.get(neId)!, refCheck: n.ref ? gaudi2RefCheck(n, db.neById.get(neId)!) : undefined };
 }
 /* does this estate (or site) have GPU infrastructure the operator runs or hosts? */
 export const hasGpu = (dcId?: string) => !!db.gpu && ([...db.gpu.nodes.values()].some(n => !dcId || n.dcId === dcId) || db.gpu.cages.some(c => !dcId || c.dcId === dcId));

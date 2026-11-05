@@ -306,7 +306,7 @@ export interface GpuNode {
   cooling: 'air' | 'liquid'; driver: string; firmware: string; powerKw: number; health: GpuHealth;
   ib: { rail: number; state: 'up' | 'down' | 'flapping'; errors: number }[]; note?: string; rma?: string;
   /* the user's own Gaudi 2 card laid over one card of this node (mock/gaudi2-ref.ts): where the scrape came from */
-  ref?: { host: string; vm: string; module: number; exporter: string; scrapedAt: string };
+  ref?: { host: string; vm: string; module: number; exporter: string; scrapedAt: string; server: { board: string; cpu: string; ram: string; bios: string; kernel: string; bmc: string } };
   /* the last 24 hours, one sample per hour, across the node's 8 GPUs: mean utilisation, hottest GPU, node power */
   series: { util: number[]; tempC: number[]; powerKw: number[] };
 }

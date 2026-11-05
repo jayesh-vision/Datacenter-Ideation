@@ -2,7 +2,7 @@
    the other info is correct"). One card in the estate IS the user's card: the values below are copied from the habanalabs exporter scrape
    (`curl <vm>:41611/metrics | grep ^habanalabs_`, file x101-vm-gaudi-2-metrics, 05-Nov-2026 15:58) — nothing here is generated. The rest of
    the Gaudi 2 fleet is modelled on the same limits; its serials, hosts and addresses are the mock's. NeoCloud × USA only. */
-import type { Gpu, GpuNode } from '../api/types';
+import type { Gpu, GpuNode, NetworkElement } from '../api/types';
 
 export const GAUDI2_REF = {
   host: 'g2-wyn101', vm: 'x101-vm', module: 5, exporter: '192.168.122.13:41611', scrapedAt: '05-Nov-2026 15:58',
@@ -19,13 +19,21 @@ export const GAUDI2_REF = {
   },
   /* the latest reading on the user's Telemetry Ops dashboard (screenshot, 05-Nov-2026; user: "match the power and temp to my screenshot values"):
      power draw 59.0 W (11% of 550 W), on-chip 27 °C. These two win over the scrape; the board temperature is not on the dashboard, so it stays scraped. */
-  latest: { at: 'Telemetry Ops · latest', habanalabs_power_mW: 59000, habanalabs_temperature_onchip: 27 }
+  latest: { at: 'Telemetry Ops · latest', habanalabs_power_mW: 59000, habanalabs_temperature_onchip: 27 },
+  /* the server the card sits in, read on the host g2-wyn101 (user, 05-Nov-2026: dmidecode -t system / baseboard / chassis, ipmitool fru print 0,
+     lscpu, free -g, lspci -d 1da3:, hostnamectl). The BMC had no address (DHCP, 0.0.0.0), so the inventory's management address stays modelled. */
+  server: {
+    maker: 'WIWYNN', product: 'HLS-2H', partNumber: 'B91.04B01.0001', version: 'MP', serial: 'W-N-33-M000O1', board: 'HLS2 - CPU Board',
+    boardSerial: 'B9104B10000432600011N001', boardMfg: '30-Aug-2023', cpu: '2 × Intel Xeon Platinum 8380 @ 2.30GHz', ramGib: 1007, cards: 8,
+    os: 'Ubuntu 24.04.5 LTS', kernel: '6.8.0-147-generic', bios: 'ETM03 (14-Jul-2023)', bmcMac: '5c:fe:9e:0b:09:cb', bmcIp: 'none (DHCP, 0.0.0.0)'
+  }
 };
 const GIB = 1024 ** 3;
 
 /* lay the scraped card over card `module` of a Gaudi 2 spare node (idle, like the scraped card: 0% AIP utilisation) */
-export function applyGaudi2Ref(node: GpuNode) {
-  const R = GAUDI2_REF, r = R.raw, g: Gpu = node.gpus[R.module];
+export function applyGaudi2Ref(node: GpuNode, ne: NetworkElement) {
+  const R = GAUDI2_REF, r = R.raw, g: Gpu = node.gpus[R.module], S = R.server;
+  ne.vendor = S.maker; ne.serial = S.serial; ne.os = S.os; node.server = `Wiwynn ${ne.model}`;
   g.serial = R.serial; g.uuid = R.uuid; g.util = r.habanalabs_utilization;
   g.memGb = Math.round(r.habanalabs_memory_total_bytes / GIB); g.memUsedGb = Math.round(r.habanalabs_memory_used_bytes / GIB * 10) / 10;
   g.tempC = R.latest.habanalabs_temperature_onchip; g.hbmC = r.habanalabs_temperature_onboard;
@@ -36,18 +44,22 @@ export function applyGaudi2Ref(node: GpuNode) {
   g.nic = { up: r.nic_internal_up, ports: r.nic_internal, extUp: r.nic_external_up, ext: r.nic_external };
   g.nvlinkErr = 0; g.nvlinkRxGbs = 0; g.nvlinkTxGbs = 0;
   node.driver = `habanalabs ${R.driver}`; node.firmware = R.firmware;
-  node.ref = { host: R.host, vm: R.vm, module: R.module, exporter: R.exporter, scrapedAt: R.scrapedAt };
+  node.ref = { host: R.host, vm: R.vm, module: R.module, exporter: R.exporter, scrapedAt: R.scrapedAt,
+    server: { board: `${S.board} · ${S.boardSerial} · made ${S.boardMfg}`, cpu: S.cpu, ram: `${S.ramGib} GiB`, bios: S.bios, kernel: S.kernel, bmc: `MAC ${S.bmcMac} · IP ${S.bmcIp}` } };
 }
 
 /* field by field: the scraped value (converted the way the screen shows it) next to what the estate holds for that card — the reconciliation
    the node drawer shows and `.qa/gaudi2-ref-check.ts` repeats against the raw file */
 /* power and on-chip temperature are compared with the dashboard's latest reading (`latest`), every other field with the scrape */
 export interface RefRow { field: string; metric: string; scraped: string; shown: string; ok: boolean }
-export function gaudi2RefCheck(node: GpuNode): RefRow[] {
-  const R = GAUDI2_REF, r = R.raw, g = node.gpus[R.module];
+export function gaudi2RefCheck(node: GpuNode, ne: NetworkElement): RefRow[] {
+  const R = GAUDI2_REF, r = R.raw, g = node.gpus[R.module], S = R.server;
   const row = (field: string, metric: string, scraped: string | number, shown: string | number | undefined): RefRow => ({ field, metric, scraped: String(scraped), shown: String(shown ?? '—'), ok: String(scraped) === String(shown ?? '') });
   return [
-    row('Serial', 'label Serial', R.serial, g.serial), row('UUID', 'label UUID', R.uuid, g.uuid),
+    row('Server maker', 'dmidecode -t system · Manufacturer', S.maker, ne.vendor), row('Server model', 'ipmitool fru · Product Name', S.product, ne.model.replace(' (8×Gaudi 2)', '')),
+    row('Server serial', 'dmidecode -t system · Serial Number', S.serial, ne.serial), row('Server OS', 'hostnamectl · Operating System', S.os, ne.os),
+    row('Gaudi cards in server', 'lspci -d 1da3: | wc -l', S.cards, node.gpus.length),
+    row('Card serial', 'label Serial', R.serial, g.serial), row('Card UUID', 'label UUID', R.uuid, g.uuid),
     row('Driver', 'label driver', R.driver, node.driver.replace('habanalabs ', '')), row('Firmware', 'label fit', R.firmware, node.firmware),
     row('AIP utilisation %', 'habanalabs_utilization', r.habanalabs_utilization, g.util),
     row('HBM used GiB', 'habanalabs_memory_used_bytes', (r.habanalabs_memory_used_bytes / GIB).toFixed(1), g.memUsedGb.toFixed(1)),

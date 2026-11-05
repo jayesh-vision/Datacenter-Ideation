@@ -99,10 +99,10 @@ export function buildGpuFleet(persona: Persona, datacenters: Datacenter[], nes: 
       for (const n of members) {
         const rr = rngOf(n.id, 0x6a1);
         /* the host record takes the pod's server model, keeping its OEM (an Intel baseboard replaces a DGX) */
-        const oem = spec.servers[n.vendor] ? n.vendor : 'SUPERMICRO';
+        const oem = spec.servers[n.vendor] ? n.vendor : spec.servers.SUPERMICRO ? 'SUPERMICRO' : Object.keys(spec.servers)[0];  // Gaudi 2: Wiwynn only (the user's server)
         n.vendor = oem === 'NVIDIA' && spec.vendor === 'Intel' ? 'INTEL' : oem; n.model = spec.servers[oem]; n.os = oem === 'NVIDIA' && spec.vendor === 'NVIDIA' ? spec.os : spec.os === 'DGX OS 6' || spec.os === 'DGX OS 7' ? 'Ubuntu 22.04' : spec.os;
         const old = DRIFT_SITES().includes(dc.id) && chance(rr, 0.7);
-        const node: GpuNode = { neId: n.id, dcId: dc.id, rackId: n.rackId, clusterId: cl.id, model, vendor: spec.vendor, server: `${n.vendor === 'INTEL' ? 'Intel' : n.vendor === 'SUPERMICRO' ? 'Supermicro' : n.vendor === 'DELL' ? 'Dell' : 'NVIDIA'} ${n.model}`, gpus: [], state: 'idle', cooling: liquid ? 'liquid' : 'air', driver: old && spec.driverOld ? spec.driverOld : spec.driver,
+        const node: GpuNode = { neId: n.id, dcId: dc.id, rackId: n.rackId, clusterId: cl.id, model, vendor: spec.vendor, server: `${n.vendor === 'INTEL' ? 'Intel' : n.vendor === 'SUPERMICRO' ? 'Supermicro' : n.vendor === 'DELL' ? 'Dell' : n.vendor === 'WIWYNN' ? 'Wiwynn' : 'NVIDIA'} ${n.model}`, gpus: [], state: 'idle', cooling: liquid ? 'liquid' : 'air', driver: old && spec.driverOld ? spec.driverOld : spec.driver,
           firmware: spec.firmware, powerKw: 0, health: 'healthy', ib: Array.from({ length: 8 }, (_, i) => ({ rail: i, state: 'up' as const, errors: intBetween(rr, 0, 12) })), series: { util: [], tempC: [], powerKw: [] } };
         const roll = rr();
         if (n.icmp.state === 'critical') { node.state = 'failed'; node.health = 'failed'; node.note = 'Host not responding — out of the scheduler'; }
@@ -171,7 +171,7 @@ export function buildGpuFleet(persona: Persona, datacenters: Datacenter[], nes: 
   /* the user's real Gaudi 2 card: card 5 of the first spare Gaudi 2 node at dcAt(6) (NeoCloud × USA) */
   if (persona === 'neocloud' && activeGeo().id === 'us') {
     const ref = [...state.nodes.values()].find(n => n.dcId === dcAt(6) && n.model === GAUDI2 && n.state === 'idle');
-    if (ref) { applyGaudi2Ref(ref); syncNode(ref, neById.get(ref.neId)!); }
+    if (ref) { applyGaudi2Ref(ref, neById.get(ref.neId)!); syncNode(ref, neById.get(ref.neId)!); }
   }
   return state;
 }
