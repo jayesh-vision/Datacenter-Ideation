@@ -107,12 +107,17 @@ export interface DcTypeProfile {
   pueTarget: number;
   /** Representative rack count for a seeded site of this type (prototype-scaled; large types are sampled well below their real footprint). */
   seedRacks: number;
+  /** Created by an admin (Templates → Site types): the built-in type it started from; benchmarks fall back to that type's values. */
+  basedOn?: DcTypeKey;
+  /** A retired custom type: plans on it keep working, new plans cannot pick it. */
+  retired?: boolean;
 }
 
 const COLO_TENANTS = ['Northwind Bank', 'Contoso Cloud', 'Fabrikam Media', 'Tailspin Games', 'House'];
 const CARRIER_TENANTS = ['Lumen', 'Zayo', 'Cogent', 'Telia Carrier', 'AT&T', 'House'];
 
-export const DC_TYPE_CATALOG: readonly DcTypeProfile[] = [
+/** The 17 built-in types (code-owned). */
+const BUILTIN: readonly DcTypeProfile[] = [
   // ── Enterprise / commercial / IT — small → large ──
   {
     key: 'edge-micro-dc', name: 'Edge micro-DC', label: 'Edge', segment: 'Enterprise',
@@ -254,7 +259,11 @@ export const DC_TYPE_CATALOG: readonly DcTypeProfile[] = [
   },
 ];
 
+/** Every site type the planner knows: the built-ins, then the custom types published in Templates (kept in step by
+ *  syncSiteTypes, which mutates these in place so every reader of the catalogue sees custom types too). */
+export const DC_TYPE_CATALOG: DcTypeProfile[] = [...BUILTIN];
 const BY_KEY: Record<string, DcTypeProfile> = Object.fromEntries(DC_TYPE_CATALOG.map((t) => [t.key, t]));
+export const isBuiltinDcType = (key?: string | null) => !!key && BUILTIN.some((t) => t.key === key);
 
 export function dcTypeProfile(key?: string | null): DcTypeProfile | undefined {
   return key ? BY_KEY[key] : undefined;
@@ -274,6 +283,54 @@ export const DC_TYPES_BY_SEGMENT: Record<DcSegment, DcTypeProfile[]> = {
   Enterprise: DC_TYPE_CATALOG.filter((t) => t.segment === 'Enterprise'),
   Telco: DC_TYPE_CATALOG.filter((t) => t.segment === 'Telco'),
 };
+
+/** Site types a NEW plan can pick (retired custom types stay readable for the plans on them). */
+export const pickableDcTypes = (): DcTypeProfile[] => DC_TYPE_CATALOG.filter((t) => !t.retired);
+
+/** The built-in type behind a key: itself, or the built-in a custom type was based on (for logic keyed on built-in types). */
+export const baseDcTypeKey = (key?: string | null): string => (key ? BY_KEY[key]?.basedOn ?? key : '');
+
+/** Options for a site-type picker: the pickable types, plus the current value if it is a retired one. */
+export const dcTypeOptions = (current?: string | null): { id: string; label: string }[] =>
+  DC_TYPE_CATALOG.filter((t) => !t.retired || t.key === current).map((t) => ({ id: t.key, label: t.retired ? `${t.name} (retired)` : t.name }));
+
+/** Rebuild the catalogue from the built-ins + the custom site types among the templates (published or retired, not drafts,
+ *  not draft versions, not deleted). Called whenever the planner store changes. */
+type SiteTypeTpl = { kind: string; status: string; isDeleted?: boolean; versionOf?: string; siteType?: DcTypeProfile };
+let lastSig = '';
+export function syncSiteTypes(templates: readonly SiteTypeTpl[]): void {
+  const custom = templates.filter((t) => t.kind === 'profile' && t.siteType && !t.isDeleted && !t.versionOf && t.status !== 'draft' && !BY_BUILTIN[t.siteType.key])
+    .map((t) => ({ ...t.siteType!, retired: t.status === 'deprecated' || undefined }));
+  const sig = JSON.stringify(custom);
+  if (sig === lastSig) return;
+  lastSig = sig;
+  DC_TYPE_CATALOG.splice(0, DC_TYPE_CATALOG.length, ...BUILTIN, ...custom);
+  for (const k of Object.keys(BY_KEY)) delete BY_KEY[k];
+  for (const t of DC_TYPE_CATALOG) BY_KEY[t.key] = t;
+  for (const seg of ['Enterprise', 'Telco'] as DcSegment[]) DC_TYPES_BY_SEGMENT[seg].splice(0, DC_TYPES_BY_SEGMENT[seg].length, ...DC_TYPE_CATALOG.filter((t) => t.segment === seg));
+}
+const BY_BUILTIN: Record<string, DcTypeProfile> = Object.fromEntries(BUILTIN.map((t) => [t.key, t]));
+
+/** The type whose benchmark values a plan of this type reads: itself, or for a custom type the built-in it was based on
+ *  (when it has no value of its own). */
+export function benchDcTypeKeys(key?: string | null): string[] {
+  const out: string[] = []; let k = key ?? undefined;
+  for (let i = 0; k && i < 5 && !out.includes(k); i++) { out.push(k); k = BY_KEY[k]?.basedOn; }
+  return out;
+}
+/** A benchmark row for a measure and site type, falling back along basedOn. */
+export function benchForType<B extends { metric: string; appliesTo: { dcTypeKey?: string } }>(rows: readonly B[], metric: string, key?: string | null): B | undefined {
+  for (const k of benchDcTypeKeys(key)) { const b = rows.find((r) => r.metric === metric && r.appliesTo.dcTypeKey === k); if (b) return b; }
+  return undefined;
+}
+
+/** A new custom type's catalogue entry: a copy of the type it starts from, under its own key / name / label. */
+export function customDcType(base: DcTypeProfile, name: string, label: string, taken: readonly string[]): DcTypeProfile {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 32) || 'site';
+  let key = `custom-${slug}`; for (let n = 2; taken.includes(key); n++) key = `custom-${slug}-${n}`;
+  const c = JSON.parse(JSON.stringify(base)) as DcTypeProfile;
+  return { ...c, key: key as DcTypeKey, name, label: label || base.label, basedOn: (base.basedOn ?? base.key) as DcTypeKey, retired: undefined, coverage: base.coverage, gaps: [...base.gaps] };
+}
 
 export const CAPABILITY_GAP_LABEL: Record<DcCapabilityGap, string> = {
   'multi-tenancy': 'Multi-tenancy (tenants, allocation, metering, cross-connects)',

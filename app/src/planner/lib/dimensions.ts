@@ -11,7 +11,7 @@
  * (capacity, workload mix, tier, climate, site type), so each step opens pre-filled.
  */
 import type * as T from '../p2b/types';
-import { DC_TYPE_CATALOG } from '../p2b/dcTypes';
+import { DC_TYPE_CATALOG, benchForType } from '../p2b/dcTypes';
 import type { ParamValue } from './engine';
 
 export type DimensionKey = 'space' | 'power' | 'cooling' | 'network' | 'it' | 'firesec' | 'sustainability' | 'operations' | 'delivery' | 'migration' | 'cost' | 'permits';
@@ -129,7 +129,7 @@ export function deriveFromRequirements(plan: T.PlannerPlan, template: T.PlannerT
   // Staffing and cost from benchmarks.
   const staff = benchmarks.find(b => b.metric === 'staffPerMw' && b.appliesTo.tier === tier) ?? benchmarks.find(b => b.metric === 'staffPerMw');
   if (staff?.value) set('staffPerMw', staff.value, `benchmark for ${tier}`);
-  const capex = benchmarks.find(b => b.metric === 'capexPerKw' && b.appliesTo.dcTypeKey === plan.dcTypeKey);
+  const capex = benchForType(benchmarks, 'capexPerKw', plan.dcTypeKey);
   if (capex?.value) set('capexPerKw', capex.value, `benchmark for ${profile?.name ?? 'this site type'}`);
   const tariff = benchmarks.find(b => b.metric.startsWith('tariff') && b.appliesTo.regionId === (regionId ?? plan.regionId));
   if (tariff?.value) set('tariffUsdPerKwh', tariff.value, 'regional energy price');

@@ -21,6 +21,7 @@
  *
  * Pure functions: no React, no engine or outputs calls (types only).
  */
+import { baseDcTypeKey } from '../p2b/dcTypes';
 import type * as T from '../p2b/types';
 import type { Estimate, EstimateLine, ParamValue, ScheduleItem, Sourced } from './engine';
 import { leadWeeksFor } from './engine';
@@ -56,7 +57,7 @@ export function endInfo(data: PlannerData, dcId: string | undefined, side: 'A' |
   const devs = (groupBy(data, 'devices', 'dataCenterId').get(dc.id) ?? []).filter(LIVE_DEV);
   const routers = devs.filter(d => d.category === 'Router' || /(^|-)(core|border|edge|dci|wan)(-|\d|$)/i.test(d.name ?? '')).sort((a, b) => (a.category === 'Router' ? -1 : 1) - (b.category === 'Router' ? -1 : 1) || (a.name ?? '').localeCompare(b.name ?? ''));
   const pools = data.subnets.filter(s => s.dataCenterId === dc.id && s.purpose === 'Transit' && s.status !== 'Container' && !s.plannerPlanId).sort((a, b) => (/transit/i.test(b.name) ? 1 : 0) - (/transit/i.test(a.name) ? 1 : 0) || (a.cidr.startsWith('10.') ? -1 : 1));
-  return { side, dc, colo: COLO_TYPES.includes(dc.dcTypeKey ?? ''), routers, transitPools: pools, regionId: byId(data, 'campuses', dc.campusId)?.regionId, country: byId(data, 'campuses', dc.campusId)?.country };
+  return { side, dc, colo: COLO_TYPES.includes(baseDcTypeKey(dc.dcTypeKey)), routers, transitPools: pools, regionId: byId(data, 'campuses', dc.campusId)?.regionId, country: byId(data, 'campuses', dc.campusId)?.country };
 }
 
 /* ================================================================== ports */

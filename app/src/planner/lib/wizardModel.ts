@@ -1,7 +1,7 @@
 /* Wizard model — which steps a scope shows, the props every step receives, and the pure
    helpers that turn an intent reading, a template or an estate site into draft changes. */
 import type * as T from '../p2b/types';
-import { DC_TYPE_CATALOG } from '../p2b/dcTypes';
+import { DC_TYPE_CATALOG, baseDcTypeKey } from '../p2b/dcTypes';
 import { fmtKw, type Evaluation, type ParamValue } from './engine';
 import type { IntentReading } from './ai';
 import type { Estate } from './usePlanner';
@@ -179,7 +179,7 @@ export function applyIntent(draft: T.PlannerPlan, r: IntentReading, text: string
     campusId: campus?.id ?? draft.campusId, regionId: campus?.regionId ?? draft.regionId, dataCenterId: useExisting ? dc?.id ?? draft.dataCenterId : undefined,
     newSiteName: !useExisting && campus ? `${campus.city.toUpperCase().slice(0, 3)}-NEW` : draft.newSiteName,
     params, paramSources: sources,
-    demand: { ...draft.demand, densityKwPerRack: r.density ?? draft.demand.densityKwPerRack, gpuPct: r.dcTypeKey === 'ai-gpu-factory' ? Math.max(draft.demand.gpuPct, 70) : draft.demand.gpuPct, computePct: r.dcTypeKey === 'ai-gpu-factory' ? Math.min(draft.demand.computePct, 20) : draft.demand.computePct, storagePct: r.dcTypeKey === 'ai-gpu-factory' ? 10 : draft.demand.storagePct },
+    demand: { ...draft.demand, densityKwPerRack: r.density ?? draft.demand.densityKwPerRack, gpuPct: baseDcTypeKey(r.dcTypeKey) === 'ai-gpu-factory' ? Math.max(draft.demand.gpuPct, 70) : draft.demand.gpuPct, computePct: baseDcTypeKey(r.dcTypeKey) === 'ai-gpu-factory' ? Math.min(draft.demand.computePct, 20) : draft.demand.computePct, storagePct: baseDcTypeKey(r.dcTypeKey) === 'ai-gpu-factory' ? 10 : draft.demand.storagePct },
   };
 }
 
@@ -283,7 +283,7 @@ export function fmtParam(key: string, value: unknown, unit?: string): string {
 export function mixForSiteType(key: string): Pick<T.PlannerDemand, 'gpuPct' | 'computePct' | 'storagePct' | 'tenancy'> {
   const p = DC_TYPE_CATALOG.find(x => x.key === key);
   if (!p) return { gpuPct: 20, computePct: 60, storagePct: 20, tenancy: 'single' };
-  if (p.key === 'ai-gpu-factory') return { gpuPct: 70, computePct: 20, storagePct: 10, tenancy: 'single' };
+  if (baseDcTypeKey(p.key) === 'ai-gpu-factory') return { gpuPct: 70, computePct: 20, storagePct: 10, tenancy: 'single' };
   if (p.multiTenant) return { gpuPct: 10, computePct: 70, storagePct: 20, tenancy: 'multi' };
   if (p.segment === 'Telco') return { gpuPct: 0, computePct: 80, storagePct: 20, tenancy: 'single' };
   return { gpuPct: 20, computePct: 60, storagePct: 20, tenancy: 'single' };

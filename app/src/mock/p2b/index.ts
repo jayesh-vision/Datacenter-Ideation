@@ -19,6 +19,7 @@ import { buildBom } from '../../planner/lib/outputs';
 import { moveReservations, reservationRequests, writeReservations, type Store } from '../../planner/lib/reservations';
 import { plannerDataFromSnapshot } from '../../planner/lib/plannerData';
 import { linkSeedModules } from './moduleLinks';
+import { syncSiteTypes } from '../../planner/p2b/dcTypes';
 
 let store: MockDB | null = null;
 let builtFor: Db | null = null;
@@ -38,7 +39,9 @@ export function p2bStore(db: Db): MockDB {
   builtFor = db;
   store = build(db);
   serial++;
-  store.subscribe(() => listeners.forEach(f => f()));
+  const st = store, siteTypes = () => syncSiteTypes(st.getAllRaw('plannerTemplates') as unknown as T.PlannerTemplate[]);
+  siteTypes();
+  store.subscribe(() => { siteTypes(); listeners.forEach(f => f()); });
   queueMicrotask(() => listeners.forEach(f => f()));
   return store;
 }

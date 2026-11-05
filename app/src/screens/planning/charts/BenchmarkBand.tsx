@@ -2,6 +2,7 @@
    figure when known) and PUE for its cooling and climate. Each row draws the low–high band, the typical value, the plan's marker
    and an inside / above / below chip. Ported from P2B's cost benchmark strip, drawn as plain SVG on the drawings' tokens. */
 import type * as T from '../../../planner/p2b/types';
+import { benchForType } from '../../../planner/p2b/dcTypes';
 import type { Evaluation } from '../../../planner/lib/engine';
 import { Chip } from '../../../ui/kit';
 import { date, money } from '../common';
@@ -19,7 +20,7 @@ export function BenchmarkBand({ ev, plan, benchmarks }: { ev: Evaluation; plan: 
   const { tip, on } = useTip();
   const est = ev.estimate, s = ev.sizing;
   const rows: Row[] = [];
-  const bmCapex = benchmarks.find(b => b.metric === 'capexPerKw' && b.appliesTo.dcTypeKey === plan.dcTypeKey);
+  const bmCapex = benchForType(benchmarks, 'capexPerKw', plan.dcTypeKey);
   // Only the band the estimate itself used: scopes costed bottom-up (or as a share of a site) carry none, and the tab says so.
   const band = est.benchmarkBand;
   if (band && est.capexPerKw > 0) rows.push({

@@ -12,7 +12,7 @@ import { planFigures, type PlanFigures } from './benchCatalog';
 import { STEP_ROLE } from './governance';
 
 export const TEMPLATE_APPROVER_ROLE = 'Capacity Planner';
-export const CONTENT_KEYS = ['name', 'description', 'ownerName', 'params', 'rules', 'requiredAspects', 'outputs', 'approvalPath', 'executesAs', 'blueprintKey', 'appliesTo', 'inheritsFrom', 'demand', 'items', 'scope', 'dcTypeKey', 'labels', 'modules', 'atpSystem', 'perSite'] as const satisfies readonly (keyof T.PlannerTemplateContent)[];
+export const CONTENT_KEYS = ['name', 'description', 'ownerName', 'params', 'rules', 'requiredAspects', 'outputs', 'approvalPath', 'executesAs', 'blueprintKey', 'appliesTo', 'inheritsFrom', 'demand', 'items', 'scope', 'dcTypeKey', 'labels', 'modules', 'atpSystem', 'perSite', 'siteType'] as const satisfies readonly (keyof T.PlannerTemplateContent)[];
 export const ASPECT_ORDER: T.PlannerAspect[] = ['space', 'power', 'cooling', 'network', 'it', 'fire', 'security', 'sustainability', 'resilience', 'operations', 'supply', 'schedule', 'finance', 'compliance', 'commissioning', 'migration', 'risk'];
 /** Kinds a user can create here. Site types are the engine's sizing catalogue (code), so they are edited, not created. */
 export const NEW_KINDS: { kind: T.PlannerTemplateKind; label: string; sub: string }[] = [
@@ -97,6 +97,39 @@ export function templateErrors(t: T.PlannerTemplate, all: T.PlannerTemplate[]): 
   if (t.kind === 'plan' && !t.requiredAspects.some(a => a.depth === 'full')) e.push('A plan type covers at least one area in full.');
   if (t.demand) { const s = t.demand.gpuPct + t.demand.computePct + t.demand.storagePct; if (Math.round(s) !== 100) e.push(`The workload mix adds up to ${s}%, not 100%.`); const ph = t.demand.phases.reduce((a, p) => a + p.sharePct, 0); if (t.demand.phases.length && Math.round(ph) !== 100) e.push(`The phases add up to ${ph}%, not 100%.`); }
   if ((t.kind === 'document' || t.kind === 'checklist') && !(t.items ?? []).some(i => i.trim())) e.push(`A ${t.kind} needs at least one ${t.kind === 'checklist' ? 'item' : 'section'}.`);
+  if (t.siteType) e.push(...siteTypeErrors(t.siteType));
+  return e;
+}
+
+/* ------------------------------------------------------------------ custom site types: the catalogue entry, field by field */
+type ST = NonNullable<T.PlannerTemplate['siteType']>;
+const rng = (r: [number, number | null] | null | undefined, u = '') => (r ? `${r[0]}${r[1] == null ? '+' : ` – ${r[1]}`}${u}` : '—');
+/** Every field of a site type an admin edits, with how it reads in the change list. */
+export const SITE_TYPE_FIELDS: [string, (x: ST) => string][] = [
+  ['Short label', x => x.label], ['Segment', x => x.segment], ['Typical racks', x => rng(x.typicalRacks)], ['Facility power', x => rng(x.powerKw, ' kW')],
+  ['kW per rack', x => rng(x.kwPerRack, ' kW')], ['Default tier', x => x.defaultTier], ['Cooling', x => x.cooling], ['Resilience', x => x.redundancy],
+  ['High density', x => pv(!!x.highDensity)], ['Multi-tenant', x => pv(!!x.multiTenant)], ['−48 V DC plant', x => pv(!!x.dcPowerPlant)],
+  ['Power redundancy', x => x.physical.redundancy], ['Containment', x => x.physical.containment], ['Rack height', x => `${x.physical.rackHeightU}U`],
+  ['Cooling units', x => x.physical.coolingUnits.join(', ')], ['Cooling zones', x => String(x.physical.coolingZones)], ['Liquid cooling', x => x.physical.liquidCooling],
+  ['Cooling overhead', x => `${Math.round(x.physical.coolingOverhead * 100)}% of IT`], ['Utility intake', x => `${x.physical.feedVoltage} V`],
+  ['Battery ride-through', x => rng(x.physical.backupRuntimeMins, ' min')], ['Buildings', x => String(x.physical.buildings)], ['Floors per building', x => rng(x.physical.floorsPerBuilding)],
+  ['WAN profile', x => x.physical.wan], ['Diverse WAN expected', x => pv(x.physical.diversityExpected)], ['Circuits', x => String(x.physical.circuits)],
+  ['Build blueprint', x => x.build.blueprintKey], ['Build duration factor', x => `× ${x.build.durationFactor}`], ['Default budget', x => `USD ${x.build.defaultBudget.toLocaleString('en-US')}`],
+  ['Rack power warning', x => `${x.capacity.rackPowerWarnPct}%`], ['Rack power block', x => `${x.capacity.rackPowerBlockPct}%`], ['Cooling headroom minimum', x => `${x.capacity.coolingHeadroomMinPct}%`],
+  ['PUE target', x => String(x.pueTarget)],
+];
+export function siteTypeErrors(x: ST): string[] {
+  const e: string[] = [];
+  const bad = (r: [number, number | null] | null, what: string) => { if (r && (r[0] < 0 || (r[1] != null && r[1] < r[0]))) e.push(`${what}: the upper value is below the lower one.`); };
+  if (!x.label.trim()) e.push('Give the site type a short label (used in site codes).');
+  bad(x.typicalRacks, 'Typical racks'); bad(x.powerKw, 'Facility power'); bad(x.kwPerRack, 'kW per rack'); bad(x.physical.backupRuntimeMins, 'Battery ride-through'); bad(x.physical.floorsPerBuilding, 'Floors per building');
+  if (x.kwPerRack && x.kwPerRack[0] <= 0) e.push('kW per rack must be above 0.');
+  if (!(x.pueTarget >= 1 && x.pueTarget <= 3)) e.push('The PUE target is between 1.0 and 3.0.');
+  if (!(x.physical.coolingOverhead >= 0 && x.physical.coolingOverhead <= 1.5)) e.push('Cooling overhead is between 0% and 150% of IT load.');
+  if (!(x.capacity.rackPowerWarnPct < x.capacity.rackPowerBlockPct && x.capacity.rackPowerBlockPct <= 100)) e.push('Rack power: the warning comes before the block, and the block is at most 100%.');
+  if (!x.physical.coolingUnits.length) e.push('Pick at least one cooling unit type.');
+  if (!(x.build.durationFactor > 0)) e.push('The build duration factor is above 0.');
+  if (x.physical.buildings < 1 || x.physical.coolingZones < 1) e.push('At least one building and one cooling zone.');
   return e;
 }
 
@@ -137,6 +170,7 @@ export function templateDiff(a: T.PlannerTemplateContent, b: T.PlannerTemplateCo
   if (phases(a) !== phases(b)) out.push({ area: 'Demand', what: 'Phases', from: phases(a) || '—', to: phases(b) || '—' });
   for (const m of added(a.modules ?? [], b.modules ?? [])) out.push({ area: 'Modules', what: names(m), to: 'Used' });
   for (const m of added(b.modules ?? [], a.modules ?? [])) out.push({ area: 'Modules', what: names(m), from: 'Used', to: 'Removed' });
+  if (a.siteType && b.siteType) for (const [label, f] of SITE_TYPE_FIELDS) if (f(a.siteType) !== f(b.siteType)) out.push({ area: 'Site type', what: label, from: f(a.siteType), to: f(b.siteType) });
   for (const i of added(a.items ?? [], b.items ?? [])) out.push({ area: 'Items', what: i, to: 'Added' });
   for (const i of added(b.items ?? [], a.items ?? [])) out.push({ area: 'Items', what: i, from: 'Removed' });
   return out;

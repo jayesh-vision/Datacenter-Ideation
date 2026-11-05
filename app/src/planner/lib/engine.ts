@@ -21,7 +21,7 @@
  * Every derived number carries a `source` so the UI can show where it came from.
  */
 import type * as T from '../p2b/types';
-import { dcTypeProfile, plantPlan } from '../p2b/dcTypes';
+import { benchForType, dcTypeProfile, plantPlan } from '../p2b/dcTypes';
 import { CATALOGUE, chooseOption, freeStock, itQuantities, priceOf, upsOptionFor, type ItemKind, type ItQuantities } from './catalogue';
 import { cashflowFor, contingency as contingencyLine, usdPerGbpsMonth, type CapexItem, type CashflowInput, type OpexItem, type RevenueStream } from './finance';
 import type { PlannerData } from './plannerData';
@@ -564,7 +564,7 @@ export function estimate(plan: T.PlannerPlan, p: P, sizing: Sizing, benchmarks: 
   const itKw = sizing.itKw;
   const notes: string[] = [];
   const build = WHOLE_SITE_SCOPES.includes(plan.scope);
-  const bmCapex = benchmarks.find(b => b.metric === 'capexPerKw' && b.appliesTo.dcTypeKey === plan.dcTypeKey);
+  const bmCapex = benchForType(benchmarks, 'capexPerKw', plan.dcTypeKey);
   const capexPerKwP = p['capexPerKw'];
   const saneActual = actuals?.capexPerKw && (!bmCapex || (actuals.capexPerKw >= (bmCapex.low ?? 0) * 0.5 && actuals.capexPerKw <= (bmCapex.high ?? 1e9) * 2)) ? actuals.capexPerKw : undefined;
   const capexPerKw = capexPerKwP ? num(p, 'capexPerKw') : saneActual ?? bmCapex?.value ?? 3400;

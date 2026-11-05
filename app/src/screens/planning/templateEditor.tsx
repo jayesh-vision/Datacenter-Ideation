@@ -16,7 +16,8 @@ import { estateActuals } from '../../planner/lib/ai';
 import { APPROVAL_STEPS, ASPECT_ORDER, EXECUTES_AS, NEW_KINDS, TEMPLATE_APPROVER_ROLE, contentOf, dependents, liveTemplates, moduleBrings, needsPublishApproval, outputCatalog, paramCatalog, templateDiff, templateErrors, templateImpact, type TplChange, type TplImpactRow } from '../../planner/lib/templateCatalog';
 import { CLIMATE_LABEL, COOLING_LABEL, RULE_PLAIN } from '../../planner/lib/labels';
 import { LIMIT_INFO, RULE_TEMPLATE_KINDS, checkCatalog, nextRuleId, ruleIndex } from '../../planner/lib/ruleCatalog';
-import { DC_TYPE_CATALOG } from '../../planner/p2b/dcTypes';
+import { dcTypeOptions } from '../../planner/p2b/dcTypes';
+import { SiteTypeSection, withSiteTypeSynced } from './siteTypeEditor';
 import { PEOPLE } from '../../planner/compat/people';
 import { switchUser, useAuth } from '../../planner/compat/auth';
 import type * as T from '../../planner/p2b/types';
@@ -106,8 +107,9 @@ export function TemplateEditor({ t, onDone }: { t: T.PlannerTemplate; onDone: ()
   const catalog = useMemo(() => paramCatalog(templates), [templates]);
   const addable = catalog.filter(p => !allParams.some(x => x.key === p.key) && (w.kind !== 'plan' || !covered.size || covered.has(p.aspect)));
   const outputsKnown = useMemo(() => outputCatalog(templates), [templates]);
-  const errors = templateErrors(w, templates);
-  const diff = templateDiff(contentOf(t), contentOf(w));
+  const ws = withSiteTypeSynced(w);
+  const errors = templateErrors(ws, templates);
+  const diff = templateDiff(contentOf(t), contentOf(ws));
   const [newOut, setNewOut] = useState('');
   const [addKey, setAddKey] = useState('');
   const [newItem, setNewItem] = useState('');
@@ -167,7 +169,7 @@ export function TemplateEditor({ t, onDone }: { t: T.PlannerTemplate; onDone: ()
     if (p.type === 'select') return <TextInput value={(p.options ?? []).join(', ')} onChange={x => setParam(p.key, { options: x.split(',').map(s => s.trim()).filter(Boolean) })} placeholder="option, option" style={{ height: 32, minWidth: 140 }} />;
     return <span className="vw-label">—</span>;
   };
-  const save = () => { if (actions.saveTemplateDraft(w).ok) onDone(); };
+  const save = () => { if (actions.saveTemplateDraft(ws).ok) onDone(); };
 
   return (
     <div className="pn-te">
@@ -185,7 +187,7 @@ export function TemplateEditor({ t, onDone }: { t: T.PlannerTemplate; onDone: ()
             </span>
           </Field>
           {w.kind === 'plan' && <Field label="Once approved it becomes a"><SelectInput value={w.executesAs ?? ''} placeholder="Nothing (record only)" options={EXECUTES_AS.map(e => ({ id: e, label: e[0].toUpperCase() + e.slice(1) }))} onChange={v => set({ executesAs: (v || undefined) as T.PlannerTemplate['executesAs'] })} /></Field>}
-          {w.kind === 'plan' && <Field label="Site type" hint="the default for new plans"><SelectInput value={w.dcTypeKey ?? ''} placeholder="Any" options={DC_TYPE_CATALOG.map(p => ({ id: p.key, label: p.name }))} onChange={v => set({ dcTypeKey: v || undefined })} /></Field>}
+          {w.kind === 'plan' && <Field label="Site type" hint="the default for new plans"><SelectInput value={w.dcTypeKey ?? ''} placeholder="Any" options={dcTypeOptions(w.dcTypeKey)} onChange={v => set({ dcTypeKey: v || undefined })} /></Field>}
           {w.kind === 'plan' && w.scope && <div className="pn-bm-unit" style={{ gridColumn: 'span 2' }}><I.Lock size={13} />Family <b>{SCOPE_LABEL[w.scope]}</b><span className="vw-label">· fixed: it decides the wizard steps and the checks. Start from another plan type to change it.</span></div>}
           {chain.length > 1 && <div className="pn-bm-unit" style={{ gridColumn: 'span 2' }}><I.GitBranch size={13} />Inherits from <b>{chain[1].name} v{chain[1].version}</b></div>}
         </div>
@@ -230,6 +232,8 @@ export function TemplateEditor({ t, onDone }: { t: T.PlannerTemplate; onDone: ()
           <Btn size="sm" icon={I.Plus} disabled={!newOut.trim() || w.outputs.includes(newOut.trim())} onClick={() => { set({ outputs: [...w.outputs, newOut.trim()] }); setNewOut(''); }}>Add</Btn>
         </div>
       </section>}
+
+      {w.siteType && <SiteTypeSection v={w.siteType} onChange={v => set({ siteType: v })} />}
 
       {w.kind === 'demand' && w.demand && <section>
         <h4>Workload mix and phasing</h4>

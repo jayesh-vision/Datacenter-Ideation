@@ -23,6 +23,7 @@
  *   conditions get an owner and a due date and block execution until closed with evidence.
  */
 import type * as T from '../p2b/types';
+import { benchForType } from '../p2b/dcTypes';
 import { PEOPLE, type Person } from '../compat/people';
 import { fmtKw, fmtUsd, type Evaluation } from './engine';
 import type { PlannerData } from './plannerData';
@@ -344,7 +345,7 @@ export interface BaselineInput {
 export function buildBaseline(i: BaselineInput): T.PlannerBaseline {
   const { plan, ev } = i;
   const contingency = ev.estimate.contingencyUsd ?? ev.estimate.capex.filter(l => /contingency/i.test(l.item)).reduce((a, l) => a + l.amount, 0);
-  const bms = i.benchmarks.filter(b => !b.appliesTo.dcTypeKey || b.appliesTo.dcTypeKey === plan.dcTypeKey);
+  const bms = i.benchmarks.filter(b => !b.appliesTo.dcTypeKey || b.appliesTo.dcTypeKey === benchForType(i.benchmarks, b.metric, plan.dcTypeKey)?.appliesTo.dcTypeKey);
   return {
     at: i.at, by: i.actor, scenarioId: i.scenario?.id, scenarioName: i.scenario?.name ?? 'Base case',
     templateId: plan.templateId, templateVersion: i.template?.version ?? ev.resolved?.template.version ?? 0,

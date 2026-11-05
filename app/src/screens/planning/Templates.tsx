@@ -8,7 +8,8 @@
    template approver. Retire (with reason, lists the plans and variants that keep it) / Restore; drafts can be deleted. */
 import { useMemo, useState } from 'react';
 import { KIND_LABEL, NewTemplateModal, PublishSection, TemplateEditor, VersionsSection, fmtDefault, optionLabel, type NewPreset } from './templateEditor';
-import { dependents, draftVersionOf, liveTemplates, moduleBrings, usesModule } from '../../planner/lib/templateCatalog';
+import { SITE_TYPE_FIELDS, dependents, draftVersionOf, liveTemplates, moduleBrings, usesModule } from '../../planner/lib/templateCatalog';
+import { NewSiteTypeModal } from './siteTypeEditor';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import * as I from 'lucide-react';
 import { ListToolbar, useParamPatch } from '../../ui/ListToolbar';
@@ -66,10 +67,11 @@ export function TemplatesTab() {
   const match = (text: string) => !q || text.toLowerCase().includes(q.toLowerCase());
   const tplRows = useMemo<TplRow[]>(() => live.filter(t => viewOf(t.kind) === view && view !== 'sites').map(t => ({ ...t, uses: uses.get(t.id) ?? 0 })), [live, uses, view]);
   const profiles = useMemo(() => new Map(live.filter(t => t.kind === 'profile').map(t => [t.dcTypeKey, t])), [live]);
-  const siteRows = useMemo<SiteRow[]>(() => [...DC_TYPE_CATALOG].sort((a, b) => a.powerKw[0] - b.powerKw[0] || (a.powerKw[1] ?? 1e12) - (b.powerKw[1] ?? 1e12)).map(p => ({ ...p, id: p.key, profile: profiles.get(p.key), uses: uses.get(`type:${p.key}`) ?? 0 })), [profiles, uses]);
+  /* the catalogue (built-ins + published custom types) plus custom types still in their first draft */
+  const siteRows = useMemo<SiteRow[]>(() => [...DC_TYPE_CATALOG, ...live.filter(t => t.kind === 'profile' && t.siteType && !DC_TYPE_CATALOG.some(p => p.key === t.siteType!.key)).map(t => ({ ...t.siteType!, name: t.name }))].sort((a, b) => a.powerKw[0] - b.powerKw[0] || (a.powerKw[1] ?? 1e12) - (b.powerKw[1] ?? 1e12)).map(p => ({ ...p, id: p.key, profile: profiles.get(p.key), uses: uses.get(`type:${p.key}`) ?? 0 })), [profiles, uses, live]);
   const shownTpl = tplRows.filter(t => (!status || t.status === status) && match(`${t.name} ${t.description} ${t.labels.join(' ')}`));
   const shownSites = siteRows.filter(p => (!status || p.profile?.status === status) && match(`${p.name} ${p.description} ${p.segment} ${p.cooling}`));
-  const totals: Record<View, number> = { plans: live.filter(t => t.kind === 'plan').length, sites: DC_TYPE_CATALOG.length, modules: live.filter(t => viewOf(t.kind) === 'modules').length };
+  const totals: Record<View, number> = { plans: live.filter(t => t.kind === 'plan').length, sites: siteRows.length, modules: live.filter(t => viewOf(t.kind) === 'modules').length };
   const statuses = view === 'sites' ? siteRows.map(p => p.profile?.status) : tplRows.map(t => t.status);
   const name2 = (title: string, sub?: React.ReactNode) => <span className="cell-2 pn-name-cell"><b>{title}</b>{sub && <small>{sub}</small>}</span>;
 
@@ -84,7 +86,7 @@ export function TemplatesTab() {
     { key: 'v', header: 'Version', sort: t => t.version, render: t => <span className="mono">v{t.version}</span> },
   ];
   const siteCols: Col<SiteRow>[] = [
-    { key: 'name', header: 'Site type', sort: p => p.name, wrap: true, render: p => name2(p.name, p.segment) },
+    { key: 'name', header: 'Site type', sort: p => p.name, wrap: true, render: p => name2(p.name, p.basedOn ? `${p.segment} · custom, based on ${DC_TYPE_CATALOG.find(x => x.key === p.basedOn)?.name ?? p.basedOn}` : p.segment) },
     { key: 'size', header: 'Typical size', sort: p => p.powerKw[0], render: p => <span className="num pn-nowrap">{range(p.powerKw, kw)}</span> },
     { key: 'racks', header: 'Racks', sort: p => p.typicalRacks[0], render: p => <span className="num pn-nowrap">{range(p.typicalRacks, n => num(n))}</span> },
     { key: 'kwr', header: 'kW per rack', sort: p => p.kwPerRack?.[1] ?? 0, render: p => <span className="num pn-nowrap">{p.kwPerRack ? `${num(p.kwPerRack[0])} – ${num(p.kwPerRack[1])}` : '—'}</span> },
@@ -112,7 +114,7 @@ export function TemplatesTab() {
   return (
     <div className="pn-lib">
       <Panel flush className="pl-tpl" title={intro.title} sub={intro.sub} icon={intro.icon} count={totals[view]} info="Templates make the planner consistent: a plan type fixes the questions, rules and approvers; a site type sets typical sizes and the benchmarks that apply; modules are the reusable parts plan types are built from."
-        actions={<span className="row" style={{ gap: 8 }}>{view !== 'sites' && <Btn size="sm" variant="filled" icon={I.Plus} onClick={() => setNewTpl({})}>{view === 'plans' ? 'New plan type' : 'New module'}</Btn>}<Seg<View> size="sm" value={view} onChange={v => apply({ view: v === 'plans' ? '' : v, status: '', q: '' })} options={[{ id: 'plans', label: `Plan types · ${totals.plans}` }, { id: 'sites', label: `Site types · ${totals.sites}` }, { id: 'modules', label: `Modules & rules · ${totals.modules}` }]} /></span>}>
+        actions={<span className="row" style={{ gap: 8 }}><Btn size="sm" variant="filled" icon={I.Plus} onClick={() => setNewTpl(view === 'sites' ? { kind: 'profile' } : {})}>{view === 'plans' ? 'New plan type' : view === 'sites' ? 'New site type' : 'New module'}</Btn><Seg<View> size="sm" value={view} onChange={v => apply({ view: v === 'plans' ? '' : v, status: '', q: '' })} options={[{ id: 'plans', label: `Plan types · ${totals.plans}` }, { id: 'sites', label: `Site types · ${totals.sites}` }, { id: 'modules', label: `Modules & rules · ${totals.modules}` }]} /></span>}>
         {layout === 'tiles'
           ? <CardGrid toolbar={toolbar} empty={empty}>{view === 'sites'
             ? shownSites.map(p => <SiteTypeCard key={p.id} p={p} uses={p.uses} status={p.profile?.status} range={range} onOpen={p.profile ? () => openTpl(p.profile!.id) : undefined} />)
@@ -124,7 +126,9 @@ export function TemplatesTab() {
           : <DataTable<TplRow> rows={shownTpl} cols={view === 'plans' ? planCols : modCols} pageSize={25} defaultSort={view === 'modules' ? { key: 'kind', dir: 'asc' } : undefined} onRow={t => openTpl(t.id)} toolbar={toolbar} empty={empty} />}
       </Panel>
       {open && <TemplateDrawer key={open.id} t={open} onClose={closeTpl} onOpen={openTpl} onNew={setNewTpl} />}
-      {newTpl && <NewTemplateModal view={view} preset={newTpl} onClose={() => setNewTpl(null)} onCreated={id => { setNewTpl(null); EDIT_ON_OPEN.id = id; openTpl(id); }} />}
+      {newTpl && (newTpl.kind === 'profile'
+        ? <NewSiteTypeModal base={newTpl.source?.dcTypeKey} onClose={() => setNewTpl(null)} onCreated={id => { setNewTpl(null); EDIT_ON_OPEN.id = id; openTpl(id); }} />
+        : <NewTemplateModal view={view} preset={newTpl} onClose={() => setNewTpl(null)} onCreated={id => { setNewTpl(null); EDIT_ON_OPEN.id = id; openTpl(id); }} />)}
     </div>
   );
 }
@@ -152,7 +156,7 @@ function TemplateDrawer({ t, onClose, onOpen, onNew }: { t: T.PlannerTemplate; o
   /* where an inherited input comes from: the nearest template in the chain, else the module that carries it (later modules win) */
   const srcOf = (key: string) => chain.find(c => c.params.some(x => x.key === key))?.name ?? [...mods].reverse().find(m => m.params.some(x => x.key === key))?.name ?? 'Inherited';
   const ownShown = params.filter(p => own.has(p.key)).length;
-  const profile = t.kind === 'profile' ? DC_TYPE_CATALOG.find(p => p.key === t.dcTypeKey) : undefined;
+  const profile = t.kind === 'profile' ? t.siteType ?? DC_TYPE_CATALOG.find(p => p.key === t.dcTypeKey) : undefined;
   const liveRec = t.versionOf ? templates.find(x => x.id === t.versionOf) : undefined;
   const draftV = t.versionOf ? undefined : draftVersionOf(t, templates);
   const dep = dependents(liveRec ?? t, templates, plans);
@@ -178,8 +182,8 @@ function TemplateDrawer({ t, onClose, onOpen, onNew }: { t: T.PlannerTemplate; o
         <span className="vw-label" style={{ flex: '1 1 220px' }}>{footNote}</span>
         <span className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
           {isDraft && !t.pendingPublish && <Btn icon={I.Trash2} onClick={discard}>{t.versionOf ? 'Discard draft' : 'Delete draft'}</Btn>}
-          {!isDraft && <Btn icon={I.Copy} onClick={() => onNew({ kind: t.kind, source: t, mode: 'copy' })}>Duplicate</Btn>}
-          {!isDraft && <Btn icon={I.GitBranch} onClick={() => onNew({ kind: t.kind, source: t, mode: 'variant' })}>Make a variant</Btn>}
+          {!isDraft && <Btn icon={I.Copy} onClick={() => onNew({ kind: t.kind, source: t, mode: 'copy' })}>{t.kind === 'profile' ? 'New site type from this' : 'Duplicate'}</Btn>}
+          {!isDraft && t.kind !== 'profile' && <Btn icon={I.GitBranch} onClick={() => onNew({ kind: t.kind, source: t, mode: 'variant' })}>Make a variant</Btn>}
           {t.status === 'published' && <Btn variant="danger-subtle" icon={I.Ban} onClick={retire}>Retire</Btn>}
           {t.status === 'deprecated' && <Btn icon={I.RotateCcw} onClick={() => actions.restoreTemplate(t)}>Restore</Btn>}
           {draftV ? <Btn icon={I.FilePen} onClick={() => onOpen(draftV.id)}>Open draft v{draftV.version}</Btn> : !t.pendingPublish && <Btn variant={isDraft ? 'filled' : undefined} icon={I.Pencil} onClick={edit}>{isDraft ? 'Edit draft' : 'Edit'}</Btn>}
@@ -191,7 +195,7 @@ function TemplateDrawer({ t, onClose, onOpen, onNew }: { t: T.PlannerTemplate; o
       {t.status === 'deprecated' && <div className="pn-bm-note is-muted" style={{ marginBottom: 12 }}><I.Archive size={15} /><span>Retired{t.retiredBy ? ` by ${t.retiredBy}` : ''}{t.retiredAt ? ` on ${date(t.retiredAt)}` : ''}{t.retireReason ? `: ${t.retireReason}` : ''}. New plans cannot pick it.</span></div>}
       {editing ? <TemplateEditor t={t} onDone={() => { setEditing(false); document.querySelector('.drawer:last-of-type .drawer-body')?.scrollTo(0, 0); }} /> : <>
       {isDraft && <PublishSection t={t} ask={setAsk} onPublished={() => { if (liveRec) onOpen(liveRec.id); }} />}
-      <KV cols={3} items={[['Applies to', t.appliesTo.label], ['Becomes a', t.executesAs ?? '—'], ['Owner', t.ownerName], ['Site type', DC_TYPE_CATALOG.find(p => p.key === t.dcTypeKey)?.name ?? '—'], ['Blueprint', t.blueprintKey ? optionLabel('', t.blueprintKey) : '—'], ['Updated', date(t.updatedAt)]]} />
+      <KV cols={3} items={[['Applies to', t.appliesTo.label], ['Becomes a', t.executesAs ?? '—'], ['Owner', t.ownerName], ['Site type', (t.siteType ?? DC_TYPE_CATALOG.find(p => p.key === t.dcTypeKey))?.name ?? '—'], ['Blueprint', t.blueprintKey ? optionLabel('', t.blueprintKey) : '—'], ['Updated', date(t.updatedAt)]]} />
       {chain.length > 1 && <><Sub>Inherits from</Sub><div className="pn-chain">{[...chain].reverse().map((c, i) => <span key={c.id} className="row" style={{ gap: 6 }}>{i > 0 && <I.ChevronRight size={14} />}{c.id === t.id ? <b>{c.name} v{c.version}</b> : <button type="button" className="ent-link" onClick={() => onOpen(c.id)}>{c.name} v{c.version}</button>}</span>)}</div><p className="vw-label" style={{ margin: '6px 0 0' }}>Nearer templates override inputs by key and add rules; this template's own inputs are marked below.</p></>}
       {mods.length > 0 && <><Sub extra={<span className="vw-label">{mods.length}</span>}>Built from modules</Sub><div className="pn-te-mods is-read">{mods.map(m => <button key={m.id} type="button" onClick={() => onOpen(m.id)}><Chip size="xs" tone="neutral">{KIND_LABEL[m.kind]}</Chip><b>{m.name} v{m.version}</b><small>{moduleBrings(m, templates)}{!(t.modules ?? []).includes(m.id) ? ` · via ${chain.slice(1).find(c => c.modules?.includes(m.id))?.name ?? 'the parent'}` : ''}</small></button>)}</div><p className="vw-label" style={{ margin: '6px 0 0' }}>Their inputs and rules apply unless this plan type{chain.length > 1 ? ' or its parent' : ''} sets its own copy.</p></>}
       {MODULE_KINDS.includes(t.kind) && !t.versionOf && <><Sub extra={<span className="vw-label">{dep.usedBy.length}</span>}>Used by plan types</Sub>{dep.usedBy.length ? <div className="row wrap" style={{ gap: 6 }}>{dep.usedBy.map(v => <button key={v.id} type="button" className="ent-link" onClick={() => onOpen(v.id)}>{v.name} v{v.version}</button>)}</div> : <p className="vw-label" style={{ margin: 0 }}>No plan type is built from it yet. Add it to a plan type in that plan type's editor (Modules).</p>}</>}
@@ -200,6 +204,9 @@ function TemplateDrawer({ t, onClose, onOpen, onNew }: { t: T.PlannerTemplate; o
         <div><span>Size</span><b>{range(profile.powerKw, kw)}</b></div><div><span>Racks</span><b>{range(profile.typicalRacks, n => num(n))}</b></div><div><span>kW per rack</span><b>{profile.kwPerRack ? `${num(profile.kwPerRack[0])} – ${num(profile.kwPerRack[1])}` : '—'}</b></div>
         <div><span>Cooling</span><b>{profile.cooling}</b></div><div><span>Redundancy</span><b>{profile.redundancy}</b></div><div><span>Tier and PUE</span><b>{profile.defaultTier} · {profile.pueTarget ? num(profile.pueTarget, 2) : '—'}</b></div>
       </div></>}
+      {t.siteType && <><Sub extra={<span className="vw-label">custom{t.siteType.basedOn ? `, based on ${DC_TYPE_CATALOG.find(x => x.key === t.siteType!.basedOn)?.name ?? t.siteType.basedOn}` : ''}</span>}>Site type definition</Sub>
+        <KV cols={3} items={SITE_TYPE_FIELDS.map(([l, f]) => [l, f(t.siteType!)] as [string, string])} />
+        <p className="vw-label" style={{ margin: '6px 0 0' }}>{t.status === 'draft' && !t.versionOf ? 'Once published, new plans can pick it as their kind of site; benchmarks with no value of its own use the type it was based on.' : t.status === 'deprecated' ? 'Retired: plans on it keep it; new plans cannot pick it.' : 'New plans can pick it as their kind of site. The planner sizes, prices and schedules it from these values; benchmarks with no value of its own use the type it was based on.'}</p></>}
       {t.kind === 'plan' && <>
         <Sub>Wizard areas</Sub>
         <div className="row wrap" style={{ gap: 6 }}>{dimensionsFor(t).map(({ dim, depth }) => <Chip key={dim.key} tone={depth === 'full' ? 'info' : 'neutral'} size="xs">{dim.label}{depth === 'summary' ? ' · brief' : ''}</Chip>)}</div>

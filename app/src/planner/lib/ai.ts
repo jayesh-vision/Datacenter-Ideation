@@ -10,7 +10,7 @@
  * offered plant sizing, and whole-site cost benchmarks are only used for whole-site plans.
  */
 import type * as T from '../p2b/types';
-import { DC_TYPE_CATALOG, dcTypeProfile, type DcTypeProfile } from '../p2b/dcTypes';
+import { DC_TYPE_CATALOG, dcTypeProfile, type DcTypeProfile, dcTypeName } from '../p2b/dcTypes';
 import { evaluate, WHOLE_SITE_SCOPES, type EstateActuals, type Evaluation, fmtUsd, fmtKw, r0, r1 } from './engine';
 import { FAMILY_OF } from './scopes/types';
 import type { SiteBaseline } from './site';
@@ -178,7 +178,7 @@ export function sizingProposals(plan: T.PlannerPlan, ev: Evaluation, actuals: Es
     }
   }
   // PUE is a design choice only for plans that design a site's plant.
-  if (DESIGNS_SITE.includes(scope) && actuals.pue && ev.sizing.pue.source !== 'actual' && Math.abs(actuals.pue - ev.sizing.pue.value) >= 0.08) out.push({ capability: 'sizing-assistant', param: 'pueTarget', title: `PUE ${ev.sizing.pue.value} planned, about ${actuals.pue} achieved today`, value: actuals.pue, confidence: 60, reason: actuals.pue > ev.sizing.pue.value ? `Live ${plan.dcTypeKey} sites in this estate run at about ${actuals.pue} (estimated from cooling-zone load against rack draw). The target is better than that; keep it only with a named efficiency measure.` : `Live ${plan.dcTypeKey} sites already run at about ${actuals.pue}; the plan could commit to that figure.`, source: 'actual', evidence: [{ label: `${actuals.sampleSites} live site(s): cooling-zone load and rack draw`, to: '/capacity/pue' }] });
+  if (DESIGNS_SITE.includes(scope) && actuals.pue && ev.sizing.pue.source !== 'actual' && Math.abs(actuals.pue - ev.sizing.pue.value) >= 0.08) out.push({ capability: 'sizing-assistant', param: 'pueTarget', title: `PUE ${ev.sizing.pue.value} planned, about ${actuals.pue} achieved today`, value: actuals.pue, confidence: 60, reason: actuals.pue > ev.sizing.pue.value ? `Live ${dcTypeName(plan.dcTypeKey)} sites in this estate run at about ${actuals.pue} (estimated from cooling-zone load against rack draw). The target is better than that; keep it only with a named efficiency measure.` : `Live ${dcTypeName(plan.dcTypeKey)} sites already run at about ${actuals.pue}; the plan could commit to that figure.`, source: 'actual', evidence: [{ label: `${actuals.sampleSites} live site(s): cooling-zone load and rack draw`, to: '/capacity/pue' }] });
   // Liquid cooling above the density threshold, for plans that put new racks in.
   const liquidThreshold = benchmarks.find(b => b.metric === 'liquidThresholdKw')?.value ?? 30;
   if (ADDS_RACKS.includes(scope) && density > liquidThreshold && !['liquid-to-chip', 'immersion', 'rear-door'].includes(ev.sizing.cooling.type)) out.push({ capability: 'sizing-assistant', param: 'coolingType', title: 'Switch to liquid cooling for this density', value: 'liquid-to-chip', confidence: 86, reason: `${density} kW per rack is above the ${liquidThreshold} kW threshold in the design standard, where air cooling usually stops being practical.`, source: 'template', evidence: [{ label: `Design standard rule R-COOL-02 (threshold ${liquidThreshold} kW per rack)`, to: '/planning/templates' }] });

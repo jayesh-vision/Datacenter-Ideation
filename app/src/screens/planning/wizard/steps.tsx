@@ -4,7 +4,7 @@ import { createContext, useContext, useMemo, useState } from 'react';
 import * as I from 'lucide-react';
 import { Chip, Field, Seg, Btn } from '../../../ui/kit';
 import type * as T from '../../../planner/p2b/types';
-import { DC_TYPE_CATALOG } from '../../../planner/p2b/dcTypes';
+import { DC_TYPE_CATALOG, dcTypeOptions } from '../../../planner/p2b/dcTypes';
 import { modelFor } from '../../../planner/lib/scopes';
 import { resolveTemplate } from '../../../planner/lib/engine';
 import { capacityFromRequirements, deriveFromRequirements, dimensionsFor, REQUIREMENTS, requirementParamKeys, type RequirementField } from '../../../planner/lib/dimensions';
@@ -203,7 +203,7 @@ export function SitePicker({ draft, patch, estate, data, readOnly }: StepProps) 
       {base.warnings.length > 0 && <p className="note note--warn" style={{ margin: '8px 0 0' }}><I.TriangleAlert size={15} /><span>{base.warnings.join('; ')}</span></p>}
     </div>
   );
-  const kindField = <Field label="Kind of site" hint={profile ? `${profile.cooling} · ${profile.redundancy} · ${profile.defaultTier}` : undefined}><SelectInput value={draft.dcTypeKey} disabled={readOnly} options={DC_TYPE_CATALOG.map(p => ({ id: p.key, label: p.name }))} onChange={v => patch({ dcTypeKey: v })} /></Field>;
+  const kindField = <Field label="Kind of site" hint={profile ? `${profile.cooling} · ${profile.redundancy} · ${profile.defaultTier}` : undefined}><SelectInput value={draft.dcTypeKey} disabled={readOnly} options={dcTypeOptions(draft.dcTypeKey)} onChange={v => patch({ dcTypeKey: v })} /></Field>;
   const climateField = <Field label="Climate"><SelectInput value={draft.climate} disabled={readOnly} options={CLIMATES.map(c => ({ id: c, label: CLIMATE_LABEL[c] }))} onChange={v => patch({ climate: v as T.PlannerPlan['climate'] })} /></Field>;
   if (mode === 'existing') {
     const halls = estate.halls.filter(h => h.dataCenterId === draft.dataCenterId);

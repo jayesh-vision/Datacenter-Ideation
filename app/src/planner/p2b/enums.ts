@@ -26,7 +26,8 @@ export const DC_TYPE_KEYS = [
   // Telco — smallest → largest footprint (cell site / street cabinet / far-edge MEC are out of scope)
   'central-office', 'aggregation-pop', 'network-pop', 'regional-edge-dc', 'mtso', 'national-core-nfvi', 'ixp',
 ] as const;
-export type DcTypeKey = (typeof DC_TYPE_KEYS)[number];
+/** Built-in keys, or `custom-…` for a site type an admin created in Planner → Templates → Site types. */
+export type DcTypeKey = (typeof DC_TYPE_KEYS)[number] | `custom-${string}`;
 
 /** How well DCOS supports a data centre type today. */
 export const DC_TYPE_COVERAGE = ['Full', 'Strong', 'Partial', 'Gap'] as const;

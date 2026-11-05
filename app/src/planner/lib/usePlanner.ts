@@ -24,6 +24,7 @@ import { recordedVendorOrders, type VendorOrderRecord } from './packModel';
 import type { VendorOrder } from './sourcing';
 import * as G from './governance';
 import { activeBenchmarks, duplicateOf, changedFields, BENCH_APPROVER_ROLE } from './benchCatalog';
+import { DC_TYPE_CATALOG, customDcType, dcTypeProfile } from '../p2b/dcTypes';
 import { TEMPLATE_APPROVER_ROLE, contentOf, dependents, draftVersionOf, needsPublishApproval, sameContent, templateDiff, templateErrors } from './templateCatalog';
 import { PEOPLE } from '../compat/people';
 import { moveReservations } from './reservations';
@@ -438,7 +439,7 @@ export function usePlannerActions() {
     saveTemplate(t: T.PlannerTemplate): T.PlannerTemplate {
       const old = db.getById('plannerTemplates', t.id) as unknown as T.PlannerTemplate | undefined;
       if (!old) { const rec = { ...t, ...meta(), createdAt: t.createdAt ?? now() }; db.create('plannerTemplates', rec as unknown as Record<string, unknown>); log('Template', t.id, 'created', `Template ${t.name} v${t.version} created`); invalidate(); return rec; }
-      const CONTENT: (keyof T.PlannerTemplate)[] = ['name', 'description', 'params', 'rules', 'requiredAspects', 'outputs', 'approvalPath', 'executesAs', 'blueprintKey', 'appliesTo', 'inheritsFrom', 'demand', 'items', 'scope', 'dcTypeKey', 'modules', 'atpSystem', 'perSite'];
+      const CONTENT: (keyof T.PlannerTemplate)[] = ['name', 'description', 'params', 'rules', 'requiredAspects', 'outputs', 'approvalPath', 'executesAs', 'blueprintKey', 'appliesTo', 'inheritsFrom', 'demand', 'items', 'scope', 'dcTypeKey', 'modules', 'atpSystem', 'perSite', 'siteType'];
       const changed = CONTENT.filter(k => JSON.stringify(old[k] ?? null) !== JSON.stringify(t[k] ?? null));
       const version = changed.length ? (old.version ?? 1) + 1 : old.version;
       /* an in-place content change of a published template keeps the old content, so plans pinned to it still evaluate against it */
@@ -459,6 +460,22 @@ export function usePlannerActions() {
       const rec = { ...base, id, tplId: id, kind: o.kind, name: o.name, description: o.description ?? (s && o.mode !== 'blank' ? s.description : ''), ownerName: actor, version: 1, status: 'draft', ...meta() } as T.PlannerTemplate;
       db.create('plannerTemplates', rec as unknown as Record<string, unknown>);
       log('Template', id, 'created', `Template ${o.name} created${s && o.mode !== 'blank' ? ` as a ${o.mode === 'copy' ? 'copy' : 'variant'} of ${s.name} v${s.version}` : ' from blank'}`); invalidate(); return rec;
+    },
+    /** A new site type: a copy of an existing one (its catalogue entry and its profile template's inputs) under a new
+     *  `custom-…` key. Starts as a draft v1; once published, new plans can pick it and the planner sizes it from its own values. */
+    createSiteType(o: { name: string; label: string; base: string }): T.PlannerTemplate | { ok: false; reason: string } {
+      const all = db.getAll('plannerTemplates', { pageSize: 100000 }).data as unknown as T.PlannerTemplate[];
+      const baseProf = all.find(t => t.kind === 'profile' && !t.isDeleted && !t.versionOf && t.dcTypeKey === o.base);
+      const baseType = baseProf?.siteType ?? dcTypeProfile(o.base);
+      if (!baseType) return refuse('Choose the site type to start from.');
+      const taken = [...DC_TYPE_CATALOG.map(t => t.key), ...all.filter(t => t.kind === 'profile' && t.dcTypeKey).map(t => t.dcTypeKey!)];
+      const spec = customDcType(baseType, o.name.trim(), o.label.trim(), taken);
+      const id = sid('TPL');
+      const rec = { ...(baseProf ? contentOf(baseProf) : { params: [], rules: [], requiredAspects: [], outputs: ['Basis of design'], approvalPath: [], appliesTo: { level: 'org', label: 'Whole organisation' } }),
+        params: JSON.parse(JSON.stringify(baseProf?.params ?? [])), id, tplId: id, kind: 'profile', name: spec.name, description: spec.description, dcTypeKey: spec.key, siteType: spec,
+        blueprintKey: spec.build.blueprintKey, labels: ['profile', spec.segment.toLowerCase(), spec.key], ownerName: actor, version: 1, status: 'draft', ...meta() } as T.PlannerTemplate;
+      db.create('plannerTemplates', rec as unknown as Record<string, unknown>);
+      log('Template', id, 'created', `Site type ${spec.name} created from ${baseType.name}`); invalidate(); return rec;
     },
     /** Open (or return) the draft that becomes the next version of a published or retired template; the live one keeps serving plans. */
     startTemplateVersion(t: T.PlannerTemplate): T.PlannerTemplate {

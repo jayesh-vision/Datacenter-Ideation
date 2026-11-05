@@ -502,6 +502,9 @@ export interface PlannerTemplate extends BaseEntity {
   /** Checklists: the commissioning test plan they are for (one ATP per level and plan phase on that system), or, with `perSite`,
    *  the acceptance test every edge site passes. A checklist without it is a plain gate list. */
   atpSystem?: AtpSystem; perSite?: boolean;
+  /** Site types an admin created (kind 'profile', dcTypeKey `custom-…`): the whole catalogue entry, edited and versioned with the
+   *  template; published (or retired) ones join the planner's site-type catalogue (dcTypes.ts syncSiteTypes). */
+  siteType?: import('./dcTypes').DcTypeProfile;
   /** A draft that is the next version of this published template (same lineage; publishing copies it onto that record). */
   versionOf?: string;
   /** Content of earlier published versions, newest last (plans pinned to one are evaluated against it). */
@@ -511,7 +514,7 @@ export interface PlannerTemplate extends BaseEntity {
   retiredAt?: string; retiredBy?: string; retireReason?: string;
   publishedAt?: string; publishedBy?: string;
 }
-export type PlannerTemplateContent = Pick<PlannerTemplate, 'name' | 'description' | 'ownerName' | 'params' | 'rules' | 'requiredAspects' | 'outputs' | 'approvalPath' | 'executesAs' | 'blueprintKey' | 'appliesTo' | 'inheritsFrom' | 'demand' | 'items' | 'scope' | 'dcTypeKey' | 'labels' | 'modules' | 'atpSystem' | 'perSite'>;
+export type PlannerTemplateContent = Pick<PlannerTemplate, 'name' | 'description' | 'ownerName' | 'params' | 'rules' | 'requiredAspects' | 'outputs' | 'approvalPath' | 'executesAs' | 'blueprintKey' | 'appliesTo' | 'inheritsFrom' | 'demand' | 'items' | 'scope' | 'dcTypeKey' | 'labels' | 'modules' | 'atpSystem' | 'perSite' | 'siteType'>;
 export interface PlannerTemplateSnapshot { version: number; at: string; by: string; note?: string; content: PlannerTemplateContent }
 export interface PlannerBenchmark extends BaseEntity {
   bmId: string; metric: string; label: string; category: 'cost' | 'performance' | 'sizing' | 'leadtime' | 'staffing' | 'sustainability';

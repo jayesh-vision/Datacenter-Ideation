@@ -550,3 +550,16 @@ button.pn-lead-row:hover { background: var(--vw-color-slate-50); }
 .pn-te-mods > button:hover { border-color: var(--vw-color-blue-200, #bfdbfe); }
 .pn-te-mods b { font-weight: 500; white-space: nowrap; }
 .pn-te-mods small { flex: 1; color: var(--vw-color-slate-500, #64748b); }
+
+/* custom site types (siteTypeEditor.tsx) */
+.pn-st h5 { margin: 12px 0 6px; font-size: 12.5px; font-weight: 600; color: var(--vw-color-slate-600, #475569); }
+.pn-st-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; align-items: start; }
+.pn-st-pair { display: flex; align-items: center; gap: 6px; }
+.pn-st-pair > span { color: var(--vw-color-slate-500, #64748b); font-size: 12px; }
+.pn-st-pair > * { min-width: 0; }
+.pn-st-units { display: flex; flex-wrap: wrap; gap: 6px; }
+.pn-st-units button { display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--vw-color-slate-200, #e2e8f0); background: var(--vw-color-white, #fff); font-size: 12.5px; cursor: pointer; }
+.pn-st-units button.is-on { border-color: var(--primaryColor400, #60a5fa); background: var(--primaryColor50, #eff6ff); color: var(--primaryColor700, #1d4ed8); }
+.pn-st-errs { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.pn-st-errs li { display: flex; gap: 6px; align-items: center; font-size: 12.5px; color: var(--vw-color-red-600, #dc2626); }
+@media (max-width: 1360px) { .pn-st-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

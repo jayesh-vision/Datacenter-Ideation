@@ -14,7 +14,7 @@
  */
 import type * as T from '../p2b/types';
 import type { AtpSystem, CxLevel, ProjectTemplate } from '../p2b/enums';
-import { DC_TYPE_CATALOG, dcTypeProfile } from '../p2b/dcTypes';
+import { DC_TYPE_CATALOG, dcTypeProfile, baseDcTypeKey } from '../p2b/dcTypes';
 import { blueprintSpanWeeks, getBlueprint, type BlueprintPhase, type ProgramBlueprint } from '../p2b/delivery/programBlueprints';
 import { Allocator, intToIp, overlapsInUse, parseCidr, type Range } from './ipam';
 import type { PlannerData } from './plannerData';
@@ -497,7 +497,7 @@ export interface Initiation {
 /** Fallback when neither the plan template nor the site type names a blueprint. */
 export function blueprintFor(plan: T.PlannerPlan): string {
   switch (plan.scope) {
-    case 'new-dc': case 'portfolio': return plan.dcTypeKey === 'ai-gpu-factory' ? 'ai-gpu-factory' : plan.designPowerKw >= 20000 ? 'hyperscale-campus' : 'greenfield-dc';
+    case 'new-dc': case 'portfolio': return baseDcTypeKey(plan.dcTypeKey) === 'ai-gpu-factory' ? 'ai-gpu-factory' : plan.designPowerKw >= 20000 ? 'hyperscale-campus' : 'greenfield-dc';
     case 'expansion': return 'campus-expansion';
     case 'edge': return 'edge-wave';
     case 'migration': return plan.peerDataCenterId ? 'consolidation' : 'decommission';

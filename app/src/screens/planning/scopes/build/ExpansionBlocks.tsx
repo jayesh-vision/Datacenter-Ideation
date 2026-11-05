@@ -2,7 +2,7 @@
 import { useMemo } from 'react';
 import * as I from 'lucide-react';
 import { Btn, Chip, Field } from '../../../../ui/kit';
-import { DC_TYPE_CATALOG, dcTypeProfile } from '../../../../planner/p2b/dcTypes';
+import { dcTypeProfile, dcTypeOptions } from '../../../../planner/p2b/dcTypes';
 import { campusBaseline } from '../../../../planner/lib/site';
 import { proposeExpansionPhases, type CampusCheck } from '../../../../planner/lib/buildSite';
 import { CLIMATES, CLIMATE_LABEL, climateFromHint, mixForSiteType, type StepProps } from '../../../../planner/lib/wizardModel';
@@ -52,7 +52,7 @@ export function CampusPicker({ draft, patch, data, estate, readOnly }: StepProps
         <div className="pn-grid-4b">
           <Field label="New building name" required><TextInput value={draft.newSiteName ?? ''} disabled={readOnly} placeholder="e.g. Building C" onChange={v => patch({ newSiteName: v })} /></Field>
           <Field label="Datacenter record" hint="A new record for the building, or an existing datacenter on the campus"><SelectInput value={draft.dataCenterId ?? ''} disabled={readOnly} options={[{ id: '', label: 'New datacenter record' }, ...(chosen.cb?.dataCenters ?? []).map(d => ({ id: d.id, label: `${d.code} · ${d.name}` }))]} onChange={v => patch({ dataCenterId: v || undefined })} /></Field>
-          <Field label="Kind of site" hint={chosen.dominant ? `The campus is mostly ${dcTypeProfile(chosen.dominant)?.name ?? chosen.dominant}` : undefined}><SelectInput value={draft.dcTypeKey} disabled={readOnly} options={DC_TYPE_CATALOG.map(p => ({ id: p.key, label: p.name }))} onChange={v => patch({ dcTypeKey: v, demand: { ...draft.demand, ...mixForSiteType(v) } })} /></Field>
+          <Field label="Kind of site" hint={chosen.dominant ? `The campus is mostly ${dcTypeProfile(chosen.dominant)?.name ?? chosen.dominant}` : undefined}><SelectInput value={draft.dcTypeKey} disabled={readOnly} options={dcTypeOptions(draft.dcTypeKey)} onChange={v => patch({ dcTypeKey: v, demand: { ...draft.demand, ...mixForSiteType(v) } })} /></Field>
           <Field label="Climate"><SelectInput value={draft.climate} disabled={readOnly} options={CLIMATES.map(c => ({ id: c, label: CLIMATE_LABEL[c] }))} onChange={v => patch({ climate: v as T.PlannerPlan['climate'] })} /></Field>
         </div>
       )}
