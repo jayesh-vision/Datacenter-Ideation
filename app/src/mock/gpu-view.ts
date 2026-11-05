@@ -5,7 +5,7 @@
 import type { AiCage, Cdu, Gpu, GpuCluster, GpuInstance, GpuJob, GpuMarket, GpuNode, GpuReadiness, Persona } from '../api/types';
 import type { Db } from './generate';
 import { isDrift, jobRate } from './gpu';
-import { gpuSpec } from '../lib/gpuSpec';
+import { gpuSpec, powerKnown } from '../lib/gpuSpec';
 import { buildMarket, readinessOf } from './gpu-market';
 
 const HOUR = 3600000;
@@ -19,13 +19,13 @@ export interface GpuJobRow extends GpuJob {
 /* one accelerator model in scope: how many, where, how busy and how healthy */
 export interface GpuModelRow { model: GpuNode['model']; vendor: GpuNode['vendor']; nodes: number; gpus: number; inJob: number; util: number; degraded: number; failed: number; sites: string[]; clusters: number; powerKw: number }
 export interface GpuNodeRow extends GpuNode { cluster: string; job?: string; jobState?: string; owner?: string; util: number; maxTemp: number; throttled: number; xid?: Gpu['xid']; worst: Worst; alerts: number; rackName: string; room: string; drift: boolean; ready: GpuReadiness; instance?: GpuInstance }
-export interface GpuClusterRow extends GpuCluster { gpus: number; inJob: number; spare: number; out: number; healthy: number; degraded: number; failed: number; jobs: number; util: number; powerKw: number; worst: Worst; cells: { neId: string; state: GpuNode['state']; worst: Worst; jobId?: string; g: { h: Gpu['health']; u: number; t: number; th: Gpu['throttle'] }[] }[] }
+export interface GpuClusterRow extends GpuCluster { gpus: number; inJob: number; spare: number; out: number; healthy: number; degraded: number; failed: number; jobs: number; util: number; powerKw: number; powerNa?: true; worst: Worst; cells: { neId: string; state: GpuNode['state']; worst: Worst; jobId?: string; g: { h: Gpu['health']; u: number; t: number; th: Gpu['throttle'] }[] }[] }
 export interface GpuRackRow { id: string; name: string; dcId: string; room: string; drawKw: number; budgetKw: number; liquid: boolean; nodes: number; maxTemp: number; cdu?: string; state: Worst }
 /* DCGM-level view of the whole fleet (or one site): distributions, 24 h history, error leaders */
 export interface GpuTelemetry {
   utilHist: { label: string; n: number }[]; tempHist: { label: string; n: number }[];
   series: { util: number[]; power: number[]; hottest: number[] };       // 24 h: fleet mean utilisation %, total node power kW, hottest GPU °C
-  energyMwh24: number; powerKwNow: number; avgPowerW: number; avgTdpPct: number;
+  energyMwh24: number; powerKwNow: number; powerNaNodes: number; avgPowerW: number; avgTdpPct: number;   // powerNaNodes = nodes left out of powerKwNow (no node power source)
   pstate: { P0: number; P8: number; other: number }; fanAvg: number;
   tensorAvg: number; smAvg: number;                                      // in jobs
   xid24: number[];                                                        // Xid events per hour, last 24 h
@@ -127,7 +127,7 @@ export function gpuView(db: Db, persona: Persona, dcId?: string): GpuView {
     return { ...c, gpus: ns.length * 8, inJob: inJob.length * 8, spare: ns.filter(n => n.state === 'idle').length * 8, out: ns.filter(n => n.state !== 'in-job' && n.state !== 'idle').length * 8,
       healthy: gs.filter(g => g.health === 'healthy').length, degraded: gs.filter(g => g.health === 'degraded').length, failed: gs.filter(g => g.health === 'failed').length,
       jobs: st.jobs.filter(j => j.clusterId === c.id).length, util: inJob.length ? Math.round(inJob.flatMap(n => n.gpus).reduce((a, g) => a + g.util, 0) / (inJob.length * 8)) : 0,
-      powerKw: Math.round(ns.reduce((a, n) => a + n.powerKw, 0) * 10) / 10, worst, cells };
+      powerKw: Math.round(ns.filter(n => powerKnown(n.model)).reduce((a, n) => a + n.powerKw, 0) * 10) / 10, powerNa: !powerKnown(c.model) || undefined, worst, cells };
   }).sort((a, b) => ({ bad: 0, warn: 1, ok: 2 })[a.worst] - ({ bad: 0, warn: 1, ok: 2 })[b.worst] || b.gpus - a.gpus);
 
   const gpus = nodesAll.flatMap(n => n.gpus);
@@ -168,7 +168,7 @@ export function gpuView(db: Db, persona: Persona, dcId?: string): GpuView {
       hottest: Math.max(...gpus.map(g => g.tempC)), xid: [...xidCount.entries()].map(([code, n]) => ({ code, n, text: xidText[code] ?? `Xid ${code}` })).sort((a, b) => b.n - a.n),
       sbe: gpus.reduce((a, g) => a + g.sbe, 0), dbe: gpus.reduce((a, g) => a + g.dbe, 0), remapPending: gpus.filter(g => g.remapPending).length,
       driftNodes: nodesAll.filter(n => isDrift(n)).length, driverStd: st.driverStd, rmaOpen: nodesAll.filter(n => n.rma).length, burnIn: nodeState['burn-in'],
-      liquidNodes: nodesAll.filter(n => n.cooling === 'liquid').length, powerKw: Math.round(nodesAll.reduce((a, n) => a + n.powerKw, 0)), models
+      liquidNodes: nodesAll.filter(n => n.cooling === 'liquid').length, powerKw: Math.round(nodesAll.filter(n => powerKnown(n.model)).reduce((a, n) => a + n.powerKw, 0)), models
     },
     jobsSummary: { running: jobs.filter(j => j.state === 'running').length, slowed: jobs.filter(j => j.state === 'slowed').length, stalled: jobs.filter(j => j.state === 'stalled').length, atRisk: jobs.filter(j => j.state === 'at-risk').length, idle: jobs.filter(j => j.state === 'idle').length, total: jobs.length, gpus: sum(j => j.gpus) },
     waste: { rate: sum(j => j.wasteRate), stalled: sum(j => j.wasteRate, j => j.state === 'stalled'), slowed: sum(j => j.wasteRate, j => j.state === 'slowed'), idle: sum(j => j.wasteRate, j => j.state === 'idle'), soFar: sum(j => j.wasteSoFar + j.redo), redo: sum(j => j.redo), atStake: sum(j => j.atStake) },
@@ -196,7 +196,7 @@ function buildTelemetry(nodes: GpuNode[], jobById: Map<string, GpuJob>, now: num
   const h24 = Array.from({ length: 24 }, (_, h) => h);
   const series = {
     util: h24.map(h => nodes.length ? Math.round(nodes.reduce((a, n) => a + (n.series.util[h] ?? 0), 0) / nodes.length) : 0),
-    power: h24.map(h => Math.round(nodes.reduce((a, n) => a + (n.series.powerKw[h] ?? 0), 0))),
+    power: h24.map(h => Math.round(nodes.filter(n => powerKnown(n.model)).reduce((a, n) => a + (n.series.powerKw[h] ?? 0), 0))),
     hottest: h24.map(h => nodes.length ? Math.max(...nodes.map(n => n.series.tempC[h] ?? 0)) : 0)
   };
   /* counters only DCGM reports (SM / tensor / P-state / fan / retired pages / NVLink): Gaudi 2's habanalabs exporter has none, so its cards stay out */
@@ -209,7 +209,7 @@ function buildTelemetry(nodes: GpuNode[], jobById: Map<string, GpuJob>, now: num
   const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
   return {
     utilHist, tempHist, series,
-    energyMwh24: Math.round(gpus.reduce((a, x) => a + x.g.energyKwh24, 0) / 100) / 10, powerKwNow: Math.round(nodes.reduce((a, n) => a + n.powerKw, 0)),
+    energyMwh24: Math.round(gpus.reduce((a, x) => a + x.g.energyKwh24, 0) / 100) / 10, powerKwNow: Math.round(nodes.filter(n => powerKnown(n.model)).reduce((a, n) => a + n.powerKw, 0)), powerNaNodes: nodes.filter(n => !powerKnown(n.model)).length,
     avgPowerW: Math.round(avg(gpus.map(x => x.g.powerW))), avgTdpPct: Math.round(avg(gpus.map(x => (x.g.powerW / x.g.tdpW) * 100))),
     pstate: { P0: dcgm.filter(x => x.g.pstate === 'P0').length, P8: dcgm.filter(x => x.g.pstate === 'P8').length, other: dcgm.filter(x => x.g.pstate === 'P2').length },
     fanAvg: Math.round(avg(dcgm.filter(x => x.n.cooling === 'air').map(x => x.g.fanPct))),

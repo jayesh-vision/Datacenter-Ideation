@@ -355,6 +355,7 @@ export interface GpuMarket {
   byModel: GpuOccupancyRow[]; byPlace: GpuOccupancyRow[]; placeKind: 'site' | 'pod';
   instances: GpuInstance[]; preemptions: GpuPreemption[]; customers: GpuMarketCustomer[];
   readiness: Record<GpuReadyStatus, number>;          // nodes
+  excludedGpus: number;                               // GPUs left out of the occupancy figures (Gaudi 2: no fit-to-sell source yet)
 }
 /* liquid-cooling loop (coolant distribution unit) feeding a GPU row or tenant AI cages */
 export interface Cdu { id: string; dcId: string; name: string; room: string; racks: string[]; capacityKw: number; loadKw: number; supplyC: number; returnC: number; flowLpm: number; flowNominal: number; pump: 'A' | 'B'; state: 'ok' | 'warn' | 'bad'; note?: string }
@@ -683,6 +684,7 @@ export interface GpuPowerEcon {
   costPerGpuHour: number; costPerSoldGpuHour: number | null; avgPrice: number; powerSharePct: number | null; earningDay: number;
   deck: { kwPerGpu: number; pue: number; tariff: number; costPerGpuHour: number };  // the deck's slide-16 assumption at this geography's blended tariff
   pods: GpuPodPowerEcon[];
+  excludedGpus: number;                               // GPUs left out (Gaudi 2: no node power source yet)
   jobs: GpuJobPowerEcon[]; tenants: GpuTenantPowerEcon[]; placement: PlacementHint[];
   sites: { dcId: string; gpus: number; inJob: number; nodeKw: number; pue: number; tariff: number; costPerGpuHour: number; costPerSoldGpuHour: number | null; powerCostDay: number; earningDay: number }[];
 }

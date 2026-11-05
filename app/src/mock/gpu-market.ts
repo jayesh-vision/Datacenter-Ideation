@@ -106,7 +106,9 @@ export function buildMarket(db: Db, persona: Persona, nodesAll: GpuNode[], ready
   }
   preemptions.sort((a, b) => b.at - a.at);
 
-  /* occupancy per group */
+  /* occupancy per group — Gaudi 2 (no fit-to-sell source, `assessed: false`) is left out of every occupancy figure; its instances stay listed */
+  const counted = nodesAll.filter(n => ready.get(n.neId)?.assessed !== false);
+  const excluded = nodesAll.length - counted.length;
   const instByNode = new Map(instances.map(i => [i.neId, i]));
   const rateOf = (m: GpuModel) => st.ratePerGpuHour * gpuSpec(m).rateX;
   const row = (key: string, label: string, ns: GpuNode[], extra: Partial<GpuOccupancyRow> = {}): GpuOccupancyRow => {
@@ -120,15 +122,15 @@ export function buildMarket(db: Db, persona: Persona, nodesAll: GpuNode[], ready
       occupancyPct: sellable ? Math.round((sold / sellable) * 100) : 0, soldOut: sellable > 0 && available === 0, unsoldPerDay: Math.round(unsold),
       interruptions24h: preemptions.filter(p => ns.some(n => n.neId === p.neId)).length, ...extra };
   };
-  const byModel = [...new Set(nodesAll.map(n => n.model))].map(m => row(m, m, nodesAll.filter(n => n.model === m), { model: m, vendor: gpuSpec(m).vendor })).sort((a, b) => b.installed - a.installed);
+  const byModel = [...new Set(counted.map(n => n.model))].map(m => row(m, m, counted.filter(n => n.model === m), { model: m, vendor: gpuSpec(m).vendor })).sort((a, b) => b.installed - a.installed);
   const placeKind = dcId ? 'pod' : 'site';
   const byPlace = dcId
-    ? st.clusters.filter(c => c.dcId === dcId).map(c => row(c.id, c.name, nodesAll.filter(n => n.clusterId === c.id), { clusterId: c.id, dcId, model: c.model, vendor: c.vendor, sub: `${gpuSpec(c.model).vendor} ${gpuSpec(c.model).short} · ${c.room}` }))
-    : [...new Set(nodesAll.map(n => n.dcId))].sort().map(id => row(id, id, nodesAll.filter(n => n.dcId === id), { dcId: id, sub: `${new Set(nodesAll.filter(n => n.dcId === id).map(n => gpuSpec(n.model).short)).size} models` }));
-  const all = row('all', 'All', nodesAll);
+    ? st.clusters.filter(c => c.dcId === dcId).map(c => row(c.id, c.name, counted.filter(n => n.clusterId === c.id), { clusterId: c.id, dcId, model: c.model, vendor: c.vendor, sub: `${gpuSpec(c.model).vendor} ${gpuSpec(c.model).short} · ${c.room}` }))
+    : [...new Set(counted.map(n => n.dcId))].sort().map(id => row(id, id, counted.filter(n => n.dcId === id), { dcId: id, sub: `${new Set(counted.filter(n => n.dcId === id).map(n => gpuSpec(n.model).short)).size} models` }));
+  const all = row('all', 'All', counted);
 
   /* 24 h: a node whose mean utilisation was above 5% in that hour was sold then */
-  const inService = nodesAll.filter(n => n.state === 'in-job' || n.state === 'idle');
+  const inService = counted.filter(n => n.state === 'in-job' || n.state === 'idle');
   const series = Array.from({ length: 24 }, (_, h) => inService.length ? Math.round((inService.filter(n => (n.series.util[h] ?? 0) >= 5).length / inService.length) * 100) : 0);
 
   const customers: GpuMarketCustomer[] = [...new Set(instances.map(i => i.customerId))].map(id => {
@@ -138,11 +140,11 @@ export function buildMarket(db: Db, persona: Persona, nodesAll: GpuNode[], ready
   }).sort((a, b) => b.gpus - a.gpus);
 
   const readiness: Record<GpuReadyStatus, number> = { Sellable: 0, 'Held back': 0, 'Burn-in': 0, Hold: 0, 'Out of service': 0 };
-  nodesAll.forEach(n => { readiness[ready.get(n.neId)!.status]++; });
+  counted.forEach(n => { readiness[ready.get(n.neId)!.status]++; });
   return {
     installed: all.installed, sold: all.sold, reserved: all.reserved, onDemand: all.onDemand, spot: all.spot, available: all.available, heldBack: all.heldBack, out: all.out, sellable: all.sellable,
     occupancyPct: all.occupancyPct, unsoldPerDay: all.unsoldPerDay, soldOut: byModel.filter(r => r.soldOut).length, interruptions24h: preemptions.length, gpuHoursLost24h: r1(preemptions.reduce((a, p) => a + p.gpuHoursLost, 0)),
-    series, byModel, byPlace, placeKind, instances, preemptions, customers, readiness
+    series, byModel, byPlace, placeKind, instances, preemptions, customers, readiness, excludedGpus: excluded * 8
   };
 }
 

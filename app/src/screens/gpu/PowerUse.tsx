@@ -112,6 +112,7 @@ export function Placement({ dcId }: { dcId?: string }) {
   const fitWord = (f: PlacementHint['fit']) => (f === 'good' ? 'Good fit' : f === 'tight' ? 'Tight' : 'Not now');
   return (
     <div className="col" style={{ gap: 16 }}>
+      {g.excludedGpus > 0 && <div className="note note--info" data-g2-excluded><I.Info size={15} /><span>{fmtNum(g.excludedGpus)} Intel Gaudi 2 GPUs are left out of placement: there is no node power source for them yet.</span></div>}
       <section className="vw-card-section pe-place-ask">
         <div className="pe-place-q"><I.MapPinned size={18} /><b>Where should the next job go?</b><span className="muted">Pods with free GPUs, ranked by rack, cooling and contract headroom and the marginal power cost of a GPU-hour</span></div>
         <div className="pe-place-ctl">

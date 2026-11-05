@@ -44,6 +44,7 @@ export function Occupancy({ v, onNode }: { v: GpuView; onNode: (id: string) => v
   const goHeld = () => { const n = new URLSearchParams(sp); n.set('gtab', 'nodes'); n.set('gview', 'held'); n.delete('oview'); setSp(n, { replace: true }); };
   return (
     <div className="col gpu-occ" style={{ gap: 16 }}>
+      {m.excludedGpus > 0 && <div className="note note--info" data-g2-excluded><I.Info size={15} /><span>{fmtNum(m.excludedGpus)} Intel Gaudi 2 GPUs are left out of occupancy: there is no fit-to-sell source (burn-in, benchmark, reliability) for them yet. Their instances are still listed below.</span></div>}
       <SummaryStrip items={[
         { key: 'occ', label: 'Occupancy', value: `${m.occupancyPct}%`, sub: `${fmtNum(m.sold)} of ${fmtNum(m.sellable)} sellable sold`, info: 'GPUs sold (in a reserved, on-demand or spot instance) ÷ GPUs that can be sold (sold + available). Held-back, drained, failed and burn-in nodes are not sellable and do not count.' },
         { key: 'sale', label: 'For sale now', value: fmtNum(m.available), sub: m.available ? `${fmtMoney(m.unsoldPerDay)}/day not earned` : 'nothing left to sell', tone: m.available > m.sellable * 0.2 ? 'warn' : undefined, info: 'Healthy spare GPUs that passed burn-in, benchmark and reliability, with no customer on them. The money is what they would earn at the GPU-hour rate over 24 h.' },
@@ -86,7 +87,7 @@ function OccTable({ rows, kind, compact, onRow }: { rows: GpuOccupancyRow[]; kin
       { key: 'r', label: 'Reserved', n: r.reserved, tone: 'info' }, { key: 'o', label: 'On-demand', n: r.onDemand, tone: 'cyan' }, { key: 's', label: 'Spot', n: r.spot, tone: 'purple' },
       { key: 'a', label: 'For sale', n: r.available, tone: 'neutral' }, { key: 'h', label: 'Held back', n: r.heldBack, tone: 'warning' }, { key: 'x', label: 'Out of service', n: r.out, tone: 'error' }]} /></span> },
     { key: 'occ', header: 'Occupancy', sort: r => r.occupancyPct, render: r => <Meter pct={r.occupancyPct} width={64} label={`${r.occupancyPct}%`} /> },
-    { key: 'sold', header: 'Sold', sort: r => r.sold, render: r => <span className="cell-2"><span className="num">{fmtNum(r.sold)}</span><small className="nowrap" title="reserved · on-demand · spot">{fmtNum(r.reserved)} · {fmtNum(r.onDemand)} · {fmtNum(r.spot)}</small></span> },
+    { key: 'sold', header: 'Sold', sort: r => r.sold, render: r => <span className="cell-2"><span className="num">{fmtNum(r.sold)}</span><small title="reserved · on-demand · spot">{fmtNum(r.reserved)} · {fmtNum(r.onDemand)} · {fmtNum(r.spot)}</small></span> },
     { key: 'avail', header: 'For sale', sort: r => r.available, render: r => (r.soldOut ? <Chip tone="warning" size="xs">Sold out</Chip> : <span className="cell-2"><span className="num">{fmtNum(r.available)}</span><small className="nowrap">{fmtMoney(r.unsoldPerDay)} / day</small></span>) },
     ...(compact ? [] : [
       { key: 'held', header: 'Held back', sort: (r: GpuOccupancyRow) => r.heldBack, render: (r: GpuOccupancyRow) => <span className={`num${r.heldBack ? ' gpu-warn' : ' faint'}`}>{r.heldBack || '—'}</span> },

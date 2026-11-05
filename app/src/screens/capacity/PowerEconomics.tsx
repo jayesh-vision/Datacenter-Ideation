@@ -34,6 +34,7 @@ export function PowerEconomicsTab({ dc }: { dc: string }) {
   const soldLabel = t.costPerSoldMwMonth !== null;
   return (
     <>
+      {(e.gpu?.excludedGpus ?? 0) > 0 && <div className="note note--info" data-g2-excluded><I.Info size={15} /><span>{fmtNum((e.gpu?.excludedGpus ?? 0))} Intel Gaudi 2 GPUs are left out of the sold power and the GPU figures: there is no node power source for them yet.</span></div>}
       <SummaryStrip items={[
         { key: 'bill', label: 'Power bill', value: fmtMoney(t.billMonth), sub: `per month · ${fmtNum(Math.round(t.mwhDay))} MWh/day`, info: 'Energy (facility load × 24 h × the site tariff) plus capacity: the utility demand charge on the higher of peak and take-or-pay floor, or the colocation rate on the whole committed block. Tariffs are published state averages, so this is illustrative until a customer supplies its tariff sheets.' },
         { key: 'tariff', label: 'Blended tariff', value: `${fmtRate(t.blendedTariff, t.blendedTariff < 1 ? 3 : 2)} / kWh`, sub: `energy ${Math.round((t.energyCostMonth / (t.billMonth || 1)) * 100)}% of bill`, info: `Energy cost ÷ energy used across the sites in scope. Source: ${e.sources.tariff}.` },
@@ -94,6 +95,7 @@ export function GpuPowerCost({ dcId }: { dcId?: string }) {
   const share = (p: number | null) => p === null ? <span className="faint">—</span> : <span className="pe-sharecell"><span className="pe-share"><i style={{ width: `${Math.min(100, p)}%`, background: p >= 30 ? 'var(--vw-color-red-400)' : p >= 15 ? 'var(--vw-color-amber-400)' : 'var(--primaryColor400)' }} /></span><span className="num nowrap">{p}%</span></span>;
   return (
     <>
+      {g.excludedGpus > 0 && <div className="note note--info" data-g2-excluded><I.Info size={15} /><span>{fmtNum(g.excludedGpus)} Intel Gaudi 2 GPUs are left out of GPU power and cost: there is no node power source for them yet.</span></div>}
       <SummaryStrip items={[
         { key: 'kw', label: 'GPU power now', value: fmtKw(g.nodeKw), sub: `${fmtKw(g.facilityKw)} with cooling and losses (site PUE)`, info: 'Node power of every GPU node in scope (DCGM board power plus the host), and the same with the building\'s share applied through each site\'s PUE.' },
         { key: 'cost', label: 'Power cost', value: `${fmtMoney(g.powerCostDay)} / day`, sub: `${fmtMoney(g.powerCostDay * 30.4)} per month at the site tariffs`, info: 'GPU facility power × 24 h × each site\'s tariff. Tariffs are published state averages, so this is illustrative until a customer supplies its own.' },

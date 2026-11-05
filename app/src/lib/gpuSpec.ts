@@ -53,6 +53,8 @@ export const gpuSpec = (m: GpuModel): GpuSpec => BY_MODEL.get(m) ?? GPU_SPECS[2]
 /* 'NVIDIA H100 SXM 80 GB' */
 export const gpuName = (m: GpuModel) => `${gpuSpec(m).vendor} ${m}`;
 export const GPU_VENDORS: GpuVendor[] = ['NVIDIA', 'Intel'];
+/* node power is known for this model (05-Nov-2026, user): Gaudi 2 has no node power source yet, so it stays out of every power and occupancy total */
+export const powerKnown = (m: GpuModel) => gpuSpec(m).counters !== 'habana';
 
 /* What one node of each model is sold as (30-Oct-2026): the host behind the 8 accelerators (instance type), and the figures a node
    must reach before it is sold — HBM bandwidth and the in-node all-reduce bus bandwidth as the acceptance benchmark measures them. */

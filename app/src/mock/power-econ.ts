@@ -16,7 +16,7 @@
 import type { GpuJobPowerEcon, GpuPodPowerEcon, GpuPowerEcon, GpuTenantPowerEcon, Incident, Persona, PlacementHint, PowerAnomaly, PowerEconomics, SitePowerEcon } from '../api/types';
 import type { Db } from './generate';
 import { activeGeo, person } from './geo';
-import { gpuName } from '../lib/gpuSpec';
+import { gpuName, powerKnown } from '../lib/gpuSpec';
 import { jobRate } from './gpu';
 import { fmtKw, fmtMoney } from '../lib/format';
 
@@ -84,7 +84,7 @@ function buildSites(db: Db, persona: Persona, dcId?: string): SitePowerEcon[] {
     const capacityCostMonth = billedKw * demandRate;
     const idleKw = Math.max(0, billedKw - peak);
     const idleCostMonth = idleKw * demandRate;
-    const gpuOn = gpuNodes.filter(n => n.dcId === d.id);
+    const gpuOn = gpuNodes.filter(n => n.dcId === d.id && powerKnown(n.model));   // Gaudi 2: no node power source, left out
     const gpuKw = gpuOn.reduce((a, n) => a + n.powerKw, 0);
     /* sold = IT power customers are billed for right now */
     const soldKw = gpuOn.filter(earning).reduce((a, n) => a + n.powerKw, 0) + d.racks.filter(r => r.owner === 'tenant' && r.contractedKw).reduce((a, r) => a + (r.contractedKw ?? 0), 0);
@@ -177,7 +177,7 @@ export function powerEconomics(db: Db, persona: Persona, dcId?: string): PowerEc
     const siteBy = new Map(sites.map(s => [s.id, s]));
     const cust = new Map(db.customers.map(c => [c.id, c]));
     const price = (clusterId: string) => jobRate(gpu, { clusterId });
-    const pods: GpuPodPowerEcon[] = gpu.clusters.filter(c => siteBy.has(c.dcId)).map(c => {
+    const pods: GpuPodPowerEcon[] = gpu.clusters.filter(c => siteBy.has(c.dcId) && powerKnown(c.model)).map(c => {
       const s = siteBy.get(c.dcId)!;
       const ns = c.nodes.map(id => gpu.nodes.get(id)!).filter(Boolean);
       const gpus = ns.length * 8, inJob = ns.filter(earning).length * 8;
@@ -205,7 +205,7 @@ export function powerEconomics(db: Db, persona: Persona, dcId?: string): PowerEc
     const clusterBy = new Map(gpu.clusters.map(c => [c.id, c]));
 
     /* per job: the nodes it holds, their power with the building's share, what it earns, and the power-cap trade-off */
-    const jobs: GpuJobPowerEcon[] = gpu.jobs.filter(j => siteBy.has(j.dcId)).map(j => {
+    const jobs: GpuJobPowerEcon[] = gpu.jobs.filter(j => siteBy.has(j.dcId) && powerKnown(clusterBy.get(j.clusterId)?.model ?? 'H100 SXM 80 GB')).map(j => {
       const s = siteBy.get(j.dcId)!, c = clusterBy.get(j.clusterId);
       const ns = j.nodes.map(id => gpu.nodes.get(id)!).filter(Boolean);
       const kw = ns.reduce((a, n) => a + n.powerKw, 0), fac = kw * s.pue;
@@ -231,7 +231,7 @@ export function powerEconomics(db: Db, persona: Persona, dcId?: string): PowerEc
 
     /* placement: where the next job should land */
     const FIT_RANK = { good: 0, tight: 1, no: 2 } as const;
-    const placement: PlacementHint[] = gpu.clusters.filter(c => siteBy.has(c.dcId)).map(c => {
+    const placement: PlacementHint[] = gpu.clusters.filter(c => siteBy.has(c.dcId) && powerKnown(c.model)).map(c => {
       const s = siteBy.get(c.dcId)!, d = dcs.find(x => x.id === c.dcId)!;
       const ns = c.nodes.map(id => gpu.nodes.get(id)!).filter(Boolean);
       const free = ns.filter(n => n.state === 'idle' && !n.jobId && n.health === 'healthy');
@@ -269,7 +269,7 @@ export function powerEconomics(db: Db, persona: Persona, dcId?: string): PowerEc
       gpus, inJobGpus, nodeKw: r1(nodeKw), facilityKw: Math.round(facilityKw), powerCostDay, idlePowerCostDay: pods.reduce((a, p) => a + p.idlePowerCostDay, 0),
       costPerGpuHour, costPerSoldGpuHour, avgPrice, powerSharePct: costPerSoldGpuHour !== null && avgPrice ? Math.round((costPerSoldGpuHour / avgPrice) * 1000) / 10 : null, earningDay,
       deck: { kwPerGpu: 1.2, pue: 1.46, tariff: totals.blendedTariff, costPerGpuHour: 1.2 * 1.46 * totals.blendedTariff },
-      pods, jobs, tenants, placement,
+      pods, jobs, tenants, placement, excludedGpus: gpuNodes.filter(n => siteBy.has(n.dcId) && !powerKnown(n.model)).length * 8,
       sites: [...bySite.entries()].map(([id, ps]) => {
         const s = siteBy.get(id)!;
         const g2 = ps.reduce((a, p) => a + p.gpus, 0), ij = ps.reduce((a, p) => a + p.inJob, 0), kw = ps.reduce((a, p) => a + p.nodeKw, 0), cd = ps.reduce((a, p) => a + p.powerCostDay, 0);
