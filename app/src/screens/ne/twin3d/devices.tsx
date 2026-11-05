@@ -215,7 +215,7 @@ export function GpuServer({ d, gpu, labels }: DevProps) {
           <Ex key={k} off={[0, 0, 0.18]}>
             <Pick id={`fan:${Math.min(5, k)}`} size={[fanD, fanD, 0.05]} pos={[x, trayY + 0.01 + r * (fanD + 0.01), Z - 0.025]}>
               <B s={[fanD + 0.006, fanD + 0.006, 0.05]} p={[0, -0.003, -0.025]} m={MAT.black()} />
-              <Fan d={fanD} p={[0, fanD / 2, 0.001]} speed={gpu ? (gpu.gpus.reduce((a, g) => a + g.fanPct, 0) / 800) : 0.5} state={modState(fan?.state)} />
+              <Fan d={fanD} p={[0, fanD / 2, 0.001]} speed={gpu && gpuSpec(gpu.model).counters !== 'habana' ? (gpu.gpus.reduce((a, g) => a + g.fanPct, 0) / 800) : 0.5} state={modState(fan?.state)} />
             </Pick>
           </Ex>
         );
@@ -267,7 +267,7 @@ export function Accelerator({ gpu, chip, labels }: DevProps) {
   const stacks = gddr ? (m.short === 'T4' ? 8 : 12) : m.short === 'Gaudi 2' ? 6 : m.short === 'B200' || m.vendor === 'Intel' ? 8 : m.short === 'H200' ? 6 : 5;
   const S = 4;                                  // shown at 4× so the package reads at desk scale
   const pw = 0.14 * S, pd = 0.08 * S;
-  const lit = g ? Math.round((g.smActive / 100) * 80) : 0;
+  const lit = g ? Math.round(((m.counters === 'habana' ? g.util : g.smActive) / 100) * 80) : 0;
   const thermal = t.overlay === 'thermal';
   const st: PState = !g ? 'idle' : g.health === 'failed' ? 'bad' : g.health === 'degraded' ? 'warn' : 'ok';
   const dieW = (m.short === 'B200' ? 0.05 : 0.03) * S, dieD = 0.027 * S;
@@ -288,7 +288,7 @@ export function Accelerator({ gpu, chip, labels }: DevProps) {
           <B s={[dieW, 0.008, dieD]} m={MAT.die()} />
           {/* streaming multiprocessors lit by SM-active */}
           <group position={[0, 0.0085, 0]}>{cells.map(i => { const c = i % 10, r = Math.floor(i / 10); return <mesh key={i} position={[-dieW / 2 + dieW / 20 + c * dieW / 10, 0, -dieD / 2 + dieD / 16 + r * dieD / 8]} raycast={() => null}><boxGeometry args={[dieW / 12, 0.0006, dieD / 10]} /><meshStandardMaterial color={st === 'bad' ? '#FF5A5A' : '#7C8CFF'} emissive={st === 'bad' ? '#FF3030' : '#6F7DFF'} emissiveIntensity={i < lit ? 1.8 : 0.05} toneMapped={false} /></mesh>; })}</group>
-          {labels && <Caption p={[0, 0.07, 0]} text={m.vendor === 'Intel' ? `${m.short} die` : 'GPU die'} sub={`${m.arch} · ${g ? `${g.smActive}% SM active` : ''}`} size={0.04} />}
+          {labels && <Caption p={[0, 0.07, 0]} text={m.vendor === 'Intel' ? `${m.short} die` : 'GPU die'} sub={`${m.arch} · ${g ? (m.counters === 'habana' ? `${g.util}% AIP utilisation` : `${g.smActive}% SM active`) : ''}`} size={0.04} />}
         </Pick>
         {Array.from({ length: stacks }, (_, i) => {
           const per = Math.ceil(stacks / 2), left = i < per, j = left ? i : i - per;

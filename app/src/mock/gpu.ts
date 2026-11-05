@@ -181,7 +181,13 @@ export function buildGpuFleet(persona: Persona, datacenters: Datacenter[], nes: 
    21 internal + 3 external, all up on a live card. Own stream per card, so nothing else moves. */
 function habana(g: Gpu, node: GpuNode, i: number, busy: boolean) {
   const rr = rngOf(`${node.neId}#${i}`, 0x6a2);
-  g.clockMhz = 1650; g.memClockMhz = 3270; g.pstate = 'P0';
+  g.clockMhz = 1650; g.pstate = 'P0';
+  /* not in the habanalabs exporter (05-Nov-2026, user: "if a metric is not available don't mock it, show —"): no SM / tensor / copy-engine / DRAM
+     activity, memory clock, fan, P-state, throttle reason, retired pages, scale-up error or traffic counters, no Xid. Left at zero / none here,
+     shown as — and kept out of the fleet figures (gpu-view `dcgm`). ECC = the exporter's pending rows (single / double bit). */
+  g.smActive = 0; g.smOccupancy = 0; g.tensorActive = 0; g.memCopyUtil = 0; g.dramActive = 0; g.memClockMhz = 0; g.fanPct = 0; g.throttle = 'none';
+  g.retiredPages = 0; g.nvlinkErr = 0; g.nvlinkRxGbs = 0; g.nvlinkTxGbs = 0; g.xid = null;
+  g.sbe = chance(rr, 0.03) ? 1 : 0; g.dbe = 0;
   g.hbmC = busy ? g.tempC - intBetween(rr, 7, 13) : g.tempC - intBetween(rr, 0, 2);
   const off = node.state === 'failed' && !node.rma;   // host not responding: nothing reports; an RMA node loses only its failed card (below)
   g.nic = { up: off ? 0 : 21, ports: 21, extUp: off ? 0 : 3, ext: 3 };

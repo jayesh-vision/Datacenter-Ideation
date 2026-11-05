@@ -199,7 +199,9 @@ function buildTelemetry(nodes: GpuNode[], jobById: Map<string, GpuJob>, now: num
     power: h24.map(h => Math.round(nodes.reduce((a, n) => a + (n.series.powerKw[h] ?? 0), 0))),
     hottest: h24.map(h => nodes.length ? Math.max(...nodes.map(n => n.series.tempC[h] ?? 0)) : 0)
   };
-  const inJob = gpus.filter(x => x.n.state === 'in-job');
+  /* counters only DCGM reports (SM / tensor / P-state / fan / retired pages / NVLink): Gaudi 2's habanalabs exporter has none, so its cards stay out */
+  const dcgm = gpus.filter(x => gpuSpec(x.n.model).counters !== 'habana');
+  const inJob = dcgm.filter(x => x.n.state === 'in-job');
   const xid24 = h24.map(() => 0);
   gpus.forEach(({ g }) => { if (g.xid && g.xid.at > now - 24 * 3600000) xid24[Math.min(23, Math.max(0, 23 - Math.floor((now - g.xid.at) / 3600000)))]++; });
   const lead = (f: (g: Gpu) => number, unit: string, pred: (g: Gpu) => boolean = g => f(g) > 0, asc = false): Leader[] =>
@@ -209,8 +211,8 @@ function buildTelemetry(nodes: GpuNode[], jobById: Map<string, GpuJob>, now: num
     utilHist, tempHist, series,
     energyMwh24: Math.round(gpus.reduce((a, x) => a + x.g.energyKwh24, 0) / 100) / 10, powerKwNow: Math.round(nodes.reduce((a, n) => a + n.powerKw, 0)),
     avgPowerW: Math.round(avg(gpus.map(x => x.g.powerW))), avgTdpPct: Math.round(avg(gpus.map(x => (x.g.powerW / x.g.tdpW) * 100))),
-    pstate: { P0: gpus.filter(x => x.g.pstate === 'P0').length, P8: gpus.filter(x => x.g.pstate === 'P8').length, other: gpus.filter(x => x.g.pstate === 'P2').length },
-    fanAvg: Math.round(avg(gpus.filter(x => x.n.cooling === 'air').map(x => x.g.fanPct))),
+    pstate: { P0: dcgm.filter(x => x.g.pstate === 'P0').length, P8: dcgm.filter(x => x.g.pstate === 'P8').length, other: dcgm.filter(x => x.g.pstate === 'P2').length },
+    fanAvg: Math.round(avg(dcgm.filter(x => x.n.cooling === 'air').map(x => x.g.fanPct))),
     tensorAvg: Math.round(avg(inJob.map(x => x.g.tensorActive))), smAvg: Math.round(avg(inJob.map(x => x.g.smActive))),
     xid24,
     ecc: { sbe: gpus.reduce((a, x) => a + x.g.sbe, 0), dbe: gpus.reduce((a, x) => a + x.g.dbe, 0), retired: gpus.reduce((a, x) => a + x.g.retiredPages, 0), remap: gpus.filter(x => x.g.remapPending).length },

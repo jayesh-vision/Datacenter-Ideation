@@ -165,10 +165,11 @@ function gpuInfo(c: Ctx, k: number): Info {
   const g = c.gpu?.gpus[k], m = c.gpu ? gpuSpec(c.gpu.model) : null;
   if (!g || !m) return { title: `GPU ${k}`, kind: 'compute', state: 'idle', rows: [['Telemetry', 'none — the node is not monitored']] };
   const st: PState = g.health === 'failed' ? 'bad' : g.health === 'degraded' || g.throttle !== 'none' ? 'warn' : g.util < 5 ? 'idle' : 'ok';
+  const hb = m.counters === 'habana';   // Gaudi 2: only what the habanalabs exporter reports, the rest reads —
   return { title: `GPU ${k} · ${m.vendor} ${m.short}`, kind: 'compute', state: st, chip: k,
-    rows: [['Health', g.health], ['Utilisation', `${g.util}% · SM ${g.smActive}% · tensor ${g.tensorActive}%`], ['Memory', `${g.memUsedGb} / ${g.memGb} GB ${m.memType}`], ['Temperature', `${g.tempC}°C · HBM ${g.hbmC}°C`],
-      ['Power', `${g.powerW} / ${g.tdpW} W`], ['Clock', `${g.clockMhz} MHz · ${g.pstate}`], ['Throttle', g.throttle === 'none' ? '—' : g.throttle], ['ECC', `${g.sbe} SBE · ${g.dbe} DBE${g.remapPending ? ' · remap pending' : ''}`],
-      ...(m.link ? [[`${m.linkShort} errors`, String(g.nvlinkErr)] as [string, string]] : []), ['Last error', g.xid ? `${m.vendor === 'NVIDIA' ? `Xid ${g.xid.code} · ` : ''}${g.xid.text}` : '—'], ['Serial', g.serial]],
+    rows: [['Health', g.health], ['Utilisation', hb ? `${g.util}% AIP` : `${g.util}% · SM ${g.smActive}% · tensor ${g.tensorActive}%`], ['Memory', `${g.memUsedGb} / ${g.memGb} GB ${m.memType}`], ['Temperature', hb ? `${g.tempC}°C chip · ${g.hbmC}°C board` : `${g.tempC}°C · HBM ${g.hbmC}°C`],
+      ['Power', `${g.powerW} / ${g.tdpW} W`], ['Clock', hb ? `${g.clockMhz} MHz SoC` : `${g.clockMhz} MHz · ${g.pstate}`], ['Throttle', hb || g.throttle === 'none' ? '—' : g.throttle], ['ECC', hb ? `${g.sbe} single-bit · ${g.dbe} double-bit rows pending` : `${g.sbe} SBE · ${g.dbe} DBE${g.remapPending ? ' · remap pending' : ''}`],
+      ...(hb && g.nic ? [['RoCE ports', `${g.nic.up}/${g.nic.ports} internal · ${g.nic.extUp}/${g.nic.ext} external up`] as [string, string]] : m.link ? [[`${m.linkShort} errors`, String(g.nvlinkErr)] as [string, string]] : []), ['Last error', g.xid ? `${m.vendor === 'NVIDIA' ? `Xid ${g.xid.code} · ` : ''}${g.xid.text}` : '—'], ['Serial', g.serial]],
     note: g.xid?.code === 79 ? 'Fell off the bus: cordon the node, restart the job from its checkpoint elsewhere, run level-3 diagnostics.' : g.remapPending ? 'Row remap pending — reset the GPU at the next checkpoint.' : g.throttle === 'hw-slowdown' ? 'Hardware slowdown from coolant temperature — fix the loop, not the node.' : undefined };
 }
 const gpuState = (c: Ctx, k: number): PState => gpuInfo(c, k).state;
@@ -260,7 +261,7 @@ function chipGpu(c: Ctx): Scene {
   const dx = 330, dy = 170, dw = 340, dh = 270;
   groups.push({ x: dx - 26, y: dy - 30, w: dw + 52, h: dh + 54, label: liquid ? 'Cold plate' : 'Heatsink', kind: 'cooling', dashed: true, r: 16 });
   parts.push({ id: 'die', kind: 'compute', x: dx, y: dy, w: dw, h: dh, state: st, glow: true, info: { ...gpuInfo(c, k), chip: undefined } });
-  const cols = 8, rows = 5, lit = g ? Math.round((g.smActive / 100) * cols * rows) : 0;
+  const cols = 8, rows = 5, lit = g ? Math.round(((m.counters === 'habana' ? g.util : g.smActive) / 100) * cols * rows) : 0;
   const cells = Array.from({ length: cols * rows }, (_, i) => <rect key={i} x={dx + 22 + (i % cols) * 38} y={dy + 52 + Math.floor(i / cols) * 40} width={32} height={34} rx={6} className={`dt-sm${i < lit ? ' is-on' : ''}${st === 'bad' ? ' is-bad' : ''}`} />);
   parts.push({ id: 'temp', kind: 'cooling', shape: 'circle', x: dx + dw - 40, y: dy + 10, w: 30, h: 30, label: '°C', state: !g ? 'idle' : g.tempC >= 85 ? 'bad' : g.tempC >= 80 ? 'warn' : 'ok',
     info: { title: 'Die temperature', kind: 'cooling', state: !g ? 'idle' : g.tempC >= 85 ? 'bad' : g.tempC >= 80 ? 'warn' : 'ok', rows: [['GPU', g ? `${g.tempC}°C` : '—'], ['Memory', g ? `${g.hbmC}°C` : '—'], ['Fan', liquid ? 'liquid-cooled' : g ? `${g.fanPct}%` : '—']] } });

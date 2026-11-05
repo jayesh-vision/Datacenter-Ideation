@@ -633,7 +633,7 @@ export function GpuNodeDetail({ d }: { d: NonNullable<Awaited<ReturnType<typeof 
         <div className="rev-sec-h"><b>Per GPU<Info text={`One row per GPU as ${nv ? 'the DCGM exporter' : spec.telemetry} reports it. Health: utilisation, memory, core and HBM temperature, power vs limit, clock and P-state, throttle reason, ECC and retired pages, scale-up link errors, last error. Profiling & traffic: SM, tensor and memory activity, clocks, fan, PCIe and scale-up traffic, 24 h energy.`} /></b><span className="vw-label">as {nv ? 'the DCGM exporter' : spec.telemetry} reports it</span><span className="grow" /><Seg size="sm" value={view} onChange={setView} options={[{ id: 'health', label: 'Health' }, { id: 'profile', label: 'Profiling & traffic' }]} /></div>
         <div className="dt-scroll"><table className="nst-table dt-table gpu-gpus">
           {view === 'health' ? <>
-            <thead><tr><th>GPU</th><th>Health</th><th>Util</th><th>Memory</th><th>{hb ? 'Chip · board' : 'Temp · HBM'}</th><th>Power</th><th>{hb ? 'SoC clock' : 'Clock · P-state'}</th><th>Throttle</th><th>ECC · pages</th><th>{hb ? 'RoCE ports' : spec.link ? `${spec.linkShort} err` : 'Link err'}</th><th>{nv ? 'Last Xid' : 'Last error'}</th></tr></thead>
+            <thead><tr><th>GPU</th><th>Health</th><th>Util</th><th>Memory</th><th>{hb ? 'Chip · board' : 'Temp · HBM'}</th><th>Power</th><th>{hb ? 'SoC clock' : 'Clock · P-state'}</th><th>Throttle</th><th>{hb ? 'Pending rows' : 'ECC · pages'}</th><th>{hb ? 'RoCE ports' : spec.link ? `${spec.linkShort} err` : 'Link err'}</th><th>{nv ? 'Last Xid' : 'Last error'}</th></tr></thead>
             <tbody>{n.gpus.map(g => (
               <tr key={g.idx} className={g.health !== 'healthy' ? `is-${g.health}` : ''}>
                 <td className="mono nowrap" title={g.uuid ? `${g.serial} · ${g.uuid}` : g.serial}>GPU{g.idx}{n.ref?.module === g.idx && <small className="gpu-ref-tag"> your card</small>}</td>
@@ -643,10 +643,10 @@ export function GpuNodeDetail({ d }: { d: NonNullable<Awaited<ReturnType<typeof 
                 <td className={`num nowrap${g.tempC >= 85 ? ' gpu-bad' : ''}`}>{g.tempC}° · {g.hbmC}°</td>
                 <td className="num nowrap">{g.powerW}/{g.tdpW} W</td>
                 <td className="num nowrap">{g.clockMhz} MHz{hb ? '' : ` · ${g.pstate}`}</td>
-                <td className={g.throttle !== 'none' ? 'gpu-warn nowrap' : 'faint'}>{g.throttle === 'none' ? '—' : g.throttle}</td>
-                <td className="num nowrap">{g.dbe ? <span className="gpu-bad">{g.dbe} DBE</span> : null}{g.dbe && g.sbe ? ' · ' : ''}{g.sbe ? `${g.sbe} SBE` : g.dbe ? '' : '—'}{g.remapPending ? <small className="gpu-warn"> remap</small> : null}{g.retiredPages ? <small className="gpu-warn"> · {g.retiredPages} pg</small> : null}</td>
-                <td className={`num${g.nvlinkErr > 100 || (g.nic && g.nic.up < g.nic.ports) ? ' gpu-bad' : ''}${g.nic ? ' nowrap' : ''}`}>{g.nic ? `${g.nic.up}/${g.nic.ports} int · ${g.nic.extUp}/${g.nic.ext} ext${g.nvlinkErr ? ` · ${g.nvlinkErr} err` : ''}` : spec.link ? g.nvlinkErr || '—' : '—'}</td>
-                <td>{g.xid ? <span className="gpu-bad nowrap" title={`${g.xid.text} · ${new Date(g.xid.at).toTimeString().slice(0, 5)}`}>Xid {g.xid.code}</span> : <span className="faint">—</span>}</td>
+                <td className={!hb && g.throttle !== 'none' ? 'gpu-warn nowrap' : 'faint'}>{hb || g.throttle === 'none' ? '—' : g.throttle}</td>
+                <td className="num nowrap">{hb ? (g.dbe ? <span className="gpu-bad">{g.dbe} double-bit</span> : g.sbe ? `${g.sbe} single-bit` : '—') : <>{g.dbe ? <span className="gpu-bad">{g.dbe} DBE</span> : null}{g.dbe && g.sbe ? ' · ' : ''}{g.sbe ? `${g.sbe} SBE` : g.dbe ? '' : '—'}{g.remapPending ? <small className="gpu-warn"> remap</small> : null}{g.retiredPages ? <small className="gpu-warn"> · {g.retiredPages} pg</small> : null}</>}</td>
+                <td className={`num${g.nvlinkErr > 100 || (g.nic && g.nic.up < g.nic.ports) ? ' gpu-bad' : ''}${g.nic ? ' nowrap' : ''}`}>{g.nic ? `${g.nic.up}/${g.nic.ports} int · ${g.nic.extUp}/${g.nic.ext} ext` : spec.link ? g.nvlinkErr || '—' : '—'}</td>
+                <td>{hb ? <span className="faint">—</span> : g.xid ? <span className="gpu-bad nowrap" title={`${g.xid.text} · ${new Date(g.xid.at).toTimeString().slice(0, 5)}`}>Xid {g.xid.code}</span> : <span className="faint">—</span>}</td>
               </tr>))}</tbody>
           </> : hb ? <>
             <thead><tr><th>GPU</th><th>Util</th><th>HBM used</th><th>Chip · board</th><th>Power · limit</th><th>SoC clock</th><th>PCIe rx / tx</th><th>PCIe replay</th><th>Pending rows</th><th>Energy 24 h</th></tr></thead>
@@ -682,7 +682,8 @@ export function GpuNodeDetail({ d }: { d: NonNullable<Awaited<ReturnType<typeof 
       </div>
       <div className="rev-sec">
         <div className="rev-sec-h"><b>{ib ? 'InfiniBand ports' : 'Scale-out ports'}<Info text={ib ? 'One network port per GPU, on rails 0–7: its state (up, flapping, down) and symbol errors. A flapping or down rail makes collectives retry, so every job on this node slows.' : `The node's scale-out network ports (${spec.fabric}): state (up, flapping, down) and symbol errors. A flapping or down port slows every job on this node.`} /></b><span className="vw-label">{ib ? `one port per GPU, on rails 0–7 · ${spec.fabric}` : spec.fabric}</span></div>
-        <div className="gpu-ports">{n.ib.map(p => <span key={p.rail} className={`gpu-port is-${p.state}`} title={`${fmtNum(p.errors)} symbol errors`}><b>{ib ? 'ib' : 'eth'}{p.rail}</b>{p.state === 'up' ? `${p.errors} err` : p.state}</span>)}</div>
+        {hb ? <div className="gpu-ports">{n.gpus.map(g => <span key={g.idx} className={`gpu-port is-${g.nic && g.nic.extUp === g.nic.ext ? 'up' : 'down'}`} title="habanalabs_nic_port_status, external ports; the exporter has no error counter"><b>card{g.idx}</b>{g.nic ? `${g.nic.extUp}/${g.nic.ext} up` : '—'}</span>)}</div> :
+        <div className="gpu-ports">{n.ib.map(p => <span key={p.rail} className={`gpu-port is-${p.state}`} title={`${fmtNum(p.errors)} symbol errors`}><b>{ib ? 'ib' : 'eth'}{p.rail}</b>{p.state === 'up' ? `${p.errors} err` : p.state}</span>)}</div>}
       </div>
       {d.alerts.length > 0 && (
         <div className="rev-sec">

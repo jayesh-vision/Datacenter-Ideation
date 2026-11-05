@@ -16,7 +16,10 @@ export const GAUDI2_REF = {
     habanalabs_pcie_rx: 324710, habanalabs_pcie_tx: 195, habanalabs_pcie_replay_count: 0, habanalabs_pci_link_speed: 16, habanalabs_pci_link_width: 16,
     habanalabs_pending_rows_with_single_bit_ecc_errors: 0, habanalabs_pending_rows_with_double_bit_ecc_errors: 0, habanalabs_pending_rows_state: 0, habanalabs_ecc_feature_mode: 1,
     nic_internal_up: 21, nic_internal: 21, nic_external_up: 0, nic_external: 3
-  }
+  },
+  /* the latest reading on the user's Telemetry Ops dashboard (screenshot, 05-Nov-2026; user: "match the power and temp to my screenshot values"):
+     power draw 59.0 W (11% of 550 W), on-chip 27 °C. These two win over the scrape; the board temperature is not on the dashboard, so it stays scraped. */
+  latest: { at: 'Telemetry Ops · latest', habanalabs_power_mW: 59000, habanalabs_temperature_onchip: 27 }
 };
 const GIB = 1024 ** 3;
 
@@ -25,8 +28,8 @@ export function applyGaudi2Ref(node: GpuNode) {
   const R = GAUDI2_REF, r = R.raw, g: Gpu = node.gpus[R.module];
   g.serial = R.serial; g.uuid = R.uuid; g.util = r.habanalabs_utilization;
   g.memGb = Math.round(r.habanalabs_memory_total_bytes / GIB); g.memUsedGb = Math.round(r.habanalabs_memory_used_bytes / GIB * 10) / 10;
-  g.tempC = r.habanalabs_temperature_onchip; g.hbmC = r.habanalabs_temperature_onboard;
-  g.powerW = r.habanalabs_power_mW / 1000; g.tdpW = r.habanalabs_power_default_limit_mW / 1000; g.energyKwh24 = Math.round(g.powerW * 24 / 100) / 10;
+  g.tempC = R.latest.habanalabs_temperature_onchip; g.hbmC = r.habanalabs_temperature_onboard;
+  g.powerW = R.latest.habanalabs_power_mW / 1000; g.tdpW = r.habanalabs_power_default_limit_mW / 1000; g.energyKwh24 = Math.round(g.powerW * 24 / 100) / 10;
   g.clockMhz = r.habanalabs_clock_soc_mhz; g.throttle = 'none'; g.health = 'healthy'; g.xid = null;
   g.pcieRxGbs = 0; g.pcieTxGbs = 0; g.pcieReplay = r.habanalabs_pcie_replay_count;
   g.sbe = r.habanalabs_pending_rows_with_single_bit_ecc_errors; g.dbe = r.habanalabs_pending_rows_with_double_bit_ecc_errors; g.remapPending = r.habanalabs_pending_rows_state > 0; g.retiredPages = 0;
@@ -38,6 +41,7 @@ export function applyGaudi2Ref(node: GpuNode) {
 
 /* field by field: the scraped value (converted the way the screen shows it) next to what the estate holds for that card — the reconciliation
    the node drawer shows and `.qa/gaudi2-ref-check.ts` repeats against the raw file */
+/* power and on-chip temperature are compared with the dashboard's latest reading (`latest`), every other field with the scrape */
 export interface RefRow { field: string; metric: string; scraped: string; shown: string; ok: boolean }
 export function gaudi2RefCheck(node: GpuNode): RefRow[] {
   const R = GAUDI2_REF, r = R.raw, g = node.gpus[R.module];
@@ -48,8 +52,8 @@ export function gaudi2RefCheck(node: GpuNode): RefRow[] {
     row('AIP utilisation %', 'habanalabs_utilization', r.habanalabs_utilization, g.util),
     row('HBM used GiB', 'habanalabs_memory_used_bytes', (r.habanalabs_memory_used_bytes / GIB).toFixed(1), g.memUsedGb.toFixed(1)),
     row('HBM total GiB', 'habanalabs_memory_total_bytes', Math.round(r.habanalabs_memory_total_bytes / GIB), g.memGb),
-    row('On-chip °C', 'habanalabs_temperature_onchip', r.habanalabs_temperature_onchip, g.tempC), row('On-board °C', 'habanalabs_temperature_onboard', r.habanalabs_temperature_onboard, g.hbmC),
-    row('Power W', 'habanalabs_power_mW', r.habanalabs_power_mW / 1000, g.powerW), row('Power limit W', 'habanalabs_power_default_limit_mW', r.habanalabs_power_default_limit_mW / 1000, g.tdpW),
+    row('On-chip °C', 'habanalabs_temperature_onchip · dashboard latest', R.latest.habanalabs_temperature_onchip, g.tempC), row('On-board °C', 'habanalabs_temperature_onboard', r.habanalabs_temperature_onboard, g.hbmC),
+    row('Power W', 'habanalabs_power_mW · dashboard latest', (R.latest.habanalabs_power_mW / 1000).toFixed(1), g.powerW.toFixed(1)), row('Power limit W', 'habanalabs_power_default_limit_mW', r.habanalabs_power_default_limit_mW / 1000, g.tdpW),
     row('SoC clock MHz', 'habanalabs_clock_soc_mhz', r.habanalabs_clock_soc_mhz, g.clockMhz),
     row('PCIe replays', 'habanalabs_pcie_replay_count', r.habanalabs_pcie_replay_count, g.pcieReplay),
     row('Rows pending (1-bit)', 'habanalabs_pending_rows_with_single_bit_ecc_errors', r.habanalabs_pending_rows_with_single_bit_ecc_errors, g.sbe),
