@@ -155,3 +155,5 @@
 @container (max-width: 720px) { .t2-dock-l, .t2-dock .t2-x { display: none; } .t2-dock .seg button { padding: 0 9px; } .t2-dock .t2-chip { padding: 0 9px; } }
 .twin-host-live { display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 8px; border-radius: 10px; background: var(--vw-color-emerald-50); color: var(--vw-color-emerald-700); font-size: 11.5px; font-weight: 500; }
 .twin-host-live i { width: 6px; height: 6px; border-radius: 50%; background: var(--vw-color-emerald-500); }
+/* search box in the view tools (twin/Search.tsx): narrower on a small canvas so the floor picker keeps its row */
+@container (max-width: 720px) { .t2-overlay-right .twin-search { width: 170px; } .t2-overlay-right .twin-search-list { width: 320px; } }

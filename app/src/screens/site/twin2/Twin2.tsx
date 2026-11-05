@@ -8,6 +8,7 @@ import { Seg } from '../../../ui/kit';
 import { buildLayout, type Level, type Sel } from '../twin/layout';
 import type { Hover, Layer, PosMap } from '../twin/Scene';
 import { plantUnits, unitOccluders, unitPose, type Pick2 } from './units';
+import { TwinSearch } from '../twin/Search';
 import { canStand, walkSpot, type WalkSpot } from './walk';
 import { buildAnchors2, type Anchor2 } from './anchors2';
 import { TwinPanel } from '../twin/Panel';
@@ -135,6 +136,7 @@ export default function Twin2({ dcId }: { dcId: string }) {
               <Seg size="sm" value={floorVal} onChange={v => go(v === 'B' ? EMPTY : { floor: Number(v), room: null, rack: null, ne: null })} options={floorOpts} />
             </div>
             <div className="t2-overlay-right">
+              <TwinSearch L={L} dcId={data.dc.id} plant={units} onGo={s => { setHover(null); go(s); }} onUnit={k => { setHover(null); onPick({ unit: k }); }} />
               <button type="button" className={`nst-btn nst-btn--sm t2-whole t2-walk${walk ? ' is-on' : ''}`} data-twin2-walk aria-pressed={walking} title={walk ? 'Stop walking (Esc)' : 'Walk the floor at eye level, like street view'} onClick={toggleWalk}><I.Footprints size={14} />{walk ? 'Stop walking' : 'Walk'}</button>
               {(sel.room !== null || sel.rack || unit) && <button type="button" className="nst-btn nst-btn--sm t2-whole" data-twin2="whole-floor" onClick={() => go({ floor: sel.floor, room: null, rack: null, ne: null })}>Whole floor</button>}
               <button type="button" className="nst-icon-btn twin-reset" title={full ? 'Exit expanded view (Esc)' : 'Expand view'} aria-label={full ? 'Exit expanded view' : 'Expand view'} aria-pressed={full} data-twin="fullscreen" onClick={toggleFull}>{full ? <I.Minimize2 size={15} /> : <I.Maximize2 size={15} />}</button>

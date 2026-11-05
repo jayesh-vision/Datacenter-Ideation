@@ -160,7 +160,8 @@ User ask: show revenue degradation caused by datacenter issues and which issue c
 - Palette: slate/white, brand blue accent, red/amber for faults only. The digital twin (`screens/site/twin`) is signed off — don't restyle it.
   Two fixes made at the user's request (04-Nov-2026): faded racks / devices and the glass of the open room no longer catch clicks (`NO_RAY` in Scene.tsx: a faded
   rack in front used to open instead of the device clicked; racks only opened from their label), and a collapsible search in the view tools (`twin/Search.tsx`:
-  floors, rooms, racks, equipment by name / role / model / serial / address, UPS / rectifier / batteries / cooling units / DG → flies there; plant opens its room).
+  floors, rooms, racks, equipment by name / role / model / serial / address, UPS / rectifier / batteries / cooling units / DG → flies there; plant opens its room). The realistic twin uses the same `TwinSearch` first in its top-right tools
+  (05-Nov-2026, user), passing its plant units (`plant` + `onUnit`) so a UPS / CRAH / DG hit opens that unit and its card; narrower box on a canvas ≤ 720 px.
 
 ## Command center layout (02-Oct-2026, after the user rejected the 17-box version)
 Hero card (08-Oct-2026, user) = three columns 30 / 40 / 30, 600 px tall: health ring + title/band + one verdict line + weakest area,
