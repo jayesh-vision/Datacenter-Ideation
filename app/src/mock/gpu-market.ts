@@ -21,6 +21,14 @@ export const sellsGpus = (p: Persona) => p === 'cloud' || p === 'neocloud';
 
 /* fit to sell: burn-in, acceptance benchmark against the model's reference, 30-day reliability — seeded on the node id, read from its telemetry */
 export function readinessOf(n: GpuNode, now: number): GpuReadiness {
+  /* Gaudi 2 (user, 05-Nov-2026: "show — for those too"): no burn-in / benchmark / reliability source yet, so nothing is made up — the node is
+     sellable unless the scheduler has it failed, in burn-in or cordoned */
+  if (gpuSpec(n.model).counters === 'habana') {
+    const bad = n.health === 'failed' || n.state === 'failed' || !!n.rma;
+    const status: GpuReadyStatus = bad ? 'Out of service' : n.state === 'burn-in' ? 'Burn-in' : n.state === 'drained' ? 'Hold' : 'Sellable';
+    const why = bad ? [n.rma ? `Open ${n.rma}` : 'Node failed'] : n.state === 'burn-in' ? ['24 h burn-in running'] : n.state === 'drained' ? [n.note ?? 'Cordoned'] : [];
+    return { status, grade: 'B', burnIn: { result: n.state === 'burn-in' ? 'running' : 'pass', at: now, hours: 24 }, bench: { score: 0, hbmTbs: 0, hbmRef: GPU_BENCH[n.model].hbmTbs, busGbs: 0, busRef: GPU_BENCH[n.model].busGbs, at: now }, reliability: 0, interruptions30d: 0, why, assessed: false };
+  }
   const rr = rngOf(n.neId, 0x5e11);
   const ref = GPU_BENCH[n.model];
   const throttled = n.gpus.some(g => g.throttle !== 'none'), degraded = n.health === 'degraded' || n.gpus.some(g => g.health !== 'healthy');

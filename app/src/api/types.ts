@@ -337,6 +337,9 @@ export interface GpuReadiness {
   bench: { score: number; hbmTbs: number; hbmRef: number; busGbs: number; busRef: number; at: number };   // % of the model's reference: HBM bandwidth and in-node all-reduce bus bandwidth
   reliability: number; interruptions30d: number;                                          // uptime % and interruptions over 30 days
   why: string[];
+  /* false = no acceptance-test / reliability source for this model yet (Gaudi 2, 05-Nov-2026): burn-in, benchmark, reliability and grade read —,
+     status follows the scheduler state only */
+  assessed?: false;
 }
 /* GPUs of one model / site / pod by how they are sold */
 export interface GpuOccupancyRow {
