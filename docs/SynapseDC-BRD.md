@@ -15,6 +15,8 @@
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.9 | 27-Oct-2026 | First complete draft: all modules, module split against the existing platform, colocation + NeoCloud first |
+| 1.0-rc | 06-Nov-2026 | Development scope (3.7: DEV-01…13 developed by SynapseDC, platform capabilities used as they are, asks of the module teams); DC-STORE table catalogue for the database schema (10.4, DATA-017…022); data center interconnect and internet edge (BRULE-SITE-19/20, SITE-048…050, US-SITE-11); GPU capacity as a product, fit to sell, vendor-exporter honesty and left-out totals (BRULE-GPU-19…22, GPU-042…045, US-GPU-10/11); OD-12 collector ownership, OD-13 transit fields |
+| 0.9.10 | 05-Nov-2026 | Planner templates lifecycle, rules in templates, modules and pinning (BRULE-PLN-21…25, PLN-059…068, US-PLN-12…15); custom site types (BRULE-PLN-26, PLN-069, US-PLN-16) |
 | 0.9.9 | 03-Nov-2026 | Planner Benchmarks configuration (7.9): per-tab add forms with the measure fixing unit and applies-to fields, one value per case, retire / restore, version history, effect on open plans, approval of confirmed values, rules created and configured per template (limits, overrides), CSV export / import with a dry run; BRULE-PLN-16…20, PLN-049…058, US-PLN-08…11 |
 | 0.9.8 | 29-Oct-2026 | MACD drafts: stage Draft before Submitted (BRULE-MACD-01), save / edit / submit / discard a draft and edit a request until feasibility is done (MACD-029, MACD-030) |
 | 0.9.7 | 28-Oct-2026 | New module 7.13 MACD (move, add, change and disconnect requests): catalogue, intake, live feasibility, quote, change request, DCIM space hold, field work, verification with record and billing updates; MACD-001…028, BRULE-MACD-01…10, US-MACD-01…08; integrations INTG-060…061, write-back W-35…42 and A-16, new API-BSS-11; Appendix B.29 |
@@ -53,6 +55,7 @@ Requirement identifiers: `<PFX>-nnn` (functional), `BRULE-<PFX>-nn` (business ru
   - 3.4 Build boundary: consume the platform, build only what is datacenter-specific
   - 3.5 Modules used through their APIs (nothing built)
   - 3.6 What SynapseDC builds, module by module
+  - 3.7 Development scope: what is developed and what is used
 - 4 Stakeholders, users and roles
 - 5 Business models
 - 6 Solution overview
@@ -111,6 +114,7 @@ Requirement identifiers: `<PFX>-nnn` (functional), `BRULE-<PFX>-nn` (business ru
 - 10 Data requirements
   - 10.1 Entity model
   - 10.2 Onboarding data (the import template)
+  - 10.4 DC-STORE: the SynapseDC database (input to the database schema)
   - 10.3 Retention
 - 11 Non-functional requirements
 - 12 Phasing and release plan
@@ -312,9 +316,9 @@ Only datacenter-specific screens and functionality. **Appendix B** lists every s
 | # | SynapseDC module (menu) | Screens built | Chapter | Consumes (API ids, 9.11–9.25) | Phase |
 | --- | --- | --- | --- | --- | --- |
 | 1 | **Command Center** | Hero (health, numbers, areas, map, datacenter column), What is happening · Who is affected · Recommendations, Plan & build strip and lens | 7.1 | OAP, ALR, ITSM, BSS, INV, PRJ | P1 / P2 |
-| 2 | **Datacenters** | Datacenters list; Datacenter page (Overview · Facility · Infrastructure · Business impact groups and their sub tabs); schematic and realistic layout / twin; Device page; Customer page | 7.2 | OAP, ALR, ITSM, BSS, INV, IPM, SCM | P1 / P2 |
+| 2 | **Datacenters** | Datacenters list; Datacenter page (Overview · Facility · Infrastructure incl. Internet & carriers · Business impact groups and their sub tabs); schematic and realistic layout / twin; Device page; Customer page | 7.2 | OAP, ALR, ITSM, BSS, INV, IPM, SCM | P1 / P2 |
 | 3 | **Facilities** | Power & backup, Cooling, Environment & safety, Single points of failure, Maintenance & alarms | 7.3 | OAP, ALR, ITSM-10, INV | P1 / P2 |
-| 4 | **GPU Fleet** | Clusters, Jobs, Nodes, Telemetry, GPU models, Network rails, Cooling & power, Where to place; node detail | 7.4 | OAP (DCGM), OPS-02, ALR, ITSM, BSS | P1 / P2 |
+| 4 | **GPU Fleet** | Clusters, Jobs, Nodes (+ fit to sell), Telemetry, GPU models, Network rails, Cooling & power, Occupancy, Where to place; node detail | 7.4 | OAP (DCGM), OPS-02, ALR, ITSM, BSS | P1 / P2 |
 | 5 | **Alerts & incidents (datacenter view)** | Alerts with scope; Incident view with impact, RCA, actions, verification, revenue, on call and communications; Problems — over the System Alerts and ITSM records | 7.5 | ALR, ITSM, BSS, OAP | P1 / P2 |
 | 6 | **Revenue Impact** | Issues, Customers, Datacenters, Causes & trend, One failure away; cost drawer; How it is calculated | 7.6 | BSS, ITSM, ALR, OAP | P1 |
 | 7 | **Security Ops (datacenter)** | Insights, Detections, Cases + Playbooks, Threat coverage, Vulnerabilities, Hardening & drift, OT security, Physical security; Admin → Security data sources — over Ops Toolkit Security Ops | 7.7 | SOC, INV, ITSM, ALR | P2 |
@@ -325,6 +329,56 @@ Only datacenter-specific screens and functionality. **Appendix B** lists every s
 | 12 | **Analytics pages** | Programs & Projects insights, Work orders KPIs, Commissioning, IP & Network insights, Change management overview, DCIM insights | 8 | PRJ, SCM-05, IPM, ITSM | P2 |
 | 13 | **Cross-cutting** | Shell, persona and geography switches, search, Opstral AI, info bubbles, embed | 7.12 | PEN, AIF | P1 / P2 |
 | 14 | **MACD** | Insights, Requests (list ⇄ board), Schedule, Catalogue, New request, Request page | 7.13 | BSS-01/02/04/09/11, ITSM-07…09/11, INV-02…04/09…11, IPM-04, OPS-02, OAP | P2 |
+
+### 3.7 Development scope: what is developed and what is used
+
+This is the development view of 3.4–3.6. It lists every piece of software the SynapseDC team develops, every platform capability it uses as it is, and the work it asks of the module teams. The database is specified in **10.4**.
+
+**A. Developed by SynapseDC**
+
+| ID | Work package | What is developed | Specified in | Phase |
+| --- | --- | --- | --- | --- |
+| DEV-01 | **Web application (frontend)** | Every screen marked Build in Appendix B (3.6 modules 1–14), generated from the ideation code with the same stack, kit and URL contract | 7.1–7.13, 8, 17, Appendix B | P1–P3 |
+| DEV-02 | **SynapseDC API (backend for the screens)** | One REST endpoint per `api/index.ts` function (NB-01 paths), the OpenAPI document, server push of changes (SSE / WebSocket, GEN-005), the tenant-scoped API (NB-12, to discuss) | 9, 17.7, interface spec NB-01…12 | P1 |
+| DEV-03 | **Read-model services** | The datacenter logic ported from the ideation read models with the same rules and output shapes: situation and health areas · alarm scope and correlation · incident impact, RCA and actions · revenue impact · physical last mile (power chain, cooling coverage, cabling, single points of failure, what-if) · environment and safety · asset lifecycle · planned maintenance view · operations process view · access and security exceptions · GPU fleet view, GPU time lost, occupancy and fit to sell · power economics and power findings · capacity and reservations · DCIM model (hierarchy, rows, U, power, cables) · internet edge and DCI · compliance evaluation · MACD feasibility and charges · Security Ops datacenter context · Command Center plan & build lens | 7.x business rules; 17.5 (mock file per read model) | P1–P3 |
+| DEV-04 | **Planner engine** | Template inheritance and modules, sizing, cost / NPV / IRR, schedule, rules, readiness, governance and approvals, sourcing, materials, scenarios, pinning, custom site types, plan and review packs (PDF / XLSX / ZIP, generated in the browser), hand-over to Programs & Projects | 7.9, 17.2 (`planner/lib/*`) | P2 |
+| DEV-05 | **DC-STORE (SynapseDC database)** | Only the datacenter-specific tables of 10.4, with audit and versioning | 3.4 ARCH-012, 10.4 | P1 |
+| DEV-06 | **Module adapters** | One client per consumed module API (9.11–9.25) that maps the module's response onto the screen contract (`api/types.ts`), caches it with the module id and an expiry (ARCH-003) and subscribes to the module's change events | 9.10–9.25 | P1 |
+| DEV-07 | **Write-back service** | Every user write (W-01…42) and automatic write (A-01…16) to a module API, with idempotency key, retry, failure queue and audit (WR-001…008) | 9.26 | P1 |
+| DEV-08 | **Scheduled evaluations** | Periodic jobs that raise findings into System Alerts or ITSM: power contract findings, monitoring gaps, compliance policy runs, IP exhaustion forecast, SLA / at-risk clocks of MACD requests, template and benchmark effect on open plans on demand | 7.3, 7.8, 7.11, 7.13, 9.26 A-rows | P1–P3 |
+| DEV-09 | **Datacenter source adapters for the on-site collector** | The southbound readers no platform collector has: Modbus (UPS, PDU, meters, ATS, DG), BACnet / OPC UA (BMS, CRAH, CDU), Redfish / IPMI (BMC), DCGM / habanalabs / XPU Manager, Slurm / Kubernetes / Run:ai, UFM, PACS / visitor / VMS; alarm normalisation to the Alert shape; read-only credentials; outbound mTLS only. Runs inside the platform's collector framework (OD-12). | 6.2, 7.5 ALM-001, interface spec INT-01…28 | P1 |
+| DEV-10 | **Onboarding import and export** | Import template validation and load, reconciliation report against discovered inventory (sent to Inventory), site export in the same layout | 10.2 DATA-012…014 | P1 / P2 |
+| DEV-11 | **Configuration and reference data** | Business-model vocabulary, geographies, severity / scope lookups, GPU model catalogue and benchmark references, tariffs and power contracts, standard site types, seed templates, rules and benchmarks, MACD catalogue, compliance policies and framework mappings, metric catalogue (sent to OAP, INTG-057) | 10.4 domain A | P1 |
+| DEV-12 | **AI tools** | The SynapseDC API exposed as AI Foundry tools, with the suggested questions and deep-link answers of the ideation copilot | 7.12, API-AIF-02 | P2 |
+| DEV-13 | **Acceptance tests** | The ideation QA checks ported per screen and per read model (layout, reconciliation, formulas) | 17.8 | P1–P3 |
+
+**B. Used from the platform as it is (no development by SynapseDC)**
+
+| Capability | Platform module | How SynapseDC uses it |
+| --- | --- | --- |
+| Sign-in, users, roles, site scope, tenant claim, feature flags, custom fields and tags | Platform Engineering | API-PEN-01…03; SynapseDC keeps no user store (ARCH-011) |
+| Telemetry store, ingestion, roll-ups, retention, metric export | OAP telemetry ingestion / consumer services (ClickHouse) | API-OAP-01…06; no time-series store (ARCH-008/009) |
+| Alarm records, raise / clear / acknowledge, on-call and paging | Ops Toolkit System Alerts | API-ALR-01…07 |
+| Security detections, cases, rules, vulnerabilities, sensors | Ops Toolkit Security Ops | API-SOC-01…08 |
+| Collector and pipeline state, scheduler integration, cost data | Telemetry Ops, Data Ops, Infra Ops, Fin Ops | API-OPS-01…04 |
+| Incidents, problems, changes and approvals, maintenance, tickets, knowledge | Services & ITSM | API-ITSM-01…13; screens linked, not rebuilt |
+| Customers, contracts, SLA, services, products, orders, notices, billing | Operate to Acquire (BSS) | API-BSS-01…11 |
+| Assets (sites, rooms, racks, devices, modules, types, circuits), capacity targets, IP addresses, programmes, projects, work orders, commissioning | Plan to Build | API-INV, API-IPL, API-IPM, API-PRJ |
+| Vendors, contracts, prices and lead times, stock and spares, purchase orders, field visits | Supply Chain | API-SCM-01…05 |
+| Copilot models and agents | AI Foundry | API-AIF-01 |
+| Data model registry, data lake, BI | Intelligence Hub | API-IHB-01, 02 |
+| Design system (NST / Vision Waves) | Platform | loaded as it is (17.4) |
+
+**C. Asked of the module teams (their development, not SynapseDC's)**
+
+| Ask | Module | Where |
+| --- | --- | --- |
+| The API fields and events SynapseDC needs that a module does not offer yet | each module | API gap list 9.10 (ARCH-004) |
+| DCIM extension fields on the Inventory record (U position, outlets and cords, panels and feeds, patch panels, trunks, cable paths, rack type and condition, design ratings) | Plan to Build Inventory | OD-01; whatever is refused stays in DC-STORE (10.4 domain B) |
+| Extension fields on the incident for impact, RCA, actions and verification | Services & ITSM Incidents | API-ITSM-04; else kept in DC-STORE keyed by the incident id |
+| Datacenter tags on the alarm (scope, placement, correlation) | Ops Toolkit System Alerts | API-ALR (tags echo); else DC-STORE |
+| Transit and DCI commercial fields (plan, commit, price per Mbps, burst, term, SLA, NOC) on the circuit or the contract | Inventory / Supply Chain Contracts | OD-13 |
+| Write APIs for DCIM, IP assignment and Security Ops context | Inventory, IP Management, Security Ops | API-INV-09…12, API-IPM-04, API-SOC-08 |
 
 ## 4 Stakeholders, users and roles
 
@@ -585,6 +639,8 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | BRULE-SITE-16 | Diesel figures without a tank meter are estimates and shown as such: tank litres = DG kVA × 3.2 (rounded to 50 L), burn ≈ 0.2 L per kVA-hour at 75 % load, 30-day use from generator run hours. A tank reading replaces them. |
 | BRULE-SITE-17 | Access log people: guards two per 12 h shift (07:00 / 19:00), field technicians per 12 h shift, site engineers on days, change crews escorted and tagged with their change, the on-call engineer responding to an open incident tagged with it, PM vendors, couriers, cleaners, visitors with host and escort, colocation tenants at their cage. Exception severities: door forced High; tailgating, held open, anti-passback Medium; badge not returned Low. |
 | BRULE-SITE-18 | Rack record on Assets: type (a ~1 in 10 share of live non-GPU racks is an old shallow 600 × 1000 type), purchase date and condition (Damaged at audit, with the note); GPU / liquid racks are never the old type. |
+| BRULE-SITE-19 | Data center interconnect (DCI): an inter-datacenter link carries its circuit type, carrier, circuit id, route length and latency from the circuit record. Where the record has no type, it is set from the route length: ≤ 120 km Dark fibre, ≤ 1,200 km Wavelength, longer Long-haul wavelength. Where the record has no route length, it is estimated as 1.35 × the great-circle distance + 6 km and marked estimated. Latency is estimated as route km × 5 µs + 0.2 ms when it is not measured. |
+| BRULE-SITE-20 | Internet edge: each live site is expected to have two IP transit feeds, each on its own border-router port. HA state is **redundant** (two feeds in service on two routers, two providers, separate building entries and ducts, failover test within 12 months), **at risk** (two feeds, but one finding) or **single** (one feed in service). Findings: one building entry for both (Tier II), shared duct, both feeds on one router, second feed on order, one provider for both, failover test overdue. A single-fed site counts as Attention in the Command Center Network area. Transit prices are kept in the provider's billing currency (never converted by the geography). |
 
 ### 7.2.3 Functional requirements
 | ID | Requirement | Priority | Model | Phase |
@@ -636,6 +692,9 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | SITE-045 | The system shall render on the device 3D view one model per family (router, switch, firewall, optical, server, storage, GPU node, tenant block) with hardware parts coloured by kind (compute · power · cooling · network · memory · storage · management), state from modules, interfaces, GPU telemetry and rack power, cameras ¾ · Front · Rear · Top. | S | Both | P2 |
 | SITE-046 | The system shall show the Space & ports tab's floors / rooms / racks table and rack space and port totals, and the datacenter Topology tab with the same view as the former topology page (`/topology?dc=` redirects to it). | M | Both | P1 |
 | SITE-047 | The system shall keep every figure on the datacenter page reconciled with the Command Center and the lists (same incident, alarm, service and money counts). | M | Both | P1 |
+| SITE-048 | The system shall show DCI links on the estate map with a DCI legend toggle that draws the whole mesh, and a link tooltip with type, route km, latency, number × capacity and carriers (BRULE-SITE-19). | S | Both | P2 |
+| SITE-049 | The system shall show Infrastructure → **Internet & carriers** (`?tab=internet`) per site: each transit feed with provider and ASN, plan (port, commit, 95th-percentile billing, price per Mbps, burst, term), circuit, SLA, provider NOC and account manager; its border-router port and optic; the cable path cross-connect → carrier demarc → building entry → street route → provider POP; the eBGP session (state, role primary / backup or active / active, prefixes received, BFD, RPKI, max-prefix, authentication); the HA state with its findings and the last failover test. | S | Both | P2 |
+| SITE-050 | The system shall add the Internet findings to Facility → Single points of failure (domain Internet) and count transit feeds in the Command Center Network area (BRULE-SITE-20). | S | Both | P2 |
 
 ### 7.2.4 User stories and acceptance criteria
 **US-SITE-01** As a NOC engineer I want to go from an alarm to its place so that I can send the right technician (SITE-010, SITE-011).
@@ -668,6 +727,10 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 **US-SITE-10** As a head of operations I want the list to show where to look (SITE-001, BRULE-SITE-14).
 - Given a site with a UPS on battery and no open incident, then the list shows it as Critical; filtering Condition = Facility issue keeps it; filtering Clear hides it.
 
+**US-SITE-11** As a network engineer I want to see how the site reaches the internet and the other datacenters, feed by feed and link by link, so that I know what one fibre cut or one router failure takes away (SITE-048, SITE-049, SITE-050).
+- Given a site whose two feeds share one building entry, when I open Internet & carriers, then the HA state is At risk and the finding names the shared entry; the same finding appears under Single points of failure → Internet.
+- Given the estate map, when I switch on DCI, then every inter-datacenter link is drawn and its tooltip shows type, km, ms and carriers.
+
 ### 7.2.5 Data
 | Entity | Read / write | System of record | Notes |
 | --- | --- | --- | --- |
@@ -682,6 +745,8 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | Cross-connect order, remote-hands ticket | Read | BSS Orders / ITSM Tickets | Colo |
 | Customer, service | Read | BSS | cause of risk from SynapseDC |
 | Timeline event | Read | SynapseDC | ops log |
+| DCI circuit (inter-datacenter link) | Read | Plan to Build Inventory (circuit, ends) + Supply Chain Contracts (carrier) | type, route km, latency, carrier; estimated values marked (BRULE-SITE-19) |
+| Transit feed, eBGP session | Read | Inventory (circuit, router port) + Supply Chain Contracts (plan, price, term, SLA, NOC) + collector (BGP state, traffic) | commercial fields Inventory / Contracts cannot carry stay in DC-STORE (OD-13); HA state and findings derived |
 
 ### 7.2.6 Integrations
 | System / module | Direction | Data | Interface |
@@ -919,6 +984,10 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | BRULE-GPU-16 | Telemetry is read-only. The platform never resets a GPU, drains a node or changes a power cap. It recommends these, and people carry them out through a change. |
 | BRULE-GPU-17 | Pods are at most 32 nodes of 8 GPUs, one GPU model per pod; the GPU host takes the pod's server model (NVIDIA, Supermicro or Dell OEM). Liquid-cooled halls have one CDU loop per three GPU racks (capacity = load × 1.6 rounded up to 50 kW; nominal flow = capacity × 1.45 L/min); liquid nodes report no fan. Cluster state is bad when a job in it is stalled or a GPU is failed in a job, warn when any GPU needs attention, else ok. |
 | BRULE-GPU-18 | Reference scenarios the acceptance tests use (seeded on NVIDIA training pods): Xid 79 stalls the biggest training job at the GPU-fault site, last checkpoint 52 min before; Xid 48 row remap pending puts a fine-tune At risk; Xid 74 NVLink errors make one node a straggler and the job 22 % slower; CDU flow low (pump A seized) puts liquid-cooled GPUs into hardware slowdown with a Cooling incident; an InfiniBand rail flapping slows a job 12 % with **no incident on purpose** (the job is slowed, nothing is down); a rack near its breaker runs its GPUs power-capped at 550 W (Warning alarm, 6 h); an inference service has held its GPUs idle for 6 h (no alarm). A driver rollout change covers the nodes on the old driver. |
+| BRULE-GPU-19 | Vendor telemetry is shown as the vendor exporter reports it. A metric the exporter does not report is shown as "—" and is never estimated or modelled. Example, Intel Gaudi 2 (habanalabs exporter): no SM / tensor / copy / DRAM activity, memory clock, fan, P-state, throttle reasons, retired pages, scale-up errors or traffic, or Xid; ECC = pending row remaps; scale-out ports = the card's external RoCE ports. Fleet figures leave such GPUs out of the metric they lack. |
+| BRULE-GPU-20 | Where no source gives a node's power (the GPU model is not power-known), the node's power is shown as "—" and the node is left out of every power total and power-cost figure (fleet power now and 24 h, pod kW, sold kW, power cost per GPU-hour, placement). Where no burn-in, benchmark or reliability source exists, Fit to sell is not assessed: the status follows the scheduler state only, and occupancy totals leave those GPUs out. Each affected screen states how many GPUs are left out. |
+| BRULE-GPU-21 | GPU capacity as a product (Cloud and NeoCloud; not enterprise, which charges back): a node in a job is one **instance** of its model's instance type; the tier is **reserved** (premium customer), **on-demand** or **spot** (inference only, priced about 55 % of on-demand). Occupancy = sold ÷ (sold + available). Spot interruptions in the last 24 h are counted per pod with the reason (reclaimed for a reserved customer, firmware drain, node failure). Money stays the flat GPU-hour rate of BRULE-GPU-02; tier pricing comes from the BSS catalogue (to discuss). |
+| BRULE-GPU-22 | Fit to sell per node: 24 h burn-in passed; benchmark against the model's reference (HBM TB/s, in-node bus GB/s) ≥ 95 %, else held back; 30-day reliability ≥ 99 %, else held back; grade A / B / C. Status Sellable · Held back · Burn-in · Hold · Out of service. |
 
 ### 7.4.3 Functional requirements
 | ID | Requirement | Priority | Model | Phase |
@@ -964,6 +1033,10 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | GPU-039 | The system shall count node states (in a job, spare, drained, failed, burn-in) and GPU health (healthy, degraded, failed), throttle reasons (thermal, hardware slowdown, power cap), ECC single / double bit, row remaps pending, drift nodes, open RMAs and liquid-cooled nodes in the fleet summary, and show the DCGM field list the telemetry follows on the Telemetry tab. | S | Neo | P1 |
 | GPU-040 | The system shall show per-counter leaders on the Telemetry tab: hottest GPUs, most PCIe replays, most NVLink errors, most correctable ECC errors and GPUs in a job under 5 % utilisation, each linking to its node. | S | Neo | P1 |
 | GPU-041 | The system shall show a cluster's nodes on the datacenter Equipment tab with the 8-GPU strip for GPU nodes, and open a node by name from a cluster or GPU-models row (`?gtab=nodes&q=`). | S | Neo | P1 |
+| GPU-042 | The system shall show GPU Fleet → **Occupancy** (`?gtab=occupancy`): occupancy strip, by model, last 24 h, by site and pod, and the views Instances · Interruptions · Customers (`oview=`) (BRULE-GPU-21). | S | Neo | P2 |
+| GPU-043 | The system shall show Fit to sell per node: a Nodes column, the quick views Held back and Grade C (`gview=held|gradec`) and a Fit to sell block in the node drawer (BRULE-GPU-22). | S | Neo | P2 |
+| GPU-044 | The system shall show, for Intel Gaudi nodes, the vendor's own view: chip and board, SoC clock, RoCE ports (internal / external), the habanalabs profiling table, and the metrics collected per vendor on Telemetry, with "—" for every metric the exporter does not report (BRULE-GPU-19). | S | Neo | P2 |
+| GPU-045 | The system shall leave GPUs without a power source or a fit-to-sell source out of the power and occupancy totals and show on each affected screen how many are left out (BRULE-GPU-20). | M | Neo | P2 |
 
 ### 7.4.4 User stories and acceptance criteria
 **US-GPU-01** As a GPU operations engineer, I want to see which jobs are stalled or slowed and why, so that I fix the costliest first (GPU-005, GPU-006, GPU-007).
@@ -997,6 +1070,12 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 **US-GPU-08** As a customer success manager, I want to see which premium customers' jobs are hurt, so that I contact them before they call (GPU-005, GPU-022).
 - Given a slowed job of a premium customer, then the job row shows the premium flag and the linked incident.
 
+**US-GPU-10** As a NeoCloud commercial lead, I want occupancy by model, tier and site with the nodes held back from sale, so that I know what I can sell today (GPU-042, GPU-043).
+- Given a pod with a node below 95 % of its benchmark, when I open Nodes → Held back, then that node is listed with the failing test and is not counted as available.
+
+**US-GPU-11** As a GPU operations engineer on Intel Gaudi, I want to see only what the exporter reports, so that I never act on a made-up figure (GPU-044, GPU-045).
+- Given a Gaudi 2 node, when I open its detail, then SM activity, fan and P-state show "—", node power shows "—", and GPU Fleet power totals say how many Gaudi 2 GPUs are left out.
+
 ### 7.4.5 Data
 | Entity | Read / write | System of record | Notes |
 |---|---|---|---|
@@ -1010,11 +1089,14 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | Tariff, PUE, power contract | Read | Power economics (7.8), EPMS meters | per site |
 | GPU alarm / incident | Read | Ops Toolkit System Alerts / ITSM Incidents | enriched per 7.5 |
 | GPU model catalogue | Read | SynapseDC reference data | memory, TDP, links, price factor |
+| Instance type, tier, spot interruption | Read | BSS Plans & Products Catalog (instance types, tiers) + scheduler (allocation, preemption reason) | occupancy derived (BRULE-GPU-21) |
+| Burn-in, benchmark, reliability result per node | Read | operator's burn-in / benchmark tooling via Infra Ops (API-OPS-02), else not assessed | reference values per model in DC-STORE (BRULE-GPU-22) |
 
 ### 7.4.6 Integrations
 | System / module | Direction | Data | Interface |
 |---|---|---|---|
 | dcgm-exporter / Gaudi exporter / XPU Manager | In | per-GPU telemetry, Xid, health | INT-11 |
+| Burn-in / benchmark tooling | In | per-node burn-in pass, HBM and bus benchmark, reliability | Infra Ops (API-OPS-02); to discuss per customer |
 | Slurm REST / Kubernetes API / Run:ai | In | jobs, nodes allocated, state, customer | INT-12 |
 | NVIDIA UFM or host IB counters | In | IB rails, symbol errors, flaps | INT-13 |
 | Server BMCs (Redfish) | In | PSUs, fans, temperatures, firmware | INT-03 |
@@ -4705,6 +4787,97 @@ The inventory import template (one sheet per entity, 35 data sheets, field dicti
 | DATA-013 | The system shall reconcile an imported site against the collector's discovered inventory (serial, model, modules, LLDP) and report differences to the inventory module; it shall not resolve them itself. | M | P1 |
 | DATA-014 | The system shall export any site in the same template layout (data backup). | S | P2 |
 
+### 10.4 DC-STORE: the SynapseDC database (input to the database schema)
+
+DC-STORE holds **only** the tables below. Everything else is read through a module API (3.5) or computed by a read model (3.7 DEV-03). This is the logical model the database schema is generated from; field lists name the business fields, not the physical columns.
+
+**Rules for every DC-STORE table**
+
+| ID | Requirement | Priority | Phase |
+| --- | --- | --- | --- |
+| DATA-017 | DC-STORE shall hold only the tables of this section. A new table needs a reason why no module owns the data (ARCH-012). | M | P1 |
+| DATA-018 | Every row shall carry a stable id, the operator (tenant) id, the site id where it belongs to a site, created / updated time and user. Row access follows the user's site scope from Platform Engineering. | M | P1 |
+| DATA-019 | A reference to a module record shall be stored as the module's id (with the module name where ambiguous), never as a copy of its fields. Display names may be cached with an expiry (ARCH-003). | M | P1 |
+| DATA-020 | Versioned tables (templates, benchmark values, compliance policies, plan baselines, site types) shall keep every earlier version unchanged; edits create a draft or a new version, never an in-place change of a published version. | M | P2 |
+| DATA-021 | Every insert, update and delete shall write an audit row (who, when, what changed, reason, linked change request, plan or request id); audit rows are kept 7 years (10.3). | M | P1 |
+| DATA-022 | Read-model results (health, impact, revenue, GPU view, occupancy, power economics, capacity, single points of failure, what-if, lifecycle states, internet HA, DCI classification, compliance results) shall not be stored as input. They may be cached per data version; a result kept for history (for example money per closed incident, a plan baseline, a compliance decision record) is stored as a snapshot with the time it was taken. | M | P1 |
+
+**A. Configuration and reference data**
+
+| Table | Holds | Keys and references | Notes | Phase |
+| --- | --- | --- | --- | --- |
+| business_model | Vocabulary per business model (customer, service, premium, capacity unit, money words) | key colocation / neocloud / cloud / enterprise / network | DATA-011 | P1 |
+| geography | Currency, number locale, date style, regions, grid carbon factor | key | | P1 |
+| lookup | Severity words, alarm scope values, statuses, reasons | (list, code) | | P1 |
+| gpu_model | GPU model catalogue: vendor, memory, TDP, clocks, scale-up link, fabric, server per OEM, current / old driver, telemetry source and counter set, price factor, power-known flag, instance type | model key | BRULE-GPU-02, -19, -20 | P1 |
+| gpu_benchmark_ref | Reference HBM TB/s and in-node bus GB/s per model | → gpu_model | BRULE-GPU-22 | P2 |
+| tariff | Energy tariff per state / region, unit, source, as-of, illustrative flag | (geography, region) | DATA-006 | P2 |
+| power_contract | Per site: utility (connection kW, take-or-pay floor %, demand charge) or colocation block (kW, rate per kW-month, floor), escalator, term end, illustrative flag | site id (Inventory) | 7.8 | P2 |
+| metric_catalogue | Metric names, units, labels, expected interval per source | metric name | sent to OAP (INTG-057) | P1 |
+
+**B. DCIM and facility extensions** (keyed by Inventory ids; only what Inventory cannot carry, OD-01)
+
+| Table | Holds | Keys and references | Notes | Phase |
+| --- | --- | --- | --- | --- |
+| rack_placement | Hall, row, position in row, face, rack type, purchase date, condition and note, power budget kW | rack id (Inventory) | 7.10, BRULE-SITE-18 | P1 |
+| device_placement | Rack, U position, U size, face | device id (Inventory) | U clash check | P1 |
+| tenant_block | Opaque tenant equipment per cabinet: owner, contracted kW, role | rack id, customer id (BSS) | DATA-008, Colo | P1 |
+| device_type_template | U height, typical / max W, PSUs, port and power-port templates | device type id (Inventory) | W-21 | P2 |
+| power_panel | Busway A / B or −48 V distribution per hall, UPS module feeding it, rating | hall (room) id, UPS id | | P1 |
+| power_feed | Rack PDU: side, V, A, phases, rating, panel | rack id → power_panel | | P1 |
+| power_cord | Device PSU → PDU outlet, phase, breaker | device id, power_feed | Σ = rack draw | P1 |
+| patch_panel | Cabinet panels and ODF ports | rack id | | P1 |
+| trunk_cable | Trunk between panel and ODF, tray route 1 / 2, cores | patch_panel ids | | P1 |
+| cable | Data cable: both ends (device, port), type, structured route hops, outside-plant core | device / port ids (Inventory), link id | W-18 | P1 |
+| cooling_coverage | Rack → nearest cooling unit, zone, liquid share to its CDU | rack id, unit id | | P1 |
+| facility_design | Site design kW, UPS / DG nameplate, tank litres, cooling capacity, redundancy, Tier | site id | | P1 |
+| safety_zone | Fire zone (detection, suppression agent, release mode), leak rope, access point (door, reader type) | room id | 7.3 | P2 |
+| transit_extension | Transit / DCI commercial fields: plan, commit, billing method, price per Mbps, burst, term, SLA, NOC, account manager | circuit id (Inventory), contract id (Supply Chain) | only if OD-13 keeps them here | P2 |
+| u_reservation | Rack, U range, reason, expiry, holder (change, plan or MACD request) | rack id, change id / plan id / request id | W-19, W-38 | P1 |
+| dcim_work_item | Planned DCIM record change under a change request: operation, arguments, state, executed by / at | change id (ITSM) | BRULE-DCIM, 7.10 | P1 |
+
+**C. Operations enrichment** (keyed by module ids)
+
+| Table | Holds | Keys and references | Notes | Phase |
+| --- | --- | --- | --- | --- |
+| alarm_tag | Scope, placement, correlation group, symptom-of | alarm id (System Alerts) | only where System Alerts cannot store tags | P1 |
+| incident_enrichment | Impact snapshot, money at close, RCA hypotheses with confidence and evidence, user feedback, action steps and their state, verification checks | incident id (ITSM) | only where ITSM has no extension fields; W-05, W-07 | P1 |
+| power_finding | Contract finding per site: kind, exposure, first / last seen, raised alarm id, incident id, state | site id, alarm id, incident id | de-duplicates the alarms raised by DEV-08 | P2 |
+
+**D. Planner**
+
+| Table | Holds | Keys and references | Notes | Phase |
+| --- | --- | --- | --- | --- |
+| plan | Plan record: type (template + pinned version and module versions), status, requirements, inputs and overrides, phases, material overrides, risks, permits, conditions, decisions, revisions, baseline snapshot | site ids (Inventory), project id (Programs & Projects) after hand-over | 7.9 | P2 |
+| plan_scenario | Scenario inputs and preferred flag | → plan | | P2 |
+| plan_template | Template (plan type, site type, module, rule set, checklist, document): live content, draft of the next version, earlier versions, pending publish request, rules, inputs, modules, site-type definition | id + version | DATA-020 | P2 |
+| benchmark_value | Measure, case (applies-to fields), low / typical / high, unit, source, as-of, confidence, version, retired, pending change | id + version | | P2 |
+| approval_delegation | Role, from user, to user, period | user ids (Platform Engineering) | | P2 |
+| plan_review, plan_review_comment | Review request (reviewers, message, files sent) and threaded comments per section | → plan | | P2 |
+| planner_hold | Capacity held by an approved plan (racks, kW) | plan id, rack ids | written on to Inventory Planning (API-IPL-02) | P2 |
+
+**E. MACD, compliance and imports**
+
+| Table | Holds | Keys and references | Notes | Phase |
+| --- | --- | --- | --- | --- |
+| macd_catalogue_item | Item code, SLA standard / expedited, charges, change class, records and tasks | code | 7.13 | P2 |
+| macd_request | Request, stage and history, notes, check snapshot, tasks, SLA clock | customer id (BSS), rack / device ids (Inventory), change id (ITSM) | 7.13 | P2 |
+| compliance_policy | Policy as code (package, source), severity, on / off, version | id + version | 7.11 | P3 |
+| compliance_framework, compliance_control, control_policy_map | Frameworks, controls, which policies evidence which control | ids | | P3 |
+| attestation | Manual control attestation: by, date, evidence reference | control id | | P3 |
+| decision_record | Policy decision per resource: deny / warn / allow, input snapshot, outcome, change id | policy id, resource id | snapshot (DATA-022) | P3 |
+| import_batch | Template file, per-sheet result, rejected rows with reason, reconciliation report sent | site id | DATA-012, 013 | P1 |
+
+**F. Cross-cutting**
+
+| Table | Holds | Keys and references | Notes | Phase |
+| --- | --- | --- | --- | --- |
+| audit_event | Every DC-STORE change (DATA-021) | entity, id | 7 years | P1 |
+| writeback_queue | Writes to module APIs waiting or failed (DEV-07): target API, payload, idempotency key, attempts, error | module record id | | P1 |
+| user_preference | Per-viewer conveniences (list or tiles, open sections, twin view) | user id | optional; browser storage is enough for P1 | P2 |
+
+**Not in DC-STORE** (read through the module API, never copied): customers, contracts, services, orders; alarms; incidents, problems, changes, maintenance plans, tickets, on-call rota; sites, rooms, racks and devices as asset records; device and module types; IP addresses, prefixes, VLANs; capacity targets; programmes, projects, work orders, purchase orders, commissioning tests; vendors, stock, spares, warranty and support contracts; users and roles; telemetry samples; security detections and cases; access events (read from PACS through the collector and Security Ops).
+
 ### 10.3 Retention
 
 Telemetry retention (raw samples and roll-ups) is set in the OAP telemetry services on ClickHouse; the figures below are what SynapseDC's screens need from them.
@@ -4843,6 +5016,8 @@ Each site follows the same onboarding journey; the BRD requirements each step re
 | OD-09 | Which API receives work orders raised from DCIM change requests and RMAs: Programs & Projects or Field Force Management (both consumed, neither rebuilt) | Plan to Build + Supply Chain | P2 |
 | OD-10 | Decided 28-Oct-2026: datacenter-specific capabilities (facility live state, twin, capacity, planner engine, revenue, RCA, compliance, access exceptions) are built in SynapseDC; everything an existing module owns is consumed through its API (3.4) | — | closed |
 | OD-11 | BI access: SQL views on the analytics store or export only | Intelligence Hub | P2 |
+| OD-12 | Collector: SynapseDC writes the datacenter source adapters (DEV-09) inside the platform's collector framework (Telemetry Ops), or the platform team owns them | Telemetry Ops + SynapseDC | P1 design |
+| OD-13 | Where transit and DCI commercial fields live (plan, commit, price per Mbps, burst, term, SLA, NOC): Inventory circuit, Supply Chain contract, or DC-STORE `transit_extension` | Inventory + Supply Chain + SynapseDC | P2 |
 
 ---
 
@@ -5077,7 +5252,7 @@ These screens exist in the ideation code only to show the whole flow. Each belon
 
 ## Appendix A — Requirement index
 
-523 functional requirements, 212 business rules, 111 user stories, 12 build-boundary requirements, 61 integration requirements, 16 data requirements, 20 non-functional requirements. By phase: P1 209, P2 283, P3 31. By priority: M 327, S 176, C 20. By model: Both 444, Colo 21, Neo 58.
+530 functional requirements, 218 business rules, 114 user stories, 12 build-boundary requirements, 13 development work packages, 61 integration requirements, 22 data requirements, 20 non-functional requirements. By phase: P1 209, P2 290, P3 31. By priority: M 328, S 182, C 20. By model: Both 447, Colo 21, Neo 62.
 
 | ID | Requirement | Pri | Model | Phase |
 | --- | --- | --- | --- | --- |
@@ -5167,6 +5342,9 @@ These screens exist in the ideation code only to show the whole flow. Each belon
 | SITE-045 | The system shall render on the device 3D view one model per family (router, switch, firewa… | S | Both | P2 |
 | SITE-046 | The system shall show the Space & ports tab's floors / rooms / racks table and rack space | M | Both | P1 |
 | SITE-047 | The system shall keep every figure on the datacenter page reconciled with the Command Cent… | M | Both | P1 |
+| SITE-048 | The system shall show DCI links on the estate map with a DCI legend toggle that draws the … | S | Both | P2 |
+| SITE-049 | The system shall show Infrastructure → **Internet & carriers** (`?tab=internet`) per site:… | S | Both | P2 |
+| SITE-050 | The system shall add the Internet findings to Facility → Single points of failure (domain … | S | Both | P2 |
 | FAC-001 | The system shall show a facility strip: power load, PUE, UPS, cooling, environment, alarms… | M | Both | P1 |
 | FAC-002 | The system shall draw a single-line power path (utility feeds, DG set with fuel and runtim… | M | Both | P1 |
 | FAC-003 | The system shall trace upstream and downstream on hover of any power node. | S | Both | P1 |
@@ -5248,6 +5426,10 @@ These screens exist in the ideation code only to show the whole flow. Each belon
 | GPU-039 | The system shall count node states (in a job, spare, drained, failed, burn-in) and GPU hea… | S | Neo | P1 |
 | GPU-040 | The system shall show per-counter leaders on the Telemetry tab: hottest GPUs, most PCIe re… | S | Neo | P1 |
 | GPU-041 | The system shall show a cluster's nodes on the datacenter Equipment tab with the 8-GPU str… | S | Neo | P1 |
+| GPU-042 | The system shall show GPU Fleet → **Occupancy** (`?gtab=occupancy`): occupancy strip, by m… | S | Neo | P2 |
+| GPU-043 | The system shall show Fit to sell per node: a Nodes column, the quick views Held back and … | S | Neo | P2 |
+| GPU-044 | The system shall show, for Intel Gaudi nodes, the vendor's own view: chip and board, SoC c… | S | Neo | P2 |
+| GPU-045 | The system shall leave GPUs without a power source or a fit-to-sell source out of the powe… | M | Neo | P2 |
 | ALM-001 | The system shall convert every incoming event (trap, syslog, Redfish event, DCGM Xid, BACn… | M | Both | P1 |
 | ALM-002 | The system shall send both the normalised alarm and the raw event to Ops Toolkit System Al… | M | Both | P1 |
 | ALM-003 | The system shall de-duplicate and clear alarms per BRULE-ALM-01. | M | Both | P1 |
@@ -5641,6 +5823,7 @@ This is the landing page: one picture of every datacenter's health, what is happ
 | Pin popup | Site summary and the site's backhaul fan-out. | CC-012 | DC-RM health, API-INV-03 | P1 |
 | Basemaps | Light, Streets, Satellite or Terrain, remembered per viewer. | CC-013 | browser preference | P1 |
 | Map search | Search by site id, city, state, region or tier; the map flies to the site and opens its card. | CC-014 | API-INV-01 | P1 |
+| DCI mesh | DCI legend toggle draws every inter-datacenter link; tooltip with type, route km, latency, n × capacity, carriers. | SITE-048 | API-INV-03, API-SCM-02, DC-RM dci | P2 |
 | Legend, Focus issues, Reset, Expand | Legend items toggle states. Expand fills the content area and Esc closes it. Wheel-zoom works only after the map is clicked. | CC-015 | — | P1 |
 | Datacenter column | Every live site as a card, worst first, with an All / Critical / High filter. Cards are compact and quiet sites use a quiet variant. | CC-016, CC-037 | DC-RM health, API-ITSM-01 | P1 |
 
@@ -5772,6 +5955,13 @@ One site end to end. It has four group pills, each with its own sub tabs. `?tab=
 | --- | --- | --- | --- | --- |
 | Rack space, ports, building | Used and free U, ports by speed, building facts. | SITE-025, SITE-046 | API-INV-02..04, DC-STORE DCIM | P1 |
 | Floors / rooms / racks table | Per room: racks, U and budget. | SITE-046 | API-INV-01, API-INV-02 | P1 |
+
+#### Infrastructure › Internet & carriers (`?tab=internet`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| HA state and findings | Redundant / At risk / Single with the findings (shared entry or duct, one router, feed on order, one provider, failover test overdue) and the last test. Hidden where the site has no transit record. | SITE-049, SITE-050 | API-INV-03, API-SCM-02, DC-STORE transit extension, DC-RM internet | P2 |
+| Feed cards | Provider and ASN, plan (port, commit, 95th percentile, price per Mbps, burst, term), circuit, SLA, NOC, account manager, router port and optic, traffic. | SITE-049 | API-INV-03, API-SCM-02, API-OAP-01 | P2 |
+| Cable path and eBGP | Cross-connect → demarc → building entry → street route → POP; BGP state, role, prefixes, BFD, RPKI, authentication. | SITE-049 | DC-STORE DCIM cables, API-OAP-01 | P2 |
 
 #### Infrastructure › Assets (`?tab=assets`)
 | Feature | What the user sees / does | FR | Data from | Phase |
@@ -5951,6 +6141,7 @@ Neo only; hidden when there is no GPU infrastructure. GPUs, jobs and what faults
 | Node drawer | Health view, profiling view, 24 h sparklines, hardware row. | GPU-014, GPU-012 | API-OAP-01, API-OAP-02 | P1 |
 | Driver drift | Nodes on their model's old driver, linked to the driver-rollout change in Services & ITSM. | GPU-016, GPU-038 | API-INV-03, API-ITSM-07 | P1 |
 | RMA nodes | Open RMA and spare status. | GPU-028 | API-ITSM-11, API-SCM-03 | P2 |
+| Fit to sell | Column and drawer block: burn-in, benchmark vs reference, 30-day reliability, grade, status; Show → Held back / Grade C. Gaudi 2 and other unassessed models show "—". | GPU-043, GPU-045 | API-OPS-02, DC-STORE GPU references | P2 |
 
 #### GPU models
 | Feature | What the user sees / does | FR | Data from | Phase |
@@ -5963,6 +6154,7 @@ Neo only; hidden when there is no GPU infrastructure. GPUs, jobs and what faults
 | Fleet telemetry | Utilisation and temperature histograms, 24 h fleet series, energy, P-states, Xid timeline, ECC totals. | GPU-013 | API-OAP-02, API-OAP-03 | P1 |
 | Counter leaders and DCGM fields | Hottest GPUs, most PCIe replays and similar leaders; the DCGM field list. Vendor-aware labels (DCGM / hl-smi / XPU Manager). | GPU-040, GPU-010, GPU-011 | API-OAP-03, API-OAP-06 | P1 |
 | Xid alarms | Xid classified per bucket and raised as GPU alarms. | GPU-015 | API-OAP-01, API-ALR-03 | P1 |
+| Vendor exporter view | Intel Gaudi: chip and board, SoC clock, RoCE ports, habanalabs profiling table; metrics the exporter lacks show "—"; metrics collected per vendor. | GPU-044 | API-OAP-01, API-OAP-02 | P2 |
 
 #### Cooling & power
 | Feature | What the user sees / does | FR | Data from | Phase |
@@ -5976,6 +6168,12 @@ Neo only; hidden when there is no GPU infrastructure. GPUs, jobs and what faults
 | Feature | What the user sees / does | FR | Data from | Phase |
 | --- | --- | --- | --- | --- |
 | Network rails | InfiniBand, Ethernet front-end, OOB per cluster: ports, errors and flaps on one line. | GPU-018 | API-OAP-01, DC-STORE DCIM cables | P1 |
+
+#### Occupancy (`?gtab=occupancy`)
+| Feature | What the user sees / does | FR | Data from | Phase |
+| --- | --- | --- | --- | --- |
+| Occupancy strip and charts | Sold ÷ (sold + available) overall, by model, last 24 h, by site and pod; GPUs left out (no fit-to-sell source) noted. | GPU-042, GPU-045 | API-OPS-02, API-BSS-04, DC-RM gpu-market | P2 |
+| Instances · Interruptions · Customers | Instances by type and tier (reserved / on-demand / spot); spot interruptions in 24 h with reason; customers by GPUs held (`oview=`). | GPU-042 | API-OPS-02, API-BSS-01, API-BSS-04 | P2 |
 
 #### Where to place
 | Feature | What the user sees / does | FR | Data from | Phase |
