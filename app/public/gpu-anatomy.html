@@ -110,6 +110,7 @@ svg .mem{fill:var(--net-soft);stroke:var(--net);stroke-width:1.4}
 svg .pwr{fill:var(--pwr-soft);stroke:var(--pwr);stroke-width:1.4}
 svg .cool{fill:var(--cool-soft);stroke:var(--cool);stroke-width:1.4}
 svg .net{fill:var(--net-soft);stroke:var(--net);stroke-width:1.4}
+svg .netl{stroke:var(--net);stroke-width:2;fill:none}
 svg .cooldash{fill:none;stroke:var(--cool);stroke-width:2.4;stroke-dasharray:6 4}
 svg .hotc{fill:var(--hot);opacity:.9}
 svg .lnk{stroke:var(--net);stroke-width:.8;opacity:.35;fill:none}
@@ -217,7 +218,16 @@ select{font:500 14px var(--f-body);padding:8px 10px;border-radius:8px;border:1px
 .term p{font-size:13.5px;color:var(--muted)}
 .empty{color:var(--muted);font-size:14px;padding:12px 0}
 /* packaging */
-.forms{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.forms{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.forms.gen{grid-template-columns:repeat(3,minmax(0,1fr))}
+.tblcard{display:flex;flex-direction:column;gap:12px;overflow:hidden}
+.tbl{overflow-x:auto;padding:0 16px 16px}
+.tbl table{width:100%;border-collapse:collapse;font-size:13.5px}
+.tbl th{text-align:left;font:600 12px var(--f-mono);letter-spacing:.04em;text-transform:uppercase;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--line);background:var(--surface2)}
+.tbl td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl td.mono{font-size:12px;overflow-wrap:anywhere}
+.tbl tr.na td{color:var(--muted);background:var(--warn-soft)}
+.tbl tr.na td:first-child{color:var(--warn);font-weight:600}
 .form{padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
 .form svg{width:100%;height:76px;display:block}
 .form .fh{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:8px}
@@ -240,9 +250,9 @@ select{font:500 14px var(--f-body);padding:8px 10px;border-radius:8px;border:1px
 .faq .ans{padding:0 0 14px;font-size:14px;display:flex;flex-direction:column;gap:6px}
 .faq .ans p{color:var(--muted)}
 .faq .ans b{color:var(--fg)}
-@media (max-width:1000px){.forms{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:1000px){.forms,.forms.gen{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:900px){.rule{grid-template-columns:1fr}}
-@media (max-width:560px){.forms{grid-template-columns:1fr}}
+@media (max-width:560px){.forms,.forms.gen{grid-template-columns:1fr}}
 footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px;max-width:90ch}
 
 @media (max-width:900px){
@@ -270,13 +280,13 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
   <header>
     <span class="eyebrow">Field guide · AI datacenter</span>
     <h1>GPU Datacenter Anatomy</h1>
-    <p class="lede">Zoom from a single GPU chip out to the whole building, and see how power, cooling and the network connect each layer. Tap any highlighted part of a drawing to learn what it is, what to monitor and what breaks when it fails.</p>
+    <p class="lede">Zoom from a single GPU chip out to the whole building, and see how power, cooling and the network connect each layer. Tap any highlighted part of a drawing to learn what it is, what to monitor and what breaks when it fails. NVIDIA GPUs are the reference throughout; Intel's Gaudi AI processors, which differ in the network and the telemetry, have their own section.</p>
   </header>
 
   <section aria-labelledby="zoom-h">
     <div class="sec-head">
       <h2 id="zoom-h">Zoom from chip to building</h2>
-      <p>Each step contains the one before it. The numbers show a typical reference design (NVIDIA HGX/DGX H100 and GB200 NVL72).</p>
+      <p>Each step contains the one before it. The numbers show a typical reference design (NVIDIA HGX/DGX H100 and GB200 NVL72); parts where Intel Gaudi differs carry a Gaudi line too.</p>
     </div>
     <div class="ladder" role="tablist" aria-label="Zoom level" id="ladder"></div>
     <div class="stage">
@@ -302,23 +312,163 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
     </div>
   </section>
 
+  <section aria-labelledby="intel-h">
+    <div class="sec-head">
+      <h2 id="intel-h">Intel Gaudi AI processors</h2>
+      <p>Intel's AI accelerators come from Habana Labs, which Intel bought in 2019. Intel calls them AI processors, not GPUs: no graphics, no CUDA, no NVLink. Operators still run them like GPU nodes, with 8 cards to a server, pods, a scheduler, power and cooling. The parts inside, the network and the telemetry are different. Software and monitoring tools often call the card an HPU (Habana Processing Unit).</p>
+    </div>
+
+    <div class="forms gen">
+      <article class="card form">
+        <div class="fh"><h3>Gaudi 2</h3><span class="pill green">In service</span></div>
+        <p class="ex">7 nm, launched 2022. Training and inference on PyTorch. The card our estate's real Gaudi 2 readings come from.</p>
+        <dl class="kv"><dt>Engines</dt><dd>2 MME + 24 TPC</dd><dt>Memory</dt><dd>96 GB HBM2e · 2.45 TB/s</dd><dt>On-chip SRAM</dt><dd>48 MB</dd><dt>Network</dt><dd>24 × 100 GbE RoCE on the chip</dd><dt>Power</dt><dd>up to 600 W (OAM); 550 W default limit seen in the field</dd><dt>Host link</dt><dd>PCIe Gen4 x16</dd><dt>Form</dt><dd>OAM card, 8 per server (HLS-Gaudi2)</dd><dt>Cooling</dt><dd>Air</dd></dl>
+      </article>
+      <article class="card form">
+        <div class="fh"><h3>Gaudi 3</h3><span class="pill green">Current</span></div>
+        <p class="ex">5 nm, two dies in one package, launched 2024. Intel's current AI processor for large training and inference.</p>
+        <dl class="kv"><dt>Engines</dt><dd>8 MME + 64 TPC</dd><dt>Memory</dt><dd>128 GB HBM2e · 3.7 TB/s</dd><dt>On-chip SRAM</dt><dd>96 MB</dd><dt>Network</dt><dd>24 × 200 GbE RoCE on the chip</dd><dt>Power</dt><dd>900 W air OAM · up to 1,200 W liquid · 600 W PCIe card</dd><dt>Host link</dt><dd>PCIe Gen5 x16</dd><dt>Form</dt><dd>OAM (8 on a UBB board) or PCIe card (HL-338)</dd><dt>Cooling</dt><dd>Air or liquid</dd></dl>
+      </article>
+      <article class="card form">
+        <div class="fh"><h3>Data Center GPU Max 1550</h3><span class="pill idle">Intel GPU line</span></div>
+        <p class="ex">Intel's data-center GPU (code name Ponte Vecchio), aimed at HPC and AI. A true GPU with Xe cores, unlike Gaudi. Check current availability with Intel before planning new capacity.</p>
+        <dl class="kv"><dt>Engines</dt><dd>128 Xe cores</dd><dt>Memory</dt><dd>128 GB HBM2e</dd><dt>Scale-up</dt><dd>Xe Link</dd><dt>Power</dt><dd>up to 600 W (OAM)</dd><dt>Software</dt><dd>oneAPI, PyTorch / TensorFlow extensions</dd><dt>Telemetry</dt><dd>Intel XPU Manager</dd></dl>
+      </article>
+    </div>
+
+    <div class="card rule">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <span class="eyebrow">Inside a Gaudi server</span>
+        <p class="big">No switch chip inside the server: the cards wire to each other.</p>
+        <p>Each Gaudi card has 24 Ethernet ports built into the chip. In an 8-card server (HLS-Gaudi2, HLS-2H, Gaudi 3 UBB servers), 21 ports on every card go straight to the other 7 cards, 3 links to each. That all-to-all mesh does the job NVLink and NVSwitch do in an NVIDIA HGX server.</p>
+        <p>The other 3 ports of every card leave the server: 8 × 3 = 24 ports for scale-out, over ordinary Ethernet switches running RoCE. There are no separate network cards for the AI fabric and no InfiniBand.</p>
+      </div>
+      <svg viewBox="0 0 520 250" role="img" aria-label="8 Gaudi cards wired all-to-all, each with 3 ports out to Ethernet switches">
+        <rect x="6" y="6" width="508" height="238" rx="10" class="sub"/>
+        <text x="20" y="26" class="tm">8-card Gaudi server · UBB baseboard</text>
+        <path d="M100 80 L180 80 M100 80 L260 80 M100 80 L340 80 M100 80 L100 170 M100 80 L180 170 M100 80 L260 170 M100 80 L340 170 M180 80 L260 80 M180 80 L340 80 M180 80 L100 170 M180 80 L180 170 M180 80 L260 170 M180 80 L340 170 M260 80 L340 80 M260 80 L100 170 M260 80 L180 170 M260 80 L260 170 M260 80 L340 170 M340 80 L100 170 M340 80 L180 170 M340 80 L260 170 M340 80 L340 170 M100 170 L180 170 M100 170 L260 170 M100 170 L340 170 M180 170 L260 170 M180 170 L340 170 M260 170 L340 170" class="faint"/>
+        <rect x="70" y="58" width="60" height="44" rx="5" class="comp"/><text x="100" y="85" text-anchor="middle">HPU 0</text><rect x="150" y="58" width="60" height="44" rx="5" class="comp"/><text x="180" y="85" text-anchor="middle">HPU 1</text><rect x="230" y="58" width="60" height="44" rx="5" class="comp"/><text x="260" y="85" text-anchor="middle">HPU 2</text><rect x="310" y="58" width="60" height="44" rx="5" class="comp"/><text x="340" y="85" text-anchor="middle">HPU 3</text><rect x="70" y="148" width="60" height="44" rx="5" class="comp"/><text x="100" y="175" text-anchor="middle">HPU 4</text><rect x="150" y="148" width="60" height="44" rx="5" class="comp"/><text x="180" y="175" text-anchor="middle">HPU 5</text><rect x="230" y="148" width="60" height="44" rx="5" class="comp"/><text x="260" y="175" text-anchor="middle">HPU 6</text><rect x="310" y="148" width="60" height="44" rx="5" class="comp"/><text x="340" y="175" text-anchor="middle">HPU 7</text>
+        <text x="440" y="110" text-anchor="middle" class="tb">21 ports</text><text x="440" y="126" text-anchor="middle" class="tm">per card, 3 to each</text><text x="440" y="140" text-anchor="middle" class="tm">of the other 7 cards</text>
+        <rect x="24" y="208" width="472" height="26" rx="5" class="net"/>
+        <text x="260" y="225" text-anchor="middle">3 ports per card out · 24 RoCE links to the scale-out switches</text>
+      </svg>
+    </div>
+
+    <div class="card tblcard">
+      <div class="sec-head" style="padding:16px 16px 0"><h3>NVIDIA terms and their Gaudi equivalents</h3><p>The same job, a different part. Use this when an operator or ML engineer moves between the two.</p></div>
+      <div class="tbl"><table>
+        <thead><tr><th>What it does</th><th>NVIDIA</th><th>Intel Gaudi</th></tr></thead>
+        <tbody>
+          <tr><td>The accelerator</td><td>GPU</td><td>HPU / AI processor</td></tr>
+          <tr><td>Matrix maths</td><td>Tensor cores inside each SM</td><td>MME (matrix multiplication engine)</td></tr>
+          <tr><td>Programmable compute</td><td>SMs (CUDA cores)</td><td>TPCs (tensor processor cores)</td></tr>
+          <tr><td>Module form</td><td>SXM on an HGX board</td><td>OAM on a UBB board (OCP standard)</td></tr>
+          <tr><td>Complete 8-card server</td><td>DGX / HGX server</td><td>HLS-Gaudi2, Wiwynn HLS-2H, Gaudi 3 servers from Dell, Supermicro and others</td></tr>
+          <tr><td>Card-to-card inside the server</td><td>NVLink + NVSwitch chips</td><td>21 on-chip RoCE ports per card, wired all-to-all</td></tr>
+          <tr><td>Scale-out network</td><td>InfiniBand or Spectrum-X Ethernet, one NIC per GPU</td><td>3 on-chip RoCE ports per card, standard Ethernet switches</td></tr>
+          <tr><td>Collective library</td><td>NCCL</td><td>HCCL</td></tr>
+          <tr><td>Software stack</td><td>CUDA</td><td>Intel Gaudi software (formerly SynapseAI) with PyTorch</td></tr>
+          <tr><td>Kernel driver</td><td>nvidia</td><td>habanalabs</td></tr>
+          <tr><td>Command-line tool</td><td>nvidia-smi</td><td>hl-smi</td></tr>
+          <tr><td>Metrics exporter</td><td>DCGM exporter</td><td>habanalabs Prometheus exporter</td></tr>
+          <tr><td>Driver error codes</td><td>Xid errors</td><td>habanalabs driver events in the kernel log (no Xid numbers)</td></tr>
+          <tr><td>Split one card</td><td>MIG, up to 7 slices</td><td>No partitioning: one card is the smallest unit</td></tr>
+          <tr><td>Kubernetes resource</td><td>nvidia.com/gpu</td><td>habana.ai/gaudi</td></tr>
+          <tr><td>Acceptance test</td><td>DCGM diagnostics, NCCL tests</td><td>hl_qual, HCCL tests</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="card tblcard">
+      <div class="sec-head" style="padding:16px 16px 0"><h3>What a Gaudi exporter reports, and what it does not</h3><p>Read from a live habanalabs exporter (driver 1.24.2) on a Gaudi 2 server. One series per card; the card's serial, UUID, driver and firmware are labels on every metric.</p></div>
+      <div class="tbl"><table>
+        <thead><tr><th>Area</th><th>Metrics</th><th>Note</th></tr></thead>
+        <tbody>
+          <tr><td>Identity</td><td class="mono">habanalabs_device_config</td><td>Labels only: Serial, UUID, driver, firmware, and pod_name / pod_namespace when a Kubernetes pod holds the card</td></tr>
+          <tr><td>Load</td><td class="mono">habanalabs_utilization</td><td>AIP utilisation %. There is no SM or tensor activity split</td></tr>
+          <tr><td>Memory</td><td class="mono">habanalabs_memory_used / free / total_bytes</td><td>HBM in bytes</td></tr>
+          <tr><td>Temperature</td><td class="mono">habanalabs_temperature_onchip / onboard, threshold_slowdown / shutdown / gpu / memory</td><td>Chip and board; slowdown and shutdown at 90 °C on Gaudi 2. Some thresholds are published without a value</td></tr>
+          <tr><td>Power</td><td class="mono">habanalabs_power_mW, power_default_limit_mW, energy</td><td>Card power only, not the server's</td></tr>
+          <tr><td>Clock</td><td class="mono">habanalabs_clock_soc_mhz, clock_soc_max_mhz</td><td>Fixed 1,650 MHz on Gaudi 2, busy or idle; no P-states</td></tr>
+          <tr><td>PCIe</td><td class="mono">habanalabs_pci_link_speed / width, pcie_replay_count, pcie_rx / tx, pcie_receive / transmit_throughput</td><td>Link health and host traffic</td></tr>
+          <tr><td>Memory errors</td><td class="mono">habanalabs_pending_rows_with_single / double_bit_ecc_errors, pending_rows_state, ecc_feature_mode</td><td>Gaudi replaces bad HBM rows; pending rows are the early warning</td></tr>
+          <tr><td>Network</td><td class="mono">habanalabs_nic_port_status</td><td>Up or down for each of the 24 ports, internal or external. No traffic or error counters</td></tr>
+          <tr><td>Common names</td><td class="mono">accelerator_gpu_utilization, memory_used / total_bytes, power_usage_watts, temperature_celcius, sm_clock_hertz, memory_clock_hertz</td><td>Vendor-neutral names in base units, newer exporter builds</td></tr>
+          <tr class="na"><td>Not in the exporter</td><td colspan="2">Server power, fans, inlet temperature and PSUs (read the BMC over Redfish or IPMI) · driver error events (kernel log) · per-port traffic and errors (hl-smi or ethtool) · MME / TPC detail (Intel's profiler, not continuous) · burn-in and benchmark results (hl_qual, HCCL tests at install or after a repair)</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="card rule">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <span class="eyebrow">Gaudi in virtual machines</span>
+        <p class="big">Telemetry follows the card's driver, and the driver follows the VM.</p>
+        <p>Many sites pass individual Gaudi cards into virtual machines, one or two cards per VM, so each tenant or team gets whole cards. A card given to a VM is bound to the <span class="mono">vfio-pci</span> driver on the host and only that VM can read it. When the VM stops, the card returns to the host's <span class="mono">habanalabs</span> driver.</p>
+        <p>So run an exporter inside every VM that holds cards, plus one on the host for cards no VM holds. Keep a map of card serial ↔ PCI bus ↔ VM ↔ exporter, refreshed from the hypervisor (<span class="mono">virsh</span>) whenever a VM starts or stops. Without it, a card disappears from monitoring each time it changes owner.</p>
+      </div>
+      <svg viewBox="0 0 520 230" role="img" aria-label="Host with 8 cards: 6 passed into 5 VMs, each with its own exporter, 2 left on the host">
+        <rect x="6" y="6" width="508" height="218" rx="10" class="sub"/>
+        <text x="20" y="26" class="tm">One 8-card host</text>
+        <rect x="20" y="40" width="88" height="74" rx="6" class="sub2"/><text x="64" y="58" text-anchor="middle" class="tb">VM 1</text><rect x="34" y="66" width="60" height="22" rx="4" class="comp"/><text x="64" y="81" text-anchor="middle">card</text><text x="64" y="106" text-anchor="middle" class="tm">exporter</text>
+        <rect x="118" y="40" width="88" height="74" rx="6" class="sub2"/><text x="162" y="58" text-anchor="middle" class="tb">VM 2</text><rect x="132" y="66" width="60" height="22" rx="4" class="comp"/><text x="162" y="81" text-anchor="middle">card</text><text x="162" y="106" text-anchor="middle" class="tm">exporter</text>
+        <rect x="216" y="40" width="88" height="74" rx="6" class="sub2"/><text x="260" y="58" text-anchor="middle" class="tb">VM 3</text><rect x="224" y="66" width="34" height="22" rx="4" class="comp"/><rect x="262" y="66" width="34" height="22" rx="4" class="comp"/><text x="260" y="106" text-anchor="middle" class="tm">exporter</text>
+        <rect x="314" y="40" width="88" height="74" rx="6" class="sub2"/><text x="358" y="58" text-anchor="middle" class="tb">VM 4</text><rect x="328" y="66" width="60" height="22" rx="4" class="comp"/><text x="358" y="81" text-anchor="middle">card</text><text x="358" y="106" text-anchor="middle" class="tm">exporter</text>
+        <rect x="412" y="40" width="88" height="74" rx="6" class="sub2"/><text x="456" y="58" text-anchor="middle" class="tb">VM 5</text><rect x="426" y="66" width="60" height="22" rx="4" class="comp"/><text x="456" y="81" text-anchor="middle">card</text><text x="456" y="106" text-anchor="middle" class="tm">exporter</text>
+        <text x="260" y="138" text-anchor="middle" class="tm">6 cards on vfio-pci, each read only inside its VM</text>
+        <rect x="20" y="150" width="480" height="62" rx="6" class="sub2" style="stroke:var(--warn);stroke-dasharray:4 3"/>
+        <text x="36" y="170" class="tb" text-anchor="start">Host OS · habanalabs driver</text>
+        <rect x="36" y="180" width="60" height="22" rx="4" class="comp" style="opacity:.55"/><rect x="104" y="180" width="60" height="22" rx="4" class="comp" style="opacity:.55"/>
+        <text x="180" y="196" text-anchor="start" class="tm">2 idle cards (VMs off) · read from the host only</text>
+      </svg>
+    </div>
+
+    <div class="faq">
+      <details>
+        <summary>Can I buy a single Gaudi card?</summary>
+        <div class="ans"><p><b>Gaudi 3: yes as a PCIe card</b> (HL-338), which goes into a standard server.</p><p><b>As OAM modules: no.</b> Gaudi 2 and Gaudi 3 OAM cards are sold inside 8-card servers, like NVIDIA SXM. Some clouds rent single Gaudi cards by the hour.</p></div>
+      </details>
+      <details>
+        <summary>Can Gaudi and NVIDIA GPUs share a node or a job?</summary>
+        <div class="ans"><p><b>No.</b> They use different software stacks, collective libraries and scale-up links. Put them in separate pools and let the scheduler choose. They can share the same racks, power and cooling, and the same Ethernet storage and front-end networks.</p></div>
+      </details>
+      <details>
+        <summary>Does CUDA code run on Gaudi?</summary>
+        <div class="ans"><p><b>Not directly.</b> Models written in PyTorch run through Intel's Gaudi bridge, often with small changes. Custom CUDA kernels have to be rewritten as TPC kernels. That changes how customers choose between pools, not how the datacenter runs them.</p></div>
+      </details>
+      <details>
+        <summary>Is there a MIG for Gaudi?</summary>
+        <div class="ans"><p><b>No.</b> A Gaudi card cannot be split. The smallest unit to rent or assign is one whole card, which is why per-card virtual machines are common.</p></div>
+      </details>
+      <details>
+        <summary>What changes for a datacenter operations product?</summary>
+        <div class="ans"><p><b>Show a dash, not a guess.</b> Fields that come from DCGM on NVIDIA (SM and tensor activity, P-state, per-GPU fan, Xid, NVLink) have no Gaudi source.</p><p><b>Take node power, fans and inlet temperature from the BMC.</b> The card exporter only gives card power.</p><p><b>Treat the network differently.</b> The scale-out fabric is Ethernet RoCE from the cards themselves, so a port-down alarm is raised by the card, not by a NIC.</p><p><b>Track ownership per card</b> when cards are passed into VMs.</p></div>
+      </details>
+    </div>
+  </section>
+
   <section aria-labelledby="buy-h">
     <div class="sec-head">
       <h2 id="buy-h">How GPUs are packaged and bought</h2>
-      <p>Whether you can buy a single GPU depends on its form factor. Data-center GPUs come in four shapes, and the shape decides what a "node" looks like on your floor.</p>
+      <p>Whether you can buy a single GPU depends on its form factor. Data-center GPUs and AI processors come in five shapes, and the shape decides what a "node" looks like on your floor.</p>
     </div>
     <div class="forms">
       <article class="card form">
         <svg viewBox="0 0 200 76" aria-hidden="true"><rect x="20" y="10" width="160" height="46" rx="5" class="comp"/><circle cx="70" cy="33" r="14" class="fan"/><circle cx="130" cy="33" r="14" class="fan"/><rect x="40" y="56" width="90" height="10" rx="1" class="pwr"/><text x="136" y="65" class="tm">PCIe slot</text></svg>
         <div class="fh"><h3>PCIe card</h3><span class="pill green">Single GPU: yes</span></div>
         <p class="ex">Looks like a large graphics card. Plugs into a slot in any compatible server.</p>
-        <dl class="kv"><dt>Examples</dt><dd>T4, L4, L40S, H100 PCIe / NVL, RTX PRO</dd><dt>Per server</dt><dd>1 to 8 cards</dd><dt>Power</dt><dd>70 to 600 W per card</dd><dt>Cooling</dt><dd>Air</dd><dt>Typical buyer</dt><dd>Enterprise, inference, edge</dd></dl>
+        <dl class="kv"><dt>Examples</dt><dd>T4, L4, L40S, H100 PCIe / NVL, RTX PRO, Intel Gaudi 3 PCIe</dd><dt>Per server</dt><dd>1 to 8 cards</dd><dt>Power</dt><dd>70 to 600 W per card</dd><dt>Cooling</dt><dd>Air</dd><dt>Typical buyer</dt><dd>Enterprise, inference, edge</dd></dl>
       </article>
       <article class="card form">
         <svg viewBox="0 0 200 76" aria-hidden="true"><rect x="16" y="6" width="168" height="64" rx="6" class="sub"/><rect x="26" y="14" width="30" height="22" rx="3" class="comp"/><rect x="66" y="14" width="30" height="22" rx="3" class="comp"/><rect x="106" y="14" width="30" height="22" rx="3" class="comp"/><rect x="146" y="14" width="30" height="22" rx="3" class="comp"/><rect x="26" y="42" width="30" height="22" rx="3" class="comp"/><rect x="66" y="42" width="30" height="22" rx="3" class="comp"/><rect x="106" y="42" width="30" height="22" rx="3" class="comp"/><rect x="146" y="42" width="30" height="22" rx="3" class="comp"/></svg>
         <div class="fh"><h3>SXM on an 8-GPU board</h3><span class="pill red">Single GPU: no</span></div>
         <p class="ex">GPU modules mounted on NVIDIA's HGX board, joined by NVSwitch. Sold only as a complete server.</p>
         <dl class="kv"><dt>Examples</dt><dd>H100 SXM, H200, B200, B300</dd><dt>Per server</dt><dd>Always 8, all the same model</dd><dt>Power</dt><dd>700 to 1,200 W per GPU</dd><dt>Cooling</dt><dd>Air or liquid</dd><dt>Sold by</dt><dd>NVIDIA (DGX), Dell, HPE, Supermicro, Lenovo</dd></dl>
+      </article>
+      <article class="card form">
+        <svg viewBox="0 0 200 76" aria-hidden="true"><rect x="16" y="6" width="168" height="64" rx="6" class="sub"/><rect x="26" y="14" width="30" height="22" rx="3" class="comp"/><rect x="66" y="14" width="30" height="22" rx="3" class="comp"/><rect x="106" y="14" width="30" height="22" rx="3" class="comp"/><rect x="146" y="14" width="30" height="22" rx="3" class="comp"/><rect x="26" y="42" width="30" height="22" rx="3" class="comp"/><rect x="66" y="42" width="30" height="22" rx="3" class="comp"/><rect x="106" y="42" width="30" height="22" rx="3" class="comp"/><rect x="146" y="42" width="30" height="22" rx="3" class="comp"/><path d="M41 36 V42 M81 36 V42 M121 36 V42 M161 36 V42 M56 25 H66 M96 25 H106 M136 25 H146" class="netl"/></svg>
+        <div class="fh"><h3>OAM on an 8-card board</h3><span class="pill red">Single card: no</span></div>
+        <p class="ex">The open (OCP) module standard used by Intel Gaudi and others. Eight cards on a UBB board, wired to each other by their own on-chip Ethernet ports.</p>
+        <dl class="kv"><dt>Examples</dt><dd>Intel Gaudi 2, Gaudi 3, Data Center GPU Max 1550</dd><dt>Per server</dt><dd>Always 8, all the same model</dd><dt>Power</dt><dd>550 to 1,200 W per card</dd><dt>Cooling</dt><dd>Air or liquid</dd><dt>Sold by</dt><dd>Intel partners: Dell, Supermicro, Wiwynn, others</dd></dl>
       </article>
       <article class="card form">
         <svg viewBox="0 0 200 76" aria-hidden="true"><rect x="76" y="4" width="48" height="68" rx="3" class="sub"/><rect x="80" y="8" width="40" height="5" rx="1" class="pwr"/><rect x="80" y="15" width="40" height="18" rx="1" class="comp"/><rect x="80" y="35" width="40" height="10" rx="1" class="net"/><rect x="80" y="47" width="40" height="16" rx="1" class="comp"/><rect x="80" y="65" width="40" height="4" rx="1" class="pwr"/><rect x="128" y="8" width="6" height="60" rx="2" class="cool"/></svg>
@@ -418,6 +568,8 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
             <option value="h100">HGX H100 · 8 GPUs per node · air cooled</option>
             <option value="b200">HGX B200 · 8 GPUs per node · air or liquid assisted</option>
             <option value="gb200">GB200 NVL72 · 72 GPUs per rack · liquid cooled</option>
+            <option value="gaudi2">Intel Gaudi 2 · 8 cards per node · air cooled</option>
+            <option value="gaudi3">Intel Gaudi 3 · 8 cards per node · air cooled</option>
           </select>
         </div>
         <div class="field">
@@ -451,24 +603,24 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
     <div class="gloss" id="gloss"></div>
   </section>
 
-  <footer>Figures are typical values from public reference designs (NVIDIA DGX H100, DGX B200, GB200 NVL72, DGX SuperPOD) and common datacenter practice. Real deployments vary by vendor, generation and site. Use them to understand proportions, not as a design basis.</footer>
+  <footer>Figures are typical values from public reference designs (NVIDIA DGX H100, DGX B200, GB200 NVL72, DGX SuperPOD; Intel Gaudi 2 and Gaudi 3 specifications and HLS reference servers), a live habanalabs exporter on a Gaudi 2 server, and common datacenter practice. Real deployments vary by vendor, generation and site. Use them to understand proportions, not as a design basis.</footer>
 </div>
 
 <script>
 /* ---------- hotspot content ---------- */
 const HS={
- die:{tag:"GPU",t:"GPU die",what:"The silicon that does the math. It holds over a hundred streaming multiprocessors (SMs), each with tensor cores built for the matrix multiplications that dominate AI training and inference.",nums:[["H100","132 SMs, 700 W TDP"],["B200","2 dies in one package, about 1,000 W"]],mon:["SM utilisation and occupancy (not just 'GPU busy')","Clock speed and throttle reasons","Power draw vs power cap"],fail:"A faulty die or driver crash raises an Xid error (for example Xid 79, GPU fell off the bus). The whole job on that GPU usually stops.",ops:"GPU busy % can read 100% while real work is low. SM activity and tensor-core activity show true usefulness."},
- hbm:{tag:"GPU",t:"HBM memory stacks",what:"High Bandwidth Memory: stacked DRAM placed right next to the die so data moves at several terabytes per second. Model weights and activations live here.",nums:[["H100","80 GB, about 3.35 TB/s"],["B200","192 GB HBM3e, 8 TB/s"]],mon:["Memory used and bandwidth","Correctable and uncorrectable ECC errors","Retired / remapped memory rows"],fail:"An uncorrectable ECC error (Xid 48) kills the job. A rising count of correctable errors or remapped rows predicts a GPU that should be drained and sent for RMA.",ops:"ECC trends per GPU are one of the best early warnings in a fleet."},
+ die:{tag:"GPU",t:"GPU die",what:"The silicon that does the math. It holds over a hundred streaming multiprocessors (SMs), each with tensor cores built for the matrix multiplications that dominate AI training and inference.",nums:[["H100","132 SMs, 700 W TDP"],["B200","2 dies in one package, about 1,000 W"],["Gaudi 2 / 3","2 MME + 24 TPC / 8 MME + 64 TPC, 600 / 900 W"]],mon:["SM utilisation and occupancy (not just 'GPU busy')","Clock speed and throttle reasons","Power draw vs power cap"],fail:"A faulty die or driver crash raises an Xid error (for example Xid 79, GPU fell off the bus). The whole job on that GPU usually stops.",ops:"GPU busy % can read 100% while real work is low. SM activity and tensor-core activity show true usefulness."},
+ hbm:{tag:"GPU",t:"HBM memory stacks",what:"High Bandwidth Memory: stacked DRAM placed right next to the die so data moves at several terabytes per second. Model weights and activations live here.",nums:[["H100","80 GB, about 3.35 TB/s"],["B200","192 GB HBM3e, 8 TB/s"],["Gaudi 2 / 3","96 GB (2.45 TB/s) / 128 GB HBM2e (3.7 TB/s)"]],mon:["Memory used and bandwidth","Correctable and uncorrectable ECC errors","Retired / remapped memory rows"],fail:"An uncorrectable ECC error (Xid 48) kills the job. A rising count of correctable errors or remapped rows predicts a GPU that should be drained and sent for RMA.",ops:"ECC trends per GPU are one of the best early warnings in a fleet."},
  power:{tag:"GPU",t:"GPU power input",what:"Power reaches the GPU module from the node's power supplies through the baseboard. Each GPU has a power limit (TDP) that software can lower, called power capping.",nums:[["H100 SXM","up to 700 W"],["B200","about 1,000 W"]],mon:["Power draw in watts, every second","Power cap setting","Power-related throttling"],fail:"If the rack or node hits its power limit, GPUs are capped and run slower. Nothing looks 'down', but jobs take longer.",ops:"Training jobs swing power up and down in sync, so a whole pod can jump from 30% to 100% load in under a second."},
- pcie:{tag:"GPU",t:"PCIe link to the CPU",what:"The connection between the GPU and the host CPU, used to load data and control the GPU. It is much slower than NVLink.",nums:[["Gen5 x16","about 64 GB/s each way"]],mon:["Link width and speed (should not drop)","PCIe replay / error counters"],fail:"A link that trains down to a lower width slows data loading. Severe errors make the GPU disappear from the system.",ops:"Check link width after every hardware swap; a half-seated card often shows here first."},
- thermal:{tag:"GPU",t:"Temperature sensors",what:"The GPU reports core temperature and HBM memory temperature. When they get too high it lowers its clock speed to protect itself.",nums:[["Throttle starts","around 83 to 90 °C core (model dependent)"],["HBM limit","around 95 °C"]],mon:["Core and memory temperature","Thermal throttle flag","Temperature spread across the 8 GPUs in a node"],fail:"Thermal throttling cuts speed silently. One hot GPU makes the whole multi-node job wait for it (a straggler).",ops:"Hot GPUs are often a facility problem: coolant flow, a blocked cold plate or a hot aisle."},
+ pcie:{tag:"GPU",t:"PCIe link to the CPU",what:"The connection between the GPU and the host CPU, used to load data and control the GPU. It is much slower than NVLink.",nums:[["Gen5 x16","about 64 GB/s each way"],["Gaudi 2 / 3","Gen4 x16 / Gen5 x16"]],mon:["Link width and speed (should not drop)","PCIe replay / error counters"],fail:"A link that trains down to a lower width slows data loading. Severe errors make the GPU disappear from the system.",ops:"Check link width after every hardware swap; a half-seated card often shows here first."},
+ thermal:{tag:"GPU",t:"Temperature sensors",what:"The GPU reports core temperature and HBM memory temperature. When they get too high it lowers its clock speed to protect itself.",nums:[["Throttle starts","around 83 to 90 °C core (model dependent)"],["HBM limit","around 95 °C"],["Gaudi 2","chip + board sensors, slowdown at 90 °C"]],mon:["Core and memory temperature","Thermal throttle flag","Temperature spread across the 8 GPUs in a node"],fail:"Thermal throttling cuts speed silently. One hot GPU makes the whole multi-node job wait for it (a straggler).",ops:"Hot GPUs are often a facility problem: coolant flow, a blocked cold plate or a hot aisle."},
  coldplate:{tag:"Cooling",t:"Cold plate",what:"A metal block clamped on top of the GPU with liquid flowing through it. It carries heat away far better than air and fans can.",nums:[["Removes","about 70 to 90% of rack heat in liquid racks"],["Coolant","water / glycol mix"]],mon:["Inlet and outlet coolant temperature","Flow rate","GPU temperature vs coolant temperature (thermal resistance)"],fail:"A blocked channel or air pocket makes one GPU run hot while its neighbours are fine. It throttles, and the job slows down.",ops:"Compare each GPU with its neighbours: an outlier at the same coolant temperature points to the cold plate."},
- nvlink:{tag:"Fabric",t:"NVLink ports",what:"NVIDIA's direct GPU-to-GPU connection. It lets GPUs inside a node (or inside an NVL72 rack) share memory and exchange data far faster than PCIe or the network.",nums:[["H100 NVLink 4","900 GB/s per GPU"],["B200 NVLink 5","1.8 TB/s per GPU"]],mon:["NVLink bandwidth","NVLink CRC / replay errors","Links down"],fail:"A degraded NVLink makes that GPU slow at exchanging gradients. The job keeps running but every step waits for it.",ops:"NVLink errors are a classic hidden straggler cause; they rarely raise a loud alarm."},
+ nvlink:{tag:"Fabric",t:"NVLink ports",what:"NVIDIA's direct GPU-to-GPU connection. It lets GPUs inside a node (or inside an NVL72 rack) share memory and exchange data far faster than PCIe or the network.",nums:[["H100 NVLink 4","900 GB/s per GPU"],["B200 NVLink 5","1.8 TB/s per GPU"],["Gaudi","no NVLink: 21 on-chip RoCE ports per card, all-to-all"]],mon:["NVLink bandwidth","NVLink CRC / replay errors","Links down"],fail:"A degraded NVLink makes that GPU slow at exchanging gradients. The job keeps running but every step waits for it.",ops:"NVLink errors are a classic hidden straggler cause; they rarely raise a loud alarm."},
  fans:{tag:"Cooling",t:"Fans",what:"Air-cooled nodes push cold air from the front to the back with a wall of high-speed fans. In liquid-cooled nodes, smaller fans still cool memory, NICs and drives.",nums:[["8-GPU air node","fans can draw over 1 kW at full speed"]],mon:["Fan speed (RPM) and failures","Inlet air temperature"],fail:"A failed fan raises the temperature of nearby GPUs. Other fans speed up, which costs power.",ops:"Rising fan speed across a row is an early sign that the cold aisle is warming."},
- gpus:{tag:"Compute",t:"8 GPUs",what:"The node's GPUs sit on one baseboard (NVIDIA HGX). Software sees them as GPU 0 to 7, and a training job normally uses all eight together.",nums:[["Per node","8 GPUs"],["GPU power","8 × 700 W = 5.6 kW (H100)"]],mon:["Per-GPU utilisation, temperature, power","Xid and ECC errors per GPU","Which job owns each GPU"],fail:"Losing one GPU usually takes the whole node out of the job. The scheduler drains the node and the job restarts elsewhere.",ops:"Track health per GPU, but act per node: the node is the unit you drain, repair and return."},
- nvswitch:{tag:"Fabric",t:"NVSwitch chips",what:"Switch chips on the baseboard that connect every GPU to every other GPU at full NVLink speed, so the 8 GPUs behave like one large GPU.",nums:[["HGX H100","4 NVSwitch chips"]],mon:["NVSwitch errors and temperature","Fabric manager service health"],fail:"An NVSwitch fault breaks GPU-to-GPU traffic inside the node. The node must be drained.",ops:"The fabric manager service must be running; if it stops, GPUs cannot start NVLink jobs."},
+ gpus:{tag:"Compute",t:"8 GPUs",what:"The node's GPUs sit on one baseboard (NVIDIA HGX). Software sees them as GPU 0 to 7, and a training job normally uses all eight together.",nums:[["Per node","8 GPUs"],["GPU power","8 × 700 W = 5.6 kW (H100)"],["Gaudi","8 OAM cards on a UBB board (HPU 0 to 7)"]],mon:["Per-GPU utilisation, temperature, power","Xid and ECC errors per GPU","Which job owns each GPU"],fail:"Losing one GPU usually takes the whole node out of the job. The scheduler drains the node and the job restarts elsewhere.",ops:"Track health per GPU, but act per node: the node is the unit you drain, repair and return."},
+ nvswitch:{tag:"Fabric",t:"NVSwitch chips",what:"Switch chips on the baseboard that connect every GPU to every other GPU at full NVLink speed, so the 8 GPUs behave like one large GPU.",nums:[["HGX H100","4 NVSwitch chips"],["Gaudi","none: cards wire directly to each other"]],mon:["NVSwitch errors and temperature","Fabric manager service health"],fail:"An NVSwitch fault breaks GPU-to-GPU traffic inside the node. The node must be drained.",ops:"The fabric manager service must be running; if it stops, GPUs cannot start NVLink jobs."},
  cpu:{tag:"Compute",t:"Host CPUs",what:"Two server CPUs run the operating system, feed data to the GPUs and run the container or scheduler agent.",nums:[["DGX H100","2 × Intel Xeon, 2 TB RAM"]],mon:["CPU and RAM usage","Data loader wait time"],fail:"A busy or failing CPU starves the GPUs of data. GPU utilisation drops while the GPUs themselves look healthy.",ops:"Low GPU utilisation with high CPU wait means the bottleneck is input data, not the GPU."},
- nic:{tag:"Fabric",t:"Network cards (NICs)",what:"One high-speed network card per GPU connects the node to the pod fabric (InfiniBand or Ethernet/RoCE). Extra NICs connect to storage and management.",nums:[["DGX H100","8 × 400 Gb/s for compute"],["Optics","one transceiver per port"]],mon:["Port up/down and flaps","Symbol / bit errors","Optic temperature and receive power"],fail:"One flapping port slows or stops every job that uses that node, because all GPUs must exchange data each step.",ops:"Optic receive power drifting down is a warning before the link starts flapping."},
+ nic:{tag:"Fabric",t:"Network cards (NICs)",what:"One high-speed network card per GPU connects the node to the pod fabric (InfiniBand or Ethernet/RoCE). Extra NICs connect to storage and management.",nums:[["DGX H100","8 × 400 Gb/s for compute"],["Optics","one transceiver per port"],["Gaudi","no separate NIC: 3 on-chip RoCE ports per card"]],mon:["Port up/down and flaps","Symbol / bit errors","Optic temperature and receive power"],fail:"One flapping port slows or stops every job that uses that node, because all GPUs must exchange data each step.",ops:"Optic receive power drifting down is a warning before the link starts flapping."},
  bmc:{tag:"Management",t:"BMC (out-of-band controller)",what:"A small independent computer inside the server. It reports hardware health and lets operators power-cycle the node even when the OS has crashed.",nums:[["Protocols","Redfish, IPMI"]],mon:["Hardware event log","PSU, fan and temperature sensors","Reachability on the management network"],fail:"If the BMC is unreachable you lose remote hands for that node; repairs need someone on site.",ops:"The BMC event log is the first place to look after a node crash."},
  psu:{tag:"Power",t:"Power supplies (PSUs)",what:"The node converts rack power into the voltages the GPUs and CPUs need. Several PSUs share the load so one can fail without stopping the node.",nums:[["DGX H100","6 × 3.3 kW, node up to 10.2 kW"],["Redundancy","typically N+N or N+1"]],mon:["PSU status and output","Input feed (A or B)","Efficiency and temperature"],fail:"One PSU failing is absorbed by the others. If both feeds or several PSUs fail, the node shuts down or caps power.",ops:"Check that each node's PSUs are spread across both PDU feeds; a node on one feed is a hidden single point of failure."},
  busway:{tag:"Power",t:"Overhead busway",what:"A rigid power rail above the racks with plug-in tap boxes. It replaces long cables and makes it easy to add high-power racks.",nums:[["Typical","A and B busways per row"],["Capacity","hundreds of amps per run"]],mon:["Current per phase","Breaker state at each tap box","Temperature of joints"],fail:"A tripped tap-box breaker drops one feed to a rack. With A/B feeds the rack keeps running on the other side.",ops:"Phase imbalance on a busway limits how many more GPU racks the row can take."},
@@ -753,7 +905,9 @@ document.getElementById("simreset").addEventListener("click",()=>{sim.fail=null;
 const PL={
  h100:{nm:"HGX H100",gpn:8,nodeKw:10.2,npr:4,podNodes:32,nodeWord:"nodes",cool:"Air cooled",rackNote:"4 nodes per rack"},
  b200:{nm:"HGX B200",gpn:8,nodeKw:14.3,npr:4,podNodes:32,nodeWord:"nodes",cool:"Air or liquid assisted",rackNote:"4 nodes per rack"},
- gb200:{nm:"GB200 NVL72",gpn:4,nodeKw:132/18,npr:18,podNodes:144,nodeWord:"compute trays",cool:"Liquid cooled",rackNote:"18 trays per rack"}
+ gb200:{nm:"GB200 NVL72",gpn:4,nodeKw:132/18,npr:18,podNodes:144,nodeWord:"compute trays",cool:"Liquid cooled",rackNote:"18 trays per rack"},
+ gaudi2:{nm:"Intel Gaudi 2 (HLS-Gaudi2 class)",gpn:8,nodeKw:7.5,npr:4,podNodes:32,nodeWord:"nodes",cool:"Air cooled",rackNote:"4 nodes per rack; the pod is the same 32-node block as the NVIDIA reference, for comparison, with an Ethernet RoCE fabric instead of InfiniBand"},
+ gaudi3:{nm:"Intel Gaudi 3 (8 × OAM)",gpn:8,nodeKw:10.5,npr:4,podNodes:32,nodeWord:"nodes",cool:"Air cooled",rackNote:"4 nodes per rack; liquid-cooled Gaudi 3 servers draw more per node. The pod is a 32-node block, for comparison, on an Ethernet RoCE fabric"}
 };
 const fmt=(n,d=0)=>n.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
 function renderCalc(){
@@ -815,6 +969,22 @@ const G=[
  ["Ops metric","Straggler","One GPU or node that runs slower than the rest and holds back the whole job."],
  ["Ops metric","Goodput","Useful work done ÷ GPU time paid for. Captures stalls, restarts and slowdowns that utilisation misses."],
  ["Ops metric","GPU-hours lost","GPUs affected × hours of stalled or redone work. A common way to price an incident."],
+ ["Intel Gaudi","Gaudi","Intel's AI processor family from Habana Labs (Gaudi 2 in 2022, Gaudi 3 in 2024). Runs PyTorch training and inference; not a GPU and no CUDA."],
+ ["Intel Gaudi","HPU","Habana Processing Unit: what software and monitoring tools call a Gaudi card, as they call an NVIDIA card a GPU."],
+ ["Intel Gaudi","MME","Matrix Multiplication Engine: Gaudi's hardware for matrix maths, the counterpart of NVIDIA tensor cores. Gaudi 2 has 2, Gaudi 3 has 8."],
+ ["Intel Gaudi","TPC","Tensor Processor Core: Gaudi's programmable vector cores for everything that is not a matrix multiply. Gaudi 2 has 24, Gaudi 3 has 64."],
+ ["Intel Gaudi","OAM","OCP Accelerator Module: an open module standard. Gaudi cards mount as OAM, eight to a UBB board, like NVIDIA SXM on HGX."],
+ ["Intel Gaudi","UBB","Universal Baseboard: the OCP board that holds 8 OAM cards and wires their ports to each other."],
+ ["Intel Gaudi","HLS","Habana Labs System: Intel's reference 8-card Gaudi server design (HLS-Gaudi2, HLS-2H), built by server makers."],
+ ["Intel Gaudi","On-chip RoCE ports","24 Ethernet ports built into every Gaudi chip. 21 link the cards inside a server, 3 go out to the scale-out switches."],
+ ["Intel Gaudi","habanalabs","The Gaudi kernel driver, and the name of its Prometheus exporter (metrics named habanalabs_*)."],
+ ["Intel Gaudi","hl-smi","Gaudi's command-line tool, the counterpart of nvidia-smi: card list, health, firmware, ports and power."],
+ ["Intel Gaudi","HCCL","Habana Collective Communications Library: Gaudi's all-reduce library, the counterpart of NCCL."],
+ ["Intel Gaudi","Intel Gaudi software","The Gaudi software stack (formerly SynapseAI): driver, firmware, graph compiler and the PyTorch bridge."],
+ ["Intel Gaudi","hl_qual","Intel's qualification tool for Gaudi servers: memory, power, port and stress tests run at install or after a repair."],
+ ["Intel Gaudi","Pending rows","HBM rows with ECC errors waiting to be replaced at the next reset. Gaudi's early warning, like NVIDIA's row remapping."],
+ ["Intel Gaudi","vfio-pci passthrough","Giving a whole card to a virtual machine. The host can no longer read the card; only an exporter inside the VM can."],
+ ["Intel Gaudi","XPU Manager","Intel's monitoring tool for its data-center GPUs (Max series), the counterpart of DCGM. Gaudi uses hl-smi and the habanalabs exporter instead."],
  ["Ops metric","Blast radius","How much fails together when one component fails: a GPU, a node, a rack, a pod."]
 ];
 const gstate={q:"",cat:"All"};
