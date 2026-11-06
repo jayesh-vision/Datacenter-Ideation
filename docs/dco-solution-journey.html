@@ -1,0 +1,754 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SynapseDC Solution Journey</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* SynapseDC solution journey (user, 06-Nov-2026: "a complete workflow … Planning, Building and Operations … not every customer uses E2E …
+   interactive, so a customer understands which process solves their business problem"). One reference process, four views over the
+   same data table at the bottom (M modules, E handoffs, PATHS adoption paths, PROBLEMS, ROLES, MODELS): Lifecycle map (stages + cross-cutting
+   bands + handoff arrows + an end-to-end story), Adoption paths (where a customer starts, what lights up, onboarding steps), Problem finder,
+   Role swimlanes. Claims stay inside what the product does; platform modules are shown as integrations. Look follows the DCO tool (NST). */
+:root {
+  --bg: #f8fafc; --surface: #ffffff; --surface-2: #f1f5f9; --line: #e2e8f0; --line-2: #cbd5e1;
+  --fg: #0f172a; --fg-2: #334155; --muted: #64748b;
+  --accent: #1c81ef; --accent-ink: #1d4ed8; --accent-soft: #dbeafe;
+  --plan: #6d5bd0; --plan-soft: #ece9fb; --build: #c26a12; --build-soft: #fdf0e1; --ops: #0f8a7e; --ops-soft: #dcf4f1;
+  --bss: #1c81ef; --bss-soft: #dbeafe; --gov: #b4316b; --gov-soft: #fbe5ef; --plat: #64748b; --plat-soft: #eef2f6;
+  --good: #047857; --good-soft: #d1fae5; --warn: #b45309; --warn-soft: #fef3c7;
+  --f-display: "Poppins", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Inter", "Segoe UI", system-ui, sans-serif;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0b1220; --surface: #111a2e; --surface-2: #0d1628; --line: #1f2b44; --line-2: #2c3b5a; --fg: #e6edf7; --fg-2: #c3cfe0; --muted: #8a9ab3;
+  --accent: #5aa6ff; --accent-ink: #8cc2ff; --accent-soft: #15284a;
+  --plan: #a99cf5; --plan-soft: #241f45; --build: #f0a35a; --build-soft: #35230f; --ops: #4fd1c1; --ops-soft: #0f2f2c;
+  --bss: #5aa6ff; --bss-soft: #15284a; --gov: #f07aac; --gov-soft: #3a1527; --plat: #9aa8bd; --plat-soft: #1a2438;
+  --good: #34d399; --good-soft: #0f2e25; --warn: #fbbf24; --warn-soft: #33270b; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0b1220; --surface: #111a2e; --surface-2: #0d1628; --line: #1f2b44; --line-2: #2c3b5a; --fg: #e6edf7; --fg-2: #c3cfe0; --muted: #8a9ab3;
+  --accent: #5aa6ff; --accent-ink: #8cc2ff; --accent-soft: #15284a;
+  --plan: #a99cf5; --plan-soft: #241f45; --build: #f0a35a; --build-soft: #35230f; --ops: #4fd1c1; --ops-soft: #0f2f2c;
+  --bss: #5aa6ff; --bss-soft: #15284a; --gov: #f07aac; --gov-soft: #3a1527; --plat: #9aa8bd; --plat-soft: #1a2438;
+  --good: #34d399; --good-soft: #0f2e25; --warn: #fbbf24; --warn-soft: #33270b; color-scheme: dark; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 14.5px; line-height: 1.55; }
+h1, h2, h3, h4 { font-family: var(--f-display); font-weight: 500; margin: 0; color: var(--fg); text-wrap: balance; }
+p { margin: 0; }
+a { color: var(--accent-ink); }
+button, select, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 0 16px 56px; }
+
+/* header + sticky bar */
+.top { padding: 26px 0 14px; display: grid; gap: 8px; }
+.eyebrow { font-family: var(--f-display); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent-ink); font-weight: 600; }
+.top h1 { font-size: 28px; }
+.top .lede { color: var(--fg-2); max-width: 900px; }
+.qs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.qs span { font-size: 13px; color: var(--fg-2); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px 12px; }
+.bar { position: sticky; top: 0; z-index: 20; background: var(--bg); border-bottom: 1px solid var(--line); padding: 10px 0; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.tabs { display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 3px; flex-wrap: wrap; }
+.tabs button { border: 0; background: none; border-radius: 7px; padding: 6px 12px; font-size: 13.5px; font-weight: 500; color: var(--fg-2); }
+.tabs button[aria-selected="true"] { background: var(--accent); color: #fff; }
+.bar .grow { flex: 1; }
+.sel { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.sel select { height: 34px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--surface); padding: 0 8px; font-size: 13.5px; color: var(--fg); }
+.btn { height: 34px; padding: 0 12px; border: 1px solid var(--line-2); background: var(--surface); border-radius: 8px; font-size: 13px; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.btn:hover { border-color: var(--accent); color: var(--accent-ink); }
+.btn.pri { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.pri:hover { color: #fff; filter: brightness(1.08); }
+.view { padding-top: 18px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.sel { min-width: 0; }
+.sel select { max-width: 280px; min-width: 0; }
+.vhead { display: grid; gap: 4px; }
+.vhead h2 { font-size: 20px; }
+.vhead p { color: var(--fg-2); max-width: 900px; }
+.note { font-size: 13px; color: var(--muted); }
+
+/* chips */
+.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; border-radius: 999px; padding: 2px 9px; border: 1px solid var(--line); background: var(--surface); color: var(--fg-2); white-space: nowrap; }
+.chip.plan { background: var(--plan-soft); color: var(--plan); border-color: transparent; }
+.chip.build { background: var(--build-soft); color: var(--build); border-color: transparent; }
+.chip.ops { background: var(--ops-soft); color: var(--ops); border-color: transparent; }
+.chip.bss { background: var(--bss-soft); color: var(--bss); border-color: transparent; }
+.chip.gov { background: var(--gov-soft); color: var(--gov); border-color: transparent; }
+.chip.plat { background: var(--plat-soft); color: var(--plat); border-color: transparent; border-style: dashed; }
+button.chip { cursor: pointer; }
+button.chip:hover { border-color: var(--accent); }
+
+/* lifecycle map */
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 12.5px; color: var(--muted); }
+.legend i { display: inline-block; width: 22px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; }
+.map { position: relative; display: grid; gap: 12px; }
+.band, .stage { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: grid; gap: 10px; align-content: start; }
+.band { grid-template-columns: 170px minmax(0, 1fr); align-items: start; }
+.band .bh, .stage .bh { display: grid; gap: 2px; }
+.bh h3 { font-size: 15px; display: flex; align-items: center; gap: 8px; }
+.bh h3 .n { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; font-size: 12px; color: #fff; }
+.bh p { font-size: 12.5px; color: var(--muted); }
+.stages { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.stage.plan { border-top: 3px solid var(--plan); } .stage.plan .n { background: var(--plan); }
+.stage.build { border-top: 3px solid var(--build); } .stage.build .n { background: var(--build); }
+.stage.ops { border-top: 3px solid var(--ops); } .stage.ops .n { background: var(--ops); }
+.band.bss { border-left: 3px solid var(--bss); } .band.gov { border-left: 3px solid var(--gov); }
+.band.plat { border: 1px dashed var(--line-2); background: var(--surface-2); }
+.tiles { display: grid; gap: 8px; }
+.band .tiles { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+.stage .tiles { grid-template-columns: 1fr; }
+.stage.ops .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.tile { position: relative; z-index: 2; text-align: left; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); padding: 8px 10px; display: grid; gap: 3px; transition: opacity .15s, box-shadow .15s, border-color .15s; min-width: 0; }
+.tile:hover { border-color: var(--accent); box-shadow: 0 2px 10px rgba(15, 23, 42, .08); }
+.tile b { font-family: var(--f-display); font-weight: 500; font-size: 13.5px; display: flex; align-items: center; gap: 6px; }
+.tile b .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.tile small { font-size: 12px; color: var(--muted); line-height: 1.4; }
+.tile .tg { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
+.tile .tg span { font-size: 10.5px; border-radius: 4px; padding: 0 5px; background: var(--surface-2); color: var(--muted); }
+.tile.plat { background: var(--surface); border-style: dashed; }
+.tile.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.tile.sel { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent); }
+.map.dim .tile:not(.on):not(.sel) { opacity: .28; }
+.tile .step { position: absolute; top: -8px; right: -6px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 600; border-radius: 999px; min-width: 20px; height: 20px; display: grid; place-items: center; padding: 0 5px; }
+svg.wires { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; overflow: visible; }
+svg.wires path { fill: none; stroke: var(--line-2); stroke-width: 1.4; }
+svg.wires path.hot { stroke: var(--accent); stroke-width: 2.2; }
+svg.wires path.spine { stroke: var(--muted); stroke-width: 1.4; opacity: .55; }
+svg.wlabels { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; overflow: visible; }
+svg.wlabels text { font-size: 11px; font-family: var(--f-body); fill: var(--accent-ink); paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; }
+.maptools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.story { position: sticky; top: 58px; z-index: 15; box-shadow: 0 6px 18px rgba(15, 23, 42, .08); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+.story .num { font-family: var(--f-display); font-size: 22px; color: var(--accent-ink); min-width: 44px; }
+.story b { font-family: var(--f-display); font-weight: 500; }
+.story p { color: var(--fg-2); font-size: 13.5px; }
+.story .nav { display: flex; gap: 6px; }
+
+/* drawer */
+.scrim { position: fixed; inset: 0; background: rgba(15, 23, 42, .28); z-index: 40; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(480px, 100%); background: var(--surface); border-left: 1px solid var(--line); z-index: 41; display: flex; flex-direction: column; box-shadow: -8px 0 30px rgba(15, 23, 42, .15); }
+.dh { padding: 16px 18px 12px; border-bottom: 1px solid var(--line); display: grid; gap: 8px; }
+.dh .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.dh h3 { font-size: 19px; }
+.dh .x { margin-left: auto; border: 0; background: none; font-size: 22px; line-height: 1; color: var(--muted); width: 32px; height: 32px; border-radius: 8px; }
+.dh .x:hover { background: var(--surface-2); }
+.db { padding: 14px 18px 24px; overflow-y: auto; display: grid; gap: 14px; align-content: start; }
+.db h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+.db ul { margin: 0; padding-left: 18px; display: grid; gap: 3px; }
+.db .kv { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 6px 12px; font-size: 13.5px; }
+.db .kv dt { color: var(--muted); }
+.db .kv dd { margin: 0; }
+.hand { display: grid; gap: 6px; }
+.hand button { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 6px; text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 6px 10px; font-size: 13px; }
+.hand button:hover { border-color: var(--accent); }
+.hand button small { display: block; color: var(--muted); }
+
+/* adoption paths */
+.paths { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.pcard { text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 12px; display: grid; gap: 6px; align-content: start; position: relative; }
+.pcard:hover { border-color: var(--accent); }
+.pcard[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.pcard b { font-family: var(--f-display); font-weight: 500; font-size: 15px; }
+.pcard small { color: var(--muted); font-size: 12.5px; }
+.pcard .rec { position: absolute; top: -9px; left: 10px; background: var(--good-soft); color: var(--good); font-size: 11px; font-weight: 600; border-radius: 999px; padding: 1px 8px; }
+.pdetail { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 10px; align-content: start; }
+.card h3 { font-size: 16px; }
+.facts { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 6px 12px; font-size: 13.5px; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; }
+.lit { display: grid; gap: 8px; }
+.lit .grp { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 8px; align-items: start; }
+.lit .grp > span { font-size: 12.5px; color: var(--muted); padding-top: 2px; }
+.lit .grp div { display: flex; flex-wrap: wrap; gap: 5px; }
+.lit .off { opacity: .4; text-decoration: line-through; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; counter-reset: s; }
+.steps li { counter-increment: s; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; padding: 0 0 14px; position: relative; }
+.steps li::before { content: counter(s); width: 26px; height: 26px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-ink); display: grid; place-items: center; font-weight: 600; font-size: 12.5px; z-index: 1; }
+.steps li:not(:last-child)::after { content: ""; position: absolute; left: 12.5px; top: 26px; bottom: 0; width: 1px; background: var(--line-2); }
+.steps b { font-weight: 600; }
+.steps p { font-size: 13.5px; color: var(--fg-2); }
+.steps .where { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+
+/* problems */
+.ptools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ptools input { height: 36px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--surface); padding: 0 12px; min-width: 260px; flex: 1; max-width: 420px; }
+.cats { display: flex; flex-wrap: wrap; gap: 6px; }
+.cats button { border: 1px solid var(--line-2); background: var(--surface); border-radius: 999px; padding: 4px 12px; font-size: 12.5px; }
+.cats button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.probs { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 10px; }
+.prob { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: grid; gap: 8px; align-content: start; }
+.prob .q { font-family: var(--f-display); font-weight: 500; font-size: 15.5px; }
+.prob .who { font-size: 12.5px; color: var(--muted); }
+.prob ul { margin: 0; padding-left: 18px; font-size: 13.5px; color: var(--fg-2); display: grid; gap: 2px; }
+.prob .mods { display: flex; flex-wrap: wrap; gap: 5px; }
+.prob .kpi { font-size: 12.5px; color: var(--good); background: var(--good-soft); border-radius: 8px; padding: 6px 10px; }
+.prob .act { display: flex; gap: 6px; flex-wrap: wrap; }
+.empty { padding: 30px; text-align: center; color: var(--muted); background: var(--surface); border: 1px dashed var(--line-2); border-radius: 12px; }
+
+/* swimlanes */
+.lanes { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.lanes table { border-collapse: collapse; width: 100%; min-width: 980px; font-size: 13px; }
+.lanes th, .lanes td { border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); padding: 8px 10px; vertical-align: top; text-align: left; }
+.lanes th:last-child, .lanes td:last-child { border-right: 0; }
+.lanes thead th { background: var(--surface-2); font-family: var(--f-display); font-weight: 500; font-size: 13px; position: sticky; top: 0; }
+.lanes thead th.plan { box-shadow: inset 0 3px 0 var(--plan); } .lanes thead th.build { box-shadow: inset 0 3px 0 var(--build); }
+.lanes thead th.ops { box-shadow: inset 0 3px 0 var(--ops); } .lanes thead th.bss { box-shadow: inset 0 3px 0 var(--bss); } .lanes thead th.gov { box-shadow: inset 0 3px 0 var(--gov); }
+.lanes tbody th { width: 170px; background: var(--surface); font-weight: 600; }
+.lanes tbody th small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+.lanes tr.on th, .lanes tr.on td { background: var(--accent-soft); }
+.act-cell { display: grid; gap: 6px; }
+.act-cell div { display: grid; gap: 2px; }
+.act-cell span { font-size: 12.5px; color: var(--fg-2); }
+footer { margin-top: 28px; font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; }
+
+@media (max-width: 1100px) { .paths { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 960px) {
+  svg.wlabels { display: none; } .story { top: 0; position: static; }
+  .stages { grid-template-columns: 1fr; } .stage.ops .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .band { grid-template-columns: 1fr; } .pdetail { grid-template-columns: 1fr; } svg.wires { display: none; }
+  .story { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) { .paths { grid-template-columns: 1fr; } .stage.ops .tiles { grid-template-columns: 1fr; } .probs { grid-template-columns: 1fr; } .bar .grow { display: none; } }
+body.embed .top { display: none; }
+@media print { .bar, .scrim, .drawer, svg.wires, svg.wlabels { display: none !important; } .view[hidden] { display: grid !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <span class="eyebrow">SynapseDC · Reference process</span>
+    <h1>SynapseDC solution journey</h1>
+    <p class="lede">One reference process for running datacenters, from the first capacity plan through the build to daily operations and selling the capacity. Every customer starts somewhere different: some build new sites end to end, some already run their datacenters and need operations and commercial assurance only. Find your starting point, your business problem or your role, and see the part of the process that answers it and what it leads to next.</p>
+    <div class="qs"><span>Where am I today?</span><span>What problem do I have?</span><span>Which modules solve it?</span><span>What do I need to start?</span><span>What happens next?</span></div>
+  </header>
+
+  <div class="bar" role="toolbar" aria-label="Journey views">
+    <div class="tabs" role="tablist" id="tabs">
+      <button role="tab" data-v="map">Lifecycle map</button>
+      <button role="tab" data-v="paths">Adoption paths</button>
+      <button role="tab" data-v="problems">Problem finder</button>
+      <button role="tab" data-v="roles">Role swimlanes</button>
+    </div>
+    <span class="grow"></span>
+    <label class="sel">Business model <select id="model"></select></label>
+  </div>
+
+  <!-- 1. lifecycle map -->
+  <section class="view" id="v-map" aria-labelledby="h-map">
+    <div class="vhead">
+      <h2 id="h-map">Lifecycle map</h2>
+      <p>Plan → Build → Operate, with the commercial (BSS) and govern-and-secure layers running across all three, and the platform modules SynapseDC works with underneath. Arrows are the handoffs: what one module passes to the next. Open any module to see its key features, characteristics and handoffs.</p>
+    </div>
+    <div class="maptools">
+      <button class="btn pri" id="play" type="button">▶ Follow one journey end to end</button>
+      <label class="sel">Highlight <select id="hl"></select></label>
+      <button class="btn" id="clear" type="button">Clear</button>
+      <span class="grow"></span>
+      <div class="legend">
+        <span><i style="background:var(--plan-soft);border:1px solid var(--plan)"></i>Plan</span>
+        <span><i style="background:var(--build-soft);border:1px solid var(--build)"></i>Build</span>
+        <span><i style="background:var(--ops-soft);border:1px solid var(--ops)"></i>Operate</span>
+        <span><i style="background:var(--bss-soft);border:1px solid var(--bss)"></i>Commercial</span>
+        <span><i style="background:var(--gov-soft);border:1px solid var(--gov)"></i>Govern &amp; secure</span>
+        <span><i style="background:var(--plat-soft);border:1px dashed var(--plat)"></i>Platform module (integrated)</span>
+      </div>
+    </div>
+    <div class="story" id="story" hidden></div>
+    <div class="map" id="map"></div>
+  </section>
+
+  <!-- 2. adoption paths -->
+  <section class="view" id="v-paths" aria-labelledby="h-paths" hidden>
+    <div class="vhead">
+      <h2 id="h-paths">Adoption paths</h2>
+      <p>SynapseDC does not have to be adopted end to end. Pick the starting point closest to yours: the modules it uses light up, the ones it leaves for later are crossed out, and the onboarding steps are listed in order with what you provide at each step.</p>
+    </div>
+    <div class="paths" id="pcards"></div>
+    <div class="pdetail" id="pdetail"></div>
+  </section>
+
+  <!-- 3. problem finder -->
+  <section class="view" id="v-problems" aria-labelledby="h-problems" hidden>
+    <div class="vhead">
+      <h2 id="h-problems">Problem finder</h2>
+      <p>Start from the business problem, not the product. Each card says who feels it, how SynapseDC answers it, the modules involved and the measure that improves.</p>
+    </div>
+    <div class="ptools">
+      <input type="search" id="pq" placeholder="Search a problem, e.g. SLA, idle power, GPU, audit" aria-label="Search problems">
+      <div class="cats" id="pcats"></div>
+    </div>
+    <div class="probs" id="probs"></div>
+  </section>
+
+  <!-- 4. role swimlanes -->
+  <section class="view" id="v-roles" aria-labelledby="h-roles" hidden>
+    <div class="vhead">
+      <h2 id="h-roles">Role swimlanes</h2>
+      <p>Who does what at each stage. Each cell names the module the role works in and what they do there; pick a role to see its path on the lifecycle map.</p>
+    </div>
+    <div class="lanes" id="lanes"></div>
+  </section>
+
+  <footer>Reference process for SynapseDC (Plan · Build · Operate). Modules marked <b>Platform</b> are existing platform modules SynapseDC uses through their APIs; their records stay there. Phases P1 / P2 / P3 follow the SynapseDC BRD delivery roadmap. Items written "to discuss" are not in the product today.</footer>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" hidden aria-modal="true" role="dialog" aria-labelledby="dtitle"></aside>
+
+<script>
+/* ===================== data ===================== */
+const STAGES = {
+  plan:  { name: "Plan", n: 1, sub: "Decide what to build, where, when and for how much." },
+  build: { name: "Build", n: 2, sub: "Deliver it on time, prove it works, record it as built." },
+  ops:   { name: "Operate", n: 3, sub: "Keep it running, see problems first, fix them fast." },
+  bss:   { name: "Commercial (BSS)", sub: "Sell the capacity, price every issue, serve customer requests." },
+  gov:   { name: "Govern & secure", sub: "Bring the estate in, keep it compliant and secure." },
+  plat:  { name: "Platform modules", sub: "Existing modules SynapseDC uses through their APIs." }
+};
+const KIND = { built: "Built for datacenters", analytics: "Datacenter view over a platform module", platform: "Platform module (integrated)" };
+const GPU_MODELS = ["cloud", "enterprise", "neocloud"];
+/* modules: stage, name, route, kind, phase, short, purpose, features, in, out, roles, kpis, data, integ, models (empty = every model) */
+const M = {
+  capacity: { s: "plan", name: "Capacity", route: "/capacity", kind: "built", ph: "P2", short: "What is free, held and stranded",
+    purpose: "Know what capacity is free, held and stranded across space, power, cooling, ports and GPUs, and what it costs.",
+    f: ["Space, power, cooling and network headroom per site and hall", "Compute and GPU capacity per model: in a job, allocated, free, out of service", "Reservations: planned devices, contracted power, approved and requested plans", "PUE, energy per day and CO₂ with the national grid factor", "Start a plan from any capacity gap"],
+    in: "Live load and inventory, plan holds, customer contracts", out: "Headroom, holds and the trigger for a plan", roles: ["Capacity planner", "Finance"],
+    kpis: ["Utilisation per dimension", "Stranded capacity", "Months to full"], data: ["Racks with power budgets", "Power and cooling plant ratings"], integ: ["Plan to Build Inventory", "OAP telemetry"] },
+  planner: { s: "plan", name: "Planner", route: "/planning", kind: "built", ph: "P2", short: "Costed, rule-checked, approved plans",
+    purpose: "Turn a capacity need into a costed, rule-checked and approved plan that the build can start from.",
+    f: ["Plan types for new sites, expansions, power and cooling plant, network and DCI, edge rollouts, refreshes and migrations", "Versioned templates, modules and rules; changes to them are approved", "Benchmarks for cost, efficiency, lead times and sizing, each with its source", "Step-by-step wizard with a live estimate, scenarios and what-if", "Approval path by CapEx band, conditions, delegations, revisions and a frozen baseline", "Plan pack: basis of design, bill of materials with sourcing, IP plan, drawings; review pack as PDF, workbook and ZIP"],
+    in: "Capacity gap, site baseline, templates and benchmarks", out: "Approved plan, baseline, sourced bill of materials, capacity holds", roles: ["Capacity planner", "Design engineer", "Approvers and finance"],
+    kpis: ["Plan cycle time", "CapEx against baseline", "Plan readiness", "Failing rules at approval"], data: ["Site baseline (from DCIM)", "Cost, lead-time and efficiency benchmarks", "Approver roles"], integ: ["Programs & Projects", "Supply Chain", "IP Management", "Plan to Build Inventory"] },
+  ipam: { s: "plan", name: "IP & Network", route: "/ipam", kind: "analytics", ph: "P2", short: "Addresses, VLANs, VRFs, ASNs",
+    purpose: "Plan and track the addresses, VLANs, VRFs and ASNs of every site, and reserve what a build needs.",
+    f: ["Management, fabric, storage and customer address plans per site", "Prefix usage from addresses actually bound, and an exhaustion forecast", "Reserve the next address or carve a prefix", "VRFs, VLANs, ASNs and gateway groups, validated", "Differences against DDI tools (Infoblox, BlueCat, AD DNS, Kea)"],
+    in: "Device inventory, a plan's IP needs", out: "Address assignments and the IP plan for a build", roles: ["Network engineer"],
+    kpis: ["Prefix utilisation", "Months until a prefix is full", "Addresses outside the plan"], data: ["Existing prefixes and VLANs"], integ: ["IP Management"] },
+
+  delivery: { s: "build", name: "Programmes & projects", route: "/delivery", kind: "analytics", ph: "P2", short: "Dates, orders, crews, permits, cost",
+    purpose: "Run the build an approved plan starts: milestones, purchase orders, crews, permits, risks and cost.",
+    f: ["A project per approved plan; programmes with start gates", "Milestones from the plan's schedule, Gantt and late items", "Purchase orders from the plan's sourced bill of materials, with goods receipt", "Work orders per crew window, each with a change request and kit status", "Permits, design documents, risks and change orders", "Earned value: CPI, SPI, estimate at completion"],
+    in: "Approved plan, baseline, sourced bill of materials", out: "Kit on site, completed work, handover", roles: ["Project manager", "Procurement", "Contractors"],
+    kpis: ["Milestones on time", "CPI and SPI", "Late purchase orders"], data: ["Suppliers and contracts", "Crews and contractors"], integ: ["Programs & Projects", "Supply Chain"] },
+  workorders: { s: "build", name: "Work orders & processes", route: "/workorders", kind: "analytics", ph: "P2", short: "Every field task with an owner",
+    purpose: "Give every field task an owner, a reference process and evidence of completion.",
+    f: ["12 reference processes, from site onboarding to access requests", "My tasks inbox: claim and complete with the step's form", "Swimlanes per process with targets and side branches", "Work order page: checklist, back-out plan, sign-off or re-plan", "Process KPIs: cycle time, steps on time, retries"],
+    in: "Work orders from projects, maintenance and changes", out: "Completed work with evidence", roles: ["Field technician", "Site lead", "Contractor"],
+    kpis: ["Tasks on time", "First-time-right work"], data: ["Teams and roles"], integ: ["Programs & Projects", "Field Force Management"] },
+  commissioning: { s: "build", name: "Commissioning", route: "/delivery?tab=commissioning", kind: "analytics", ph: "P2", short: "L1 to L5 before it carries load",
+    purpose: "Prove the build works before it carries customer load.",
+    f: ["L1 factory witness → L2 site acceptance → L3 pre-functional → L4 functional → L5 integrated systems test", "Test plans from the plan type's checklists, per phase (and per site for edge rollouts)", "Tests run in order; L3 onwards needs the installation done", "Handover only when every work order and L5 are complete"],
+    in: "Installed plant and IT, test checklists", out: "Signed handover, as-built records", roles: ["Commissioning engineer", "Facility engineer"],
+    kpis: ["First-pass test rate", "Days from installation to handover"], data: ["Test checklists"], integ: ["Programs & Projects"] },
+  dcim: { s: "build", name: "DCIM", route: "/dcim", kind: "built", ph: "P1", short: "The record true to the floor",
+    purpose: "Keep the record of every hall, rack, device, port, cable and power feed true to the floor.",
+    f: ["Sites → floors → halls → rows → racks → devices → components", "Rack elevations with drag-and-drop moves and reserved space", "Data and power cabling, power panels and feeds", "Device and module catalogue", "Every edit under a change request: standard, an open request, or raise a new one", "Insights: what needs attention, power pressure, rack density"],
+    in: "As-built records, the import template, MACD work", out: "Live inventory for operations and planning", roles: ["Records owner", "Field technician"],
+    kpis: ["Record accuracy", "Edits made under a change request", "Free U and power per rack"], data: ["Sites, rooms, racks, devices (import template)"], integ: ["Plan to Build Inventory", "Services & ITSM"] },
+
+  command: { s: "ops", name: "Command center", route: "/", kind: "built", ph: "P1", short: "How the estate is doing, what to do next",
+    purpose: "One screen that says how the whole estate is doing and what to do next.",
+    f: ["Health per area: GPU fleet or incident response, power, cooling and environment, network", "Live map of every datacenter, worst first", "What is happening · Who is affected · Recommendations", "Critical and high incidents, past SLA, premium customers at risk", "Plan & build strip: approvals, builds in progress, capacity pipeline"],
+    in: "Incidents, alarms, telemetry, plans", out: "Where to look first", roles: ["NOC lead", "Operations manager", "Executives"],
+    kpis: ["Operations health %", "Sites in critical"], data: [], integ: ["Ops Toolkit System Alerts", "Services & ITSM"] },
+  datacenters: { s: "ops", name: "Datacenters", route: "/datacenters", kind: "built", ph: "P1", short: "One site, building to device",
+    purpose: "Everything about one site, from the building down to a single device.",
+    f: ["Realistic 3D layout with walk mode, power paths and cable paths", "Needs attention, metrics, ops log", "Facility: power and backup, cooling, environment, access and security, single points of failure", "Infrastructure: equipment, GPU, topology, space and ports, assets and lifecycle, internet and carriers", "Business impact: customers and revenue at the site", "Device pages: hardware, power and cabling, 3D view, links, impact"],
+    in: "Inventory, telemetry, alarms, incidents", out: "Diagnosis at site and device level", roles: ["NOC engineer", "Site lead", "Facility engineer"],
+    kpis: ["Open issues per site", "Assets out of support"], data: ["Site inventory", "Telemetry sources"], integ: ["Plan to Build Inventory", "OAP telemetry"] },
+  facilities: { s: "ops", name: "Facilities", route: "/facilities", kind: "built", ph: "P1", short: "Power, cooling, environment ahead of load",
+    purpose: "Keep power, cooling and the environment ahead of the IT load.",
+    f: ["Single-line power path from the utility to the rack; UPS and generator ride-through", "Cooling heat balance and coverage, CDU loops for liquid racks", "Environment and safety: temperature, humidity, fire, leak, doors", "Single points of failure with a what-if per feed, UPS, PDU, cooling unit and trunk", "Planned maintenance per plant asset, booked as a change"],
+    in: "BMS and power-meter telemetry, plant inventory", out: "Plant alarms, risks, maintenance changes", roles: ["Facility engineer"],
+    kpis: ["Ride-through minutes", "Cooling redundancy kept", "PUE", "Overdue maintenance"], data: ["Power and cooling plant", "BMS points"], integ: ["OAP telemetry"] },
+  gpu: { s: "ops", name: "GPU Fleet", route: "/gpu", kind: "built", ph: "P1", short: "Productive GPU clusters", models: GPU_MODELS,
+    purpose: "Keep GPU clusters productive and know what every GPU failure costs.",
+    f: ["Clusters, pods, nodes and jobs per site", "Per-GPU telemetry from NVIDIA DCGM and Intel Gaudi exporters", "Faults that stall or slow jobs (Xid, ECC, NVLink, cooling, fabric) and the GPU time lost", "GPU models and vendors", "Network rails, cooling and power per pod", "Where to place the next job"],
+    in: "GPU exporters, scheduler, fabric telemetry", out: "GPU incidents, GPU-hours lost, placement", roles: ["GPU platform operator"],
+    kpis: ["GPUs healthy at full speed", "GPU-hours lost", "Goodput"], data: ["GPU clusters and nodes", "Exporters per node or VM"], integ: ["OAP telemetry"] },
+  alerts: { s: "ops", name: "Alerts", route: "/alerts", kind: "analytics", ph: "P1", short: "Only the alarms in scope",
+    purpose: "See only the alarms that belong to the datacenter, in scope and grouped.",
+    f: ["Scope: site, edge, dependency; downstream sites are never counted", "Facility, network, compute and GPU alarms in one list", "Severity, state, source and site filters", "Correlated into incidents"],
+    in: "Telemetry and events", out: "Correlated alarms", roles: ["NOC engineer"],
+    kpis: ["Alarms per incident", "Unacknowledged alarms"], data: ["Alarm sources"], integ: ["Ops Toolkit System Alerts", "OAP telemetry"] },
+  incidents: { s: "ops", name: "Incidents & problems", route: "/incidents", kind: "analytics", ph: "P1", short: "Cause, impact, action",
+    purpose: "Turn alarms into one incident with its cause, its impact and the action to take.",
+    f: ["Timeline, root-cause hypotheses with evidence", "Impact: services, customers, revenue, downstream sites", "Recommended actions", "On call, paging chain and customer notices", "Problems group incidents by cause", "Critical / High / Medium / Low with SLA clocks"],
+    in: "Correlated alarms", out: "Resolved incident, problem record, customer notices", roles: ["NOC engineer", "Incident manager"],
+    kpis: ["MTTA and MTTR", "Incidents past SLA", "Repeat incidents"], data: ["On-call rota", "Services and customers"], integ: ["Services & ITSM", "AI Foundry (Opstral)"] },
+  changes: { s: "ops", name: "Change management", route: "/changes", kind: "analytics", ph: "P2", short: "Every change planned and safe",
+    purpose: "Make every change on the estate planned, approved and safe, whoever raises it.",
+    f: ["One register: operations, maintenance, delivery, DCIM and MACD changes", "Standard, normal and emergency classes with the approval matrix", "Freezes, conflicts and policies that block or warn", "Calendar and checks before the window", "A change that caused an incident counts as failed"],
+    in: "Requests from delivery, DCIM, MACD, maintenance, incidents", out: "Approved, scheduled, completed changes", roles: ["Change manager", "CAB"],
+    kpis: ["Change success rate", "Emergency share", "Changes that caused an incident"], data: ["Standard change templates", "Freeze periods"], integ: ["Services & ITSM"] },
+
+  revenue: { s: "bss", name: "Revenue impact", route: "/revenue", kind: "built", ph: "P1", short: "A price on every open issue",
+    purpose: "Put a price on every open issue: money lost now, SLA credits and what is at stake.",
+    f: ["Money lost now per issue: down, degraded and exposed services", "SLA credits and the next credit tier", "Cost of delay and a 24 h forecast", "By customer, datacenter and cause; one failure away", "30-day history"],
+    in: "Incidents and their impacted services, contracts", out: "Cost per issue, credits at risk", roles: ["Account manager", "Finance", "Operations manager"],
+    kpis: ["Revenue at risk", "SLA credits paid"], data: ["Service prices", "SLA targets"], integ: ["BSS"] },
+  customers: { s: "bss", name: "Customers & services", route: "/revenue?tab=customers", kind: "analytics", ph: "P1", short: "What hurts each customer",
+    purpose: "See each customer's services, where they are served and what is hurting them.",
+    f: ["Customer page: services, sites, verdict and main cause", "Services hit by an incident, and why", "Datacenter business-impact tab", "Cross-connect orders and remote hands (colocation)"],
+    in: "Customers and services from BSS, incidents", out: "Customer verdict, notices to send", roles: ["Account manager", "Customer success"],
+    kpis: ["Customers at risk", "Premium customers affected"], data: ["Customers and services"], integ: ["BSS"] },
+  macd: { s: "bss", name: "MACD", route: "/macd", kind: "built", ph: "P2", short: "Customer requests, checked and charged",
+    purpose: "Turn a customer's move, add, change or disconnect into checked, charged and recorded work.",
+    f: ["Catalogue with SLA, one-off and monthly charges, standard or normal change", "Feasibility against the live estate: space, power, cooling, ports, GPUs, freezes", "Draft → submitted → feasibility → quote → scheduled → in progress → verification → completed", "A change request and a DCIM space hold per request", "Verification applies the record change and releases the hold"],
+    in: "Customer request", out: "Completed work, updated records, charges", roles: ["Account manager", "Customer service", "Field technician"],
+    kpis: ["Requests on SLA", "Days to complete"], data: ["Service catalogue and prices"], integ: ["BSS", "Services & ITSM", "Plan to Build Inventory"] },
+  occupancy: { s: "bss", name: "GPU occupancy", route: "/gpu?gtab=occupancy", kind: "built", ph: "to discuss", short: "GPUs sold vs available", models: ["cloud", "neocloud"],
+    purpose: "See how much GPU capacity is sold, what is available to sell and which nodes are fit to sell.",
+    f: ["Instances sold per model: reserved, on demand, spot", "Occupancy = sold ÷ (sold + available)", "Fit to sell per node: burn-in, benchmark, reliability, grade", "Spot interruptions and their causes"],
+    in: "Jobs, customers, node tests", out: "Sellable capacity", roles: ["GPU platform operator", "Account manager"],
+    kpis: ["Occupancy %", "Nodes held back"], data: ["GPU price per hour", "Acceptance test results"], integ: ["BSS"] },
+  powerecon: { s: "bss", name: "Power economics", route: "/capacity?tab=economics", kind: "built", ph: "P2", short: "What power costs, what is idle",
+    purpose: "Know what power costs per site, per sold MW and per GPU-hour, and what is paid for but idle.",
+    f: ["Power bill per site: energy plus capacity charge", "Idle committed kW and its monthly cost", "Cost per sold MW-month and per GPU-hour", "Power cost by job and tenant", "Findings against the contract: block nearly full, new demand peak"],
+    in: "Load, tariffs, power contracts", out: "Cost per unit sold, contract findings", roles: ["Finance", "Capacity planner"],
+    kpis: ["Idle committed MW", "Power cost per GPU-hour"], data: ["Tariffs", "Power contracts"], integ: ["OAP telemetry"] },
+
+  onboarding: { s: "gov", name: "Onboarding & data model", route: "/data-model", kind: "built", ph: "P1", short: "Bring an existing estate in",
+    purpose: "Bring an existing estate in: sites, rooms, racks, plant, devices, customers and services, then connect its telemetry.",
+    f: ["Onboarding templates with formula checks (colocation, NeoCloud)", "Full import template, one sheet per entity", "Facility integration survey per site: collector, BMS, BMCs, firewall rules", "Data model explorer: entities and relationships"],
+    in: "The customer's records and tools", out: "Inventory and telemetry sources ready", roles: ["Onboarding lead", "Records owner"],
+    kpis: ["Sites onboarded", "Checks passing"], data: ["Onboarding workbook"], integ: ["Plan to Build Inventory", "OAP telemetry"] },
+  secops: { s: "gov", name: "Security Ops", route: "/secops", kind: "analytics", ph: "P2", short: "Cyber, OT and physical security",
+    purpose: "Watch cyber, OT and physical security of the datacenter in one place.",
+    f: ["Detections mapped to MITRE ATT&CK (Enterprise and ICS)", "Cases through NIST SP 800-61 phases, with playbooks", "Vulnerabilities prioritised with CISA SSVC", "Hardening and configuration drift", "OT security (IEC 62443 zones) and physical security from the access log", "Data sources and coverage gaps"],
+    in: "Security sensors, access log, configs", out: "Security cases", roles: ["Security analyst"],
+    kpis: ["Open critical cases", "Coverage gaps"], data: ["Security sensors"], integ: ["Ops Toolkit Security Ops"] },
+  compliance: { s: "gov", name: "Compliance", route: "/compliance", kind: "built", ph: "P3", short: "Policies as code, audit evidence",
+    purpose: "Prove the estate meets its policies and standards, with evidence on demand.",
+    f: ["Policies as code evaluated on the estate: rack load, dual feed, cooling N+1, UPS minutes, end of support", "ISO 27001, ISO 22237, TIA-942 and SOC 2 controls mapped to the policies that evidence them", "Decision records per finding", "Manual controls with attestation dates"],
+    in: "The estate, changes, inspections", out: "Findings, control status, evidence", roles: ["Compliance officer"],
+    kpis: ["Controls passing", "Open violations"], data: ["Frameworks in scope"], integ: [] },
+
+  p_inv: { s: "plat", name: "Plan to Build Inventory", kind: "platform", short: "Record of truth for assets", purpose: "The record of truth for sites, racks, devices and ports. DCIM and Planner write to it through its API.", f: ["Asset records", "Write API for DCIM edits"], integ: [] },
+  p_oap: { s: "plat", name: "OAP telemetry", kind: "platform", short: "Metrics and events in", purpose: "Ingests metrics and events (SNMP, gNMI, Redfish, BMS, GPU exporters) into ClickHouse; SynapseDC reads them through the consumer service.", f: ["Ingestion through on-site collectors", "Consumer API for screens"], integ: [] },
+  p_alerts: { s: "plat", name: "Ops Toolkit", kind: "platform", short: "System Alerts, Security Ops", purpose: "System Alerts and Security Ops records; SynapseDC adds datacenter scope and context.", f: ["Alarm records", "Security detections and cases"], integ: [] },
+  p_itsm: { s: "plat", name: "Services & ITSM", kind: "platform", short: "Incidents, problems, changes", purpose: "Incident, problem and change records, paging and notices.", f: ["Tickets", "Change approvals"], integ: [] },
+  p_prj: { s: "plat", name: "Programs & Projects", kind: "platform", short: "Projects, work orders", purpose: "Projects, milestones and work orders, with Field Force Management for crews.", f: ["Projects", "Work orders"], integ: [] },
+  p_scm: { s: "plat", name: "Supply Chain", kind: "platform", short: "Vendors, purchase orders", purpose: "Vendors, contracts and purchase orders.", f: ["Purchase orders", "Goods receipt"], integ: [] },
+  p_ipm: { s: "plat", name: "IP Management", kind: "platform", short: "Address records", purpose: "The address, VLAN and VRF records IP & Network reads and writes.", f: ["Prefixes", "Assignments"], integ: [] },
+  p_bss: { s: "plat", name: "BSS", kind: "platform", short: "Customers, catalogue, billing", purpose: "Customers, contracts, catalogue, charges, billing and SLA credits.", f: ["Customer records", "Charges and credits"], integ: [] },
+  p_ai: { s: "plat", name: "AI Foundry (Opstral)", kind: "platform", short: "Copilot on every screen", purpose: "The Opstral copilot that answers questions on every screen from the same data.", f: ["Answers grounded in the estate"], integ: [] }
+};
+/* handoffs: from, to, what passes, spine = drawn by default */
+const E = [
+  ["capacity", "planner", "capacity gap → start a plan", 1],
+  ["planner", "capacity", "approved plan holds capacity"],
+  ["planner", "ipam", "IP needs of the plan"],
+  ["planner", "delivery", "approved plan, baseline, sourced bill of materials", 1],
+  ["delivery", "p_scm", "vendor purchase orders"],
+  ["delivery", "p_prj", "project and milestones"],
+  ["delivery", "workorders", "work orders by crew window", 1],
+  ["workorders", "changes", "change request per work order"],
+  ["delivery", "commissioning", "installation done", 1],
+  ["commissioning", "dcim", "handover, as-built records", 1],
+  ["dcim", "p_inv", "rack and device records (write API)"],
+  ["dcim", "datacenters", "live inventory", 1],
+  ["ipam", "p_ipm", "address assignments"],
+  ["onboarding", "dcim", "imported inventory (existing sites)"],
+  ["onboarding", "p_oap", "telemetry sources connected"],
+  ["p_oap", "alerts", "metrics and events → alarms", 1],
+  ["p_oap", "facilities", "power, cooling, environment readings"],
+  ["p_oap", "gpu", "GPU telemetry"],
+  ["alerts", "incidents", "correlated alarms → one incident", 1],
+  ["incidents", "command", "the situation now"],
+  ["incidents", "revenue", "impacted services → money and credits", 1],
+  ["incidents", "customers", "customers affected, notices"],
+  ["incidents", "p_itsm", "ticket, paging, notices"],
+  ["incidents", "changes", "the fix, under a change"],
+  ["incidents", "planner", "problem record → refresh or capacity plan", 1],
+  ["facilities", "capacity", "load and PUE"],
+  ["facilities", "changes", "planned maintenance"],
+  ["gpu", "occupancy", "jobs → instances sold"],
+  ["gpu", "incidents", "GPU faults that stall jobs"],
+  ["capacity", "powerecon", "load against contracts"],
+  ["revenue", "p_bss", "SLA credits"],
+  ["customers", "macd", "customer request"],
+  ["macd", "changes", "change per request"],
+  ["macd", "dcim", "record change on verification"],
+  ["macd", "p_bss", "one-off and monthly charges"],
+  ["changes", "p_itsm", "change records"],
+  ["compliance", "changes", "policy gates"],
+  ["secops", "incidents", "security case affecting service"],
+  ["p_bss", "customers", "customers and services"]
+];
+/* the end-to-end story: [title, text, modules lit, edges by "from>to"] */
+const STORY = [
+  ["Capacity runs short", "Capacity shows hall B will be out of power in nine months. The planner starts a site-expansion plan straight from the gap.", ["capacity", "planner"], ["capacity>planner"]],
+  ["Plan and approve", "The plan takes its inputs from the template and benchmarks, is checked against the rules, compared in scenarios and approved by CapEx band. Approval freezes a baseline and holds the capacity.", ["planner", "capacity", "ipam"], ["planner>capacity", "planner>ipam"]],
+  ["Start the build", "Starting the build hands the plan to Delivery: a project with milestones and purchase orders to the vendors of the sourced bill of materials.", ["planner", "delivery", "p_scm", "p_prj"], ["planner>delivery", "delivery>p_scm", "delivery>p_prj"]],
+  ["Field work under change control", "Crews get work orders, each with a change request, a checklist and a back-out plan.", ["delivery", "workorders", "changes"], ["delivery>workorders", "workorders>changes"]],
+  ["Commission and hand over", "Commissioning runs L1 to L5. Handover makes the as-built racks, devices and cables the live record in DCIM.", ["delivery", "commissioning", "dcim", "p_inv"], ["delivery>commissioning", "commissioning>dcim", "dcim>p_inv"]],
+  ["Into operations", "The new capacity appears in Datacenters and its telemetry flows in: power, cooling, network and GPU readings.", ["dcim", "datacenters", "p_oap", "facilities", "gpu"], ["dcim>datacenters", "p_oap>facilities", "p_oap>gpu"]],
+  ["Sell it", "A customer orders racks and power through MACD: feasibility, quote, a change request, the work and the record update, then the charges go to billing.", ["customers", "macd", "changes", "dcim", "p_bss"], ["customers>macd", "macd>changes", "macd>dcim", "macd>p_bss"]],
+  ["Something fails", "A UPS goes on battery. Its alarm is in scope for the site and is correlated into one incident with its likely cause and actions.", ["p_oap", "alerts", "incidents", "command"], ["p_oap>alerts", "alerts>incidents", "incidents>command"]],
+  ["Price the impact", "Revenue impact prices the exposed services and the SLA credits at stake; account managers see which customers to call.", ["incidents", "revenue", "customers", "p_bss"], ["incidents>revenue", "incidents>customers", "revenue>p_bss"]],
+  ["Fix it safely", "The fix runs under a change; the incident is resolved, paged and noted in ITSM.", ["incidents", "changes", "p_itsm"], ["incidents>changes", "incidents>p_itsm"]],
+  ["Learn and plan again", "Repeat UPS faults become a problem record, which starts a battery-refresh plan, and the cycle begins again.", ["incidents", "planner"], ["incidents>planner"]]
+];
+/* adoption paths: modules used, onboarding steps [title, text, modules] */
+const ALL_BUILT = Object.keys(M).filter(k => M[k].s !== "plat");
+const OPS_CORE = ["command", "datacenters", "facilities", "gpu", "alerts", "incidents", "changes", "onboarding", "secops", "compliance"];
+const PATHS = [
+  { id: "e2e", name: "End to end", who: "Building new datacenters or a new campus", start: "A capacity target and candidate sites", gets: "One record and one process from the first plan to the first sold rack.", models: ["neocloud", "cloud", "colocation"],
+    mods: ALL_BUILT, plat: ["p_inv", "p_oap", "p_alerts", "p_itsm", "p_prj", "p_scm", "p_ipm", "p_bss", "p_ai"],
+    steps: [["Set up how you plan", "Approvers, plan templates, rules and benchmarks for cost, lead times and efficiency.", ["planner"]], ["Plan and approve the site", "Candidate plots, sizing, scenarios, approval by CapEx band, baseline.", ["planner", "capacity"]], ["Reserve addresses", "Management, fabric, storage and customer address plans.", ["ipam"]], ["Build", "Start the build: project, purchase orders, permits, work orders under change control.", ["delivery", "workorders", "changes"]], ["Commission and hand over", "L1 to L5 tests, handover, as-built records in DCIM.", ["commissioning", "dcim"]], ["Connect telemetry", "On-site collector, BMS, power meters, BMCs, network and GPU exporters.", ["onboarding"]], ["Operate", "Command center, alarms in scope, incidents with cause and impact.", ["command", "alerts", "incidents"]], ["Sell and serve", "Customers, services, MACD requests, revenue impact.", ["macd", "revenue", "customers"]]] },
+  { id: "expand", name: "Expand an existing site", who: "Running datacenters that need more capacity or a refresh", start: "Live sites, a capacity gap or old equipment", gets: "Expansions and refreshes planned on the real estate and built under change control.", models: ["colocation", "neocloud", "cloud", "enterprise", "network"],
+    mods: ["capacity", "planner", "ipam", "delivery", "workorders", "commissioning", "dcim", "changes", "datacenters", "facilities", "onboarding"], plat: ["p_inv", "p_prj", "p_scm", "p_ipm", "p_itsm"],
+    steps: [["Bring the site in", "Sites, rooms, racks, plant and devices from the onboarding template.", ["onboarding", "dcim"]], ["See the gap", "Space, power, cooling, ports and GPU headroom; assets near end of support.", ["capacity", "datacenters"]], ["Plan", "Expansion, plant, refresh or migration plan on the site as it is.", ["planner"]], ["Build and commission", "Project, work orders, changes, L1 to L5, handover.", ["delivery", "workorders", "changes", "commissioning"]], ["Records stay true", "DCIM updated under the build's change requests.", ["dcim"]]] },
+  { id: "ops", name: "Operations only (Assurance)", who: "Datacenters already built and running", start: "Running sites and their monitoring tools", gets: "One operations view: alarms in scope, incidents with cause and impact, facility risks.", models: ["colocation", "neocloud", "cloud", "enterprise", "network"],
+    mods: OPS_CORE, plat: ["p_inv", "p_oap", "p_alerts", "p_itsm", "p_ai"],
+    steps: [["Sites, rooms and racks", "Onboarding template: Sites, Rooms, Cabinets.", ["onboarding"]], ["Power and cooling plant", "UPS, generators, PDUs, cooling units with their ratings.", ["onboarding", "facilities"]], ["Devices", "Racked equipment from the template or discovery, into Inventory.", ["onboarding", "dcim"]], ["Connect telemetry", "Facility integration survey: on-site collector, BMS, power meters, BMC (Redfish), network (SNMP / gNMI), GPU exporters.", ["onboarding"]], ["Alarms and incidents", "Alarm scope per site; ITSM and paging integration.", ["alerts", "incidents"]], ["Go live", "Command center, Datacenters, Facilities; changes and security when ready.", ["command", "datacenters", "facilities", "changes"]]] },
+  { id: "bss", name: "Assurance + commercial", who: "Running datacenters that sell capacity (colocation, NeoCloud)", start: "Running sites, customers and contracts", gets: "Operations tied to money: who is affected, what it costs, customer requests checked and charged.", models: ["colocation", "neocloud", "cloud"],
+    mods: [...OPS_CORE, "revenue", "customers", "macd", "powerecon", "occupancy", "capacity", "dcim"], plat: ["p_inv", "p_oap", "p_alerts", "p_itsm", "p_bss", "p_ai"],
+    steps: [["Everything in Operations only", "Sites, plant, devices, telemetry, alarms and incidents.", ["onboarding", "alerts", "incidents"]], ["Customers and services", "Onboarding template: Customers, Services, where each is served.", ["onboarding", "customers"]], ["Contracts and SLAs", "Service prices and SLA targets from BSS, so issues can be priced.", ["revenue"]], ["Catalogue for requests", "MACD items with SLA and charges.", ["macd"]], ["Power contracts", "Tariffs and power contracts per site.", ["powerecon"]], ["Go live", "Revenue impact, customer pages, MACD, power economics.", ["revenue", "customers", "macd", "powerecon"]]] },
+  { id: "gpu", name: "GPU cloud", who: "GPU estates to keep productive and sell", start: "GPU clusters, a scheduler, customers", gets: "GPU health, the GPU time failures cost, sellable capacity and power cost per GPU-hour.", models: ["neocloud", "cloud", "enterprise"],
+    mods: ["gpu", "occupancy", "powerecon", "capacity", "command", "datacenters", "facilities", "alerts", "incidents", "revenue", "customers", "onboarding", "dcim"], plat: ["p_inv", "p_oap", "p_alerts", "p_itsm", "p_bss"],
+    steps: [["GPU clusters and nodes", "Onboarding template: GPU_Clusters, GPU_Nodes, the service each node is sold under.", ["onboarding", "dcim"]], ["GPU exporters", "NVIDIA DCGM or Intel habanalabs exporter on every node, or in every VM when cards are passed through.", ["gpu"]], ["Scheduler", "Kubernetes or Slurm: which job and customer holds which GPUs.", ["gpu", "occupancy"]], ["Prices and contracts", "Price per GPU-hour, power tariffs and contracts.", ["occupancy", "powerecon"]], ["Go live", "GPU Fleet, occupancy, power economics, incidents with GPU-hours lost.", ["gpu", "occupancy", "powerecon", "incidents"]]] }
+];
+/* problems: category, question, who, answers, modules, measure, models */
+const PCATS = ["Capacity & cost", "Reliability", "GPU", "Build", "Changes & records", "Customers", "Security & compliance"];
+const PROBLEMS = [
+  ["Capacity & cost", "I can't tell how much capacity I can still sell.", "Sales, capacity planning", ["Free, held and stranded space, power, cooling and ports per hall", "Reservations from plans and contracts counted once", "GPU capacity per model and what is fit to sell"], ["capacity", "dcim", "occupancy"], "Sellable capacity known per site, not estimated"],
+  ["Capacity & cost", "We pay for power we don't use.", "Finance, operations", ["Power bill per site: energy plus the capacity charge", "Idle committed kW and its monthly cost", "Findings when a block is nearly full or a new demand peak is set"], ["powerecon", "capacity", "facilities"], "Idle committed MW and its cost visible every month"],
+  ["Capacity & cost", "Our plans are spreadsheets and nobody trusts the numbers.", "Planning, finance, leadership", ["Templates, benchmarks with sources and rules behind every figure", "Scenarios and what-if before deciding", "Approval by CapEx band with a frozen baseline"], ["planner", "capacity"], "Plan cycle time and CapEx variance against baseline"],
+  ["Reliability", "Outages cost us SLA credits and we learn about them late.", "Operations, account managers", ["Alarms in scope correlated into one incident", "Money lost now and credits at stake per issue", "Customers affected and notices due"], ["alerts", "incidents", "revenue", "command"], "Revenue at risk and SLA credits paid"],
+  ["Reliability", "The NOC drowns in alarms and can't see which one matters.", "NOC", ["Alarm scope: site, edge, dependency; downstream sites never counted", "One incident per cause with recommended actions", "Command center: worst site first"], ["alerts", "incidents", "command"], "Alarms per incident and time to acknowledge"],
+  ["Reliability", "One failure could take a site down and we don't know where.", "Facility engineering", ["Single points of failure per site: power, cooling, network, internet", "What-if per feed, UPS, PDU, cooling unit and trunk", "Resilience tests and planned maintenance"], ["facilities", "datacenters"], "Single points of failure open, ride-through minutes"],
+  ["GPU", "GPU failures stall training jobs and burn GPU hours.", "GPU platform, customers", ["Faults that stall or slow jobs and the GPU-hours they cost", "Per-GPU telemetry from DCGM and Gaudi exporters", "Incidents with the job and customer affected"], ["gpu", "incidents", "revenue"], "GPU-hours lost and goodput"],
+  ["GPU", "We have idle GPUs but don't know which ones we can sell.", "GPU platform, sales", ["Occupancy per model and site", "Fit to sell per node: burn-in, benchmark, reliability", "Where to place the next job"], ["occupancy", "gpu", "capacity"], "Occupancy % and nodes held back"],
+  ["Build", "Our builds run late and over budget.", "Projects, procurement", ["Schedule from lead-time benchmarks with order-by dates", "Purchase orders from the sourced bill of materials", "Earned value, risks and change orders"], ["planner", "delivery", "workorders"], "Milestones on time, CPI and SPI"],
+  ["Build", "New capacity goes live without being proven.", "Commissioning, facility", ["L1 to L5 tests in order", "Handover only after every work order and L5", "As-built records straight into DCIM"], ["commissioning", "delivery", "dcim"], "First-pass test rate"],
+  ["Changes & records", "Changes keep causing incidents.", "Change management, NOC", ["One change register with classes and approvals", "Freezes, conflicts and policies that block or warn", "Changes that caused an incident counted as failed"], ["changes", "incidents", "compliance"], "Change success rate"],
+  ["Changes & records", "Our inventory doesn't match the floor.", "Records, field teams", ["Every DCIM edit under a change request", "Build handover and MACD verification update the record", "Import template and checks for existing sites"], ["dcim", "onboarding", "changes"], "Record accuracy at audit"],
+  ["Changes & records", "We are running out of IP space without noticing.", "Network engineering", ["Usage from addresses actually bound", "Exhaustion forecast per prefix", "Reserve addresses for a plan"], ["ipam"], "Months until each prefix is full"],
+  ["Customers", "Customer requests (a rack, a cross-connect, power) take weeks.", "Customer service, account managers", ["Catalogue with SLA and charges", "Feasibility checked against the live estate", "Change, work and record update in one request"], ["macd", "dcim", "changes"], "Requests completed on SLA"],
+  ["Customers", "We don't know which customers an incident hurts.", "Account managers", ["Services and customers per incident and why", "Premium customers at risk on the Command center", "Customer page with the main cause"], ["customers", "incidents", "revenue"], "Premium customers affected, notices on time"],
+  ["Security & compliance", "Audits take weeks of evidence gathering.", "Compliance, leadership", ["Policies as code evaluated on the estate", "Controls mapped to the evidence that proves them", "Decision records per finding"], ["compliance", "changes"], "Controls passing"],
+  ["Security & compliance", "Cyber and physical security are watched separately.", "Security", ["Detections, cases and playbooks per datacenter", "Physical security from the access log", "Cross-domain cases: badge-in followed by a config change"], ["secops", "datacenters"], "Open critical cases"]
+];
+/* roles: name, sub, actions [module, what they do] */
+const ROLES = [
+  ["Capacity planner", "Plan", [["capacity", "Finds gaps and holds"], ["planner", "Builds and submits plans"], ["powerecon", "Checks idle committed power"]]],
+  ["Design engineer", "Plan", [["planner", "Sizes power, cooling, network"], ["ipam", "Plans addresses"], ["dcim", "Lays out racks"]]],
+  ["Approver / finance", "Plan, build", [["planner", "Approves by CapEx band"], ["delivery", "Approves change orders, tracks cost"], ["revenue", "Watches credits at stake"], ["powerecon", "Reviews the power bill"]]],
+  ["Project manager", "Build", [["delivery", "Milestones, orders, permits, risks"], ["workorders", "Dispatches crews"], ["commissioning", "Signs the handover"], ["p_prj", "Project records"]]],
+  ["Field technician", "Build, operate", [["workorders", "Completes tasks with evidence"], ["dcim", "Updates records under a change"], ["macd", "Does customer work"], ["changes", "Works in the change window"]]],
+  ["Commissioning engineer", "Build", [["commissioning", "Runs L1 to L5"], ["facilities", "Proves plant ride-through"]]],
+  ["NOC engineer", "Operate", [["command", "Watches the estate"], ["alerts", "Triages alarms in scope"], ["incidents", "Works incidents to resolution"], ["datacenters", "Diagnoses site and device"]]],
+  ["Facility engineer", "Operate", [["facilities", "Power, cooling, environment, risks"], ["changes", "Books planned maintenance"], ["capacity", "Reports load and PUE"]]],
+  ["GPU platform operator", "Operate", [["gpu", "Keeps jobs productive"], ["occupancy", "Decides what is fit to sell"], ["capacity", "Places the next job"]]],
+  ["Change manager", "Operate", [["changes", "Approves, schedules, freezes"], ["compliance", "Applies policy gates"]]],
+  ["Account manager", "Commercial", [["customers", "Knows what hurts each customer"], ["revenue", "Sees money and credits at stake"], ["macd", "Raises and quotes requests"], ["p_bss", "Contracts and billing"]]],
+  ["Security analyst", "Govern", [["secops", "Detections, cases, vulnerabilities"], ["datacenters", "Access and physical security"]]],
+  ["Compliance officer", "Govern", [["compliance", "Controls, evidence, attestations"], ["secops", "Security posture"]]]
+];
+const MODELS = {
+  all: { name: "All business models" },
+  colocation: { name: "Colocation", persona: "colocation", rec: "bss", note: "Sells space, power and cross-connects to tenants; tenant gear is not monitored." },
+  neocloud: { name: "NeoCloud (GPU-as-a-service)", persona: "neocloud", rec: "gpu", note: "Rents GPU clusters and on-demand GPUs." },
+  cloud: { name: "Cloud provider", persona: "cloud", rec: "bss", note: "Sells compute, storage and GPU services." },
+  enterprise: { name: "Enterprise", persona: "enterprise", rec: "ops", note: "Runs datacenters for its own business; charges back instead of selling." },
+  network: { name: "Telco / network operator", persona: "network", rec: "ops", note: "Runs network sites and its own servers; no GPU estate." }
+};
+const PROB_MODELS = { "GPU": GPU_MODELS };
+
+/* ===================== helpers ===================== */
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+const params = new URLSearchParams(location.search);
+const embed = params.get("embed") === "1";
+if (embed) { document.body.classList.add("embed"); document.documentElement.dataset.theme = "light"; }
+const st = { view: "map", model: "all", sel: null, hl: null, story: -1, path: "ops", pq: "", pcat: "All", role: null };
+try { const m = localStorage.getItem("sdj.model"); if (m && MODELS[m]) st.model = m; } catch (e) {}
+const applies = k => !M[k].models || st.model === "all" || M[k].models.includes(st.model);
+const link = k => { const m = M[k]; if (!m.route) return ""; const p = MODELS[st.model].persona; const sep = m.route.includes("?") ? "&" : "?"; return m.route + (p ? `${sep}persona=${p}` : ""); };
+const chip = (k, extra = "") => `<button type="button" class="chip ${M[k].s}" data-open="${k}" ${extra}>${esc(M[k].name)}</button>`;
+
+/* ===================== map ===================== */
+function tile(k) {
+  const m = M[k];
+  const tags = m.kind === "platform" ? ["Platform"] : [m.kind === "built" ? "Built" : "Analytics", m.ph];
+  return `<button type="button" class="tile ${m.s === "plat" ? "plat" : ""}" data-id="${k}" aria-label="${esc(m.name)}"><b><span class="dot" style="background:var(--${m.s})"></span>${esc(m.name)}</b><small>${esc(m.short)}</small><span class="tg">${tags.map(t => `<span>${esc(t)}</span>`).join("")}</span></button>`;
+}
+function renderMap() {
+  const by = s => Object.keys(M).filter(k => M[k].s === s && applies(k));
+  const band = s => `<div class="band ${s}"><div class="bh"><h3>${esc(STAGES[s].name)}</h3><p>${esc(STAGES[s].sub)}</p></div><div class="tiles">${by(s).map(tile).join("")}</div></div>`;
+  const stage = s => `<div class="stage ${s}"><div class="bh"><h3><span class="n">${STAGES[s].n}</span>${esc(STAGES[s].name)}</h3><p>${esc(STAGES[s].sub)}</p></div><div class="tiles">${by(s).map(tile).join("")}</div></div>`;
+  $("#map").innerHTML = band("gov") + `<div class="stages">${stage("plan")}${stage("build")}${stage("ops")}</div>` + band("bss") + band("plat") + `<svg class="wires" id="wires" aria-hidden="true"></svg><svg class="wlabels" id="wlabels" aria-hidden="true"></svg>`;
+  $("#map").querySelectorAll(".tile").forEach(t => t.addEventListener("click", () => openDrawer(t.dataset.id)));
+  paintMap();
+}
+function litSet() {
+  if (st.story >= 0) return { mods: new Set(STORY[st.story][2]), edges: new Set(STORY[st.story][3]) };
+  if (st.sel) { const ed = E.filter(e => e[0] === st.sel || e[1] === st.sel); return { mods: new Set([st.sel, ...ed.flatMap(e => [e[0], e[1]])]), edges: new Set(ed.map(e => e[0] + ">" + e[1])) }; }
+  if (st.hl) {
+    const [t, id] = st.hl.split(":");
+    let mods = [];
+    if (t === "path") { const p = PATHS.find(x => x.id === id); mods = [...p.mods, ...p.plat]; }
+    if (t === "role") mods = ROLES.find(r => r[0] === id)[2].map(a => a[0]);
+    if (t === "prob") mods = PROBLEMS[+id][4];
+    const ms = new Set(mods); return { mods: ms, edges: new Set(E.filter(e => ms.has(e[0]) && ms.has(e[1])).map(e => e[0] + ">" + e[1])) };
+  }
+  return null;
+}
+function paintMap() {
+  const lit = litSet(), map = $("#map");
+  map.classList.toggle("dim", !!lit);
+  map.querySelectorAll(".tile").forEach(t => { t.classList.toggle("on", !!lit && lit.mods.has(t.dataset.id)); t.classList.toggle("sel", t.dataset.id === st.sel); t.querySelector(".step")?.remove(); });
+  drawWires(lit);
+}
+function drawWires(lit) {
+  const svg = $("#wires"); if (!svg) return;
+  const box = $("#map").getBoundingClientRect(); if (!box.width) return;
+  const pos = k => { const el = $("#map").querySelector(`.tile[data-id="${k}"]`); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left - box.left, y: r.top - box.top, w: r.width, h: r.height }; };
+  let out = `<defs><marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 z" fill="var(--accent)"/></marker><marker id="ag" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 z" fill="var(--muted)" opacity=".6"/></marker></defs>`;
+  const labels = [];
+  for (const e of E) {
+    const key = e[0] + ">" + e[1], hot = lit ? lit.edges.has(key) : false;
+    if (!hot && (lit || !e[3])) continue;
+    const a = pos(e[0]), b = pos(e[1]); if (!a || !b) continue;
+    const ac = { x: a.x + a.w / 2, y: a.y + a.h / 2 }, bc = { x: b.x + b.w / 2, y: b.y + b.h / 2 };
+    const dx = bc.x - ac.x, dy = bc.y - ac.y; let p1, p2, c1, c2;
+    if (Math.abs(dx) > Math.abs(dy) * 1.2) {
+      const s = Math.sign(dx); p1 = { x: ac.x + s * a.w / 2, y: ac.y }; p2 = { x: bc.x - s * b.w / 2, y: bc.y };
+      const k = Math.max(30, Math.abs(p2.x - p1.x) / 2); c1 = { x: p1.x + s * k, y: p1.y }; c2 = { x: p2.x - s * k, y: p2.y };
+    } else {
+      const s = Math.sign(dy) || 1; p1 = { x: ac.x, y: ac.y + s * a.h / 2 }; p2 = { x: bc.x, y: bc.y - s * b.h / 2 };
+      const k = Math.max(24, Math.abs(p2.y - p1.y) / 2); c1 = { x: p1.x, y: p1.y + s * k }; c2 = { x: p2.x, y: p2.y - s * k };
+    }
+    out += `<path class="${hot ? "hot" : "spine"}" d="M${p1.x} ${p1.y} C${c1.x} ${c1.y} ${c2.x} ${c2.y} ${p2.x} ${p2.y}" marker-end="url(#${hot ? "ah" : "ag"})"/>`;
+    if (hot) labels.push({ x: (p1.x + 3 * c1.x + 3 * c2.x + p2.x) / 8, y: (p1.y + 3 * c1.y + 3 * c2.y + p2.y) / 8, t: e[2] });
+  }
+  /* step labels apart vertically so they do not sit on each other */
+  labels.sort((p, q) => p.y - q.y);
+  for (let i = 1; i < labels.length; i++) for (let j = 0; j < i; j++) if (Math.abs(labels[i].x - labels[j].x) < 160 && labels[i].y - labels[j].y < 14) labels[i].y = labels[j].y + 14;
+  svg.innerHTML = out;
+  $("#wlabels").innerHTML = labels.map(l => `<text x="${l.x}" y="${l.y}" text-anchor="middle">${esc(l.t)}</text>`).join("");
+}
+function renderStory() {
+  const el = $("#story");
+  if (st.story < 0) { el.hidden = true; return; }
+  const s = STORY[st.story]; el.hidden = false;
+  el.innerHTML = `<span class="num">${st.story + 1}/${STORY.length}</span><div><b>${esc(s[0])}</b><p>${esc(s[1])}</p></div><div class="nav"><button class="btn" type="button" id="sprev" ${st.story === 0 ? "disabled" : ""}>Back</button><button class="btn pri" type="button" id="snext">${st.story === STORY.length - 1 ? "Finish" : "Next"}</button></div>`;
+  $("#sprev").onclick = () => { st.story--; renderStory(); paintMap(); };
+  $("#snext").onclick = () => { st.story = st.story === STORY.length - 1 ? -1 : st.story + 1; renderStory(); paintMap(); $("#play").textContent = st.story < 0 ? "▶ Follow one journey end to end" : "■ Stop the journey"; };
+}
+function renderHlSelect() {
+  const o = [`<option value="">Nothing</option>`, `<optgroup label="Adoption path">${PATHS.map(p => `<option value="path:${p.id}">${esc(p.name)}</option>`).join("")}</optgroup>`, `<optgroup label="Role">${ROLES.map(r => `<option value="role:${esc(r[0])}">${esc(r[0])}</option>`).join("")}</optgroup>`, `<optgroup label="Problem">${PROBLEMS.map((p, i) => `<option value="prob:${i}">${esc(p[1])}</option>`).join("")}</optgroup>`];
+  $("#hl").innerHTML = o.join(""); $("#hl").value = st.hl || "";
+}
+
+/* ===================== drawer ===================== */
+let lastFocus = null;
+function openDrawer(k) {
+  const m = M[k]; st.sel = k; lastFocus = document.activeElement;
+  const ins = E.filter(e => e[1] === k), outs = E.filter(e => e[0] === k);
+  const list = (arr, dir) => arr.length ? `<div class="hand">${arr.map(e => { const o = dir === "in" ? e[0] : e[1]; return `<button type="button" data-open="${o}"><span>${dir === "in" ? "←" : "→"}</span><span>${esc(M[o].name)}<small>${esc(e[2])}</small></span></button>`; }).join("")}</div>` : `<p class="note">None</p>`;
+  const kv = [["Inputs", m.in], ["Outputs", m.out], ["Used by", (m.roles || []).join(", ")], ["Measures", (m.kpis || []).join(" · ")], ["Data needed", (m.data || []).join(" · ")], ["Works with", (m.integ || []).join(" · ")]].filter(r => r[1]);
+  const na = !applies(k) ? `<p class="note">Not used by ${esc(MODELS[st.model].name)}: no GPU estate to run or sell.</p>` : "";
+  $("#drawer").innerHTML = `<div class="dh"><div class="row"><span class="chip ${m.s}">${esc(STAGES[m.s].name)}</span><span class="chip">${esc(KIND[m.kind])}</span>${m.ph ? `<span class="chip">${m.ph === "to discuss" ? "Phase to discuss" : "Phase " + m.ph}</span>` : ""}<button class="x" type="button" id="dx" aria-label="Close">×</button></div><h3 id="dtitle">${esc(m.name)}</h3><p>${esc(m.purpose)}</p>${na}</div>
+  <div class="db"><div><h4>Key features</h4><ul>${m.f.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>
+  ${kv.length ? `<div><h4>Characteristics</h4><dl class="kv">${kv.map(r => `<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join("")}</dl></div>` : ""}
+  <div><h4>Receives from</h4>${list(ins, "in")}</div><div><h4>Hands over to</h4>${list(outs, "out")}</div>
+  ${m.route ? `<div><a class="btn pri" href="${esc(link(k))}" target="_top">Open ${esc(m.name)} in SynapseDC →</a></div>` : `<p class="note">A platform module: SynapseDC reads and writes its records through its API and shows them in datacenter context.</p>`}</div>`;
+  $("#drawer").hidden = false; $("#scrim").hidden = false;
+  $("#dx").onclick = closeDrawer; $("#dx").focus();
+  $("#drawer").querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => openDrawer(b.dataset.open)));
+  if (st.view === "map") { st.story = -1; renderStory(); $("#play").textContent = "▶ Follow one journey end to end"; paintMap(); }
+  history.replaceState(null, "", "#m-" + k);
+}
+function closeDrawer() {
+  $("#drawer").hidden = true; $("#scrim").hidden = true; st.sel = null;
+  if (st.view === "map") paintMap();
+  history.replaceState(null, "", "#" + st.view);
+  lastFocus?.focus?.();
+}
+
+/* ===================== adoption paths ===================== */
+function renderPaths() {
+  const rec = MODELS[st.model].rec;
+  $("#pcards").innerHTML = PATHS.map(p => `<button type="button" class="pcard" data-p="${p.id}" aria-pressed="${st.path === p.id}">${rec === p.id ? `<span class="rec">Recommended for ${esc(MODELS[st.model].name)}</span>` : ""}<b>${esc(p.name)}</b><small>${esc(p.who)}</small></button>`).join("");
+  $("#pcards").querySelectorAll(".pcard").forEach(b => b.addEventListener("click", () => { st.path = b.dataset.p; renderPaths(); history.replaceState(null, "", "#p-" + st.path); }));
+  const p = PATHS.find(x => x.id === st.path);
+  const used = new Set([...p.mods, ...p.plat]);
+  const grp = s => { const ks = Object.keys(M).filter(k => M[k].s === s && applies(k)); return `<div class="grp"><span>${esc(STAGES[s].name)}</span><div>${ks.map(k => chip(k, used.has(k) ? "" : 'aria-disabled="true"').replace('class="chip', used.has(k) ? 'class="chip' : 'class="off chip')).join("")}</div></div>`; };
+  const n = p.mods.filter(k => applies(k)).length;
+  $("#pdetail").innerHTML = `<div class="card"><h3>${esc(p.name)}</h3><dl class="facts"><dt>For</dt><dd>${esc(p.who)}</dd><dt>You start with</dt><dd>${esc(p.start)}</dd><dt>You get</dt><dd>${esc(p.gets)}</dd><dt>Modules used</dt><dd>${n} SynapseDC modules · ${p.plat.length} platform modules</dd><dt>Fits</dt><dd>${p.models.map(m => esc(MODELS[m].name)).join(", ")}</dd></dl>
+    <div class="lit">${["plan", "build", "ops", "bss", "gov", "plat"].map(grp).join("")}</div>
+    <div><button class="btn pri" type="button" id="pshow">Show this path on the lifecycle map</button></div></div>
+    <div class="card"><h3>Onboarding steps, in order</h3><ol class="steps">${p.steps.map(s => `<li><div><b>${esc(s[0])}</b><p>${esc(s[1])}</p><div class="where">${s[2].filter(applies).map(k => chip(k)).join("")}</div></div></li>`).join("")}</ol>
+    <p class="note">Every path can grow into the next: Operations only → add Commercial → add Plan and Build for the next expansion.</p></div>`;
+  $("#pdetail").querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => openDrawer(b.dataset.open)));
+  $("#pshow").onclick = () => { st.hl = "path:" + p.id; setView("map"); };
+}
+
+/* ===================== problems ===================== */
+function renderProblems() {
+  $("#pcats").innerHTML = ["All", ...PCATS].map(c => `<button type="button" data-c="${esc(c)}" aria-pressed="${st.pcat === c}">${esc(c)}</button>`).join("");
+  $("#pcats").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { st.pcat = b.dataset.c; renderProblems(); }));
+  const q = st.pq.trim().toLowerCase();
+  const list = PROBLEMS.map((p, i) => [p, i]).filter(([p]) => (st.pcat === "All" || p[0] === st.pcat)
+    && (st.model === "all" || !PROB_MODELS[p[0]] || PROB_MODELS[p[0]].includes(st.model))
+    && (!q || [p[1], p[2], ...p[3], p[5], ...p[4].map(k => M[k].name)].join(" ").toLowerCase().includes(q)));
+  $("#probs").innerHTML = list.length ? list.map(([p, i]) => `<article class="prob"><span class="chip">${esc(p[0])}</span><p class="q">"${esc(p[1])}"</p><p class="who">Felt by: ${esc(p[2])}</p><ul>${p[3].map(a => `<li>${esc(a)}</li>`).join("")}</ul><div class="mods">${p[4].filter(applies).map(k => chip(k)).join("")}</div><p class="kpi">Measure that improves: ${esc(p[5])}</p><div class="act"><button class="btn" type="button" data-hl="prob:${i}">Show on the lifecycle map</button></div></article>`).join("")
+    : `<p class="empty">No problem matches "${esc(st.pq)}". Try a shorter word, or pick another category.</p>`;
+  $("#probs").querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => openDrawer(b.dataset.open)));
+  $("#probs").querySelectorAll("[data-hl]").forEach(b => b.addEventListener("click", () => { st.hl = b.dataset.hl; setView("map"); }));
+}
+
+/* ===================== roles ===================== */
+function renderRoles() {
+  const cols = ["plan", "build", "ops", "bss", "gov"];
+  const colOf = k => M[k].s === "plat" ? (k === "p_bss" ? "bss" : "build") : M[k].s;
+  $("#lanes").innerHTML = `<table><thead><tr><th>Role</th>${cols.map(c => `<th class="${c}">${esc(STAGES[c].name)}</th>`).join("")}</tr></thead><tbody>${ROLES.map(r => `<tr class="${st.role === r[0] ? "on" : ""}"><th><button type="button" class="chip" data-role="${esc(r[0])}">${esc(r[0])}</button><small>${esc(r[1])}</small></th>${cols.map(c => `<td><div class="act-cell">${r[2].filter(a => colOf(a[0]) === c && applies(a[0])).map(a => `<div>${chip(a[0])}<span>${esc(a[1])}</span></div>`).join("")}</div></td>`).join("")}</tr>`).join("")}</tbody></table>`;
+  $("#lanes").querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => openDrawer(b.dataset.open)));
+  $("#lanes").querySelectorAll("[data-role]").forEach(b => b.addEventListener("click", () => { st.role = b.dataset.role; st.hl = "role:" + st.role; setView("map"); }));
+}
+
+/* ===================== shell ===================== */
+function setView(v, push = true) {
+  st.view = v;
+  document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.v === v));
+  ["map", "paths", "problems", "roles"].forEach(x => { $("#v-" + x).hidden = x !== v; });
+  if (v === "map") { renderHlSelect(); renderMap(); }
+  if (v === "paths") renderPaths();
+  if (v === "problems") renderProblems();
+  if (v === "roles") renderRoles();
+  if (push) history.replaceState(null, "", "#" + v);
+}
+$("#model").innerHTML = Object.entries(MODELS).map(([k, m]) => `<option value="${k}">${esc(m.name)}</option>`).join("");
+$("#model").value = st.model;
+$("#model").addEventListener("change", e => { st.model = e.target.value; try { localStorage.setItem("sdj.model", st.model); } catch (x) {} if (MODELS[st.model].rec && st.view !== "paths") st.path = MODELS[st.model].rec; setView(st.view, false); });
+document.querySelectorAll("#tabs button").forEach(b => b.addEventListener("click", () => setView(b.dataset.v)));
+$("#play").addEventListener("click", () => { st.sel = null; st.hl = null; renderHlSelect(); st.story = st.story < 0 ? 0 : -1; $("#play").textContent = st.story < 0 ? "▶ Follow one journey end to end" : "■ Stop the journey"; renderStory(); paintMap(); });
+$("#hl").addEventListener("change", e => { st.hl = e.target.value || null; st.story = -1; renderStory(); $("#play").textContent = "▶ Follow one journey end to end"; paintMap(); });
+$("#clear").addEventListener("click", () => { st.hl = null; st.sel = null; st.story = -1; st.role = null; renderHlSelect(); renderStory(); $("#play").textContent = "▶ Follow one journey end to end"; paintMap(); });
+$("#pq").addEventListener("input", e => { st.pq = e.target.value; renderProblems(); });
+$("#scrim").addEventListener("click", closeDrawer);
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#drawer").hidden) closeDrawer(); });
+let rt; window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => st.view === "map" && paintMap(), 80); });
+if (window.ResizeObserver) new ResizeObserver(() => st.view === "map" && paintMap()).observe($("#map"));
+if (MODELS[st.model].rec) st.path = MODELS[st.model].rec;
+function fromHash() {
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (h.startsWith("m-") && M[h.slice(2)]) { setView("map", false); openDrawer(h.slice(2)); return; }
+  if (h.startsWith("p-") && PATHS.some(p => p.id === h.slice(2))) { st.path = h.slice(2); setView("paths", false); return; }
+  setView(["map", "paths", "problems", "roles"].includes(h) ? h : "map", false);
+}
+window.addEventListener("hashchange", fromHash);
+fromHash();
+if (document.fonts) document.fonts.ready.then(() => st.view === "map" && paintMap());
+</script>
+</body>
+</html>
