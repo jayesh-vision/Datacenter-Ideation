@@ -15,6 +15,7 @@
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.9 | 27-Oct-2026 | First complete draft: all modules, module split against the existing platform, colocation + NeoCloud first |
+| 1.0-rc2 | 06-Nov-2026 | Decisions: OD-01 Inventory holds every physical and facility record and Inventory Planning every hold — new 9.27 lists what SynapseDC pulls from and updates in each (17 information groups, new fields marked), new read API-INV-13, DC-STORE group B reduced to DCIM work items; OD-12 collector adapters developed by SynapseDC after the application (development order in 12); OD-13 proposed split (circuit in Inventory, commercial terms in Supply Chain Contracts) |
 | 1.0-rc | 06-Nov-2026 | Development scope (3.7: DEV-01…13 developed by SynapseDC, platform capabilities used as they are, asks of the module teams); DC-STORE table catalogue for the database schema (10.4, DATA-017…022); data center interconnect and internet edge (BRULE-SITE-19/20, SITE-048…050, US-SITE-11); GPU capacity as a product, fit to sell, vendor-exporter honesty and left-out totals (BRULE-GPU-19…22, GPU-042…045, US-GPU-10/11); OD-12 collector ownership, OD-13 transit fields |
 | 0.9.10 | 05-Nov-2026 | Planner templates lifecycle, rules in templates, modules and pinning (BRULE-PLN-21…25, PLN-059…068, US-PLN-12…15); custom site types (BRULE-PLN-26, PLN-069, US-PLN-16) |
 | 0.9.9 | 03-Nov-2026 | Planner Benchmarks configuration (7.9): per-tab add forms with the measure fixing unit and applies-to fields, one value per case, retire / restore, version history, effect on open plans, approval of confirmed values, rules created and configured per template (limits, overrides), CSV export / import with a dry run; BRULE-PLN-16…20, PLN-049…058, US-PLN-08…11 |
@@ -111,6 +112,7 @@ Requirement identifiers: `<PFX>-nnn` (functional), `BRULE-<PFX>-nn` (business ru
   - 9.24 Platform Engineering
   - 9.25 Intelligence Hub
   - 9.26 Write-back: what the SynapseDC UI updates in the existing modules
+  - 9.27 Inventory and Inventory Planning: what SynapseDC pulls and updates
 - 10 Data requirements
   - 10.1 Entity model
   - 10.2 Onboarding data (the import template)
@@ -267,14 +269,14 @@ The existing modules named in section 3.2 (Operate to Acquire / BSS except Reven
 | Alarms, alarm state | scope, placement and correlation tags it adds, keyed by alarm id | Ops Toolkit System Alerts |
 | Incidents, problems, changes, tickets, maintenance | RCA hypotheses, impact, money and verification per incident id; DCIM work items per change id | Services & ITSM |
 | Customers, contracts, SLA, services, products | impact and money per service / customer id (derived) | BSS: CRM, Customers, Orders, Catalog |
-| Assets: sites, rooms, racks, devices, modules, serials, lifecycle | DCIM extensions the Inventory API cannot carry (U position, PDU outlets and cords, panels and feeds, patch panels, trunks, cable paths, rack type and condition; OD-01) | Plan to Build Inventory |
+| Assets: sites, rooms, rows, racks, devices, modules, serials, lifecycle, U position, power chain (panels, feeds, PDUs, outlets, cords), cabling (panels, trunks, cables, cross-connects), circuits, rack type and condition, facility design ratings, cooling plant, fire / leak / access points, sensors | — (decided OD-01: Inventory holds all of it; 9.27). DC-STORE keeps only DCIM work items waiting for their change request | Plan to Build Inventory |
 | IP addresses, prefixes, VLANs | — (findings and forecast are derived) | Plan to Build IP Management |
-| Capacity targets, holds | reservations derived from planned devices, plans and contracts | Plan to Build Inventory Planning |
+| Capacity targets, holds, U reservations | — (planner, DCIM and MACD holds are written as holds; 9.27) | Plan to Build Inventory Planning |
 | Programmes, projects, work orders, POs, commissioning | — (analytics derived) | Programs & Projects, Field Force Management, Procurement |
 | Vendors, contracts, stock, spares | — | Supply Chain |
 | Plans, plan templates, benchmarks, scenarios, approvals on plans, plan / review packs, review comments | **stored** (the planner engine is datacenter-specific) | — (approved plans handed over to Programs & Projects) |
 | Power contracts, tariffs, findings | **stored** | Fin Ops receives cost figures |
-| Facility design: power chain, cooling coverage, fire / leak zones, design ratings | **stored** where Inventory does not hold them (OD-01) | Plan to Build Inventory |
+| Facility design: power chain, cooling plant, fire / leak zones, design ratings | — (Inventory, OD-01); cooling coverage (nearest unit, liquid share) is derived | Plan to Build Inventory |
 | Compliance policies, control mappings, attestations, decision records | **stored** | — |
 | Access events, visits, badges | security exceptions and the access-rights review (derived) | PACS / visitor / VMS connectors (INT-17…19) and Security Ops |
 | Business-model vocabulary, geography, severity and scope tables | **stored** (configuration) | — |
@@ -298,7 +300,7 @@ SynapseDC builds **nothing** of the modules below — no database, no backend, n
 | Operate to Acquire (BSS) | CRM · Customers | customers, tier, account manager; contracts, SLA, credit rules, contracted kW, GPU rate | Revenue Impact, Customer page, Command Center "Who is affected", Datacenter Customers tab | API-BSS-01, 02, 10 |
 | Operate to Acquire (BSS) | Orders · Plans & Products Catalog | services with placement and charge; products; cross-connect orders | Revenue Impact, impact everywhere, Tenants tab | API-BSS-03, 04, 09 |
 | Operate to Acquire (BSS) | Experience and Care | customer notices; impact per customer; SLA credits and metered usage written back | Incidents view (communications), Revenue Impact | API-BSS-05…08 |
-| Plan to Build | Inventory | sites, rooms, racks, devices, components, device types, lifecycle; DCIM extensions it can carry | Datacenters, Datacenter page, Device page, DCIM, Assets, Planner | API-INV-01…12 |
+| Plan to Build | Inventory | sites, rooms, racks, devices, components, device types, lifecycle; DCIM extensions it can carry | Datacenters, Datacenter page, Device page, DCIM, Assets, Planner | API-INV-01…13 |
 | Plan to Build | Inventory Planning | capacity targets and holds; reservations written back | Capacity, Planner | API-IPL-01, 02 |
 | Plan to Build | IP Management | prefixes, VRFs, VLANs, addresses; assignment from DCIM | IP & Network insights, DCIM device drawer, Planner IP plan | API-IPM-01…04 |
 | Plan to Build | Programs & Projects (incl. work orders, commissioning) | programmes, projects, milestones, cost, risks, change orders, work orders, process tasks, commissioning tests, POs; project created from an approved plan | Programs & Projects insights, Work orders KPIs, Commissioning, Planner Delivery tab, Command Center build lens | API-PRJ-01…08 |
@@ -342,12 +344,12 @@ This is the development view of 3.4–3.6. It lists every piece of software the 
 | DEV-02 | **SynapseDC API (backend for the screens)** | One REST endpoint per `api/index.ts` function (NB-01 paths), the OpenAPI document, server push of changes (SSE / WebSocket, GEN-005), the tenant-scoped API (NB-12, to discuss) | 9, 17.7, interface spec NB-01…12 | P1 |
 | DEV-03 | **Read-model services** | The datacenter logic ported from the ideation read models with the same rules and output shapes: situation and health areas · alarm scope and correlation · incident impact, RCA and actions · revenue impact · physical last mile (power chain, cooling coverage, cabling, single points of failure, what-if) · environment and safety · asset lifecycle · planned maintenance view · operations process view · access and security exceptions · GPU fleet view, GPU time lost, occupancy and fit to sell · power economics and power findings · capacity and reservations · DCIM model (hierarchy, rows, U, power, cables) · internet edge and DCI · compliance evaluation · MACD feasibility and charges · Security Ops datacenter context · Command Center plan & build lens | 7.x business rules; 17.5 (mock file per read model) | P1–P3 |
 | DEV-04 | **Planner engine** | Template inheritance and modules, sizing, cost / NPV / IRR, schedule, rules, readiness, governance and approvals, sourcing, materials, scenarios, pinning, custom site types, plan and review packs (PDF / XLSX / ZIP, generated in the browser), hand-over to Programs & Projects | 7.9, 17.2 (`planner/lib/*`) | P2 |
-| DEV-05 | **DC-STORE (SynapseDC database)** | Only the datacenter-specific tables of 10.4, with audit and versioning | 3.4 ARCH-012, 10.4 | P1 |
+| DEV-05 | **DC-STORE (SynapseDC database)** | Only the datacenter-specific tables of 10.4, with audit and versioning; no physical or facility record (those are in Inventory, 9.27) | 3.4 ARCH-012, 10.4 | P1 |
 | DEV-06 | **Module adapters** | One client per consumed module API (9.11–9.25) that maps the module's response onto the screen contract (`api/types.ts`), caches it with the module id and an expiry (ARCH-003) and subscribes to the module's change events | 9.10–9.25 | P1 |
 | DEV-07 | **Write-back service** | Every user write (W-01…42) and automatic write (A-01…16) to a module API, with idempotency key, retry, failure queue and audit (WR-001…008) | 9.26 | P1 |
 | DEV-08 | **Scheduled evaluations** | Periodic jobs that raise findings into System Alerts or ITSM: power contract findings, monitoring gaps, compliance policy runs, IP exhaustion forecast, SLA / at-risk clocks of MACD requests, template and benchmark effect on open plans on demand | 7.3, 7.8, 7.11, 7.13, 9.26 A-rows | P1–P3 |
-| DEV-09 | **Datacenter source adapters for the on-site collector** | The southbound readers no platform collector has: Modbus (UPS, PDU, meters, ATS, DG), BACnet / OPC UA (BMS, CRAH, CDU), Redfish / IPMI (BMC), DCGM / habanalabs / XPU Manager, Slurm / Kubernetes / Run:ai, UFM, PACS / visitor / VMS; alarm normalisation to the Alert shape; read-only credentials; outbound mTLS only. Runs inside the platform's collector framework (OD-12). | 6.2, 7.5 ALM-001, interface spec INT-01…28 | P1 |
-| DEV-10 | **Onboarding import and export** | Import template validation and load, reconciliation report against discovered inventory (sent to Inventory), site export in the same layout | 10.2 DATA-012…014 | P1 / P2 |
+| DEV-09 | **Datacenter source adapters for the on-site collector** (developed by SynapseDC, **after** the application — OD-12) | The southbound readers no platform collector has: Modbus (UPS, PDU, meters, ATS, DG), BACnet / OPC UA (BMS, CRAH, CDU), Redfish / IPMI (BMC), DCGM / habanalabs / XPU Manager, Slurm / Kubernetes / Run:ai, UFM, PACS / visitor / VMS; alarm normalisation to the Alert shape; read-only credentials; outbound mTLS only. Developed by SynapseDC once the application with its UI and create / read / update / delete over the APIs and DC-STORE is ready, then integrated (OD-12). | 6.2, 7.5 ALM-001, interface spec INT-01…28 | After the application |
+| DEV-10 | **Onboarding import and export** | Import template validation, load into Inventory and Inventory Planning through their write APIs (9.27), reconciliation report against discovered inventory (after the collector), site export in the same layout | 10.2 DATA-012…014 | P1 / P2 |
 | DEV-11 | **Configuration and reference data** | Business-model vocabulary, geographies, severity / scope lookups, GPU model catalogue and benchmark references, tariffs and power contracts, standard site types, seed templates, rules and benchmarks, MACD catalogue, compliance policies and framework mappings, metric catalogue (sent to OAP, INTG-057) | 10.4 domain A | P1 |
 | DEV-12 | **AI tools** | The SynapseDC API exposed as AI Foundry tools, with the suggested questions and deep-link answers of the ideation copilot | 7.12, API-AIF-02 | P2 |
 | DEV-13 | **Acceptance tests** | The ideation QA checks ported per screen and per read model (layout, reconciliation, formulas) | 17.8 | P1–P3 |
@@ -374,10 +376,10 @@ This is the development view of 3.4–3.6. It lists every piece of software the 
 | Ask | Module | Where |
 | --- | --- | --- |
 | The API fields and events SynapseDC needs that a module does not offer yet | each module | API gap list 9.10 (ARCH-004) |
-| DCIM extension fields on the Inventory record (U position, outlets and cords, panels and feeds, patch panels, trunks, cable paths, rack type and condition, design ratings) | Plan to Build Inventory | OD-01; whatever is refused stays in DC-STORE (10.4 domain B) |
+| The new Inventory fields and records of 9.27 (rows, U position, rack type / condition / budget / contracted kW, tenant blocks, device-type templates, power chain, cooling plant, cabling, circuits, safety, sensors, design ratings) and the read API-INV-13; U range on Inventory Planning holds | Plan to Build Inventory, Inventory Planning | OD-01 decided; 9.27 |
 | Extension fields on the incident for impact, RCA, actions and verification | Services & ITSM Incidents | API-ITSM-04; else kept in DC-STORE keyed by the incident id |
 | Datacenter tags on the alarm (scope, placement, correlation) | Ops Toolkit System Alerts | API-ALR (tags echo); else DC-STORE |
-| Transit and DCI commercial fields (plan, commit, price per Mbps, burst, term, SLA, NOC) on the circuit or the contract | Inventory / Supply Chain Contracts | OD-13 |
+| Transit and DCI commercial terms (plan, commit, price per Mbps, burst, term, SLA, NOC contact, account manager) on the provider contract, one line per circuit | Supply Chain Contracts | OD-13 (proposed) |
 | Write APIs for DCIM, IP assignment and Security Ops context | Inventory, IP Management, Security Ops | API-INV-09…12, API-IPM-04, API-SOC-08 |
 
 ## 4 Stakeholders, users and roles
@@ -571,7 +573,7 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 ### 7.1.5 Data
 | Entity | Read / write | System of record | Notes |
 | --- | --- | --- | --- |
-| Datacenter (site) | Read | SynapseDC DCIM / Plan to Build Inventory | state, tier, region, coordinates |
+| Datacenter (site) | Read | Plan to Build Inventory | state, tier, region, coordinates |
 | Alarm | Read | Ops Toolkit System Alerts (normalised by SynapseDC) | scope, severity, category |
 | Incident | Read | Services & ITSM Incidents (enriched by SynapseDC) | severity, SLA, impact |
 | Customer, service | Read | BSS CRM / Customers / Orders | premium flag, SLA, monthly charge |
@@ -734,10 +736,10 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 ### 7.2.5 Data
 | Entity | Read / write | System of record | Notes |
 | --- | --- | --- | --- |
-| Site, floor, room, rack | Read | Plan to Build Inventory / SynapseDC DCIM | rack grid position, owner, contracted kW |
+| Site, floor, room, rack | Read | Plan to Build Inventory | rack grid position, owner, contracted kW |
 | Device, module, interface | Read | Inventory (record) + collector (state) | ops state, telemetry |
-| Link, cable path, patch panel, trunk | Read | SynapseDC DCIM | LLDP ends + recorded hops |
-| PDU, outlet, power connection | Read | SynapseDC DCIM | A/B side, outlet per PSU |
+| Link, cable path, patch panel, trunk | Read | Plan to Build Inventory (9.27 #11) | LLDP ends + recorded hops |
+| PDU, outlet, power connection | Read | Plan to Build Inventory (9.27 #9) | A/B side, outlet per PSU |
 | GPU node, GPU, job | Read | SynapseDC GPU Fleet | DCGM fields, job metadata |
 | Alarm, incident, change | Read | System Alerts / Services & ITSM | |
 | Access event, visit, exception, door | Read | customer PACS / visitor system | 1 y retention; exceptions also feed Security Ops physical detections |
@@ -746,7 +748,7 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | Customer, service | Read | BSS | cause of risk from SynapseDC |
 | Timeline event | Read | SynapseDC | ops log |
 | DCI circuit (inter-datacenter link) | Read | Plan to Build Inventory (circuit, ends) + Supply Chain Contracts (carrier) | type, route km, latency, carrier; estimated values marked (BRULE-SITE-19) |
-| Transit feed, eBGP session | Read | Inventory (circuit, router port) + Supply Chain Contracts (plan, price, term, SLA, NOC) + collector (BGP state, traffic) | commercial fields Inventory / Contracts cannot carry stay in DC-STORE (OD-13); HA state and findings derived |
+| Transit feed, eBGP session | Read | Inventory (circuit, router port) + Supply Chain Contracts (plan, price, term, SLA, NOC; OD-13) + collector (BGP state, traffic) | HA state and findings derived |
 
 ### 7.2.6 Integrations
 | System / module | Direction | Data | Interface |
@@ -895,7 +897,7 @@ Each chapter follows the same layout: purpose · scope · business rules · func
 | Entity | Read / write | System of record | Notes |
 | --- | --- | --- | --- |
 | Utility feed, ATS, UPS, battery, DG | Read | Inventory (record) + collector (state) | ratings, autonomy, fuel |
-| Busway, rack PDU, outlet, power connection | Read | SynapseDC DCIM | A/B, outlet per PSU |
+| Busway, rack PDU, outlet, power connection | Read | Plan to Build Inventory (9.27 #9) | A/B, outlet per PSU |
 | Cooling unit, CDU, cooling zone | Read | Inventory + BMS | capacity, redundancy design |
 | Environment sensor | Read | collector | rack inlet, room |
 | Fire zone, leak line, access point | Read | BMS / PACS / records | inspections |
@@ -2137,14 +2139,14 @@ These datacenter-specific records extend the Plan to Build Inventory asset recor
 | Entity | Read / write | System of record | Notes |
 | --- | --- | --- | --- |
 | Site, device (serial, model, lifecycle) | Read | Plan to Build Inventory | master asset |
-| Floor, hall, row, rack position / budget / type / condition | Read / write | Inventory API where it carries the field, else the SynapseDC DCIM extension store (OD-01) | — |
-| Device placement (rack, U, height, status) | Read / write | DCIM extension | under a change request |
-| Components, modules, inventory items | Read / write | DCIM extension | from type templates |
-| Power panel, feed, PDU, outlet, cord | Read / write | DCIM extension | power chain |
-| Patch panel, trunk, ODF, cross-connect, cable | Read / write | DCIM extension | TIA-942 |
-| Device / module type | Read / write | DCIM catalogue (Supply Chain Materials for purchase) | — |
-| Rack reservation | Read / write | DCIM extension | — |
-| Change request, work item | Read / write | Change Management (change); DCIM (work item) | tagged |
+| Floor, hall, row, rack position / budget / type / condition | Read / write | Plan to Build Inventory (9.27 #1, #3) | — |
+| Device placement (rack, U, height, status) | Read / write | Plan to Build Inventory (9.27 #5) | under a change request |
+| Components, modules, inventory items | Read / write | Plan to Build Inventory (9.27 #6) | from type templates |
+| Power panel, feed, PDU, outlet, cord | Read / write | Plan to Build Inventory (9.27 #9) | power chain |
+| Patch panel, trunk, ODF, cross-connect, cable | Read / write | Plan to Build Inventory (9.27 #11) | TIA-942 |
+| Device / module type | Read / write | Plan to Build Inventory (9.27 #7; Supply Chain Materials for purchase) | — |
+| Rack reservation | Read / write | Inventory Planning (9.27 #17) | — |
+| Change request, work item | Read / write | Change Management (change); DC-STORE (work item until the change is approved) | tagged |
 | LLDP neighbours | Read | SynapseDC discovery (INT-01) | reconcile |
 
 ### 7.10.6 Integrations
@@ -2503,7 +2505,7 @@ These datacenter-specific records extend the Plan to Build Inventory asset recor
 | Entity | Read / write | System of record | Notes |
 | --- | --- | --- | --- |
 | MACD catalogue item, request, stage history, notes, checks, tasks | Read / write | SynapseDC (DC-STORE) | datacenter-specific; audited |
-| U hold for a request | Write | DC-STORE (DCIM reservations) | released at verification / cancel |
+| U hold for a request | Write | Inventory Planning (9.27 #17) | released at verification / cancel |
 | Customer, contract, contracted kW, order, product prices | Read | BSS (API-BSS-01, 02, 04, 09, 11) | |
 | Order change, NRC / MRC | Write | BSS (API-BSS-11) | at verification |
 | Change request | Read / write | Services & ITSM Change Management (API-ITSM-06…09) | |
@@ -4035,7 +4037,7 @@ Grid position, row, rack type code and condition are DCIM extensions (API-INV-07
 | Field | Type | Req. | Used for |
 | --- | --- | --- | --- |
 | `id`, `siteId`, `rackId` | string | M | containment chain, alarm placement |
-| `u`, `uSize` | int | M | elevation, U clash check (if Inventory carries them; else DC-STORE) |
+| `u`, `uSize` | int | M | elevation, U clash check (Inventory field, OD-01) |
 | `role`, `vendor`, `model`, `serial` | string | M | role filters, GPU model, drift vs observed |
 | `status` (In service / Planned / Maintenance / Decommissioning / Tenant-owned) | enum | M | ops state, reserved space |
 | `mgmtIp` | string | M | collector targets, IPAM cross-check |
@@ -4074,7 +4076,7 @@ Grid position, row, rack type code and condition are DCIM extensions (API-INV-07
 | Field | Type | Req. | Used for |
 | --- | --- | --- | --- |
 | `id`, `vendor`, `model` | string | M | type pages, install |
-| `uHeight`, `typicalW`, `maxW`, `psus` | int / number | O | install budget check, planned draw (else DC-STORE templates) |
+| `uHeight`, `typicalW`, `maxW`, `psus` | int / number | O | install budget check, planned draw (Inventory field, OD-01) |
 | `generation`, `endOfSale` | enum / date | O | refresh candidates |
 
 #### API-INV-06 Lifecycle
@@ -4117,7 +4119,7 @@ Grid position, row, rack type code and condition are DCIM extensions (API-INV-07
 
 **Expected response:** `200` `{ "id": "SW-LEAF-03", "version": 42, "drift": [ { "attr": "os", "record": "NX-OS 10.2(5)", "observed": "NX-OS 10.3(4a)" } ] }`.
 
-**DCIM extension fields SynapseDC would like Inventory to carry (OD-01).** Each one Inventory accepts is written here; each one it does not stays in **DC-STORE**, keyed by the Inventory id:
+**DCIM fields Inventory carries (OD-01, decided 06-Nov-2026: Inventory holds them all; full list in 9.27).**
 
 | Field | On | Notes |
 | --- | --- | --- |
@@ -4129,7 +4131,7 @@ Grid position, row, rack type code and condition are DCIM extensions (API-INV-07
 | `patchPanel`, `trunk`, `odfPort`, `crossConnect` | cable path | structured cabling hops |
 | `sensorPosition` (rack, height) | sensor | rack inlet heat map |
 
-Stays in DC-STORE whatever Inventory decides: work items under a change request, U reservations, cooling coverage (nearest unit, liquid share), facility design ratings (site design kW, UPS / DG nameplate, tank, redundancy) where Inventory has no field.
+Facility design ratings, the power chain, cooling plant, cabling, circuits and safety records are read back with API-INV-13; U reservations are Inventory Planning holds (API-IPL-02). Only DCIM work items waiting for their change request stay in DC-STORE.
 
 | Field | Type | Req. | Used for |
 | --- | --- | --- | --- |
@@ -4681,7 +4683,7 @@ SynapseDC does not only read the existing modules. Many actions on its screens *
 | WR-005 | After a successful write SynapseDC refreshes from the module (response body, then the module event), never from its own guess of the result. |
 | WR-006 | Automatic writes retry with back-off (1 min, 5 min, 30 min, then hourly for 24 h). A write still failing raises a Data Ops alarm (NFR-017) and shows "not synced" on the record. |
 | WR-007 | Every write is in the SynapseDC audit trail with the module, API id, the module's record id and version, the actor and the change request. |
-| WR-008 | Datacenter-specific data (RCA feedback, action steps, plans, compliance, U reservations, power contracts) is written to DC-STORE, not to a module. These rows are marked DC-STORE below. |
+| WR-008 | Datacenter-specific data (RCA feedback, action steps, plans, compliance, DCIM work items, power contracts) is written to DC-STORE, not to a module. These rows are marked DC-STORE below. |
 
 **A. User actions that update a module, screen by screen**
 
@@ -4704,10 +4706,10 @@ SynapseDC does not only read the existing modules. Many actions on its screens *
 | W-15 | DCIM › Set device status (DCIM-019) | Plan to Build Inventory | API-INV-10 | Active / Maintenance / Decommissioning … | yes (standard for Maintenance) | P1 |
 | W-16 | DCIM device drawer › Install / swap / remove module (DCIM-015) | Plan to Build Inventory | API-INV-11 | module in slot, serial, state; ports a line card adds | yes (hot-swap PSU / fan = standard) | P2 |
 | W-17 | DCIM device drawer › Edit port description / admin state (DCIM-014) | Plan to Build Inventory | API-INV-11 | port description, admin state | yes (standard) | P2 |
-| W-18 | DCIM device drawer › Connect / disconnect a cable (DCIM-014) | Plan to Build Inventory (if it carries cables) or DC-STORE | API-INV-07 | cable ends, type, structured route | yes (standard patch cord) | P1 |
-| W-19 | DCIM rack page › Reserve / release units (DCIM-016) | DC-STORE | — | U range, reason, expiry | yes (standard) | P2 |
-| W-20 | DCIM → Power › New power panel / feed (DCIM-017) | Plan to Build Inventory (if it carries them) or DC-STORE | API-INV-07 | panel (busway A / B, −48 V), feed (V, A, phases, rating) | yes | P1 |
-| W-21 | DCIM → Catalogue › New device / module type, import, component templates (DCIM-010) | Plan to Build Inventory (types); DC-STORE (templates) | API-INV-12 | vendor, model; U, typical W, port and power templates | — | P2 |
+| W-18 | DCIM device drawer › Connect / disconnect a cable (DCIM-014) | Plan to Build Inventory | API-INV-07 | cable ends, type, structured route | yes (standard patch cord) | P1 |
+| W-19 | DCIM rack page › Reserve / release units (DCIM-016) | Plan to Build Inventory Planning | API-IPL-02 | U range, reason, expiry | yes (standard) | P2 |
+| W-20 | DCIM → Power › New power panel / feed (DCIM-017) | Plan to Build Inventory | API-INV-07 | panel (busway A / B, −48 V), feed (V, A, phases, rating) | yes | P1 |
+| W-21 | DCIM → Catalogue › New device / module type, import, component templates (DCIM-010) | Plan to Build Inventory (types and templates) | API-INV-12 | vendor, model; U, typical W, port and power templates | — | P2 |
 | W-22 | DCIM device drawer › Assign next free address / unassign / set primary (DCIM-031) | Plan to Build IP Management | API-IPM-04, API-IPM-03 | address bound to device and interface; primary flag | yes | P2 |
 | W-23 | DCIM → Change requests › Raise change request (DCIM-020) | Services & ITSM Change Management | API-ITSM-08 | normal or standard CR (template STD-07 / 02 / 05), site, scope records, window | the new CR itself | P1 |
 | W-24 | DCIM → Change requests, change page › Execute planned work, one or all (DCIM-021) | Plan to Build Inventory / IP Management; Services & ITSM | API-INV-09…11, API-IPM-03 / 04, API-ITSM-09 | the record changes the work items hold; each work item marked done on the CR; CR completed when all are done | approved CR | P2 |
@@ -4724,7 +4726,7 @@ SynapseDC does not only read the existing modules. Many actions on its screens *
 | W-35 | MACD › New request (MACD-002) | DC-STORE | — | request, checks, notes | — | P2 |
 | W-36 | MACD › Feasible, send the quote / Customer accepted the quote / Reject (MACD-005, MACD-006) | BSS Orders | API-BSS-11 | status, quote with NRC and MRC, reason | — | P2 |
 | W-37 | MACD › Schedule: raise the change request (MACD-007) | Services & ITSM Change Management | API-ITSM-08 | standard or normal change, scope racks / devices, window, rollback | the change itself | P2 |
-| W-38 | MACD › Schedule: hold the rack space (MACD-008) | DC-STORE (DCIM U reservations) | — | U range for the request (released at verification / cancel) | standard DCIM record change | P2 |
+| W-38 | MACD › Schedule: hold the rack space (MACD-008) | Plan to Build Inventory Planning | API-IPL-02 | U range for the request (released at verification / cancel) | standard DCIM record change | P2 |
 | W-39 | MACD › Start the work (MACD-009, MACD-010) | Services & ITSM Change Management, Tickets | API-ITSM-09, API-ITSM-11 | change → In progress; remote-hands / work-order ticket | yes | P2 |
 | W-40 | MACD › Verified, close (MACD-012) | Plan to Build Inventory, IP Management | API-INV-09, API-INV-10, API-INV-11, API-IPM-04 | rack U, budget and contracted kW, devices installed / moved / removed, ports, cross-connect cable, addresses | yes (WR-003) | P2 |
 | W-41 | MACD › Verified, close (MACD-012) | Services & ITSM Change Management; BSS Orders | API-ITSM-09, API-BSS-11 | change → Completed; order Completed with NRC / MRC | — | P2 |
@@ -4752,6 +4754,63 @@ SynapseDC does not only read the existing modules. Many actions on its screens *
 | A-16 | MACD stage changes (accepted, scheduled window, done) | BSS Orders / Experience and Care | API-BSS-11 | request status for the customer portal (MACD-026) | P3 |
 
 **C. Updates that stay in the module's own screens** (SynapseDC links to them and has no write for them): approving or rejecting a change and CAB decisions; assigning an incident or ticket; work-order progress, checklists, sign-off, purchase-order receipt and commissioning test results (Programs & Projects); IP prefix, VRF, VLAN and range administration; customer, contract and order records; vendor, contract and stock records; custom fields and tags.
+
+---
+
+### 9.27 Inventory and Inventory Planning: what SynapseDC pulls and updates
+
+**Decided 06-Nov-2026 (OD-01): every physical and facility record is held by Plan to Build Inventory; every capacity target and hold is held by Inventory Planning.** SynapseDC keeps none of them. It **pulls** them through the APIs below to draw its screens and run its read models, and **updates** them through the same modules' write APIs from its own actions (always under a change request where the module asks for one, WR-001…008). The Inventory team adds the fields marked **new** to its record.
+
+**Plan to Build Inventory**
+
+| # | Information | Fields | SynapseDC pulls it for | SynapseDC updates it when | API |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Locations | region, site (status, tier, coordinates, commissioning date), building, floor, room / hall (kind), **row** (new) | every screen's hierarchy, Datacenters list, map, DCIM sites and floor plan | onboarding import (DEV-10); new row from the floor plan | API-INV-01 · write API-INV-07 |
+| 2 | Facility design ratings (**new**) | site design kW, Tier, redundancy (N, N+1, 2N), UPS and DG nameplate, fuel tank litres, cooling capacity, building entries | Facilities ride-through and heat balance, Capacity, Command Center areas, single points of failure, Planner site baseline | onboarding import; facility edit | API-INV-13 · write API-INV-07 |
+| 3 | Racks | id, room, row, **grid position, face** (new), U height, **rack type, purchase date, condition + note** (new), **power budget kW** (new), owner / tenant, **contracted kW** (new), status | DCIM, floor plan, twin, rack page, Capacity, MACD checks, Planner | New rack, Edit, Retire (DCIM-005…); MACD verification (budget, contracted kW) | API-INV-02 · write API-INV-09 |
+| 4 | Tenant equipment block (**new**, Colo) | cabinet, owner, contracted kW, role; no devices inside (DATA-008) | Tenants, Revenue, twin | MACD verification | API-INV-02 · write API-INV-09 |
+| 5 | Devices / assets | id, role, vendor, model, type, serial, rack, **U, U size, face** (new), status, purpose, install date, purchase date | every screen | Install, Move (incl. drag on the elevation), Set status (DCIM-006…); MACD verification | API-INV-03 · write API-INV-10 |
+| 6 | Components | modules, PSUs, fans, disks, optics, ports and interfaces (speed, description, admin state) | Device page, DCIM drawer, Equipment, physical last mile | Install / swap / remove a module, edit a port (DCIM-013, -015) | API-INV-04 · write API-INV-11 |
+| 7 | Device and module types | vendor, model, role, **U, typical W, max W, PSUs, port and power-port templates** (new), end of sale / support | DCIM catalogue, install budget check, planned draw, Planner materials | New device / module type, component templates, import (W-21) | API-INV-05 · write API-INV-12 |
+| 8 | Lifecycle | install date, warranty end, end of sale / support per model | Assets, Device Hardware, Planner refresh plans | — (support contracts are Supply Chain) | API-INV-06 |
+| 9 | Power chain (**new**) | utility feed, ATS, UPS and modules, battery strings, DG, rectifier / −48 V plant; power panels (busway A / B per hall, −48 V distribution, feeding UPS module); rack PDUs (side, V, A, phases, rating); outlets and breakers; power cords (device PSU → outlet, phase) | Facilities power path, cabinet distribution, what-if, rack PDU outlet map, single points of failure, twin power paths, device Power & cabling | New panel, New feed (W-20); cords on install / move | API-INV-13 · write API-INV-07 |
+| 10 | Cooling plant (**new** fields) | CRAH / CRAC / CDU units with capacity, floor / zone, loop and racks fed (liquid) | Cooling heat balance, coverage by floor, GPU cooling | onboarding import | API-INV-13 · write API-INV-07 |
+| 11 | Structured cabling (**new**) | patch panels and ODF ports, trunks (tray route, cores), cables (both ends, type, hops), cross-connects, outside-plant cable cores | cable paths, link drawer, topology, twin cable paths, network rails, single points of failure (trunk) | Connect / disconnect a cable (W-18); MACD cross-connects | API-INV-13 · write API-INV-07 |
+| 12 | Circuits (**new** fields) | DCI and transit circuits: circuit id, carrier, both ends (router port, demarc, POP), type, route km, building entry, duct | map DCI mesh, Internet & carriers, internet single points of failure | onboarding import | API-INV-13 · write API-INV-07 |
+| 13 | Safety and sensors (**new**) | fire zones (detection, agent, release mode), leak ropes, doors and readers, sensor positions (rack, height) | Environment & safety, Access, rack inlet heat map | onboarding import | API-INV-13 · write API-INV-07 |
+| 14 | Observed state | discovered serial, model, OS, modules, LLDP; drift against the record | drift on Device and DCIM | collector reconciliation (DATA-013), after OD-12 | write API-INV-07 (observations) |
+| 15 | Change events | created, changed, retired per asset, rack, location | refresh of every read model | — | API-INV-08 |
+
+**Plan to Build Inventory Planning**
+
+| # | Information | Fields | SynapseDC pulls it for | SynapseDC updates it when | API |
+| --- | --- | --- | --- | --- | --- |
+| 16 | Capacity targets | per site and hall: dimension (space, power, cooling, network, GPU), unit, design capacity, warn % | Capacity bars and the 85 % line, Planner site fit, Command Center build lens | — | API-IPL-01 |
+| 17 | Holds and reservations | id, site, hall, rack, **U range** (new), dimension, amount, kind (Reserved / Committed / Pipeline / Requested), source (plan, contract, change, MACD request), from / to, status | Capacity → Reservations and net available, DCIM reserved units, install / move checks, MACD feasibility | Planner approval and Start the build (PLN-026); DCIM Reserve / release units (W-19); MACD schedule hold and its release at verification or cancel (W-38) | API-IPL-01 · write API-IPL-02 |
+
+**What SynapseDC does not do with these records:** it keeps no copy (it may cache a response with its id and expiry, ARCH-003), it never edits them outside the actions listed, and DCIM edits wait as **work items** under their change request (DC-STORE `dcim_work_item`, 10.4) until the change is approved; executing a work item is the Inventory write.
+
+#### API-INV-13 Read power chain, cooling plant, cabling, circuits and safety records
+
+| Method · illustrative path | Direction | Called by | Rate / trigger |
+| --- | --- | --- | --- |
+| `GET /facility/{site}/power-chain`, `/cooling`, `/cabling`, `/circuits`, `/safety`, `/design` | In | physical last mile, Facilities, DCIM Power and Cabling, twin paths, Internet & carriers, single points of failure | on open + API-INV-08 events |
+
+**Expected response (power chain, shortened):**
+```json
+{ "siteId": "IL-DC-009", "design": { "designKw": 6000, "tier": "III", "redundancy": "2N" },
+  "panels": [ { "id": "IL-DC-009/HALL-A/BUS-A", "side": "A", "ups": "UPS-2", "ratingKw": 900 } ],
+  "feeds": [ { "id": "PDU-B09-A", "rackId": "RACK-B09", "panel": "IL-DC-009/HALL-A/BUS-A", "v": 415, "a": 32, "phases": 3, "ratingKw": 17.7 } ],
+  "cords": [ { "deviceId": "GPU-014", "psu": "PSU1", "feed": "PDU-B09-A", "outlet": 14, "phase": "L2" } ] }
+```
+
+| Field | Type | Req. | Used for |
+| --- | --- | --- | --- |
+| `panels[]`, `feeds[]`, `cords[]` | array | M | power path, Σ feed = rack draw, single-side findings |
+| `cabling.panels[]`, `trunks[]`, `cables[].hops[]` | array | M | cable paths, trunk what-if |
+| `circuits[]` type, carrier, ends, routeKm, entry, duct | array | M | DCI mesh, internet HA findings |
+| `design` | object | M | ride-through, heat balance, capacity |
+
 
 ---
 
@@ -4795,7 +4854,7 @@ DC-STORE holds **only** the tables below. Everything else is read through a modu
 
 | ID | Requirement | Priority | Phase |
 | --- | --- | --- | --- |
-| DATA-017 | DC-STORE shall hold only the tables of this section. A new table needs a reason why no module owns the data (ARCH-012). | M | P1 |
+| DATA-017 | DC-STORE shall hold only the tables of this section. A new table needs a reason why no module owns the data (ARCH-012). Physical and facility records are never DC-STORE tables (OD-01). | M | P1 |
 | DATA-018 | Every row shall carry a stable id, the operator (tenant) id, the site id where it belongs to a site, created / updated time and user. Row access follows the user's site scope from Platform Engineering. | M | P1 |
 | DATA-019 | A reference to a module record shall be stored as the module's id (with the module name where ambiguous), never as a copy of its fields. Display names may be cached with an expiry (ARCH-003). | M | P1 |
 | DATA-020 | Versioned tables (templates, benchmark values, compliance policies, plan baselines, site types) shall keep every earlier version unchanged; edits create a draft or a new version, never an in-place change of a published version. | M | P2 |
@@ -4815,26 +4874,11 @@ DC-STORE holds **only** the tables below. Everything else is read through a modu
 | power_contract | Per site: utility (connection kW, take-or-pay floor %, demand charge) or colocation block (kW, rate per kW-month, floor), escalator, term end, illustrative flag | site id (Inventory) | 7.8 | P2 |
 | metric_catalogue | Metric names, units, labels, expected interval per source | metric name | sent to OAP (INTG-057) | P1 |
 
-**B. DCIM and facility extensions** (keyed by Inventory ids; only what Inventory cannot carry, OD-01)
+**B. DCIM work waiting for approval** (every physical and facility record is in Inventory and every hold in Inventory Planning — OD-01, 9.27)
 
 | Table | Holds | Keys and references | Notes | Phase |
 | --- | --- | --- | --- | --- |
-| rack_placement | Hall, row, position in row, face, rack type, purchase date, condition and note, power budget kW | rack id (Inventory) | 7.10, BRULE-SITE-18 | P1 |
-| device_placement | Rack, U position, U size, face | device id (Inventory) | U clash check | P1 |
-| tenant_block | Opaque tenant equipment per cabinet: owner, contracted kW, role | rack id, customer id (BSS) | DATA-008, Colo | P1 |
-| device_type_template | U height, typical / max W, PSUs, port and power-port templates | device type id (Inventory) | W-21 | P2 |
-| power_panel | Busway A / B or −48 V distribution per hall, UPS module feeding it, rating | hall (room) id, UPS id | | P1 |
-| power_feed | Rack PDU: side, V, A, phases, rating, panel | rack id → power_panel | | P1 |
-| power_cord | Device PSU → PDU outlet, phase, breaker | device id, power_feed | Σ = rack draw | P1 |
-| patch_panel | Cabinet panels and ODF ports | rack id | | P1 |
-| trunk_cable | Trunk between panel and ODF, tray route 1 / 2, cores | patch_panel ids | | P1 |
-| cable | Data cable: both ends (device, port), type, structured route hops, outside-plant core | device / port ids (Inventory), link id | W-18 | P1 |
-| cooling_coverage | Rack → nearest cooling unit, zone, liquid share to its CDU | rack id, unit id | | P1 |
-| facility_design | Site design kW, UPS / DG nameplate, tank litres, cooling capacity, redundancy, Tier | site id | | P1 |
-| safety_zone | Fire zone (detection, suppression agent, release mode), leak rope, access point (door, reader type) | room id | 7.3 | P2 |
-| transit_extension | Transit / DCI commercial fields: plan, commit, billing method, price per Mbps, burst, term, SLA, NOC, account manager | circuit id (Inventory), contract id (Supply Chain) | only if OD-13 keeps them here | P2 |
-| u_reservation | Rack, U range, reason, expiry, holder (change, plan or MACD request) | rack id, change id / plan id / request id | W-19, W-38 | P1 |
-| dcim_work_item | Planned DCIM record change under a change request: operation, arguments, state, executed by / at | change id (ITSM) | BRULE-DCIM, 7.10 | P1 |
+| dcim_work_item | A DCIM edit saved under a change request that is not approved yet: operation (new rack, install, move, status, connect / disconnect, module, port, panel, feed), arguments, state, executed by / at; executing it is the Inventory / Inventory Planning write | change id (ITSM), target record id (Inventory) | 7.10 | P1 |
 
 **C. Operations enrichment** (keyed by module ids)
 
@@ -4854,7 +4898,6 @@ DC-STORE holds **only** the tables below. Everything else is read through a modu
 | benchmark_value | Measure, case (applies-to fields), low / typical / high, unit, source, as-of, confidence, version, retired, pending change | id + version | | P2 |
 | approval_delegation | Role, from user, to user, period | user ids (Platform Engineering) | | P2 |
 | plan_review, plan_review_comment | Review request (reviewers, message, files sent) and threaded comments per section | → plan | | P2 |
-| planner_hold | Capacity held by an approved plan (racks, kW) | plan id, rack ids | written on to Inventory Planning (API-IPL-02) | P2 |
 
 **E. MACD, compliance and imports**
 
@@ -4876,7 +4919,7 @@ DC-STORE holds **only** the tables below. Everything else is read through a modu
 | writeback_queue | Writes to module APIs waiting or failed (DEV-07): target API, payload, idempotency key, attempts, error | module record id | | P1 |
 | user_preference | Per-viewer conveniences (list or tiles, open sections, twin view) | user id | optional; browser storage is enough for P1 | P2 |
 
-**Not in DC-STORE** (read through the module API, never copied): customers, contracts, services, orders; alarms; incidents, problems, changes, maintenance plans, tickets, on-call rota; sites, rooms, racks and devices as asset records; device and module types; IP addresses, prefixes, VLANs; capacity targets; programmes, projects, work orders, purchase orders, commissioning tests; vendors, stock, spares, warranty and support contracts; users and roles; telemetry samples; security detections and cases; access events (read from PACS through the collector and Security Ops).
+**Not in DC-STORE** (read through the module API, never copied): customers, contracts, services, orders; alarms; incidents, problems, changes, maintenance plans, tickets, on-call rota; sites, floors, rooms, rows, racks, devices, components, device and module types and templates, U positions, tenant blocks, the power chain, cooling plant, cabling, circuits, fire / leak / access points, sensors and facility design ratings (Inventory, 9.27); capacity targets, holds and U reservations (Inventory Planning, 9.27); transit and DCI commercial terms (Supply Chain Contracts, OD-13); IP addresses, prefixes, VLANs; capacity targets; programmes, projects, work orders, purchase orders, commissioning tests; vendors, stock, spares, warranty and support contracts; users and roles; telemetry samples; security detections and cases; access events (read from PACS through the collector and Security Ops).
 
 ### 10.3 Retention
 
@@ -4927,6 +4970,8 @@ Telemetry retention (raw samples and roll-ups) is set in the OAP telemetry servi
 | **P1** | Operate core (MVP) | Collector and INT-01…13, INT-28; alarm scope, normalisation, correlation, incident enrichment on System Alerts + ITSM Incidents / Change Management; Command Center; Datacenters site page (Overview, Needs attention, Metrics, Ops log, schematic layout, Equipment, Space & ports, Customers, Revenue tabs); device page (3D view schematic, interfaces, links, Power & cabling); Facilities Power / Cooling / Environment; GPU Fleet jobs, nodes, clusters, telemetry, GPU models, rails; Revenue Impact; DCIM records (racks, devices, power panels / feeds / outlets / cords, cabling) with the standard-CR path; customer page; import template and reconciliation reporting; integrations INTG-001–005, 011, 013, 018–022, 029, 031, 032, 035, 046, 047, 054 (embed). | Two pilot sites (one Colo, one Neo) live; reconciliation checks green; NFR-001–008 met |
 | **P2** | Resilience, money, plan & build | Realistic twin, walk, power & cable paths, device popup and trace views; Access & security tab; SPOF and what-if; maintenance (PM plan, resilience tests); lifecycle, RMA, spares; environment & safety panels; Capacity & reservations; power economics (contracts, bill, findings, GPU cost per GPU-hour, by job / tenant, placement); Planner (all families, templates, benchmarks, governance, materials, plan pack, review pack and portal, edit policy) with hand-off to Programs & Projects; DCIM change control (open CR / raise new), drag-move, reservations, explorer, insights; analytics pages 8.1–8.6; Datacenter Security Ops; notices and credits to BSS; metered usage export; customer-side connectors INTG-040, 048–053; Opstral AI on AI Foundry. | Planner → Programs & Projects round trip on a real plan; power findings validated against a real bill; Security Ops cases on real detections |
 | **P3** | Govern and extend | Compliance (policies as code, frameworks, decision records, attestations); tenant-scoped API; Knowledge Center runbooks; AI Foundry model training on RCA feedback; cloud, enterprise and telco variants; further vendor connectors. | Compliance evidence accepted by an auditor for one framework; one tenant portal live on NB-12 |
+
+**Development order (decided 06-Nov-2026, OD-12).** Engineering builds in two steps, across the phases above: **(1) the application** — every Build screen with its create / read / update / delete over the module APIs (9.11–9.27) and DC-STORE (10.4), data entered through the screens and the onboarding import; **(2) the collector** — the datacenter source adapters (DEV-09) and their integration, which turn on live telemetry, alarm normalisation and discovery reconciliation. Until step 2, P1 features that need live readings show "no telemetry" unless the reading already reaches the OAP telemetry services from another source.
 
 ### 12.1 Onboarding a customer site (the delivery approach)
 
@@ -5005,7 +5050,7 @@ Each site follows the same onboarding journey; the BRD requirements each step re
 
 | ID | Decision | Owner | Needed by |
 | --- | --- | --- | --- |
-| OD-01 | Which DCIM extensions (U position, outlets and cords, panels and feeds, patch panels, trunks, cable paths, rack type and condition, facility design ratings) the Plan to Build Inventory API can carry; SynapseDC stores only the rest (ARCH-012) | Inventory + SynapseDC | P1 design |
+| OD-01 | **Decided 06-Nov-2026:** Plan to Build Inventory holds every physical and facility record (DCIM fields, power chain, cooling plant, cabling, circuits, safety, sensors, design ratings) and Inventory Planning every hold incl. U reservations; SynapseDC pulls and updates them through their APIs (9.27) and stores none of them | — | closed |
 | OD-02 | GPU job progress export (metrics endpoint or log line) | AI platform teams / customers | P1 pilot |
 | OD-03 | BMS access: BACnet / OPC UA read-only or relay contacts only | Customer facility owner | per site |
 | OD-04 | SLA credit model per contract (tiers, locked-in credits) | BSS + Finance | P1 |
@@ -5016,8 +5061,8 @@ Each site follows the same onboarding journey; the BRD requirements each step re
 | OD-09 | Which API receives work orders raised from DCIM change requests and RMAs: Programs & Projects or Field Force Management (both consumed, neither rebuilt) | Plan to Build + Supply Chain | P2 |
 | OD-10 | Decided 28-Oct-2026: datacenter-specific capabilities (facility live state, twin, capacity, planner engine, revenue, RCA, compliance, access exceptions) are built in SynapseDC; everything an existing module owns is consumed through its API (3.4) | — | closed |
 | OD-11 | BI access: SQL views on the analytics store or export only | Intelligence Hub | P2 |
-| OD-12 | Collector: SynapseDC writes the datacenter source adapters (DEV-09) inside the platform's collector framework (Telemetry Ops), or the platform team owns them | Telemetry Ops + SynapseDC | P1 design |
-| OD-13 | Where transit and DCI commercial fields live (plan, commit, price per Mbps, burst, term, SLA, NOC): Inventory circuit, Supply Chain contract, or DC-STORE `transit_extension` | Inventory + Supply Chain + SynapseDC | P2 |
+| OD-12 | **Decided 06-Nov-2026:** SynapseDC develops the collector source adapters (DEV-09) itself, after the application with its UI and create / read / update / delete is ready; they are then integrated with the application. Until then live values come only from what already reaches the OAP telemetry services, and screens show "no telemetry" where nothing does | — | closed |
+| OD-13 | **Proposed:** a transit or DCI circuit is split in two — the physical circuit (id, carrier, both ends, router port, route km, building entry, duct) in Inventory (9.27 #12), the commercial terms (plan, commit Mbps, 95th-percentile billing, price per Mbps, burst, term, SLA, NOC contact, account manager) in Supply Chain Contracts as a contract line per circuit id. Nothing in DC-STORE. To confirm with Supply Chain that a contract line can carry these terms | Supply Chain + Inventory | P2 |
 
 ---
 
@@ -5881,17 +5926,17 @@ One site end to end. It has four group pills, each with its own sub tabs. `?tab=
 | Feature | What the user sees / does | FR | Data from | Phase |
 | --- | --- | --- | --- | --- |
 | Layout bar and view switch | "Datacenter layout · Live" with a Building › Floor › Room › Rack › Equipment trail and a Schematic / Realistic switch (`?twin=`, remembered). | SITE-010, SITE-012 | — | P1 / P2 |
-| Schematic 3D layout | Building → floor → room → rack → device. Beacons mark critical and major racks, floor and room edges show state, floor labels show issue counts, and up to 3 critical callouts appear. | SITE-010 | API-INV-01..03, DC-STORE DCIM, DC-RM health | P1 |
+| Schematic 3D layout | Building → floor → room → rack → device. Beacons mark critical and major racks, floor and room edges show state, floor labels show issue counts, and up to 3 critical callouts appear. | SITE-010 | API-INV-01..03, API-INV-13, DC-RM health | P1 |
 | Needs attention card | Drills straight to the item. | SITE-011 | DC-RM health | P1 |
 | Facing row as glass | When a rack is open, the facing row turns to glass and takes no clicks. | SITE-043 | — | P1 |
-| Realistic view | Textured bezels per role, perforated doors (the selected rack swings open), trays, containment, plant cabinets, DG canopy and lighting. Effects drop automatically on slow GPUs. | SITE-012, NFR-014 | API-INV-03, DC-STORE DCIM | P2 |
+| Realistic view | Textured bezels per role, perforated doors (the selected rack swings open), trays, containment, plant cabinets, DG canopy and lighting. Effects drop automatically on slow GPUs. | SITE-012, NFR-014 | API-INV-03, API-INV-13 | P2 |
 | Colour-by overlays | Health · Temperature (heat map from rack inlets) · Rack power · Connectivity. | SITE-013 | API-OAP-01, DC-RM physical | P2 |
 | Rack labels | Every rack in an open room is named with a status dot; clicking a label opens the rack. | SITE-014 | DC-RM health | P2 |
-| Plant selection | Cooling units, UPS, rectifier, battery bank or DG. The camera flies to the unit and a card opens with "Open in Facilities". | SITE-015 | API-OAP-01, DC-STORE facility design | P2 |
+| Plant selection | Cooling units, UPS, rectifier, battery bank or DG. The camera flies to the unit and a card opens with "Open in Facilities". | SITE-015 | API-OAP-01, API-INV-13 design | P2 |
 | Walk mode | Eye-level camera: drag to look, click to walk, W A S D and arrows, collisions with racks, Esc to stop. | SITE-016 | — | P2 |
 | Power path / Cable paths chips | A and B busways fed from their UPS module and tap-offs into every rack (tripped and on-battery shown dashed), plus trunks to the ODF. A path card opens beside them. | SITE-017 | DC-RM physical, API-OAP-01 | P2 |
 | Device popup | Role, model, rack · U, state, links up and services, with Open device / View cabling / View power / Device in 3D. | SITE-018 | API-INV-03, API-BSS-03, DC-RM impact | P2 |
-| Cabling and power trace views | A 3D scene showing only this device: each cable through every hop to the far device (check-first marker), or PSU → outlet → PDU → busway → UPS → feed. | SITE-019 | DC-RM physical, DC-STORE DCIM | P2 |
+| Cabling and power trace views | A 3D scene showing only this device: each cable through every hop to the far device (check-first marker), or PSU → outlet → PDU → busway → UPS → feed. | SITE-019 | DC-RM physical, API-INV-13 | P2 |
 | Controls dock | Floor picker top-left, tools and "?" help top-right, one dock bottom-left (Colour by, paths and a foldable legend). | SITE-044 | — | P2 |
 | 2D fallback | Used when the browser has no WebGL. | SITE-020 | — | P1 |
 
@@ -5908,7 +5953,7 @@ One site end to end. It has four group pills, each with its own sub tabs. `?tab=
 | Facility strip | Six tiles: power load, PUE, UPS, cooling, environment, alarms & maintenance. Each opens its Facility sub tab. | FAC-001, FAC-038 | API-OAP-01, DC-RM physical | P1 |
 | Zone temperature and humidity | Averages with 24 h trends. | SITE-008 | API-OAP-02 | P1 |
 | Rack inlets and hottest | Inlet average and range, hottest chassis, hottest racks. | SITE-008 | API-OAP-03 | P1 |
-| Diesel | Litres, burn rate, 30-day use (estimated until metered). | SITE-008, FAC-040 | API-OAP-01, DC-STORE facility design | P1 |
+| Diesel | Litres, burn rate, 30-day use (estimated until metered). | SITE-008, FAC-040 | API-OAP-01, API-INV-13 design | P1 |
 | Hardware faults and device load | Hardware fault count and device load, CPU above 90 % flagged. | SITE-008 | API-ALR-01, API-OAP-03 | P1 |
 
 #### Overview › Ops log (`?tab=timeline`)
@@ -5948,25 +5993,25 @@ One site end to end. It has four group pills, each with its own sub tabs. `?tab=
 #### Infrastructure › Topology (`?tab=topology`)
 | Feature | What the user sees / does | FR | Data from | Phase |
 | --- | --- | --- | --- | --- |
-| Site topology | Network devices and links with state; hosts are counted per switch. `/topology?dc=` redirects here. | SITE-024, SITE-046 | API-INV-03, DC-STORE DCIM cables, API-OAP-01, API-ALR-01 | P1 |
+| Site topology | Network devices and links with state; hosts are counted per switch. `/topology?dc=` redirects here. | SITE-024, SITE-046 | API-INV-03, API-INV-13 cabling, API-OAP-01, API-ALR-01 | P1 |
 
 #### Infrastructure › Space & ports (`?tab=details`)
 | Feature | What the user sees / does | FR | Data from | Phase |
 | --- | --- | --- | --- | --- |
-| Rack space, ports, building | Used and free U, ports by speed, building facts. | SITE-025, SITE-046 | API-INV-02..04, DC-STORE DCIM | P1 |
+| Rack space, ports, building | Used and free U, ports by speed, building facts. | SITE-025, SITE-046 | API-INV-02..04, API-INV-13 | P1 |
 | Floors / rooms / racks table | Per room: racks, U and budget. | SITE-046 | API-INV-01, API-INV-02 | P1 |
 
 #### Infrastructure › Internet & carriers (`?tab=internet`)
 | Feature | What the user sees / does | FR | Data from | Phase |
 | --- | --- | --- | --- | --- |
-| HA state and findings | Redundant / At risk / Single with the findings (shared entry or duct, one router, feed on order, one provider, failover test overdue) and the last test. Hidden where the site has no transit record. | SITE-049, SITE-050 | API-INV-03, API-SCM-02, DC-STORE transit extension, DC-RM internet | P2 |
+| HA state and findings | Redundant / At risk / Single with the findings (shared entry or duct, one router, feed on order, one provider, failover test overdue) and the last test. Hidden where the site has no transit record. | SITE-049, SITE-050 | API-INV-03, API-SCM-02, API-INV-13 circuits, DC-RM internet | P2 |
 | Feed cards | Provider and ASN, plan (port, commit, 95th percentile, price per Mbps, burst, term), circuit, SLA, NOC, account manager, router port and optic, traffic. | SITE-049 | API-INV-03, API-SCM-02, API-OAP-01 | P2 |
-| Cable path and eBGP | Cross-connect → demarc → building entry → street route → POP; BGP state, role, prefixes, BFD, RPKI, authentication. | SITE-049 | DC-STORE DCIM cables, API-OAP-01 | P2 |
+| Cable path and eBGP | Cross-connect → demarc → building entry → street route → POP; BGP state, role, prefixes, BFD, RPKI, authentication. | SITE-049 | API-INV-13 cabling, API-OAP-01 | P2 |
 
 #### Infrastructure › Assets (`?tab=assets`)
 | Feature | What the user sees / does | FR | Data from | Phase |
 | --- | --- | --- | --- | --- |
-| Space by room, equipment by category, facility assets | Device counts per room and category, and the facility plant. | SITE-025 | API-INV-03, DC-STORE facility design | P1 |
+| Space by room, equipment by category, facility assets | Device counts per room and category, and the facility plant. | SITE-025 | API-INV-03, API-INV-13 design | P1 |
 | Lifecycle | Warranty and support state, RMA cases, spares. Rack type, purchase date and condition, including Damaged at audit. | SITE-041, FAC-028, FAC-029 | API-INV-06, API-SCM-01, API-SCM-03, API-ITSM-11 | P2 |
 | Links to DCIM | Rack rows open DCIM. | SITE-025 | — | P1 |
 
@@ -5998,7 +6043,7 @@ One device: its health, hardware, power, cabling, links and impact.
 | --- | --- | --- | --- | --- |
 | 3D model per family | Router, switch, firewall, optical, server, storage, GPU; parts coloured by kind and state. | SITE-028, SITE-045 | API-INV-03, API-INV-04, API-OAP-01 | P1 |
 | Modes and cameras | Device · Open lid · Exploded · One accelerator · In the rack; 3/4 · Front · Rear · Top; Health / Heat overlay. | SITE-028 | API-OAP-01 | P1 |
-| Power and Cables chips | Every PSU cord to its rear PDU outlet; the device's ports to the patch panel and trunk; a path card. | SITE-017, SITE-028 | DC-RM physical, DC-STORE DCIM | P2 |
+| Power and Cables chips | Every PSU cord to its rear PDU outlet; the device's ports to the patch panel and trunk; a path card. | SITE-017, SITE-028 | DC-RM physical, API-INV-13 | P2 |
 | 2D fallback and inspector | Part inspector; 2D scene when there is no WebGL. | SITE-020 | — | P1 |
 
 #### Hardware & interfaces (`?tab=hardware`)
@@ -6011,8 +6056,8 @@ One device: its health, hardware, power, cabling, links and impact.
 #### Power & cabling (`?tab=physical`)
 | Feature | What the user sees / does | FR | Data from | Phase |
 | --- | --- | --- | --- | --- |
-| Power chain | Each PSU → outlet → PDU side → UPS or −48 V plant → feed, with load per side. Both cords on one side is flagged. | SITE-027, FAC-010 | DC-STORE DCIM, DC-RM physical, API-OAP-01 | P1 |
-| Cable paths | Each port → optic → cord → panel → trunk → ODF → cross-connect → far end. | SITE-027, SITE-019 | DC-STORE DCIM, DC-RM physical | P1 |
+| Power chain | Each PSU → outlet → PDU side → UPS or −48 V plant → feed, with load per side. Both cords on one side is flagged. | SITE-027, FAC-010 | API-INV-13, DC-RM physical, API-OAP-01 | P1 |
+| Cable paths | Each port → optic → cord → panel → trunk → ODF → cross-connect → far end. | SITE-027, SITE-019 | API-INV-13, DC-RM physical | P1 |
 
 #### GPUs · DCGM (`?tab=gpus`, GPU nodes only)
 | Feature | What the user sees / does | FR | Data from | Phase |
@@ -6022,7 +6067,7 @@ One device: its health, hardware, power, cabling, links and impact.
 #### Links (`?tab=links`)
 | Feature | What the user sees / does | FR | Data from | Phase |
 | --- | --- | --- | --- | --- |
-| Links and fabric planes | Neighbours with state. Fabric connections are shown by plane (InfiniBand, Ethernet front-end, Management / OOB), with a BGP card where the switch runs it; border routers keep protocol cards. | SITE-026, GPU-018 | DC-STORE DCIM cables, API-OAP-01 | P1 |
+| Links and fabric planes | Neighbours with state. Fabric connections are shown by plane (InfiniBand, Ethernet front-end, Management / OOB), with a BGP card where the switch runs it; border routers keep protocol cards. | SITE-026, GPU-018 | API-INV-13 cabling, API-OAP-01 | P1 |
 | Link drawer | Cable path of the link. | SITE-019 | DC-RM physical | P1 |
 
 #### Impact (`?tab=impact`)
@@ -6065,13 +6110,13 @@ The building's power, cooling, environment and safety, single points of failure 
 | Feature | What the user sees / does | FR | Data from | Phase |
 | --- | --- | --- | --- | --- |
 | Collapsible sections | Power path · Load & ride-through · Cabinet power distribution & what-if · Rack power. A closed section shows a summary card with a state chip. | FAC-007 | — | P1 |
-| Power path diagram | Utility feeds, DG with fuel and runtime, ATS, LT panel, UPS modules, battery, IT racks, DC loads, with animated flow. Hovering traces upstream and downstream. | FAC-002, FAC-003 | API-OAP-01, DC-STORE facility design | P1 |
+| Power path diagram | Utility feeds, DG with fuel and runtime, ATS, LT panel, UPS modules, battery, IT racks, DC loads, with animated flow. Hovering traces upstream and downstream. | FAC-002, FAC-003 | API-OAP-01, API-INV-13 design | P1 |
 | 24 h load vs capacity | Load chart against capacity. | FAC-004 | API-OAP-02 | P1 |
-| If utility power fails | UPS minutes (shortest module), DG kW at 80 % of kVA, fuel hours and five readiness checks. A UPS on battery shows a note with the minutes left. | FAC-005, FAC-006, FAC-031 | API-OAP-01, DC-STORE facility design, API-ITSM-10 | P1 |
+| If utility power fails | UPS minutes (shortest module), DG kW at 80 % of kVA, fuel hours and five readiness checks. A UPS on battery shows a note with the minutes left. | FAC-005, FAC-006, FAC-031 | API-OAP-01, API-INV-13 design, API-ITSM-10 | P1 |
 | Cabinet distribution | By UPS, busway and PDU side. | FAC-012 | DC-RM physical | P2 |
 | What-if | Pick a feed, UPS, side, PDU, cooling unit or trunk to see what drops and what rides through. | FAC-013 | DC-RM physical | P2 |
-| Rack power list | Search plus State / Location quick filters, and Role / PDU sides in the panel (`rq rstate rroom rrole rpdu`). Shows draw vs budget and A / B. Over budget at 85 %, High at 75 %. | FAC-008 | API-OAP-01, API-INV-02, DC-STORE DCIM | P1 |
-| Rack PDU drawer | Outlet map: outlet, device, PSU, current, breaker. | FAC-009 | DC-STORE DCIM, API-OAP-01 | P2 |
+| Rack power list | Search plus State / Location quick filters, and Role / PDU sides in the panel (`rq rstate rroom rrole rpdu`). Shows draw vs budget and A / B. Over budget at 85 %, High at 75 %. | FAC-008 | API-OAP-01, API-INV-02, API-INV-13 | P1 |
+| Rack PDU drawer | Outlet map: outlet, device, PSU, current, breaker. | FAC-009 | API-INV-13, API-OAP-01 | P2 |
 | Same-side cords flag | Devices with both cords on one side. | FAC-010 | DC-RM physical | P1 |
 | Tenant cabinets | Colo only. Draw vs contracted kW; over-budget cabinets flagged (a commercial matter, not a loss). | FAC-011 | API-BSS-02, API-OAP-01 | P1 |
 | −48 V DC plant | Rectifiers, BDFB panels and battery, where present. | FAC-032 | API-OAP-01 | P1 |
@@ -6079,7 +6124,7 @@ The building's power, cooling, environment and safety, single points of failure 
 #### Cooling
 | Feature | What the user sees / does | FR | Data from | Phase |
 | --- | --- | --- | --- | --- |
-| Heat balance | Heat load, running capacity, capacity after losing the largest unit, margin. | FAC-014, FAC-036 | API-OAP-01, DC-STORE facility design | P1 |
+| Heat balance | Heat load, running capacity, capacity after losing the largest unit, margin. | FAC-014, FAC-036 | API-OAP-01, API-INV-13 design | P1 |
 | Unit cards | CRAH / CRAC / chiller / CDU with state, supply and return temperatures, load. | FAC-015 | API-OAP-01, API-ALR-01 | P1 |
 | CDU loops | Neo only. Flow, supply and return, the GPU racks served; a flow fault links to the GPU slowdown it causes. | FAC-016, FAC-017 | API-OAP-01, DC-RM gpu | P1 |
 | Coverage by floor | N+1 holds / No spare / Short, and each rack's nearest unit. | FAC-018 | DC-RM physical | P2 |
@@ -6088,7 +6133,7 @@ The building's power, cooling, environment and safety, single points of failure 
 | Feature | What the user sees / does | FR | Data from | Phase |
 | --- | --- | --- | --- | --- |
 | Zone cards | Temperature and humidity on safe-band tracks (18–27 °C, 40–60 % RH). | FAC-019 | API-OAP-01 | P1 |
-| Fire zones | Detection, suppression, agent %, release mode, last and next inspection. | FAC-020 | API-OAP-01 (BMS), DC-STORE facility design, API-ITSM-10 | P2 |
+| Fire zones | Detection, suppression, agent %, release mode, last and next inspection. | FAC-020 | API-OAP-01 (BMS), API-INV-13 design, API-ITSM-10 | P2 |
 | Leak detection | Rope lines and their state. | FAC-021 | API-OAP-01 (BMS) | P2 |
 | Access points | Mantrap, room doors, cage doors, with events and denials in 24 h. | FAC-022 | INT-17, DC-RM access | P2 |
 
@@ -6096,7 +6141,7 @@ The building's power, cooling, environment and safety, single points of failure 
 | Feature | What the user sees / does | FR | Data from | Phase |
 | --- | --- | --- | --- | --- |
 | SPOF list | Cords on one side, failed PSU, tripped PDU, one-side cabinets (≥ 90 %), UPS not online, Tier II single feed / route / entry, lost cooling spare. Domain filter (`?domain=`), with a what-if per item. | FAC-023, FAC-013 | DC-RM physical | P2 |
-| Resilience tests | Last run, outcome, next due. | FAC-024 | DC-STORE facility design, API-ITSM-10 | P2 |
+| Resilience tests | Last run, outcome, next due. | FAC-024 | API-INV-13 design, API-ITSM-10 | P2 |
 
 #### Maintenance & alarms
 | Feature | What the user sees / does | FR | Data from | Phase |
@@ -6105,7 +6150,7 @@ The building's power, cooling, environment and safety, single points of failure 
 | PM plan | Per plant asset: interval, last done, next due, state; impact shown as the what-if. | FAC-025, FAC-027 | API-ITSM-10, DC-RM physical | P2 |
 | Schedule maintenance | Raises a Maintenance change through Services & ITSM (`/changes?new=maintenance`). | FAC-026 | API-ITSM-08 | P2 |
 | Lifecycle, spares and contracts | Warranty and support state, RMA, spares per part family (on hand, reserved, minimum), support contracts and vendor dates. | FAC-028, FAC-029, FAC-037, FAC-039 | API-INV-06, API-SCM-01, API-SCM-03, API-ITSM-11 | P2 |
-| Estimates flagged | Diesel litres, burn, PDUs per rack and similar values are marked estimated until a record or reading replaces them. | FAC-040 | DC-STORE facility design | P1 |
+| Estimates flagged | Diesel litres, burn, PDUs per rack and similar values are marked estimated until a record or reading replaces them. | FAC-040 | API-INV-13 design | P1 |
 
 ### B.7 GPU Fleet
 **Route** `/gpu?dc=&gtab=clusters|jobs|nodes|models|telemetry|cooling|fabric|placement` · **Menu** Operations › GPU Fleet · **Status** Build (datacenter-specific) · **Phase** P1 (cooling & power cost and placement P2)
@@ -6159,7 +6204,7 @@ Neo only; hidden when there is no GPU infrastructure. GPUs, jobs and what faults
 #### Cooling & power
 | Feature | What the user sees / does | FR | Data from | Phase |
 | --- | --- | --- | --- | --- |
-| GPU cooling | CDU loops (capacity, load, supply and return, flow); GPU racks with draw vs budget, liquid / air, maximum temperature. | GPU-019, GPU-020 | API-OAP-01, DC-STORE facility design | P1 |
+| GPU cooling | CDU loops (capacity, load, supply and return, flow); GPU racks with draw vs budget, liquid / air, maximum temperature. | GPU-019, GPU-020 | API-OAP-01, API-INV-13 design | P1 |
 | Tenant AI cages | Colo only. Contracted kW, draw, CDU and inlet temperature; power and cooling only. | GPU-021 | API-BSS-02, API-OAP-01 | P1 |
 | Power cost per GPU-hour | Per pod, per installed and sold GPU-hour against the model's price; idle GPUs' power cost; links to Capacity → Power economics. | GPU-024, GPU-027 | DC-RM power-econ, DC-STORE contracts | P2 |
 | Energy and power cost by job / tenant | By job and by tenant: kW × PUE × tariff per day against earnings; idle allocations; power-cap trade-off. | GPU-025 | DC-RM power-econ, API-OPS-02 | P2 |
@@ -6167,7 +6212,7 @@ Neo only; hidden when there is no GPU infrastructure. GPUs, jobs and what faults
 #### Network
 | Feature | What the user sees / does | FR | Data from | Phase |
 | --- | --- | --- | --- | --- |
-| Network rails | InfiniBand, Ethernet front-end, OOB per cluster: ports, errors and flaps on one line. | GPU-018 | API-OAP-01, DC-STORE DCIM cables | P1 |
+| Network rails | InfiniBand, Ethernet front-end, OOB per cluster: ports, errors and flaps on one line. | GPU-018 | API-OAP-01, API-INV-13 cabling | P1 |
 
 #### Occupancy (`?gtab=occupancy`)
 | Feature | What the user sees / does | FR | Data from | Phase |
@@ -6338,7 +6383,7 @@ Shows what each datacenter can still take (space, power, cooling, ports, GPUs) a
 #### Space (`space`)
 | Feature | What the user sees / does | FR | Data from | Phase |
 | --- | --- | --- | --- | --- |
-| Space and power by hall | Racks / U used, held, free per hall with power pressure; opens the DCIM floor plan | CAP-003 | API-INV-02, API-INV-03; DC-STORE DCIM extensions | P2 |
+| Space and power by hall | Racks / U used, held, free per hall with power pressure; opens the DCIM floor plan | CAP-003 | API-INV-02, API-INV-03; API-INV-13 | P2 |
 
 #### Network (`network`)
 | Feature | What the user sees / does | FR | Data from | Phase |
@@ -6532,7 +6577,7 @@ The physical record of each datacenter below the asset: where each rack and devi
 #### Catalogue (`types`) and Device type page `/dcim/types/:id`
 | Feature | What the user sees / does | FR | Data from | Phase |
 | --- | --- | --- | --- | --- |
-| Device / module types | Vendor and model from Inventory; datacenter templates (U, typical W, ports, power ports) kept here | DCIM-010 | API-INV-05; DC-STORE templates | P1 |
+| Device / module types | Vendor and model with datacenter templates (U, typical W, ports, power ports), all in Inventory | DCIM-010 | API-INV-05; API-INV-12 templates | P1 |
 | Import JSON, new module type, component templates | On the catalogue and type page | DCIM-010 | DC-STORE | P2 |
 
 #### Changes (`changes`)
