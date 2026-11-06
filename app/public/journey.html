@@ -87,41 +87,51 @@ button.chip:hover { border-color: var(--accent); }
 /* lifecycle map */
 .legend { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 12.5px; color: var(--muted); }
 .legend i { display: inline-block; width: 22px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; }
-.map { position: relative; display: grid; gap: 12px; }
-.band, .stage { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: grid; gap: 10px; align-content: start; }
-.band { grid-template-columns: 170px minmax(0, 1fr); align-items: start; }
-.band .bh, .stage .bh { display: grid; gap: 2px; }
-.bh h3 { font-size: 15px; display: flex; align-items: center; gap: 8px; }
-.bh h3 .n { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; font-size: 12px; color: #fff; }
-.bh p { font-size: 12.5px; color: var(--muted); }
-.stages { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.stage.plan { border-top: 3px solid var(--plan); } .stage.plan .n { background: var(--plan); }
-.stage.build { border-top: 3px solid var(--build); } .stage.build .n { background: var(--build); }
-.stage.ops { border-top: 3px solid var(--ops); } .stage.ops .n { background: var(--ops); }
-.band.bss { border-left: 3px solid var(--bss); } .band.gov { border-left: 3px solid var(--gov); }
-.band.plat { border: 1px dashed var(--line-2); background: var(--surface-2); }
-.tiles { display: grid; gap: 8px; }
-.band .tiles { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
-.stage .tiles { grid-template-columns: 1fr; }
-.stage.ops .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.tile { position: relative; z-index: 2; text-align: left; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); padding: 8px 10px; display: grid; gap: 3px; transition: opacity .15s, box-shadow .15s, border-color .15s; min-width: 0; }
-.tile:hover { border-color: var(--accent); box-shadow: 0 2px 10px rgba(15, 23, 42, .08); }
-.tile b { font-family: var(--f-display); font-weight: 500; font-size: 13.5px; display: flex; align-items: center; gap: 6px; }
+.canvas { position: relative; height: max(520px, calc(var(--vh, 1vh) * 100 - 150px)); background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; touch-action: none; cursor: grab; user-select: none; }
+.canvas.drag { cursor: grabbing; }
+.canvas.full { position: fixed; inset: 0; z-index: 30; height: auto; border-radius: 0; }
+.canvas::before { content: ""; position: absolute; inset: 0; background-image: radial-gradient(var(--line-2) 1px, transparent 1px); background-size: 22px 22px; opacity: .55; pointer-events: none; }
+.world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.world.anim { transition: transform .45s cubic-bezier(.2, .7, .2, 1); }
+.frame { position: absolute; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
+.frame.plan { border-top: 4px solid var(--plan); } .frame.build { border-top: 4px solid var(--build); } .frame.ops { border-top: 4px solid var(--ops); }
+.frame.gov { border-left: 4px solid var(--gov); } .frame.bss { border-left: 4px solid var(--bss); }
+.frame.plat { border: 1.5px dashed var(--line-2); background: transparent; }
+.frame .fh { position: absolute; left: 18px; top: 12px; right: 18px; display: grid; gap: 1px; }
+.frame .fh h3 { font-size: 17px; display: flex; align-items: center; gap: 8px; }
+.frame .fh h3 .n { width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; font-size: 13px; color: #fff; }
+.frame.plan .n { background: var(--plan); } .frame.build .n { background: var(--build); } .frame.ops .n { background: var(--ops); }
+.frame .fh p { font-size: 12.5px; color: var(--muted); }
+.tile { position: absolute; z-index: 2; text-align: left; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 9px 11px; display: flex; flex-direction: column; gap: 3px; transition: opacity .2s, box-shadow .15s, border-color .15s; overflow: hidden; }
+.tile:hover { border-color: var(--accent); box-shadow: 0 3px 12px rgba(15, 23, 42, .1); }
+.tile b { font-family: var(--f-display); font-weight: 500; font-size: 14px; display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tile b .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
-.tile small { font-size: 12px; color: var(--muted); line-height: 1.4; }
-.tile .tg { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
+.tile small { font-size: 12px; color: var(--muted); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tile .tg { display: flex; gap: 4px; margin-top: auto; }
 .tile .tg span { font-size: 10.5px; border-radius: 4px; padding: 0 5px; background: var(--surface-2); color: var(--muted); }
-.tile.plat { background: var(--surface); border-style: dashed; }
+.tile.plat { border-style: dashed; padding: 8px 10px; }
+.tile.plat b { font-size: 13px; }
 .tile.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 .tile.sel { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent); }
-.map.dim .tile:not(.on):not(.sel) { opacity: .28; }
-.tile .step { position: absolute; top: -8px; right: -6px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 600; border-radius: 999px; min-width: 20px; height: 20px; display: grid; place-items: center; padding: 0 5px; }
-svg.wires { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; overflow: visible; }
-svg.wires path { fill: none; stroke: var(--line-2); stroke-width: 1.4; }
-svg.wires path.hot { stroke: var(--accent); stroke-width: 2.2; }
-svg.wires path.spine { stroke: var(--muted); stroke-width: 1.4; opacity: .55; }
-svg.wlabels { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; overflow: visible; }
-svg.wlabels text { font-size: 11px; font-family: var(--f-body); fill: var(--accent-ink); paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; }
+.world.dim .tile:not(.on):not(.sel) { opacity: .25; }
+svg.wires { position: absolute; left: 0; top: 0; overflow: visible; z-index: 1; pointer-events: none; }
+svg.wires path.w { fill: none; stroke: var(--line-2); stroke-width: 1.3; }
+svg.wires path.w.spine { stroke: var(--muted); stroke-width: 1.6; opacity: .6; }
+svg.wires path.w.hot { stroke: var(--accent); stroke-width: 2.4; opacity: 1; }
+svg.wires path.w.hov { stroke: var(--accent-ink); stroke-width: 2.8; opacity: 1; }
+svg.wires path.hit { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: help; }
+svg.wlabels { position: absolute; left: 0; top: 0; overflow: visible; z-index: 3; pointer-events: none; }
+svg.wlabels rect { fill: var(--surface); stroke: var(--accent); stroke-width: 1; }
+svg.wlabels text { font-size: 11.5px; font-family: var(--f-body); fill: var(--accent-ink); }
+.ctl { position: absolute; right: 12px; top: 12px; z-index: 5; display: flex; flex-direction: column; gap: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 4px; box-shadow: 0 2px 10px rgba(15, 23, 42, .08); }
+.ctl button { width: 34px; height: 34px; border: 0; background: none; border-radius: 7px; font-size: 17px; line-height: 1; display: grid; place-items: center; color: var(--fg-2); }
+.ctl button:hover { background: var(--surface-2); color: var(--accent-ink); }
+.ctl .zl { font-size: 11px; text-align: center; color: var(--muted); padding: 2px 0; font-variant-numeric: tabular-nums; }
+.hint { position: absolute; left: 12px; bottom: 10px; z-index: 5; font-size: 12px; color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; pointer-events: none; }
+.mini { position: absolute; right: 12px; bottom: 10px; z-index: 5; width: 150px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(15, 23, 42, .08); cursor: pointer; }
+.mini svg { display: block; width: 100%; height: auto; }
+.mini .vp { fill: var(--accent); fill-opacity: .08; stroke: var(--accent); stroke-width: 6; }
+.canvas.full ~ .story, .canvas.full + * { }
 .maptools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .story { position: sticky; top: 58px; z-index: 15; box-shadow: 0 6px 18px rgba(15, 23, 42, .08); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; }
 .story .num { font-family: var(--f-display); font-size: 22px; color: var(--accent-ink); min-width: 44px; }
@@ -209,14 +219,12 @@ footer { margin-top: 28px; font-size: 12.5px; color: var(--muted); border-top: 1
 
 @media (max-width: 1100px) { .paths { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 960px) {
-  svg.wlabels { display: none; } .story { top: 0; position: static; }
-  .stages { grid-template-columns: 1fr; } .stage.ops .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .band { grid-template-columns: 1fr; } .pdetail { grid-template-columns: 1fr; } svg.wires { display: none; }
+  .story { top: 0; position: static; } .pdetail { grid-template-columns: 1fr; } .mini { display: none; }
   .story { grid-template-columns: 1fr; }
 }
-@media (max-width: 600px) { .paths { grid-template-columns: 1fr; } .stage.ops .tiles { grid-template-columns: 1fr; } .probs { grid-template-columns: 1fr; } .bar .grow { display: none; } }
+@media (max-width: 600px) { .paths { grid-template-columns: 1fr; } .probs { grid-template-columns: 1fr; } .bar .grow { display: none; } }
 body.embed .top { display: none; }
-@media print { .bar, .scrim, .drawer, svg.wires, svg.wlabels { display: none !important; } .view[hidden] { display: grid !important; } }
+@media print { .bar, .scrim, .drawer, .ctl, .hint, .mini { display: none !important; } .view[hidden] { display: grid !important; } }
 </style>
 </head>
 <body>
@@ -243,7 +251,7 @@ body.embed .top { display: none; }
   <section class="view" id="v-map" aria-labelledby="h-map">
     <div class="vhead">
       <h2 id="h-map">Lifecycle map</h2>
-      <p>Plan → Build → Operate, with the commercial (BSS) and govern-and-secure layers running across all three, and the platform modules SynapseDC works with underneath. Arrows are the handoffs: what one module passes to the next. Open any module to see its key features, characteristics and handoffs.</p>
+      <p>Plan → Build → Operate, with the commercial (BSS) and govern-and-secure layers running across all three, and the platform modules SynapseDC works with underneath. Arrows are the handoffs: point at one to read what passes along it. Open any module to see its key features, characteristics and handoffs. Drag to move around, scroll or pinch to zoom, ⤢ shows the whole picture.</p>
     </div>
     <div class="maptools">
       <button class="btn pri" id="play" type="button">▶ Follow one journey end to end</button>
@@ -260,7 +268,18 @@ body.embed .top { display: none; }
       </div>
     </div>
     <div class="story" id="story" hidden></div>
-    <div class="map" id="map"></div>
+    <div class="canvas" id="canvas" tabindex="0" aria-label="Lifecycle map canvas: drag to pan, scroll or pinch to zoom">
+      <div class="world" id="map"></div>
+      <div class="ctl" role="toolbar" aria-label="Zoom">
+        <button type="button" id="zin" title="Zoom in" aria-label="Zoom in">+</button>
+        <span class="zl" id="zl">100%</span>
+        <button type="button" id="zout" title="Zoom out" aria-label="Zoom out">−</button>
+        <button type="button" id="zfit" title="Fit the whole map" aria-label="Fit the whole map">⤢</button>
+        <button type="button" id="zfull" title="Full screen" aria-label="Full screen">⛶</button>
+      </div>
+      <div class="hint" id="hint">Drag to pan · scroll or pinch to zoom · point at an arrow to read the handoff</div>
+      <div class="mini" id="mini" aria-hidden="true"></div>
+    </div>
   </section>
 
   <!-- 2. adoption paths -->
@@ -581,12 +600,32 @@ function tile(k) {
   const tags = m.kind === "platform" ? ["Platform"] : [m.kind === "built" ? "Built" : "Analytics", m.ph];
   return `<button type="button" class="tile ${m.s === "plat" ? "plat" : ""}" data-id="${k}" aria-label="${esc(m.name)}"><b><span class="dot" style="background:var(--${m.s})"></span>${esc(m.name)}</b><small>${esc(m.short)}</small><span class="tg">${tags.map(t => `<span>${esc(t)}</span>`).join("")}</span></button>`;
 }
+/* fixed canvas layout (world coordinates): Govern band on top, Plan · Build · Operate frames, Commercial band, platform modules.
+   Tiles sit in columns with wide corridors between them so the handoff arrows run in the gaps. */
+const TW = 240, TH = 92, PW = 180, PH = 70, WW = 1900, WH = 1400;
+const POS = {
+  onboarding: [460, 96], secops: [1200, 96], compliance: [1520, 96],
+  capacity: [80, 330], planner: [80, 490], ipam: [80, 650],
+  delivery: [460, 330], workorders: [460, 490], commissioning: [460, 650], dcim: [460, 810],
+  facilities: [880, 330], gpu: [880, 490], alerts: [880, 650],
+  datacenters: [1200, 330], incidents: [1200, 570],
+  command: [1520, 330], changes: [1520, 650],
+  powerecon: [80, 1036], macd: [460, 1036], occupancy: [880, 1036], customers: [1200, 1036], revenue: [1520, 1036],
+  p_ipm: [70, 1270], p_scm: [270, 1270], p_prj: [470, 1270], p_inv: [670, 1270], p_oap: [870, 1270], p_alerts: [1070, 1270], p_bss: [1270, 1270], p_itsm: [1470, 1270], p_ai: [1670, 1270]
+};
+const FRAMES = [
+  ["gov", 40, 30, 1820, 180], ["plan", 40, 240, 320, 690], ["build", 420, 240, 320, 690], ["ops", 840, 240, 1020, 690],
+  ["bss", 40, 960, 1820, 190], ["plat", 40, 1180, 1820, 190]
+];
+const box = k => { const [x, y] = POS[k]; const pl = M[k].s === "plat"; return { x, y, w: pl ? PW : TW, h: pl ? PH : TH }; };
+const view = { k: 1, x: 0, y: 0 };
 function renderMap() {
-  const by = s => Object.keys(M).filter(k => M[k].s === s && applies(k));
-  const band = s => `<div class="band ${s}"><div class="bh"><h3>${esc(STAGES[s].name)}</h3><p>${esc(STAGES[s].sub)}</p></div><div class="tiles">${by(s).map(tile).join("")}</div></div>`;
-  const stage = s => `<div class="stage ${s}"><div class="bh"><h3><span class="n">${STAGES[s].n}</span>${esc(STAGES[s].name)}</h3><p>${esc(STAGES[s].sub)}</p></div><div class="tiles">${by(s).map(tile).join("")}</div></div>`;
-  $("#map").innerHTML = band("gov") + `<div class="stages">${stage("plan")}${stage("build")}${stage("ops")}</div>` + band("bss") + band("plat") + `<svg class="wires" id="wires" aria-hidden="true"></svg><svg class="wlabels" id="wlabels" aria-hidden="true"></svg>`;
-  $("#map").querySelectorAll(".tile").forEach(t => t.addEventListener("click", () => openDrawer(t.dataset.id)));
+  const fr = FRAMES.map(([s, x, y, w, h]) => `<div class="frame ${s}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px"><div class="fh"><h3>${STAGES[s].n ? `<span class="n">${STAGES[s].n}</span>` : ""}${esc(STAGES[s].name)}</h3><p>${esc(STAGES[s].sub)}</p></div></div>`).join("");
+  const tl = Object.keys(M).filter(applies).map(k => { const b = box(k); return tile(k).replace('class="tile', `style="left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px" class="tile`); }).join("");
+  $("#map").style.width = WW + "px"; $("#map").style.height = WH + "px";
+  $("#map").innerHTML = fr + `<svg class="wires" id="wires" width="${WW}" height="${WH}" viewBox="0 0 ${WW} ${WH}" aria-hidden="true"></svg>` + tl + `<svg class="wlabels" id="wlabels" width="${WW}" height="${WH}" viewBox="0 0 ${WW} ${WH}" aria-hidden="true"></svg>`;
+  $("#map").querySelectorAll(".tile").forEach(t => t.addEventListener("click", e => { if (pan.moved) { e.preventDefault(); return; } openDrawer(t.dataset.id); }));
+  renderMini();
   paintMap();
 }
 function litSet() {
@@ -602,47 +641,142 @@ function litSet() {
   }
   return null;
 }
-function paintMap() {
+function paintMap(focus) {
   const lit = litSet(), map = $("#map");
   map.classList.toggle("dim", !!lit);
-  map.querySelectorAll(".tile").forEach(t => { t.classList.toggle("on", !!lit && lit.mods.has(t.dataset.id)); t.classList.toggle("sel", t.dataset.id === st.sel); t.querySelector(".step")?.remove(); });
+  map.querySelectorAll(".tile").forEach(t => { t.classList.toggle("on", !!lit && lit.mods.has(t.dataset.id)); t.classList.toggle("sel", t.dataset.id === st.sel); });
   drawWires(lit);
+  if (focus && lit) focusOn([...lit.mods]);
 }
+/* geometry of one handoff: a curve between the facing sides of the two tiles */
+function wire(e) {
+  if (!POS[e[0]] || !POS[e[1]] || !applies(e[0]) || !applies(e[1])) return null;
+  const a = box(e[0]), b = box(e[1]);
+  const ac = { x: a.x + a.w / 2, y: a.y + a.h / 2 }, bc = { x: b.x + b.w / 2, y: b.y + b.h / 2 };
+  const dx = bc.x - ac.x, dy = bc.y - ac.y, apart = a.x + a.w < b.x || b.x + b.w < a.x;
+  let p1, p2, c1, c2;
+  if (apart && Math.abs(dx) > Math.abs(dy) * 0.5) {
+    const s = Math.sign(dx); p1 = { x: ac.x + s * a.w / 2, y: ac.y }; p2 = { x: bc.x - s * b.w / 2, y: bc.y };
+    const k = Math.max(40, Math.abs(p2.x - p1.x) * 0.45); c1 = { x: p1.x + s * k, y: p1.y }; c2 = { x: p2.x - s * k, y: p2.y };
+  } else {
+    const s = Math.sign(dy) || 1; p1 = { x: ac.x + (dx ? Math.sign(dx) * Math.min(a.w / 4, Math.abs(dx) / 4) : 0), y: ac.y + s * a.h / 2 }; p2 = { x: bc.x - (dx ? Math.sign(dx) * Math.min(b.w / 4, Math.abs(dx) / 4) : 0), y: bc.y - s * b.h / 2 };
+    const k = Math.max(30, Math.abs(p2.y - p1.y) * 0.45); c1 = { x: p1.x, y: p1.y + s * k }; c2 = { x: p2.x, y: p2.y - s * k };
+  }
+  return { d: `M${p1.x} ${p1.y} C${c1.x} ${c1.y} ${c2.x} ${c2.y} ${p2.x} ${p2.y}`, mid: { x: (p1.x + 3 * c1.x + 3 * c2.x + p2.x) / 8, y: (p1.y + 3 * c1.y + 3 * c2.y + p2.y) / 8 } };
+}
+let hoverEdge = null;
 function drawWires(lit) {
   const svg = $("#wires"); if (!svg) return;
-  const box = $("#map").getBoundingClientRect(); if (!box.width) return;
-  const pos = k => { const el = $("#map").querySelector(`.tile[data-id="${k}"]`); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left - box.left, y: r.top - box.top, w: r.width, h: r.height }; };
-  let out = `<defs><marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 z" fill="var(--accent)"/></marker><marker id="ag" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 z" fill="var(--muted)" opacity=".6"/></marker></defs>`;
-  const labels = [];
-  for (const e of E) {
+  let out = `<defs><marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 z" fill="var(--accent)"/></marker><marker id="ag" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 z" fill="var(--muted)" opacity=".7"/></marker></defs>`;
+  const hotList = [];
+  E.forEach((e, i) => {
+    const g = wire(e); if (!g) return;
     const key = e[0] + ">" + e[1], hot = lit ? lit.edges.has(key) : false;
-    if (!hot && (lit || !e[3])) continue;
-    const a = pos(e[0]), b = pos(e[1]); if (!a || !b) continue;
-    const ac = { x: a.x + a.w / 2, y: a.y + a.h / 2 }, bc = { x: b.x + b.w / 2, y: b.y + b.h / 2 };
-    const dx = bc.x - ac.x, dy = bc.y - ac.y; let p1, p2, c1, c2;
-    if (Math.abs(dx) > Math.abs(dy) * 1.2) {
-      const s = Math.sign(dx); p1 = { x: ac.x + s * a.w / 2, y: ac.y }; p2 = { x: bc.x - s * b.w / 2, y: bc.y };
-      const k = Math.max(30, Math.abs(p2.x - p1.x) / 2); c1 = { x: p1.x + s * k, y: p1.y }; c2 = { x: p2.x - s * k, y: p2.y };
-    } else {
-      const s = Math.sign(dy) || 1; p1 = { x: ac.x, y: ac.y + s * a.h / 2 }; p2 = { x: bc.x, y: bc.y - s * b.h / 2 };
-      const k = Math.max(24, Math.abs(p2.y - p1.y) / 2); c1 = { x: p1.x, y: p1.y + s * k }; c2 = { x: p2.x, y: p2.y - s * k };
-    }
-    out += `<path class="${hot ? "hot" : "spine"}" d="M${p1.x} ${p1.y} C${c1.x} ${c1.y} ${c2.x} ${c2.y} ${p2.x} ${p2.y}" marker-end="url(#${hot ? "ah" : "ag"})"/>`;
-    if (hot) labels.push({ x: (p1.x + 3 * c1.x + 3 * c2.x + p2.x) / 8, y: (p1.y + 3 * c1.y + 3 * c2.y + p2.y) / 8, t: e[2] });
-  }
-  /* step labels apart vertically so they do not sit on each other */
-  labels.sort((p, q) => p.y - q.y);
-  for (let i = 1; i < labels.length; i++) for (let j = 0; j < i; j++) if (Math.abs(labels[i].x - labels[j].x) < 160 && labels[i].y - labels[j].y < 14) labels[i].y = labels[j].y + 14;
+    if (lit && !hot) return;
+    const cls = hot ? "hot" : e[3] ? "spine" : "";
+    out += `<path class="w ${cls}" data-i="${i}" d="${g.d}" marker-end="url(#${hot ? "ah" : "ag"})"/><path class="hit" data-i="${i}" d="${g.d}"><title>${esc(M[e[0]].name)} → ${esc(M[e[1]].name)}: ${esc(e[2])}</title></path>`;
+    if (hot) hotList.push(i);
+  });
   svg.innerHTML = out;
-  $("#wlabels").innerHTML = labels.map(l => `<text x="${l.x}" y="${l.y}" text-anchor="middle">${esc(l.t)}</text>`).join("");
+  svg.querySelectorAll(".hit").forEach(h => {
+    h.addEventListener("pointerenter", () => { hoverEdge = +h.dataset.i; drawLabels(); });
+    h.addEventListener("pointerleave", () => { hoverEdge = null; drawLabels(); });
+  });
+  st.hot = hotList; drawLabels();
+}
+/* labels: every lit handoff when few are lit (or zoomed in), else only the one under the pointer */
+function drawLabels() {
+  const svg = $("#wlabels"); if (!svg) return;
+  $("#wires").querySelectorAll("path.w").forEach(p => p.classList.toggle("hov", +p.dataset.i === hoverEdge));
+  const show = new Set((st.hot || []).length <= 8 || view.k >= 1.25 ? st.hot || [] : []);
+  if (hoverEdge != null) show.add(hoverEdge);
+  const labels = [...show].map(i => { const g = wire(E[i]); return g && { x: g.mid.x, y: g.mid.y, t: E[i][2], w: E[i][2].length * 6.3 + 16 }; }).filter(Boolean).sort((p, q) => p.y - q.y);
+  for (let i = 1; i < labels.length; i++) for (let j = 0; j < i; j++) if (Math.abs(labels[i].x - labels[j].x) < (labels[i].w + labels[j].w) / 2 && labels[i].y - labels[j].y < 22) labels[i].y = labels[j].y + 22;
+  svg.innerHTML = labels.map(l => `<rect x="${l.x - l.w / 2}" y="${l.y - 10}" width="${l.w}" height="20" rx="10"/><text x="${l.x}" y="${l.y + 4}" text-anchor="middle">${esc(l.t)}</text>`).join("");
+}
+/* ---------- pan and zoom ---------- */
+const pan = { on: false, moved: false, sx: 0, sy: 0, vx: 0, vy: 0, pts: new Map(), pinch: null };
+function applyView(anim) {
+  const w = $("#map"); w.classList.toggle("anim", !!anim);
+  w.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.k})`;
+  $("#zl").textContent = Math.round(view.k * 100) + "%";
+  drawLabels(); paintMini();
+}
+function zoomAt(k, cx, cy, anim) {
+  k = Math.min(2.5, Math.max(0.2, k));
+  view.x = cx - (cx - view.x) * (k / view.k); view.y = cy - (cy - view.y) * (k / view.k); view.k = k; applyView(anim);
+}
+function fitBox(x0, y0, x1, y1, anim, maxK = 1.15) {
+  /* keep the fitted box clear of the zoom controls (right) and the minimap / hint (bottom) */
+  const c = $("#canvas"), W = c.clientWidth, H = c.clientHeight; if (!W) return;
+  const L = 24, R = W > 700 ? 64 : 56, T = 20, B = W > 960 ? 120 : 48, aw = W - L - R, ah = H - T - B;
+  const k = Math.min(maxK, aw / (x1 - x0), ah / (y1 - y0));
+  view.k = Math.max(0.2, k); view.x = L + (aw - (x1 - x0) * view.k) / 2 - x0 * view.k; view.y = T + (ah - (y1 - y0) * view.k) / 2 - y0 * view.k; applyView(anim);
+}
+const fitAll = anim => fitBox(20, 20, WW - 20, WH - 20, anim, 1);
+function focusOn(mods) {
+  const bs = mods.filter(k => POS[k] && applies(k)).map(box); if (!bs.length) return;
+  fitBox(Math.min(...bs.map(b => b.x)) - 30, Math.min(...bs.map(b => b.y)) - 40, Math.max(...bs.map(b => b.x + b.w)) + 30, Math.max(...bs.map(b => b.y + b.h)) + 30, true);
+}
+function initCanvas() {
+  const c = $("#canvas");
+  c.addEventListener("wheel", e => {
+    e.preventDefault(); const r = c.getBoundingClientRect();
+    if (e.ctrlKey || e.metaKey || Math.abs(e.deltaY) >= Math.abs(e.deltaX)) zoomAt(view.k * Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)), e.clientX - r.left, e.clientY - r.top);
+    else { view.x -= e.deltaX; applyView(); }
+  }, { passive: false });
+  c.addEventListener("pointerdown", e => {
+    if (e.target.closest(".ctl, .mini")) return;
+    pan.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pan.pts.size === 2) { const [a, b] = [...pan.pts.values()]; pan.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), k: view.k }; return; }
+    pan.on = true; pan.moved = false; pan.sx = e.clientX; pan.sy = e.clientY; pan.vx = view.x; pan.vy = view.y;
+  });
+  c.addEventListener("pointermove", e => {
+    if (!pan.pts.has(e.pointerId)) return; pan.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pan.pinch && pan.pts.size === 2) { const [a, b] = [...pan.pts.values()], r = c.getBoundingClientRect(); zoomAt(pan.pinch.k * Math.hypot(a.x - b.x, a.y - b.y) / pan.pinch.d, (a.x + b.x) / 2 - r.left, (a.y + b.y) / 2 - r.top); pan.moved = true; return; }
+    if (!pan.on) return;
+    const dx = e.clientX - pan.sx, dy = e.clientY - pan.sy;
+    if (!pan.moved && Math.hypot(dx, dy) < 4) return;
+    if (!pan.moved) { pan.moved = true; c.classList.add("drag"); try { c.setPointerCapture(e.pointerId); } catch (x) {} }
+    view.x = pan.vx + dx; view.y = pan.vy + dy; applyView();
+  });
+  const end = e => { pan.pts.delete(e.pointerId); if (pan.pts.size < 2) pan.pinch = null; if (!pan.pts.size) { pan.on = false; c.classList.remove("drag"); setTimeout(() => { pan.moved = false; }, 0); } };
+  c.addEventListener("pointerup", end); c.addEventListener("pointercancel", end);
+  const mid = () => [c.clientWidth / 2, c.clientHeight / 2];
+  $("#zin").onclick = () => zoomAt(view.k * 1.25, ...mid(), true);
+  $("#zout").onclick = () => zoomAt(view.k / 1.25, ...mid(), true);
+  $("#zfit").onclick = () => fitAll(true);
+  $("#zfull").onclick = () => { c.classList.toggle("full"); $("#zfull").title = c.classList.contains("full") ? "Leave full screen" : "Full screen"; setTimeout(() => fitAll(), 30); };
+  c.addEventListener("keydown", e => {
+    const step = 60;
+    if (e.key === "+" || e.key === "=") zoomAt(view.k * 1.2, ...mid(), true);
+    else if (e.key === "-") zoomAt(view.k / 1.2, ...mid(), true);
+    else if (e.key === "0") fitAll(true);
+    else if (e.key.startsWith("Arrow")) { e.preventDefault(); view.x += e.key === "ArrowLeft" ? step : e.key === "ArrowRight" ? -step : 0; view.y += e.key === "ArrowUp" ? step : e.key === "ArrowDown" ? -step : 0; applyView(); }
+    else if (e.key === "Escape" && c.classList.contains("full")) { c.classList.remove("full"); setTimeout(() => fitAll(), 30); }
+  });
+  $("#mini").addEventListener("click", e => {
+    const r = $("#mini").getBoundingClientRect(), wx = (e.clientX - r.left) / r.width * WW, wy = (e.clientY - r.top) / r.height * WH;
+    view.x = c.clientWidth / 2 - wx * view.k; view.y = c.clientHeight / 2 - wy * view.k; applyView(true);
+  });
+}
+function renderMini() {
+  const fr = FRAMES.map(([s, x, y, w, h]) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="14" fill="var(--surface-2)" stroke="var(--${s === "plat" ? "line-2" : s})" stroke-width="6"/>`).join("");
+  const tl = Object.keys(M).filter(k => POS[k] && applies(k)).map(k => { const b = box(k); return `<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="8" fill="var(--${M[k].s})" opacity=".45"/>`; }).join("");
+  $("#mini").innerHTML = `<svg viewBox="0 0 ${WW} ${WH}">${fr}${tl}<rect class="vp" id="minivp"/></svg>`;
+  paintMini();
+}
+function paintMini() {
+  const v = $("#minivp"), c = $("#canvas"); if (!v || !c.clientWidth) return;
+  v.setAttribute("x", -view.x / view.k); v.setAttribute("y", -view.y / view.k); v.setAttribute("width", c.clientWidth / view.k); v.setAttribute("height", c.clientHeight / view.k);
 }
 function renderStory() {
   const el = $("#story");
   if (st.story < 0) { el.hidden = true; return; }
   const s = STORY[st.story]; el.hidden = false;
   el.innerHTML = `<span class="num">${st.story + 1}/${STORY.length}</span><div><b>${esc(s[0])}</b><p>${esc(s[1])}</p></div><div class="nav"><button class="btn" type="button" id="sprev" ${st.story === 0 ? "disabled" : ""}>Back</button><button class="btn pri" type="button" id="snext">${st.story === STORY.length - 1 ? "Finish" : "Next"}</button></div>`;
-  $("#sprev").onclick = () => { st.story--; renderStory(); paintMap(); };
-  $("#snext").onclick = () => { st.story = st.story === STORY.length - 1 ? -1 : st.story + 1; renderStory(); paintMap(); $("#play").textContent = st.story < 0 ? "▶ Follow one journey end to end" : "■ Stop the journey"; };
+  $("#sprev").onclick = () => { st.story--; renderStory(); paintMap(true); };
+  $("#snext").onclick = () => { st.story = st.story === STORY.length - 1 ? -1 : st.story + 1; renderStory(); paintMap(true); if (st.story < 0) fitAll(true); $("#play").textContent = st.story < 0 ? "▶ Follow one journey end to end" : "■ Stop the journey"; };
 }
 function renderHlSelect() {
   const o = [`<option value="">Nothing</option>`, `<optgroup label="Adoption path">${PATHS.map(p => `<option value="path:${p.id}">${esc(p.name)}</option>`).join("")}</optgroup>`, `<optgroup label="Role">${ROLES.map(r => `<option value="role:${esc(r[0])}">${esc(r[0])}</option>`).join("")}</optgroup>`, `<optgroup label="Problem">${PROBLEMS.map((p, i) => `<option value="prob:${i}">${esc(p[1])}</option>`).join("")}</optgroup>`];
@@ -721,7 +855,7 @@ function setView(v, push = true) {
   st.view = v;
   document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.v === v));
   ["map", "paths", "problems", "roles"].forEach(x => { $("#v-" + x).hidden = x !== v; });
-  if (v === "map") { renderHlSelect(); renderMap(); }
+  if (v === "map") { renderHlSelect(); renderMap(); requestAnimationFrame(() => { if (st.hl || st.story >= 0) paintMap(true); else fitAll(); }); }
   if (v === "paths") renderPaths();
   if (v === "problems") renderProblems();
   if (v === "roles") renderRoles();
@@ -731,14 +865,14 @@ $("#model").innerHTML = Object.entries(MODELS).map(([k, m]) => `<option value="$
 $("#model").value = st.model;
 $("#model").addEventListener("change", e => { st.model = e.target.value; try { localStorage.setItem("sdj.model", st.model); } catch (x) {} if (MODELS[st.model].rec && st.view !== "paths") st.path = MODELS[st.model].rec; setView(st.view, false); });
 document.querySelectorAll("#tabs button").forEach(b => b.addEventListener("click", () => setView(b.dataset.v)));
-$("#play").addEventListener("click", () => { st.sel = null; st.hl = null; renderHlSelect(); st.story = st.story < 0 ? 0 : -1; $("#play").textContent = st.story < 0 ? "▶ Follow one journey end to end" : "■ Stop the journey"; renderStory(); paintMap(); });
-$("#hl").addEventListener("change", e => { st.hl = e.target.value || null; st.story = -1; renderStory(); $("#play").textContent = "▶ Follow one journey end to end"; paintMap(); });
-$("#clear").addEventListener("click", () => { st.hl = null; st.sel = null; st.story = -1; st.role = null; renderHlSelect(); renderStory(); $("#play").textContent = "▶ Follow one journey end to end"; paintMap(); });
+$("#play").addEventListener("click", () => { st.sel = null; st.hl = null; renderHlSelect(); st.story = st.story < 0 ? 0 : -1; $("#play").textContent = st.story < 0 ? "▶ Follow one journey end to end" : "■ Stop the journey"; renderStory(); paintMap(true); if (st.story < 0) fitAll(true); });
+$("#hl").addEventListener("change", e => { st.hl = e.target.value || null; st.story = -1; renderStory(); $("#play").textContent = "▶ Follow one journey end to end"; paintMap(true); if (!st.hl) fitAll(true); });
+$("#clear").addEventListener("click", () => { st.hl = null; st.sel = null; st.story = -1; st.role = null; renderHlSelect(); renderStory(); $("#play").textContent = "▶ Follow one journey end to end"; paintMap(); fitAll(true); });
 $("#pq").addEventListener("input", e => { st.pq = e.target.value; renderProblems(); });
 $("#scrim").addEventListener("click", closeDrawer);
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#drawer").hidden) closeDrawer(); });
-let rt; window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => st.view === "map" && paintMap(), 80); });
-if (window.ResizeObserver) new ResizeObserver(() => st.view === "map" && paintMap()).observe($("#map"));
+if (window.ResizeObserver) new ResizeObserver(() => st.view === "map" && paintMini()).observe($("#canvas"));
+initCanvas();
 if (MODELS[st.model].rec) st.path = MODELS[st.model].rec;
 function fromHash() {
   const h = decodeURIComponent(location.hash.slice(1));
@@ -748,7 +882,6 @@ function fromHash() {
 }
 window.addEventListener("hashchange", fromHash);
 fromHash();
-if (document.fonts) document.fonts.ready.then(() => st.view === "map" && paintMap());
 </script>
 </body>
 </html>
