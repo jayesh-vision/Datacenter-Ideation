@@ -1,4 +1,69 @@
-# DC-STORE schema review — 06-Nov-2026
+# DC-STORE schema review — 06-Nov-2026, re-reviewed 12-Nov-2026
+
+## Re-review 12-Nov-2026: PASS, 9.71 / 10
+
+**What changed:** all 11 findings are fixed in `scripts/db/build_schema.py` and the schema was regenerated (BRD 1.0-rc5).
+
+**How it was checked:**
+- The new `synapsedc_dc_store.sql` was loaded into MySQL 9.6.
+- The same `information_schema` checks as the first review were re-run.
+- 28 insert tests were run. Each one checks that a bad row is rejected for the expected reason (foreign key 1452, check 3819 or duplicate 1062), or that a good row is accepted.
+
+**Result:** 0 Critical, 0 Major and 0 Minor findings remain, so the gate passes.
+
+**What the new schema contains:**
+- 109 tables and 1,706 columns.
+- 125 foreign keys, all tenant-aware.
+- 187 checks.
+- 249 secondary indexes, up from 199. Of these, 68 are the new parent `UNIQUE (TENANT_ID, <TABLE>_ID)` keys that tenant-aware foreign keys require.
+
+**What the first review's fixes file became:** `synapsedc_dc_store_review_fixes.sql` was removed. The generator now holds every fix. That file would also have left the self-references unenforced (see the MySQL note under C1).
+
+**Your local copy:** it still has the rc4 schema. Drop it and reinstall from the new `.sql`.
+
+| Id | Finding | Status | How it was fixed and tested |
+|---|---|---|---|
+| C1 | No FK checks the tenant | **Fixed** | Every FK is `(TENANT_ID, col)` → the parent's `(TENANT_ID, <PARENT>_ID)`. Keys that started with an FK column now start with `TENANT_ID`. The six `SET NULL` keys are now `RESTRICT`. Tested: a phase, a template version, a child plan and a sub-region under another tenant's parent are each rejected (1452). |
+| M1 | Candidate site by code | **Fixed** | `PLAN_SITE.PLAN_CANDIDATE_SITE_ID` is an FK `(TENANT_ID, PLAN_ID, id)`, so the candidate must belong to the same plan. A check requires it exactly when `REF_KIND = 'candidate'`, and `REF_ID` is required otherwise. Tested: another plan's candidate is rejected, a candidate row without the id is rejected, and a candidate of the same plan is accepted. |
+| M2 | 41 unchecked numbers | **Fixed** | The generator adds a range check to every signed number that no check mentions: `>= 0`, `BETWEEN 0 AND 100` for `*_PCT`, and `> 0` for the two multipliers. The deltas and `THRESHOLD` stay signed on purpose. The audit finds 0 unchecked columns. Tested: negative CapEx and a 140% share are rejected (3819). |
+| M3 | Nullable column in a unique key | **Fixed** | `ROLE` and `INTERFACE_NAME` are `NOT NULL DEFAULT ''`. Tested: a duplicate equipment line with no role is rejected (1062). |
+| m1 | Comment can cross plans | **Fixed** | The review and parent-comment FKs include `PLAN_ID`. Tested: a comment citing another plan's review is rejected, and a reply to another plan's comment is rejected. |
+| m2 | No estate-wide queue index | **Fixed** | `(TENANT_ID, STAGE)` on `MACD_REQUEST`; `(TENANT_ID, STATUS)` on `DCIM_WORK_ITEM` and `POWER_FINDING`. |
+| m3 | `REGO_SOURCE` MEDIUMTEXT | **Fixed** | Now `TEXT`. |
+| m4 | 24 hash-suffixed names | **Fixed** | No hash names remain. A name over 64 characters swaps table names for short aliases, e.g. `UK_PTI_TENANT_ID_PTV_ID_INPUT_KEY` (29 names). The data dictionary now opens with the alias table. |
+| m5 | Cached names, no refresh rule | **Fixed** | `PLAN.OWNER_NAME` was dropped; the name is read from Platform Engineering. The other 12 say "(snapshot, never refreshed)" and when the snapshot was taken. |
+| m6 | Three "open item" vocabularies | **Fixed** | One shared `ITEM_STATUS` (`Open`, `Resolved`, `Dismissed`) on `PLAN_REVIEW_COMMENT`, `PLAN_CONDITION` and `POWER_FINDING`. Checks now read `(STATUS = 'Open') = (… IS NULL)`. |
+| m7 | Reviewer e-mail in plain text | **Fixed** | `PLAN_REVIEW_REVIEWER.EMAIL` was dropped. The address is resolved from `REVIEWER_USER_ID` when the pack is sent. |
+
+**MySQL note found while testing C1:** MySQL 9.6 accepts a self-referencing composite foreign key whose columns start with the shared columns, `(TENANT_ID, PLAN_ID, PARENT_COMMENT_ID)` → `(TENANT_ID, PLAN_ID, PLAN_REVIEW_COMMENT_ID)`, and then never enforces it. A reply pointing at a missing comment was stored with no error. With the referencing column first, `(PARENT_COMMENT_ID, TENANT_ID, PLAN_ID)`, the key is enforced. The generator therefore puts the referencing column first in all four self-references:
+- `PLAN.PARENT_PLAN_ID`
+- `PLAN.REVISION_OF_PLAN_ID`
+- `GEOGRAPHY_REGION.PARENT_REGION_ID`
+- `PLAN_REVIEW_COMMENT.PARENT_COMMENT_ID`
+
+Tested: a missing parent plan and a missing parent region are both rejected by their own key.
+
+| Dimension | Weight | Was | Now | Weighted |
+|---|---|---|---|---|
+| Referential integrity | 20% | 5.0 | 9.5 | 1.900 |
+| Indexing and performance | 18% | 9.0 | 9.5 | 1.710 |
+| Data types | 12% | 9.0 | 10.0 | 1.200 |
+| Naming | 8% | 9.0 | 9.5 | 0.760 |
+| Constraints | 15% | 6.5 | 10.0 | 1.500 |
+| Normalization | 12% | 8.5 | 9.5 | 1.140 |
+| Security | 5% | 8.5 | 10.0 | 0.500 |
+| Documentation | 10% | 10.0 | 10.0 | 1.000 |
+| **Overall** | | **7.84** | | **9.71** |
+
+**Why some dimensions sit just below 10 with no open finding:**
+- **Referential integrity:** ids from other modules still have no foreign key, by design (DATA-019).
+- **Indexing:** the 68 parent tenant keys add a small write cost.
+- **Naming:** aliased names need the legend to read.
+- **Normalization:** snapshot names are deliberate copies.
+
+---
+
+# First review (06-Nov-2026)
 
 **Schema reviewed:** `docs/database/synapsedc_dc_store.sql`, generated by `scripts/db/build_schema.py` (BRD 1.0-rc4).
 
@@ -9,7 +74,7 @@
 
 **Row counts:** none, because the schema is empty. So "allows" below means "the database accepts it". It does not mean "it has happened".
 
-**Fixes:** `docs/database/synapsedc_dc_store_review_fixes.sql`.
+**Fixes (06-Nov-2026, now removed; the generator holds every fix):** `docs/database/synapsedc_dc_store_review_fixes.sql`.
 - Section 1 holds the verification queries. Each must return no rows before the fixes run.
 - Section 2 holds the fixes.
 - The whole file ran cleanly on a fresh copy, giving 186 checks, 125 foreign keys and a rejected cross-tenant insert.

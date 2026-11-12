@@ -15,7 +15,7 @@ import os, re, datetime
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUT_SQL = os.path.join(ROOT, 'docs', 'database', 'synapsedc_dc_store.sql')
 OUT_MD = os.path.join(ROOT, 'docs', 'database', 'synapsedc_dc_store.md')
-UPDATED = '2026-11-06'
+UPDATED = '2026-11-12'
 
 # ---------------------------------------------------------------- shared types (one type per concept)
 ASCII = 'CHARACTER SET ascii COLLATE ascii_bin'
@@ -60,6 +60,7 @@ BIZ_MODEL = enum('colocation', 'neocloud', 'cloud', 'enterprise', 'network')
 MODULE = enum('INV', 'IPL', 'IPM', 'ITSM', 'ALR', 'BSS', 'PRJ', 'SCM', 'SOC', 'PEN', 'OAP', 'IHB', 'AIF')
 FEED_SIDE = enum('A', 'B')
 VERSION_STATUS = enum('Draft', 'Awaiting approval', 'Published', 'Superseded', 'Rejected', 'Discarded')
+ITEM_STATUS = enum('Open', 'Resolved', 'Dismissed')   # any open item: review comment, plan condition, power finding
 
 # ---------------------------------------------------------------- model
 TABLES, ORDER = {}, []
@@ -91,11 +92,11 @@ def table(name, comment, cols, *, pk='BIGINT UNSIGNED', domain='', related='', u
     if site:
         t['cols'].append(c('INV_SITE_ID', EXT_ID, 'Datacenter (site) id in Plan to Build Inventory; row access follows the user\'s site scope'))
     for col in cols:
-        if isinstance(col, tuple):  # ('FK', column, ref_table, comment, nullable, on_delete)
-            _, cname, ref, cm, nullable, od = col
+        if isinstance(col, tuple):  # ('FK', column, ref_table, comment, nullable, on_delete, also)
+            _, cname, ref, cm, nullable, od, also = col
             rtyp = TABLES[ref]['pk'] if ref in TABLES else PENDING_PK[ref]
             t['cols'].append(Col(cname, rtyp, nullable, None, cm))
-            t['fks'].append((cname, ref, od))
+            t['fks'].append((cname, ref, od, also))
         else:
             t['cols'].append(col)
     if std:
@@ -108,8 +109,10 @@ def table(name, comment, cols, *, pk='BIGINT UNSIGNED', domain='', related='', u
     return t
 
 
-def fk(col, ref, comment, null=False, od='RESTRICT'):
-    return ('FK', col, ref, comment, null, od)
+def fk(col, ref, comment, null=False, od='RESTRICT', also=()):
+    """also: columns the child shares with the parent (same name) that the key must match too, e.g. ('PLAN_ID',) so a
+    reference cannot cross to another plan's row. TENANT_ID is always part of the key (tenant-aware foreign keys)."""
+    return ('FK', col, ref, comment, null, od, tuple(also))
 
 
 # Primary-key types of every table, so foreign keys can be declared before the referenced table is generated.
@@ -126,7 +129,7 @@ for _t, _p in {
     'PLAN_REVIEW_COMMENT': BIG, 'MACD_CATALOGUE_ITEM': INT, 'MACD_REQUEST': BIG, 'COMPLIANCE_POLICY': INT,
     'COMPLIANCE_POLICY_VERSION': INT, 'COMPLIANCE_FRAMEWORK': SMALL, 'COMPLIANCE_CONTROL': INT, 'IMPORT_BATCH': BIG,
     'IMPORT_BATCH_SHEET': BIG, 'DCIM_WORK_ITEM': BIG, 'INCIDENT_ENRICHMENT': BIG, 'INCIDENT_RCA_HYPOTHESIS': BIG,
-    'INCIDENT_ACTION_STEP': BIG, 'PLAN_SITE_TYPE': INT,
+    'INCIDENT_ACTION_STEP': BIG, 'PLAN_SITE_TYPE': INT, 'PLAN_CANDIDATE_SITE': BIG,
 }.items():
     PENDING_PK[_t] = _p
 
@@ -337,7 +340,7 @@ table('DCIM_WORK_ITEM', 'A DCIM edit saved under a change request that is not ap
     n('ERROR_MESSAGE', TEXT1K, 'Error when STATUS = Failed'),
 ], domain=D, site=True, related='DCIM_WORK_ITEM ← DCIM_WORK_ITEM_TARGET, WRITEBACK_REQUEST',
     uniques=[('TENANT_ID', 'WORK_ITEM_CODE')],
-    indexes=[('TENANT_ID', 'ITSM_CHANGE_ID'), ('TENANT_ID', 'INV_SITE_ID', 'STATUS'), ('INV_RACK_ID',), ('INV_DEVICE_ID',)],
+    indexes=[('TENANT_ID', 'ITSM_CHANGE_ID'), ('TENANT_ID', 'INV_SITE_ID', 'STATUS'), ('TENANT_ID', 'STATUS'), ('INV_RACK_ID',), ('INV_DEVICE_ID',)],
     checks=["STATUS <> 'Done' OR EXECUTED_AT IS NOT NULL", "STATUS <> 'Failed' OR ERROR_MESSAGE IS NOT NULL"])
 
 table('DCIM_WORK_ITEM_TARGET', 'Records a planned DCIM edit touches (rack, device, interface, module, hold, panel, feed), so racks and devices can show "N planned changes".', [
@@ -387,7 +390,7 @@ table('INCIDENT_IMPACT_ITEM', 'What an incident affects at the last snapshot (de
     fk('INCIDENT_ENRICHMENT_ID', 'INCIDENT_ENRICHMENT', 'Incident enrichment', od='CASCADE'),
     c('ITEM_KIND', enum('NE', 'Link', 'Rack', 'Service', 'Customer', 'Facility'), 'Kind of affected record'),
     c('ITEM_REF_ID', EXT_ID, 'Record id in its module (Inventory, BSS)'),
-    c('ITEM_LABEL', NAME, 'Display name cached at the snapshot'),
+    c('ITEM_LABEL', NAME, 'Display name as at the snapshot (snapshot, never refreshed)'),
 ], domain=D, uniques=[('INCIDENT_ENRICHMENT_ID', 'ITEM_KIND', 'ITEM_REF_ID')], indexes=[('TENANT_ID', 'ITEM_KIND', 'ITEM_REF_ID')])
 
 table('INCIDENT_RCA_HYPOTHESIS', 'Root-cause hypothesis proposed for an incident, ranked, with confidence.', [
@@ -443,13 +446,13 @@ table('POWER_FINDING', 'Power contract finding per site (block near limit, deman
     n('EVIDENCE_SNAPSHOT', 'JSON', 'Snapshot of the figures behind the finding: [{label, value}] (DATA-022)'),
     c('FIRST_SEEN_AT', TS, 'First evaluation that found it'),
     c('LAST_SEEN_AT', TS, 'Latest evaluation that still found it'),
-    c('STATUS', enum('Open', 'Resolved', 'Dismissed'), 'Open until an evaluation no longer finds it', default="'Open'"),
+    c('STATUS', ITEM_STATUS, 'Open until an evaluation no longer finds it', default="'Open'"),
     n('ALR_ALARM_ID', EXT_ID, 'Alarm raised in System Alerts'),
     n('ITSM_INCIDENT_ID', EXT_ID, 'Incident raised in ITSM (costliest block / ratchet finding)'),
     c('OPEN_FINDING_KEY', f'VARCHAR(80) {ASCII}', 'One open finding per site and kind (generated)',
       extra="GENERATED ALWAYS AS (IF(STATUS = 'Open', CONCAT(INV_SITE_ID, '|', FINDING_KIND), NULL)) STORED"),
 ], domain=D, site=True, related='POWER_FINDING → POWER_CONTRACT',
-    uniques=[('TENANT_ID', 'OPEN_FINDING_KEY')], indexes=[('TENANT_ID', 'INV_SITE_ID', 'STATUS'), ('POWER_CONTRACT_ID',), ('ALR_ALARM_ID',)],
+    uniques=[('TENANT_ID', 'OPEN_FINDING_KEY')], indexes=[('TENANT_ID', 'INV_SITE_ID', 'STATUS'), ('TENANT_ID', 'STATUS'), ('POWER_CONTRACT_ID',), ('ALR_ALARM_ID',)],
     checks=['EXPOSURE_AMOUNT >= 0', 'FIRST_SEEN_AT <= LAST_SEEN_AT'])
 TABLES['POWER_FINDING']['cols'][[x.name for x in TABLES['POWER_FINDING']['cols']].index('OPEN_FINDING_KEY')].null = True
 
@@ -715,9 +718,9 @@ table('APPROVAL_DELEGATION', 'Delegation of an approving role from one user to a
     c('DELEGATION_CODE', CODE, 'Delegation id (DLG-001)'),
     c('ROLE_NAME', LABEL, 'Approving role delegated'),
     c('FROM_USER_ID', USER_ID, 'User who delegates (Platform Engineering)'),
-    c('FROM_NAME', NAME, 'Display name cached'),
+    c('FROM_NAME', NAME, 'Display name as at the delegation (snapshot, never refreshed)'),
     c('TO_USER_ID', USER_ID, 'User who receives the role'),
-    c('TO_NAME', NAME, 'Display name cached'),
+    c('TO_NAME', NAME, 'Display name as at the delegation (snapshot, never refreshed)'),
     c('START_DATE', DATE, 'First day'),
     c('END_DATE', DATE, 'Last day'),
     n('REASON', TEXT1K, 'Reason'),
@@ -745,8 +748,7 @@ table('PLAN', 'A capacity / build plan (BRD 7.9). A revision (B, C …) is its o
     n('PEER_INV_SITE_ID', EXT_ID, 'Second site of a two-site plan (network / migration)'),
     c('CLIMATE', CLIMATE, 'Climate of the site'),
     c('INTENT', TEXT2K, 'Why the plan exists'),
-    c('OWNER_USER_ID', USER_ID, 'Plan owner'),
-    c('OWNER_NAME', NAME, 'Display name cached'),
+    c('OWNER_USER_ID', USER_ID, 'Plan owner; the name is read from Platform Engineering'),
     c('REQUESTED_BY_NAME', NAME, 'Requester (team or person)'),
     c('DESIGN_POWER_KW', KW, 'Design IT power, kW'),
     c('TARGET_GO_LIVE', DATE, 'Needed-by date'),
@@ -900,7 +902,7 @@ table('PLAN_APPROVAL', 'Decision of one approval step in a round.', [
     c('STEP_NAME', LABEL, 'Step'),
     c('ROLE_NAME', LABEL, 'Approving role'),
     n('APPROVER_USER_ID', USER_ID, 'Who decided'),
-    n('APPROVER_NAME', NAME, 'Display name cached'),
+    n('APPROVER_NAME', NAME, 'Approver name as at the decision (snapshot, never refreshed)'),
     c('APPROVAL_DECISION', enum('Pending', 'Approved', 'Rejected', 'Approved with conditions'), 'Decision', default="'Pending'"),
     n('DECIDED_AT', TS, 'When'),
     n('BASIS', TEXT1K, 'Basis of the decision'),
@@ -920,13 +922,13 @@ table('PLAN_CONDITION', 'Condition attached to an approval; open conditions that
     n('DUE_DATE', DATE, 'Due'),
     c('RAISED_BY', USER_ID, 'Raised by'),
     c('RAISED_AT', TS, 'Raised'),
-    c('STATUS', enum('Open', 'Closed'), 'State', default="'Open'"),
-    n('CLOSED_AT', TS, 'Closed'),
-    n('CLOSED_BY', USER_ID, 'Closed by'),
+    c('STATUS', ITEM_STATUS, 'State', default="'Open'"),
+    n('CLOSED_AT', TS, 'Resolved or dismissed'),
+    n('CLOSED_BY', USER_ID, 'Resolved or dismissed by'),
     n('EVIDENCE', TEXT1K, 'Evidence given on closing'),
     c('BLOCKS_EXECUTION', BOOL, '1 = the build cannot start while open', default='0'),
 ], domain=D, uniques=[('PLAN_ID', 'CONDITION_CODE')], indexes=[('PLAN_APPROVAL_ID',)],
-    checks=["(STATUS = 'Closed') = (CLOSED_AT IS NOT NULL)"])
+    checks=["(STATUS = 'Open') = (CLOSED_AT IS NULL)"])
 
 table('PLAN_BASELINE', 'Snapshot frozen at approval: pinned versions, headline figures and the full figures (DATA-022). Never updated.', [
     fk('PLAN_ID', 'PLAN', 'Plan'),
@@ -987,7 +989,8 @@ table('PLAN_SITE', 'Site row of a multi-site plan (edge rollout, portfolio): exi
     c('SITE_ROW_CODE', CODE, 'Row id within the plan'),
     c('NAME', NAME, 'Site name'),
     c('REF_KIND', enum('dataCenter', 'edgeLocation', 'candidate', 'campus'), 'What the row points at'),
-    n('REF_ID', EXT_ID, 'Inventory id, or PLAN_CANDIDATE_SITE.CANDIDATE_CODE for a candidate'),
+    n('REF_ID', EXT_ID, 'Inventory site or edge location id (dataCenter / edgeLocation / campus); NULL for a candidate'),
+    fk('PLAN_CANDIDATE_SITE_ID', 'PLAN_CANDIDATE_SITE', 'Candidate plot of the same plan (REF_KIND = candidate)', null=True, also=('PLAN_ID',)),
     n('VARIANT', SHORT, 'Site variant'),
     c('IT_KW', KW, 'IT kW'),
     c('GO_LIVE', DATE, 'Go-live'),
@@ -1001,7 +1004,8 @@ table('PLAN_SITE', 'Site row of a multi-site plan (edge rollout, portfolio): exi
     n('CITY', LABEL, 'City'), n('COUNTRY_CODE', f'CHAR(2) {ASCII}', 'ISO country'),
     n('NOTES', TEXT1K, 'Notes'),
 ], domain=D, uniques=[('PLAN_ID', 'SITE_ROW_CODE')], indexes=[('CHILD_PLAN_ID',)],
-    checks=['LATITUDE IS NULL OR LATITUDE BETWEEN -90 AND 90', 'LONGITUDE IS NULL OR LONGITUDE BETWEEN -180 AND 180', 'IT_KW >= 0'])
+    checks=['LATITUDE IS NULL OR LATITUDE BETWEEN -90 AND 90', 'LONGITUDE IS NULL OR LONGITUDE BETWEEN -180 AND 180', 'IT_KW >= 0',
+            "(REF_KIND = 'candidate') = (PLAN_CANDIDATE_SITE_ID IS NOT NULL)", "REF_KIND = 'candidate' OR REF_ID IS NOT NULL"])
 
 table('PLAN_CANDIDATE_SITE', 'Candidate plot for a new-site plan, scored on land, grid, water, fibre and hazards.', [
     PLAN_FK(),
@@ -1050,7 +1054,7 @@ table('PLAN_PLANT_LINE', 'Plant line-up of a plant plan: unit to add, replace or
     c('PLANT_SYSTEM', enum('UPS', 'Generator', 'Transformer', 'Chiller', 'CRAH', 'CDU', 'Switchgear', 'Battery', 'Dry cooler'), 'System'),
     c('ACTION', enum('add', 'replace', 'uprate'), 'Action'),
     n('TARGET_INV_ASSET_ID', EXT_ID, 'Existing unit in Inventory being replaced / uprated'),
-    n('TARGET_ASSET_LABEL', NAME, 'Its display name cached'),
+    n('TARGET_ASSET_LABEL', NAME, 'Its display name as at planning (snapshot, never refreshed)'),
     n('MODEL', NAME, 'Model'), n('MANUFACTURER', NAME, 'Maker'),
     c('RATING_KW', KW, 'Rating, kW'), n('RATING_KVA', 'DECIMAL(12,2)', 'Rating, kVA'), n('POWER_FACTOR', 'DECIMAL(4,3)', 'Power factor'),
     n('RATING_BASIS', enum('Standby (ESP)', 'Prime (PRP)', 'Continuous (COP)'), 'Generator rating basis'),
@@ -1087,7 +1091,7 @@ table('PLAN_CUT_IN_LINE', 'Plant line a cut-in step connects (junction).', [
 table('PLAN_NETWORK_PATH', 'Network path of a network / DCI plan: provider, link type, diversity, ends and cost.', [
     PLAN_FK(),
     c('PATH_CODE', CODE, 'Path id within the plan'), c('NAME', NAME, 'Name'),
-    n('SCM_PROVIDER_ID', EXT_ID, 'Provider (Supply Chain)'), c('PROVIDER_NAME', NAME, 'Provider name cached'),
+    n('SCM_PROVIDER_ID', EXT_ID, 'Provider (Supply Chain)'), c('PROVIDER_NAME', NAME, 'Provider name as at planning (snapshot, never refreshed)'),
     n('ROUTE_REF', SHORT, 'Route id'), n('DIVERSITY_GROUP', SHORT, 'Diversity group'),
     c('LINK_TYPE', enum('Leased wavelength', 'Leased IP transit', 'Dark fibre with owned DWDM', 'ZR optics on dark fibre'), 'Link type'),
     c('CAPACITY_GBPS', 'DECIMAL(10,2)', 'Capacity, Gbps'), n('LATENCY_MS', 'DECIMAL(8,3)', 'Latency, ms'), n('DISTANCE_KM', 'DECIMAL(9,2)', 'Route, km'),
@@ -1105,7 +1109,7 @@ table('PLAN_NETWORK_PATH_SRLG', 'Shared-risk link group a path belongs to.', [
 
 table('PLAN_CONSENT', 'Customer notice and consent for a migration plan.', [
     PLAN_FK(),
-    c('BSS_CUSTOMER_ID', EXT_ID, 'Customer (BSS)'), c('CUSTOMER_NAME', NAME, 'Name cached'),
+    c('BSS_CUSTOMER_ID', EXT_ID, 'Customer (BSS)'), c('CUSTOMER_NAME', NAME, 'Customer name as on the notice (snapshot, never refreshed)'),
     c('NOTICE_DAYS', 'SMALLINT UNSIGNED', 'Notice period, days'), n('NOTIFIED_AT', TS, 'Notified'), n('CONSENT_AT', TS, 'Consent given'),
     c('STATUS', enum('Not sent', 'Notified', 'Consented', 'Refused'), 'State', default="'Not sent'"),
     n('ACCOUNT_MANAGER', NAME, 'Account manager'), n('NOTES', TEXT1K, 'Notes'),
@@ -1119,7 +1123,7 @@ table('PLAN_CONSENT_SERVICE', 'Service covered by a consent.', [
 table('PLAN_DISPOSITION', 'What happens to each record of a migration / exit (move, retire, cease, re-terminate …).', [
     PLAN_FK(),
     c('DISPOSED_RECORD_TYPE', enum('device', 'rack', 'service', 'circuit', 'subnet', 'vlan', 'contract', 'plant'), 'Record type'),
-    c('MODULE_RECORD_ID', EXT_ID, 'Record id in its module'), c('LABEL', NAME, 'Name cached'),
+    c('MODULE_RECORD_ID', EXT_ID, 'Record id in its module'), c('LABEL', NAME, 'Name as at disposal (snapshot, never refreshed)'),
     c('DISPOSITION', enum('move', 'retire', 'dispose', 'keep', 'hand-back', 'cease', 're-terminate', 'release', 'end', 'renew'), 'Disposition'),
     n('TARGET_REF', EXT_ID, 'Where it goes'), fk('PLAN_WAVE_ID', 'PLAN_WAVE', 'Wave', null=True, od='SET NULL'),
     n('DUE_DATE', DATE, 'Date'), n('COST_USD', MONEY, 'Cost'), n('NOTES', TEXT1K, 'Notes'),
@@ -1150,7 +1154,7 @@ table('PLAN_PLACEMENT_RACK', 'Rack the plan places equipment in, with U range an
 table('PLAN_PLACEMENT_LINK', 'Power feed, outlet or switch port the placement uses in a rack.', [
     fk('PLAN_PLACEMENT_RACK_ID', 'PLAN_PLACEMENT_RACK', 'Placed rack', od='CASCADE'),
     c('LINK_KIND', enum('feed', 'outlet', 'port'), 'Kind'), c('INV_RECORD_ID', EXT_ID, 'Feed / outlet / device id (Inventory)'),
-    n('INTERFACE_NAME', SHORT, 'Interface (ports)'), n('SPEED_MBPS', 'INT UNSIGNED', 'Port speed'),
+    c('INTERFACE_NAME', SHORT, 'Interface (ports); empty = the whole device', default="''"), n('SPEED_MBPS', 'INT UNSIGNED', 'Port speed'),
 ], domain=D, uniques=[('PLAN_PLACEMENT_RACK_ID', 'LINK_KIND', 'INV_RECORD_ID', 'INTERFACE_NAME')])
 
 table('PLAN_PLACEMENT_POSITION', 'Floor position a placement uses (new cabinet / empty positions), or a new row it adds.', [
@@ -1169,7 +1173,7 @@ table('PLAN_IP_REQUEST', 'Address block the plan asks IP Management for (purpose
 ], domain=D, uniques=[('PLAN_ID', 'CIDR')], checks=['VLAN_NUMBER IS NULL OR VLAN_NUMBER BETWEEN 1 AND 4094'])
 
 table('PLAN_EQUIPMENT_LINE', 'Equipment an in-site plan installs.', [
-    PLAN_FK(), c('ASSET_MODEL_KEY', KEY, 'Device type (Inventory catalogue)'), c('QTY', 'INT UNSIGNED', 'Quantity'), n('ROLE', SHORT, 'Role'),
+    PLAN_FK(), c('ASSET_MODEL_KEY', KEY, 'Device type (Inventory catalogue)'), c('QTY', 'INT UNSIGNED', 'Quantity'), c('ROLE', SHORT, 'Role; empty = no role', default="''"),
 ], domain=D, uniques=[('PLAN_ID', 'ASSET_MODEL_KEY', 'ROLE')], checks=['QTY > 0'])
 
 table('PLAN_RACK_CLASS', 'Rack class of an in-site plan (count, kW, air / liquid).', [
@@ -1220,8 +1224,7 @@ table('PLAN_REVIEW', 'Request sent to reviewers with the plan review pack (PDF, 
 
 table('PLAN_REVIEW_REVIEWER', 'Reviewer of a review request (junction to Platform Engineering users).', [
     fk('PLAN_REVIEW_ID', 'PLAN_REVIEW', 'Review', od='CASCADE'),
-    c('REVIEWER_USER_ID', USER_ID, 'Reviewer'), c('REVIEWER_NAME', NAME, 'Name cached'), c('ROLE_NAME', LABEL, 'Approving role'),
-    c('EMAIL', 'VARCHAR(320)', 'Address the pack was sent to (personal data)'),
+    c('REVIEWER_USER_ID', USER_ID, 'Reviewer'), c('REVIEWER_NAME', NAME, 'Name as at sending (snapshot, never refreshed)'), c('ROLE_NAME', LABEL, 'Approving role'),
     n('ANSWERED_AT', TS, 'When the reviewer answered (comment or decision)'),
 ], domain=D, uniques=[('PLAN_REVIEW_ID', 'REVIEWER_USER_ID')], indexes=[('TENANT_ID', 'REVIEWER_USER_ID')])
 
@@ -1232,15 +1235,15 @@ table('PLAN_REVIEW_ATTACHMENT', 'File sent with a review request.', [
 
 table('PLAN_REVIEW_COMMENT', 'Threaded comment on a section of the plan review document.', [
     fk('PLAN_ID', 'PLAN', 'Plan'),
-    fk('PLAN_REVIEW_ID', 'PLAN_REVIEW', 'Review request it answers', null=True, od='SET NULL'),
-    fk('PARENT_COMMENT_ID', 'PLAN_REVIEW_COMMENT', 'Comment it replies to; NULL = thread start', null=True),
+    fk('PLAN_REVIEW_ID', 'PLAN_REVIEW', 'Review request it answers (a review of the same plan)', null=True, also=('PLAN_ID',)),
+    fk('PARENT_COMMENT_ID', 'PLAN_REVIEW_COMMENT', 'Comment it replies to (same plan); NULL = thread start', null=True, also=('PLAN_ID',)),
     c('COMMENT_CODE', CODE, 'Comment id (RVC-1)'), c('REVISION_LETTER', f'CHAR(1) {ASCII}', 'Plan revision commented on'),
-    c('SECTION_ID', f'VARCHAR(32) {ASCII}', 'Section of the review document (4.1 …)'), c('SECTION_LABEL', NAME, 'Section title cached'),
-    c('AUTHOR_USER_ID', USER_ID, 'Author'), c('AUTHOR_NAME', NAME, 'Name cached'), n('AUTHOR_ROLE', LABEL, 'Role'),
+    c('SECTION_ID', f'VARCHAR(32) {ASCII}', 'Section of the review document (4.1 …)'), c('SECTION_LABEL', NAME, 'Section title as at posting (snapshot, never refreshed)'),
+    c('AUTHOR_USER_ID', USER_ID, 'Author'), c('AUTHOR_NAME', NAME, 'Name as at posting (snapshot, never refreshed)'), n('AUTHOR_ROLE', LABEL, 'Role'),
     c('POSTED_AT', TS, 'Posted'), c('BODY', TEXT2K, 'Comment'),
-    c('STATUS', enum('Open', 'Resolved'), 'State', default="'Open'"), n('RESOLVED_BY', USER_ID, 'Resolved by'), n('RESOLVED_AT', TS, 'Resolved'),
-], domain=D, uniques=[('TENANT_ID', 'COMMENT_CODE')], indexes=[('PLAN_ID', 'SECTION_ID'), ('PLAN_REVIEW_ID',), ('PARENT_COMMENT_ID',)],
-    checks=["(STATUS = 'Resolved') = (RESOLVED_AT IS NOT NULL)"])
+    c('STATUS', ITEM_STATUS, 'State', default="'Open'"), n('RESOLVED_BY', USER_ID, 'Resolved by'), n('RESOLVED_AT', TS, 'Resolved'),
+], domain=D, uniques=[('TENANT_ID', 'COMMENT_CODE')], indexes=[('PLAN_ID', 'SECTION_ID')],
+    checks=["(STATUS = 'Open') = (RESOLVED_AT IS NULL)"])
 
 # ================================================================ E. MACD, compliance and imports
 D = 'E. MACD, compliance and imports'
@@ -1300,7 +1303,7 @@ table('MACD_REQUEST', 'MACD request from a customer or internal team, through st
     n('IS_FIRST_TIME_RIGHT', BOOL, '1 = verified without rework'), n('REASON', TEXT1K, 'Reject / cancel reason'),
 ], domain=D, site=True, related='MACD_REQUEST → MACD_CATALOGUE_ITEM; ← MACD_REQUEST_DEVICE, MACD_REQUEST_CHECK, MACD_REQUEST_TASK, MACD_REQUEST_EVENT',
     uniques=[('TENANT_ID', 'REQUEST_CODE')],
-    indexes=[('MACD_CATALOGUE_ITEM_ID',), ('TENANT_ID', 'INV_SITE_ID', 'STAGE'), ('TENANT_ID', 'BSS_CUSTOMER_ID'), ('ITSM_CHANGE_ID',), ('INV_RACK_ID',)],
+    indexes=[('MACD_CATALOGUE_ITEM_ID',), ('TENANT_ID', 'INV_SITE_ID', 'STAGE'), ('TENANT_ID', 'STAGE'), ('TENANT_ID', 'BSS_CUSTOMER_ID'), ('ITSM_CHANGE_ID',), ('INV_RACK_ID',)],
     checks=['QTY > 0', 'NRC_AMOUNT >= 0', "STAGE = 'Draft' OR SUBMITTED_AT IS NOT NULL", "STAGE <> 'Completed' OR COMPLETED_AT IS NOT NULL",
             'WINDOW_START IS NULL OR WINDOW_END IS NULL OR WINDOW_START < WINDOW_END', "STAGE NOT IN ('Rejected','Cancelled') OR REASON IS NOT NULL"])
 
@@ -1342,7 +1345,7 @@ table('COMPLIANCE_POLICY_VERSION', 'Version of a policy: Rego package and source
     c('AREA', enum('Power', 'Cooling', 'Network', 'Lifecycle', 'Change', 'Safety', 'Maintenance'), 'Area'),
     c('ENFORCEMENT', enum('Block', 'Warn'), 'Block stops the change; Warn records it'),
     c('POLICY_TRIGGER', enum('Nightly sweep', 'On change', 'Change gate'), 'When it runs'),
-    c('REGO_PACKAGE', f'VARCHAR(128) {ASCII}', 'Rego package'), c('REGO_SOURCE', 'MEDIUMTEXT', 'Rego source'),
+    c('REGO_PACKAGE', f'VARCHAR(128) {ASCII}', 'Rego package'), c('REGO_SOURCE', 'TEXT', 'Rego source (policy as code, up to 64 KB)'),
     n('PUBLISHED_AT', TS, 'Published'), n('PUBLISHED_BY', USER_ID, 'Published by'),
     c('LIVE_KEY', 'INT UNSIGNED', 'One published version per policy (generated)',
       extra="GENERATED ALWAYS AS (IF(VERSION_STATUS = 'Published', COMPLIANCE_POLICY_ID, NULL)) STORED"),
@@ -1378,7 +1381,7 @@ table('COMPLIANCE_ATTESTATION', 'Attestation of a manual control: who, when, evi
 table('COMPLIANCE_DECISION', 'Policy decision per resource (deny / warn / allow) with the input it was made on (snapshot, DATA-022).', [
     fk('COMPLIANCE_POLICY_VERSION_ID', 'COMPLIANCE_POLICY_VERSION', 'Policy version evaluated'),
     c('RESOURCE_TYPE', f'VARCHAR(40) {ASCII}', 'Resource type (rack, device, change, prefix …)'),
-    c('RESOURCE_ID', EXT_ID, 'Resource id in its module'), c('RESOURCE_NAME', NAME, 'Name cached'),
+    c('RESOURCE_ID', EXT_ID, 'Resource id in its module'), c('RESOURCE_NAME', NAME, 'Name as at the decision (snapshot, never refreshed)'),
     n('INV_SITE_ID', EXT_ID, 'Site of the resource'),
     c('POLICY_RESULT', enum('allow', 'deny', 'warn'), 'Decision'), n('GATE_OUTCOME', enum('Blocked', 'Warned'), 'What it did to a change'),
     n('ITSM_CHANGE_ID', EXT_ID, 'Change it gated'), c('EVALUATED_AT', TS, 'When'),
@@ -1455,12 +1458,46 @@ def ident_ok(s):
     assert len(s) <= 64, (s, len(s))
 
 
-def short(name):
-    """keep constraint names under 64 characters"""
-    if len(name) <= 64:
-        return name
-    import hashlib
-    return name[:55] + '_' + hashlib.sha1(name.encode()).hexdigest()[:8].upper()
+ALIAS = {}
+USED_ALIASES = set()
+
+
+def make_aliases():
+    """short, unique alias per table for constraint names that would pass 64 characters (PLAN_TEMPLATE_VERSION → PTV)"""
+    used = set()
+    for name in sorted(ORDER, key=len, reverse=True):
+        w = name.split('_')
+        for cand in (''.join(x[0] for x in w), w[0] + '_' + ''.join(x[0] for x in w[1:]), '_'.join(x[:3] for x in w)):
+            if cand not in used and cand not in TABLES:
+                ALIAS[name] = cand
+                used.add(cand)
+                break
+        else:
+            raise SystemExit(f'no alias for {name}')
+
+
+def kname(prefix, table, parts):
+    """constraint / index name: PREFIX_TABLE_COLUMNS; over 64 characters, table names inside it become their alias"""
+    full = f'{prefix}_{table}_' + '_'.join(parts)
+    if len(full) <= 64:
+        return full
+    def ab(x):
+        for t in sorted(ORDER, key=len, reverse=True):
+            if x == f'{t}_ID' or x.startswith(t + '_') or x.endswith('_' + t + '_ID'):
+                x = x.replace(t, ALIAS[t])
+                break
+        return x
+    def ab(x, _ab=ab):
+        y = _ab(x)
+        if y != x:
+            USED_ALIASES.update(v for v in ALIAS.values() if y.startswith(v + '_') or ('_' + v + '_') in y)
+        return y
+    USED_ALIASES.add(ALIAS[table])
+    name = f'{prefix}_{ALIAS[table]}_' + '_'.join(ab(x) for x in parts)
+    if len(name) > 64:
+        name = name.replace('_ID_', '_').removesuffix('_ID')
+    assert len(name) <= 64, (full, name)
+    return name
 
 
 def sql_comment(s):
@@ -1478,6 +1515,64 @@ def uniform():
         for col in t['cols']:
             if col.name in UNIFORM:
                 col.typ = UNIFORM[col.name]
+
+
+
+SIGNED_OK = {'KW_DELTA', 'MRC_DELTA', 'U_DELTA', 'THRESHOLD'}   # may be negative on purpose
+POSITIVE = {'BUILD_DURATION_FACTOR', 'COOLING_OVERHEAD'}      # multipliers: > 0
+
+
+def fk_cols(t, f):
+    col, ref, od, also = f
+    od = 'RESTRICT' if od == 'SET NULL' else od
+    if ref == t['name']:
+        # self-reference: the referencing column goes first. MySQL 9.6 silently skips a self-referencing composite key that
+        # starts with the shared columns (TENANT_ID, PLAN_ID, PARENT_ID) → (TENANT_ID, PLAN_ID, ID); tested 12-Nov-2026.
+        return (col, 'TENANT_ID') + also, (f'{ref}_ID', 'TENANT_ID') + also, od
+    return ('TENANT_ID',) + also + (col,), ('TENANT_ID',) + also + (f'{ref}_ID',), od
+
+
+def tenant_keys():
+    """Tenant-aware foreign keys (review C1): every FK is (TENANT_ID, [shared columns], column) → the parent's same columns, so a
+    row can never point at another tenant's row. The parent gets the matching UNIQUE key; keys that start with an FK column get
+    TENANT_ID in front (same rows, since the FK column fixes the tenant), so they also serve the FK. ON DELETE SET NULL becomes
+    RESTRICT: it would null the NOT NULL TENANT_ID."""
+    for name in ORDER:
+        t = TABLES[name]
+        lead = {f[0] for f in t['fks']}
+        t['uniques'] = [(('TENANT_ID',) + tuple(u)) if u[0] in lead else tuple(u) for u in t['uniques']]
+        t['indexes'] = [(('TENANT_ID',) + tuple(i)) if i[0] in lead else tuple(i) for i in t['indexes']]
+    for name in ORDER:
+        for f in TABLES[name]['fks']:
+            _, pcols, _ = fk_cols(TABLES[name], f)
+            pt = TABLES[f[1]]
+            if pcols not in pt['uniques']:
+                pt['uniques'].append(pcols)
+    for name in ORDER:   # drop plain indexes the new keys made redundant
+        t = TABLES[name]
+        keys = t['uniques'] + t['indexes']
+        t['indexes'] = [i for i in t['indexes'] if not any(k != i and len(k) > len(i) and k[:len(i)] == i for k in keys)]
+
+
+def range_checks():
+    """Review M2: a signed number no check mentions gets >= 0 (percentages 0–100, multipliers > 0)."""
+    for name in ORDER:
+        t = TABLES[name]
+        for col in t['cols']:
+            typ = col.typ.upper()
+            if not re.match(r'(DECIMAL|INT|SMALLINT|TINYINT|BIGINT)\b', typ) or 'UNSIGNED' in typ or typ == 'TINYINT(1)':
+                continue
+            if 'GENERATED' in col.extra or col.name in SIGNED_OK or any(re.search(rf'\b{col.name}\b', ck) for ck in t['checks']):
+                continue
+            if col.name.endswith('_PCT') or '_PCT_' in col.name:
+                t['checks'].append(f'{col.name} BETWEEN 0 AND 100')
+            elif col.name in POSITIVE:
+                t['checks'].append(f'{col.name} > 0')
+            else:
+                t['checks'].append(f'{col.name} >= 0')
+
+
+GLOBAL_NAMES = set()   # FK and CHECK names are unique per schema in MySQL
 
 
 def emit():
@@ -1517,23 +1612,29 @@ def emit():
         for u in t['uniques']:
             for x in u:
                 assert x in names, (name, x)
-            lines.append(f'  UNIQUE KEY `{short("UK_" + name + "_" + "_".join(u))}` (' + ', '.join(f'`{x}`' for x in u) + ')')
-            covered.append(u)
+            lines.append(f'  UNIQUE KEY `{kname("UK", name, u)}` (' + ', '.join(f'`{x}`' for x in u) + ')')
+            covered.append(tuple(u))
         for ix in t['indexes']:
             for x in ix:
                 assert x in names, (name, x)
-            lines.append(f'  KEY `{short("IDX_" + name + "_" + "_".join(ix))}` (' + ', '.join(f'`{x}`' for x in ix) + ')')
-            covered.append(ix)
-        # every FK column must lead some index
-        for col, ref, od in t['fks']:
-            if not any(k[0] == col for k in covered):
-                lines.append(f'  KEY `{short("IDX_" + name + "_" + col)}` (`{col}`)')
-                covered.append((col,))
-        # a plain index made redundant by a wider one is dropped
+            lines.append(f'  KEY `{kname("IDX", name, ix)}` (' + ', '.join(f'`{x}`' for x in ix) + ')')
+            covered.append(tuple(ix))
+        # every FK's columns must lead some index
+        for f in t['fks']:
+            ccols, _, _ = fk_cols(t, f)
+            if not any(k[:len(ccols)] == ccols for k in covered):
+                lines.append(f'  KEY `{kname("IDX", name, ccols)}` (' + ', '.join(f'`{x}`' for x in ccols) + ')')
+                covered.append(ccols)
         for i, ck in enumerate(t['checks']):
-            lines.append(f'  CONSTRAINT `{short(f"CK_{name}_{i + 1:02d}")}` CHECK ({ck})')
-        for col, ref, od in t['fks']:
-            lines.append(f'  CONSTRAINT `{short("FK_" + name + "_" + col)}` FOREIGN KEY (`{col}`) REFERENCES `{ref}` (`{ref}_ID`) ON DELETE {od} ON UPDATE RESTRICT')
+            lines.append(f'  CONSTRAINT `{kname("CK", name, [f"{i + 1:02d}"])}` CHECK ({ck})')
+            assert kname("CK", name, [f"{i + 1:02d}"]) not in GLOBAL_NAMES; GLOBAL_NAMES.add(kname("CK", name, [f"{i + 1:02d}"]))
+        for f in t['fks']:
+            ccols, pcols, od = fk_cols(t, f)
+            fkn = kname('FK', name, [f[0]])
+            assert fkn not in GLOBAL_NAMES, fkn
+            GLOBAL_NAMES.add(fkn)
+            lines.append(f'  CONSTRAINT `{fkn}` FOREIGN KEY (' + ', '.join(f'`{x}`' for x in ccols) + f') REFERENCES `{f[1]}` ('
+                         + ', '.join(f'`{x}`' for x in pcols) + f') ON DELETE {od} ON UPDATE RESTRICT')
         hdr = [f'-- {name}: {t["comment"]}']
         if t['related']:
             hdr.append(f'-- Related tables: {t["related"]}')
@@ -1574,9 +1675,16 @@ def emit_md():
           '- Ids of records owned by a platform module are `VARCHAR(64)` ASCII columns named after the module: `INV_` Inventory, `IPL_` Inventory Planning, `IPM_` IP Management, `ITSM_`, `ALR_` System Alerts, `BSS_`, `PRJ_` Programs & Projects, `SCM_` Supply Chain, `PE_` Platform Engineering. They carry no FOREIGN KEY because the record lives in the module\'s own database (DATA-019); the module API validates them on write.',
           '- Booleans `TINYINT(1)` named `IS_…` / `HAS_…`; fixed vocabularies are `ENUM`, the same ENUM for the same concept everywhere; configurable word lists are in `LOOKUP_LIST` / `LOOKUP_VALUE`.',
           '- Money `DECIMAL(16,2)` with a `CURRENCY_CODE`; planner figures are USD (`_USD`). Percentages `DECIMAL(5,2)` 0–100. Times `DATETIME(3)` UTC.',
+          '- Foreign keys are tenant-aware: `(TENANT_ID, column)` → the parent\'s `(TENANT_ID, <PARENT>_ID)` (a matching UNIQUE key on every referenced table), so a row can never point at another tenant\'s row. Where a child and its parent share a plan, the key also includes `PLAN_ID`. No FK uses SET NULL (it would null TENANT_ID).',
+          '- Every signed number has a range check (`>= 0`; percentages 0–100); the four that may be negative are deltas and a rule threshold. Display names copied from another module are snapshots and say so; names that must stay current are read through the module API.',
           '- Versioned content (templates, benchmark values, compliance policies) has an identity table and a `…_VERSION` table; a published version is never updated (DATA-020). "One draft / one published / one current / one open" rules are enforced by a generated key column with a UNIQUE index (NULL when the rule does not apply).',
           '- JSON only for snapshots kept as evidence (plan baseline, policy decision input, power finding evidence) and for payloads replayed to a module API (DCIM work item arguments, write-back body).',
           '- No AUD tables and no audit_event table: the platform audits every insert, update and delete (DATA-021).', '']
+    used = sorted({t for t in ORDER if ALIAS[t] in USED_ALIASES})
+    if used:
+        md += ['## Table aliases in long key names', '',
+               'A key name over 64 characters uses these aliases for table names (e.g. `UK_PTI_TENANT_ID_PTV_ID_INPUT_KEY`).', '',
+               '| Alias | Table |', '| --- | --- |'] + [f'| `{ALIAS[t]}` | `{t}` |' for t in used] + ['']
     for dom, names in doms.items():
         md.append(f'## {dom}')
         md.append('')
@@ -1611,6 +1719,9 @@ def emit_md():
 
 if __name__ == '__main__':
     uniform()
+    make_aliases()
+    tenant_keys()
+    range_checks()
     redundant_check()
     sql = emit()
     os.makedirs(os.path.dirname(OUT_SQL), exist_ok=True)
