@@ -1,0 +1,670 @@
+<title>DC-STORE Schema</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
+<style>
+/* Layout: a schema workbench. Sticky header + tabs; Diagram = area rail | canvas | table inspector; Tables = contents rail | reference. */
+:root {
+  --bg: #f3f5f6; --panel: #ffffff; --ink: #172026; --muted: #5b6a73; --faint: #8a979f; --line: #d9e0e4; --line2: #e9eef0;
+  --accent: #0b6b72; --accent-ink: #ffffff; --accent-soft: #dcefef; --hi: #c2410c; --hi-soft: #fdebe1;
+  --ok: #17803d; --ok-soft: #dcf3e3; --warn: #a15c07; --canvas: #eef2f3; --grid: #dfe6e9; --box: #ffffff; --boxhead: #1f2d35; --boxhead-ink: #f1f6f7;
+  --a-ref: #5f7c8a; --a-ops: #b4543a; --a-tpl: #7a5aa6; --a-plan: #0b6b72; --a-review: #2f6db5; --a-family: #4f7f3a; --a-macd: #a0752b; --a-comp: #9a3f6b; --a-xc: #56606a;
+  --f-display: 'IBM Plex Sans Condensed', 'Arial Narrow', system-ui, sans-serif;
+  --f-body: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --f-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --hdr: 104px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11171b; --panel: #172026; --ink: #e3eaee; --muted: #9aabb4; --faint: #73848d; --line: #2a363d; --line2: #222d33;
+  --accent: #4fb3b9; --accent-ink: #0d1518; --accent-soft: #19363a; --hi: #f08a5d; --hi-soft: #3a2419;
+  --ok: #5cc985; --ok-soft: #173323; --warn: #e0a24a; --canvas: #0e1417; --grid: #1a2328; --box: #1b252b; --boxhead: #2b3b44; --boxhead-ink: #eef4f6;
+  --a-ref: #8fb0bf; --a-ops: #e08b70; --a-tpl: #b49ad8; --a-plan: #4fb3b9; --a-review: #79a8e6; --a-family: #8fc177; --a-macd: #d6a95c; --a-comp: #d986ae; --a-xc: #9aa5ae;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #11171b; --panel: #172026; --ink: #e3eaee; --muted: #9aabb4; --faint: #73848d; --line: #2a363d; --line2: #222d33;
+  --accent: #4fb3b9; --accent-ink: #0d1518; --accent-soft: #19363a; --hi: #f08a5d; --hi-soft: #3a2419;
+  --ok: #5cc985; --ok-soft: #173323; --warn: #e0a24a; --canvas: #0e1417; --grid: #1a2328; --box: #1b252b; --boxhead: #2b3b44; --boxhead-ink: #eef4f6;
+  --a-ref: #8fb0bf; --a-ops: #e08b70; --a-tpl: #b49ad8; --a-plan: #4fb3b9; --a-review: #79a8e6; --a-family: #8fc177; --a-macd: #d6a95c; --a-comp: #d986ae; --a-xc: #9aa5ae;
+  color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font: 14px/1.5 var(--f-body); margin: 0 }
+code, .mono { font-family: var(--f-mono); font-size: .92em }
+a { color: var(--accent) }
+button { font: inherit; color: inherit }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+
+/* header */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--panel); border-bottom: 1px solid var(--line); padding-inline: 16px }
+.top-in { max-width: 1680px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 20px; padding-block: 12px 0 }
+.brand { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; min-width: 0 }
+.brand h1 { font: 600 22px/1.15 var(--f-display); margin: 0; letter-spacing: .01em; text-wrap: balance }
+.brand .db { font: 500 12px var(--f-mono); color: var(--muted) }
+.facts { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums }
+.facts b { color: var(--ink); font-weight: 600 }
+.verdict { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px 3px 4px; background: var(--panel); cursor: pointer }
+.verdict .pass { background: var(--ok-soft); color: var(--ok); font-weight: 600; border-radius: 999px; padding: 1px 8px; letter-spacing: .04em; font-size: 11.5px }
+.tabs { flex-basis: 100%; display: flex; gap: 2px; overflow-x: auto; margin-top: 6px }
+.tab { border: 0; background: none; padding: 9px 14px 10px; cursor: pointer; color: var(--muted); font-weight: 500; border-bottom: 2px solid transparent; white-space: nowrap }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent) }
+.tab .n { font: 500 11px var(--f-mono); color: var(--faint); margin-left: 6px }
+main { max-width: 1680px; margin: 0 auto; padding-inline: 16px; padding-block: 16px 40px }
+
+/* diagram view */
+.dg { display: grid; grid-template-columns: 250px minmax(0, 1fr) 340px; gap: 14px; height: calc(100dvh - var(--hdr) - 40px); min-height: 560px }
+.rail, .insp { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: auto; min-width: 0 }
+.rail h3, .insp h3 { font: 600 11px var(--f-body); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); margin: 14px 14px 6px }
+.area-btn { display: grid; grid-template-columns: 10px 1fr auto; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; background: none; padding: 8px 14px; cursor: pointer; border-left: 3px solid transparent }
+.area-btn:hover { background: var(--line2) }
+.area-btn[aria-current="true"] { background: var(--accent-soft); border-left-color: var(--accent) }
+.area-btn .sw { width: 10px; height: 10px; border-radius: 2px }
+.area-btn .nm { font-weight: 500; font-size: 13.5px; line-height: 1.3 }
+.area-btn .ct { font: 500 11.5px var(--f-mono); color: var(--faint) }
+.rail .legend { padding: 4px 14px 14px; font-size: 12px; color: var(--muted); display: grid; gap: 8px }
+.rail .legend svg { flex: none }
+.lg { display: flex; align-items: center; gap: 8px }
+.stage { position: relative; background: var(--canvas); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; min-width: 0;
+  background-image: radial-gradient(var(--grid) 1px, transparent 1px); background-size: 18px 18px }
+.stage svg.er { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; user-select: none }
+.stage svg.er.drag { cursor: grabbing }
+.tools { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; pointer-events: none }
+.tools > * { pointer-events: auto }
+.seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow: hidden }
+.seg button { border: 0; background: none; padding: 5px 10px; font-size: 12.5px; cursor: pointer; color: var(--muted) }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink) }
+.ibtn { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; min-width: 30px; height: 30px; cursor: pointer; font-size: 15px; line-height: 1; padding: 0 8px }
+.ibtn:hover, .seg button:hover:not([aria-pressed="true"]) { color: var(--ink) }
+.find { position: relative }
+.find input { width: 220px; max-width: 46vw; height: 30px; border: 1px solid var(--line); border-radius: 6px; padding: 0 10px; background: var(--panel); color: var(--ink); font: 12.5px var(--f-mono) }
+.find ul { position: absolute; top: 34px; left: 0; width: 300px; max-height: 300px; overflow: auto; margin: 0; padding: 4px 0; list-style: none; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.12) }
+.find li { padding: 5px 10px; cursor: pointer; font: 12px var(--f-mono); display: flex; justify-content: space-between; gap: 8px }
+.find li span { color: var(--faint); font-family: var(--f-body) }
+.find li:hover, .find li.on { background: var(--accent-soft) }
+.zoomv { font: 500 11.5px var(--f-mono); color: var(--muted); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px }
+.areahead { position: absolute; left: 12px; bottom: 10px; right: 12px; pointer-events: none; font-size: 12.5px; color: var(--muted); max-width: 640px }
+.areahead b { color: var(--ink); font: 600 15px var(--f-display); display: block }
+
+/* SVG boxes */
+.nd .frame { fill: var(--box); stroke: var(--line); stroke-width: 1 }
+.nd .head { fill: var(--boxhead) }
+.nd .ttl { fill: var(--boxhead-ink); font: 600 12px var(--f-mono) }
+.nd .row { font: 11.5px var(--f-mono); fill: var(--ink) }
+.nd .typ { font: 10.5px var(--f-mono); fill: var(--faint) }
+.nd .k { font: 600 9.5px var(--f-mono) }
+.nd .k.pk { fill: var(--hi) } .nd .k.fk { fill: var(--accent) } .nd .k.uk { fill: var(--warn) } .nd .k.md { fill: var(--muted) }
+.nd .more { font: italic 10.5px var(--f-body); fill: var(--faint) }
+.nd .rowbg { fill: transparent }
+.nd .rowbg.fkrow { fill: var(--accent-soft); opacity: .55 }
+.nd.ghost .frame { stroke-dasharray: 4 3; fill: var(--canvas) }
+.nd.ghost .head { fill: var(--line) }
+.nd.ghost .ttl { fill: var(--ink) }
+.nd { cursor: pointer }
+.nd.sel .frame { stroke: var(--hi); stroke-width: 2.2 }
+.nd.dim, .ed.dim { opacity: .18 }
+.ed path { fill: none; stroke: var(--muted); stroke-width: 1.2 }
+.ed.on path { stroke: var(--hi); stroke-width: 2 }
+.ed circle { fill: var(--canvas); stroke: var(--muted); stroke-width: 1.2 }
+.ed.on circle { stroke: var(--hi) }
+.ed .cap { font: 10px var(--f-mono); fill: var(--muted) }
+.ov .ttl { font: 600 11px var(--f-mono) }
+.cl rect { fill-opacity: .07; stroke-opacity: .5; stroke-width: 1 }
+.cl text { font: 600 13px var(--f-display); letter-spacing: .02em }
+
+/* inspector */
+.insp .empty { padding: 18px 16px; color: var(--muted); font-size: 13px }
+.ih { padding: 14px 16px 10px; border-bottom: 1px solid var(--line2) }
+.ih .nm { font: 600 15px var(--f-mono); word-break: break-all }
+.ih p { margin: 6px 0 0; color: var(--muted); font-size: 13px }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 500; border-radius: 4px; padding: 1px 7px; background: var(--line2); color: var(--muted) }
+.chip i { width: 8px; height: 8px; border-radius: 2px; display: inline-block }
+.ilist { list-style: none; margin: 0; padding: 4px 0 10px }
+.ilist li { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 4px; padding: 3px 16px; font-size: 12.5px }
+.ilist li .c { font-family: var(--f-mono); word-break: break-all }
+.ilist li .t { color: var(--faint); font: 11px var(--f-mono); word-break: break-all }
+.ilist li .d { color: var(--muted); font-size: 12px }
+.kb { font: 600 9.5px var(--f-mono); padding-top: 3px }
+.kb.pk { color: var(--hi) } .kb.fk { color: var(--accent) } .kb.uk { color: var(--warn) }
+.lnk { border: 0; background: none; padding: 0; color: var(--accent); cursor: pointer; font: inherit; text-decoration: underline; text-underline-offset: 2px }
+.relrow { padding: 2px 16px; font-size: 12.5px }
+.relrow code { color: var(--muted) }
+.open-ref { margin: 8px 16px 16px; display: inline-block }
+
+/* tables reference */
+.ref { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 24px; align-items: start }
+.toc { position: sticky; top: calc(var(--hdr) + 16px); max-height: calc(100dvh - var(--hdr) - 32px); overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding-bottom: 10px }
+.toc .q { padding: 12px; border-bottom: 1px solid var(--line2); position: sticky; top: 0; background: var(--panel) }
+.toc .q input { width: 100%; height: 32px; border: 1px solid var(--line); border-radius: 6px; padding: 0 10px; background: var(--bg); color: var(--ink); font: 13px var(--f-body) }
+.toc .q small { display: block; margin-top: 6px; color: var(--faint); font-size: 11.5px }
+.toc h4 { margin: 12px 12px 4px; font: 600 11px var(--f-body); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); display: flex; align-items: center; gap: 6px }
+.toc h4 i { width: 8px; height: 8px; border-radius: 2px }
+.toc a { display: block; padding: 2px 12px 2px 26px; font: 12px var(--f-mono); color: var(--ink); text-decoration: none; word-break: break-all }
+.toc a:hover { color: var(--accent) }
+.tbl { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 18px; scroll-margin-top: calc(var(--hdr) + 12px); min-width: 0 }
+.tbl > header { padding: 14px 18px 12px; border-bottom: 1px solid var(--line2); display: grid; gap: 6px }
+.tbl h2 { margin: 0; font: 600 17px var(--f-mono); word-break: break-all; display: flex; align-items: center; flex-wrap: wrap; gap: 10px }
+.tbl .desc { margin: 0; color: var(--ink); max-width: 90ch }
+.tbl .meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--muted) }
+.tbl .meta .lnk { font-family: var(--f-mono); font-size: 12px }
+.areahd { display: flex; align-items: baseline; gap: 12px; margin: 26px 0 12px; flex-wrap: wrap }
+.areahd:first-child { margin-top: 0 }
+.areahd h2 { font: 600 20px var(--f-display); margin: 0 }
+.areahd p { margin: 0; color: var(--muted); font-size: 13px }
+.areahd i { width: 12px; height: 12px; border-radius: 3px; align-self: center }
+.tw { overflow-x: auto }
+table.grid { border-collapse: collapse; width: 100%; font-size: 12.5px }
+table.grid th { text-align: left; font: 600 11px var(--f-body); letter-spacing: .05em; text-transform: uppercase; color: var(--faint); padding: 7px 10px; border-bottom: 1px solid var(--line); background: var(--bg); white-space: nowrap }
+table.grid td { padding: 6px 10px; border-bottom: 1px solid var(--line2); vertical-align: top }
+table.grid tr:last-child td { border-bottom: 0 }
+table.grid td.c { font-family: var(--f-mono); white-space: nowrap }
+table.grid td.ty { font-family: var(--f-mono); color: var(--muted); max-width: 300px; word-break: break-word }
+table.grid td.nu, table.grid td.ix { color: var(--faint); font-variant-numeric: tabular-nums; white-space: nowrap }
+table.grid td.df { font-family: var(--f-mono); font-size: 11.5px; color: var(--muted); max-width: 200px; word-break: break-word }
+.badges { display: inline-flex; gap: 3px; margin-left: 6px; vertical-align: 1px }
+.bd { font: 600 9.5px var(--f-mono); padding: 0 4px; border-radius: 3px; border: 1px solid currentColor; line-height: 14px }
+.bd.pk { color: var(--hi) } .bd.fk { color: var(--accent) } .bd.uk { color: var(--warn) } .bd.ix { color: var(--muted) } .bd.gen { color: var(--a-tpl) } .bd.mod { color: var(--a-xc); border-style: dashed }
+tr.std td { color: var(--faint) }
+tr.std td.c { color: var(--muted) }
+.keys { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 0; border-top: 1px solid var(--line2) }
+.keys section { padding: 12px 18px; min-width: 0; border-right: 1px solid var(--line2) }
+.keys h5 { margin: 0 0 6px; font: 600 11px var(--f-body); letter-spacing: .07em; text-transform: uppercase; color: var(--faint) }
+.keys ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 5px; font-size: 12px }
+.keys li { min-width: 0; word-break: break-word }
+.keys li .kn { font: 500 11.5px var(--f-mono); color: var(--muted); display: block }
+.keys li code { font-size: 11.5px }
+details.ddl { border-top: 1px solid var(--line2); padding: 8px 18px 12px }
+details.ddl summary { cursor: pointer; font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 10px }
+details.ddl pre { margin: 10px 0 0; padding: 12px; background: var(--bg); border: 1px solid var(--line2); border-radius: 6px; overflow-x: auto; font: 11.5px/1.55 var(--f-mono) }
+.copy { border: 1px solid var(--line); background: var(--panel); border-radius: 5px; font-size: 11.5px; padding: 1px 8px; cursor: pointer; color: var(--muted) }
+mark { background: var(--hi-soft); color: inherit; border-radius: 2px }
+.noresult { padding: 30px; color: var(--muted); text-align: center }
+
+/* prose tabs */
+.prose { max-width: 1100px; display: grid; gap: 18px }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 18px 20px; min-width: 0 }
+.card h2 { font: 600 19px var(--f-display); margin: 0 0 10px }
+.card h3 { font: 600 15px var(--f-display); margin: 18px 0 8px }
+.card ul { margin: 6px 0; padding-left: 20px; display: grid; gap: 6px; max-width: 95ch }
+.card p { max-width: 95ch; margin: 8px 0 }
+.score { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin-bottom: 10px }
+.score .big { font: 600 44px/1 var(--f-display); font-variant-numeric: tabular-nums }
+.score .big small { font-size: 18px; color: var(--muted); font-weight: 500 }
+.cols2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 18px }
+
+@media (max-width: 1180px) { .dg { grid-template-columns: 220px minmax(0, 1fr); } .insp { grid-column: 1 / -1; max-height: 420px } }
+@media (max-width: 860px) {
+  :root { --hdr: 150px }
+  .dg { grid-template-columns: minmax(0, 1fr); height: auto }
+  .rail { max-height: none }
+  .rail .areas { display: flex; overflow-x: auto; gap: 4px; padding: 6px }
+  .area-btn { grid-template-columns: 10px auto auto; border-left: 0; border-radius: 6px; white-space: nowrap; padding: 6px 10px }
+  .rail .legend, .rail h3 { display: none }
+  .stage { height: 64vh; min-height: 420px }
+  .ref { grid-template-columns: minmax(0, 1fr) }
+  .toc { position: static; max-height: 300px }
+  .verdict { margin-left: 0 }
+}
+@media (prefers-reduced-motion: no-preference) { .vp { transition: transform .0s } }
+</style>
+
+<header class="top">
+  <div class="top-in">
+    <div class="brand"><h1>SynapseDC DC-STORE schema</h1><span class="db" id="dbline"></span></div>
+    <div class="facts" id="facts"></div>
+    <button class="verdict" id="verdict" type="button"><span class="pass">PASS</span><span>Schema review <b>9.71</b> / 10</span></button>
+    <nav class="tabs" role="tablist" id="tabs">
+      <button class="tab" role="tab" data-tab="diagram">ER diagram</button>
+      <button class="tab" role="tab" data-tab="tables">Tables<span class="n" id="ntables"></span></button>
+      <button class="tab" role="tab" data-tab="conv">Conventions</button>
+      <button class="tab" role="tab" data-tab="review">Review</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section id="v-diagram" class="dg" hidden>
+    <aside class="rail">
+      <h3>Subject areas</h3>
+      <div class="areas" id="areas"></div>
+      <h3>Notation</h3>
+      <div class="legend">
+        <div class="lg"><svg width="46" height="14"><path d="M2 7H44M36 2L44 7L36 12M44 2V12" stroke="currentColor" fill="none"/></svg>many rows (child side)</div>
+        <div class="lg"><svg width="46" height="14"><path d="M2 7H44M8 2V12M12 2V12" stroke="currentColor" fill="none"/></svg>exactly one parent</div>
+        <div class="lg"><svg width="46" height="14"><path d="M2 7H44M8 2V12" stroke="currentColor" fill="none"/><circle cx="15" cy="7" r="3.5" fill="var(--panel)" stroke="currentColor"/></svg>zero or one (nullable FK)</div>
+        <div class="lg"><b class="kb pk">PK</b> primary key · <b class="kb fk">FK</b> foreign key · <b class="kb uk">UK</b> unique</div>
+        <div class="lg"><svg width="46" height="14"><rect x="2" y="2" width="42" height="10" rx="2" fill="none" stroke="currentColor" stroke-dasharray="4 3"/></svg>table from another area</div>
+        <div>Every foreign key also carries <code>TENANT_ID</code>. Boxes leave out <code>TENANT_ID</code> and the four created / updated columns that every table has.</div>
+      </div>
+    </aside>
+    <div class="stage" id="stage">
+      <svg class="er" id="er" aria-label="Entity relationship diagram"><g class="vp" id="vp"></g></svg>
+      <div class="tools">
+        <div class="seg" role="group" aria-label="Columns shown">
+          <button type="button" data-cols="keys" aria-pressed="true">Keys</button>
+          <button type="button" data-cols="all" aria-pressed="false">All columns</button>
+        </div>
+        <div class="find"><input id="find" type="search" placeholder="Find a table…" autocomplete="off" aria-label="Find a table"><ul id="findres" hidden></ul></div>
+        <button class="ibtn" id="zin" type="button" title="Zoom in" aria-label="Zoom in">+</button>
+        <button class="ibtn" id="zout" type="button" title="Zoom out" aria-label="Zoom out">−</button>
+        <button class="ibtn" id="zfit" type="button" title="Fit to screen">Fit</button>
+        <span class="zoomv" id="zv">100%</span>
+      </div>
+      <div class="areahead" id="areahead"></div>
+    </div>
+    <aside class="insp" id="insp"></aside>
+  </section>
+
+  <section id="v-tables" hidden>
+    <div class="ref">
+      <nav class="toc" id="toc" aria-label="Tables"></nav>
+      <div id="reflist" style="min-width:0"></div>
+    </div>
+  </section>
+
+  <section id="v-conv" class="prose" hidden></section>
+  <section id="v-review" class="prose" hidden></section>
+</main>
+
+<script>
+const D = /*__DATA__*/null;
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const fmt = n => n.toLocaleString('en-US');
+const STD = new Set(['TENANT_ID', 'CREATED_AT', 'CREATED_BY', 'UPDATED_AT', 'UPDATED_BY']);
+const T = Object.fromEntries(D.tables.map(t => [t.name, t]));
+const AREA = Object.fromEntries(D.areas.map(a => [a.id, a]));
+const areaColor = id => `var(--a-${id})`;
+const MOD = /^(INV|IPL|IPM|ITSM|ALR|BSS|PRJ|SCM|PE)_/;
+// children index
+const CHILD = {};
+for (const t of D.tables) for (const f of t.fks) (CHILD[f.ref] ||= []).push({ t: t.name, f });
+for (const t of D.tables) {
+  t.fkOf = Object.fromEntries(t.fks.map(f => [f.col, f]));
+  t.ukCols = new Set(t.uniques.flatMap(u => u.c).filter(c => c !== 'TENANT_ID'));
+}
+const store = { get(k) { try { return localStorage.getItem('dcs.' + k) } catch { return null } }, set(k, v) { try { localStorage.setItem('dcs.' + k, v) } catch {} } };
+
+/* ---------- header ---------- */
+const S = D.stats;
+$('#dbline').textContent = `MySQL 8.0.16+ · InnoDB · utf8mb4 · generated ${S.updated}`;
+$('#facts').innerHTML = [[S.tables, 'tables'], [S.cols, 'columns'], [S.fks, 'foreign keys'], [S.checks, 'checks'], [S.idx, 'unique keys and indexes'], [D.areas.length, 'subject areas']]
+  .map(([n, l]) => `<span><b>${fmt(n)}</b> ${l}</span>`).join('');
+$('#ntables').textContent = S.tables;
+
+/* ---------- tabs + hash ---------- */
+let tab = 'diagram';
+function show(t, push = true) {
+  tab = t;
+  for (const b of document.querySelectorAll('.tab')) b.setAttribute('aria-selected', b.dataset.tab === t);
+  for (const v of ['diagram', 'tables', 'conv', 'review']) $('#v-' + v).hidden = v !== t;
+  if (t === 'tables') buildRef();
+  if (t === 'diagram' && !drawn) { drawArea(curArea); }
+  if (push) setHash(t === 'diagram' ? 'er-' + curArea : t);
+  measureHdr();
+}
+function setHash(h) { try { history.replaceState(null, '', '#' + h) } catch { location.hash = h } }
+$('#tabs').addEventListener('click', e => { const b = e.target.closest('.tab'); if (b) show(b.dataset.tab) });
+$('#verdict').addEventListener('click', () => show('review'));
+function measureHdr() { document.documentElement.style.setProperty('--hdr', $('.top').offsetHeight + 'px') }
+addEventListener('resize', measureHdr);
+
+/* ---------- diagram ---------- */
+let curArea = 'plan', cols = store.get('cols') || 'keys', sel = null, drawn = false;
+const SVGNS = 'http://www.w3.org/2000/svg';
+const el = (tag, attrs = {}, parent) => { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent && parent.appendChild(e); return e; };
+const areasEl = $('#areas');
+const counts = {}; for (const t of D.tables) counts[t.area] = (counts[t.area] || 0) + 1;
+areasEl.innerHTML = D.areas.map(a => `<button type="button" class="area-btn" data-area="${a.id}"><i class="sw" style="background:${areaColor(a.id)}"></i><span class="nm">${esc(a.name)}</span><span class="ct">${counts[a.id]}</span></button>`).join('')
+  + `<button type="button" class="area-btn" data-area="all"><i class="sw" style="background:linear-gradient(135deg,var(--a-plan),var(--a-macd),var(--a-ops))"></i><span class="nm">All tables, by area</span><span class="ct">${D.tables.length}</span></button>`;
+areasEl.addEventListener('click', e => { const b = e.target.closest('.area-btn'); if (b) { sel = null; drawArea(b.dataset.area); setHash('er-' + b.dataset.area); } });
+for (const b of document.querySelectorAll('[data-cols]')) {
+  b.setAttribute('aria-pressed', b.dataset.cols === cols);
+  b.addEventListener('click', () => { cols = b.dataset.cols; store.set('cols', cols); for (const x of document.querySelectorAll('[data-cols]')) x.setAttribute('aria-pressed', x.dataset.cols === cols); drawArea(curArea, true); });
+}
+
+const CW = 6.95, ROW = 18, HEAD = 26, PADX = 10;
+function rowsFor(t, ghost) {
+  const pk = t.pk[0];
+  if (ghost) return { rows: [{ n: pk, k: 'PK', t: t.cols[0].t.replace(' AUTO_INCREMENT', '') }], more: 0 };
+  const visible = t.cols.filter(c => !STD.has(c.n));
+  let rows;
+  if (cols === 'all') rows = visible;
+  else rows = visible.filter(c => c.n === pk || t.fkOf[c.n] || t.ukCols.has(c.n));
+  const out = rows.map(c => ({ n: c.n, t: c.t, k: c.n === pk ? 'PK' : t.fkOf[c.n] ? 'FK' : t.ukCols.has(c.n) ? 'UK' : MOD.test(c.n) ? c.n.split('_')[0] : '', fk: !!t.fkOf[c.n], null: c.null }));
+  return { rows: out, more: visible.length - rows.length };
+}
+function shortType(t) { return t.replace(/ ascii$/, '').replace(/^ENUM\(.*\)$/, 'ENUM').replace(' UNSIGNED', ' U').replace(/^(VARCHAR|DECIMAL|CHAR)/, m => m) }
+function boxSize(t, ghost) {
+  const { rows, more } = rowsFor(t, ghost);
+  let w = t.name.length * 7.4 + 2 * PADX + 8;
+  for (const r of rows) w = Math.max(w, (r.n.length + shortType(r.t).length) * CW + 2 * PADX + 46);
+  const h = HEAD + rows.length * ROW + (more ? ROW : 0) + 6;
+  return { w: Math.min(Math.max(170, w), 460), h, rows, more };
+}
+
+let view = { x: 0, y: 0, k: 1 }, bounds = { w: 1, h: 1 };
+const svg = $('#er'), vp = $('#vp');
+function applyView() { vp.setAttribute('transform', `translate(${view.x},${view.y}) scale(${view.k})`); $('#zv').textContent = Math.round(view.k * 100) + '%'; }
+function fit() {
+  const r = svg.getBoundingClientRect(); if (!r.width) return;
+  const top = 52, bot = 56, k = Math.min(1.25, (r.width - 40) / bounds.w, (r.height - top - bot) / bounds.h);
+  view.k = Math.max(0.12, k); view.x = (r.width - bounds.w * view.k) / 2; view.y = top + (r.height - top - bot - bounds.h * view.k) / 2; applyView();
+}
+function zoomAt(f, cx, cy) {
+  const r = svg.getBoundingClientRect(); cx ??= r.width / 2; cy ??= r.height / 2;
+  const k = Math.min(3, Math.max(0.1, view.k * f)); view.x = cx - (cx - view.x) * k / view.k; view.y = cy - (cy - view.y) * k / view.k; view.k = k; applyView();
+}
+$('#zin').onclick = () => zoomAt(1.25); $('#zout').onclick = () => zoomAt(0.8); $('#zfit').onclick = fit;
+svg.addEventListener('wheel', e => { e.preventDefault(); const r = svg.getBoundingClientRect(); zoomAt(Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)), e.clientX - r.left, e.clientY - r.top); }, { passive: false });
+{ // pan (pointer events; pinch with two pointers)
+  const pts = new Map(); let last = null, moved = 0, pinch = null;
+  svg.addEventListener('pointerdown', e => { pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); svg.setPointerCapture(e.pointerId); last = { x: e.clientX, y: e.clientY }; moved = 0; svg.classList.add('drag');
+    if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a.x - b.x, a.y - b.y); } });
+  svg.addEventListener('pointermove', e => { if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 2 && pinch) { const [a, b] = [...pts.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); const r = svg.getBoundingClientRect(); zoomAt(d / pinch, (a.x + b.x) / 2 - r.left, (a.y + b.y) / 2 - r.top); pinch = d; moved = 99; return; }
+    const dx = e.clientX - last.x, dy = e.clientY - last.y; moved += Math.abs(dx) + Math.abs(dy); view.x += dx; view.y += dy; last = { x: e.clientX, y: e.clientY }; applyView(); });
+  const up = e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = null; svg.classList.remove('drag'); svg.dataset.moved = moved > 4 ? '1' : ''; };
+  svg.addEventListener('pointerup', up); svg.addEventListener('pointercancel', up);
+  svg.addEventListener('click', e => { if (svg.dataset.moved) return; const g = e.target.closest('.nd'); if (g?.dataset.area) { sel = null; drawArea(g.dataset.area); setHash('er-' + g.dataset.area); } else if (g) select(g.dataset.t); else select(null); });
+}
+addEventListener('keydown', e => { if (tab !== 'diagram' || /INPUT|TEXTAREA/.test(document.activeElement?.tagName)) return;
+  const m = { ArrowLeft: [40, 0], ArrowRight: [-40, 0], ArrowUp: [0, 40], ArrowDown: [0, -40] }[e.key];
+  if (m) { view.x += m[0]; view.y += m[1]; applyView(); e.preventDefault(); } else if (e.key === '+' || e.key === '=') zoomAt(1.2); else if (e.key === '-') zoomAt(1 / 1.2); else if (e.key === 'Escape') select(null); });
+
+let nodePos = {}, edgesEls = [];
+function drawArea(id, keepView) {
+  curArea = id; drawn = true;
+  for (const b of areasEl.querySelectorAll('.area-btn')) b.setAttribute('aria-current', b.dataset.area === id);
+  vp.innerHTML = ''; nodePos = {}; edgesEls = [];
+  if (id === 'all') drawOverview(); else drawDetail(id);
+  const a = AREA[id];
+  $('#areahead').innerHTML = id === 'all' ? `<b>All ${D.tables.length} tables, by subject area</b>Names only. Pick a table to see its links, or open an area for columns.`
+    : `<b>${esc(a.name)}</b>${esc(a.desc)}`;
+  const saved = view.k; if (!keepView) fit(); else applyView();
+  if (sel && nodePos[sel]) select(sel, false); else { sel = null; renderInsp(); }
+}
+
+function drawDetail(id) {
+  const own = D.tables.filter(t => t.area === id).map(t => t.name);
+  const ghosts = new Set();
+  const edges = [];
+  for (const n of own) for (const f of T[n].fks) { edges.push({ c: n, f }); if (T[f.ref].area !== id) ghosts.add(f.ref); }
+  // tables in other areas that point INTO this area: shown one by one when few, else one summary box per area
+  const inbound = {};
+  for (const n of own) for (const ch of CHILD[n] || []) if (T[ch.t].area !== id) (inbound[T[ch.t].area] ||= []).push(ch);
+  const aggs = [];
+  for (const [a, list] of Object.entries(inbound)) {
+    const tabs = new Set(list.map(x => x.t));
+    if (tabs.size <= 3) for (const ch of list) { if (!ghosts.has(ch.t) && !own.includes(ch.t)) ghosts.add(ch.t); edges.push({ c: ch.t, f: ch.f }); }
+    else aggs.push({ id: 'G:' + a, a, n: tabs.size, refs: [...new Set(list.map(x => x.f.ref))] });
+  }
+  const g = new dagre.graphlib.Graph({ multigraph: true });
+  g.setGraph({ rankdir: 'LR', nodesep: 26, ranksep: 90, marginx: 20, marginy: 20 });
+  g.setDefaultEdgeLabel(() => ({}));
+  const sizes = {};
+  for (const n of [...own, ...ghosts]) { sizes[n] = boxSize(T[n], ghosts.has(n)); g.setNode(n, { width: sizes[n].w, height: sizes[n].h }); }
+  for (const x of aggs) { x.w = Math.max(190, AREA[x.a].name.length * 7 + 30); x.h = 46; g.setNode(x.id, { width: x.w, height: x.h }); for (const r of x.refs) g.setEdge(r, x.id, {}, x.id + r); }
+  edges.forEach((e, i) => { if (e.c !== e.f.ref) g.setEdge(e.f.ref, e.c, { minlen: 1 }, 'e' + i); });
+  dagre.layout(g);
+  const gb = g.graph(); bounds = { w: gb.width, h: gb.height };
+  const eLayer = el('g', {}, vp), nLayer = el('g', {}, vp);
+  for (const n of [...own, ...ghosts]) {
+    const p = g.node(n), s = sizes[n], x = p.x - s.w / 2, y = p.y - s.h / 2;
+    nodePos[n] = { x, y, w: s.w, h: s.h, rows: s.rows };
+    const grp = el('g', { class: 'nd' + (ghosts.has(n) ? ' ghost' : ''), 'data-t': n, transform: `translate(${x},${y})`, tabindex: 0, role: 'button', 'aria-label': n }, nLayer);
+    el('rect', { class: 'frame', width: s.w, height: s.h, rx: 5 }, grp);
+    el('path', { class: 'head', d: `M0 5a5 5 0 0 1 5-5H${s.w - 5}a5 5 0 0 1 5 5V${HEAD}H0Z` }, grp);
+    if (!ghosts.has(n)) el('rect', { x: 0, y: 0, width: 4, height: HEAD, fill: areaColor(T[n].area) }, grp);
+    else el('rect', { x: 0, y: 0, width: 4, height: HEAD, fill: areaColor(T[n].area) }, grp);
+    el('text', { class: 'ttl', x: PADX, y: 17 }, grp).textContent = n;
+    s.rows.forEach((r, i) => {
+      const ry = HEAD + 3 + i * ROW;
+      if (r.fk) el('rect', { class: 'rowbg fkrow', x: 1, y: ry, width: s.w - 2, height: ROW }, grp);
+      if (r.k) el('text', { class: 'k ' + (r.k === 'PK' ? 'pk' : r.k === 'FK' ? 'fk' : r.k === 'UK' ? 'uk' : 'md'), x: PADX, y: ry + 13 }, grp).textContent = r.k.length > 3 ? r.k.slice(0, 4) : r.k;
+      el('text', { class: 'row', x: PADX + 34, y: ry + 13 }, grp).textContent = r.n + (r.null ? '?' : '');
+      const tt = el('text', { class: 'typ', x: s.w - PADX, y: ry + 13, 'text-anchor': 'end' }, grp); tt.textContent = shortType(r.t);
+    });
+    if (s.more) el('text', { class: 'more', x: PADX + 34, y: HEAD + 3 + s.rows.length * ROW + 13 }, grp).textContent = `+ ${s.more} more column${s.more > 1 ? 's' : ''}`;
+  }
+  for (const e of edges) drawEdge(eLayer, e.c, e.f);
+  for (const x of aggs) {
+    const p = g.node(x.id), X = p.x - x.w / 2, Y = p.y - x.h / 2;
+    const grp = el('g', { class: 'nd ghost agg', 'data-area': x.a, transform: `translate(${X},${Y})`, tabindex: 0, role: 'button', 'aria-label': `Open ${AREA[x.a].name}` }, nLayer);
+    el('rect', { class: 'frame', width: x.w, height: x.h, rx: 5 }, grp);
+    el('rect', { x: 0, y: 0, width: 4, height: x.h, fill: areaColor(x.a) }, grp);
+    el('text', { class: 'row', x: PADX + 2, y: 19, style: 'font-weight:600' }, grp).textContent = `${x.n} tables in`;
+    el('text', { class: 'typ', x: PADX + 2, y: 35 }, grp).textContent = AREA[x.a].name + ' →';
+    nodePos[x.id] = { x: X, y: Y, w: x.w, h: x.h, rows: [] };
+    for (const r of x.refs) {
+      const P = nodePos[r], gg = el('g', { class: 'ed', 'data-c': x.id, 'data-p': r }, eLayer);
+      const right = X >= P.x + P.w / 2, px = right ? P.x + P.w : P.x, cx = right ? X : X + x.w, dir = right ? 1 : -1, py = rowY(r, T[r].pk[0]), cy = Y + x.h / 2, m = Math.max(40, Math.abs(cx - px) / 2);
+      el('path', { d: `M${px} ${py}C${px + dir * m} ${py} ${cx - dir * m} ${cy} ${cx} ${cy}`, 'stroke-dasharray': '4 3' }, gg);
+      el('path', { d: `M${cx - dir * 10} ${cy}L${cx} ${cy - 5}M${cx - dir * 10} ${cy}L${cx} ${cy + 5}M${cx - dir * 10} ${cy}L${cx} ${cy}` }, gg);
+      edgesEls.push(gg);
+    }
+  }
+}
+
+function rowY(n, col) { const p = nodePos[n]; const i = p.rows.findIndex(r => r.n === col); return p.y + (i < 0 ? HEAD / 2 : HEAD + 3 + i * ROW + ROW / 2); }
+function drawEdge(layer, child, f, overview) {
+  const P = nodePos[f.ref], C = nodePos[child]; if (!P || !C) return;
+  const nullable = T[child].cols.find(c => c.n === f.col)?.null;
+  const grp = el('g', { class: 'ed', 'data-c': child, 'data-p': f.ref }, layer);
+  const py = overview ? P.y + P.h / 2 : rowY(f.ref, T[f.ref].pk[0]);
+  const cy = overview ? C.y + C.h / 2 : rowY(child, f.col);
+  let d, ends;
+  if (child === f.ref) {
+    const x = P.x + P.w, r = 26;
+    d = `M${x} ${py}C${x + r} ${py} ${x + r + 10} ${cy} ${x} ${cy}`;
+    ends = [[x, py, 1], [x, cy, 1]];
+  } else {
+    const right = C.x >= P.x + P.w / 2;
+    const px = right ? P.x + P.w : P.x, cx = right ? C.x : C.x + C.w, dir = right ? 1 : -1;
+    const m = Math.max(40, Math.abs(cx - px) / 2);
+    d = `M${px} ${py}C${px + dir * m} ${py} ${cx - dir * m} ${cy} ${cx} ${cy}`;
+    ends = [[px, py, dir], [cx, cy, -dir]];
+  }
+  el('path', { d }, grp);
+  const t = el('title', {}, grp); t.textContent = `${child}.${f.col} → ${f.ref}  (${f.n}, ON DELETE ${f.od})`;
+  // parent end: one (||) or zero-or-one (|o)
+  const [px, py2, pd] = ends[0];
+  el('path', { d: `M${px + pd * 7} ${py2 - 5}V${py2 + 5}` + (nullable ? '' : `M${px + pd * 11} ${py2 - 5}V${py2 + 5}`) }, grp);
+  if (nullable) el('circle', { cx: px + pd * 15, cy: py2, r: 3.5 }, grp);
+  // child end: crow's foot
+  const [cx2, cy2, cd] = ends[1];
+  el('path', { d: `M${cx2 + cd * 10} ${cy2}L${cx2} ${cy2 - 5}M${cx2 + cd * 10} ${cy2}L${cx2} ${cy2 + 5}M${cx2 + cd * 10} ${cy2}L${cx2} ${cy2}M${cx2 + cd * 13} ${cy2 - 5}V${cy2 + 5}` }, grp);
+  edgesEls.push(grp);
+}
+
+function drawOverview() {
+  const g = new dagre.graphlib.Graph({ compound: true, multigraph: true });
+  g.setGraph({ rankdir: 'LR', nodesep: 10, ranksep: 46, marginx: 20, marginy: 20, ranker: 'tight-tree' });
+  g.setDefaultEdgeLabel(() => ({}));
+  for (const a of D.areas) g.setNode('A:' + a.id, { label: a.name, paddingTop: 34, paddingLeft: 14, paddingRight: 14, paddingBottom: 14 });
+  for (const t of D.tables) { g.setNode(t.name, { width: t.name.length * 6.9 + 26, height: 24 }); g.setParent(t.name, 'A:' + t.area); }
+  let i = 0; for (const t of D.tables) for (const f of t.fks) if (f.ref !== t.name) g.setEdge(f.ref, t.name, {}, 'e' + i++);
+  dagre.layout(g);
+  const gb = g.graph(); bounds = { w: gb.width, h: gb.height };
+  const cl = el('g', {}, vp), eLayer = el('g', {}, vp), nLayer = el('g', {}, vp);
+  for (const a of D.areas) {
+    const n = g.node('A:' + a.id); if (!n) continue;
+    const gg = el('g', { class: 'cl' }, cl);
+    el('rect', { x: n.x - n.width / 2, y: n.y - n.height / 2, width: n.width, height: n.height, rx: 8, fill: areaColor(a.id), stroke: areaColor(a.id) }, gg);
+    const tx = el('text', { x: n.x - n.width / 2 + 12, y: n.y - n.height / 2 + 21, fill: areaColor(a.id), style: 'cursor:pointer' }, gg); tx.textContent = a.name;
+    tx.addEventListener('click', ev => { ev.stopPropagation(); drawArea(a.id); setHash('er-' + a.id); });
+  }
+  for (const t of D.tables) {
+    const p = g.node(t.name), w = p.width, h = p.height, x = p.x - w / 2, y = p.y - h / 2;
+    nodePos[t.name] = { x, y, w, h, rows: [] };
+    const grp = el('g', { class: 'nd ov', 'data-t': t.name, transform: `translate(${x},${y})`, tabindex: 0, role: 'button', 'aria-label': t.name }, nLayer);
+    el('rect', { class: 'frame', width: w, height: h, rx: 4 }, grp);
+    el('rect', { x: 0, y: 0, width: 4, height: h, fill: areaColor(t.area) }, grp);
+    el('text', { class: 'ttl row', x: 12, y: 16 }, grp).textContent = t.name;
+  }
+  for (const t of D.tables) for (const f of t.fks) drawEdge(eLayer, t.name, f, true);
+}
+
+function select(n, center = false) {
+  sel = n && nodePos[n] ? n : null;
+  const rel = new Set(sel ? [sel] : []);
+  if (sel) { for (const f of T[sel].fks) rel.add(f.ref); for (const c of CHILD[sel] || []) rel.add(c.t); }
+  for (const g of vp.querySelectorAll('.nd')) { g.classList.toggle('sel', g.dataset.t === sel); g.classList.toggle('dim', !!sel && !rel.has(g.dataset.t)); }
+  for (const g of edgesEls) { const on = sel && (g.dataset.c === sel || g.dataset.p === sel); g.classList.toggle('on', !!on); g.classList.toggle('dim', !!sel && !on); }
+  if (sel && center) { const p = nodePos[sel], r = svg.getBoundingClientRect(); view.x = r.width / 2 - (p.x + p.w / 2) * view.k; view.y = r.height / 2 - (p.y + p.h / 2) * view.k; applyView(); }
+  renderInsp();
+}
+function goTable(n) { // focus a table in the diagram, switching area if needed
+  if (curArea !== 'all' && T[n].area !== curArea && !nodePos[n]) drawArea(T[n].area);
+  else if (curArea === 'all' && false) {}
+  if (!nodePos[n]) drawArea(T[n].area);
+  if (view.k < 0.7) { view.k = 0.85; }
+  select(n, true); setHash('er-' + curArea);
+}
+svg.addEventListener('keydown', e => { const g = e.target.closest?.('.nd'); if (g && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); select(g.dataset.t); } });
+
+function renderInsp() {
+  const box = $('#insp');
+  if (!sel) {
+    const a = AREA[curArea];
+    const list = curArea === 'all' ? D.tables : D.tables.filter(t => t.area === curArea);
+    box.innerHTML = `<div class="ih"><div class="nm" style="font-family:var(--f-display);font-size:16px">${esc(a ? a.name : 'All tables')}</div><p>${esc(a ? a.desc : 'Every table, grouped by subject area.')}</p></div>
+      <h3>${list.length} tables</h3><ul class="ilist">${list.map(t => `<li><span></span><span><button class="lnk mono" data-go="${t.name}">${t.name}</button><span class="d" style="display:block">${esc(t.comment.length > 110 ? t.comment.slice(0, 108) + '…' : t.comment)}</span></span></li>`).join('')}</ul>`;
+    return;
+  }
+  const t = T[sel], pk = t.pk[0];
+  const kids = CHILD[sel] || [];
+  box.innerHTML = `<div class="ih"><div class="nm">${t.name}</div>
+    <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><span class="chip"><i style="background:${areaColor(t.area)}"></i>${esc(AREA[t.area].name)}</span><span class="chip">${t.cols.length} columns</span><span class="chip">${t.checks.length} checks</span></div>
+    <p>${esc(t.comment)}</p></div>
+    <h3>References (${t.fks.length})</h3>${t.fks.length ? t.fks.map(f => `<div class="relrow"><code>${f.col}</code> → <button class="lnk mono" data-go="${f.ref}">${f.ref}</button> <span class="t" style="color:var(--faint);font-size:11px">${f.od === 'CASCADE' ? 'cascade' : ''}</span></div>`).join('') : '<div class="relrow" style="color:var(--faint)">None</div>'}
+    <h3>Referenced by (${kids.length})</h3>${kids.length ? kids.map(k => `<div class="relrow"><button class="lnk mono" data-go="${k.t}">${k.t}</button>.<code>${k.f.col}</code></div>`).join('') : '<div class="relrow" style="color:var(--faint)">None</div>'}
+    <h3>Columns</h3><ul class="ilist">${t.cols.map(c => `<li><span class="kb ${c.n === pk ? 'pk' : t.fkOf[c.n] ? 'fk' : t.ukCols.has(c.n) ? 'uk' : ''}">${c.n === pk ? 'PK' : t.fkOf[c.n] ? 'FK' : t.ukCols.has(c.n) ? 'UK' : ''}</span><span><span class="c">${c.n}</span> <span class="t">${esc(c.t)}${c.null ? ' · null' : ''}</span><span class="d" style="display:block">${esc(c.c)}</span></span></li>`).join('')}</ul>
+    <button class="lnk open-ref" data-ref="${t.name}">Open the full reference: keys, checks and DDL</button>`;
+}
+$('#insp').addEventListener('click', e => { const b = e.target.closest('[data-go]'); if (b) goTable(b.dataset.go); const r = e.target.closest('[data-ref]'); if (r) openRef(r.dataset.ref); });
+
+/* find */
+const find = $('#find'), fres = $('#findres'); let fsel = 0, fhits = [];
+function renderFind() {
+  const q = find.value.trim().toUpperCase(); if (!q) { fres.hidden = true; return; }
+  fhits = D.tables.filter(t => t.name.includes(q)).slice(0, 30);
+  fres.innerHTML = fhits.length ? fhits.map((t, i) => `<li data-t="${t.name}" class="${i === fsel ? 'on' : ''}">${t.name}<span>${esc(AREA[t.area].name)}</span></li>`).join('') : '<li>No table matches</li>';
+  fres.hidden = false;
+}
+find.addEventListener('input', () => { fsel = 0; renderFind(); });
+find.addEventListener('keydown', e => { if (e.key === 'ArrowDown') { fsel = Math.min(fsel + 1, fhits.length - 1); renderFind(); e.preventDefault(); } else if (e.key === 'ArrowUp') { fsel = Math.max(0, fsel - 1); renderFind(); e.preventDefault(); } else if (e.key === 'Enter' && fhits[fsel]) { goTable(fhits[fsel].name); fres.hidden = true; find.blur(); } else if (e.key === 'Escape') { fres.hidden = true; } });
+fres.addEventListener('mousedown', e => { const li = e.target.closest('li[data-t]'); if (li) { e.preventDefault(); goTable(li.dataset.t); fres.hidden = true; find.value = ''; } });
+find.addEventListener('blur', () => setTimeout(() => fres.hidden = true, 150));
+
+/* ---------- tables reference ---------- */
+let refBuilt = false;
+function badgeHtml(t, c) {
+  const b = [];
+  if (t.pk.includes(c.n)) b.push('<span class="bd pk">PK</span>');
+  if (t.fkOf[c.n]) b.push(`<span class="bd fk">FK</span>`);
+  if (t.ukCols.has(c.n)) b.push('<span class="bd uk">UK</span>');
+  if (c.gen) b.push('<span class="bd gen">GEN</span>');
+  const m = c.n.match(MOD); if (m && !STD.has(c.n)) b.push(`<span class="bd mod" title="${esc(D.modules[m[1]])} id, no FK (record lives in the module)">${m[1]}</span>`);
+  return b.length ? `<span class="badges">${b.join('')}</span>` : '';
+}
+function tableHtml(t) {
+  const kids = CHILD[t.name] || [];
+  const colRows = t.cols.map((c, i) => {
+    const f = t.fkOf[c.n];
+    let desc = esc(c.c);
+    if (f) desc += ` <span style="color:var(--muted)">→ <a href="#t-${f.ref}" data-ref="${f.ref}" class="mono">${f.ref}</a></span>`;
+    if (c.gen) desc += `<br><code style="color:var(--muted)">= ${esc(c.gen)}</code>`;
+    const dflt = c.d == null ? '' : c.d.replace(/CURRENT_TIMESTAMP\(3\)/, 'now') + (c.upd ? ' · on update now' : '');
+    return `<tr class="${STD.has(c.n) ? 'std' : ''}"><td class="ix">${i + 1}</td><td class="c">${c.n}${badgeHtml(t, c)}</td><td class="ty">${esc(c.t)}${c.ai ? ' <span style="color:var(--faint)">auto</span>' : ''}</td><td class="nu">${c.null ? 'null' : ''}</td><td class="df">${esc(dflt)}</td><td>${desc}</td></tr>`;
+  }).join('');
+  const li = (n, body) => `<li><span class="kn">${n}</span>${body}</li>`;
+  const cl = cs => `<code>(${cs.join(', ')})</code>`;
+  return `<article class="tbl" id="t-${t.name}" data-t="${t.name}">
+    <header><h2>${t.name}<span class="chip"><i style="background:${areaColor(t.area)}"></i>${esc(AREA[t.area].name)}</span></h2>
+      <p class="desc">${esc(t.comment)}</p>
+      <div class="meta"><span>${t.cols.length} columns · PK <code>${t.pk.join(', ')}</code> ${esc(t.cols[0].t)}</span>
+        <span>References: ${t.fks.length ? [...new Set(t.fks.map(f => f.ref))].map(r => `<a href="#t-${r}" data-ref="${r}" class="mono">${r}</a>`).join(', ') : 'none'}</span>
+        <span>Referenced by: ${kids.length ? [...new Set(kids.map(k => k.t))].map(r => `<a href="#t-${r}" data-ref="${r}" class="mono">${r}</a>`).join(', ') : 'none'}</span>
+        <button class="lnk" data-dg="${t.name}">Show in diagram</button></div></header>
+    <div class="tw"><table class="grid"><thead><tr><th>#</th><th>Column</th><th>Type</th><th>Null</th><th>Default</th><th>Description</th></tr></thead><tbody>${colRows}</tbody></table></div>
+    <div class="keys">
+      ${t.fks.length ? `<section><h5>Foreign keys (${t.fks.length})</h5><ul>${t.fks.map(f => li(f.n, `${cl(f.c)} → <a href="#t-${f.ref}" data-ref="${f.ref}" class="mono">${f.ref}</a> ${cl(f.rc)} · on delete ${f.od.toLowerCase()}`)).join('')}</ul></section>` : ''}
+      ${t.uniques.length ? `<section><h5>Unique keys (${t.uniques.length})</h5><ul>${t.uniques.map(u => li(u.n, cl(u.c))).join('')}</ul></section>` : ''}
+      ${t.indexes.length ? `<section><h5>Indexes (${t.indexes.length})</h5><ul>${t.indexes.map(u => li(u.n, cl(u.c))).join('')}</ul></section>` : ''}
+      ${t.checks.length ? `<section><h5>Checks (${t.checks.length})</h5><ul>${t.checks.map(c => li(c.n, `<code>${esc(c.x)}</code>`)).join('')}</ul></section>` : ''}
+    </div>
+    <details class="ddl"><summary>CREATE TABLE statement <button class="copy" type="button" data-copy="${t.name}">Copy</button></summary><pre>${esc(t.ddl)}</pre></details>
+  </article>`;
+}
+function buildRef() {
+  if (refBuilt) return; refBuilt = true;
+  let html = '', toc = `<div class="q"><input id="rq" type="search" placeholder="Search tables, columns, descriptions" aria-label="Search tables"><small id="rqn">${D.tables.length} tables</small></div>`;
+  for (const a of D.areas) {
+    const ts = D.tables.filter(t => t.area === a.id);
+    html += `<div class="areagrp" data-a="${a.id}"><div class="areahd"><i style="background:${areaColor(a.id)}"></i><h2>${esc(a.name)}</h2><p>${ts.length} tables · ${esc(a.desc)}</p></div>${ts.map(tableHtml).join('')}</div>`;
+    toc += `<h4 data-a="${a.id}"><i style="background:${areaColor(a.id)}"></i>${esc(a.name)}</h4>` + ts.map(t => `<a href="#t-${t.name}" data-ref="${t.name}">${t.name}</a>`).join('');
+  }
+  $('#reflist').innerHTML = html + '<div class="noresult" id="nores" hidden>No table, column or description matches.</div>';
+  $('#toc').innerHTML = toc;
+  $('#rq').addEventListener('input', e => filterRef(e.target.value));
+}
+function filterRef(q) {
+  q = q.trim().toLowerCase(); let n = 0;
+  for (const art of document.querySelectorAll('.tbl')) {
+    const t = T[art.dataset.t];
+    const hit = !q || t.name.toLowerCase().includes(q) || t.comment.toLowerCase().includes(q) || t.cols.some(c => c.n.toLowerCase().includes(q) || c.c.toLowerCase().includes(q));
+    art.hidden = !hit; if (hit) n++;
+    for (const tr of art.querySelectorAll('tbody tr')) tr.style.background = q && tr.textContent.toLowerCase().includes(q) ? 'var(--hi-soft)' : '';
+    const a = document.querySelector(`.toc a[data-ref="${t.name}"]`); if (a) a.hidden = !hit;
+  }
+  for (const g of document.querySelectorAll('.areagrp')) g.hidden = ![...g.querySelectorAll('.tbl')].some(x => !x.hidden);
+  for (const h of document.querySelectorAll('.toc h4')) h.hidden = document.querySelector(`.areagrp[data-a="${h.dataset.a}"]`).hidden;
+  $('#rqn').textContent = q ? `${n} of ${D.tables.length} tables match` : `${D.tables.length} tables`;
+  $('#nores').hidden = n > 0;
+}
+function openRef(n) {
+  show('tables', false); const a = document.getElementById('t-' + n);
+  if (a) { if (a.hidden) { $('#rq').value = ''; filterRef(''); } a.scrollIntoView({ block: 'start' }); }
+  setHash('t-' + n);
+}
+$('#v-tables').addEventListener('click', e => {
+  const r = e.target.closest('[data-ref]'); if (r) { e.preventDefault(); openRef(r.dataset.ref); return; }
+  const d = e.target.closest('[data-dg]'); if (d) { show('diagram', false); if (!nodePos[d.dataset.dg]) drawArea(T[d.dataset.dg].area); goTable(d.dataset.dg); return; }
+  const c = e.target.closest('[data-copy]'); if (c) { e.preventDefault(); const txt = T[c.dataset.copy].ddl;
+    const done = () => { c.textContent = 'Copied'; setTimeout(() => c.textContent = 'Copy', 1400); };
+    navigator.clipboard?.writeText(txt).then(done, () => { const pre = c.closest('details').querySelector('pre'); const rg = document.createRange(); rg.selectNodeContents(pre); getSelection().removeAllRanges(); getSelection().addRange(rg); c.textContent = 'Selected'; }); }
+});
+
+/* ---------- conventions ---------- */
+{
+  const modRows = Object.entries(D.modules).map(([k, v]) => {
+    const n = D.tables.reduce((s, t) => s + t.cols.filter(c => c.n.startsWith(k + '_') && !STD.has(c.n)).length, 0);
+    return `<tr><td class="c">${k}_</td><td>${esc(v)}</td><td class="nu">${n}</td></tr>`;
+  }).join('');
+  const inline = s => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>');
+  $('#v-conv').innerHTML = `<div class="card"><h2>Design conventions</h2><ul>${D.conventions.map(c => `<li>${inline(c)}</li>`).join('')}</ul></div>
+    <div class="cols2">
+      <div class="card"><h2>Ids owned by platform modules</h2><p>These columns hold a record id from another module's database, so they carry no foreign key. The module API validates them on write.</p>
+        <div class="tw"><table class="grid"><thead><tr><th>Prefix</th><th>Module</th><th>Columns</th></tr></thead><tbody>${modRows}</tbody></table></div></div>
+      <div class="card"><h2>Table aliases in long key names</h2><p>MySQL limits names to 64 characters. A longer key name uses these aliases, for example <code>UK_PTI_TENANT_ID_PTV_ID_INPUT_KEY</code>.</p>
+        <div class="tw"><table class="grid"><thead><tr><th>Alias</th><th>Table</th></tr></thead><tbody>${D.aliases.map(([a, t]) => `<tr><td class="c">${a}</td><td class="c"><a href="#t-${t}" data-alias="${t}">${t}</a></td></tr>`).join('')}</tbody></table></div></div>
+    </div>`;
+  $('#v-conv').addEventListener('click', e => { const a = e.target.closest('[data-alias]'); if (a) { e.preventDefault(); openRef(a.dataset.alias); } });
+}
+
+/* ---------- review ---------- */
+$('#v-review').innerHTML = `<div class="card"><div class="score"><span class="big">9.71<small> / 10</small></span><span class="pass" style="background:var(--ok-soft);color:var(--ok);font-weight:600;border-radius:999px;padding:3px 12px">PASS</span><span style="color:var(--muted)">Re-review, 12 Nov 2026. The first review (6 Nov 2026) scored 7.84 and failed on one critical finding.</span></div>${D.review}</div>`;
+
+/* ---------- start ---------- */
+function route() {
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (h.startsWith('t-') && T[h.slice(2)]) { openRef(h.slice(2)); return; }
+  if (h.startsWith('er-')) { const a = h.slice(3); if (AREA[a] || a === 'all') curArea = a; show('diagram', false); return; }
+  if (['tables', 'conv', 'review', 'diagram'].includes(h)) { show(h, false); return; }
+  show('diagram', false);
+}
+measureHdr();
+if (typeof dagre === 'undefined') { $('#stage').innerHTML = '<div class="noresult">The diagram library did not load. The Tables tab has the complete reference.</div>'; }
+route();
+addEventListener('hashchange', () => { if (!location.hash.startsWith('#er-' + curArea)) route(); });
+new ResizeObserver(() => { if (tab === 'diagram' && drawn && !sel) fit(); }).observe($('#stage'));
+</script>
