@@ -28,6 +28,7 @@
   --a-ref: #8fb0bf; --a-ops: #e08b70; --a-tpl: #b49ad8; --a-plan: #4fb3b9; --a-review: #79a8e6; --a-family: #8fc177; --a-macd: #d6a95c; --a-comp: #d986ae; --a-xc: #9aa5ae;
   color-scheme: dark }
 * { box-sizing: border-box }
+[hidden] { display: none !important }
 body { background: var(--bg); color: var(--ink); font: 14px/1.5 var(--f-body); margin: 0 }
 code, .mono { font-family: var(--f-mono); font-size: .92em }
 a { color: var(--accent) }
@@ -299,6 +300,7 @@ function show(t, push = true) {
   if (t === 'tables') buildRef();
   if (t === 'diagram' && !drawn) { drawArea(curArea); }
   if (push) setHash(t === 'diagram' ? 'er-' + curArea : t);
+  if (push) scrollTo(0, 0);
   measureHdr();
 }
 function setHash(h) { try { history.replaceState(null, '', '#' + h) } catch { location.hash = h } }
